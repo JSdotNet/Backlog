@@ -207,6 +207,29 @@ public sealed class Arc42SurfaceTests : IDisposable
         });
     }
 
+    /// <summary>A view the chapter embeds inline (`![…](c4:key)`) is drawn once, and its
+    /// way across names the C4 model — the surface has no C4 tab — and opens the
+    /// picture at that view.</summary>
+    [Fact]
+    public async Task An_embedded_view_opens_in_the_picture_and_says_the_C4_model()
+    {
+        await using var harness = CreateHarness(embed: true);
+        var component = harness.Render(ChapterPath);
+        Settle(component);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-c4-embed']")));
+        var open = component.Find("[data-testid='devbook-c4-embed-open']");
+        Assert.Equal("Open in the C4 model", open.TextContent.Trim());
+
+        await open.ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
+            Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        });
+    }
+
     [Fact]
     public async Task Decisions_opens_the_decisions_chapter_beside_the_decision_log_and_a_record_shows_where_it_lands()
     {
@@ -403,7 +426,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));
     }
 
-    private Harness CreateHarness(bool zoom = true, string references = References)
+    private Harness CreateHarness(bool zoom = true, string references = References, bool embed = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-surface-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -420,7 +443,8 @@ public sealed class Arc42SurfaceTests : IDisposable
         Write($"{C4DevbookStore.ReferenceDirectory}/{C4DevbookStore.ReferenceFile}", references);
         Write("01-introduction.md", "# 01. Introduction and Goals\n\nGoals.\n");
         Write("05-building-block-view.md",
-            "# 05. Building Block View\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe static decomposition.\n\n## Container View\n\nThe containers.\n");
+            "# 05. Building Block View\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe static decomposition.\n\n## Container View\n\nThe containers.\n"
+            + (embed ? "\n![Container Diagram](c4:containers-backlog)\n" : string.Empty));
         Write("09-architecture-decisions.md", "# 09. Architecture Decisions\n\nThe decision log.\n");
         Write("11-risks-and-technical-debt.md", "# 11. Risks and Technical Debt\n\nThe risks.\n");
         Write("adr/guidelines/0004-guide.md", "# ADR 0004: A guideline adopted from elsewhere\n\nThe guideline.\n");

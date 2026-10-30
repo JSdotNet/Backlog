@@ -633,6 +633,7 @@
     protected override async Task OnParametersSetAsync()
     {
         _c4Images.Next = PaneImages;
+        _c4Images.OpenLabel = InSurface ? C4ViewImages.SurfaceLabel : C4ViewImages.TabLabel;
         if (!_c4Images.OnOpen.HasDelegate) _c4Images.OnOpen = EventCallback.Factory.Create<C4View>(this, OpenEmbeddedView);
 
         if (_catalog is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
