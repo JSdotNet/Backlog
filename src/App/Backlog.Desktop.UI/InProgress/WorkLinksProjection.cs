@@ -2,6 +2,8 @@ using System.Globalization;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -12,7 +14,8 @@ namespace Backlog.Desktop.UI.InProgress;
 
 /// <summary>
 /// What a task's "Sessions and pull requests" section is asked to draw, worked out from
-/// the task list, the session record and GitHub's open pull requests.
+/// the task list, the session record and the pull requests Repository Management's
+/// contract answered (local ADR 0042).
 /// <para>
 /// Apart from any rendering so the rules have one home: which session and pull request
 /// belong to which entry, what is left over as not linked to a task, and every sentence
@@ -23,15 +26,15 @@ public sealed class WorkLinksProjection
 {
     private readonly IReadOnlyList<EntryRow> _rows;
     private readonly IReadOnlyList<AgentSession> _sessions;
-    private readonly IReadOnlyList<GitHubOpenPullRequest> _pulls;
+    private readonly IReadOnlyList<PullRequestStatus> _pulls;
     private readonly Func<string?, string?> _alias;
     private readonly Func<string?, int?> _colour;
     private readonly Func<string, LinkedSession?> _linkedState;
     private readonly DateTimeOffset _now;
     private readonly bool _sessionsRead;
     private readonly Dictionary<string, AgentSession> _sessionsById;
-    private readonly Dictionary<string, GitHubOpenPullRequest> _pullsByKey;
-    private readonly Dictionary<string, GitHubLinkedPullRequest> _linkedByKey;
+    private readonly Dictionary<string, PullRequestStatus> _pullsByKey;
+    private readonly Dictionary<string, PullRequestStatus> _linkedByKey;
     private readonly HashSet<string> _linkedSessions;
     private readonly HashSet<string> _linkedPulls;
 
@@ -54,13 +57,13 @@ public sealed class WorkLinksProjection
     public WorkLinksProjection(
         IReadOnlyList<EntryRow> rows,
         IReadOnlyList<AgentSession> sessions,
-        IReadOnlyList<GitHubOpenPullRequest> pulls,
+        IReadOnlyList<PullRequestStatus> pulls,
         Func<string?, string?> alias,
         Func<string?, int?> colour,
         Func<string, LinkedSession?> linkedState,
         DateTimeOffset now,
         bool sessionsRead = true,
-        IReadOnlyList<GitHubLinkedPullRequest>? linkedPulls = null)
+        IReadOnlyList<PullRequestStatus>? linkedPulls = null)
     {
         _sessionsRead = sessionsRead;
         _rows = rows;
@@ -119,7 +122,7 @@ public sealed class WorkLinksProjection
     /// <para>
     /// One the open read listed carries its status line too
     /// (<see cref="PullRequestStatusLines"/>), the Pull requests pane's marks. One it did
-    /// not list carries none: the slim read by number asks for no checks or approvals.
+    /// not list carries none: the card draws the task list's record for it.
     /// </para>
     /// </summary>
     public IReadOnlyList<WorkPullRequest> PullRequestsOf(EntryRow row) =>
@@ -176,7 +179,7 @@ public sealed class WorkLinksProjection
     public AgentSession? SessionById(string id) => _sessionsById.GetValueOrDefault(id);
 
     /// <summary>The pull request behind a loose card's key, or null.</summary>
-    public GitHubOpenPullRequest? PullRequestByKey(string key) => _pullsByKey.GetValueOrDefault(key);
+    public PullRequestStatus? PullRequestByKey(string key) => _pullsByKey.GetValueOrDefault(key);
 
     /// <summary>The repository a session is placed in: the one this product resolved
     /// from its folder, else the one it recorded.</summary>
@@ -227,13 +230,13 @@ public sealed class WorkLinksProjection
         null => IntegrationSessionPresence.Unknown
     };
 
-    private static WorkPullRequest PullRequest(GitHubOpenPullRequest pull) =>
+    private static WorkPullRequest PullRequest(PullRequestStatus pull) =>
         new(
             Key(pull.RepositoryFullName, pull.Number),
             pull.Number,
             pull.Title,
             pull.IsDraft ? IntegrationArtifactState.Draft : IntegrationArtifactState.Open,
-            Map(pull.ReviewState),
+            Map(pull.Approvals.Decision),
             Map(pull.Checks),
             ChecksText(pull.CheckCounts),
             pull.Additions,
@@ -242,9 +245,7 @@ public sealed class WorkLinksProjection
             ReadState = Map(pull.State),
             Author = pull.AuthorLogin,
             MergedAt = pull.MergedAt,
-            // Mapped at the edge until this projection reads Repository Management's
-            // status itself (local ADR 0042).
-            Status = PullRequestStatusLines.Of(Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestStatuses.Map(pull))
+            Status = PullRequestStatusLines.Of(pull)
         };
 
     /// <summary>A linked pull request the open read did not list: drawn from the task
@@ -266,7 +267,7 @@ public sealed class WorkLinksProjection
 
     /// <summary>"Checks running 4/7", "1 check failing", or null to let the card word
     /// the state itself.</summary>
-    private static string? ChecksText(GitHubCheckCounts? counts)
+    private static string? ChecksText(PullRequestCheckCounts? counts)
     {
         if (counts is not { Total: > 0 }) return null;
         if (counts.Failed > 0) return counts.Failed == 1 ? "1 check failing" : $"{counts.Failed} checks failing";
@@ -303,6 +304,32 @@ public sealed class WorkLinksProjection
         _ => IntegrationSessionState.Finished
     };
 
+    private static IntegrationArtifactState Map(PullRequestState state) => state switch
+    {
+        PullRequestState.Draft => IntegrationArtifactState.Draft,
+        PullRequestState.Open => IntegrationArtifactState.Open,
+        PullRequestState.Merged => IntegrationArtifactState.Merged,
+        PullRequestState.Closed => IntegrationArtifactState.Closed,
+        _ => IntegrationArtifactState.Unknown
+    };
+
+    private static IntegrationReviewState Map(PullRequestReviewDecision review) => review switch
+    {
+        PullRequestReviewDecision.Approved => IntegrationReviewState.Approved,
+        PullRequestReviewDecision.ChangesRequested => IntegrationReviewState.ChangesRequested,
+        PullRequestReviewDecision.ReviewRequired => IntegrationReviewState.ReviewRequired,
+        _ => IntegrationReviewState.None
+    };
+
+    private static IntegrationCheckState Map(PullRequestCheckState checks) => checks switch
+    {
+        PullRequestCheckState.Passing => IntegrationCheckState.Passing,
+        PullRequestCheckState.Failing => IntegrationCheckState.Failing,
+        PullRequestCheckState.Pending => IntegrationCheckState.Pending,
+        _ => IntegrationCheckState.None
+    };
+
+    // The task list's own record of a link, which still carries GitHub's states.
     private static IntegrationArtifactState Map(GitHubItemState state) => state switch
     {
         GitHubItemState.Draft => IntegrationArtifactState.Draft,

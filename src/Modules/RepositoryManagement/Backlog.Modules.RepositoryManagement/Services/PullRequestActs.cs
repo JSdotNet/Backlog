@@ -53,6 +53,11 @@ internal sealed class PullRequestActs(PullRequestCache cache, IRegisteredReposit
         {
             await cache.RereadAfterActAsync(acted, cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The transport gave up on the re-read, not the caller: GitHub has already
+            // acted, so the caller hears what it did.
+        }
         finally
         {
             changed(new PullRequestsChanged([acted.RepositoryFullName], [acted]));

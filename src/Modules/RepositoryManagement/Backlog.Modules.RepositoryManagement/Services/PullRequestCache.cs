@@ -197,6 +197,12 @@ internal sealed partial class PullRequestCache(
     /// this act's pull request is still read by number, and a merge it finds is kept and
     /// remembered whatever came after — no act undoes a merge.
     /// </para>
+    /// <para>
+    /// A re-read that cannot say what the act did — refused, given up on by the
+    /// transport, or left by its caller — still takes back what was kept for the pull
+    /// request before the act, so the next reader asks rather than being told the old
+    /// state.
+    /// </para>
     /// </summary>
     public async Task RereadAfterActAsync(PullRequestReference pullRequest, CancellationToken cancellationToken)
     {
@@ -220,31 +226,57 @@ internal sealed partial class PullRequestCache(
             }
         }
 
-        var list = await SafeListAsync(repository).WaitAsync(cancellationToken).ConfigureAwait(false);
-        var listedAt = clock.GetUtcNow();
-
-        lock (_gate)
+        Answer answer;
+        try
         {
-            if (EpochOf(repository) == epoch && list.Failure is null)
+            var list = await SafeListAsync(repository).WaitAsync(cancellationToken).ConfigureAwait(false);
+            var listedAt = clock.GetUtcNow();
+
+            lock (_gate)
             {
-                KeepOpen(repository, new OpenRead(repository, list.PullRequests, null, listedAt), startedAt);
+                if (EpochOf(repository) == epoch && list.Failure is null)
+                {
+                    KeepOpen(repository, new OpenRead(repository, list.PullRequests, null, listedAt), startedAt);
+                }
             }
+
+            if (list.PullRequests.Any(pull => pull.Number == acted.Number)) return;
+
+            var read = await SafeReadAsync(repository, [acted.Number]).WaitAsync(cancellationToken).ConfigureAwait(false);
+            answer = Answered(read, repository, acted.Number, clock.GetUtcNow());
         }
-
-        if (list.PullRequests.Any(pull => pull.Number == acted.Number)) return;
-
-        var read = await SafeReadAsync(repository, [acted.Number]).WaitAsync(cancellationToken).ConfigureAwait(false);
-        var answer = Answered(read, repository, acted.Number, clock.GetUtcNow());
+        catch (OperationCanceledException)
+        {
+            lock (_gate) ForgetBeforeAct(acted.Key, startedAt);
+            throw;
+        }
 
         var merged = answer.PullRequest?.State == PullRequestState.Merged;
 
         lock (_gate)
         {
             if (answer.Failure is null && (merged || EpochOf(repository) == epoch)) Keep(acted.Key, answer, startedAt);
-            else if (_answers.TryGetValue(acted.Key, out var last) && last.PullRequest?.State != PullRequestState.Merged) _answers.Remove(acted.Key);
+            else ForgetBeforeAct(acted.Key, startedAt);
         }
 
         Remember([answer]);
+    }
+
+    /// <summary>
+    /// Takes back what was kept for the pull request acted on, when it was kept before
+    /// the act began: it no longer holds, and the read after the act could not say what
+    /// does, so the next reader asks. A merge, which no act undoes, stays; so does an
+    /// answer a later command's re-read kept, which is newer than this act. Called under
+    /// the gate.
+    /// </summary>
+    private void ForgetBeforeAct(string key, DateTimeOffset startedAt)
+    {
+        if (_answers.TryGetValue(key, out var last)
+            && last.PullRequest?.State != PullRequestState.Merged
+            && last.ReadAt <= startedAt)
+        {
+            _answers.Remove(key);
+        }
     }
 
     private List<Task<T>> Start<T>(
@@ -308,7 +340,7 @@ internal sealed partial class PullRequestCache(
             // A read that threw before it answered — a transport that gave up, which
             // surfaces as a cancellation nobody asked for — is the repository's failure,
             // as the list reads say it, never "answered without", which is kept for good.
-            var unfinished = new RepositoryReadFailure(repository, "The read did not finish.");
+            var unfinished = Unfinished(repository);
             foreach (var number in numbers) answers.TryAdd(Key(repository, number), new Answer(null, unfinished, started.StartedAt));
 
             lock (_gate)
@@ -334,13 +366,57 @@ internal sealed partial class PullRequestCache(
         }
     }
 
-    private async Task ListAndKeepAsync(string repository, Pending<OpenRead> started)
+    private Task ListAndKeepAsync(string repository, Pending<OpenRead> started) =>
+        LandAsync(
+            repository,
+            started,
+            _openPending,
+            async () =>
+            {
+                var read = await SafeListAsync(repository).ConfigureAwait(false);
+                return new OpenRead(repository, read.PullRequests, read.Failure, clock.GetUtcNow());
+            },
+            new OpenRead(repository, [], Unfinished(repository), started.StartedAt),
+            answer => answer.Failure,
+            answer => KeepOpen(repository, answer, started.StartedAt));
+
+    private Task ListMergedAndKeepAsync(string repository, Pending<MergedRead> started) =>
+        LandAsync(
+            repository,
+            started,
+            _mergedPending,
+            async () =>
+            {
+                var read = await SafeListMergedAsync(repository).ConfigureAwait(false);
+                return new MergedRead(repository, read.PullRequests, read.Failure, read.Truncated, clock.GetUtcNow());
+            },
+            new MergedRead(repository, [], Unfinished(repository), false, started.StartedAt),
+            answer => answer.Failure,
+            answer =>
+            {
+                if (!(_merged.TryGetValue(repository, out var last) && last.ReadAt > started.StartedAt)) _merged[repository] = answer;
+            });
+
+    /// <summary>
+    /// How a list read lands: its answer — or, when the source gave up on its own, which
+    /// surfaces as a cancellation nobody asked for, <paramref name="unfinished"/> — kept
+    /// through <paramref name="keep"/> when it is no refusal and no command overtook it,
+    /// the read taken off <paramref name="pending"/> unless a later one replaced it there,
+    /// and handed to everyone waiting on it.
+    /// </summary>
+    private async Task LandAsync<T>(
+        string repository,
+        Pending<T> started,
+        Dictionary<string, Pending<T>> pending,
+        Func<Task<T>> read,
+        T unfinished,
+        Func<T, RepositoryReadFailure?> failureOf,
+        Action<T> keep)
     {
-        var answer = new OpenRead(repository, [], new RepositoryReadFailure(repository, "The read did not finish."), started.StartedAt);
+        var answer = unfinished;
         try
         {
-            var read = await SafeListAsync(repository).ConfigureAwait(false);
-            answer = new OpenRead(repository, read.PullRequests, read.Failure, clock.GetUtcNow());
+            answer = await read().ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -350,53 +426,15 @@ internal sealed partial class PullRequestCache(
         {
             lock (_gate)
             {
-                if (answer.Failure is null && EpochOf(repository) == started.Epoch) KeepOpen(repository, answer, started.StartedAt);
-                if (_openPending.TryGetValue(repository, out var pending) && ReferenceEquals(pending, started)) _openPending.Remove(repository);
+                if (failureOf(answer) is null && EpochOf(repository) == started.Epoch) keep(answer);
+                if (pending.TryGetValue(repository, out var current) && ReferenceEquals(current, started)) pending.Remove(repository);
             }
 
             started.Read.SetResult(answer);
         }
     }
 
-    private async Task ListMergedAndKeepAsync(string repository, Pending<MergedRead> started)
-    {
-        var answer = new MergedRead(repository, [], new RepositoryReadFailure(repository, "The read did not finish."), false, started.StartedAt);
-        try
-        {
-            MergedPullRequestSourceRead read;
-            try
-            {
-                LogRead(_logger, "merged", repository, 0);
-                read = await source.ListMergedAsync(repository, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                read = new MergedPullRequestSourceRead([], new RepositoryReadFailure(repository, exception.Message), false);
-            }
-
-            answer = new MergedRead(repository, read.PullRequests, read.Failure, read.Truncated, clock.GetUtcNow());
-        }
-        catch (OperationCanceledException)
-        {
-            // The source gave up on its own: the answer stays "did not finish".
-        }
-        finally
-        {
-            lock (_gate)
-            {
-                if (answer.Failure is null
-                    && EpochOf(repository) == started.Epoch
-                    && !(_merged.TryGetValue(repository, out var last) && last.ReadAt > started.StartedAt))
-                {
-                    _merged[repository] = answer;
-                }
-
-                if (_mergedPending.TryGetValue(repository, out var pending) && ReferenceEquals(pending, started)) _mergedPending.Remove(repository);
-            }
-
-            started.Read.SetResult(answer);
-        }
-    }
+    private static RepositoryReadFailure Unfinished(string repository) => new(repository, "The read did not finish.");
 
     /// <summary>The source's read by number, a throw said as the repository's failure.</summary>
     private async Task<PullRequestSourceRead> SafeReadAsync(string repository, IReadOnlyCollection<int> numbers)
@@ -423,6 +461,20 @@ internal sealed partial class PullRequestCache(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             return new PullRequestSourceRead([], new RepositoryReadFailure(repository, exception.Message));
+        }
+    }
+
+    /// <summary>The source's recently merged list, a throw said as the repository's failure.</summary>
+    private async Task<MergedPullRequestSourceRead> SafeListMergedAsync(string repository)
+    {
+        try
+        {
+            LogRead(_logger, "merged", repository, 0);
+            return await source.ListMergedAsync(repository, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new MergedPullRequestSourceRead([], new RepositoryReadFailure(repository, exception.Message), false);
         }
     }
 

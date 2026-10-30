@@ -37,7 +37,8 @@ public class InfrastructureGraphTests
             + "surface, for the cross-context join under Progress/ that reads the tasks goals name through "
             + "Tasks' ITaskItems, beside the Roadmap and Inbox joins of the same kind. The tenth is Repository "
             + "Management's published surface, for the settled-fact store under Workspace/ that remembers "
-            + "its merged pull requests across a restart (local ADR 0042)."),
+            + "its merged pull requests across a restart, and the Progress adapter under Progress/ that "
+            + "reads goal pull requests through its contract (local ADR 0042)."),
         ("Backlog.Infrastructure.Sqlite", 6,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "

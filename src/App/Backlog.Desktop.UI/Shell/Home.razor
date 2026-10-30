@@ -2073,13 +2073,14 @@
 
     /// <summary>
     /// How a pull request the sessions list shows stands, as its readiness verdict: read
-    /// from GitHub by number and judged the way the pull requests pane judges it, so one
-    /// pull request wears one chip on both screens. Null without GitHub. A pull request it
+    /// by number through Repository Management's contract and judged the way the pull
+    /// requests pane judges it, so one pull request wears one chip on both screens. Null
+    /// without the contract or a registered repository. A pull request it
     /// finds merged or closed closes the notifications about it.
     /// </summary>
     private Task<Backlog.Modules.Sessions.UI.SessionPullRequestStatus?> SessionPullRequestStatusFor(DeliveryRunReference pull) =>
         Backlog.Desktop.UI.PullRequests.SessionPullRequestStatuses.ReadAsync(
-            Services.GetService<GitHubIntegration>(),
+            Services.GetService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>(),
             pull,
             Services.GetService<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>());
 

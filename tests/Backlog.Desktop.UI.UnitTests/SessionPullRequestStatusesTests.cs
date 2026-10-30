@@ -1,14 +1,15 @@
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Tests;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// What the sessions list's pull request card is told about a pull request: where it
 /// points on GitHub, and Repository Management's one verdict on it — the label and tone
-/// the pull requests pane gives the same status (local ADR 0042).
+/// the pull requests pane gives the same status (local ADR 0042) — read through the
+/// module's contract, never the GitHub adapter.
 /// </summary>
 public sealed class SessionPullRequestStatusesTests
 {
@@ -17,7 +18,7 @@ public sealed class SessionPullRequestStatusesTests
     {
         var pin = SessionPullRequestStatuses.PinOf(Reference("PR #1036", "https://github.com/JSdotNet/Backlog/pull/1036", repository: null));
 
-        Assert.Equal(new PullRequestPin("JSdotNet/Backlog", 1036), pin);
+        Assert.Equal(new PullRequestReference("JSdotNet/Backlog", 1036), pin);
     }
 
     [Fact]
@@ -25,7 +26,7 @@ public sealed class SessionPullRequestStatusesTests
     {
         var pin = SessionPullRequestStatuses.PinOf(Reference("PR #587", url: null, repository: "JSdotNet/Backlog"));
 
-        Assert.Equal(new PullRequestPin("JSdotNet/Backlog", 587), pin);
+        Assert.Equal(new PullRequestReference("JSdotNet/Backlog", 587), pin);
     }
 
     [Theory]
@@ -83,6 +84,45 @@ public sealed class SessionPullRequestStatusesTests
 
         Assert.Equal("Closed", status.Label);
         Assert.Equal("archived", status.Tone);
+    }
+
+    /// <summary>The card reads its pull request by number through the contract, then
+    /// takes the parent it is stacked on from its repository's open list, which the
+    /// contract places — so its reason names the parent, as the pane's does.</summary>
+    [Fact]
+    public async Task The_card_reads_through_the_contract_and_takes_its_stack_parent_from_the_open_list()
+    {
+        var parent = Pull() with { Number = 41, HeadRefName = "feature/base" };
+        var contract = new InMemoryPullRequests().Holds(parent, Pull() with { BaseRefName = "feature/base" });
+
+        var status = await SessionPullRequestStatuses.ReadAsync(contract, Reference("PR #42", "https://github.com/acme/app/pull/42", repository: null));
+
+        Assert.NotNull(status);
+        Assert.EndsWith("and it waits on #41, which has to merge first.", status.Reason, StringComparison.Ordinal);
+        Assert.Equal(["read acme/app#42", "list acme/app"], contract.Calls);
+    }
+
+    /// <summary>A merged pull request is in no open list, so none is read for it.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_is_read_by_number_alone()
+    {
+        var contract = new InMemoryPullRequests().Holds(Pull() with { State = PullRequestState.Merged });
+
+        var status = await SessionPullRequestStatuses.ReadAsync(contract, Reference("PR #42", url: null, repository: "acme/app"));
+
+        Assert.Equal("Merged", status!.Label);
+        Assert.Equal(["read acme/app#42"], contract.Calls);
+    }
+
+    [Fact]
+    public async Task Without_the_contract_or_a_registered_repository_nothing_is_read()
+    {
+        var unconfigured = new InMemoryPullRequests { IsConfigured = false }.Holds(Pull());
+        var reference = Reference("PR #42", url: null, repository: "acme/app");
+
+        Assert.Null(await SessionPullRequestStatuses.ReadAsync(null, reference));
+        Assert.Null(await SessionPullRequestStatuses.ReadAsync(unconfigured, reference));
+        Assert.Empty(unconfigured.Calls);
     }
 
     private static DeliveryRunReference Reference(string label, string? url, string? repository) =>

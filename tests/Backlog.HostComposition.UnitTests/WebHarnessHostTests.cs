@@ -373,6 +373,9 @@ public class WebHarnessHostTests
             harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IRegisteredRepositories>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
             harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.ISettledPullRequestStore>());
+        // Progress reads pull requests through the same contract (V6).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoryManagementGoalPullRequests>(
+            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
     }
 
     /// <summary>

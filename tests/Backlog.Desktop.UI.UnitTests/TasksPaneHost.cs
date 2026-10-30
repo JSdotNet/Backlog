@@ -279,6 +279,71 @@ internal sealed class TasksPaneHost : IDisposable
         /// holds that read back while the rest lands.</summary>
         public TaskCompletionSource? ByNumberGate { get; set; }
 
+        /// <summary>Every pinned read asked — the read by number Repository Management's
+        /// source sends (local ADR 0042) — as <c>owner/name 1,2</c>; kept apart from
+        /// <see cref="ReadByNumber"/>, the task list's own slim read.</summary>
+        public List<string> PinnedReadByNumber { get; } = [];
+
+        /// <summary>The pinned read answers what <see cref="PullRequestsByNumber"/> holds,
+        /// as the read with each one's status answers it, held back by
+        /// <see cref="ByNumberGate"/> and refused for <see cref="RefusedStatusReads"/>.</summary>
+        public Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<int> numbers,
+            CancellationToken cancellationToken = default)
+        {
+            PinnedReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            if (RefusedStatusReads.Contains(repository.FullName))
+            {
+                return Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException($"{repository.FullName} refused."));
+            }
+
+            IReadOnlyList<GitHubOpenPullRequest> answer =
+                [.. PullRequestsByNumber
+                    .Where(pull => numbers.Contains(pull.Number) && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))
+                    .Select(Pinned)];
+
+            return ByNumberGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
+        }
+
+        /// <summary>A pull request read by number as the pinned read gives it.</summary>
+        private static GitHubOpenPullRequest Pinned(GitHubLinkedPullRequest pull) =>
+            new(
+                pull.Number,
+                pull.Url,
+                pull.Title,
+                pull.RepositoryFullName,
+                $"PR_{pull.Number}",
+                IsDraft: pull.State is GitHubItemState.Draft,
+                HeadRefName: $"feature-{pull.Number}",
+                HeadSha: null,
+                BaseRefName: pull.BaseRefName ?? "main",
+                AuthorLogin: pull.AuthorLogin,
+                ViewerDidAuthor: false,
+                Checks: pull.CheckCounts switch
+                {
+                    { Failed: > 0 } => GitHubCheckState.Failing,
+                    { Pending: > 0 } => GitHubCheckState.Pending,
+                    { Total: > 0 } => GitHubCheckState.Passing,
+                    _ => GitHubCheckState.None
+                },
+                AutoMergeEnabled: false,
+                MergeReady: false,
+                IsBehind: false,
+                HasConflicts: false,
+                MergeStateStatus: null,
+                PreferredMergeMethod: GitHubMergeMethod.Merge,
+                UpdatedAt: pull.CreatedAt)
+            {
+                IsMerged = pull.State is GitHubItemState.Merged,
+                IsClosed = pull.State is GitHubItemState.Closed,
+                MergedAt = pull.MergedAt,
+                CheckCounts = pull.CheckCounts,
+                HeadChecks = [.. pull.FailingChecks.Select(name => new GitHubCheck(name, GitHubCheckState.Failing, null, null, null))],
+                Reviews = pull.Reviews
+            };
+
         /// <summary>Every status read by number asked, as <c>owner/name 1,2</c> — kept apart
         /// from <see cref="ReadByNumber"/>, so a test tells the status read from the slim one.</summary>
         public List<string> StatusReadByNumber { get; } = [];

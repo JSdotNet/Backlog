@@ -35,6 +35,25 @@ public sealed class PullRequestListTests
         Assert.Equal([$"list {BacklogRepository}"], _github.Calls);
     }
 
+    /// <summary>The module decides which repositories are listed (local ADR 0042 §1): a
+    /// name no one registered — a session's pull request upstream, a pin in a repository
+    /// since dropped — is not listed, however a caller names it, and is no failure. Its
+    /// pull requests are still read by number.</summary>
+    [Fact]
+    public async Task A_repository_nobody_registered_is_not_listed_by_name()
+    {
+        _github.Holds(Pull(1), Pull(7, repository: "octo/upstream"));
+        var module = Module();
+
+        var listing = await module.ListOpenAsync(["octo/upstream", " jsdotnet/backlog "], cancellationToken: TestContext.Current.CancellationToken);
+        var read = await module.ReadAsync([Ref(7, "octo/upstream")], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal([1], listing.PullRequests.Select(pull => pull.Number));
+        Assert.Empty(listing.Failures);
+        Assert.Equal(7, Assert.Single(read.PullRequests).Number);
+        Assert.Equal([$"list {BacklogRepository}", "read octo/upstream 7"], _github.Calls);
+    }
+
     [Fact]
     public async Task Every_active_repository_is_listed_with_the_newest_update_first()
     {

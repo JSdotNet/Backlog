@@ -35,6 +35,7 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
@@ -177,7 +178,7 @@ public static class DesktopCompositionRegistration
         services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
         services.AddNotificationSubjectProbe<PairingSubjectProbe>();
         services.AddSingleton(sp => new PullRequestSubjects(
-            sp.GetService<GitHubIntegration>(),
+            () => sp.GetService<IPullRequests>(),
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());

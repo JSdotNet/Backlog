@@ -203,6 +203,63 @@ public sealed class PullRequestCommandTests
         Assert.Equal([1, 2], settled.ReadAll().Select(pull => pull.Number).Order());
     }
 
+    /// <summary>
+    /// A re-read overtaken by a second command, whose list GitHub refused, still reads
+    /// its pull request by number; landing late, that answer says what was true before
+    /// the second act, so it is not kept — but nor does it throw out the newer answer
+    /// the second command's list kept for the same pull request.
+    /// </summary>
+    [Fact]
+    public async Task An_overtaken_re_read_leaves_the_newer_answer_a_later_command_kept()
+    {
+        _github.Holds(Pull(1), Pull(2));
+        var module = Module();
+        await module.ListOpenAsync([BacklogRepository], cancellationToken: TestContext.Current.CancellationToken);
+
+        _github.Refuses(BacklogRepository, "GitHub is not answering.");
+        var held = _github.HoldsNext($"list {BacklogRepository}");
+        var first = module.UpdateBranchAsync(Ref(1), TestContext.Current.CancellationToken);
+        _github.Answers(BacklogRepository);
+        _clock.Advance(TimeSpan.FromSeconds(5));
+        await module.UpdateBranchAsync(Ref(2), TestContext.Current.CancellationToken);
+        held.SetResult();
+        await first;
+        var calls = _github.Calls.Count;
+
+        var kept = module.Kept([Ref(1)]);
+        var read = await module.ReadAsync([Ref(1)], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(kept.PullRequests).Number);
+        Assert.Equal(1, Assert.Single(read.PullRequests).Number);
+        Assert.Equal(calls, _github.Calls.Count);
+    }
+
+    /// <summary>A transport that gives up while the re-read after a merge is out — an
+    /// HTTP timeout surfaces as a cancellation nobody asked for — does not lose the
+    /// merge GitHub already made: the caller is told it went through, and every other
+    /// reader hears of it. What was kept for it before the act no longer holds, so the
+    /// next reader asks GitHub rather than being told it is still open.</summary>
+    [Fact]
+    public async Task A_re_read_the_transport_gave_up_on_still_returns_what_the_act_did()
+    {
+        _github.Holds(Pull(4));
+        var module = Module();
+        await module.ListOpenAsync([BacklogRepository], cancellationToken: TestContext.Current.CancellationToken);
+        var heard = 0;
+        module.Changed += _ => heard++;
+        _github.ReadThrows = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.");
+
+        var result = await module.MergeAsync(Ref(4), TestContext.Current.CancellationToken);
+        _github.ReadThrows = null;
+        var before = _github.Calls.Count;
+        var read = await module.ReadAsync([Ref(4)], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, heard);
+        Assert.Equal([$"read {BacklogRepository} 4"], _github.Calls.Skip(before));
+        Assert.Equal(PullRequestState.Merged, Assert.Single(read.PullRequests).State);
+    }
+
     /// <summary>A reader whose handler throws on <c>Changed</c> does not turn a merge
     /// that went through into a failure for its caller, nor keep the next reader from
     /// hearing of it.</summary>
@@ -239,6 +296,7 @@ public sealed class PullRequestCommandTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => merging);
         Assert.Equal(1, heard);
+        Assert.Empty(module.Kept([Ref(4)]).PullRequests);
         held.SetResult();
     }
 

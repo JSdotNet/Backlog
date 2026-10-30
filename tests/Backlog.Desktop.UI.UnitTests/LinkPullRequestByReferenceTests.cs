@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.InProgress;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,8 +78,8 @@ public sealed class LinkPullRequestByReferenceTests
         section.WaitForAssertion(() =>
         {
             Assert.Equal([new EntryPullRequestLink(Repository, 812)], row.PullRequestLinks);
-            Assert.Equal(state, Assert.Single(reader.LinkedPullRequests).State);
-            Assert.Contains($"{Repository} 812", host.Client.ReadByNumber);
+            Assert.Equal(state.ToString(), Assert.Single(reader.LinkedPullRequests).State.ToString());
+            Assert.Contains($"{Repository} 812", host.Client.PinnedReadByNumber);
             Assert.Empty(section.FindAll("[data-testid='work-link-picker-reference']"));
             Assert.Equal("JSdotNet/Backlog#812", section.Find("[data-testid='work-pull-request']").GetAttribute("data-pull-request"));
             Assert.Contains(host.Toasts.Visible, toast => toast.TestId == WorkLinker.LinkedTestId);
@@ -99,16 +100,16 @@ public sealed class LinkPullRequestByReferenceTests
         Assert.Null(await WorkLinker.LinkPullRequestAsync(host.State, host.Toasts, reader, row, "https://github.com/jsdotnet/backlog/pull/655/files"));
 
         Assert.Equal([new EntryPullRequestLink(Repository, 655)], row.PullRequestLinks);
-        var (merged, failure) = await reader.ReadPullRequestAsync(new GitHubPullRequestReference(Repository, 655));
+        var (merged, failure) = await reader.ReadPullRequestAsync(new PullRequestReference(Repository, 655));
         Assert.Null(failure);
         Assert.Equal(Noon.AddDays(-3), merged!.MergedAt);
-        Assert.Equal([$"{Repository} 655"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 655"], host.Client.PinnedReadByNumber);
 
         // This reader is asked for no links, as one whose list was taken before the link.
         await reader.ReadAsync();
         await reader.LinkedRead;
         Assert.Equal(655, Assert.Single(reader.LinkedPullRequests).Number);
-        Assert.Equal([$"{Repository} 655"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 655"], host.Client.PinnedReadByNumber);
     }
 
     /// <summary>A task with two repositories does not say which one a bare number is
@@ -123,7 +124,7 @@ public sealed class LinkPullRequestByReferenceTests
         var failure = await WorkLinker.LinkPullRequestAsync(host.State, host.Toasts, reader, row, "812");
 
         Assert.StartsWith("This task names more than one repository", failure, StringComparison.Ordinal);
-        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(host.Client.PinnedReadByNumber);
     }
 
     [Fact]
@@ -141,7 +142,7 @@ public sealed class LinkPullRequestByReferenceTests
         {
             Assert.Contains("someone/elsewhere is not a repository registered in Settings", section.Find("[data-testid='work-link-picker-reference']").TextContent, StringComparison.Ordinal);
             Assert.Empty(row.PullRequestLinks);
-            Assert.Empty(host.Client.ReadByNumber);
+            Assert.Empty(host.Client.PinnedReadByNumber);
 
             // Said once, under the field it was typed into, not again as a toast.
             Assert.DoesNotContain(host.Toasts.Visible, toast => toast.TestId == WorkLinker.RefusedTestId);
@@ -171,7 +172,7 @@ public sealed class LinkPullRequestByReferenceTests
         var failure = await WorkLinker.LinkPullRequestAsync(host.State, host.Toasts, reader, row, "the merged one");
 
         Assert.Equal("Type a pull request's number, or paste its link.", failure);
-        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(host.Client.PinnedReadByNumber);
     }
 
     /// <summary>A bare number is the task's own repository's; a task with none has to
@@ -237,7 +238,7 @@ public sealed class LinkPullRequestByReferenceTests
         var clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new(host.GitHub, new NoSessions(), clock);
+        return new(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock);
     }
 
     private static GitHubLinkedPullRequest Linked(int number, GitHubItemState state, DateTimeOffset? mergedAt = null, string repository = Repository) =>
