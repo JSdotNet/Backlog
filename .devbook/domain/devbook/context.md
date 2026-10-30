@@ -16,9 +16,10 @@ bounded context of its own (local ADR 0040).
 
 Inside the boundary: reading a repository's devbook folders in place, the
 devbook database and its builder, the chapter viewer and the Devbook pane, the
-reader's [remarks](domain.md#remark) on chapters, the planning fields every
-devbook chapter may carry, instruction review, and retrieval across every
-devbook the app reads.
+reader's [remarks](domain.md#remark) on chapters, the
+[workflow state](domain.md#subject-state) of a change proposal, a decision record
+and a debt record, the planning fields every devbook chapter may carry,
+instruction review, and retrieval across every devbook the app reads.
 
 Outside it:
 
@@ -95,15 +96,18 @@ status: draft
 type: feature-flag
 key: devbook-status
 default: off
-related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/design/content-editing.md#knowledge-metadata-blocks"]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off]
+related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-a-records-state-is-shown-from-the-apps-store", ".devbook/design/content-editing.md#knowledge-metadata-blocks"]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn]
 ```
 
 Turning it on shows the status every devbook file and each of its chapters
 state: the selector or badge beside the file's name and beside each heading, and
 the decision state that qualifies it. It covers every area, the technology
-ratings and Brain notes included. Off, no status or decision state is drawn
-there, and neither are the findings about them. A chapter's other fields, such
+ratings and Brain notes included. It also shows the workflow state the app keeps
+for a decision or debt record ([Subject State](domain.md#subject-state)), with who
+set it and when. Off, no status, decision state or record state is drawn there,
+and neither are the findings about them. A record's state is still kept, and an
+assistant can still read and set it over MCP. A chapter's other fields, such
 as `related` and `sync`, are still drawn, and a heading over an otherwise empty
 `meta` fence still renders.
 
