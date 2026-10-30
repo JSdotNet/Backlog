@@ -374,11 +374,12 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         // The record is in the file view's header, and the header is what stays on
         // screen while the body is being typed into — so the document's state is
-        // still reachable and this panel still offers no second control for it.
-        // It used to have to: the record was at the top of the read view, and the
-        // read view is not what is on screen while writing.
+        // still in sight and this panel draws no second one. It is the badge: the
+        // product writes no status into a domain file any more, since a chapter's
+        // workflow state is the tool's under devbook's branch-true decision.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface']")));
-        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select"));
+        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .badge--status"));
+        Assert.Empty(component.FindAll(".file-view__header .status-editor__select"));
         Assert.Empty(component.FindAll("[data-testid='devbook-state-select']"));
     }
 
@@ -511,7 +512,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']"));
 
-        ChangeTheChapterState(component);
+        ChangeTheChapter(component, harness.Root);
 
         // "As opened" is now a different text from the one on screen, and that is a
         // comparison worth offering however the commit answered.
@@ -532,7 +533,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // has changed something and then asks what the commit said.
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
-        ChangeTheChapterState(component);
+        ChangeTheChapter(component, harness.Root);
 
         // Back to reading first: the three modes are one at a time, and comparing is
         // what a reader does to a file they have stopped typing into.
@@ -553,21 +554,20 @@ public sealed class DomainDevbookPanelTests : IDisposable
     }
 
     /// <summary>
-    /// Changes the chapter the way a reader can change it without waiting for a
-    /// debounce: the state dropdown writes the file and the panel re-reads it, so
-    /// the body on screen stops being the body that was opened.
-    /// <para>
-    /// The dropdown is the file's own record, in the file view's header. It is the
-    /// only one on the panel — the header stays on screen in every mode, so this
-    /// panel offers no second control beside it — and the caller is left in the
+    /// Changes the chapter the way a reader does: types into it and lets the
+    /// debounce write the file, after which the panel re-reads it, so the body on
+    /// screen stops being the body that was opened. It used to pick a status in
+    /// the header's select, which wrote at once; the product writes no status into
+    /// a domain file any more, so typing is the way. The caller is left in the
     /// editing mode it entered.
-    /// </para>
     /// </summary>
-    private static void ChangeTheChapterState(IRenderedComponent<DomainDevbookPanel> component)
+    private static void ChangeTheChapter(IRenderedComponent<DomainDevbookPanel> component, string root)
     {
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
-        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
+        component.WaitForElement("textarea").Input(ContextMap.Replace("Original prose.", "Typed prose.", StringComparison.Ordinal));
+        component.WaitForAssertion(
+            () => Assert.Contains("Typed prose.", File.ReadAllText(Path.Combine(root, ".domain", "context-map.md")), StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -785,53 +785,6 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Contains("A summary nobody can edit.", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='devbook-chapter-surface']"));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
-    }
-
-    [Fact]
-    public async Task Changing_the_state_writes_the_pending_body_before_the_status()
-    {
-        await using var harness = CreateHarness();
-        var chapterPath = Path.Combine(harness.Root, ".domain", "context-map.md");
-        var component = harness.Render(ContextMapPath);
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
-
-        component.Find("[data-testid='domain-chapter-file-edit']").Click();
-
-        // The typed body moves the status field too, which is what makes the
-        // order decidable from the file alone. The writer's merge lets the text
-        // win a field the text changed, so a body written *after* the dropdown
-        // leaves "candidate" behind; flushed first, the dropdown is the last word
-        // and it reads "accepted".
-        component.WaitForElement("textarea").Input("# Context Map\n\n```meta\nstatus: candidate\n```\n\nTyped prose.\n");
-
-        // From here on, the first thing to ask the folder source where .domain is
-        // will be the status write, so what the chapter says at that moment is
-        // recorded. That is what makes the ordering decidable: the settled file
-        // cannot tell the two orders apart, because the merge repairs both.
-        harness.Folders.ArmStatusWriteSnapshot();
-
-        // The document's own dropdown, which is the only one on the panel: it is in
-        // the file view's header, and the header is what stays on screen while the
-        // body is being typed into.
-        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
-
-        component.WaitForAssertion(
-            () =>
-            {
-                var written = File.ReadAllText(chapterPath);
-                Assert.Contains("Typed prose.", written, StringComparison.Ordinal);
-                Assert.Contains("status: accepted", written, StringComparison.Ordinal);
-            },
-            TimeSpan.FromSeconds(5));
-
-        var settled = File.ReadAllText(chapterPath);
-        Assert.DoesNotContain("status: candidate", settled, StringComparison.Ordinal);
-        Assert.DoesNotContain("Original prose.", settled, StringComparison.Ordinal);
-
-        Assert.Contains(
-            "Typed prose.",
-            harness.Folders.ChapterWhenStatusWasWritten ?? "the status was never written",
-            StringComparison.Ordinal);
     }
 
     /// <summary>

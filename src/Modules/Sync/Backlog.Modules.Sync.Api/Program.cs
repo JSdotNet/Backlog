@@ -112,6 +112,7 @@ sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
+sync.MapDevbookSubjectSyncEndpoints();
 sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 

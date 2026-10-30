@@ -26,7 +26,17 @@
     DevbookMetadataFindings's question, which knows the folder; this component
     only knows the block.
 
-    Empty in, nothing out: no wrapper around no state.
+    A subject's sign-off comes first when a host hands one in: who set a decision
+    record's or a debt record's state, and on which day. It is not in the block at
+    all — under devbook's branch-true decision the tool keeps a subject's workflow
+    state, not git — so it arrives as its own parameter, already in words, from a
+    panel that read it out of the subject store. The state's word is not repeated
+    here: MetadataView draws it once, as a status badge on the block's own tone
+    scale, select or not. The same Badge in the same family, slug `subject`: it is
+    who and when, like the records after it.
+
+    Empty in, nothing out: no wrapper around no state — a subject nobody has set
+    a state on, or one with nobody and no day to name, included.
 *@
 
 @if (Entries.Count > 0)
@@ -42,10 +52,15 @@
     [Parameter]
     public MetadataState State { get; set; } = MetadataState.Empty;
 
+    /// <summary>The subject's state from the subject store, when the record is a
+    /// subject and its host keeps one. Drawn before the block's own.</summary>
+    [Parameter]
+    public MetadataSubjectState? Subject { get; set; }
+
     [Parameter]
     public string? TestId { get; set; } = "devbook-record-state";
 
-    private IReadOnlyList<Entry> Entries => Describe(State);
+    private IReadOnlyList<Entry> Entries => Describe(State, Subject);
 
     /// <summary>
     /// The statements this state makes, one per record that has anything in it.
@@ -53,12 +68,20 @@
     /// <para>Static and public so a host that draws state somewhere other than a
     /// record's headline — a list row, a tooltip — says it in the same words.</para>
     /// </summary>
-    public static IReadOnlyList<(string Slug, string Text)> Statements(MetadataState state) =>
-        [.. Describe(state).Select(entry => (entry.Slug, entry.Text))];
+    public static IReadOnlyList<(string Slug, string Text)> Statements(MetadataState state, MetadataSubjectState? subject = null) =>
+        [.. Describe(state, subject).Select(entry => (entry.Slug, entry.Text))];
 
-    private static List<Entry> Describe(MetadataState state)
+    private static List<Entry> Describe(MetadataState state, MetadataSubjectState? subject)
     {
-        var entries = new List<Entry>(3);
+        var entries = new List<Entry>(4);
+
+        if (subject is { HasState: true } && (Stated(subject.By) || Stated(subject.At)))
+        {
+            // "debt state set by You on 2026-10-30" — the kind first, because a
+            // record's headline can carry the block's status beside it, and the
+            // state's word is the badge's, not this line's.
+            entries.Add(new Entry("subject", Signed($"{subject.Kind} state set", subject.By, subject.At), null));
+        }
 
         if (state.HasApproval)
         {

@@ -66,6 +66,14 @@ public static class SyncRoutes
     /// <see cref="Tasks"/>, over the third replica container.</summary>
     public const string Annotations = "/annotations";
 
+    /// <summary>The devbook subject state replica: POST pushes a batch of this
+    /// device's subject states — a change proposal's, a decision record's, a debt
+    /// record's — and GET pulls the owner's feed from a cursor. Bearer, and the
+    /// shape of <see cref="Annotations"/>, over its own container. A service older
+    /// than the client has no such route and answers 404, which the desktop reads
+    /// as "not yet" rather than as a failure.</summary>
+    public const string DevbookSubjects = "/devbook-subjects";
+
     /// <summary>The notification replica (local ADR 0039): POST pushes a batch of the
     /// calling owner instance's notifications, GET pulls the owner's notification feed from
     /// a cursor. Bearer.</summary>

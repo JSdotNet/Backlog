@@ -97,22 +97,21 @@ public sealed class DomainDevbookContractSixteenPanelTests
         Assert.Empty(component.FindAll("[data-testid='devbook-decision-state']"));
     }
 
+    /// <summary>A section's authored status reads, as the badge, and is offered
+    /// as no select: under devbook's branch-true decision a chapter's workflow
+    /// state is the tool's, so the product writes no status into a domain file,
+    /// and a decision rung — the approval gate's — can no more be picked than any
+    /// other word.</summary>
     [Fact]
-    public void The_status_selector_never_offers_a_decision_rung()
+    public void A_sections_status_reads_as_a_badge_and_is_not_offered()
     {
-        // The rungs are written by the approval gate, never picked. This panel does
-        // not own the option list, but it must not add them to it either.
         using var context = CreateContext();
 
         var component = context.Render<DomainDevbookPanel>(parameters => parameters
             .Add(panel => panel.View, MapView(Section(new() { ["type"] = "aggregate", ["status"] = "draft" }))));
 
-        var options = component.FindAll(".domain-section [data-testid='devbook-state-select'] option")
-            .Select(option => option.GetAttribute("value") ?? string.Empty)
-            .ToList();
-
-        Assert.NotEmpty(options);
-        Assert.All(DevbookSchema.DecisionRungs, rung => Assert.DoesNotContain(rung, options, StringComparer.OrdinalIgnoreCase));
+        Assert.Empty(component.FindAll(".domain-section [data-testid='devbook-state-select']"));
+        Assert.Contains("draft", component.Find(".domain-section [data-testid='devbook-state-badge']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]

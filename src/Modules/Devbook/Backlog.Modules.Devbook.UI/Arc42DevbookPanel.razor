@@ -161,9 +161,10 @@
                           DevbookFolder="DevbookFolder.Arc42"
                           DevbookDocumentPath="@DocumentPath(_selected)"
                           ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Folders, RepositoryAlias, DocumentPath(_selected))"
-                          CanEditDevbookStatus="@CanEdit"
+                          CanEditDevbookStatus="false"
                           ShowDevbookStatus="@StatusShown"
-                          OnDevbookStatusChanged="ChangeChapterStatusAsync"
+                          DevbookSubject="@SubjectState(_selected)"
+                          OnDevbookSubjectStateChanged="ChangeSubjectState"
                           OnDevbookNavigate="NavigateDevbookReferenceAsync"
                           Comments="@_chapterComments"
                           OnAddComment="@Remarks.Add"
@@ -281,8 +282,9 @@
     private Arc42DevbookCatalog? _catalog;
 
     /// <summary>Whether this panel may write anything back. False for a folder
-    /// read from a repository branch, which hides the status control rather than
-    /// offering an edit the next fetch would discard.</summary>
+    /// read from a repository branch, which hides the edit and the sync pickers
+    /// rather than offering a file write the next fetch would discard. A debt
+    /// record's state is no file write, so it is not held to this.</summary>
     private bool CanEdit => _catalog?.CanEdit ?? true;
 
     /// <summary>Whether this repository is archived, which leaves its remarks
@@ -407,6 +409,11 @@
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
+
+        // The same arrangement for a record's state: the host's subject store, or
+        // a session one where the host composed none.
+        _subjects = Services.GetService<IDevbookSubjectStateStore>() ?? new SessionDevbookSubjectStateStore();
+        _subjects.Changed += OnSubjectsChanged;
 
         // Optional, like the annotation store: a host that keeps no sync verdicts
         // draws the chapters without them.
@@ -739,23 +746,6 @@
         IsDecisionRecord(document) ? "Decision record" : "Architecture chapter";
 
     /// <summary>
-    /// A status changed beside a heading in the file view, written to the chapter
-    /// that heading belongs to.
-    /// <para>
-    /// The view reports the heading text; the knowledge writer addresses a status
-    /// by path, with the file's own path for its top heading and a <c>path#anchor</c>
-    /// for a section under it. The document's title is its top heading, so a match
-    /// there is the file itself; anything else is a section, addressed by the slug
-    /// of its heading — the same slug the writer derives when it goes looking for
-    /// the fence to change.
-    /// </para>
-    /// <para>
-    /// A failed write lands in the same alert a failed save does, for the same
-    /// reason: it is the panel's attempt to write the file, not anything the file
-    /// says.
-    /// </para>
-    /// </summary>
-    /// <summary>
     /// A sync direction picked on a building block or on the building block view,
     /// written to the block the scope addressed and read back the way a status
     /// change is — a failure lands in the same alert.
@@ -787,45 +777,6 @@
         // record and not this pane — so the rebuilt scope would never be cascaded,
         // and every other block on the page would keep the direction it had.
         StateHasChanged();
-    }
-
-    private async Task ChangeChapterStatusAsync(DevbookStatusChange change)
-    {
-        if (_chapterDocument is not { } document || change.Heading is not { } heading) return;
-
-        var itemPath = string.Equals(heading, document.Title, StringComparison.OrdinalIgnoreCase)
-            ? document.Path
-            : $"{document.Path}#{Slug(heading)}";
-
-        _chapterSaveError = null;
-        try
-        {
-            // The body goes first; DevbookChapterEditor.FlushAsync says why. It is
-            // rarely anything but a no-op here — the status control lives in the read
-            // view and the editor is only on screen while writing, so leaving edit
-            // mode has already flushed — but a debounce can still be a moment behind,
-            // and the ordering must not depend on it.
-            await FlushEditorAsync();
-
-            // A null status is the reader choosing to state none, which removes the
-            // field rather than writing a word into it. The two are separate verbs
-            // all the way down to the file: an `.arc42` chapter that is simply
-            // current says so by saying nothing.
-            if (string.IsNullOrWhiteSpace(change.Status))
-            {
-                await Devbook.ClearStatusAsync(RepositoryAlias, itemPath);
-            }
-            else
-            {
-                await Devbook.UpdateStatusAsync(RepositoryAlias, itemPath, change.Status);
-            }
-
-            await RefreshAsync(document.Path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
-        {
-            _chapterSaveError = ex.Message;
-        }
     }
 
     /// <summary>Follows a reference the file view parsed out of the prose, by asking
@@ -961,16 +912,105 @@
 
     private static bool IsDecisionRecord(DevbookDocument document) => Arc42DevbookCatalog.IsDecisionRecord(document.Path);
 
-    /// <summary>The heading's anchor, made the same way the knowledge writer makes
-    /// it when it goes looking for the fence to change — letters and digits kept,
-    /// everything else a single hyphen. The two have to agree: the anchor this hands
-    /// the writer is matched back against the slug the writer derives from the file,
-    /// and a chapter whose status could not be found is a control that writes
-    /// nowhere.</summary>
-    private static string Slug(string heading)
+    // ---- a record's state, from the subject store ---------------------------
+
+    /// <summary>
+    /// Where a decision or debt record's state is kept: the subject store, not the
+    /// chapter. Under devbook's branch-true decision a record's workflow state is
+    /// the tool's, so this panel writes no <c>status</c> into an arc42 file any
+    /// more — an authored one still reads, as the badge beside the name — and
+    /// draws the record's state from here instead.
+    /// </summary>
+    private IDevbookSubjectStateStore _subjects = null!;
+
+    /// <summary>
+    /// The open record's state as the file view's header draws it, or null for an
+    /// ordinary chapter, or with the status display switched off.
+    /// <para>
+    /// A debt record's state is offered as a select keyed by its path. It is
+    /// offered on a branch snapshot too — setting it writes no file, so there is
+    /// nothing for the next fetch to discard — and taken away only on an archived
+    /// repository (local ADR 0029 §4). A decision record's state is shown and not
+    /// offered: its key carries the pull request it is decided in, which this panel
+    /// does not know, so it is set over MCP by a caller that does. What is shown is
+    /// the most recently set state for that path, whichever pull request it was.
+    /// </para>
+    /// </summary>
+    private MetadataSubjectState? SubjectState(DevbookDocument? document)
     {
-        var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
-        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
+        if (!StatusShown || document is null) return null;
+
+        var path = DocumentPath(document);
+        switch (SubjectKind(path))
+        {
+            case DevbookSubjectKind.Debt:
+                var debt = DevbookSubject.Debt(path);
+                return Describe(DevbookSubjectKind.Debt, _subjects.Get(RepositoryAlias, debt)) with
+                {
+                    Options = RepositoryArchived ? [] : debt.States
+                };
+
+            case DevbookSubjectKind.Decision:
+                var key = DevbookChapterKey.Normalize(path);
+                var latest = _subjects.List(RepositoryAlias)
+                    .Where(state => state.Subject.Kind == DevbookSubjectKind.Decision
+                        && string.Equals(state.Subject.Key, key, StringComparison.Ordinal))
+                    .MaxBy(state => state.UpdatedAt);
+                return latest is null ? null : Describe(DevbookSubjectKind.Decision, latest);
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Which subject a record path is, read through the folder's conventional
+    /// name. The store keys a record by its repository path — the path the
+    /// catalog carries, wherever the folder was pointed — but whether a file is a
+    /// decision or debt record is a question about its place in the arc42 folder,
+    /// so a folder pointed at <c>docs/arch</c> is read as the <c>.arc42</c> it is.
+    /// </summary>
+    private DevbookSubjectKind? SubjectKind(string path) =>
+        DevbookSubjects.Classify(DevbookChapterKey.Canonical(path, Folders.Folders(RepositoryAlias)));
+
+    /// <summary>The store's record in the words the header says it in: this
+    /// host's own name reads as "You", as a remark's does, and the day is the
+    /// reader's.</summary>
+    private static MetadataSubjectState Describe(DevbookSubjectKind kind, DevbookSubjectState? state) => new(
+        DevbookSubjects.KindName(kind),
+        state?.State,
+        DevbookLocalAuthor.Display(state?.By),
+        state?.At.ToLocalTime().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+
+    /// <summary>
+    /// A state picked for the open debt record, written to the subject store. The
+    /// store applies the contract's rules; a refusal, or the archived repository
+    /// the store path refuses, lands in the alert a failed save does, because it
+    /// is the panel's attempt that failed and nothing the file says. The panel
+    /// redraws from the store when the callback returns.
+    /// </summary>
+    private void ChangeSubjectState(string state)
+    {
+        if (_selected is not { } document || RepositoryArchived) return;
+
+        var path = DocumentPath(document);
+        if (SubjectKind(path) is not DevbookSubjectKind.Debt) return;
+
+        var outcome = Devbook.SetSubjectState(_subjects, RepositoryAlias, DevbookSubject.Debt(path), state);
+        _chapterSaveError = outcome.IsRefused ? outcome.Message : null;
+    }
+
+    /// <summary>The store changed under the panel — replication applied what
+    /// another device set, or a tool call over MCP did. It arrives on whichever
+    /// thread wrote, so the redraw is marshalled.</summary>
+    private void OnSubjectsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     // ---- the C4 model beside the chapters ----------------------------------
@@ -1099,6 +1139,7 @@
         Devbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        _subjects.Changed -= OnSubjectsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
         _switches?.Dispose();
     }

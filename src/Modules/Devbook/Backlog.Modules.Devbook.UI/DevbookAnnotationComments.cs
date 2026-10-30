@@ -20,8 +20,9 @@ namespace Backlog.Desktop.UI.Devbook;
 public static class DevbookAnnotationComments
 {
     /// <summary>What a remark made on this machine is signed as, and what
-    /// <see cref="Comments"/> reads back as "You".</summary>
-    public static string LocalAuthor => Environment.MachineName;
+    /// <see cref="Comments"/> reads back as "You". The host's one name for its
+    /// person, which a subject's state is set by too.</summary>
+    public static string LocalAuthor => DevbookLocalAuthor.Name;
 
     /// <summary>The read view's comments for one chapter's remarks.</summary>
     public static IReadOnlyList<MarkdownComment> Comments(IReadOnlyList<DevbookAnnotation> annotations, TimeProvider? time = null)
@@ -42,7 +43,7 @@ public static class DevbookAnnotationComments
         annotation.Id.ToString("D"),
         annotation.BlockIndex,
         annotation.Body,
-        string.Equals(annotation.Author, LocalAuthor, StringComparison.OrdinalIgnoreCase) ? "You" : annotation.Author,
+        DevbookLocalAuthor.Display(annotation.Author),
         Ago(annotation.CreatedAt, now),
         annotation.Resolved,
         annotation.BlockHash);
