@@ -125,6 +125,23 @@ public sealed class ContextMapTests
         Assert.DoesNotContain(map.Lines, line => line.Touches("Shell"));
     }
 
+    /// <summary>A node the landscape table leaves out but a domain folder holds is
+    /// still a context: a table that lags its map does not lose the card.</summary>
+    [Fact]
+    public void A_node_the_landscape_leaves_out_but_a_folder_holds_is_a_context()
+    {
+        var markdown = Map.Replace(
+            "    DevPC -.->",
+            "    Sync[Sync]\n    Sync -->|OHS<br/>Replica protocol| Tasks\n    DevPC -.->",
+            StringComparison.Ordinal);
+
+        var map = ContextMaps.Read(markdown, [.. Sources, new("sync", "Sync", null, ".devbook/domain/sync/context.md")]);
+
+        Assert.Equal(["Inbox", "Tasks", "Roadmap", "Sessions", "DevPC", "Sync"], map.Contexts.Select(c => c.Id));
+        Assert.Equal("sync", map.Context("Sync")!.Slug);
+        Assert.Contains(map.Lines, line => line.Touches("Sync"));
+    }
+
     /// <summary>Without a landscape table the fence alone says what the contexts
     /// are, folder or not.</summary>
     [Fact]
@@ -403,6 +420,8 @@ public sealed class ContextMapTests
         var layout = ContextMapLayout.Arrange(map);
 
         Assert.Equal(16, layout.Cards.Count);
+        Assert.Contains(map.Contexts, c => c.Id == "Brain");
+        Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
         var pairs = map.Lines.Select(l => (ids.IndexOf(l.From), ids.IndexOf(l.To))).ToList();
