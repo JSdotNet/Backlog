@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The centre's screens, rendered with bUnit: the list grouped by subject, the pane
+         that answers through INotificationCentre, and the shell's waiting count. -->
+    <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The answer and settle stamps are read off a clock the tests pin. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- AddNotificationsModule() is resolved through a real container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="bunit" />
+  </ItemGroup>
+
+  <!-- bUnit's default wait for this process, set before any test runs; the file
+       says why. Linked per project because only the bUnit projects reference bUnit. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,3 +1,7 @@
+using System.Text.RegularExpressions;
+
+using Backlog.SharedKernel.Devbook;
+
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Devbook.UnitTests;
@@ -17,6 +21,10 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <c>devbook-schema.mjs</c> at test time, never from a copy in C#. That is the
 /// property worth protecting: the reading side states a version, a path and a list
 /// of table names, and nothing else about the shape.</para>
+///
+/// <para>The <c>tech/</c> <c>type</c> vocabulary gets the same pin against the
+/// installed checker, <c>.devbook/_tools/devbook-meta/metadata.mjs</c>, so a devbook
+/// release that adds a type CI accepts fails here until <c>DevbookSchema</c> learns it.</para>
 /// </summary>
 public class DevbookSchemaContractTests
 {
@@ -208,5 +216,51 @@ public class DevbookSchemaContractTests
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
 
         Assert.NotNull(database);
+    }
+
+    private static readonly string[] CheckerFile = [".devbook", "_tools", "devbook-meta", "metadata.mjs"];
+
+    /// <summary>
+    /// The checker CI runs decides which <c>tech/</c> types are legal; the app's
+    /// metadata view and writers ask <see cref="DevbookSchema"/>. Read the
+    /// checker's list out of <c>TYPE_BY_FOLDER</c> and hold the two equal, order
+    /// included, so the app never flags a type CI accepts.
+    /// </summary>
+    [Fact]
+    public void The_tech_chapter_types_match_the_checkers()
+    {
+        Assert.Equal(CheckerTechChapterTypes(), DevbookSchema.ChapterTypes(DevbookFolder.Tech));
+    }
+
+    [Theory]
+    [InlineData("plugin")]
+    [InlineData("skill")]
+    [InlineData("agent")]
+    public void A_tech_chapter_may_state_a_contract_34_type(string type)
+    {
+        Assert.True(DevbookSchema.IsKnownType(
+            DevbookFolder.Tech, DevbookMetadataLevel.Chapter, type, ".devbook/tech/ai-development.md"));
+    }
+
+    private static List<string> CheckerTechChapterTypes()
+    {
+        var path = RepositoryRoot.File(CheckerFile);
+        var text = File.ReadAllText(path);
+
+        var table = text.IndexOf("const TYPE_BY_FOLDER = {", StringComparison.Ordinal);
+        Assert.True(table >= 0, $"{path} no longer declares TYPE_BY_FOLDER.");
+
+        var list = Regex.Match(
+            text[table..],
+            @"^\s*tech:\s*\{\s*chapter:\s*\[(?<body>[^\]]*)\]",
+            RegexOptions.Multiline);
+        Assert.True(list.Success, $"{path} no longer carries a tech: {{ chapter: [...] }} list in TYPE_BY_FOLDER.");
+
+        return list.Groups["body"].Value
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => !line.StartsWith("//", StringComparison.Ordinal))
+            .SelectMany(line => Regex.Matches(line, "\"(?<value>[^\"]+)\"").Select(match => match.Groups["value"].Value))
+            .ToList();
     }
 }

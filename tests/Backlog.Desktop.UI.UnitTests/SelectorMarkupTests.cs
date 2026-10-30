@@ -56,8 +56,8 @@ public sealed class SelectorMarkupTests
     /// same shared selector the backlog does — through the library, not through
     /// the backlog folder.
     /// <para>
-    /// Two of the three panels draw a selector of their own directly: Technology on
-    /// a node, Domain beside a section while its body is being edited. The third,
+    /// Two of the three panels draw a selector of their own directly: Technology in
+    /// its inspector, Domain beside a section while its body is being edited. The third,
     /// arc42, no longer draws one at all — it hands the whole status to the shared
     /// <c>FileView</c> through <c>RenderDevbookMetadata</c>, which is the same
     /// shared selector reached one control further in. That is the stronger form of
@@ -70,14 +70,14 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void Devbook_panels_use_the_same_shared_status_selector()
     {
-        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "DomainDevbookPanel.razor", "TechnologyDevbookPanel.razor" })
+        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "DomainDevbookPanel.razor", "TechnologyInspector.razor" })
         {
             var markup = NormalizeLineEndings(File.ReadAllText(
                 RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", panel)));
 
             // The status is a shared control either way: drawn directly by the two
             // panels that still keep a selector of their own, and reached through
-            // the shared file view's knowledge metadata by arc42, which keeps none.
+            // the shared file view's devbook metadata by arc42, which keeps none.
             Assert.True(
                 markup.Contains("<StatusSelector", StringComparison.Ordinal)
                     || markup.Contains("RenderDevbookMetadata=\"true\"", StringComparison.Ordinal),
@@ -101,8 +101,8 @@ public sealed class SelectorMarkupTests
     }
 
     /// <summary>
-    /// Entries and steps are both rows in the shared task list, the open entry is the
-    /// shared panel, and the pane writes none of their titles itself.
+    /// Entries are rows in the shared task list, the open entry is the shared
+    /// panel, and the pane writes none of their titles itself.
     /// <para>
     /// This replaces a pin on two collapse buttons integrated into the two titles.
     /// Both titles were <c>AppButton</c>s the pane composed, each folding its own
@@ -120,14 +120,15 @@ public sealed class SelectorMarkupTests
     /// </para>
     /// </summary>
     [Fact]
-    public void Entries_and_steps_are_rows_and_the_open_entry_is_the_shared_panel()
+    public void Entries_are_rows_and_the_open_entry_is_the_shared_panel()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
-        // Two lists: the entries on the left, the selected entry's steps on the
-        // right. The entry that is open is the panel they are beside.
+        // One list, the entries on the left. The entry that is open is the panel
+        // beside it, and its steps are written in its body's markdown rather than
+        // listed.
         Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
         Assert.Contains("<TaskPanel", pane, StringComparison.Ordinal);
 
         // No row for the open entry, and so no list to put one in.

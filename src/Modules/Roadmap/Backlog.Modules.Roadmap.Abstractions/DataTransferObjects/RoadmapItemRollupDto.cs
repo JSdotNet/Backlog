@@ -17,7 +17,7 @@ public enum RollupOrigin
     Direct,
 
     /// <summary>Found because it carries the item's tag — a backlog entry tagged
-    /// with it, or a knowledge chapter whose <c>roadmap</c> list names it.</summary>
+    /// with it, or a devbook chapter whose <c>roadmap</c> list names it.</summary>
     Tag,
 
     /// <summary>Reached both ways at once.</summary>
@@ -57,12 +57,12 @@ public enum RoadmapProgress
 }
 
 /// <summary>
-/// One thing a roadmap item has gathered: a backlog entry or a knowledge chapter,
+/// One thing a roadmap item has gathered: a backlog entry or a devbook chapter,
 /// with how it was reached, what it registered as effort, how far along it is, and
 /// what it waits on.
 /// </summary>
 /// <param name="Key">A stable identity for de-duplication — a backlog entry's id,
-/// or a knowledge chapter's <c>&lt;path&gt;#&lt;slug&gt;</c> reference. The same
+/// or a devbook chapter's <c>&lt;path&gt;#&lt;slug&gt;</c> reference. The same
 /// thing reached both directly and by tag shares one key and is counted once.</param>
 /// <param name="Title">What to show for it.</param>
 /// <param name="Effort">The story points it registered, or <see langword="null"/>
@@ -87,7 +87,7 @@ public enum RoadmapProgress
 /// backlog stores them (<c>owner/name</c>, or a name Import could not resolve).
 /// Opaque here: a reader matches them against the repositories it knows, which is
 /// how an item spanning several repositories is drawn as one part per repository.
-/// Empty for a knowledge chapter and for work filed nowhere.</param>
+/// Empty for a devbook chapter and for work filed nowhere.</param>
 /// <param name="StartedOn">The day work on it first moved to in progress — or,
 /// when the entry never recorded that, the day the first AI session linked to it
 /// began. <see langword="null"/> when neither says, and always for a knowledge
@@ -190,7 +190,7 @@ public sealed record RoadmapItemRollupDto(
 
     /// <summary>
     /// Whether the item's work is over: it gathered at least one backlog entry and
-    /// every one of them is done. Knowledge chapters are not asked — a chapter has no
+    /// every one of them is done. Devbook chapters are not asked — a chapter has no
     /// status, and an item made only of references has no work to finish.
     /// </summary>
     public bool IsFinished => BacklogEntries.Count > 0 && BacklogEntries.All(link => link.IsDone);

@@ -156,6 +156,33 @@ test("a named file is synced alone; without one every demo under domain/ is", as
     });
 });
 
+test("a playthrough re-copies its signature and each drifted step from the part it names", async () => {
+    const play = (signature, last) => `<!doctype html>
+<html><head><title>Work</title>
+<script type="application/json" id="demo-meta">{"question":"Does the board read?"}</script>
+<script type="application/json" id="demo-model">
+{ "screens": [ {"id": "statuses"} ],
+  "walkthroughs": [
+    { "id": "set-up", "journey": "scenarios.md#set-up-the-board", "signature": ${JSON.stringify(signature)},
+      "steps": [
+        {"screen": "statuses", "part": "statuses-are-set-up", "step": 1, "text": "Given a product with no statuses"},
+        {"screen": "statuses", "part": "statuses-are-set-up", "step": 3, "text": ${JSON.stringify(last)}}
+      ] }
+  ] }
+</script>
+</head><body><section id="statuses" data-screen></section></body></html>
+`;
+    const moved = page("In progress");
+    const signature = signatureOf(journeyOf(moved));
+    await withRepo({ [PAGE_PATH]: moved, [DEMO_PATH]: play(SIGNATURE, "Then they show up") }, async (root) => {
+        const check = cli(root, "--check");
+        assert.equal(check.status, 1, check.stdout + check.stderr);
+        assert.match(check.stdout, /part #statuses-are-set-up step 3 text drifted/);
+        assert.equal(cli(root).status, 0);
+        assert.equal(await read(root, DEMO_PATH), play(signature, "Then they appear as columns in that order"));
+    });
+});
+
 test("a bad argument exits 2", async () => {
     await withRepo({}, async (root) => {
         assert.equal(cli(root, "--nope").status, 2);

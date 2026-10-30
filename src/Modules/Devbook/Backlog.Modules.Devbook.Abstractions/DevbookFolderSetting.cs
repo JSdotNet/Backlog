@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
-/// One configured knowledge folder: which area it is, what it is called, where
+/// One configured devbook folder: which area it is, what it is called, where
 /// it conventionally sits, and whether somebody has pointed it somewhere else.
 /// <para>
 /// This is Devbook's published language rather than a storage detail, which

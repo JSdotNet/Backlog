@@ -97,7 +97,8 @@ public static class GoalsMapper
                 [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status, GoalSubject.ForTask(task.Id)))],
                 pulls,
                 stored?.Outcome,
-                pullSubjects);
+                pullSubjects,
+                goal.DueIsIterationEnd);
         }
 
         StandUpGroup Group(StandUpGroupDto group) => new(
@@ -133,7 +134,10 @@ public static class GoalsMapper
             [.. standUp.Goals.Select(Card)],
             GoalsHolding.NoGoal(goals.Select(summary => summary.Goal), candidates),
             standUpModel,
-            Candidates(candidates));
+            Candidates(candidates))
+        {
+            Repositories = candidates.Repositories
+        };
     }
 
     /// <summary>Every pull request the board shows, each once, in the order it shows them:

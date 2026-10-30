@@ -110,6 +110,7 @@
                 MetadataFileName="@DevbookDocumentPath"
                 ShowMetadataFields="@RenderDevbookMetadataFields"
                 CanEditStatus="@CanEditDevbookStatus"
+                ShowStatus="@ShowDevbookStatus"
                 OnStatusChanged="ReportFileStatusAsync"
                 OnNavigate="@OnDevbookNavigate"
                 HrefFor="@DevbookHrefFor"
@@ -150,6 +151,7 @@
                                                 RenderDevbookMetadata="@RenderDevbookMetadata"
                                                 RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
                                                 CanEditDevbookStatus="@CanEditDevbookStatus"
+                                                ShowDevbookStatus="@ShowDevbookStatus"
                                                 DevbookFolder="@DevbookFolder"
                                                 DevbookDocumentPath="@DevbookDocumentPath"
                                                 OnDevbookStatusChanged="@OnDevbookStatusChanged"
@@ -369,6 +371,20 @@
     public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>
+    /// Whether a status is drawn here at all — the file's own beside its name,
+    /// and every chapter's beside its heading — with the decision state that
+    /// qualifies it. On by default.
+    /// <para>
+    /// One switch for both tiers, for the reason <see cref="CanEditDevbookStatus"/>
+    /// gives. Where that one keeps the status and takes away the select, this takes
+    /// the status away: a host whose status display is switched off passes false,
+    /// and the names, headings, sync directions and fields stay.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool ShowDevbookStatus { get; set; } = true;
+
+    /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the
     /// header: what the file says it is about, the globs and tools it names, and
     /// every other key it states as a plain row.
@@ -400,7 +416,7 @@
     [Parameter]
     public string? FrontmatterSource { get; set; }
 
-    /// <summary>Which knowledge folder the file was read from, so a status can be
+    /// <summary>Which devbook folder the file was read from, so a status can be
     /// checked against that folder's vocabulary.</summary>
     [Parameter]
     public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;

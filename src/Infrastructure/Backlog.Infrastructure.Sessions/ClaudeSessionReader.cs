@@ -443,12 +443,12 @@ internal sealed class ClaudeSessionReader
     }
 
     /// <summary>The session with what its desktop record says — whether the desktop app
-    /// archived it, and the scheduled task it is a run of — or as read where there is no
-    /// record, both left null: unknown, never "not archived".</summary>
+    /// archived it, the scheduled task it is a run of, the name its sidebar shows — or as
+    /// read where there is no record, all left null: unknown, never "not archived".</summary>
     private static AgentSession Stamped(AgentSession session, ClaudeDesktopSession? record) =>
         record is null
             ? session
-            : session with { Archived = record.Archived, ScheduledTask = record.ScheduledTask };
+            : session with { Archived = record.Archived, ScheduledTask = record.ScheduledTask, DesktopTitle = record.Title, DesktopSessionId = record.DesktopId };
 
     /// <summary>The session with what its transcript says about its work. A pass that
     /// did not finish leaves the lists null — not read — rather than empty.</summary>

@@ -42,6 +42,7 @@ const skip = assets ? false : "the devbook plugin's procedure assets are not in 
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 const TEMPLATE = asset("demo-template.html");
 const SAMPLE = asset("demo-sample/features.demo.html");
+const SCENARIOS = asset("demo-sample/scenarios.md");
 
 const CONTEXT = ".devbook/domain/ordering";
 const DEMO = `${CONTEXT}/features.demo.html`;
@@ -64,6 +65,7 @@ async function repo({ template = TEMPLATE, demo = SAMPLE } = {}) {
     if (template != null) await put(TEMPLATE_PATH, template);
     await put(`${CONTEXT}/context.md`, `# Ordering\n\n${fence("type: context\n")}\nOrders.\n`);
     await put(`${CONTEXT}/features.md`, `# Features\n\n${fence("type: features\n")}\nWhat ordering offers.\n`);
+    await put(`${CONTEXT}/scenarios.md`, SCENARIOS);
     if (demo != null) await put(DEMO, demo);
     return { root, read: (rel) => readFile(path.join(root, rel), "utf8"), done: () => rm(root, { recursive: true, force: true }) };
 }
@@ -293,9 +295,9 @@ for (const [name, html] of [["template", TEMPLATE], ["sample", SAMPLE]]) {
     });
 }
 
-test("the sample has one walkthrough, and each step resolves", () => {
+test("the sample has a free walkthrough and a playthrough, and each step resolves", () => {
     const m = model(SAMPLE), found = screens(SAMPLE);
-    assert.equal(m.walkthroughs.length, 1);
+    assert.deepEqual(m.walkthroughs.map((w) => Boolean(w.journey)), [false, true]);
     assert.deepEqual(m.variants, [], "a demo bound for domain/ carries one variant");
     for (const w of m.walkthroughs) for (const st of w.steps) {
         assert.ok(found.has(st.screen), `${w.id}: ${st.screen}`);

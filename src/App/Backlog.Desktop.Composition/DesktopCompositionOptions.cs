@@ -60,6 +60,10 @@ public sealed class DesktopCompositionOptions
     /// <summary>The folder annotation replication keeps its progress file in.</summary>
     public required string AnnotationSyncFolder { get; init; }
 
+    /// <summary>The folder the notification exchange keeps its progress file in, or null to
+    /// keep it beside the annotation one.</summary>
+    public string? NotificationSyncFolder { get; init; }
+
     /// <summary>The file what the last backup did is kept in.</summary>
     public required string BackupStatePath { get; init; }
 
@@ -124,6 +128,12 @@ public sealed class DesktopCompositionOptions
     /// there is not the installed app's. Never a settings file.</summary>
     public required Func<IServiceProvider, ISpecManagerTokenStore> SpecManagerTokenStore { get; init; }
 
+    /// <summary>The head's configuration, from which the composition binds the sections
+    /// its adapters own (ADR 0018 in <c>.devbook/arc42/adr/guidelines/</c>) — today
+    /// <c>SpecManager</c>, so a harness can point the app at a local spec-manager. Null
+    /// binds nothing, and every adapter keeps the defaults it ships with.</summary>
+    public Microsoft.Extensions.Configuration.IConfiguration? Configuration { get; init; }
+
     /// <summary>The reader's inbox routing rules.</summary>
     public required Func<IServiceProvider, IInboxRoutingRules> InboxRoutingRules { get; init; }
 
@@ -167,14 +177,18 @@ public sealed class DesktopCompositionOptions
     /// <summary>
     /// The lifetime of the state one window holds: the Tasks and Inbox panes'
     /// state, the save-state band that reads the first, the toast channel, the
-    /// Report issue channel and the Inbox's plan drafter.
+    /// Report issue channel, the update window's requests, the Inbox's plan drafter
+    /// and triage advisor, and the Devbook's domain store.
     /// <para>
-    /// <see cref="ServiceLifetime.Singleton"/> in the MAUI head, which has one window
-    /// and one user, so one object outlives every page drawn on it.
-    /// <see cref="ServiceLifetime.Scoped"/> in the harness, which has one Blazor
-    /// Server circuit per visitor: a singleton there would show one visitor's toasts
-    /// to every other, and a singleton over the modules' scoped services is a captive
-    /// dependency validation refuses.
+    /// <see cref="ServiceLifetime.Scoped"/> in both heads today. The MAUI head opens a
+    /// scope per window's BlazorWebView and may open several windows (local ADR 0043,
+    /// §5); the harness has one Blazor Server circuit per visitor. A singleton would
+    /// show one window's toasts in every other, and a singleton over the modules'
+    /// scoped services is a captive dependency scope validation refuses. Data and
+    /// change signals stay singletons, so a write in one window reaches the others
+    /// through <c>ITaskChangeSignal</c>; anything resolved from the root that needs a
+    /// window reaches it through a process-wide seam each window attaches to, the way
+    /// <c>SessionsSurfaceActivator</c> does.
     /// </para>
     /// </summary>
     public required ServiceLifetime WindowStateLifetime { get; init; }

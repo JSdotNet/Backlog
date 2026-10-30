@@ -1,4 +1,6 @@
 @implements IDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
 @*
     One view for every document-shaped devbook folder — `.design`, `.ai` — told
@@ -89,7 +91,10 @@
                        badge it replaced could not do. *@
                     <a href="#@FileAnchor(file)" class="folder-devbook__nav-link">
                         <span>@file.Title</span>
-                        <DevbookStatusPill Status="@file.Meta.Status" Folder="@Folder.Folder" />
+                        @if (StatusShown)
+                        {
+                            <DevbookStatusPill Status="@file.Meta.Status" Folder="@Folder.Folder" />
+                        }
                     </a>
                 }
             </nav>
@@ -136,6 +141,7 @@
                                                Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                ShowFields="false"
                                                CanEditStatus="@CanEdit"
+                                               ShowStatus="@StatusShown"
                                                AriaLabel="@($"{file.Title} metadata")"
                                                CssClass="folder-document__record"
                                                Heading="@DocumentHeading(file)"
@@ -255,10 +261,11 @@
                                   DevbookDocumentPath="@DocumentPath(file)"
                                   ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, _folders, RepositoryAlias, DocumentPath(file))"
                                   CanEditDevbookStatus="@CanEdit"
+                                  ShowDevbookStatus="@StatusShown"
                                   OnDevbookStatusChanged="change => ChangeChapterStatusAsync(file, change)"
                                   OnDevbookNavigate="NavigateDevbookReferenceAsync"
-                                  CanEdit="@(chapter is { CanEdit: true })"
-                                  Editing="@(_editing && chapter is { CanEdit: true })"
+                                  CanEdit="@(EditOffered && chapter is { CanEdit: true })"
+                                  Editing="@(EditOffered && _editing && chapter is { CanEdit: true })"
                                   EditingChanged="OnEditingChangedAsync"
                                   EditBodyContent="@ChapterEditor(chapter, file)" />
                         </CascadingValue>
@@ -294,6 +301,7 @@
                                                        Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                        ShowFields="false"
                                                        CanEditStatus="@CanEdit"
+                                                       ShowStatus="@StatusShown"
                                                        AriaLabel="@($"{section.Heading} metadata")"
                                                        CssClass="folder-section__record"
                                                        Heading="@SectionHeading(section)"
@@ -412,6 +420,64 @@
     [Parameter]
     public RenderFragment<IReadOnlyList<DocumentDevbookFile>>? RootPicture { get; set; }
 
+    /// <summary>
+    /// The heading a followed reference opened the selected document at — a usage
+    /// picked on an AI tab, a reference with an anchor in a design chapter — or null
+    /// to open it at its top. Once the document is on screen its file view is
+    /// scrolled to that heading and focus moves to it, the way a scenario page
+    /// reveals a part. An anchor no heading of the document has reveals nothing. A
+    /// new request for the same heading is a new value, so it is revealed again.
+    /// </summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
+
+    /// <summary>The focus last revealed, so a re-render — a sync verdict landing,
+    /// an autosave — does not pull the file back to the heading after the reader
+    /// scrolled away.</summary>
+    private DevbookFocus? _revealed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Focus is not { } focus || focus == _revealed) return;
+
+        // Only once the document's own text is on screen: the file view draws the
+        // previous chapter while the next one comes off disk, and revealing a
+        // heading then would scroll the chapter the reader is leaving.
+        if (SelectedFile is not { } file || EditableChapter(file) is null) return;
+
+        _revealed = focus;
+        if (HeadingFor(file, focus.Anchor) is not { } heading) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogRevealHeading", $"[data-testid='{Folder.AreaKey}-chapter-file']", heading);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The window went while the pane was drawing; there is nothing to scroll.
+        }
+    }
+
+    /// <summary>The text of the heading in <paramref name="file"/> that
+    /// <paramref name="anchor"/> names, as the reader sees it, or null when none
+    /// does. A <c>##</c> chapter or a deeper heading inside one, matched on both slug
+    /// rules in use — the app's own, which a chapter link carries, and GitHub's,
+    /// which an author copies — as <see cref="AiModel"/> resolves a reference. The
+    /// first heading wins where two share a slug. Code and strong marks come off the
+    /// text handed back, because the rendered heading shows none; a heading holding
+    /// a link or underscore emphasis renders other text than it is written with, and
+    /// is not found on screen.</summary>
+    internal static string? HeadingFor(DocumentDevbookFile file, string anchor)
+    {
+        var heading = file.Sections
+            .SelectMany(section => section.Blocks.OfType<DocumentDevbookSubheading>().Select(subheading => subheading.Text).Prepend(section.Heading))
+            .FirstOrDefault(heading =>
+                string.Equals(Slug(heading), anchor, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(AiModel.GitHubSlug(heading), anchor, StringComparison.OrdinalIgnoreCase));
+
+        return heading?.Replace("`", string.Empty, StringComparison.Ordinal).Replace("*", string.Empty, StringComparison.Ordinal).Trim();
+    }
+
     private DocumentDevbookFolder Folder => Provider.Folder;
 
     private bool IsRoot(DocumentDevbookFile file) =>
@@ -446,11 +512,31 @@
         _folders = Services.GetService<IDevbookFolderSource>();
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
         if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        // Optional: a host with no scope offers Edit and shows status as the view
+        // always did — DevbookScope.EditOfferedBy states the rule.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, OnSwitchesChangedAsync);
     }
 
     /// <summary>A sweep recorded verdicts while the view was open: redraw, so the
     /// badges beside the headings are the latest.</summary>
     private void OnSyncVerdictsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Whether Edit is offered and status shown, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>A switch changed while the view was open: leave edit mode
+    /// through the path that flushes the editor when Edit is no longer offered,
+    /// so nothing typed is lost with the control, then redraw.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -952,5 +1038,6 @@
         _chapterBusyWait = null;
         Provider.Changed -= OnDevbookChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
+        _switches?.Dispose();
     }
 }

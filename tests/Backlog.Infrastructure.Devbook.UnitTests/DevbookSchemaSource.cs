@@ -128,7 +128,7 @@ internal sealed class TemporaryDatabase : IDisposable
     /// under the suite's storage folder, never inside the root (local ADR 0015).</summary>
     public string DatabaseFile { get; }
 
-    /// <summary>A knowledge folder inside this root, created on disk.</summary>
+    /// <summary>A devbook folder inside this root, created on disk.</summary>
     public string Folder(string name)
     {
         var folder = Path.Combine(RootDirectory, name);

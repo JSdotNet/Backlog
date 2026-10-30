@@ -172,7 +172,7 @@ public static partial class C4ElementInspection
     }
 
     /// <summary>A title without the number the inspector already shows beside it:
-    /// "ADR 0037: C4 zoom…" reads "C4 zoom…", "03. Context and Scope" reads "Context
+    /// "ADR 0044: C4 zoom…" reads "C4 zoom…", "03. Context and Scope" reads "Context
     /// and Scope".</summary>
     internal static string WithoutNumber(string title)
     {

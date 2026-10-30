@@ -45,9 +45,9 @@ The system SHALL offer Complete on a plan that no task carries and that is open,
 - **Then** the plan is completed on Monday 12 October
 - **And** its bar stays from Monday 5 to Friday 9 October
 
-#### Scenario: A plan that gathers only a knowledge chapter
+#### Scenario: A plan that gathers only a devbook chapter
 
-- **Given** "Write the launch post" gathers one knowledge chapter and no task
+- **Given** "Write the launch post" gathers one devbook chapter and no task
 - **When** the person opens its editor
 - **Then** the editor offers Complete
 

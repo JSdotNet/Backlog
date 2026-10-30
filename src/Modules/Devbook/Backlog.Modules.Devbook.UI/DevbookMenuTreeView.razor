@@ -17,6 +17,7 @@
           TreeAriaLabel="Devbook chapters"
           EmptyMessage="No chapters are available for this area."
           HeadingLabel="@HeadingLabel"
+          HeadingTrailing="@HeadingTrailing"
           RootFolder="@RootTreeNode"
           Nodes="@TreeNodes"
           IsLoading="@IsLoading"
@@ -36,11 +37,17 @@
     [Parameter]
     public string HeadingLabel { get; set; } = "Devbook";
 
+    /// <summary>A control at the end of the heading row, handed to the tree's
+    /// own slot — the Brain's Show hidden switch. Null draws the heading as
+    /// before.</summary>
+    [Parameter]
+    public RenderFragment? HeadingTrailing { get; set; }
+
     [Parameter]
     public DevbookMenuNode? RootFolder { get; set; }
 
     /// <summary>Whether the heading offers "open this folder in an editor". A
-    /// knowledge folder read from a repository branch says no: the folder behind
+    /// devbook folder read from a repository branch says no: the folder behind
     /// it is an app-managed snapshot the next fetch replaces wholesale, so
     /// opening it in an editor would invite edits that quietly vanish.</summary>
     [Parameter]

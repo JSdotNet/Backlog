@@ -149,11 +149,11 @@
                         id="@_titleButtonId"
                         data-testid="@Suffix("title")"
                         @onkeydown="e => OnLeadingKeyAsync(e, leading: !CanToggle)"
-                        @onclick="StartRename">@Title</button>
+                        @onclick="StartRename"><TaskTitleText Title="@Title" /></button>
             }
             else
             {
-                @Title
+                <TaskTitleText Title="@Title" />
             }
         </h2>
 
@@ -179,6 +179,32 @@
         @* Where a linked task came from, on the heading line as on the row, so the
            reader who opened it from the list finds the link in the same shape. *@
         <SourceBadge Source="@Source" CssClass="task-panel__source" TestId="@Suffix("source")" />
+
+        @* The addresses typed into the title, as links beside it. The title is the
+           rename button, so the address inside it is link-styled text a pointer can
+           follow without starting the rename (see TaskTitleText); this is the link a
+           keyboard and a screen reader reach, outside the heading, after the source
+           as on the row. *@
+        @if (TitleRuns.HasUrl(Title))
+        {
+            <span class="task-panel__links" data-testid="@Suffix("links")">
+                <TaskTitleLinks Title="@Title" TestId="@Suffix("title-link")" />
+            </span>
+        }
+
+        @* The host's own controls for the whole task, just before the copy button —
+           the order TaskItem puts its Actions slot and its copy in, so a control a
+           host puts on both the row and the open task sits in the same place on
+           each, beside the same button. *@
+        @if (HeaderActions is not null)
+        {
+            <span class="task-panel__actions"
+                  role="group"
+                  aria-label="@($"Actions for {Title}")"
+                  data-testid="@Suffix("actions")">
+                @HeaderActions
+            </span>
+        }
 
         @* Behind the state, which is where the row puts it too. A reader who
            opened this panel to read a task and then wants to take it somewhere
@@ -353,6 +379,21 @@
     /// badge on the heading line and the sync's flags under it.</summary>
     [Parameter]
     public TaskSource? Source { get; set; }
+
+    /// <summary>
+    /// What the host can do to the whole task from its heading line — hand it to a
+    /// tool, queue it somewhere — rendered just before the copy button.
+    /// <para>
+    /// The panel's counterpart of <see cref="TaskItem.Actions"/>, in the same
+    /// position: the row puts its host's controls immediately ahead of its copy,
+    /// and so does the heading, so a reader who opened a row finds the control
+    /// beside the copy they just saw. Named for the heading rather than plain
+    /// <c>Actions</c> because <see cref="Footer"/> already holds what acts on the
+    /// task from the bottom of the panel. Unset, nothing is drawn.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? HeaderActions { get; set; }
 
     /// <summary>Whether the panel offers to copy the task. On by default, and
     /// still silent until <see cref="CopyValue"/> says what there is to copy —

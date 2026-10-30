@@ -39,7 +39,13 @@ public enum AgentSessionState
     Stalled,
 
     /// <summary>Over. Only its record is left.</summary>
-    Finished
+    Finished,
+
+    /// <summary>Live, and holding an open waiting question: it asked the person something
+    /// and no answer has reached it yet (local ADR 0041). Read in from the question relay
+    /// by <see cref="WaitingQuestions.StateWith"/>, never from a file; last, so the
+    /// members before it keep their values.</summary>
+    Waiting
 }
 
 /// <summary>
@@ -320,6 +326,27 @@ public sealed record AgentSession(
     /// </para>
     /// </summary>
     public string? ScheduledTask { get; init; }
+
+    /// <summary>
+    /// The name the Claude desktop app's sidebar shows for this session — the record's
+    /// <c>title</c>, whether the app, a tool or the person gave it — or null where the
+    /// record names none or there is no record.
+    /// <para>
+    /// What a surface calls the session where it is set, ahead of <see cref="Title"/>,
+    /// which is the transcript's and often only the worktree folder's name. It never
+    /// replaces <see cref="Title"/>: that is what a session record keeps and sync
+    /// carries, and this is local-only on the same terms as <see cref="Archived"/>.
+    /// </para>
+    /// </summary>
+    public string? DesktopTitle { get; init; }
+
+    /// <summary>
+    /// The Claude desktop app's own id for the session — <c>local_&lt;guid&gt;</c>, the id its
+    /// session tools take — where its session store holds a record, else null. What the
+    /// Manager sends an answer delivery to (local ADR 0041 §3); local-only on the same
+    /// terms as <see cref="Archived"/>.
+    /// </summary>
+    public string? DesktopSessionId { get; init; }
 }
 
 /// <summary>
@@ -632,7 +659,7 @@ public static class AgentSessionViews
     /// <summary>The same test over a state alone, which is what a row that may have
     /// no session behind it can offer.</summary>
     public static bool IsLive(AgentSessionState state) =>
-        state is AgentSessionState.Running or AgentSessionState.Stalled;
+        state is AgentSessionState.Running or AgentSessionState.Stalled or AgentSessionState.Waiting;
 
     /// <summary>
     /// Whether the Claude desktop app holds this session open: its desktop record says
@@ -751,7 +778,14 @@ public enum AgentSessionGrouping
     When,
 
     /// <summary>A section per repository, by the one the row shows.</summary>
-    Repository
+    Repository,
+
+    /// <summary>A section per plan tag (<see cref="SessionTitles"/>): the plan's
+    /// session, then its runs, then its entries by step; the rows of no plan last.</summary>
+    Plan,
+
+    /// <summary>A section per <see cref="SessionPurpose"/>, in the order it declares.</summary>
+    Purpose
 }
 
 /// <summary>
@@ -858,12 +892,80 @@ public static class AgentSessionGroups
                     ? [new AgentSessionGroup(NoRepository, [.. ordered.Where(row => row.Repository is null)])]
                     : Array.Empty<AgentSessionGroup>()
             ],
+            AgentSessionGrouping.Plan => ByPlan(ordered),
+
+            // In the order SessionPurpose declares, which is the order the filter offers.
+            AgentSessionGrouping.Purpose =>
+            [
+                .. ordered
+                    .GroupBy(row => SessionTitles.Of(row).Purpose)
+                    .OrderBy(group => group.Key)
+                    .Select(group => new AgentSessionGroup(SessionTitles.Label(group.Key), [.. group], group.Key.ToString()))
+            ],
             _ => ordered.Count == 0 ? [] : [new AgentSessionGroup(null, ordered)]
         };
     }
 
     /// <summary>The heading over the rows that name no repository.</summary>
     public const string NoRepository = "No repository";
+
+    /// <summary>The heading over the rows that belong to no plan, under
+    /// <see cref="AgentSessionGrouping.Plan"/>.</summary>
+    public const string NotPartOfAPlan = "Not part of a plan";
+
+    /// <summary>The heading of the When section that opens the list with the standing
+    /// sessions (<see cref="SessionTitles.IsStanding"/>).</summary>
+    public const string Standing = "Standing";
+
+    /// <summary>The key of the When section <see cref="Standing"/> heads.</summary>
+    public const string StandingKey = "standing";
+
+    /// <summary>
+    /// What a Plan section's key starts with, before the bare tag lower-cased. A tag is
+    /// free text a title writes, so a bare one could be <c>scheduled</c> and collide with
+    /// <see cref="ScheduledKey"/>, the section <see cref="ScheduledApart"/> closes the
+    /// list with; under its own prefix it cannot.
+    /// </summary>
+    public const string PlanKeyPrefix = "plan/";
+
+    /// <summary>The bare tag a Plan section's key names, or null for a key that is
+    /// not a Plan section's.</summary>
+    public static string? PlanTagOf(string? key) =>
+        key is not null && key.StartsWith(PlanKeyPrefix, StringComparison.Ordinal) ? key[PlanKeyPrefix.Length..] : null;
+
+    // Keyed on the bare tag case-blind — an entry writes "foo:1", a run "+foo:execute-plan",
+    // and both are one plan. Inside a section the plan's own session leads, its runs
+    // follow and its entries close it by step; a stable sort keeps recency within each.
+    private static IReadOnlyList<AgentSessionGroup> ByPlan(IReadOnlyList<SessionRow> ordered)
+    {
+        static int Rank(SessionPurpose purpose) => purpose switch
+        {
+            SessionPurpose.Plan => 0,
+            SessionPurpose.PlanRun => 1,
+            _ => 2
+        };
+
+        var tagged = ordered.Where(row => SessionTitles.Of(row).PlanTag is not null).ToList();
+        var untagged = ordered.Where(row => SessionTitles.Of(row).PlanTag is null).ToList();
+
+        return
+        [
+            .. tagged
+                .GroupBy(row => SessionTitles.Of(row).PlanTag!.ToLowerInvariant(), StringComparer.Ordinal)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => new AgentSessionGroup(
+                    "+" + SessionTitles.Of(group.First()).PlanTag,
+                    [
+                        .. group
+                            .OrderBy(row => Rank(SessionTitles.Of(row).Purpose))
+                            .ThenBy(row => SessionTitles.Of(row).Step ?? 0)
+                    ],
+                    PlanKeyPrefix + group.Key)),
+            .. untagged.Count > 0
+                ? [new AgentSessionGroup(NotPartOfAPlan, untagged)]
+                : Array.Empty<AgentSessionGroup>()
+        ];
+    }
 
     /// <summary>The heading over the desktop app's scheduled runs; see
     /// <see cref="ScheduledApart"/>.</summary>
@@ -909,6 +1011,7 @@ public static class AgentSessionGroups
     /// <summary>The When buckets, in the order the list shows them: key and heading.</summary>
     private static readonly (string Key, string Name)[] WhenBuckets =
     [
+        (StandingKey, Standing),
         ("live", "Live now"),
         ("today", "Earlier today"),
         ("yesterday", "Yesterday"),
@@ -921,10 +1024,13 @@ public static class AgentSessionGroups
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).Date);
 
         // Live is the session's state and not its day: a session stalled since
-        // yesterday is still the one a reader opening this list is looking for.
+        // yesterday is still the one a reader opening this list is looking for. A
+        // standing session (an artifact, a plan, a hold …) is kept above the days
+        // until it is archived, and sits in Live now only while it runs.
         string Bucket(SessionRow row)
         {
             if (AgentSessionViews.IsLive(row.State)) return "live";
+            if (SessionTitles.IsStanding(SessionTitles.Of(row).Purpose)) return StandingKey;
 
             var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(row.LastActivityAt, zone).Date);
             var daysAgo = today.DayNumber - day.DayNumber;

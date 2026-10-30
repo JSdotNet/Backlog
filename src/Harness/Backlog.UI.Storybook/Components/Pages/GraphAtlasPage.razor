@@ -6,15 +6,15 @@
            Summary="GraphAtlas draws a node/edge model as a place: clustered in three dimensions, projected onto a canvas, with a list beside it that is the surface the keyboard actually operates. Every word on screen arrives in the model, so the stories below are a kitchen rather than anything the app happens to show."
            Guidelines="@Rules">
     @*
-        A kitchen, not a technology stack. The app's atlas draws `.tech`, and a
-        story that drew the same thing would be indistinguishable from a
-        screenshot of the app — which makes it useless for spotting the moment
-        the component starts assuming what it is drawing.
+        A kitchen, not a devbook. The app's atlases draw a repository devbook and
+        the Brain, and a story that drew the same thing would be
+        indistinguishable from a screenshot of the app — which makes it useless
+        for spotting the moment the component starts assuming what it is drawing.
 
-        The tones are the point of the second story. `.tech` holds only two of
-        the five ladder values today, so `trial`, `hold` and `retired` are
-        unreviewable against real data and the mid-ramp steps and the square and
-        hollow marks would ship unseen. Here all six are on screen at once.
+        The tones are the point of the second story. A real devbook rarely holds
+        every status at once, so the mid-ramp steps and the square and hollow
+        marks would ship unseen against real data. Here all six are on screen at
+        once.
     *@
 
     <Story Name="Atlas"
@@ -86,7 +86,7 @@
         control rather than only as a column beside a picture.
     *@
     <Story Name="Index on its own"
-           Description="A listbox with a roving tabindex: one row is tabbable, arrows move between them, Home and End jump to the ends. Every fact the marks encode is written out here as text, including the degree that sizes a node on the map."
+           Description="A listbox with a roving tabindex: one row is tabbable, arrows move the focus between them and Home and End jump to the ends, without selecting; Enter, Space or a click selects. Every fact the marks encode is written out here as text, including the degree that sizes a node on the map."
            Code="@IndexCode">
         <div class="sb-stack">
             <GraphAtlasIndex Nodes="KitchenNodes"
@@ -98,8 +98,8 @@
     </Story>
 
     @*
-        The other shape the atlas is asked to draw. The kitchen above is fourteen
-        nodes in three clusters; a knowledge folder is hundreds across a dozen, and
+        The other shape the atlas is asked to draw. The kitchen above is fifteen
+        nodes in three clusters; a devbook folder is hundreds across a dozen, and
         the two stress different things — label collision, cluster overlap, how
         much of the edge set is legible at once. Drawing both here is the point.
 
@@ -175,7 +175,7 @@
     private sealed record Ingredient(string Id, string Label, string Kind, string Status, string Tone, string Group, int Order);
 
     // Reading order is the group order, and it is deliberate rather than
-    // alphabetical — the same way a knowledge folder's index.json is.
+    // alphabetical — the same way a devbook folder's index.json is.
     private static readonly IReadOnlyList<Ingredient> Kitchen =
     [
         new("flour", "Flour", "staple", "adopted", "active", "Pantry", 0),
@@ -193,7 +193,10 @@
         new("pie", "Pie", "dish", "candidate", "ready", "Dishes", 1),
         new("souffle", "Souffle", "dish", "trial", "draft", "Dishes", 2),
         new("gratin", "Gratin", "dish", "retired", "archived", "Dishes", 3),
-        new("brulee", "Creme brulee", "dish", "candidate", "ready", "Dishes", 4)
+        new("brulee", "Creme brulee", "dish", "candidate", "ready", "Dishes", 4),
+        // A label long enough to wrap, so the index shows a row that grows to hold it —
+        // and the canvas a hover pill far wider than its label budget, kept as a stress case.
+        new("lamb", "Slow-roasted shoulder of lamb on a long-simmered white bean and rosemary gratin", "dish", "trial", "draft", "Dishes", 5)
     ];
 
     private static readonly (string Source, string Target)[] Needs =
@@ -206,7 +209,8 @@
         ("pie", "pastry"), ("pie", "butter"),
         ("souffle", "eggs"), ("souffle", "custard"),
         ("gratin", "roux"), ("gratin", "stock"),
-        ("brulee", "custard"), ("brulee", "caramel")
+        ("brulee", "custard"), ("brulee", "caramel"),
+        ("lamb", "roux"), ("lamb", "stock")
     ];
 
     private static readonly string[] Groups = ["Pantry", "Preparations", "Dishes"];
@@ -285,7 +289,7 @@
         .. Tones.Select(tone => new GraphAtlasNode(tone.Id, tone.Label, "tone", tone.Status, tone.Slug, "Ladder", 3, 0))
     ];
 
-    // A library rather than a knowledge folder, for the same reason the kitchen is
+    // A library rather than a devbook folder, for the same reason the kitchen is
     // not a technology stack: a story that drew `.domain` would be a screenshot of
     // the app, and would stop being able to catch the component assuming what it
     // is drawing. Generated rather than typed out, because what is being reviewed

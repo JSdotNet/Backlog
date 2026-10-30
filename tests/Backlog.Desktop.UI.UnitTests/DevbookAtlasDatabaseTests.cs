@@ -39,21 +39,23 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
         Assert.True(graph.Available);
         Assert.Null(graph.Message);
 
-        // The file and its two chapters, plus the .tech chapter one of them depends
-        // on, which comes in as a stub rather than as a member of the scope.
+        // The file and its two chapters, plus the .arc42 chapter one of them depends
+        // on, which comes in as a stub rather than as a member of the scope. The
+        // .tech chapter it also depends on is left out: the atlas does not draw the
+        // technology stack.
         Assert.Equal(4, graph.Nodes.Count);
 
         var boundary = Assert.Single(graph.Nodes, node => node.OutOfScope);
-        Assert.Equal(".tech/shared.md#net", boundary.Id);
-        Assert.Equal("Technology", boundary.Folder);
+        Assert.Equal(".arc42/04-solution-strategy.md#technology-choices", boundary.Id);
+        Assert.Equal("Architecture", boundary.Folder);
 
         var edge = Assert.Single(graph.Edges);
         Assert.Equal(".domain/inbox/domain.md#inbox", edge.Source);
-        Assert.Equal(".tech/shared.md#net", edge.Target);
+        Assert.Equal(".arc42/04-solution-strategy.md#technology-choices", edge.Target);
     }
 
     [Fact]
-    public async Task The_whole_repository_scope_keeps_every_folder()
+    public async Task The_whole_repository_scope_keeps_every_folder_but_the_technology_stack()
     {
         var source = Arrange(withDatabase: true);
         var service = new DevbookAtlasService(source);
@@ -63,7 +65,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
         Assert.True(graph.Available);
         Assert.Equal(4, graph.Nodes.Count);
         Assert.DoesNotContain(graph.Nodes, node => node.OutOfScope);
-        Assert.Equal(["Domain", "Technology"], graph.Nodes.Select(node => node.Folder).Distinct().Order());
+        Assert.Equal(["Architecture", "Domain"], graph.Nodes.Select(node => node.Folder).Distinct().Order());
     }
 
     /// <summary>
@@ -122,6 +124,8 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
                     'inbox', 2, 7, 'active', 0, NULL, NULL, NULL, NULL),
                    ('.domain/inbox/domain.md#capture', 'chapter', 'Capture', 'domain', '.domain/inbox/domain.md',
                     'capture', 2, 21, 'draft', 0, NULL, NULL, NULL, NULL),
+                   ('.arc42/04-solution-strategy.md#technology-choices', 'chapter', 'Technology Choices', 'arc42', '.arc42/04-solution-strategy.md',
+                    'technology-choices', 2, 5, 'active', 0, NULL, NULL, NULL, NULL),
                    ('.tech/shared.md#net', 'chapter', '.NET', 'tech', '.tech/shared.md',
                     'net', 2, 3, 'adopted', 0, NULL, NULL, NULL, NULL)
             """);
@@ -130,7 +134,8 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
             INSERT INTO edge (id, type, source, target)
             VALUES ('contains-1', 'contains', '.domain/inbox/domain.md', '.domain/inbox/domain.md#inbox'),
                    ('contains-2', 'contains', '.domain/inbox/domain.md', '.domain/inbox/domain.md#capture'),
-                   ('depends-1', 'depends-on', '.domain/inbox/domain.md#inbox', '.tech/shared.md#net')
+                   ('depends-1', 'depends-on', '.domain/inbox/domain.md#inbox', '.tech/shared.md#net'),
+                   ('depends-2', 'depends-on', '.domain/inbox/domain.md#inbox', '.arc42/04-solution-strategy.md#technology-choices')
             """);
 
         SqliteConnection.ClearPool(connection);
@@ -157,7 +162,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
         }
     }
 
-    /// <summary>The knowledge folders of one repository on disk, with nothing else
+    /// <summary>The devbook folders of one repository on disk, with nothing else
     /// the port can do — no settings file, no clone, no branch snapshot.</summary>
     private sealed class FixedDevbookFolderSource(string root) : IDevbookFolderSource
     {

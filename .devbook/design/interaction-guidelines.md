@@ -341,7 +341,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 ## Motion and Reduced Motion
 
 ```meta
-related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion"]
+related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion", ".devbook/domain/devbook/features.md#lobes-atlas"]
 ```
 
 Motion serves purpose only — to communicate a state change, direct attention, or
@@ -372,6 +372,26 @@ with `ease-bounce`. The product uses a smooth `ease-out` instead, by explicit
 decision — a bounce on every auto-save is a lot of movement for something that
 happens continuously and unprompted. The desktop declares this as
 `--ease-saved-flash` in `app.css`.
+
+**Recorded deviation:** the [Lobes atlas](../domain/devbook/features.md#lobes-atlas)
+turns its brains slowly on their own after four seconds without input, about one
+turn in a hundred seconds. The turn ramps in over `transition-slow` on
+`ease-in-out`. It serves none of the three purposes the opening rule names. The
+product keeps it by explicit decision, so the map reads as three-dimensional at
+rest: the brains show their depth without anyone dragging them.
+
+- A press or a scroll on the map stops the turn, and so does resting the pointer
+  on a mark. The turn restarts after four more seconds without input.
+- The turn never runs under `prefers-reduced-motion: reduce`, nor while the
+  document is hidden. A page whose picture must be still turns it off. That is a
+  page-level switch, not a reader control.
+- The turn does not meet WCAG 2.2.2 (Pause, Stop, Hide). No control pauses it
+  until the reader resumes it, and a keyboard-only reader cannot stop it at all.
+  The reduced-motion setting removes the turn, but it is not a pause control.
+- The follow-up is a pause control among the atlas's controls that a keyboard
+  and a pointer both reach. Until it lands, the atlas falls short of the target
+  in [`accessibility.md#target-and-scope`](accessibility.md#target-and-scope).
+  The atlas stays behind its `atlas-lobes` feature flag, which ships off.
 
 Rules:
 
@@ -458,7 +478,7 @@ Which region shows a loader, and when it appears, is `#scoped-loading`'s and
 ## Task Rows
 
 ```meta
-related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/content-editing.md#task-structure", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
+related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/content-editing.md#task-structure", ".devbook/design/content-editing.md#inline-constructs", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
 A task row is the product's densest composition. One line holds a completion
@@ -470,6 +490,8 @@ actions, and a list may hold hundreds of such rows.
 | Completion | The completion control is round — the one convention this shape has — and MUST remain a real checkbox to assistive technology. |
 | No inert controls | A row with nothing listening MUST render its completion state as an image with an accessible label rather than as a control. A control that takes focus and then does nothing, or records something untrue, is worse than no control. |
 | Renaming | A rename happens where the title is, so the row MUST NOT change height while it is being renamed. Enter commits, Escape abandons, clicking away commits; there is no Save button, per `#auto-save-no-save-buttons`. |
+| Links in a title | A bare `http` or `https` address in a title reads as a link where it stands, found and ended as `content-editing.md#inline-constructs` says. The title stays verbatim, so the rename draft, the copy and every label built from it keep the raw string. The title is the control that opens the row, and the side panel's heading is the one that starts its rename. The address inside either is therefore no anchor and takes no tab stop. A pointer click on it opens the address in a new browser tab, or in the system browser from the desktop head. That click MUST NOT open the row, start a rename or start a drag. |
+| A title's links | The keyboard's and a screen reader's way to that address MUST be a real link beside the title. On a row it sits in the badge slot after the source badge, and on the side panel it sits on the heading line after the source. Each distinct address gets one link, in title order. The link is labelled with the host and an arrow, and its accessible name is "Open" followed by the whole address. A title with no address draws no link and no empty slot. |
 | Rename reporting | A rename is reported when it settles, not per keystroke. An empty title and an unchanged one are not renames. |
 | Escape belongs to the innermost draft | A field that abandons a draft on Escape MUST stop the key there — a row's rename, a list's add-row composer, and the side panel's heading rename all do — so a surface whose own Escape dismisses something never takes that decision out of the same press. Closing the field is not containment: an event's path is fixed before the first handler runs, so a field that removes itself is still on the path the key climbs. A row's line holds no draft, so Escape on it belongs to the surface around the list; that split is what lets a list offer a way out of a selection mode without an abandoned rename discarding the picked set. What such a boundary contains is the framework's dispatch to the handlers above it, not the browser's own propagation — a document-level listener registered in script still hears the key, in either phase — so a gesture's way out is never what a draft's boundary takes away. |
 | Repeated renaming | Where retitling many rows is the task, the keystroke that finishes one rename MUST start the next (Tab down, Shift+Tab up), and the field MUST arrive with the title selected so the first keystroke replaces it. |
@@ -498,10 +520,10 @@ and short. The rows above hold for the facts; these rules hold for the stack.
 
 | Rule | Requirement |
 |---|---|
-| Line order | Top to bottom, and nothing absent drawn as a gap: the kind, with the priority mark and the **My Day** marker beside it, and the copy button on that line's far end when the host offers it; the title; `Waits on …` when the chain says the task cannot start, naming what it waits on rather than counting it; the tags; then one quiet line — the repository, the sub-items done of total, the one date that matters (when it is due on an open task, when it was finished on a done one), the work badges — the task's source and the host's — and the effort on the far end. |
+| Line order | Top to bottom, and nothing absent drawn as a gap: the kind, with the priority mark and the **My Day** marker beside it, and the copy button on that line's far end when the host offers it; the title; `Waits on …` when the chain says the task cannot start, naming what it waits on rather than counting it; the tags; then one quiet line — the repository, the sub-items done of total, the one date that matters (when it is due on an open task, when it was finished on a done one), the work badges — the task's source, then the links to its title's addresses per *A title's links* above, then the host's — and the effort on the far end. |
 | Effort is always stated | The effort is the one fact a card draws when it is absent: `Not estimated`, because a column that sums its points makes an unestimated card worth stating. |
 | Quiet priority | Only **High** and **Critical** draw a mark — a small up-chevron, named as its priority to a tooltip and to a screen reader, never only a shape. **Medium** and **Low** draw nothing: priority is barely used, and a mark on every card is a mark nobody reads. |
-| One control | The whole card is one focusable control that opens the entry, on a click or on Enter or Space, and it is a control only while the host is listening — per *No inert controls* above. The controls inside it — the copy button, a pressable tag, the badges — are their own tab stops and never open it. |
+| One control | The whole card is one focusable control that opens the entry, on a click or on Enter or Space, and it is a control only while the host is listening — per *No inert controls* above. The controls inside it — the copy button, a pressable tag, the badges and the title's links — are their own tab stops and never open it. An address in the title is no tab stop. A pointer click on it opens the address and not the card, per *Links in a title* above. |
 | Copy on the card | A card a board lays out carries the row's copy button at the far end of its top line, copying exactly what the task's row copies, and refused the same way on a task marked blocked. Copying is not opening: the button's slot stops the press, the click and the key as the badge slot does, and a drag never starts from it. |
 | Badges are not the card | The work badges are facts to follow, usually links, and following one is not opening the card. Their slot MUST stop the press, the click and the key before the card hears them, as the row's badge slot does; a tag the host is listening to is a control of its own and stops them the same way. |
 | The identity edge is the host's | The repository edge is drawn only when the host passes it, on the seam a list row takes it through, so a card and the row for the same entry cannot disagree about it (see `color-scheme.md#the-identity-edge`). |
@@ -511,7 +533,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/devbook/features.md#brain-scope", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/devbook/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -534,14 +556,17 @@ as its kind:
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off of its own that gives the Devbook the whole screen in place of the main view; pressed again, it returns to that view, and Escape does too. See `#workspace-panes`. It is named for what the Devbook shows, open or closed: **Brain**, in the Brain's accent (`color-scheme.md#the-brains-accent`), while the Devbook reads or would open on the Brain — nothing pressed, the Brain as anchor, or the Brain side of its `Brain \| <repo>` switch — and **Devbook** otherwise. The word changes, the control does not. |
 | Work in progress group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight: the Progress context's [Goals view](../domain/progress/features.md#the-goals-view) and the Sessions context's two lists. Goals acts as a view option does; Sessions and Pull requests act as takeovers. Always renders, because Goals is always offered. |
-| Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
+| Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag; **Atlas** under `atlas-lobes` ([Lobes atlas](../domain/devbook/features.md#lobes-atlas)). Renders while one of them is offered. **Notifications** opens the notification centre and wears the count of questions waiting for an answer, in the question's gold, and no count while none wait. |
 
 | Rule | Requirement |
 |---|---|
 | The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the Inbox and the Devbook read as belonging to the views. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath; closing it shows the view as it was. The Devbook is a takeover. |
 | Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option during a takeover MUST close it and show the workspace with that view on screen. The Inbox is left by a second press of its option, a view option or another takeover, never by Escape. |
+| The atlas returns where it was opened | The **Atlas** takeover opens from its header option or from the Devbook's own **Atlas** button, so its Escape, close button and second press MUST return to the surface it was opened over — the main view, another takeover, or the Devbook — and its tooltip names that surface. A surface switched off since it opened is no way back: the atlas returns to the main view, and its tooltip names that view instead. Its way back survives a trip to Settings, because the shell is rebuilt on every route change, and so does the ghost scope a ghost devbook's **Register repository** leaves from. A view option still closes it onto the workspace. |
 | Nothing reads pressed under a takeover | During a takeover, the Devbook included, and while the Inbox has the screen, no view option reads pressed, since nothing of the workspace is on screen. |
+| A surface pops out | Each header item a module registers as a surface (local ADR 0043 §1) MUST carry a ⧉ **Open in new window** button hung centred under its option, its top on the option's bottom edge, so it covers none of the option — not its word, not a folded option's glyph, not the selected underline — and no fused neighbour. It is placed absolutely, so showing it never moves the header or changes the width the fold measures; the option's top-right corner stays the feature flag's. It MUST show on hover and while anything in the item has keyboard focus, and always where nothing can hover, and there the header keeps the strip it hangs in clear, below itself and between the rows it wraps to, so it covers nothing; it stays in the tab order, after its option. Its name is **Open <name> in a new window**, the option's own word, and the glyph is hidden from assistive technology. Every press opens one more window and changes nothing in this one (local ADR 0043 §4). A host that cannot open windows draws no button. |
+| A popped-out window has a slim header | A popped-out window MUST draw a slim header of three things: the surface's title as its heading, the window's own repository scope chips, led by the Brain chip, and a **Show in main window** control that switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope. The header MUST carry no view switch, no takeover options and no **Ask AI**, which stays in the main window only, and no close button of its own: the OS one closes it. The window's title follows the surface on screen. The footer band and toasts MUST show in the window as they do in the main one (local ADR 0043 §4, §5). |
 | Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and Goals carries its own iteration choice. |
@@ -578,18 +603,19 @@ neither shares the window with the view (local ADR 0022, amendments of
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
-along the bottom, where a thumb already is: **Today**, **Inbox**, **Stand-up**
-once a desktop has sent the stand-up, and **Notes**. Each is a route of its own,
+along the bottom, where a thumb already is: **Today**, **Inbox**,
+**Notifications** once the phone holds a notification, **Stand-up** once a
+desktop has sent the stand-up, and **Notes**. Each is a route of its own,
 so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
 they lead with a glyph as the desktop's views do (`#shell-header`).
 
 | Rule | Requirement |
 |---|---|
-| Every tab or none | Each tab MUST lead with a decorative glyph, or none may. One tab with a picture beside tabs without reads as the one that is different. The phone's tabs carry: a sun for Today (the My Day glyph), an inbox tray for Inbox, a target (Lucide `target`) for Stand-up, as the desktop's Goals option has, and a sticky note (Lucide `sticky-note`) for Notes. |
+| Every tab or none | Each tab MUST lead with a decorative glyph, or none may. One tab with a picture beside tabs without reads as the one that is different. The phone's tabs carry: a sun for Today (the My Day glyph), an inbox tray for Inbox, a target (Lucide `target`) for Stand-up, as the desktop's Goals option has, a bell (Lucide `bell`) for Notifications, as the desktop's Notifications option has, and a sticky note (Lucide `sticky-note`) for Notes. |
 | Glyph above the word | The glyph sits above the tab's word, at `icon-md` (20px), in the word's ink, so the lit tab's glyph lights with it. The word stays: a glyph alone is not a name. |
 | The word is the name | The glyph MUST be hidden from assistive technology per `accessibility.md#iconography-accessibility`, so each tab is announced by its word alone. |
 | The target holds | Every tab stays at least 48px tall with its glyph, past the 44px minimum in `accessibility.md#target-sizes-and-text`. |
@@ -654,7 +680,7 @@ This section uses four words in a fixed sense:
 
 - An **act** is one thing the product does on an external tool, drawn as a
   button or a menu item.
-- The **act set** is every act a subject offers. A task, a knowledge chapter, a
+- The **act set** is every act a subject offers. A task, a devbook chapter, a
   roadmap bar and a menu show the same act set.
 - The **visible budget** is how many acts a surface shows before the rest go into
   an overflow menu.

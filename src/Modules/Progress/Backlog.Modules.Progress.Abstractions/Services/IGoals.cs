@@ -25,7 +25,8 @@ public interface IGoals
     event Action? Changed;
 
     /// <summary>
-    /// Every goal, in the order they were set, each with its
+    /// Every goal, in the person's order (<see cref="GoalOrder"/>) — the order they were set
+    /// in until the person moves one — each with its
     /// <see cref="GoalProgressDto"/> read from the current state of its work.
     /// <see cref="GoalProgressDto.DoneInWindow"/> counts the items done from
     /// <paramref name="windowStart"/> to <paramref name="windowEnd"/>, both days
@@ -42,9 +43,9 @@ public interface IGoals
     /// question an attach button asks before it offers to attach.</summary>
     Task<Result<GoalDto?>> FindGoalOfAsync(GoalItemDto item, CancellationToken cancellationToken = default);
 
-    /// <summary>Sets a new goal, holding nothing yet. Refused without a title
-    /// (<c>progress.goal_without_title</c>) or a due date (<c>progress.goal_without_due_date</c>),
-    /// or with an outcome of more than one line (<c>progress.outcome_not_one_line</c>).</summary>
+    /// <summary>Sets a new goal, holding nothing yet, with or without a due date. Refused
+    /// without a title (<c>progress.goal_without_title</c>), or with an outcome of more than
+    /// one line (<c>progress.outcome_not_one_line</c>).</summary>
     Task<Result<GoalDto>> CreateAsync(SetGoalRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Replaces a goal's title, outcome and due date, on the rules
@@ -54,6 +55,13 @@ public interface IGoals
     /// <summary>Deletes a goal and its attachments. The plans, tasks and pull requests it
     /// held are unchanged and belong to no goal from then on.</summary>
     Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default);
+
+    /// <summary>Puts the goal at <paramref name="toIndex"/> in the person's order — counted
+    /// among the goals <see cref="ListAsync"/> lists, clamped to them — and raises
+    /// <see cref="Changed"/> so the order travels. Nothing the goal holds changes, and a goal
+    /// moved to the place it holds writes nothing. Refused for a goal that is not there
+    /// (<c>progress.goal_not_found</c>).</summary>
+    Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Attaches a plan, a task or a pull request to a goal. Attaching what the goal holds

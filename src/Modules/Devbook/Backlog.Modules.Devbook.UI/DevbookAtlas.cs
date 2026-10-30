@@ -8,7 +8,7 @@ using Backlog.UI.Components.Devbook;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The knowledge folders as a map, read from the graph the metadata generator
+/// The devbook folders as a map, read from the graph the metadata generator
 /// already derives.
 ///
 /// <para>Nothing here parses Markdown. The generated devbook database
@@ -126,6 +126,118 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
         }
     }
 
+    /// <summary>
+    /// The Lobes atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>):
+    /// the Brain and the devbook of every registered repository in one graph,
+    /// read from the Brain's database and each repository's devbook database and
+    /// nothing else. Each node carries its scope, its region and its kind; each
+    /// <c>repo:</c> link is resolved as the Brain atlas resolves it
+    /// (<see cref="BrainRepoLinkResolver"/>) and drawn to that repository's
+    /// chapter node, or into a ghost devbook when its alias is not registered.
+    /// <para>
+    /// No Brain folder, or no Brain index yet, says so rather than drawing a map
+    /// without the Brain. A registered repository with no index yet is still a
+    /// scope, unavailable, holding only the chapters the notes name.
+    /// </para>
+    /// </summary>
+    /// <param name="brain">The Brain, asked for its folder on every read.</param>
+    /// <param name="repositoryAliases">The registered repositories that have a
+    /// devbook, in the order their scopes are offered.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    public Task<DevbookLobesGraph> ReadLobesAsync(IBrainFolderSource brain, IReadOnlyList<string> repositoryAliases, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(brain);
+        ArgumentNullException.ThrowIfNull(repositoryAliases);
+
+        if (brain.BrainRoot is not { Length: > 0 } root)
+        {
+            return Task.FromResult(DevbookLobesGraph.Unavailable(NoBrainFolder));
+        }
+
+        return Task.Run(() => ReadLobes(root, brain.Areas(), repositoryAliases, BrainDatabaseFor, cancellationToken), cancellationToken);
+    }
+
+    private DevbookLobesGraph ReadLobes(string root, IReadOnlyList<BrainArea> declared, IReadOnlyList<string> repositoryAliases, Func<string, string?> databaseFor, CancellationToken cancellationToken)
+    {
+        try
+        {
+            DevbookLobesBrainSource brain;
+            using (var database = DevbookDatabase.TryOpen(databaseFor(root)))
+            {
+                if (database is null) return DevbookLobesGraph.MissingBrainIndex(BrainIndexMissing);
+
+                var para = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var values in database.Attributes("para"))
+                {
+                    if (values.FirstOrDefault() is { Length: > 0 } value) para[values.Key] = value;
+                }
+
+                brain = new DevbookLobesBrainSource(
+                    SourceNodes(database.Nodes()),
+                    SourceEdges(database.Edges()),
+                    para,
+                    [.. database.Outline(DevbookDatabaseSchema.RepositoryScope)
+                        .Where(row => row.Type == "area")
+                        .Select(row => row.Path)],
+                    declared,
+                    IndexedAt(database));
+            }
+
+            var devbooks = new List<DevbookLobesDevbookSource>();
+            foreach (var alias in repositoryAliases.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                devbooks.Add(ReadDevbook(alias));
+            }
+
+            return DevbookLobesReader.Read(brain, devbooks, new BrainRepoLinkResolver(source).Resolve);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return DevbookLobesGraph.Unavailable($"The Lobes atlas could not be read: {ex.Message}");
+        }
+    }
+
+    /// <summary>One registered repository's devbook out of its database, or its
+    /// absence in words.</summary>
+    private DevbookLobesDevbookSource ReadDevbook(string alias)
+    {
+        try
+        {
+            using var database = DevbookDatabaseSource.TryOpen(source, alias);
+            if (database is null) return DevbookLobesDevbookSource.Missing(alias, DevbookRetrieval.UnavailableMessage($"The {alias} devbook's map"));
+
+            var roots = database.Outline(DevbookDatabaseSchema.RepositoryScope)
+                .Where(row => row.IsRoot && row.Path.Length > 0)
+                .Select(row => row.Path)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return new DevbookLobesDevbookSource(alias, true, null, SourceNodes(database.Nodes()), SourceEdges(database.Edges()), roots, IndexedAt(database));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return DevbookLobesDevbookSource.Missing(alias, $"The {alias} devbook could not be read: {ex.Message}");
+        }
+    }
+
+    /// <summary>When a database was built, as it records it; null when it
+    /// recorded nothing readable.</summary>
+    private static DateTimeOffset? IndexedAt(DevbookDatabase database) =>
+        database.GeneratedUtc == DateTime.MinValue ? null : new DateTimeOffset(DateTime.SpecifyKind(database.GeneratedUtc, DateTimeKind.Utc));
+
+    private static List<DevbookAtlasSourceNode> SourceNodes(IEnumerable<DevbookNodeRow> rows) =>
+        [.. rows.Select(node => new DevbookAtlasSourceNode(
+            node.Id,
+            node.Label ?? string.Empty,
+            node.Folder ?? string.Empty,
+            node.Type,
+            node.Status ?? string.Empty,
+            node.Path ?? string.Empty,
+            node.OutOfScope))];
+
+    private static List<DevbookAtlasSourceEdge> SourceEdges(IEnumerable<DevbookEdgeRow> rows) =>
+        [.. rows.Select(edge => new DevbookAtlasSourceEdge(edge.Type, edge.Source, edge.Target))];
+
     /// <summary>What the Brain atlas says while no Brain folder is set.</summary>
     internal const string NoBrainFolder = "No Brain folder is set, so there is no Brain to map.";
 
@@ -195,7 +307,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     /// here: <see cref="DevbookScopeProjection"/> is the reading-side restatement
     /// of the same rule that produced the scoped JSON files, boundary nodes
     /// included. A scope with no rows — <c>instructions</c>, which is not a
-    /// knowledge folder and never had a graph — answers null rather than an empty
+    /// devbook folder and never had a graph — answers null rather than an empty
     /// map, so the message a reader sees is still about the index rather than about
     /// the scope.</para>
     /// </summary>
@@ -231,7 +343,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 
     /// <summary>
     /// The database for this repository, found through the same port every other
-    /// knowledge read goes through: a knowledge folder resolves to a path, and the
+    /// knowledge read goes through: a devbook folder resolves to a path, and the
     /// database sits at the repository root above it.
     ///
     /// <para>Every enabled folder is tried rather than one being nominated,
@@ -252,7 +364,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     ///
     /// <para>A folder scope resolves through the port like any other knowledge
     /// area. The whole-repository scope has no folder of its own, so it is found
-    /// beside the folders: the knowledge folders sit at the repository root and
+    /// beside the folders: the devbook folders sit at the repository root and
     /// the root index sits with them. Resolving through a folder rather than
     /// asking for a repository path keeps this on the port that already exists —
     /// the one that knows a folder can be turned off, or moved.</para>
@@ -267,7 +379,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
                 : null;
         }
 
-        // The whole-repository index sits beside the knowledge folders, so it is
+        // The whole-repository index sits beside the devbook folders, so it is
         // found by going up from one of them. Which one matters: `instructions`
         // resolves into `.github`, which is a directory deeper than the folders
         // that live at the root, and going up from it lands somewhere with no
@@ -314,10 +426,10 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 /// </summary>
 /// <param name="Key">Stable identity, and what a host stores when it remembers a choice.</param>
 /// <param name="Label">The scope's name, as a reader sees it.</param>
-/// <param name="FolderKey">The knowledge folder key, or <see langword="null"/> for the whole repository.</param>
+/// <param name="FolderKey">The devbook folder key, or <see langword="null"/> for the whole repository.</param>
 public sealed record DevbookAtlasScope(string Key, string Label, string? FolderKey)
 {
-    /// <summary>Every knowledge folder at once, read from the repository's own
+    /// <summary>Every devbook folder at once, read from the repository's own
     /// root index.</summary>
     public static DevbookAtlasScope All { get; } = new("all", "Whole devbook", null);
 
@@ -330,14 +442,19 @@ public sealed record DevbookAtlasScope(string Key, string Label, string? FolderK
     public bool IsBrain { get; init; }
 
     /// <summary>The scope for one knowledge area, named as that area is named in
-    /// the section strip so the two cannot drift apart.</summary>
-    public static DevbookAtlasScope ForArea(DevbookArea area) =>
-        new(area.Key, area.Label, DevbookAtlasFolders.KeyFor(area.Key));
+    /// the section strip so the two cannot drift apart — or <see langword="null"/>
+    /// for an area the atlas does not draw. Technology is one: its section has
+    /// views of its own, and the canvas atlas no longer draws the stack.</summary>
+    public static DevbookAtlasScope? ForArea(DevbookArea area) =>
+        DevbookAtlasFolders.KeyFor(area.Key) is { } folderKey
+            ? new(area.Key, area.Label, folderKey)
+            : null;
 }
 
 /// <summary>The folder key behind a section key. The section strip says
 /// <c>arc42</c>; the folder settings say <c>.arc42</c>; the two have to be
-/// mapped somewhere and this is the only place that needs it.</summary>
+/// mapped somewhere and this is the only place that needs it. <c>tech</c> has no
+/// key: the atlas does not draw the technology stack.</summary>
 internal static class DevbookAtlasFolders
 {
     public static string? KeyFor(string areaKey) => areaKey switch
@@ -345,7 +462,6 @@ internal static class DevbookAtlasFolders
         "instructions" => "instructions",
         "domain" => ".domain",
         "arc42" => ".arc42",
-        "tech" => ".tech",
         "design" => ".design",
         "ai" => ".ai",
         _ => null
@@ -573,7 +689,18 @@ internal static class DevbookAtlasReader
         IReadOnlyList<DevbookAtlasSourceNode> sourceNodes,
         IReadOnlyList<DevbookAtlasSourceEdge> rawEdges)
     {
+        var technologiesLeftOut = false;
         var entries = sourceNodes
+            // The technology stack is drawn by the Technology section's own views,
+            // not on this canvas: a repository reading leaves `.tech` out, the
+            // whole devbook and a folder scope's boundary nodes alike, and the
+            // edges to it go with it. The Brain is not a repository devbook.
+            .Where(node =>
+            {
+                if (scope.IsBrain || !IsTechnology(node)) return true;
+                technologiesLeftOut = true;
+                return false;
+            })
             .Select(node => new Entry(
                 node.Id,
                 node.Label is { Length: > 0 } label ? label : node.Id,
@@ -586,7 +713,9 @@ internal static class DevbookAtlasReader
 
         if (entries.Count == 0)
         {
-            return DevbookAtlasGraph.Unavailable(scope, "The devbook database names no documents yet.");
+            return DevbookAtlasGraph.Unavailable(scope, technologiesLeftOut
+                ? TechnologyOnly
+                : "The devbook database names no documents yet.");
         }
 
         var edges = DrawnEdges(rawEdges, entries);
@@ -625,8 +754,8 @@ internal static class DevbookAtlasReader
                 entry.Type,
                 entry.Status,
                 // Each folder answers to its own status vocabulary, which matters
-                // most in the whole-repository scope: `active` is a real status in
-                // .arc42 and no status at all in .tech, and one shared list would
+                // most in the whole-repository scope: `proposed` is a real status
+                // in .domain and no status at all in .ai, and one shared list would
                 // have to be wrong about one of them.
                 entry.Status.Length == 0 ? string.Empty : DevbookStatus.Vocabulary(folder).SlugFor(entry.Status),
                 entry.Path,
@@ -640,6 +769,17 @@ internal static class DevbookAtlasReader
 
         return new DevbookAtlasGraph(scope, true, null, nodes, edges);
     }
+
+    /// <summary>What the atlas says when the reading holds nothing but the
+    /// technology stack, which it leaves to the Technology section.</summary>
+    internal const string TechnologyOnly =
+        "Nothing here to map: the technology stack is read in the Technology section, not on the atlas.";
+
+    /// <summary>Whether a node belongs to the technology stack: by its path, in
+    /// either layout, or by the folder the index wrote when it has no path.</summary>
+    private static bool IsTechnology(DevbookAtlasSourceNode node) =>
+        DevbookFolders.FromPath(node.Path.Length > 0 ? node.Path : node.Id) == DevbookFolder.Tech
+        || string.Equals(node.Folder, "tech", StringComparison.OrdinalIgnoreCase);
 
     private static List<DevbookAtlasSourceNode> ReadEntries(JsonElement elements)
     {

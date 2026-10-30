@@ -249,10 +249,18 @@ internal static class StorybookIndex
             new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
+            new("lobes-atlas", "Lobes atlas", "The atlas renderer's lobes drawing: each scope a brain, each mark in one region of it — All, the Brain, a devbook and a ghost scope."),
 
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, each beside the source that produced it.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and what each button writes."),
+
+            // Beside Rich text editing, the other way of writing markdown: in
+            // place rather than in a box. By the rule — every block it renders is
+            // MarkdownBlockView from the Markdown page, a diagram fence goes to
+            // DiagramView from Diagrams, and the open block is TextArea from
+            // Input and action, all above.
+            new("markdown/live-editing", "Live editing", "MarkdownLiveEditor: every block rendered but the one holding the caret, which opens as its own source — a paragraph, a list, a table or a diagram at a time."),
 
             // Two more subpages of Markdown, about two inlines the parser gives a
             // class of this product's own rather than a plain element. They are
@@ -315,7 +323,7 @@ internal static class StorybookIndex
         // which fields hold one, which is a fact about the record.
         new("Devbook",
         [
-            new("devbook", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
+            new("devbook", "Metadata", "The fenced meta block a devbook chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
             new("devbook/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),
 
             // After State rather than before it: two of its fourteen stories are
@@ -365,7 +373,32 @@ internal static class StorybookIndex
             // draws Badge, ButtonGroup, ToggleButton, Alert, EmptyState and
             // AppButton, all introduced in groups above this one, and no
             // component of its own: the pane is a module's and cannot render here.
-            new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
+            new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain."),
+
+            // Last in the chapter, after the Brain pages: like Brain in the pane it
+            // is a module's surface drawn from library parts only — Tabs from Layout,
+            // introduced above — because the AI section's views live in the Devbook
+            // module and cannot render here; each panel links the page below that
+            // shows its board instead.
+            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel pointing to the page that shows its board."),
+
+            // After the strip it sits under: AdoptionBoard, the Adoption tab's board, is a
+            // library component, so it renders here; its parts beyond its own — ToggleButton
+            // from Buttons — are introduced above.
+            new("devbook/ai-adoption", "AI adoption", "AdoptionBoard: how far each AI usage has got — the strip per stage and layer, three findings counted from the cards, the evidence legend and its toggle, and the ladder grid with the pull-request divider."),
+
+            // After AI tabs and AI adoption, because it is what the Cohesion tab draws. It
+            // draws ButtonGroup, ToggleButton and AppButton, all introduced above.
+            new("devbook/cohesion", "Cohesion board", "CohesionBoard: the Cohesion tab's board — usages on the stage lanes and layer bands, their hand-offs as arrows, the four views, a picked usage's fed by, hands on to and built on, and the platforms row."),
+
+            // After AI tabs and AI adoption, because it is what the Model tab draws. It draws
+            // DevbookStatusPill and AppButton, both introduced above.
+            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in."),
+
+            // After the Model tab's page, in tab order, and last: the Devbook tab.
+            // Drawn from library parts, Card and Badge from above, because the
+            // Devbook module's view cannot render here.
+            new("devbook/devbook-adoption", "Devbook adoption", "The AI section's Devbook tab: one Card per stack component read from the stamps in `.devbook/config.json` — a full stack, a partial one and none.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
@@ -464,6 +497,16 @@ internal static class StorybookIndex
             new("session-list", "Session list", "EffortChip and StageStrip: the effort a session ran at on one gold ladder, and how far its delivery run got — the parts the Sessions pane's rows and detail panel are drawn with.")
         ]),
 
+        // A subject of its own: the notification centre's question card. After
+        // Dashboard and before Settings, and by the rule: it draws the Badge,
+        // AppButton, Checkbox, TextArea and Alert the parts groups introduced, and
+        // its body is the MarkdownView Content introduced, Mermaid through
+        // DiagramView included.
+        new("Notifications",
+        [
+            new("notification-card", "Notification card", "NotificationCard: one alert or question and where it came from, read in Markdown and answered in place — buttons for a set answer, checkboxes for several, a plain-text box for an open answer, Acknowledge on an alert, and the answer that won or the reason it closed.")
+        ]),
+
         // A subject of its own after Dashboard, and after it by the rule: a settings
         // card shows a figure in the MetricTile Dashboard introduces, and the frame
         // is the Dashboard's panel. Read card, then menu, then the frame that holds
@@ -505,7 +548,14 @@ internal static class StorybookIndex
             // not beside Today, above Feedback.
             new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
             new("compare", "Section comparison",
-                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line.")
+                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
+
+            // Last: the Devbook pane's Technology page is a whole surface made of
+            // chapters from every group above — the metric tiles from Dashboard,
+            // the table from Content, the status badge and select from Devbook and
+            // Selects, the toggles and search from Input and action. Nothing is
+            // shown before its parts, so it reads after all of them.
+            new("technology", "Technology page", "The Technology page's Overview: summary tiles, type chips, search and sort, the table of technologies, the inspector on the selected one, and the placeholder a later view shows.")
         ])
     ];
 

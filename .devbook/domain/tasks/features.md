@@ -81,9 +81,12 @@ related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
 Break a task into ordered sub-items with a title, a status (pending or done),
-and notes. A person toggles a sub-item between open and done from the rendered
-task, and can reorder, add and remove sub-items independently. The parent shows
-its progress, such as 3/5 done. Sub-items can project to GitHub issue task lists.
+and notes. On the desktop a step is a `##` chapter written in the task's body.
+A person adds, renames, reorders and removes steps by editing that text. A step
+is finished with `[x]` in its heading or `!done` on the line under it. On the
+phone a person ticks a step on or off from the checklist on the task's own page,
+while the task is in today's My Day. The parent shows its progress, such as 3/5
+done. Sub-items can project to GitHub issue task lists.
 
 A step is a [Sub-Item](domain.md#sub-item); that chapter says what a step
 carries and what stays on the task.
@@ -117,40 +120,41 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbo
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
-A task can point at the parts of a scenario page that prove it. A scenario page is
-one end-to-end journey in the repository's devbook, and each of its parts is an
-outcome the journey reaches. The task points at a part as `<page>.md#<part>`, the
-way it points at any chapter. It can also point at the whole page, which stands for
-every part, or at a requirement, which stands for the parts its `Proved by:` lines
-name. A part reached two ways counts once.
+A task can point at the parts of a journey that prove it. A journey is one
+end-to-end walk, a `##` chapter of a context's scenarios file in the repository's
+devbook, and each of its `###` parts is an outcome the journey reaches. The task
+points at a part as `<scenarios file>#<part>`, the way it points at any chapter. It
+can also point at a journey, or at the whole scenarios file, which stand for every
+part they hold. A requirement stands for the parts its `Proved by:` lines name. A
+part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
 checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
-part. A quieter line under it names the page by its stem, the file name that also
-names the run folder, and says when the page last ran, as
+part. A quieter line under it names the journey by its anchor, which also names the
+run folder, and says when the journey last ran, as
 "place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
 instead. A failed part whose run recorded the step it stopped on adds that step, as
 "· step 2". The list says how many parts pass and whether that proves the task, as
 "2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
-only when its last run passed on the page as it stands now. A part that passed before
-the page was edited is stale, because the run proved a different page. A stale part
-shows no step, because the step numbers an older text of the page.
+only when its last run passed on the journey as it stands now. A part that passed
+before the journey was edited is stale, because the run proved a different journey.
+A stale part shows no step, because the step numbers an older text of the journey.
 
-Pressing a part opens its scenario page in the Devbook pane at that part. The part is
+Pressing a part opens its scenarios file in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
 reader picks another chapter or opens another reference. Pressing the same part again
-scrolls to it again. A part the page no longer has opens the page and marks nothing.
+scrolls to it again. A part the file no longer has opens the file and marks nothing.
 
 When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
 
-A task's own text can show a scenario screenshot. An image written
-`scenario:<stem>#<label>` in the text a task opens with, or in a step's note, shows
-the capture from the journey's last run with its source line, exactly as a chapter
-shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
-It is resolved against the repository the task's Devbook references open in. Any
-other image in a task shows as it always has.
+A task's own text can name a scenario screenshot, as an image written
+`scenario:<scenarios file>#<label>`. The desktop's task detail shows the body as
+Markdown source and draws no image, so the image reads there as the text written.
+Drawing it is kept for a later rendered reading of the body. Until then the
+screenshot is shown where its scenarios file is read in the Devbook pane
+([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
 each part with its state and last run, the step a failed part stopped on, and a count
@@ -502,6 +506,56 @@ Marking a task blocked
 unless an open impediment already holds it back. Progress reacts to the mark. The task
 stores no impediment id, and Tasks never calls Progress.
 
+### Filing a follow-up after an entry
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry, .devbook/domain/tasks/domain.md#dependency, .devbook/domain/notifications/features.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#re-importing-an-updated-plan, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+File one new prompt that waits on an entry, when the person approves that entry's
+delivery run and asks for a follow-up in the same answer. The person answers the
+run's Personal Validation question with Approve + follow-up and a few words, on the
+phone or at the desktop. Sessions records the approval and asks Tasks to file the
+follow-up. The entry the run was working is the **gated entry**.
+
+The follow-up is an ordinary [Task](domain.md#task), born as follows:
+
+| Field | Value |
+| --- | --- |
+| Type | `prompt` |
+| Status | `ready` |
+| Waits on | the gated entry, as `after:<id>` |
+| Tags | the gated entry's plan tag, when it has one: its `import_plan_id`, or else the one plan tag it carries |
+| Repository | the gated entry's |
+| Title | "Follow-up: " and the gated entry's title |
+| Body | the person's words, as body text |
+| Provenance | the id of the notification whose answer asked for it |
+
+It carries the plan's tag and no `import_plan_id`. So the plan still lists it, and
+[re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
+the re-import clears tasks by `import_plan_id`. A gated entry outside any plan gets
+a follow-up with no plan tag. A follow-up of a follow-up stays in the plan through
+the tag its gated entry carries. Sessions names the gated entry by its id, or by
+its plan and item.
+
+The notification id is the follow-up's provenance and its key. An answer handed
+over twice files one follow-up, never a second. A follow-up the person deleted
+since is not filed again by the same answer.
+
+The person's words stay body text. A line that looks like a sub-item, a heading or
+a fence is kept as plain text, so the words cannot add steps or structure the person
+did not see.
+
+Nothing here creates a session request:
+[only a click in the app requests a session](../sessions/requirements.md#requirement-only-a-click-in-the-app-requests-a-session),
+as §1 of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides. An attended `execute-plan` runs the follow-up like any other ready prompt
+of its plan once the gated entry lands, and `run-plan-item` checks it before
+doing anything.
+
 ## Multi-repo targeting
 
 ```meta
@@ -543,9 +597,26 @@ Push a task to its target repository as an issue carrying the task's title,
 body, and tags. The resulting issue reference is kept on the task, so the link
 is part of the item rather than a note about it. The task can then be asked to
 re-read that issue's current state, and the pull request that references it.
-Downstream progress is then visible from the backlog. Reading GitHub state is a
-deliberate act rather than a background poll, because the backlog has to open
-instantly and offline.
+Downstream progress is then visible from the backlog.
+
+The pull requests a task records are also checked in the background, so a
+merge turns its link green without the person asking. The check reads each
+repository once rather than each pull request in list order, and puts every
+merged and closed answer on screen before the open pull requests are read one
+by one for their checks and merge offer. A pull request still open, or one
+that could not be read, is asked about again after two minutes.
+
+A merged or closed state is remembered on this device, beside the other
+activity caches (`IPullRequestStateMemory`), so the backlog still opens
+instantly and offline and draws a finished link from the first frame. It is
+never written to the task: the task keeps only the link, and losing the
+memory costs one read per pull request. An open pull request's status is never
+remembered, because a stale one would offer a merge GitHub no longer allows.
+
+A prompt entry moves to Done when its pull request merges into the
+repository's default branch or a `plan/` branch — once per entry and merge,
+and only where its lifecycle allows the move. A task or test entry stays the
+person's to tick.
 
 ## Linked tasks
 
@@ -678,7 +749,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
@@ -695,7 +766,7 @@ narrows back to one on the roadmap and on Tools, which read one repository or
 none.
 
 The scope leads with a permanent **Brain** chip, the
-[Brain scope](../devbook/features.md#brain-scope): Brain is the scope of
+[Brain scope](../brain/features.md#brain-scope): Brain is the scope of
 everything filed against no repository.
 
 - Pressed alone, it shows only the tasks with no repository, in every view that
@@ -735,7 +806,10 @@ The tags on the filter bar sit in one strip, one row high, and the strip shows a
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader
 pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
-`+` and all, so the reader can paste the plan's name elsewhere. **No plan** and
+`+` and all, so the reader can paste the plan's name elsewhere. With the
+[`session-requests`](../sessions/context.md#session-requests) flag on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
+copy, and the waiting chip takes its place while a request is open. **No plan** and
 the general tags offer no copy, and a plan offers none once it is let go. When
 the reader presses a plan further along the strip, the plan moves to the front
 with its copy, and the focus stays on the moved chip.
@@ -934,6 +1008,22 @@ more line on top.
 Every [type](domain.md#task-type) is copied this way, a `task` too. The copy says
 which entry it is, and the session, not the copy, decides whether to run it.
 
+### Start a session on a prompt
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#multi-repo-targeting]
+```
+
+Queue a coding session that runs a prompt, in its repository's clone folder, without
+copying it anywhere. The queue icon sits beside the prompt's copy button, on its row and
+in the open entry. Pressing it creates a session request in the Sessions context. The
+entry shows that it is waiting for a session until the session links itself. The
+[Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
+offered it and what the waiting chip shows.
+
 ### Hand-off to Copilot CLI
 
 ```meta
@@ -1020,7 +1110,7 @@ A plan also carries work around a prompt that is not the prompt itself:
 
 - a setup or dependency step the repository needs before the prompt can run,
   such as installing a plugin;
-- a reminder to update that repository's knowledge docs or devbook;
+- a reminder to update that repository's devbook;
 - a task only a person can do.
 
 None of these is a new kind of thing. They land as ordinary
@@ -1111,7 +1201,7 @@ the same tag that came from somewhere else was never part of the plan and is not
 touched.
 
 An `in_progress` task takes the new version's instructions, type, dependencies,
-target repository, and setup, knowledge and manual sub-items. Status is the one
+target repository, and setup, devbook and manual sub-items. Status is the one
 field a later version moves only when it asks to. If the version restates it, the
 task moves there. If the version leaves it out, the task keeps whatever progress
 it has made since it was imported. A plan that says nothing about where an entry

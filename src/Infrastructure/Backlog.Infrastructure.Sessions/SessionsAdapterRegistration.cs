@@ -1,7 +1,12 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sessions;
 
@@ -125,8 +130,24 @@ public static class SessionsAdapterRegistration
             RecordedSourceKey,
             (sp, _) => new RecordedAgentSessionSource(sp.GetService<IAgentSessionRecordStore>()));
 
+        // Watched for a session that ends: every reading anybody takes is where an
+        // archive or a delete is noticed, because the desktop app's store raises nothing
+        // (SessionEndWatchingSource). Notifications is resolved when an end is noticed
+        // and not here, so a context whose answer handler reads sessions cannot make
+        // the two singletons wait on each other; a host that composed none closes
+        // nothing.
+        // And the question relay read in last (local ADR 0041): a live session holding an
+        // open waiting question reads Waiting. Resolved per reading for the reason
+        // Notifications is: a host that composed no relay gets the list unchanged.
         services.AddSingleton<IAgentSessionSource>(sp =>
-            new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
+            new WaitingSessionSource(
+                new SessionEndWatchingSource(
+                    new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]),
+                    sp.GetService<INotifications>,
+                    sp.GetService<ILogger<SessionEndWatchingSource>>(),
+                    sp.GetService<QuestionRelay>),
+                sp.GetService<QuestionRelay>,
+                sp.GetService<ILogger<WaitingSessionSource>>()));
 
         // The delivery runs go in with the sessions rather than behind a call of their
         // own, and that is the opposite of the choice AddAgentActivitySource makes.
@@ -155,7 +176,9 @@ public static class SessionsAdapterRegistration
             new LocalDeliverySurfaceLifecycle(
                 sp.GetRequiredService<IDeviceIdentitySource>(),
                 sp.GetService<ISessionsSurfaceActivator>(),
-                sp.GetService<IDevbookSyncVerdicts>()));
+                sp.GetService<IDevbookSyncVerdicts>(),
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<LocalDeliverySurfaceLifecycle>>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each
@@ -238,5 +261,47 @@ public static class SessionsAdapterRegistration
                 sp.GetService<ISessionRecordPublisher>()));
 
         return services;
+    }
+
+    /// <summary>
+    /// Wires <see cref="SessionValidationAnswers"/>, the handler of the answers to a run's
+    /// Personal Validation question, with the Tasks port an Approve + follow-up files
+    /// through. A singleton, as every answer handler is, over Tasks' port, which is scoped
+    /// like the rest of the Tasks module: each filing resolves it in a scope of its own
+    /// rather than holding one instance for the life of the process. A host that composed
+    /// no Tasks gets the approval recorded without a follow-up.
+    /// </summary>
+    public static IServiceCollection AddSessionValidationAnswers(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, SessionValidationAnswers>(sp =>
+            new SessionValidationAnswers(
+                sp.GetRequiredService<IDeliverySurfaceLifecycle>(),
+                sp.GetService<ILogger<SessionValidationAnswers>>(),
+                new ScopedTaskFollowUps(sp.GetRequiredService<IServiceScopeFactory>()),
+                sp.GetService<QuestionRelay>())));
+
+        return services;
+    }
+
+    /// <summary>Tasks' <see cref="ITaskFollowUps"/>, resolved in a scope of its own per
+    /// filing.</summary>
+    private sealed class ScopedTaskFollowUps(IServiceScopeFactory scopes) : ITaskFollowUps
+    {
+        public async Task<Result<Guid>> FileAfterAsync(TaskFollowUpRequest request, CancellationToken cancellationToken = default)
+        {
+            var scope = scopes.CreateAsyncScope();
+
+            await using (scope.ConfigureAwait(false))
+            {
+                if (scope.ServiceProvider.GetService<ITaskFollowUps>() is not { } followUps)
+                {
+                    return Error.Unexpected("sessions.follow_ups_not_composed", "This host composed no Tasks follow-ups.");
+                }
+
+                return await followUps.FileAfterAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 }

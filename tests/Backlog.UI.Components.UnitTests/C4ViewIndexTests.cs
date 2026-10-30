@@ -104,4 +104,37 @@ public sealed class C4ViewIndexTests
         Assert.Equal(["Containers again", "Context again"], others.Select(entry => entry.Label).Order());
         Assert.All(others, entry => Assert.Equal(0, entry.Depth));
     }
+
+    /// <summary>
+    /// The chain's line is the view the zoom bar opens, and that is how the open line
+    /// follows the view on screen. A second containers view whose key sorts first —
+    /// this repository's `container-view` beside the authored `containers-backlog` —
+    /// once took the Containers line, so with the bar's Containers view open the
+    /// highlight sat on an Other views line instead.
+    /// </summary>
+    [Fact]
+    public void The_chain_takes_the_view_the_zoom_bar_opens_so_the_open_line_follows_the_view_shown()
+    {
+        var containers = Workspace.View("containers-backlog")!;
+        var workspace = Workspace with
+        {
+            Views = [.. Workspace.Views, containers with { Key = "a-container-view", Title = "Container Diagram — Backlog" }]
+        };
+
+        var entries = C4ViewIndex.For(workspace);
+        var context = workspace.View("context-backlog")!;
+        var barContainers = C4ZoomNavigation.Bar(workspace, context, null).Steps.Single(step => step.Level == C4ZoomLevel.Containers).ViewKey;
+
+        var chain = entries.Single(entry => entry.Label == "Containers");
+        Assert.Equal(barContainers, chain.ViewKey);
+        Assert.Equal("containers-backlog", chain.ViewKey);
+
+        var other = entries.Single(entry => entry.Group == C4ViewIndexGroup.Other);
+        Assert.Equal("a-container-view", other.ViewKey);
+
+        // With the bar's view open only the chain line is open; with the other view open
+        // only its line is.
+        Assert.Equal([chain], entries.Where(entry => entry.IsOpen(barContainers, null)));
+        Assert.Equal([other], entries.Where(entry => entry.IsOpen("a-container-view", null)));
+    }
 }

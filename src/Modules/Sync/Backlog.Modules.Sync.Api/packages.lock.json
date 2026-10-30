@@ -54,6 +54,14 @@
           "System.Memory.Data": "10.0.10"
         }
       },
+      "Azure.Messaging.WebPubSub": {
+        "type": "Transitive",
+        "resolved": "1.6.0",
+        "contentHash": "ewewoRnw/wJZMBuALoaIB8raguqM4aXp2Za3jhGYoAp0EEmKw9ZfHVXARzkB7Pb+aoOSwnsudL+izMhD9PA85Q==",
+        "dependencies": {
+          "Azure.Core": "1.46.0"
+        }
+      },
       "Azure.Storage.Common": {
         "type": "Transitive",
         "resolved": "12.29.0",
@@ -222,11 +230,6 @@
         "resolved": "2.12.0",
         "contentHash": "0xB/be+f6qYOhvQPUrVsLrau+fkowYv6gt9RIkajMhwT7sZnqtcA797yW3bS5kgSje+AQW4xZgyLnW641YFioQ=="
       },
-      "Microsoft.Win32.SystemEvents": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "hqTM5628jSsQiv+HGpiq3WKBl2c8v1KZfby2J6Pr7pEPlK9waPdgEO6b8A/+/xn/yZ9ulv8HuqK71ONy2tg67A=="
-      },
       "Newtonsoft.Json": {
         "type": "Transitive",
         "resolved": "13.0.4",
@@ -344,7 +347,7 @@
       "backlog.infrastructure.blobstorage": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Azure.Storage.Blobs": "[13.6.1, )",
+          "Aspire.Azure.Storage.Blobs": "[13.6.4, )",
           "Azure.Storage.Blobs": "[12.30.1, )",
           "Backlog.Modules.Sync": "[1.0.0, )"
         }
@@ -352,9 +355,23 @@
       "backlog.infrastructure.cosmos": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Microsoft.Azure.Cosmos": "[13.6.1, )",
+          "Aspire.Microsoft.Azure.Cosmos": "[13.6.4, )",
           "Backlog.Modules.Sync": "[1.0.0, )",
           "Microsoft.Azure.Cosmos": "[3.63.2, )"
+        }
+      },
+      "backlog.infrastructure.notificationhubs": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "Microsoft.Azure.NotificationHubs": "[4.2.0, )"
+        }
+      },
+      "backlog.infrastructure.webpubsub": {
+        "type": "Project",
+        "dependencies": {
+          "Aspire.Azure.Messaging.WebPubSub": "[13.6.1, )",
+          "Backlog.Modules.Sync": "[1.0.0, )"
         }
       },
       "backlog.modules.sync": {
@@ -373,11 +390,23 @@
       "backlog.sharedkernel": {
         "type": "Project"
       },
-      "Aspire.Azure.Storage.Blobs": {
+      "Aspire.Azure.Messaging.WebPubSub": {
         "type": "CentralTransitive",
         "requested": "[13.6.1, )",
         "resolved": "13.6.1",
-        "contentHash": "XTmv/6LzKAaAU/mRJ/OzXN5/TyTV9Y0VDM1YJ5j3PxwIvXqEgOzZXTJU8Wxv+a0QPa/7tjK2bU7U2tRIYeV8+A==",
+        "contentHash": "HDLLyW9cSalwmpNGISuHtg52ofwo+HHbnRM630+pOUOez4kz5j5/MCE+R1VLbZp+jnyJfm3pOQ9jG1oEWmruhA==",
+        "dependencies": {
+          "Azure.Core": "1.62.0",
+          "Azure.Messaging.WebPubSub": "1.6.0",
+          "Microsoft.Extensions.Azure": "1.14.1",
+          "OpenTelemetry.Extensions.Hosting": "1.17.0"
+        }
+      },
+      "Aspire.Azure.Storage.Blobs": {
+        "type": "CentralTransitive",
+        "requested": "[13.6.4, )",
+        "resolved": "13.6.4",
+        "contentHash": "7iKAYHHjbZJhOsjxPSiiy4nk75zV6Qp4UC1GsRbKXF8quAyvQbF7Mg5bSNlahMJMr1Z6KS/guER0kF/qYh1iuA==",
         "dependencies": {
           "AspNetCore.HealthChecks.Azure.Storage.Blobs": "9.0.0",
           "Azure.Core": "1.62.0",
@@ -389,9 +418,9 @@
       },
       "Aspire.Microsoft.Azure.Cosmos": {
         "type": "CentralTransitive",
-        "requested": "[13.6.1, )",
-        "resolved": "13.6.1",
-        "contentHash": "SmwzBQek7NzjjVDHof8o/Xo7mXVzs/UXxOQ7QZ3vlF7kID3gUrYtecrwnsag+BN18bA8hEuJXLkFQlcuGG5t9Q==",
+        "requested": "[13.6.4, )",
+        "resolved": "13.6.4",
+        "contentHash": "P9tsS4d1n6EG/4I+COvTC/fT0TmwS9hn8Is6/cowy8NSzNBdcqFQZ38vsvbl2FycrtXfmLJnpSEOJH1Iq72JPA==",
         "dependencies": {
           "Azure.Core": "1.62.0",
           "Azure.Identity": "1.21.0",
@@ -432,6 +461,15 @@
           "System.Configuration.ConfigurationManager": "6.0.0"
         }
       },
+      "Microsoft.Azure.NotificationHubs": {
+        "type": "CentralTransitive",
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "LOCxFB/sB1frfuXjecdDRDKEHkH+I1qKRatS5NyWIgYhpKhIcAlPNIJajcwLgQBShckdc3hMG9E+75CnL3qDhQ==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.1"
+        }
+      },
       "Microsoft.Extensions.Http.Resilience": {
         "type": "CentralTransitive",
         "requested": "[10.10.0, )",
@@ -460,6 +498,12 @@
           "Microsoft.Maui.Essentials": "10.0.110",
           "Microsoft.Maui.Graphics": "10.0.110"
         }
+      },
+      "Microsoft.Win32.SystemEvents": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "6.0.0",
+        "contentHash": "hqTM5628jSsQiv+HGpiq3WKBl2c8v1KZfby2J6Pr7pEPlK9waPdgEO6b8A/+/xn/yZ9ulv8HuqK71ONy2tg67A=="
       },
       "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
         "type": "CentralTransitive",

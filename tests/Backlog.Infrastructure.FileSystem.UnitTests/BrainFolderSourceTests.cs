@@ -5,7 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The Brain as a knowledge folder (local ADR 0026): one local folder keyed
+/// The Brain as a devbook folder (local ADR 0026): one local folder keyed
 /// <c>brain</c>, always editable, picked by the person and never defaulted.
 /// </summary>
 [Collection(BrainRootCollection.Name)]
@@ -184,6 +184,31 @@ public class BrainFolderSourceTests : IDisposable
 
         _setting = null;
         Assert.Equal(BrainConventions.Para, Source().Areas());
+    }
+
+    /// <summary>A folder an agent made shows at once, once it holds a note; an
+    /// ignored one does not, and Show hidden asks for it separately.</summary>
+    [Fact]
+    public void The_areas_are_the_declared_ones_then_the_folders_holding_a_note()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "Meetings", "2026"));
+        Directory.CreateDirectory(Path.Combine(Brain, "_templates"));
+        Directory.CreateDirectory(Path.Combine(Brain, ".obsidian"));
+        Directory.CreateDirectory(Path.Combine(Brain, "Demo"));
+        File.WriteAllText(Path.Combine(Brain, BrainConventions.FileName), "## Areas\n\n- Inbox — `_inbox`\n\n## Ignore\n\n- `_templates`\n");
+        File.WriteAllText(Path.Combine(Brain, "Meetings", "2026", "standup.md"), "# Standup\n");
+        File.WriteAllText(Path.Combine(Brain, "_templates", "meeting.md"), "# Meeting\n");
+        _setting = Brain;
+
+        Assert.Equal(
+            [new BrainArea("Inbox", "_inbox", 1), new BrainArea("Meetings", "Meetings", 2)],
+            Source().Areas());
+        Assert.Equal(
+            [new BrainArea("Obsidian", ".obsidian", 1), new BrainArea("Templates", "_templates", 2)],
+            Source().HiddenAreas());
+
+        _setting = null;
+        Assert.Empty(Source().HiddenAreas());
     }
 
     [Fact]

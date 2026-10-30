@@ -382,7 +382,7 @@ public sealed class C4DynamicPlaybackTests : IDisposable
     // ---- the C4 tab is untouched ---------------------------------------------------
 
     /// <summary>The C4 tab's explorer hands the writer no options; its dynamic arrows
-    /// keep the "1. " prefix and draw no badge and no step state (local ADR 0037).</summary>
+    /// keep the "1. " prefix and draw no badge and no step state (local ADR 0044).</summary>
     [Fact]
     public void Without_step_options_the_writer_draws_a_dynamic_view_as_before()
     {

@@ -32,15 +32,20 @@ public sealed record IterationWindowDto(IterationLength Length, DateOnly First, 
 }
 
 /// <summary>One goal in the Goals block, with its progress and forecast.</summary>
+/// <param name="DueDate">The day it is due on (<see cref="GoalForecasting.DueOn"/>): its own
+/// due date, or the last day of next for a goal without one.</param>
 /// <param name="Progress">Its counts; <see cref="GoalProgressDto.DoneInWindow"/> is the items done inside last.</param>
 /// <param name="LandsOn">When it is expected to land, or null (<see cref="GoalForecast.LandsOn"/>).</param>
+/// <param name="DueIsIterationEnd">Whether <paramref name="DueDate"/> is next's last day
+/// because the goal has no due date of its own.</param>
 public sealed record StandUpGoalDto(
     Guid Id,
     string Title,
     DateOnly DueDate,
     GoalProgressDto Progress,
     GoalStanding Standing,
-    DateOnly? LandsOn);
+    DateOnly? LandsOn,
+    bool DueIsIterationEnd = false);
 
 /// <summary>The items of one goal in Finished or Planned, or those no goal counts.</summary>
 /// <param name="GoalId">The goal, or null for "No goal".</param>

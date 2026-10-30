@@ -1,0 +1,255 @@
+@implements IDisposable
+@inject INotificationCentre Centre
+@inject TimeProvider Time
+
+@*
+    The notification centre: the owner's alerts and questions as a list grouped by
+    subject, and the one picked drawn whole beside it — its Markdown body, the
+    controls its question shape takes, or how it was settled.
+
+    An answer given here goes to INotificationCentre.AnswerAsync, the path a
+    Windows notification's answer takes too, so the owner checks it the same way
+    whichever channel it came from. A refused answer keeps the card's controls and
+    shows the reason under them.
+
+    It redraws on the centre's Changed event, so a question published, answered in
+    a Windows notification or closed by its source while the centre is open shows
+    the change without a reload.
+*@
+
+<section class="notification-centre" data-testid="notification-centre" aria-labelledby="notification-centre-title">
+    <SectionHeader BaseClass="notification-centre__header"
+                   TextCssClass="notification-centre__heading"
+                   TitleCssClass="notification-centre__title"
+                   DescriptionCssClass="notification-centre__subtitle"
+                   DescriptionTestId="notification-centre-subtitle"
+                   ActionsCssClass="notification-centre__header-actions"
+                   TitleId="notification-centre-title"
+                   Title="Notifications"
+                   Description="@Subtitle">
+        <Actions>
+            @if (OnClose.HasDelegate)
+            {
+                <IconButton AriaLabel="Close notifications"
+                            CssClass="btn--ghost"
+                            TestId="notification-centre-close"
+                            OnClick="() => OnClose.InvokeAsync()"><XIcon /></IconButton>
+            }
+        </Actions>
+    </SectionHeader>
+
+    @if (_loadError is not null)
+    {
+        <Alert Message="@_loadError" TestId="notification-centre-error" />
+    }
+
+    <div class="notification-centre__body">
+        <div class="notification-centre__list">
+            @if (_notifications.Count > 0)
+            {
+                <div class="notification-centre__filter">
+                    <SelectField CurrentValue="@_from"
+                                 Options="@FromOptions"
+                                 Label="From"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="From anywhere"
+                                 TestId="notification-centre-from"
+                                 OnChanged="FilterFrom" />
+                </div>
+            }
+            <NotificationList Notifications="@Shown"
+                              SelectedId="@_selectedId"
+                              OnSelect="Select"
+                              Now="@_now"
+                              ThisDeviceId="@Centre.ThisDevice.Id" />
+        </div>
+
+        <div class="notification-centre__detail" data-testid="notification-centre-detail">
+            @if (Selected is { } selected)
+            {
+                <NotificationCard Model="@NotificationPresentation.ToCard(selected, _now, Centre.ThisDevice.Id)"
+                                  Busy="@(_busyId == selected.Id)"
+                                  ErrorMessage="@(_errorFor == selected.Id ? _error : null)"
+                                  OnAnswer="@(reply => AnswerAsync(selected.Id, reply))"
+                                  OnAcknowledge="@(() => AcknowledgeAsync(selected.Id))"
+                                  TestId="notification-centre-card" />
+            }
+            else if (_notifications.Count > 0)
+            {
+                <EmptyState Title="Pick a notification"
+                            Description="Its body and its answers show here."
+                            TestId="notification-centre-nothing-picked" />
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<NotificationView> _notifications = [];
+    private Guid? _selectedId;
+    private Guid? _busyId;
+    private Guid? _errorFor;
+    private string? _error;
+    private string? _loadError;
+    private DateTimeOffset _now;
+    private Guid? _focusApplied;
+    private string? _from;
+
+    /// <summary>Closes the takeover the centre is drawn in.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>A notification to open on — the one a Windows notification's body or its
+    /// "Open in Backlog" was pressed on.</summary>
+    [Parameter]
+    public Guid? FocusNotificationId { get; set; }
+
+    private NotificationView? Selected =>
+        _selectedId is { } id ? Shown.FirstOrDefault(n => n.Id == id) : null;
+
+    /// <summary>The notifications the "From" filter lets through.</summary>
+    private IReadOnlyList<NotificationView> Shown => NotificationPresentation.FromOnly(_notifications, _from);
+
+    private IReadOnlyList<SelectorOption> FromOptions =>
+        [.. NotificationPresentation.Froms(_notifications).Select(from => new SelectorOption(from, "From " + from))];
+
+    /// <summary>Narrows the list to one system, or lets every one through again, and opens on
+    /// the first notification still shown when the picked one is filtered out.</summary>
+    private void FilterFrom(string? from)
+    {
+        _from = string.IsNullOrEmpty(from) ? null : from;
+        if (Selected is null) _selectedId = FirstShown();
+    }
+
+    private Guid? FirstShown() =>
+        NotificationPresentation.Group(Shown).FirstOrDefault()?.Notifications.FirstOrDefault()?.Id;
+
+    private string Subtitle
+    {
+        get
+        {
+            var open = _notifications.Count(n => n.IsOpenQuestion);
+            return open switch
+            {
+                0 => "Nothing waiting for an answer",
+                1 => "1 waiting for an answer",
+                _ => $"{open} waiting for an answer"
+            };
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Centre.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (FocusNotificationId is { } focus && focus != _focusApplied && _notifications.Any(n => n.Id == focus))
+        {
+            _focusApplied = focus;
+            if (Shown.All(n => n.Id != focus)) _from = null;
+            _selectedId = focus;
+        }
+    }
+
+    public void Dispose() => Centre.Changed -= OnChanged;
+
+    private void OnChanged(object? sender, NotificationChanged change) =>
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+
+    private async Task LoadAsync()
+    {
+        _now = Time.GetUtcNow();
+
+        try
+        {
+            _notifications = await Centre.ListAsync();
+            _loadError = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _loadError = "The notifications could not be read: " + exception.Message;
+        }
+
+        // A focus asked for before the list was read is applied once it is.
+        if (FocusNotificationId is { } focus && focus != _focusApplied && _notifications.Any(n => n.Id == focus))
+        {
+            _focusApplied = focus;
+            if (Shown.All(n => n.Id != focus)) _from = null;
+            _selectedId = focus;
+        }
+
+        // Open on the first open question when nothing is picked yet, so the centre opens on
+        // what is waiting rather than on an empty detail.
+        // A filter on a system none of the notifications comes from any more lets them all through.
+        if (_from is not null && NotificationPresentation.Froms(_notifications).All(from => from != _from)) _from = null;
+
+        if (_selectedId is null || Shown.All(n => n.Id != _selectedId))
+        {
+            _selectedId = FirstShown();
+        }
+    }
+
+    private void ShowError(Guid id, string message)
+    {
+        _error = message;
+        _errorFor = id;
+    }
+
+    private void Select(Guid id)
+    {
+        _selectedId = id;
+        _error = null;
+        _errorFor = null;
+    }
+
+    private async Task AnswerAsync(Guid id, NotificationCardReply reply)
+    {
+        _busyId = id;
+        _error = null;
+
+        try
+        {
+            var answered = await Centre.AnswerAsync(id, reply.ChoiceIds, reply.Text, reply.Note);
+            if (answered.IsFailure) ShowError(id, answered.Error.Message);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            ShowError(id, "The answer could not be saved: " + exception.Message);
+        }
+        finally
+        {
+            _busyId = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task AcknowledgeAsync(Guid id)
+    {
+        _busyId = id;
+        _error = null;
+
+        try
+        {
+            var acknowledged = await Centre.AcknowledgeAsync(id);
+            if (acknowledged.IsFailure) ShowError(id, acknowledged.Error.Message);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            ShowError(id, "The acknowledgement could not be saved: " + exception.Message);
+        }
+        finally
+        {
+            _busyId = null;
+        }
+
+        await LoadAsync();
+    }
+}

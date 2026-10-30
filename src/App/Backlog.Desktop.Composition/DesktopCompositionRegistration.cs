@@ -1,4 +1,6 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
+using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
@@ -13,6 +15,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
@@ -26,12 +29,16 @@ using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.Notifications.Extensions;
+using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -115,6 +122,9 @@ public static class DesktopCompositionRegistration
         // resolve the concrete type it attaches to while every caller sees the port.
         services.AddSingleton<SessionsSurfaceActivator>();
         services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
+        // How a popped-out window reaches the main window's shell (local ADR 0043 §4):
+        // process-wide, because each window has a scope of its own.
+        services.AddSingleton<MainWindowSurfaces>();
         // Which machine this installation is. Sessions stamps every record with it
         // and the Dashboard filters by it, and neither owns the answer.
         services.AddSingleton(options.DeviceIdentity);
@@ -130,11 +140,16 @@ public static class DesktopCompositionRegistration
         // targets are kept, and the module brings the sync and its timer. Each
         // connector is added with AddTaskConnector<T>(): GitHub issues through the
         // GitHub adapter registered below, and spec-manager with the head saying
-        // where its sign-in is kept.
+        // where its sign-in is kept and which installation it talks to — the
+        // SpecManager section of the head's configuration, bound here (ADR 0018). The
+        // spec-manager adapter also brings its questions in as notifications; the heads
+        // start SpecManagerQuestionSource once the container is built.
         services.AddSingleton(options.ConnectedTargets);
         services.AddLinkedTaskSync();
         services.AddTaskConnector<GitHubConnector>();
-        services.AddSpecManager(options.SpecManagerTokenStore);
+        services.AddSpecManager(
+            options.SpecManagerTokenStore,
+            configuration: options.Configuration?.GetSection(SpecManagerOptions.SectionName));
 
         services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
@@ -144,6 +159,38 @@ public static class DesktopCompositionRegistration
         // Progress (local ADR 0035): goals, impediments and the stand-up, always on
         // (§10).
         services.AddProgressModule();
+
+        // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
+        // notifications table AddSqlite registered above. Each context that asks questions adds
+        // its handler with AddNotificationAnswerHandler<T>(). The heads start
+        // NotificationsStartup once the container is built.
+        services.AddNotificationsModule();
+        // Each context that owns subjects answers the startup probe about them, from its
+        // own data: Sessions for sessions, runs and pull requests, Tasks, Devbook remarks
+        // and Sync pairings. The ends themselves are reported where each context notices
+        // them — the session reading, finish_run, the pull request chip, the task store,
+        // the remark store and the pairing client.
+        services.AddNotificationSubjectProbe<SessionSubjectProbe>();
+        services.AddNotificationSubjectProbe<TaskSubjectProbe>();
+        services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
+        services.AddNotificationSubjectProbe<PairingSubjectProbe>();
+        services.AddSingleton(sp => new PullRequestSubjects(
+            sp.GetService<GitHubIntegration>(),
+            sp.GetService<INotifications>,
+            sp.GetService<ILogger<PullRequestSubjects>>()));
+        services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
+        // The MCP ask tool's questions: the asking session polls get_answer, so its handler
+        // only takes the answer, which stops the startup pass replaying it on every start.
+        services.AddNotificationAnswerHandler<McpNotificationAnswers>();
+        // The Settings page's test question: the page reads its answer off the centre, so the
+        // handler only takes it, for the same reason.
+        services.AddNotificationAnswerHandler<TestNotificationAnswers>();
+        // The questions Sessions and Sync ask: a run's Personal Validation, recorded on the
+        // run file, an Approve + follow-up filing its entry through Tasks' scoped port; and
+        // the device that redeemed this desktop's pairing code, which Refuse
+        // revokes.
+        services.AddSessionValidationAnswers();
+        services.AddNotificationAnswerHandler<PairingAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
@@ -204,6 +251,7 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
@@ -266,7 +314,7 @@ public static class DesktopCompositionRegistration
 
         services.AddSingleton<FeedbackReporter>();
         // One per window: the error screen asks the footer's dialog to open through
-        // it, and in the harness a request belongs to the circuit that raised it.
+        // it, and a request belongs to the window (or circuit) that raised it.
         services.Add(new ServiceDescriptor(typeof(FeedbackReportChannel), typeof(FeedbackReportChannel), options.WindowStateLifetime));
         services.AddCopilot(options.CopilotCliLauncher);
         services.AddSingleton<TasksCopilotCli>();
@@ -280,9 +328,60 @@ public static class DesktopCompositionRegistration
         // pins from it, over the search and folder ports registered just above.
         services.AddDevbookAiContentSource();
 
+        // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
+        // ShellSurface, one catalog holds them, and each window jumps between them
+        // through a navigator of its own (§3). The five views — Tasks, Board and
+        // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
+        // Devbook, Sessions, the Dashboard, the notification centre, Tools and the
+        // Lobes atlas from their modules, and the pull requests from the shell's own project, which
+        // reads GitHub for them.
+        services.AddTasksSurfaces();
+        services.AddRoadmapSurface();
+        services.AddGoalsSurface();
+        services.AddDevbookSurface();
+        services.AddInboxSurface();
+        services.AddSessionsSurface();
+        services.AddPullRequestsSurface();
+        services.AddDashboardSurface();
+        services.AddNotificationsSurface();
+        services.AddToolsSurface();
+        services.AddAtlasSurface();
+        // What those takeovers read from the window they are shown in — its scope,
+        // its entries, the Inbox's Capture — built from the window's own state, so a
+        // takeover draws the same in a window of its own.
+        services.AddShellSurfaceWiring(options.WindowStateLifetime);
+        // Which window a scope belongs to, for a head service that stands over the
+        // window a request came from.
+        services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
+        // What the views read beside the list: the Board's columns and the Calendar's
+        // range from the shell's navigation file, and the Goals view's candidates from
+        // the window's own task list and reader of pull requests.
+        services.AddSingleton<ITasksViewPreferences>(sp =>
+            new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        services.Add(new ServiceDescriptor(
+            typeof(ShellGoalsViewSource),
+            sp => new ShellGoalsViewSource(sp),
+            options.WindowStateLifetime));
+        services.Add(new ServiceDescriptor(
+            typeof(IGoalsViewSource),
+            sp => sp.GetRequiredService<ShellGoalsViewSource>(),
+            options.WindowStateLifetime));
+        services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
+        services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The titles a Brain note's Tasks section draws, from the window's own task list.
+        services.Add(new ServiceDescriptor(
+            typeof(IBrainTaskTitles),
+            sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+        // The window's repository scope, for a Devbook opened with no scope of its own (§6).
+        services.Add(new ServiceDescriptor(
+            typeof(IDevbookWindowScope),
+            sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+
         // One window's state, and what reads it. The panes' state captures the
-        // modules' scoped services; see WindowStateLifetime for why that makes it a
-        // singleton in one head and scoped in the other.
+        // modules' scoped services; see WindowStateLifetime for why that makes it
+        // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
@@ -303,6 +402,38 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
+        // The Notifications page: send a test alert or question and follow it. Offered
+        // behind the notifications switch.
+        services.AddNotificationsSettings();
+        // Its question relay timings (local ADR 0041), kept in the workspace settings file
+        // beside the rest of this desktop's settings.
+        services.AddSingleton<INotificationTimingSettings>(sp =>
+            new WorkspaceNotificationTimingSettings(sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // The last prompt per Claude session, which the hook telemetry route feeds and the
+        // head's presence reads (local ADR 0041). Read on this desktop only.
+        services.AddSingleton(_ => new SessionPrompts());
+        // The question relay (local ADR 0041): the waiting questions in backlog.db, the
+        // route from the head's presence — none reads as at the keyboard — and "notify
+        // after" read from the workspace settings on every question. Its escalation timer
+        // is resolved by the head at startup, like BlockedTaskWatcher.
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
+            return new QuestionRelay(
+                sp.GetRequiredService<IWaitingQuestionStore>(),
+                sp.GetService<IPresence>(),
+                () => settings.Presence.NotifyAfter,
+                sp.GetService<INotifications>,
+                sp.GetService<TimeProvider>(),
+                sp.GetService<ILogger<QuestionRelay>>(),
+                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true);
+        });
+        // The same relay as the port the MCP ask, get_answer and close tools reach it through.
+        services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
+        services.AddSingleton(sp => new QuestionRelayEscalation(
+            sp.GetRequiredService<QuestionRelay>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<QuestionRelayEscalation>>()));
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the
@@ -353,6 +484,11 @@ public static class DesktopCompositionRegistration
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
             new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
+        // Show hidden (local ADR 0026 §2): whether the Brain's ignored folders and
+        // dot-folders show as tabs, kept per device in the same file — never in the
+        // Brain folder, never on the Brain setting whose change reloads the Brain.
+        services.AddSingleton<IBrainShowHidden>(sp =>
+            new BrainShowHidden(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
@@ -367,6 +503,11 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+
+        // The notification exchange (local ADR 0039): this desktop pushes the notifications it
+        // owns and, while a question is open, takes the replies addressed to it every two
+        // minutes. Answers to the sync switch and to the notifications switch.
+        services.AddNotificationSyncClient(SyncServiceAddress);
 
         // Which registered clone a session's working folder lies inside, read off the
         // repository list the Repositories screen writes, so a header scoped to one
@@ -475,9 +616,16 @@ public static class DesktopCompositionRegistration
         // which is why leaving this line out would not fail — it would only forget.
         // The folder source is what lets it name a chapter the way every other
         // device names it, whichever folder this machine has an area pointed at.
+        // Watched for a remark that is resolved or deleted, whichever caller does it — a
+        // panel, the MCP tool, or a resolve synced in from another device — so the
+        // notifications about it close, and for a remark left on another device that syncs
+        // in, which raises an alert linking to its chapter (RemarkNotificationStore).
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+            new RemarkNotificationStore(
+                new DevbookAnnotationStore(
+                    () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                    folders: sp.GetRequiredService<IDevbookFolderSource>()),
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<RemarkNotificationStore>>()));
     }
 }

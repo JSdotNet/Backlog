@@ -38,7 +38,7 @@ public static class DevbookAreaCatalog
     /// <see langword="null"/> when the folder it names is not a section this
     /// product reads.
     /// <para>
-    /// The leading segment is a knowledge folder key, so it goes through the same
+    /// The leading segment is a devbook folder key, so it goes through the same
     /// folder-key-to-section map the Devbook menu is built from rather than
     /// through a second one written here; the answer is then only handed back when
     /// it names a section on this list. A reference into <c>.github</c> resolves to

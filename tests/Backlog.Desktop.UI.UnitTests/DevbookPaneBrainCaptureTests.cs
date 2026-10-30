@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Capture on the Devbook pane in Brain mode
-/// (<c>.devbook/domain/devbook/requirements.md#capture-into-the-brain</c>): a title
+/// (<c>.devbook/domain/brain/requirements.md#capture-into-the-brain</c>): a title
 /// and a body written as a new note in the Brain's inbox area, through the writer
 /// Inbox triage's To Brain shares, and opened once it is there.
 /// </summary>

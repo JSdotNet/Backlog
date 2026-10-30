@@ -5,7 +5,7 @@ index: root
 type: context
 deployment: module
 sync: push
-related: [.devbook/arc42/05-building-block-view.md#desktop-app]
+related: [.devbook/arc42/05-building-block-view.md#desktop-app, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 The Sessions context owns the record of what the AI coding agents have been doing. It
@@ -20,6 +20,12 @@ never starts, stops or names a session. That is why nothing here is a command, a
 the [Session Log](domain.md#session-log) aggregate has no invariant about state
 transitions: a session's state is derived on every reading, not advanced.
 
+One record here is not evidence: a [Session Request](domain.md#session-request) asks
+for a session that does not exist yet. A person creates it with a click, and a
+dispatcher outside this context starts the session (local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+The request is the context's one command, and it still never starts a session itself.
+
 An optional Collections MCP can add a second kind of evidence: sanitized activity
 updates that a configured session reports as it moves. Those updates are an
 **enrichment layer**, not a second authority. They say more about what a known
@@ -33,6 +39,19 @@ does not change when records replicate.
 "Which agent, in which repository, for how long" is this context's question. "How is
 this PC configured" is [Dev PC Management](../dev-pc-management/domain.md#machine-registry)'s,
 and that context models no sessions.
+
+Pull requests are outside it too. A session or a delivery run often opens one, but
+whether it is ready, the stack it sits in and the commands that merge it are
+[Repository Management](../repository-management/context.md)'s. That includes the
+[pull requests pane](../repository-management/features.md#pull-request-readiness)
+and its merge and re-run acts. A session's detail panel shows, on each pull request
+the session produced, the
+[readiness verdict](../repository-management/domain.md#readiness-verdict) that
+context publishes. The desktop shell composes that card, so this context holds only
+the pull request's number and references nothing of Repository Management. Local
+[ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
+decides it, and it is proposed. Until it is built, the pane lives in the desktop
+shell and its flag is still declared on `SessionFeatures`.
 
 ## Sessions area
 
@@ -60,3 +79,23 @@ The key is `SessionFeatures.Sessions` in the Sessions module. Its string is the 
 screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is
 kept in `features.json` beside the app's other per-device choices. It is retired when
 the Sessions area leaves `DEV`.
+
+## Session requests
+
+```meta
+status: draft
+type: feature-flag
+key: session-requests
+default: off
+related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
+```
+
+Turning it on offers a queue icon on an entry and on a plan's roadmap item, maps
+`GET /session-requests/wait` on the MCP listener, and adds the tools a dispatcher
+claims and reports with. Off, the action is not shown, the route answers `404` and the
+tools leave the endpoint.
+
+It is off by default while the dispatchers are built
+([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
+The repository owner decides when it turns on. It is retired once the Manager skill
+has shipped and the feature leaves `DEV`.

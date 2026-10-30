@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Backlog.Modules.Sessions.Abstractions;
+
 namespace Backlog.Infrastructure.Mcp;
 
 /*
@@ -270,7 +272,7 @@ public sealed record RoadmapPayload(
     IReadOnlyList<RoadmapMilestonePayload> Milestones,
     IReadOnlyList<RoadmapContradictionPayload> Contradictions);
 
-/// <summary>One configured knowledge folder, and where it resolved to.</summary>
+/// <summary>One configured devbook folder, and where it resolved to.</summary>
 /// <param name="Message">Why it is unavailable, in the words the panels show.
 /// Null while it is available.</param>
 /// <param name="Pending">The folder is on its way rather than absent — a branch
@@ -285,7 +287,7 @@ public sealed record KnowledgeContextPayload(
     string Source,
     bool Pending);
 
-/// <summary>The knowledge folders configured for one repository.</summary>
+/// <summary>The devbook folders configured for one repository.</summary>
 public sealed record KnowledgeContextsPayload(string Repository, string RepositoryAlias, IReadOnlyList<KnowledgeContextPayload> Contexts);
 
 /// <summary>
@@ -348,7 +350,7 @@ public sealed record ChapterBlockPayload(
 /// <summary>
 /// A chapter as a session reads it.
 /// </summary>
-/// <param name="ContextKey">The knowledge folder the chapter was found in.</param>
+/// <param name="ContextKey">The devbook folder the chapter was found in.</param>
 /// <param name="Markdown">
 /// The chapter itself. Outside review mode it is the file with the lines of its
 /// <c>meta</c> and <c>annotation</c> fences cut out and every other byte
@@ -435,6 +437,11 @@ public sealed record AnnotationsPayload(
 /// <paramref name="Repository"/> and never folded into it: one is a fact about
 /// the session and the other a fact about this machine's Repositories screen, and
 /// they fail differently.</param>
+/// <param name="State">The session's state; <c>Waiting</c> while it holds an open waiting
+/// question (local ADR 0041), which the Manager's capacity count leaves out.</param>
+/// <param name="DesktopSessionId">The Claude desktop app's id for the session — the id its
+/// session tools take — where its session store holds a record on this machine, else null.
+/// What the Manager matches its dispatched sessions against.</param>
 public sealed record SessionPayload(
     string Id,
     string Agent,
@@ -448,7 +455,8 @@ public sealed record SessionPayload(
     DateTimeOffset LastActivityAt,
     string State,
     int? TurnCount,
-    string Origin);
+    string Origin,
+    string? DesktopSessionId = null);
 
 /// <summary>
 /// The sessions this machine can describe.
@@ -478,6 +486,90 @@ public sealed record SessionsPayload(
     bool Capped,
     IReadOnlyList<string> Unreadable,
     IReadOnlyList<SessionPayload> Sessions);
+
+/// <summary>
+/// One session request as a dispatcher sees it (local ADR 0038), on the wait route and
+/// from every dispatcher tool alike — one shape, so a request handed out by the route
+/// reads the same when <c>list_session_requests</c> answers it again.
+/// </summary>
+/// <param name="Id">The request's id: what the dispatcher claims and marks.</param>
+/// <param name="Kind"><c>entry</c> or <c>plan</c>.</param>
+/// <param name="EntryId">The entry an entry request runs; null on a plan request.</param>
+/// <param name="PlanTag">The plan a plan request runs, without its sigil; null on an
+/// entry request.</param>
+/// <param name="Repository">The repository, as <c>owner/name</c>.</param>
+/// <param name="CloneFolder">That repository's clone folder on this machine: where the
+/// session starts.</param>
+/// <param name="State">The state it reads as now — a lapsed claim reads
+/// <c>requested</c>: <c>requested</c>, <c>claimed</c>, <c>started</c>, <c>linked</c> or
+/// <c>cancelled</c>.</param>
+/// <param name="ClaimedBy">The dispatcher holding the claim, while claimed.</param>
+/// <param name="LeaseEndsAt">When that claim's lease runs out, while claimed.</param>
+/// <param name="SessionId">The session the dispatcher reported, once started.</param>
+/// <param name="CreatedAt">When the person asked.</param>
+/// <param name="Brief">The line to start the session with, built by the server from the
+/// kind and the id alone. Passed on as it is; a dispatcher never writes its own.</param>
+public sealed record SessionRequestPayload(
+    Guid Id,
+    string Kind,
+    Guid? EntryId,
+    string? PlanTag,
+    string Repository,
+    string CloneFolder,
+    string State,
+    string? ClaimedBy,
+    DateTimeOffset? LeaseEndsAt,
+    string? SessionId,
+    DateTimeOffset CreatedAt,
+    string Brief)
+{
+    /// <summary>The request as it reads at <paramref name="now"/>.</summary>
+    public static SessionRequestPayload From(SessionRequest request, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var state = request.StateAt(now);
+        var claimed = state == SessionRequestState.Claimed;
+
+        return new SessionRequestPayload(
+            request.Id,
+            WireName(request.Kind),
+            request.EntryId,
+            request.PlanTag,
+            request.Repository,
+            request.CloneFolder,
+            WireName(state),
+            claimed ? request.ClaimedBy : null,
+            claimed ? request.LeaseEndsAt : null,
+            request.SessionId,
+            request.CreatedAt,
+            SessionRequests.BriefFor(request));
+    }
+
+    /// <summary>A kind or state as the wire spells it: its member name, lower-cased.</summary>
+    public static string WireName<TEnum>(TEnum value)
+        where TEnum : struct, Enum => value.ToString().ToLowerInvariant();
+}
+
+/// <summary>What <c>claim_session_request</c> answered.</summary>
+/// <param name="Claimed">Whether this dispatcher now holds the request under the
+/// 2-minute lease. False when it was taken — claimed, started, linked or cancelled
+/// already — and then the dispatcher leaves it alone.</param>
+/// <param name="Refusal">Why it was not claimed, or null.</param>
+/// <param name="Request">The request as it now stands.</param>
+public sealed record SessionRequestClaimPayload(bool Claimed, string? Refusal, SessionRequestPayload Request);
+
+/// <summary>What <c>mark_session_request</c> answered.</summary>
+/// <param name="Outcome"><c>started</c> or <c>released</c>, as asked.</param>
+/// <param name="Marked">Whether the request moved. False when this dispatcher no longer
+/// holds the claim — its lease ran out, or another dispatcher holds it.</param>
+/// <param name="Refusal">Why it did not move, or null.</param>
+/// <param name="Request">The request as it now stands.</param>
+public sealed record SessionRequestMarkPayload(string Outcome, bool Marked, string? Refusal, SessionRequestPayload Request);
+
+/// <summary>What <c>list_session_requests</c> answered: the requests, oldest first.</summary>
+/// <param name="State">The state the list was narrowed to, or null for every request.</param>
+public sealed record SessionRequestsPayload(string? State, int Count, IReadOnlyList<SessionRequestPayload> Requests);
 
 /*
     The delivery surface's answers, and the three shapes its one rich argument
@@ -546,6 +638,8 @@ public sealed record RunStagePayload(string Name, string Status, long? DurationM
 /// <param name="RunContext">The run context <c>set_run_context</c> kept, as an
 /// object — authored by the flow, unlike the measured figures this leaves out, so a
 /// flow reading it back reads its own words.</param>
+/// <param name="Approval">The run's Personal Validation decision, or null where none is
+/// recorded yet — how an orchestrator reads a gate answered from a notification.</param>
 public sealed record RunPayload(
     string Id,
     string Worktree,
@@ -561,7 +655,27 @@ public sealed record RunPayload(
     string? Trigger = null,
     string? Schedule = null,
     string? Repo = null,
-    JsonElement? RunContext = null);
+    JsonElement? RunContext = null,
+    RunApprovalPayload? Approval = null);
+
+/// <summary>
+/// A run's Personal Validation decision, as <c>get_run</c> hands it back.
+/// </summary>
+/// <param name="Decision"><c>pending</c>, <c>approved</c> or <c>rejected</c>, or null.</param>
+/// <param name="Note">The note recorded with it: the person's words for Revise and
+/// Approve + follow-up, a fixed note for Approve and Reject.</param>
+/// <param name="DecidedAt">When it was decided.</param>
+/// <param name="Choice">The answer a notification gave — <c>approve</c>,
+/// <c>approve-follow-up</c>, <c>revise</c> or <c>reject</c> — or null for a decision
+/// taken at the desktop. Tells Revise (<c>rejected</c>, revise round) from Reject
+/// (<c>rejected</c>, the entry is blocked) without reading the note.</param>
+/// <param name="FollowUpEntryId">The follow-up entry an Approve + follow-up filed, or null.</param>
+public sealed record RunApprovalPayload(
+    string? Decision,
+    string? Note,
+    DateTimeOffset? DecidedAt,
+    string? Choice,
+    Guid? FollowUpEntryId);
 
 /// <summary>The runs of one worktree.</summary>
 public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);
@@ -613,3 +727,21 @@ public sealed record SyncUnitVerdictInput(
     string? Action,
     string? Link,
     IReadOnlyList<SyncChapterVerdictInput>? Chapters);
+
+/// <summary>What <c>open_window</c> answered.</summary>
+/// <param name="Surface">The surface's id, as the catalog holds it.</param>
+/// <param name="Target"><c>desktop</c> or <c>web</c>.</param>
+/// <param name="Opened">True when a native window was opened. Always false for
+/// <c>web</c>, which opens nothing.</param>
+/// <param name="Url">For <c>web</c>, the page's full address with its single-use link
+/// token, or null when no page is served now. Null for <c>desktop</c>.</param>
+/// <param name="BacklogLink">The <c>backlog://window/{surfaceId}?…</c> link that opens the
+/// same surface in the installed app. It carries no token and stays valid.</param>
+/// <param name="Answer">The sentence to report, already written for a person.</param>
+public sealed record WindowOpenedPayload(
+    string Surface,
+    string Target,
+    bool Opened,
+    string? Url,
+    string BacklogLink,
+    string Answer);

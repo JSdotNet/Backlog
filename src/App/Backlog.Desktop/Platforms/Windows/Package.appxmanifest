@@ -5,7 +5,9 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
-  IgnorableNamespaces="uap rescap desktop6">
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap rescap desktop6 desktop com">
 
   <Identity Name="JSdotNet.Backlog.Desktop" Publisher="CN=JSdotNet" Version="0.0.0.0" />
 
@@ -47,6 +49,37 @@
         <uap:DefaultTile Square71x71Logo="$placeholder$.png" Wide310x150Logo="$placeholder$.png" Square310x310Logo="$placeholder$.png" />
         <uap:SplashScreen Image="$placeholder$.png" />
       </uap:VisualElements>
+      <!--
+        Windows app notifications (Services/WindowsAppNotifications.cs): the packaged build
+        names the COM class Windows starts the app through when a notification, or one of its
+        buttons, is pressed while the app is closed. Unpackaged (Debug), Register() sets the
+        same up at run time and this block is not read. The CLSID is this app's own and must
+        not change, or presses on notifications raised by an older install stop arriving.
+      -->
+      <Extensions>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="0E4C2F0F-5146-4E54-9817-604ACA635038" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Backlog.Desktop.exe" Arguments="----AppNotificationActivated:" DisplayName="Backlog notifications">
+              <com:Class Id="0E4C2F0F-5146-4E54-9817-604ACA635038" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <!--
+          backlog://window/{surfaceId}?plan=…&entry=…&chapter=…&scope=… opens that surface in
+          a window of its own (local ADR 0043 §7). Windows starts a process per link; that
+          process hands the link to the instance already running and ends
+          (Services/BacklogLinkInstance.cs). Unpackaged (Debug), nothing registers the scheme,
+          and a link is read off the command line instead.
+        -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="backlog">
+            <uap:DisplayName>Backlog</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

@@ -275,9 +275,46 @@ related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
 Carve the same list up by the things that separate sessions from each other in
-practice, without removing any of them: when they ran, which repository they were in,
-and which machine ran them. The list opens grouped by When, which puts the live
-sessions on top and the rest under the day they were last active.
+practice, without removing any of them: when they ran, which plan they belong to, what
+they are for, which repository they were in, and which machine ran them. The list
+opens grouped by When, which puts the standing sessions on top, then the live ones, and
+the rest under the day they were last active.
+
+### Standing under When
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading, .devbook/domain/sessions/domain.invariants.md#invariant-a-standing-session-leaves-standing-only-while-it-runs]
+```
+
+A session titled as an artifact, a design, a plan, research or a hold is one the reader
+keeps until it is archived. When opens with a Standing section that holds them, above
+Live now, so they do not sink under the days. A standing session that is running sits in
+Live now and returns to Standing when it stops. A scheduled run never stands.
+
+### Group by plan
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading, .devbook/domain/sessions/domain.md#session-grouping]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_plan_is_a_section_per_tag_with_the_plan_then_its_runs_then_its_entries_by_step
+```
+
+A section per plan tag, headed `+tag` with the plan's state, Draft or Imported, where
+the plan has one. A section lists the session the plan was agreed in first, then the
+execute-plan runs, then the entries by step. So a plan reads top to bottom in the order
+it was worked. The sessions of no plan close the list under "Not part of a plan".
+
+### Group by purpose
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_purpose_is_a_section_per_purpose_in_declared_order
+```
+
+A section per purpose, in the order the purposes are declared: Artifact, Design, Plan,
+Research, Hold, Plan run, Entry, Scheduled, Other.
 
 ### Group by environment
 
@@ -312,8 +349,8 @@ status: deprecated
 
 A section per agent, so Claude's sessions and Copilot's could be read separately
 without the two being separate lists. The session list does not offer it: every row
-wears its agent's mark, and When, Repository and Machine are the three ways the list
-is read. The grouping itself remains in the domain.
+wears its agent's mark, and When, Plan, Purpose, Repository and Machine are the ways
+the list is read. The grouping itself remains in the domain.
 
 ### Grouping never hides a session
 
@@ -331,8 +368,8 @@ it does not move while `Group by` moves the same rows around. When the filters l
 some rows out, the count names both numbers, kept and total. The total is then still
 there to be checked against, with the reader's own subtraction stated beside it rather
 than folded into it. One number where two are owed would let the controls that remove
-rows (Show, Machine, and With delivery runs) borrow the innocence of the one that
-does not.
+rows (Show, With delivery runs, Machine, Purpose, Plan and Plan state) borrow the
+innocence of the one that does not.
 
 ## Honest partial answers
 
@@ -729,18 +766,29 @@ shown that the agent or the dashboard did not record.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
-tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 The controls that narrow the list sit together in one filter bar above it. From left to
-right the bar shows Show (Live, Open or All), With delivery runs, and Machine. Group by sits
-beside them, and Update records and Refresh at the end. One bar, because a reader who
+right the bar shows:
+
+1. Show: Live, Open or All.
+2. With delivery runs.
+3. Machine.
+4. Purpose: All, then each purpose.
+5. Plan: All plans, then each plan tag the reading names.
+6. Plan state: Any, Draft or Imported.
+
+Group by sits beside them, then Clear filters while any of them narrows the list, and
+Update records and Refresh at the end. Purpose, Plan and Plan state read the session's
+title (see [Session Title Reading](domain.md#session-title-reading)). Clear filters
+returns every filter but Show to its first option. One bar, because a reader who
 wonders why a session is missing should find every reason in one place. Each filter
 only removes rows, so the order on screen does not change what the list shows. The
 order the surface applies them in is the [Session View](domain.md#session-view)'s.
 
-Live and Open each carry how many rows they would show under the other filters, so
-pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
+Live, Open and each Purpose option carry how many rows they would show under the other
+filters, so pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
 by comes back to When.
 
 The count beside the title keeps its promise from
@@ -764,10 +812,11 @@ session costs and how well it does. A reader comparing two sessions should not h
 open both to learn that one ran on a smaller model. A session whose agent recorded no
 effort shows none, rather than a default that would claim a choice nobody made.
 
-The list is grouped by When, Repository or Machine (see
+The list is grouped by When, Plan, Purpose, Repository or Machine (see
 [Session Grouping](domain.md#session-grouping)), and each row reads in three lines:
 
-- the agent's mark, the session's title and its state chip;
+- the agent's mark, the purpose badge, the title less its prefix, Draft or Imported on
+  a plan's own session, its state chip, and on a plan's sessions the plan tag;
 - the repository with its [identity edge](../../design/color-scheme.md#the-identity-edge),
   the machine, when it was last active, how long it went on, the model with its effort
   chip, and its output tokens;
@@ -779,11 +828,20 @@ The row is one control: pressing it shows the session in the detail panel. The p
 requests and the task it led to are in the panel rather than on the row, because a
 link inside a control is markup no browser agrees on.
 
+The plan tag is the one exception, and it sits beside the row rather than inside it.
+It is a control of its own: pressing it narrows the list to that plan. The row keeps
+room for it on its first line, so the tag never covers the state chip.
+
+A row shows its title less its prefix, and the prefix as a badge. The row's tooltip and
+the detail panel keep the whole title
+([A row shows its title less its prefix](domain.invariants.md#invariant-a-row-shows-its-title-less-its-prefix)).
+A row with no prefix the reading recognises shows its title whole and no badge.
+
 ### The detail of one session
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/sessions/features.md#the-detail-panel-of-a-pull-request]
+related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repository-management/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repository-management/features.md#one-verdict-per-pull-request]
 ```
 
 Picking a row opens a detail panel beside the list. It holds three things, in this order:
@@ -820,9 +878,9 @@ narrow width the panel drops under the list.
   order and why. A session with no run says so in its place.
 - **What it produced**: a pull request card for each pull request, and the task card
   for the Backlog entry it was worked for. Each pull request card wears the readiness
-  verdict of [One verdict per pull request](#one-verdict-per-pull-request) as read for
-  it. A pull request whose
-  verdict could not be read wears no chip rather than a guess.
+  verdict Repository Management publishes for it, by
+  [One verdict per pull request](../repository-management/features.md#one-verdict-per-pull-request).
+  A pull request whose verdict could not be read wears no chip rather than a guess.
 
 ## How each stage of a run ran
 
@@ -1302,185 +1360,6 @@ itself, for two reasons. The overlay belongs to the person and to the skill that
 A change to how a flow runs should also be a step the person takes on purpose, in a
 session where they can see it happen.
 
-## Pull request readiness
-
-```meta
-type: feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/progress/features.md#pull-request-status]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
-```
-
-The pull requests pane is the Sessions context's second surface. Sessions and delivery
-runs produce pull requests, so the pane is where a reader follows that work to the point
-where it merges.
-
-The pane has two views, Open and Recently merged. A Mine / Everyone's choice narrows the
-rows. Mine is the reader's own pull requests and those related to one of their tasks.
-Refresh re-reads the list. A repository's label filter, set in Settings, lets through
-only the pull requests carrying one of its labels. A pinned pull request ignores every
-filter. It sits in a Pinned group at the top of the list until it is unpinned, even after
-it merges or closes.
-
-The pane is a triage list beside a detail panel. Lane tiles say how many pull requests
-need what, the list below them is grouped by lane, and the pull request the reader picks
-is laid out in full beside the list. Where the pane is narrow, the panel moves under the
-list. Each row says one thing: the verdict on whether it is ready, and if not, what it is
-waiting on. A reader scanning twenty pull requests should not have to open each to learn
-which one needs them.
-
-A row shows:
-
-- the repository's [identity edge](../../design/color-scheme.md#the-identity-edge);
-- the number, the verdict chip and the title;
-- the head branch, and how long ago it was updated;
-- its [pull request status](../progress/features.md#pull-request-status) marks: checks
-  as passed over total once any ran, and the approvals it has.
-
-A pull request stacked on another is indented and says which one it waits on, so the
-reader merges that one first. A pinned one keeps both in the Pinned group, so a pin never
-hides what has to merge first.
-
-The pane has no storybook page. The storybook references only `Backlog.UI.Components`,
-and the pane lives in `Backlog.Desktop.UI`, which the storybook cannot render. Its states
-are proved by the bUnit tests named above instead.
-
-### Lanes that filter the list
-
-```meta
-type: sub-feature
-related: [.devbook/domain/sessions/features.md#one-verdict-per-pull-request]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests]
-```
-
-Four lane tiles sit under the header: Needs you, Ready to merge, Waiting and Drafts. Each
-tile shows how many pull requests are in its lane. A line under the count says what put
-them there, such as "conflicts · failing checks". Pressing a tile narrows the list to that
-lane, and pressing it again lets the lane go. One lane is pressed at a time.
-
-The counts are taken over the rows the other filters leave, so a tile never promises a
-pull request the list will not show. A pinned pull request still shows under a pressed
-lane, for the reason it ignores every other filter. Recently merged has no tiles, because
-a merged pull request is in no lane.
-
-The Mine / Everyone's choice stays, because it answers a different question. Mine says
-whose pull requests to look at; a lane says which of them to look at first. The two
-combine: Mine and Needs you is the reader's own work that is waiting on them.
-
-### One verdict per pull request
-
-```meta
-type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
-```
-
-Each pull request that is still open gets exactly one readiness verdict. Where several
-apply, the first in this table wins:
-
-| Precedence | Verdict | Lane | Tone | Act | Second act |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Conflicts | Needs you | fault | Open on GitHub | — |
-| 2 | Failing checks | Needs you | fault | Re-run failed, when a failed check is a GitHub Actions run; else Open on GitHub | Open on GitHub, after Re-run failed |
-| 3 | Changes requested | Needs you | fault | Open review on GitHub | — |
-| 4 | Behind | Needs you | alert | Update branch | Merge when ready |
-| 5 | Draft | Drafts | quiet | Ready for review | — |
-| 6 | Checks running | Waiting | live | Merge when ready | — |
-| 7 | Review required | Waiting | live | Merge when ready | — |
-| 8 | Ready | Ready to merge | settled | Merge | Update branch, when the branch is behind a base that does not require it |
-
-One verdict rather than a row of badges, because a reader acts on one thing at a time. The
-order puts first what blocks the most. A conflict has to be resolved before checks or
-review mean anything, and a failing check before a review is worth asking for. Behind is
-in Needs you because it waits on nobody else: the reader brings the branch up to date
-with the act the banner offers, and it can merge. The tones are the badge tone scale of
-`.devbook/design/color-scheme.md`, so the verdict chip reads like every other badge.
-
-Each verdict carries a label for its chip, a headline and a one-sentence reason for the
-banner, and the acts above. A few rules sit beside the table:
-
-- A failed check decides even while others still run. A reviewer who asked for changes
-  counts even where the repository asks for no review.
-- Ready offers Merge when ready instead of Merge when GitHub still reports the pull
-  request not mergeable, because a merge now would be refused.
-- A stacked pull request's reason names the pull request it waits on. It is offered no
-  merge act, because merged now it would land on its parent's branch rather than where
-  the stack is going. Its other acts stay.
-- Behind is GitHub's own `BEHIND` state, which GitHub sets only where the repository
-  requires an up-to-date branch. A pull request behind a base that does not require it is
-  still Ready, but its reason says how many commits behind it is and that the repository
-  does not require it, so it never contradicts the up to date line of the detail panel.
-  Update branch is then offered as Ready's second act.
-- Whether Re-run failed is offered is read off the pull request's own checks, never
-  told to the verdict by whoever asks for it.
-- The session list's pull request card gives the same verdict as the pane, stack
-  included: it places an open pull request among its repository's open pull requests and
-  names the one it waits on.
-- A merged pull request reads as Merged, in the settled tone, with no act. A pull request
-  closed without merging has no verdict, since there is nothing left to get ready.
-
-### The detail panel of a pull request
-
-```meta
-type: sub-feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests]
-```
-
-Picking a pull request opens a detail panel. The first row the list shows is picked until
-the reader picks another, and a pick the filters hide falls back to the first row shown.
-From the top, the panel holds:
-
-- the pull request's repository, number, author, title and branches, a link to it on
-  GitHub, and its pin;
-- a banner with the verdict and the act that fits it, such as Update branch for Behind,
-  with the verdict's second act beside it where it has one;
-- a merge-readiness list of four lines: checks, review, up to date, and mergeable;
-- the checks, failures first, then the ones still running; six are shown and the rest
-  are counted;
-- the stack the pull request is part of, bottom first;
-- the task card and the session card for the work behind it.
-
-The banner leads with one act because the verdict already names the one thing in the way.
-GitHub may already hold an auto-merge that the verdict's acts do not touch. The banner
-then also offers to cancel it, because that undoes a request rather than making one. The
-mergeable line says only whether the pull request has conflicts. It does not count the
-conflicted files, because GitHub reports no such count, and a number this product made
-up would be wrong in a way nobody could check. The failures come first so the reader sees
-the reason before the long list of passing checks.
-
-The list already reads what the panel needs. Each check on the head commit is a check run
-or a commit status. It comes with its name, whether it passed, failed or is still running,
-and, for a check run that finished, how long it took. The first fifty are listed and the
-counts cover the rest. Where the counts report a failed check past those fifty, every
-check of the head commit is paged in, so no failed run is missing. Each open pull request from the same repository also carries how
-many commits its base has that its branch does not. GitHub cannot compare a fork's branch
-from the base repository, so a pull request from a fork has no such count.
-
-### Re-run failed
-
-```meta
-type: sub-feature
-tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests]
-```
-
-Re-run failed is offered when a failed check is a GitHub Actions run. It starts the failed
-jobs of that run again, and the jobs that depend on them. It covers the most common way a
-check goes red without anyone's code being wrong: a runner that flaked.
-
-Where several checks failed, each workflow run behind them is asked once, however many of
-its jobs failed. That covers a failed run past the first fifty checks too, because the
-list pages those in when the counts say one failed there. Every run is asked even when GitHub refuses one, because the runs are
-independent. The refusal then says how many of the others did start again. Afterwards the
-pane reads that one repository again, as it does after every other act, so the row shows
-the checks running instead of failed.
-
-It is offered only for GitHub Actions because that is the only kind of check this product
-can ask GitHub to run again. A check from another service has to be re-run there. The act
-sits in the detail panel's banner, as the act of the Failing checks verdict.
-
-There is no act that hands a pull request off to an agent. Starting a session is something
-a person does in their agent, with the context they choose. A button here would start work
-on the reader's behalf that the pane could neither show nor stop.
-
 ## Session activity enrichment
 
 ```meta
@@ -1651,3 +1530,91 @@ disabled control, and not an empty surface. Nothing else reads the sessions eith
 
 One switch for the area rather than one per column or per grouping, because "should
 this product show me sessions at all" is a single question.
+
+## Start a session from an entry
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+```
+
+A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
+a session. A coding session then starts in that repository's clone folder, running that
+entry or that plan. Until now they copied the entry, opened a session in the right
+folder and pasted it.
+
+The press creates a [Session Request](domain.md#session-request). A dispatcher, first
+the Manager session in Claude Desktop, picks it up, starts the session with a fixed
+one-line brief, and says which session it started. The session then links itself to
+the entry, as a pasted one does. The entry shows the request as waiting until then,
+with a Cancel action.
+
+Nothing the entry says reaches the brief. The session reads the entry by its id
+through `run-plan-item`, which first checks it is still outstanding, so a request
+answered twice, or late, does no harm.
+
+Local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides it, and it sits behind the `session-requests` flag, off by default. The
+actions and the waiting chip are built; the dispatcher that answers a request is a
+later item of the `session-dispatch` plan.
+
+- **Queue a session for this entry** is a queue icon on a saved prompt entry. It sits
+  beside the copy button, both on the entry's row and in the open entry's header. A task,
+  a test or an idea does not have it, and the row's right-click menu does not offer it.
+- The icon's name and tooltip add the repository when there is only one to choose, as
+  in "Queue a session for this entry in owner/repo". When the prompt names several, they
+  say "choose the repository" instead.
+- A prompt that names several repositories asks which one first. A repository with no
+  clone folder on this machine is offered there disabled, with the reason.
+- When no repository the prompt names has a clone folder, or it names none, the icon is
+  disabled. Its tooltip names the missing clone folder or says no repository is named,
+  and a screen reader hears the same reason. An archived repository is not offered.
+- **Queue a session for the plan** is a queue icon in the dialog of a saved roadmap item
+  that has a tag. It sits beside the item's
+  [tag copy button](../roadmap/features.md#tagging-planned-work), which copies the tag
+  with its [plan sigil](../roadmap/domain.md#plan-sigil), such as `+plan`. A new item,
+  or one without a tag, has neither.
+- The plan's icon is named for the tag with its sigil, as in "Queue a session for the
+  +plan plan". It asks for the item's tag in the first of the item's repositories that
+  has a clone folder, so there is nothing to choose. When none of them has one, the icon
+  is disabled with the same reason, in its tooltip and for a screen reader.
+- The same plan icon sits beside the copy of the pressed
+  [plan chip on the Tasks filter bar](../tasks/features.md#search-filter-and-organize),
+  on the same terms and with the same name. A plan that no roadmap item carries has no
+  icon there, because the session starts in the item's repositories.
+- While the request is Requested, Claimed or Started, a **Waiting for a session** chip
+  stands on the entry's row, in the open entry, in the item's dialog and beside the
+  pressed plan chip, and the queue icon is gone. The chip's tooltip says which of the three it is. Cancel is offered only
+  while it is Requested: the queue would also cancel a Claimed request, but by then a
+  dispatcher is already starting the session, so the screen does not offer it.
+- Once the session links itself the chip goes, and the entry shows the linked session as
+  a pasted run's does. The app reads the queue again every five seconds while the flag
+  is on, because a dispatcher moves a request without the app hearing it.
+
+## Answer a session's question from elsewhere
+
+```meta
+type: feature
+status: draft
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.md#question-relay, .devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/features.md#answering-from-another-device]
+```
+
+When a Claude session waits on the person and they are not at the keyboard, its
+question becomes a Backlog notification they can answer from the phone or another
+desktop, and the answer gets back into the session. While they are at the keyboard,
+the session asks them there as it does today, and the question leaves the session only
+if it is still unanswered after a while.
+
+A session asks in a question dialog or in prose at the end of its turn. Either way a
+hook registers the question with Backlog, which reads the person's
+[Presence](domain.md#presence) to decide. A dialog asked while the person is away
+never opens: the hook waits for the answer and hands it to the session. Any other
+answer reaches the session as a message from the Manager session, which wakes it.
+Answering in the session closes the question everywhere.
+
+Local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
+decides it. It sits behind the `notifications` flag, and nothing of it is built yet.

@@ -2,6 +2,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -23,6 +24,7 @@ public sealed class WorkspaceCachesRegistrationTests
     [InlineData(typeof(IAgentSessionRecordStore), typeof(AgentSessionRecordStore))]
     [InlineData(typeof(IUsageReadStatus), typeof(UsageReadLogStore))]
     [InlineData(typeof(IUsageReadRecorder), typeof(UsageReadLogStore))]
+    [InlineData(typeof(IPullRequestStateMemory), typeof(PullRequestStateMemory))]
     public void Every_cache_is_a_singleton_answered_from_the_workspace_store(Type port, Type implementation)
     {
         var appData = Path.Combine(Path.GetTempPath(), "backlog-workspace-caches", Guid.NewGuid().ToString("N"));

@@ -38,9 +38,9 @@ public static class DevbookModuleRegistration
     /// person's machine starts the CLI; a host that may not start a process passes
     /// one that says so when pressed.</param>
     /// <param name="domainStoreLifetime">How long one <see cref="DomainDevbookStore"/>
-    /// lives: the window's lifetime. A singleton in a head with one window; scoped in
-    /// a host with a circuit per visitor, so two readers never share one store's
-    /// state.</param>
+    /// lives: the window's lifetime. Scoped in a host with a window or a circuit per
+    /// reader, as both desktop heads are, so two readers never share one store's
+    /// state; a singleton only in a host that can never show two.</param>
     public static IServiceCollection AddDevbookModule(
         this IServiceCollection services,
         Func<IServiceProvider, ICopilotCliLauncher> copilotCliLauncher,
@@ -71,6 +71,8 @@ public static class DevbookModuleRegistration
             copilotCliLauncher(sp),
             sp.GetRequiredService<ArchifyArtifactRenderer>()));
         services.AddSingleton<DevbookScope>();
+        // The Lobes atlas's one read: the Brain and every registered devbook.
+        services.AddSingleton<IDevbookLobesSource, DevbookLobesSource>();
         // One search over the Brain and every configured repository's devbook.
         // Built from what the host composed, so a host with no Brain or no model
         // gets a search without them.
@@ -98,7 +100,7 @@ public static class DevbookModuleRegistration
         // is off, so registering it does not turn it on.
         services.AddSingleton<C4DevbookStore>();
         // The Code level of the C4 zoom tab: a component's types read from its C#
-        // source when the level is opened (local ADR 0037 §3). One reader per app,
+        // source when the level is opened (local ADR 0044 §3). One reader per app,
         // because it remembers each folder until a file in it moves.
         services.AddSingleton<CSharpCodeReader>();
         services.AddSingleton<C4DevbookCode>();

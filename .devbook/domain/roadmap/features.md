@@ -161,7 +161,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 ```
 
 Give every planned item a short [tag](domain.md#roadmap-tag) other work can be
-filed against. A Task or a knowledge chapter can then say "this belongs to that
+filed against. A Task or a devbook chapter can then say "this belongs to that
 plan item" without the plan having to name it first. The tag is derived from the
 item's title when the item is created, so a person does not invent it, and is
 then editable on its own.
@@ -182,13 +182,20 @@ rests on that, and
 `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`
 settles the two spellings.
 
+A saved item's dialog offers a copy button beside the Tag field. It copies the tag
+with its plan sigil, `+release-q4`: the spelling a Task is filed under, which the
+Tasks filter bar's plan chip copies too. The copy button is there whether or not the
+[`session-requests`](../sessions/context.md#session-requests) flag is on; with it on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it.
+A new item, or one without a tag, has no copy button.
+
 ## Gathering work under an item and totalling its effort
 
 ```meta
 type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work]
-related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/devbook/features.md#topic-and-tag-grouping]
+related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
 
 Read, for one planned item, everything that belongs to it and what it all adds up
@@ -911,7 +918,7 @@ import does not move it.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
-related: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/devbook/features.md#topic-and-tag-grouping]
+related: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
 
 **An idea, written down to be argued with, not an agreed model.** This folder's

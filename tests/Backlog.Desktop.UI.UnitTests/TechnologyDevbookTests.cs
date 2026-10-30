@@ -261,12 +261,11 @@ public sealed class TechnologyDevbookReaderTests
     }
 
     /// <summary>
-    /// Everything the atlas needs beyond what a lane view did: how much leans on a
-    /// node, where it sits in the reading order, which tone its status wears, and
-    /// which nodes are foundations.
+    /// What the views read beyond what a lane view did: how much leans on a node,
+    /// what it names, and where it sits in the reading order.
     /// </summary>
     [Fact]
-    public void The_graph_carries_degree_reading_order_tone_and_which_nodes_are_foundations()
+    public void The_graph_carries_users_dependencies_and_reading_order()
     {
         using var workspace = TestWorkspace.Create();
         var techPath = WriteAtlasFolder(workspace.RepositoryPath);
@@ -277,16 +276,14 @@ public sealed class TechnologyDevbookReaderTests
         var blazor = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#blazor");
         var winui = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#winui");
 
-        // Two things depend on .NET and .NET depends on nothing, which is exactly
-        // what makes it a foundation.
-        Assert.Equal(2, dotnet.InDegree);
-        Assert.Equal(0, dotnet.OutDegree);
-        Assert.True(dotnet.IsFoundation);
+        // Two things depend on .NET and .NET depends on nothing.
+        Assert.Equal(2, dotnet.UsedBy);
+        Assert.Empty(dotnet.DependencyIds);
+        Assert.Equal(0, dotnet.RestsOn);
 
-        Assert.Equal(0, blazor.InDegree);
-        Assert.Equal(1, blazor.OutDegree);
-        Assert.False(blazor.IsFoundation);
-        Assert.Equal(1, winui.OutDegree);
+        Assert.True(blazor.IsLeaf);
+        Assert.Equal([".tech/shared.md#net"], blazor.DependencyIds);
+        Assert.Single(winui.DependencyIds);
 
         // Reading order is the convention's — shared pinned first — not
         // alphabetical, which would put desktop first.
@@ -297,16 +294,14 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal(1, winui.OrdinalInLayer);
     }
 
-    /// <summary>Pinned as a theory against <c>DevbookStatus</c> so a change to
-    /// one folder's tone mapping fails here rather than quietly repainting the
-    /// atlas.</summary>
+    /// <summary>Every rung of the ladder is read as the chapter writes it.</summary>
     [Theory]
-    [InlineData("candidate", "ready")]
-    [InlineData("trial", "draft")]
-    [InlineData("adopted", "active")]
-    [InlineData("hold", "blocked")]
-    [InlineData("retired", "archived")]
-    public void Every_rung_of_the_ladder_wears_the_tone_the_vocabulary_gives_it(string status, string tone)
+    [InlineData("candidate")]
+    [InlineData("trial")]
+    [InlineData("adopted")]
+    [InlineData("hold")]
+    [InlineData("retired")]
+    public void Every_rung_of_the_ladder_is_read_as_written(string status)
     {
         using var workspace = TestWorkspace.Create();
         var techPath = WriteAtlasFolder(workspace.RepositoryPath, sharedStatus: status);
@@ -316,8 +311,6 @@ public sealed class TechnologyDevbookReaderTests
         var dotnet = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net");
 
         Assert.Equal(status, dotnet.Status);
-        Assert.Equal(tone, dotnet.ToneSlug);
-        Assert.Equal(DevbookStatus.Vocabulary(DevbookFolder.Tech).SlugFor(status), dotnet.ToneSlug);
     }
 
     /// <summary>A `depends-on` target outside `.tech` is a real chapter documented
@@ -338,16 +331,11 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal("Architecture", outside.Layer);
         Assert.Equal("external", outside.Kind);
         Assert.Equal(-1, outside.LayerIndex);
-        Assert.Equal(1, outside.InDegree);
+        Assert.Equal(1, outside.UsedBy);
 
-        // Its status answers to .arc42's vocabulary, where `active` is Active — not
-        // to this folder's, which does not define the word at all.
+        // Its status is .arc42's, read from the index — a word this folder's own
+        // vocabulary does not define at all.
         Assert.Equal("active", outside.Status);
-        Assert.Equal("active", outside.ToneSlug);
-
-        // Not a foundation. A foundation is a technology this project chose to sit
-        // on; this is a chapter somewhere else that happens to be referenced.
-        Assert.False(outside.IsFoundation);
     }
 
     /// <summary>The index is generated, so a checkout that has not run the
@@ -366,7 +354,6 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal("technology choices", outside.Label);
         Assert.Equal("External reference", outside.Layer);
         Assert.Equal("unknown", outside.Status);
-        Assert.Equal(string.Empty, outside.ToneSlug);
     }
 
     /// <summary>
@@ -442,8 +429,61 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal(2, view.Graph.Nodes.Count);
 
         var target = Assert.Single(view.Graph.Nodes, node => node.Label == "ASP.NET Core Minimal APIs");
-        Assert.Equal(1, target.InDegree);
-        Assert.True(target.IsFoundation);
+        Assert.Equal(1, target.UsedBy);
+        Assert.Empty(target.DependencyIds);
+    }
+
+    /// <summary>A technology's name is its heading, and a heading may hold inline
+    /// Markdown — <c>App Installer (`.appinstaller`)</c>. The label reads plain, so
+    /// no view or <c>aria-label</c> shows a backtick; the id keeps the heading's own
+    /// slug, because the status write-back and the chapter links resolve against
+    /// it.</summary>
+    [Fact]
+    public void A_heading_with_inline_markdown_labels_the_node_in_plain_text_and_keeps_its_anchor()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "desktop.md"),
+            "# Desktop Stack\n\n"
+            + "## App Installer (`.appinstaller`)\n```meta\nstatus: adopt\nkind: format\n```\n\nThe update feed.\n\n"
+            + "## MSIX packaging\n```meta\nstatus: adopt\nkind: tool\ndepends-on: [\".tech/desktop.md#app-installer-appinstaller\"]\n```\n\nThe package.\n");
+
+        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
+
+        var node = Assert.Single(view.Layers.Single().Nodes, node => node.Id == ".tech/desktop.md#app-installer-appinstaller");
+        Assert.Equal("App Installer (.appinstaller)", node.Label);
+
+        var graphNode = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#app-installer-appinstaller");
+        Assert.Equal("App Installer (.appinstaller)", graphNode.Label);
+        Assert.DoesNotContain(view.Graph.Nodes, node => node.IsBoundary);
+        Assert.Equal("App Installer (.appinstaller)", Assert.Single(view.Relationships).ToLabel);
+    }
+
+    /// <summary>A node documented in another folder is walked like any other but is
+    /// no technology of this stack: it falls in no family and no count.</summary>
+    [Fact]
+    public void A_boundary_node_is_walked_but_not_counted_as_a_technology()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, dependsOnOutside: true);
+
+        var graph = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath)).Graph;
+
+        var outside = Assert.Single(graph.Nodes, node => node.IsBoundary);
+        Assert.Equal(TechnologyTypeFamily.Other, outside.Family);
+        Assert.Equal(1, outside.UsedBy);
+
+        var blazor = Assert.Single(graph.Nodes, node => node.Id == ".tech/desktop.md#blazor");
+        Assert.Equal(2, blazor.RestsOn);
+        Assert.Contains(outside.Id, blazor.DependencyIds);
+
+        Assert.Equal(3, graph.CountsByType.Values.Sum());
+        Assert.Equal(3, graph.CountsByStatus.Values.Sum());
+        Assert.Equal(3, graph.CountsByFamily.Values.Sum());
+        Assert.False(graph.CountsByType.ContainsKey("external"));
     }
 
     /// <summary>A folder with two layers, one dependency inside it and optionally
@@ -524,6 +564,338 @@ public sealed class TechnologyDevbookReaderTests
         var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
 
         Assert.Equal(["shared.md", "cloud.md", "desktop.md", "tooling.md"], view.Layers.Select(layer => layer.FileName));
+    }
+}
+
+/// <summary>
+/// The measures the Technology views compute from <c>depends-on</c>, as
+/// <c>.devbook/domain/devbook/features.md#technology-view</c> defines them.
+///
+/// <para>One fixture answers every question: a five-deep stack whose longest chain
+/// is known (Blazor → Razor Components → ASP.NET Core → C# Language → .NET
+/// Runtime), shared dependencies (C# Language and .NET Runtime each sit under
+/// several), and a two-node cycle in the tooling layer that a third technology
+/// leans on.</para>
+/// </summary>
+public sealed class TechnologyGraphMeasuresTests : IDisposable
+{
+    private const string Runtime = ".tech/shared.md#net-runtime";
+    private const string CSharp = ".tech/shared.md#c-language";
+    private const string AspNet = ".tech/desktop.md#aspnet-core";
+    private const string Razor = ".tech/desktop.md#razor-components";
+    private const string Blazor = ".tech/desktop.md#blazor-server";
+    private const string Lint = ".tech/tooling.md#lint";
+    private const string Format = ".tech/tooling.md#format";
+    private const string Probe = ".tech/tooling.md#probe";
+
+    [Fact]
+    public void Used_by_counts_each_direct_user_once()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(3, Node(graph, Runtime).UsedBy);
+        Assert.Equal(2, Node(graph, CSharp).UsedBy);
+        Assert.Equal(2, Node(graph, AspNet).UsedBy);
+        Assert.Equal(1, Node(graph, Razor).UsedBy);
+        Assert.Equal(0, Node(graph, Blazor).UsedBy);
+        Assert.True(Node(graph, Blazor).IsLeaf);
+        Assert.False(Node(graph, Razor).IsLeaf);
+    }
+
+    [Fact]
+    public void Breaks_if_it_changes_counts_the_users_transitively_each_once()
+    {
+        var graph = ReadFixture();
+
+        // Blazor Server reaches ASP.NET Core two ways — directly and through Razor
+        // Components — and is counted once (requirements.md, "A user reached two ways").
+        Assert.Equal(2, Node(graph, AspNet).BreaksIfItChanges);
+        Assert.Equal(3, Node(graph, CSharp).BreaksIfItChanges);
+        Assert.Equal(5, Node(graph, Runtime).BreaksIfItChanges);
+        Assert.Equal(0, Node(graph, Blazor).BreaksIfItChanges);
+    }
+
+    [Fact]
+    public void Rests_on_counts_the_depends_on_transitively_each_once()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(0, Node(graph, Runtime).RestsOn);
+        Assert.Empty(Node(graph, Runtime).DependencyIds);
+        Assert.Equal(1, Node(graph, CSharp).RestsOn);
+        Assert.Equal(2, Node(graph, AspNet).RestsOn);
+        Assert.Equal(3, Node(graph, Razor).RestsOn);
+        Assert.Equal(4, Node(graph, Blazor).RestsOn);
+    }
+
+    [Fact]
+    public void Depth_is_the_longest_chain_to_a_foundation()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(0, Node(graph, Runtime).Depth);
+        Assert.Equal(1, Node(graph, CSharp).Depth);
+        // Two paths down — directly, and through C# Language — and the longer counts.
+        Assert.Equal(2, Node(graph, AspNet).Depth);
+        Assert.Equal(3, Node(graph, Razor).Depth);
+        Assert.Equal(4, Node(graph, Blazor).Depth);
+    }
+
+    [Fact]
+    public void Complexity_is_rests_on_plus_depth_and_wears_its_band()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(4, Node(graph, AspNet).Complexity);
+        Assert.Equal(TechnologyComplexityBand.Low, Node(graph, AspNet).ComplexityBand);
+        Assert.Equal(6, Node(graph, Razor).Complexity);
+        Assert.Equal(TechnologyComplexityBand.Medium, Node(graph, Razor).ComplexityBand);
+        Assert.Equal(8, Node(graph, Blazor).Complexity);
+        Assert.Equal(TechnologyComplexityBand.Medium, Node(graph, Blazor).ComplexityBand);
+    }
+
+    [Theory]
+    [InlineData(0, TechnologyComplexityBand.Low)]
+    [InlineData(5, TechnologyComplexityBand.Low)]
+    [InlineData(6, TechnologyComplexityBand.Medium)]
+    [InlineData(9, TechnologyComplexityBand.Medium)]
+    [InlineData(10, TechnologyComplexityBand.High)]
+    [InlineData(31, TechnologyComplexityBand.High)]
+    public void The_complexity_bands_break_at_six_and_ten(int score, TechnologyComplexityBand band) =>
+        Assert.Equal(band, TechnologyComplexity.BandFor(score));
+
+    [Theory]
+    [InlineData("framework", TechnologyTypeFamily.Framework)]
+    [InlineData("platform", TechnologyTypeFamily.Platform)]
+    [InlineData("runtime", TechnologyTypeFamily.Runtime)]
+    [InlineData("language", TechnologyTypeFamily.LanguageAndPackage)]
+    [InlineData("package", TechnologyTypeFamily.LanguageAndPackage)]
+    [InlineData("library", TechnologyTypeFamily.LibraryToolAndPlugin)]
+    [InlineData("tool", TechnologyTypeFamily.LibraryToolAndPlugin)]
+    [InlineData("plugin", TechnologyTypeFamily.LibraryToolAndPlugin)]
+    [InlineData("skill", TechnologyTypeFamily.Skill)]
+    [InlineData("agent", TechnologyTypeFamily.AgentServiceAndFormat)]
+    [InlineData("service", TechnologyTypeFamily.AgentServiceAndFormat)]
+    [InlineData("format", TechnologyTypeFamily.AgentServiceAndFormat)]
+    [InlineData("protocol", TechnologyTypeFamily.Protocol)]
+    [InlineData("Plugin", TechnologyTypeFamily.LibraryToolAndPlugin)]
+    [InlineData("technology", TechnologyTypeFamily.Other)]
+    [InlineData("external", TechnologyTypeFamily.Other)]
+    public void Each_of_the_thirteen_types_falls_into_its_family(string type, TechnologyTypeFamily family) =>
+        Assert.Equal(family, TechnologyTypeFamilies.Of(type));
+
+    [Fact]
+    public void Each_node_carries_its_family_and_whether_it_is_adopted()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(TechnologyTypeFamily.LibraryToolAndPlugin, Node(graph, Lint).Family);
+        Assert.Equal(TechnologyTypeFamily.LibraryToolAndPlugin, Node(graph, Format).Family);
+        Assert.Equal(TechnologyTypeFamily.Skill, Node(graph, Probe).Family);
+        Assert.Equal(TechnologyTypeFamily.LanguageAndPackage, Node(graph, CSharp).Family);
+
+        Assert.True(Node(graph, Runtime).IsAdopted);
+        Assert.False(Node(graph, Razor).IsAdopted);
+        Assert.False(Node(graph, Lint).IsAdopted);
+        Assert.False(Node(graph, Probe).IsAdopted);
+    }
+
+    [Fact]
+    public void Each_node_carries_the_ids_of_its_direct_dependencies_and_users()
+    {
+        var graph = ReadFixture();
+
+        // Declaration order, and a target named twice is named once.
+        Assert.Equal([Runtime, CSharp], Node(graph, AspNet).DependencyIds);
+        // Graph order: the reading order of the layers, then document order.
+        Assert.Equal([CSharp, AspNet, Probe], Node(graph, Runtime).UserIds);
+        Assert.Empty(Node(graph, Runtime).DependencyIds);
+        Assert.Empty(Node(graph, Blazor).UserIds);
+    }
+
+    [Fact]
+    public void The_longest_chain_runs_from_the_deepest_technology_to_a_foundation()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal([Blazor, Razor, AspNet, CSharp, Runtime], graph.LongestChain);
+    }
+
+    [Fact]
+    public void A_cycle_is_reported_and_its_walks_end()
+    {
+        var graph = ReadFixture();
+
+        var cycle = Assert.Single(graph.Cycles);
+        Assert.Equal([Lint, Format], cycle);
+        Assert.True(Node(graph, Lint).InCycle);
+        Assert.True(Node(graph, Format).InCycle);
+        Assert.False(Node(graph, Probe).InCycle);
+
+        // Each counted once and never itself, however many times the cycle goes round.
+        Assert.Equal(1, Node(graph, Lint).RestsOn);
+        Assert.Equal(2, Node(graph, Lint).UsedBy);
+        Assert.Equal(2, Node(graph, Lint).BreaksIfItChanges);
+        Assert.Equal(3, Node(graph, Probe).RestsOn);
+
+        // A hop inside the cycle is not a hop down the stack.
+        Assert.Equal(0, Node(graph, Lint).Depth);
+        Assert.Equal(1, Node(graph, Probe).Depth);
+    }
+
+    [Fact]
+    public void A_technology_that_names_itself_is_a_cycle_of_one()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "shared.md"),
+            "# Shared\n\n## Loop\n```meta\nstatus: adopted\ntype: tool\ndepends-on: [\".tech/shared.md#loop\"]\n```\n\nNames itself.\n");
+
+        var graph = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath)).Graph;
+
+        Assert.Equal([".tech/shared.md#loop"], Assert.Single(graph.Cycles));
+        var loop = Assert.Single(graph.Nodes);
+        Assert.Equal(0, loop.RestsOn);
+        Assert.Equal(0, loop.UsedBy);
+        Assert.Equal(0, loop.Depth);
+        Assert.Equal([".tech/shared.md#loop"], graph.LongestChain);
+    }
+
+    /// <summary>A cycle is one step down the stack: its members share the depth of
+    /// the longest chain that leaves it, through whichever member it leaves by.</summary>
+    [Fact]
+    public void A_cycle_s_members_share_the_depth_of_the_chain_that_leaves_it()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "shared.md"),
+            "# Shared\n\n"
+            + "## Base\n```meta\nstatus: adopted\ntype: runtime\n```\n\nFoundation.\n\n"
+            + "## Ping\n```meta\nstatus: adopted\ntype: tool\ndepends-on: [\".tech/shared.md#pong\"]\n```\n\nOne half.\n\n"
+            + "## Pong\n```meta\nstatus: adopted\ntype: tool\ndepends-on: [\".tech/shared.md#ping\", \".tech/shared.md#base\"]\n```\n\nOther half.\n");
+
+        var graph = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath)).Graph;
+
+        Assert.Equal(1, Node(graph, ".tech/shared.md#ping").Depth);
+        Assert.Equal(1, Node(graph, ".tech/shared.md#pong").Depth);
+        Assert.Equal(2, Node(graph, ".tech/shared.md#ping").RestsOn);
+        // Ping is first in graph order and leaves the cycle through Pong, which is listed.
+        Assert.Equal([".tech/shared.md#ping", ".tech/shared.md#pong", ".tech/shared.md#base"], graph.LongestChain);
+    }
+
+    [Fact]
+    public void An_acyclic_graph_reports_no_cycle()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        WriteStack(techPath, withCycle: false);
+
+        var graph = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath)).Graph;
+
+        Assert.Empty(graph.Cycles);
+        Assert.DoesNotContain(graph.Nodes, node => node.InCycle);
+    }
+
+    [Fact]
+    public void The_graph_counts_depends_on_across_each_pair_of_layers()
+    {
+        var graph = ReadFixture();
+
+        // Edges inside a layer are not cross-layer; ASP.NET Core → .NET Runtime,
+        // ASP.NET Core → C# Language and Razor Components → C# Language are.
+        Assert.Equal(
+            [new TechnologyLayerLink("Desktop", "Shared", 3), new TechnologyLayerLink("Tooling", "Shared", 1)],
+            graph.LayerLinks);
+    }
+
+    [Fact]
+    public void The_graph_counts_its_technologies_by_type_family_and_status()
+    {
+        var graph = ReadFixture();
+
+        Assert.Equal(1, graph.CountsByType["runtime"]);
+        Assert.Equal(1, graph.CountsByType["language"]);
+        Assert.Equal(3, graph.CountsByType["framework"]);
+        Assert.Equal(1, graph.CountsByType["tool"]);
+        Assert.Equal(1, graph.CountsByType["plugin"]);
+        Assert.Equal(1, graph.CountsByType["skill"]);
+        Assert.Equal(8, graph.CountsByType.Values.Sum());
+
+        Assert.Equal(2, graph.CountsByFamily[TechnologyTypeFamily.LibraryToolAndPlugin]);
+        Assert.Equal(3, graph.CountsByFamily[TechnologyTypeFamily.Framework]);
+
+        Assert.Equal(4, graph.CountsByStatus["adopted"]);
+        Assert.Equal(1, graph.CountsByStatus["trial"]);
+        Assert.Equal(1, graph.CountsByStatus["candidate"]);
+        Assert.Equal(1, graph.CountsByStatus["hold"]);
+        Assert.Equal(1, graph.CountsByStatus["retired"]);
+    }
+
+    [Fact]
+    public void An_empty_folder_has_no_chain_no_cycle_and_no_counts()
+    {
+        Assert.Empty(TechnologyGraphData.Empty.LongestChain);
+        Assert.Empty(TechnologyGraphData.Empty.Cycles);
+        Assert.Empty(TechnologyGraphData.Empty.LayerLinks);
+        Assert.Empty(TechnologyGraphData.Empty.CountsByType);
+    }
+
+    private static TechnologyGraphNode Node(TechnologyGraphData graph, string id) =>
+        Assert.Single(graph.Nodes, node => node.Id == id);
+
+    private TechnologyGraphData ReadFixture()
+    {
+        var techPath = Path.Combine(_repositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        WriteStack(techPath, withCycle: true);
+
+        return TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath)).Graph;
+    }
+
+    // Typed as the interface and the path: the workspace's own type is file-local.
+    private readonly IDisposable _workspace;
+    private readonly string _repositoryPath;
+
+    public TechnologyGraphMeasuresTests()
+    {
+        var workspace = TestWorkspace.Create();
+        _workspace = workspace;
+        _repositoryPath = workspace.RepositoryPath;
+    }
+
+    public void Dispose() => _workspace.Dispose();
+
+    private static void WriteStack(string techPath, bool withCycle)
+    {
+        static string Chapter(string title, string type, string status, params string[] dependsOn) =>
+            $"## {title}\n```meta\nstatus: {status}\ntype: {type}\n"
+            + (dependsOn.Length == 0 ? string.Empty : "depends-on: [" + string.Join(", ", dependsOn.Select(id => $"\"{id}\"")) + "]\n")
+            + "```\n\nWhat it is.\n\n";
+
+        File.WriteAllText(Path.Combine(techPath, "shared.md"),
+            "# Shared\n\n"
+            + Chapter(".NET Runtime", "runtime", "adopted")
+            + Chapter("C# Language", "language", "adopted", Runtime));
+
+        File.WriteAllText(Path.Combine(techPath, "desktop.md"),
+            "# Desktop\n\n"
+            // C# Language is named twice, and counted once.
+            + Chapter("ASP.NET Core", "framework", "adopted", Runtime, CSharp, CSharp)
+            + Chapter("Razor Components", "framework", "trial", AspNet, CSharp)
+            + Chapter("Blazor Server", "framework", "candidate", Razor, AspNet));
+
+        File.WriteAllText(Path.Combine(techPath, "tooling.md"),
+            "# Tooling\n\n"
+            + Chapter("Lint", "tool", "hold", withCycle ? new[] { Format } : [])
+            + Chapter("Format", "plugin", "adopted", Lint)
+            + Chapter("Probe", "skill", "retired", Lint, Runtime));
     }
 }
 

@@ -139,46 +139,14 @@ public sealed class TasksDetailPaneTests
     // --- The pane and a reload beside it -----------------------------------
 
     /// <summary>
-    /// A reload somebody else asked for — the Inbox routing an item, a sync
-    /// pull landing — builds a new <c>EntryRow</c> for every entry. The pane
-    /// beside the list used to close on that, because its selection was held
-    /// by object and the object was gone; it is re-found by id now, so the
-    /// entry stays open as the instance the list is drawing.
-    /// <para>
-    /// Two reloads, because the report this guards was about the pane a few
-    /// seconds after a press rather than about the instant of it.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task Pressing_the_markdown_tab_leaves_the_entry_open_across_the_reloads_that_follow()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-        await host.OpenAsync(row);
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
-
-        await host.State.ReloadFromStoreAsync();
-        await host.State.ReloadFromStoreAsync();
-        pane.Render();
-
-        var open = host.State.SelectedRow;
-        Assert.NotNull(open);
-        Assert.Equal("Ship the sync spike", open!.PreviewTitle);
-        Assert.Equal(EntryView.Notes, open.EffectiveView);
-        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
-    }
-
-    /// <summary>
     /// A write from elsewhere — an agent working through the MCP server while the
     /// person reads the entry — reloads the list, and the open entry is updated in
     /// place rather than taken down and drawn again.
     /// <para>
-    /// The steps list is keyed on the row's <c>Key</c>, and a reload builds a new
-    /// <c>EntryRow</c> for every entry. With a fresh key per instance every agent
-    /// write threw the list away and mounted a new one, which on screen is the open
-    /// entry closing and opening again.
+    /// A reload builds a new <c>EntryRow</c> for every entry. The body's editor is
+    /// the same component across it, so what the person is typing is not thrown
+    /// away and mounted again, which on screen is the open entry closing and
+    /// opening again.
     /// </para>
     /// </summary>
     [Fact]
@@ -189,42 +157,17 @@ public sealed class TasksDetailPaneTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        var steps = StepsList(pane);
+        var editor = BodyEditor(pane);
 
         await host.State.ReloadFromStoreAsync();
         pane.Render();
 
         Assert.NotSame(row, host.State.SelectedRow);
-        Assert.Same(steps, StepsList(pane));
+        Assert.Same(editor, BodyEditor(pane));
     }
 
-    private static TaskListView StepsList(IRenderedComponent<TasksPane> pane) =>
-        pane.FindComponents<TaskListView>().Single(list => list.Instance.TestId == "subitem-list").Instance;
-
-    /// <summary>The other reading, and back again, with a reload after every
-    /// press — the quickest way to take several of them in a row.</summary>
-    [Fact]
-    public async Task Moving_between_the_two_readings_leaves_the_entry_open()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-        await host.OpenAsync(row);
-
-        var pane = host.Render();
-
-        foreach (var view in new[] { "entry-view-notes", "entry-view-steps", "entry-view-notes" })
-        {
-            await pane.Find($"[data-testid='{view}']").ClickAsync(new());
-
-            await host.State.ReloadFromStoreAsync();
-            pane.Render();
-
-            Assert.NotNull(host.State.SelectedRow);
-            Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
-        }
-
-        Assert.Equal(EntryView.Notes, host.State.SelectedRow!.EffectiveView);
-    }
+    private static MarkdownEditor BodyEditor(IRenderedComponent<TasksPane> pane) =>
+        pane.FindComponents<MarkdownEditor>().Single(editor => editor.Instance.TestId == "entry-body-editor").Instance;
 
     /// <summary>
     /// And typing in the markdown block: prose saves 750ms after the last
@@ -690,310 +633,49 @@ public sealed class TasksDetailPaneTests
         });
     }
 
-    // --- Steps -------------------------------------------------------------
-
-    [Fact]
-    public async Task The_open_entrys_steps_are_a_list_of_their_own()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-
-        // A step's title is a field rather than a line of text: the steps list is
-        // DirectRename, so there is no pencil to press and nothing to read as text.
-        Assert.Equal("Wire up the store", pane.Find("[data-testid='subitem-list-0-rename']").GetAttribute("value"));
-        Assert.Equal("Write the rows", pane.Find("[data-testid='subitem-list-1-rename']").GetAttribute("value"));
-
-        // The step's notes fold under it rather than opening somewhere else.
-        await pane.Find("[data-testid='subitem-list-0-body-toggle']").ClickAsync(new());
-        Assert.Contains(
-            "How the store gets wired.",
-            pane.Find("[data-testid='subitem-list-0-body']").TextContent,
-            StringComparison.Ordinal);
-    }
-
-    /// <summary>A step whose heading carries a literal <c>[ ]</c> has its marker
-    /// flipped — the checkbox glyph is reserved for literal task-list syntax, so a
-    /// step that wrote one gets one back.</summary>
-    [Fact]
-    public async Task Completing_a_step_with_a_marker_flips_the_marker()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='subitem-list-0-check']").ClickAsync(new());
-
-        Assert.Contains("## [x] Wire up the store", row.RawText, StringComparison.Ordinal);
-        Assert.True(row.PreviewSubItems[0].Done);
-    }
+    // --- The body -----------------------------------------------------------
 
     /// <summary>
-    /// A step with no marker is completed on its own metadata line instead.
-    /// <para>
-    /// Writing a <c>[ ]</c> into somebody's heading because they pressed a control
-    /// would put checkbox syntax in a document that did not have it, and
-    /// <c>#backlog-entry-structure</c> reserves that glyph for lines that do. The
-    /// <c>!done</c> form is the same one a cascading parent status change already
-    /// writes, and the read view already reads it back — so the circle is honest for
-    /// every step rather than silently doing nothing on half of them.
-    /// </para>
+    /// The body is one markdown editor over the whole text — prose and <c>##</c>
+    /// chapters together — with no tab strip, no steps list and no label above it,
+    /// whatever <c>view:</c> token the line carries. The token is left on the line
+    /// as written: it is inert, not dropped.
     /// </summary>
-    [Fact]
-    public async Task Completing_a_step_without_a_marker_writes_its_status()
+    [Theory]
+    [InlineData("")]
+    [InlineData(" `view:steps`")]
+    [InlineData(" `view:notes`")]
+    public async Task The_body_is_the_markdown_editor_alone(string viewToken)
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
+        var row = await host.WriteEntryAsync(
+            "# Ship the sync spike\n" +
+            $"`task` `*high` `!in-progress`{viewToken}\n\n" +
+            "Notes on the parent.\n\n" +
+            "## [ ] Wire up the store\n" +
+            "How the store gets wired.\n");
 
         var pane = host.Render();
-        await pane.Find("[data-testid='subitem-list-1-check']").ClickAsync(new());
 
-        Assert.True(row.PreviewSubItems[1].Done);
-        Assert.DoesNotContain("## [x] Write the rows", row.RawText, StringComparison.Ordinal);
-        Assert.Contains("`!done`", EntryTextParser.GetSubItemText(row.RawText, 1), StringComparison.Ordinal);
-    }
+        var body = pane.Find(".entry-detail__body");
+        var editor = Assert.Single(body.QuerySelectorAll("[data-testid='entry-body-editor']"));
+        Assert.Contains("## [ ] Wire up the store", editor.QuerySelector("textarea")!.GetAttribute("value"), StringComparison.Ordinal);
+        Assert.Empty(body.QuerySelectorAll("[role='tablist'], [role='tab'], [role='tabpanel'], label"));
+        Assert.Empty(pane.FindAll(
+            "[data-testid='entry-view-switch'], [data-testid='entry-view-steps'], [data-testid='entry-view-notes'], " +
+            "[data-testid='entry-view-prose'], [data-testid='subitem-list']"));
 
-    [Fact]
-    public async Task Renaming_a_step_keeps_its_level_and_its_marker()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
+        // The body's first element is the editor: nothing is drawn above it.
+        Assert.Equal("entry-body-editor", body.FirstElementChild!.GetAttribute("data-testid"));
 
-        await host.State.RenameSubItemAsync(row, 0, "Wire up the store properly");
-
-        Assert.Contains("## [ ] Wire up the store properly", row.RawText, StringComparison.Ordinal);
-        Assert.Contains("How the store gets wired.", row.RawText, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Moving_a_step_rewrites_the_entry_text()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        await host.State.MoveSubItemAsync(row, 1, 0);
-
-        Assert.Equal("Write the rows", EntryTextParser.GetSubItemTitle(row.RawText, 0));
-        Assert.Equal("Wire up the store", EntryTextParser.GetSubItemTitle(row.RawText, 1));
+        Assert.Equal(viewToken.Trim(), System.Text.RegularExpressions.Regex.Match(row.RawText, "`view:[a-z]+`").Value);
     }
 
     /// <summary>
-    /// The bin at the end of a step's row deletes that step and nothing else.
-    /// <para>
-    /// Asked of the rendered control rather than of the state method beside it,
-    /// because the thing worth proving is that the positional id the shared list
-    /// hands back is read as the chapter the reader was pointing at — the step's id
-    /// <em>is</em> its index, so an off-by-one here would delete the neighbour and
-    /// look exactly like a working control.
-    /// </para>
-    /// <para>
-    /// It takes no confirmation, on the same terms as the entry-level bin in the
-    /// pane's footer: deleting a whole entry asks nothing, and a step is cheaper
-    /// than the entry that holds it.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task Deleting_a_step_removes_that_step_and_leaves_the_rest_of_the_entry()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='subitem-list-0-delete']").ClickAsync(new());
-
-        Assert.Single(row.PreviewSubItems);
-        Assert.Equal("Write the rows", EntryTextParser.GetSubItemTitle(row.RawText, 0));
-
-        // The step's own notes go with it, and the entry's prose does not.
-        Assert.DoesNotContain("How the store gets wired.", row.RawText, StringComparison.Ordinal);
-        Assert.Contains("Notes on the parent.", row.RawText, StringComparison.Ordinal);
-    }
-
-    /// <summary>An index that names no step changes nothing — the same guard the
-    /// move has, and for the same reason: the id came off a row that may already
-    /// have gone.</summary>
-    [Fact]
-    public async Task Deleting_a_step_that_is_not_there_changes_nothing()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-        var before = row.RawText;
-
-        await host.State.RemoveSubItemAsync(row, 7);
-        await host.State.RemoveSubItemAsync(row, -1);
-
-        Assert.Equal(before, row.RawText);
-        Assert.Equal(2, row.PreviewSubItems.Count);
-    }
-
-    /// <summary>The steps list names a step before it adds one, from the add row it
-    /// draws under the open steps. A step called nothing is a chapter the reader
-    /// cannot see, select or remove.</summary>
-    [Fact]
-    public async Task The_add_row_adds_a_named_step_at_the_end()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-
-        // There from the moment the list is, rather than behind a press: the shared
-        // list draws its composer whenever a host is listening for new tasks, so
-        // there is no unset state left to assert first.
-        var field = pane.Find("[data-testid='subitem-list-add-input']");
-
-        await field.InputAsync(new() { Value = "Run the migration" });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
-
-        Assert.Equal(3, row.PreviewSubItems.Count);
-        Assert.Equal("Run the migration", EntryTextParser.GetSubItemTitle(row.RawText, 2));
-    }
-
-    [Fact]
-    public async Task An_unnamed_step_is_not_added()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='subitem-list-add-input']")
-            .KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
-
-        Assert.Equal(2, row.PreviewSubItems.Count);
-    }
-
-    /// <summary>An entry with no chapters yet still offers somewhere to write the
-    /// first one. That is what the count guard in front of this list used to take
-    /// away: the list was drawn only once a step existed, so the one control that
-    /// could create one was behind the thing it created.</summary>
-    [Fact]
-    public async Task An_entry_with_no_steps_can_still_be_given_one()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
-
-        var pane = host.Render();
-
-        // An entry with no chapters opens on the markdown block, so the steps are one
-        // press away — the same switch the block's own test uses, now a tab.
-        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
-
-        var field = pane.Find("[data-testid='subitem-list-add-input']");
-        await field.InputAsync(new() { Value = "Wire up the store" });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
-
-        Assert.Single(row.PreviewSubItems);
-        Assert.Equal("Wire up the store", EntryTextParser.GetSubItemTitle(row.RawText, 0));
-    }
-
-    /// <summary>An entry with no steps draws the add row and nothing above it. The
-    /// field is the empty state — a line saying "No steps yet." over the top of it
-    /// is the same fact twice, and the one that cannot be typed into.</summary>
-    [Fact]
-    public async Task An_entry_with_no_steps_says_so_with_the_add_row_and_nothing_else()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
-
-        Assert.Empty(pane.FindAll("[data-testid='subitem-list'] .task-list__empty"));
-        Assert.DoesNotContain("No steps yet.", pane.Markup, StringComparison.Ordinal);
-    }
-
-    /// <summary>The field asks for the next step, in the one word that is true of
-    /// every press of it. "Name the step" describes what typing does; "Next" is what
-    /// the reader is writing down.</summary>
-    [Fact]
-    public async Task The_step_field_asks_for_the_next_one()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
-
-        var field = pane.Find("[data-testid='subitem-list-add-input']");
-
-        Assert.Equal("Next", field.GetAttribute("placeholder"));
-        Assert.Equal("Next", field.GetAttribute("aria-label"));
-    }
-
-    /// <summary>
-    /// The two readings are tabs, and the strip is wired as one.
-    /// <para>
-    /// It was a pressed ButtonGroup, and before that a row of chips: the same
-    /// one-of-two choice drawn three ways, the last of which mimed a tab strip
-    /// without any of what makes one. What a reader gets from the real thing is the
-    /// part that was missing — the strip announces itself, the reading below is a
-    /// panel named by the tab above it, and the pair is one stop in the tab order
-    /// with the arrow keys moving between them rather than two stops that each
-    /// toggle.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task The_bodys_two_readings_are_tabs()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-
-        var strip = pane.Find("[data-testid='entry-view-switch']");
-        Assert.Equal("tablist", strip.GetAttribute("role"));
-
-        var steps = pane.Find("[data-testid='entry-view-steps']");
-        var notes = pane.Find("[data-testid='entry-view-notes']");
-        Assert.Equal("tab", steps.GetAttribute("role"));
-        Assert.Equal("tab", notes.GetAttribute("role"));
-
-        // This entry has chapters, so it opens on the steps.
-        Assert.Equal("true", steps.GetAttribute("aria-selected"));
-        Assert.Equal("false", notes.GetAttribute("aria-selected"));
-
-        // One stop for the pair, not one each.
-        Assert.Equal("0", steps.GetAttribute("tabindex"));
-        Assert.Equal("-1", notes.GetAttribute("tabindex"));
-
-        // And the reading below is the panel that tab names.
-        var panel = pane.Find("[data-testid='entry-view-steps-panel']");
-        Assert.Equal("tabpanel", panel.GetAttribute("role"));
-        Assert.Equal(steps.Id, panel.GetAttribute("aria-labelledby"));
-        Assert.Equal(panel.Id, steps.GetAttribute("aria-controls"));
-
-        // The other reading is not on screen, and its panel is not drawn into.
-        Assert.NotNull(pane.Find("[data-testid='entry-view-notes-panel']").GetAttribute("hidden"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-body-editor']"));
-    }
-
-    /// <summary>The arrow keys move between the tabs, which is the half of a tab
-    /// strip a row of buttons cannot have: two toggles are two stops, and a reader
-    /// tabbing through the pane should pass the choice once.</summary>
-    [Fact]
-    public async Task An_arrow_key_moves_between_the_bodys_readings()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-
-        await pane.Find("[data-testid='entry-view-steps']")
-            .KeyDownAsync(new KeyboardEventArgs { Key = "ArrowRight" });
-
-        Assert.Equal("true", pane.Find("[data-testid='entry-view-notes']").GetAttribute("aria-selected"));
-        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
-    }
-
-    // --- The body, as the markdown block -----------------------------------
-
-    /// <summary>
-    /// The markdown block is the whole body — prose and <c>##</c> chapters together —
-    /// and it is the same text the steps list is a view of.
+    /// The editor writes the whole body — prose and <c>##</c> chapters together.
     /// <para>
     /// The whole body rather than the prose in front of the first chapter, which is
-    /// what this used to write. A block scoped to the prose half would silently
+    /// what this used to write. An editor scoped to the prose would silently
     /// discard a step typed into it, and a surface whose promise is "this is the
     /// markdown" must not be a surface that eats half of it.
     /// </para>
@@ -1011,10 +693,6 @@ public sealed class TasksDetailPaneTests
 
         var pane = host.Render();
 
-        // This entry has chapters, so it opens on the steps. The block is one press
-        // away, which is the switch this test is also exercising.
-        await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
-
         var editor = pane.Find("[data-testid='entry-body-editor'] textarea");
         Assert.Contains("Notes on the parent.", editor.GetAttribute("value"), StringComparison.Ordinal);
         Assert.Contains("## [ ] Wire up the store", editor.GetAttribute("value"), StringComparison.Ordinal);
@@ -1030,57 +708,9 @@ public sealed class TasksDetailPaneTests
         Assert.Contains("`*high`", row.RawText, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// The steps view reads out the prose an entry opens with, above the steps.
-    /// <para>
-    /// It lists chapters, and the prose before the first one is not one — so a reader
-    /// who saw only the steps would read the missing paragraph as text the app had
-    /// lost. Rendered read-only: the Markdown tab is still where it is written.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task The_steps_view_reads_the_opening_prose_above_the_steps()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-
-        Assert.Equal(EntryView.Steps, row.EffectiveView);
-        var prose = pane.Find("[data-testid='entry-view-prose']");
-        Assert.Equal("Notes on the parent.", prose.TextContent.Trim());
-        Assert.Empty(prose.QuerySelectorAll("textarea, input"));
-
-        // Above the steps, inside the Steps tab, and not the steps' own text.
-        var panel = pane.Find("[data-testid='entry-view-steps-panel']");
-        Assert.Equal(
-            ["entry-view-prose", "subitem-list-0"],
-            panel.QuerySelectorAll("[data-testid='entry-view-prose'], [data-testid='subitem-list-0']").Select(element => element.GetAttribute("data-testid")));
-        Assert.DoesNotContain("How the store gets wired.", prose.TextContent, StringComparison.Ordinal);
-    }
-
-    /// <summary>An entry whose body is nothing but chapters has no prose to read
-    /// out, so the steps stand alone.</summary>
-    [Fact]
-    public async Task Nothing_is_read_out_when_the_steps_are_the_whole_body()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync(
-            "# Ship it\n" +
-            "`task` `*high` `!ready`\n\n" +
-            "## Wire up the store\n" +
-            "How the store gets wired.\n");
-
-        var pane = host.Render();
-
-        Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-view-prose']"));
-    }
-
-    /// <summary>An entry with no chapters opens on the markdown, without anything
-    /// being written down. A default written into the text would be a preference
-    /// nobody expressed, and it would have to be unwritten from every entry before
-    /// the default could ever change.</summary>
+    /// <summary>Opening an entry writes nothing down. A <c>view:</c> default written
+    /// into the text would be a preference nobody expressed, and it would have to be
+    /// unwritten from every entry.</summary>
     [Fact]
     public async Task An_entry_with_no_steps_opens_on_the_markdown_and_is_given_no_token()
     {
@@ -1089,7 +719,6 @@ public sealed class TasksDetailPaneTests
 
         var pane = host.Render();
 
-        Assert.Equal(EntryView.Notes, row.EffectiveView);
         Assert.Null(row.PreviewView);
         Assert.DoesNotContain("view:", row.RawText, StringComparison.Ordinal);
         Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
@@ -1509,94 +1138,18 @@ public sealed class TasksDetailPaneTests
         Assert.Empty(row.QuerySelectorAll(".task-item__detail--blocked"));
         Assert.Contains("task-item--next", row.ClassList);
     }
-    // --- Escape in a step -------------------------------------------------
+
+    // --- Escape in the title -----------------------------------------------
     //
-    // The step list is a TaskListView inside a pane whose own Escape closes
-    // things, so the two Escape-consuming fields in it sit under a handler that
-    // means something else entirely. Both of these used to take two decisions out
-    // of one keystroke: the field abandoned the title and the pane it was in
+    // The pane's own Escape closes things, so a field in it that consumes Escape
+    // sits under a handler that means something else entirely. One keystroke used
+    // to take two decisions: the field abandoned its text and the pane it was in
     // closed on top of it.
 
-    /// <summary>Escape in a step's title abandons that title and nothing else. The
-    /// pane around it is not the reader's to lose for pressing the key the field in
-    /// front of them answers.</summary>
-    [Fact]
-    public async Task Escape_in_a_step_title_abandons_only_the_title()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        var field = pane.Find("[data-testid='subitem-list-0-rename']");
-
-        await field.InputAsync(new() { Value = "Abandoned" });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
-
-        // The field's own half: the step is still called what it was called, in the
-        // text and in the field.
-        Assert.Contains("## [ ] Wire up the store", row.RawText, StringComparison.Ordinal);
-        Assert.Equal(
-            "Wire up the store",
-            pane.Find("[data-testid='subitem-list-0-rename']").GetAttribute("value"));
-
-        // And the pane's: still open, on the same entry.
-        Assert.Same(row, host.State.SelectedRow);
-        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
-    }
-
-    /// <summary>With the source open, an Escape in a step's title is still the
-    /// title's. The hatch is what an Escape on the pane closes first — see
-    /// <c>TasksPaneFocusTests</c> — and a key spent inside one of the pane's own
-    /// fields is not that press.</summary>
-    [Fact]
-    public async Task Escape_in_a_step_title_leaves_the_markdown_hatch_open()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        await pane.Find("[data-testid='entry-detail']")
-            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
-
-        Assert.True(host.State.RawHatchOpen);
-
-        await pane.Find("[data-testid='subitem-list-0-rename']")
-            .KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
-
-        Assert.True(host.State.RawHatchOpen);
-        Assert.Same(row, host.State.SelectedRow);
-    }
-
-    /// <summary>The composer under the steps says the same thing: what it throws
-    /// away is a step that does not exist yet, and the pane stays where it
-    /// was.</summary>
-    [Fact]
-    public async Task Escape_in_the_step_composer_abandons_only_the_draft()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        var field = pane.Find("[data-testid='subitem-list-add-input']");
-
-        await field.InputAsync(new() { Value = "Never mind" });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
-
-        Assert.Equal(2, row.PreviewSubItems.Count);
-        Assert.Same(row, host.State.SelectedRow);
-        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
-
-        var composer = pane.Find("[data-testid='subitem-list-add-input']");
-
-        Assert.True(string.IsNullOrEmpty(composer.GetAttribute("value")));
-    }
-
     /// <summary>
-    /// The entry's own title reads the same way, and this pins it.
+    /// Escape in the entry's own title abandons the title and nothing else.
     /// <para>
-    /// It is the third Escape-consuming field the library has and it sits in this
-    /// same pane, so the three must not disagree. It gets there the same way the
-    /// steps above do: the heading contains the key while its field is open —
+    /// The heading contains the key while its field is open —
     /// <c>TaskPanel.OnRenameKeyAsync</c> for the decision. Closing the field is
     /// not what contains it, since an event's path is fixed before the first
     /// handler runs, and the proof of the boundary is

@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.DevPc.Abstractions;
+using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -31,7 +32,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// The storage folder used to carry a devbook of its own — a configured set of
-/// knowledge folders read when no repository was scoped. It no longer does: a
+/// devbook folders read when no repository was scoped. It no longer does: a
 /// devbook belongs to a repository, and the repository rows on the Repositories
 /// tab are where its folders are configured. A settings file written while that
 /// was still true still opens; the rows it carried are ignored and the next
@@ -127,6 +128,10 @@ public sealed class WorkspaceSettingsStore
         // file written before the context was renamed reads as the same choice
         // and the next save carries it under the current name only.
         _devbookCacheOverride = Clean(settings?.DevbookCacheDirectory) ?? Clean(settings?.KnowledgeCacheDirectory);
+
+        // Absent, or a row that does not read as settings this store would have kept,
+        // reads as the defaults ADR 0041 settles.
+        Presence = settings?.Notifications?.ToPresence() ?? PresenceSettings.Default;
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
@@ -246,6 +251,21 @@ public sealed class WorkspaceSettingsStore
     /// those are separate from each other: a listener rebinding is not a reason
     /// for a backup timer to re-arm or for every open view to reload.</summary>
     public event Action? McpChanged;
+
+    /// <summary>
+    /// The notification settings the question relay reads on this desktop: away
+    /// after, notify after and dialog wait (local ADR 0041,
+    /// <c>.devbook/domain/sessions/domain.md#presence</c>).
+    /// <see cref="PresenceSettings.Default"/> until somebody chooses otherwise. Kept
+    /// in this machine-local file because presence is read on the desktop only and
+    /// never travels.
+    /// </summary>
+    public PresenceSettings Presence { get; private set; }
+
+    /// <summary>Raised when <see cref="Presence"/> changes, for the settings page and
+    /// whatever schedules a question's notify delay. Separate from the other events
+    /// for the reason they are separate from each other.</summary>
+    public event Action? PresenceChanged;
 
     /// <summary>The folder somebody pointed branch snapshots at, or null while
     /// they go to <see cref="DefaultDevbookCacheDirectory"/>.</summary>
@@ -875,6 +895,26 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
+    /// Changes the notification settings the question relay reads: away after,
+    /// notify after and dialog wait. Settings out of range are answered with a
+    /// sentence and leave the stored ones unchanged; the in-memory value moves even
+    /// when the write fails, the way every setter here behaves.
+    /// </summary>
+    public string? SetPresence(PresenceSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (settings.Problem() is { } problem) return problem;
+
+        if (settings == Presence) return null;
+
+        Presence = settings;
+        var error = SaveSettings("Notification settings changed, but the choice couldn't be saved for next time.");
+        PresenceChanged?.Invoke();
+        return error;
+    }
+
+    /// <summary>
     /// Changes which loopback port the MCP server listens on.
     /// <para>
     /// A port outside the usable range is answered with a sentence rather than
@@ -1065,7 +1105,10 @@ public sealed class WorkspaceSettingsStore
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
-                DevbookCacheDirectory = _devbookCacheOverride
+                DevbookCacheDirectory = _devbookCacheOverride,
+
+                // Written as null while every setting is its default, for the same reason.
+                Notifications = StoreNotificationSettings.From(Presence)
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -1133,6 +1176,47 @@ public sealed class WorkspaceSettingsStore
         /// </para></summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KnowledgeCacheDirectory { get; init; }
+
+        /// <summary>The question relay's notification settings, or null while every one
+        /// is its default. Absent reads as the defaults.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public StoreNotificationSettings? Notifications { get; init; }
+    }
+
+    /// <summary>
+    /// The notification settings' row: three durations in whole minutes, the unit the
+    /// settings page edits two of them in. A row that does not read as settings
+    /// <see cref="SetPresence"/> would have kept reads as the defaults, the way a
+    /// hand-edited port or schedule does.
+    /// </summary>
+    private sealed record StoreNotificationSettings
+    {
+        public int? AwayAfterMinutes { get; init; }
+
+        public int? NotifyAfterMinutes { get; init; }
+
+        public int? DialogWaitMinutes { get; init; }
+
+        public PresenceSettings? ToPresence()
+        {
+            var defaults = PresenceSettings.Default;
+            var settings = new PresenceSettings(
+                AwayAfterMinutes is int away ? TimeSpan.FromMinutes(away) : defaults.AwayAfter,
+                NotifyAfterMinutes is int notify ? TimeSpan.FromMinutes(notify) : defaults.NotifyAfter,
+                DialogWaitMinutes is int wait ? TimeSpan.FromMinutes(wait) : defaults.DialogWait);
+
+            return settings.Problem() is null ? settings : null;
+        }
+
+        public static StoreNotificationSettings? From(PresenceSettings settings) =>
+            settings == PresenceSettings.Default
+                ? null
+                : new StoreNotificationSettings
+                {
+                    AwayAfterMinutes = (int)settings.AwayAfter.TotalMinutes,
+                    NotifyAfterMinutes = (int)settings.NotifyAfter.TotalMinutes,
+                    DialogWaitMinutes = (int)settings.DialogWait.TotalMinutes
+                };
     }
 
     private sealed record StoreBackupScheduleSettings

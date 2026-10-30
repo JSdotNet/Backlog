@@ -136,7 +136,7 @@ session's time and are not a stream of what it did.
 
 ```meta
 type: entity
-aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTask]
+aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTask, AgentSession.DesktopTitle]
 related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/dependencies.md]
 ```
 
@@ -153,16 +153,20 @@ When external activity evidence exists, the
 entity also carries a `Session Activity Stream`, a `Session Enrichment Summary`, and
 a `Reporting Capability` reading for that stream.
 
-A Claude session may also carry two facts from the Claude desktop app's own record of it:
+A Claude session may also carry three facts from the Claude desktop app's own record of it:
 
 - **archived** says whether the desktop app still holds the session in its sidebar.
   It is open, archived, or unknown. Unknown means there is no record, or the record
   states no flag, and [unknown is never open](domain.invariants.md#invariant-unknown-is-never-open).
 - **scheduled task** names the desktop app's routine that the session is a run of. It
   is not the schedule on a [Session Row](#session-row), which is a delivery run's.
+- **sidebar title** is the name the desktop app's sidebar shows for the session,
+  whether the app, a tool or the person gave it. It is not the display title, which
+  comes from the transcript and is often only the worktree folder's name, and it never
+  replaces it: the display title is what a session record keeps.
 
-The environment reads both off its own disk and never derives them from `Session
-State`. [Neither ever travels](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
+The environment reads all three off its own disk and never derives them from `Session
+State`. [None ever travels](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
 Some running sessions, such as side sessions, have no desktop record, so they are
 never open however live they are.
 
@@ -792,7 +796,8 @@ Every fact read off a row comes from whichever source has it, and the row says n
 either source did not.
 [A run-only row speaks with its run's facts](domain.invariants.md#invariant-a-run-only-row-speaks-with-its-runs-facts):
 a schedule's row is titled by the schedule, since each of its runs cut a worktree
-nobody reopens. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
+nobody reopens. [A session row is called what the desktop app calls it](domain.invariants.md#invariant-a-session-row-is-called-what-the-desktop-app-calls-it)
+where the app's sidebar names it. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
 because there is no liveness evidence for it. A session row's repository is
 the session's. Where the agent recorded none, it is the tracker item a run of it named:
 a recorded fact from a second source, not the guess from a path the Session Log forbids.
@@ -815,6 +820,79 @@ whichever side recorded it, and never from a default:
 - **Output**: the session's own output tokens, summed over its models, else its runs'
   totals.
 - **Duration**: from its start to its last activity, where the start is dated.
+
+The row's title is also read for what the session is for. That reading is the
+[Session Title Reading](#session-title-reading), and the list shows it beside the title.
+
+### Session Title Reading
+
+```meta
+type: value-object
+related: [.devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#session-grouping, .devbook/domain/sessions/features.md#a-filter-bar-over-the-list, .devbook/domain/sessions/domain.invariants.md#invariant-a-row-shows-its-title-less-its-prefix]
+aliases: [SessionTitleReading, SessionTitles, Session Purpose, SessionPurpose, purpose, Plan State, PlanState, standing session]
+```
+
+What a `Session Row`'s title says about the session. It has four parts:
+
+- the **Session Purpose**, what the session is for;
+- the **plan tag**, the plan the session belongs to, without its `+`;
+- the **Plan State**, on a plan's own session only: Draft or Imported;
+- the **shown title**, the title less its prefix.
+
+People write the prefixes by hand in the Claude desktop app's sidebar. The backlog-tools
+skills write the plan run and entry titles. Those formats belong to
+[execute-plan's handoff](../../../plugins/backlog-tools/skills/execute-plan/assets/handoff.md)
+and to [import-plan's step numbers](../../../plugins/backlog-tools/skills/import-plan/assets/backlog-import-grammar.md#step-numbers),
+and this chapter only reads them.
+
+| The title starts with | Session Purpose | Plan tag | Plan State | Shown title |
+| --- | --- | --- | --- | --- |
+| `ARTIFACT: X` | Artifact | none | none | X |
+| `DESIGN: X` | Design | none | none | X |
+| `PLAN: +tag — X` or `PLAN: X` | Plan | tag, where written | Draft | X |
+| `+PLAN: +tag — X` or `+PLAN: X` | Plan | tag, where written | Imported | X |
+| `RESEARCH: X` | Research | none | none | X |
+| `HOLD: X` | Hold | none | none | X |
+| `+tag:execute-plan [@repo]` | Plan run | tag | none | `execute-plan [@repo]` |
+| `tag:n - X` | Entry, step n | tag | none | `n - X` |
+| anything else | Other | none | none | the whole title |
+
+A row whose session is a desktop scheduled task's run, or a schedule's row, is
+**Scheduled** whatever its title says. The declared order of the purposes is the order
+in the table, with Scheduled before Other. The Purpose grouping and the Purpose filter
+both follow it.
+
+The reading follows these rules:
+
+- Prefixes are uppercase only, so a sentence that opens "Plan: …" stays Other.
+- The separator after a plan's tag is an em dash, an en dash, or a hyphen with a space
+  on each side.
+- A tag is a letter, then letters, digits, `_` or `-`, as a session request's plan tag
+  is. A malformed tag leaves a Plan session without one.
+- An unnumbered `tag - X` stays Other, because nothing tells it apart from an ordinary
+  title.
+- Two tags name one plan when they match ignoring case, with one leading `+` lifted.
+  An entry writes the bare tag and a plan run keeps the `+`, so both land under one plan.
+
+**A plan's state is read off all its sessions.** A plan is Imported when it has a
+`+PLAN` session or any plan run, because execute-plan only runs imported plans. It is
+Draft when it has only `PLAN:` sessions. With neither, its state is unknown. This
+reading uses the `+` in the title, which is what the person who wrote it means. The
+Backlog app's own plans are not asked: that lookup would make Sessions a customer of
+Tasks.
+
+Artifact, Design, Plan, Research and Hold are **standing** purposes: a session with one
+is kept until it is archived, and When draws it above the days.
+
+The reading has two limits:
+
+- A row from another machine carries no desktop title, so its hand-written prefix is not
+  seen. Such a row reads Other unless its transcript's own title carries the prefix.
+- A prefix a delivery surface puts in a session's title reads Other unless it matches
+  this grammar.
+
+The reading is pure and is worked out once per row of a reading. Equality is by all six
+parts: the four above, the step and the whole title.
 
 ### Delivery Run Catalog
 
@@ -874,11 +952,19 @@ How far along a session is, as far as the evidence goes:
 - `running` — the agent is present on the environment and something moved recently.
 - `stalled` — still registered as present, but nothing has moved for longer than the
   `Stale Threshold`.
+- `waiting` — live, and holding an open [Waiting Question](#waiting-question): it
+  asked the person something and no answer has reached it yet.
 - `finished` — over. Only its record is left.
 
-Starting, waiting and failed are left out on purpose. An agent could be in any of
-them, but none can be derived from what it leaves behind, so this context does not
-claim them.
+[An open Waiting Question makes a live session
+Waiting](domain.invariants.md#invariant-an-open-waiting-question-makes-a-live-session-waiting).
+Waiting takes the place of running or stalled while the question is open. A session
+that reads finished is never waiting, because its end closes its questions. Local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
+made the state derivable: the question relay registers every question a session asks.
+
+Starting and failed are left out on purpose. An agent could be in either, but neither
+can be derived from what it leaves behind, so this context does not claim them.
 
 ### Reporting Capability
 
@@ -989,7 +1075,9 @@ flowchart LR
     A[Session rows] --> B[The shell's<br/>repository scope]
     B --> C[Environment]
     C --> D[With delivery runs]
-    D --> E[View: Live, Open or All]
+    D --> G[Plan, then Plan State]
+    G --> H[Purpose]
+    H --> E[View: Live, Open or All]
     E --> F[Session Grouping]
 ```
 
@@ -999,7 +1087,8 @@ left into groups, so an environment with nothing live on it loses its section. T
 repository scope is the shell's, not this context's; the surface applies it first. Each
 narrowing only removes rows, so their order does not change which rows remain. It does
 decide what Live's and Open's tallies count: the live or open rows among what the other
-narrowings kept.
+narrowings kept. The Purpose filter's counts are the rows each purpose would keep under
+every other narrowing, the view included.
 No narrowing reorders. Ordering is the grouping's answer to give, and a narrowing that
 sorted would be a second answer to what "most recently active first" means.
 
@@ -1033,9 +1122,17 @@ fourth view, because a view answers a question about a session's standing, its
 liveness or the desktop sidebar, and the environment answers one about place. Folded together, "Live" would mean "live here" on some presses
 and "live anywhere" on others.
 
+**Three narrowings read the title.** `SessionPlans` narrows to one plan tag and to one
+`Plan State`, and `SessionPurposes` to one `Session Purpose`, each from the
+[Session Title Reading](#session-title-reading). Plan State keeps every row of a plan
+in that state, its runs and entries included. It takes each plan's state from the whole
+reading, so a narrowing applied before it never changes a plan's state. A row with no
+plan has no state and matches neither Draft nor Imported. Each hands back the list it
+was given when nothing is named.
+
 **Grouping is the one operation that
 [never removes rows](domain.invariants.md#invariant-grouping-never-removes-a-row).** The narrowings are the ones
-that do: the environment, the view, and the surface's own
+that do: the environment, the view, the three that read the title, and the surface's own
 [with delivery runs](features.md#only-the-rows-with-a-run) toggle. Because only the
 narrowings shorten the list, the surface can say what they left out.
 
@@ -1051,7 +1148,8 @@ opened.
 
 One thing besides the reader changes the view. When a surface is asked to focus one
 session and the current narrowings hide that session's row, the surface switches to
-`All`, turns the "with runs" toggle off and clears the environment. A request to show a
+`All` and clears every other narrowing: the "with runs" toggle, the environment, the
+plan, the plan state and the purpose. A request to show a
 session that then shows an empty list would answer a question nobody asked.
 
 ## Session Grouping
@@ -1064,11 +1162,13 @@ aliases: [AgentSessionGrouping, ScheduledApart]
 
 Carves a set of `Session Row`s, run-only rows included, into sections. Each section is
 ordered most recently active first, and the sections sit in a stable order. There are
-five groupings:
+seven groupings:
 
 | Grouping | Section key | Sections, in order | Heading | On the session list |
 | --- | --- | --- | --- | --- |
-| When | Live state, then the day last active on the reader's clock | Live now (Running or Stalled, whatever day they started), Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
+| When | Live state, then standing, then the day last active on the reader's clock | Standing (the standing sessions that are not live), Live now (Running or Stalled, whatever day they started), Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
+| Plan | `plan/` and the bare plan tag, lower-cased, so no tag can share the Scheduled section's key | By tag; the rows of no plan close the list under "Not part of a plan" | `+tag`, with the plan's `Plan State` where it has one | Yes |
+| Purpose | The `Session Purpose`'s name | The order `Session Purpose` declares | The purpose's name | Yes |
 | Repository | The repository the row shows, ignoring case | By name; the rows that name no repository close the list under "No repository" | The spelling its most recent row carries | Yes |
 | Environment | The environment's id | By name, ignoring case, then by id | The name its most recent row carries | Yes, as Machine |
 | None | None | One section, holding every row | None | No |
@@ -1081,6 +1181,11 @@ two sections.
 
 Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
+
+Under Plan, a section lists the plan's own session first, then its plan runs, then its
+entries by step. Each part keeps most recently active first. Under When, a standing
+session sits in Live now while it runs and returns to Standing after. A Scheduled row is
+never standing, so it keeps its day.
 
 **In the Open view, the scheduled runs close the list.** After any grouping,
 `ScheduledApart` takes every row whose session is a run of a desktop scheduled task
@@ -1096,19 +1201,302 @@ it.
 A service because grouping spans sessions rather than belonging to any one of them,
 and a pure one: no I/O and no state.
 [Only When reads a clock and a time zone](domain.invariants.md#invariant-a-rows-day-is-read-against-the-moment-the-list-was-read),
-and both are handed in. It guarantees two properties that a reader relies on without
+and both are handed in. Plan, Purpose and When's Standing bucket read the
+[Session Title Reading](#session-title-reading). It guarantees two properties that a reader relies on without
 being told:
 
 - **Grouping rearranges and
   [never filters](domain.invariants.md#invariant-grouping-never-removes-a-row).** A
   count taken before grouping is still correct after it.
 - **Group order does not depend on group size.** When's buckets keep their own order,
-  repositories and environments sort by name, and agents follow the `Agent` enum. So a
+  repositories, environments and plans sort by name, and agents and purposes follow
+  their enums. So a
   section does not move under the reader as sessions come and go.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored.
 Which grouping is in force is the reader's choice and is not part of this context's
 state.
+
+## Session Request Queue
+
+```meta
+type: aggregate
+status: draft
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/context.md#session-requests, .devbook/domain/sessions/domain.invariants.md#session-request-queue]
+```
+
+The sessions a person has asked for and no session has answered yet. It is the one
+part of this context that is not a reading of evidence: a person creates a request
+with a click, a dispatcher outside the context turns it into a running session, and
+the request then joins the session the [Session Log](#session-log) reads. The queue
+never starts a session itself (local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+
+The queue is this machine's: a request names a clone folder on this machine, and is
+kept in the app's local database. It does not replicate.
+
+Invocation semantics: command-oriented. A click creates a request and the person
+cancels it. A dispatcher claims it and reports its session through the MCP listener.
+`link_session` from the started session links it. A dispatcher reads the next request
+by waiting on the listener's long poll.
+
+| Dispatcher call | What it does |
+| --- | --- |
+| `GET /session-requests/wait` | Answers one item at once — an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`) — or holds the call up to 50 seconds and answers `204`. It hands the item out without claiming it. |
+| `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
+| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+
+Every answer carries the request's brief, built by the server from its kind and id. A
+dispatcher passes the brief on and never writes its own. All four sit behind the
+`session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+### Session Request
+
+```meta
+type: entity
+status: draft
+aliases: [SessionRequest, session request, entry request, plan request, dispatcher, Manager session]
+related: [.devbook/domain/sessions/domain.md#agent-session, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+```
+
+A person's ask for a session that runs one entry or one plan. It carries:
+
+- its **kind**, an entry request or a plan request;
+- the **entry id** of an entry request, or the **plan tag** of a plan request;
+- the **repository**, as `owner/name`;
+- that repository's **clone folder** on this machine;
+- its **state**, and while Claimed, the dispatcher that claimed it and the lease's end;
+- once Started, the **session id** the dispatcher reported;
+- when the person asked, which orders the queue.
+
+[It carries nothing of the entry's text](domain.invariants.md#invariant-a-request-carries-no-entry-text):
+the brief a dispatcher hands the new session is fixed by its kind.
+
+| Kind | Brief |
+| --- | --- |
+| Entry request | `/backlog-tools:run-plan-item entry `<id>`:` |
+| Plan request | `/backlog-tools:execute-plan +<tag>` |
+
+**States.**
+
+```mermaid
+stateDiagram-v2
+  [*] --> Requested: a click in the app
+  Requested --> Claimed: a dispatcher claims it
+  Claimed --> Requested: the lease runs out
+  Claimed --> Started: the dispatcher reports the session
+  Started --> Linked: the session calls link_session
+  Requested --> Cancelled: the person cancels it
+  Claimed --> Cancelled: the person cancels it
+  Linked --> [*]
+  Cancelled --> [*]
+```
+
+- **Requested.** Waiting for a dispatcher. The long poll hands out the oldest first.
+- **Claimed.** One dispatcher holds it. The dispatcher may release it back to
+  Requested before the lease ends. [Only a Requested request can be
+  claimed](domain.invariants.md#invariant-only-a-requested-request-can-be-claimed),
+  so two dispatchers never start the same request.
+- **Started.** The dispatcher reported the session it started.
+- **Linked.** The started session called `link_session`. For a plan request, on any
+  entry of its plan.
+- **Cancelled.** The person cancelled it.
+
+**The lease.** A claim holds the request for two minutes. [A lease that runs out
+returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested),
+so a dispatcher that stopped mid-dispatch does not keep it.
+
+**One open request per target.** [A second ask returns the open
+request](domain.invariants.md#invariant-one-open-request-per-entry-or-plan): an entry or plan
+with a request in Requested, Claimed or Started gets that request back rather than a second one.
+
+**No expiry.** [A request never expires](domain.invariants.md#invariant-a-request-never-expires):
+it waits for a dispatcher until the person cancels it. Linked and Cancelled are final.
+
+A **dispatcher** is whatever claims requests and starts their sessions. The first is
+the **Manager session**, a long-lived Claude Desktop session running a skill. A direct
+launch from the app is a later one. The context holds no record of a dispatcher beyond
+the claim it made.
+
+## Question Relay
+
+```meta
+type: aggregate
+status: draft
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.invariants.md#question-relay, .devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/context.md]
+```
+
+The questions sessions are waiting on, and when each one should reach the person
+outside the session. A session registers a question through MCP `ask`. The relay
+reads the person's [Presence](#presence) and decides whether the question stays in the
+session for now or becomes a notification at once. It then routes the answer back to
+the session (local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)).
+
+The relay owns the waiting and the route. [Notifications](../notifications/context.md)
+owns the notification, the replies and which reply becomes the answer. The relay
+publishes through it as the Sessions source, about the session as subject, and takes
+the accepted answer through the Sessions answer handler.
+
+The relay is this machine's, like the [Session Request Queue](#session-request-queue):
+presence is read on this desktop, and the questions are kept in the app's local
+database. It sits behind the `notifications` flag and adds none of its own.
+
+Invocation semantics: command-oriented, with one scheduled step. Hooks in the session
+call `ask`, `get_answer` and `close` on the MCP listener. A timer publishes a question
+whose notify delay has run out. The Manager claims and marks deliveries through the
+dispatch wait route of the [Session Request Queue](#session-request-queue).
+
+| Call | What it does |
+| --- | --- |
+| `ask` with a session id and `toolUseId`, `questions` or `kind` | Registers a Waiting Question — a `dialog` of one to four questions in `AskUserQuestion`'s shape with its tool use id, or one `prose` question — or answers the one already registered for that tool use. Answers the `route` (`session` or `backlog`), the question's id and `waitSeconds`, the dialog wait. |
+| `get_answer` with the question's id | Marks the hook as still waiting, then holds the call for `waitSeconds`, at most 55 seconds, on a completion source the relay completes when the question is answered or closed. Answers `open`; `answered`, with the answers keyed by question text and a multi-select's labels comma-joined, as the dialog takes them; or `closed` with its reason. |
+| `close` with the question's id | Closes the question with a reason: `answered-in-session`, with the answers in the same shape; `timed-out`; or `session-ended`. |
+| `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first, with the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one. |
+| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. Only the dispatcher holding the claim may mark it. |
+| `list_deliveries` | Lists the deliveries not yet delivered, or those Pending or Claimed, for a Manager that restarts. |
+| `GET /hooks/ask-backlog.mjs` | Serves the hook script the desktop app embeds, behind the listener's guard. |
+
+The hooks are one script, `ask-backlog.mjs`. The desktop app embeds it, serves it on
+the MCP listener and writes the same bytes to `hooks\ask-backlog.mjs` under its app
+data folder on every start, so the installed hook is always the running app's. Its
+first argument names the hook: `pre` and `post` for `AskUserQuestion`, `stop`,
+`prompt` for `UserPromptSubmit`, and `end` for `SessionEnd`. `pre` holds a `backlog`
+dialog on `get_answer`, asking again every 15 seconds while Backlog does not answer,
+and stops at once when Backlog refuses. No call lists a session's questions, so the
+script keeps the ids it was given in a file per session beside it. On any error it
+exits 0 without output, so the session never waits on Backlog being up.
+
+The five hooks are installed only at the user scope of the `backlog` server
+registration, each running `node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`:
+`PreToolUse` and `PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second
+timeout, `post`), `Stop`, `UserPromptSubmit` and `SessionEnd`, the four short ones at
+10 seconds. The Dev PC catalog's `backlog` row merges them into Claude's user
+`settings.json` when it registers the server there and takes exactly those entries out
+when it unregisters it, keeping every other hook; a rerun changes nothing. This
+repository's `.mcp.json` registration installs none, and its `.claude/settings.json`
+lists none: user-scope hooks already fire in it, and repository entries would run each
+hook twice and fire for every contributor, CI run and sub-agent, failing wherever no
+release Backlog is installed. The path is the release app's folder: a debug build
+writes the script under `Backlog.Debug`, so its hooks find no script and Claude
+reports a non-blocking hook error.
+
+### Waiting Question
+
+```meta
+type: entity
+status: draft
+aliases: [WaitingQuestion, waiting question, relay question, delivery, answer delivery]
+related: [.devbook/domain/sessions/domain.md#session-state, .devbook/domain/notifications/domain.md#notification, .devbook/domain/notifications/domain.md#answer]
+```
+
+One question a session asked the person and is waiting on. It carries:
+
+- the **session id** of the session that asked;
+- the **tool use id** of the question dialog, for a dialog;
+- the **notification ids**, one for each question it published, once it is Notified;
+- its **kind**: Dialog, one to four questions in a question dialog, or Prose, one
+  question written at the end of a turn;
+- its **route**: `session` when asked while the person was at the keyboard, or
+  `backlog` when asked while they were away;
+- when it was **asked**, and when it **escalates**: the moment it becomes a
+  notification if still open, the notify delay after it was asked;
+- its **delivery state**, once an answer must reach the session through the Manager;
+- its **state**.
+
+**States.**
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> InSession: asked while the person is at the keyboard
+  [*] --> Notified: asked while the person is away
+  InSession --> Notified: escalate at passes
+  InSession --> Answered: answered in the session
+  Notified --> Answered: answered in the session or in Backlog
+  InSession --> Closed: the session ends
+  Notified --> Closed: the session ends, or the wait runs out
+  Answered --> [*]
+  Closed --> [*]
+```
+
+- **InSession.** Asked while the person was at the keyboard. Nothing is published
+  yet, and the question waits for its escalate at.
+- **Notified.** Published as one notification per question, under the session as
+  subject. [Coming back to the keyboard never takes it
+  back](domain.invariants.md#invariant-presence-never-takes-a-question-back).
+- **Answered.** Answered in the session, or every one of its notifications has an
+  accepted answer. An answer given in the session closes the notifications with the
+  answers, so every viewer shows where it was answered.
+- **Closed.** The session ended, or a dialog's hook stopped waiting. Its
+  notifications close with it.
+
+**How the answer returns.** A Dialog on the `backlog` route is answered by the hook
+that holds it, which reads the answer through `get_answer`. A Dialog that escalated
+from InSession, and every Prose question, are answered through a **delivery**: the
+relay records the answer as one for the Manager to send to the session.
+
+**Delivery state.** A delivery is Pending until the Manager claims it, then Claimed
+under a two-minute lease, then Delivered once the Manager sent the message, or
+Released back to Pending when the session could not be reached. A lease that runs out
+reads as Pending again. A released delivery is held back from the wait route for one
+lease, so a session that cannot be reached does not wake the Manager on every call. A
+question answered in the session, or through the hook, never gets a delivery.
+
+The Manager's capacity rule counts a dispatched session that holds an open Waiting
+Question as waiting, not working: the session list reads it [Waiting](#session-state)
+and names the desktop app's id for it, which is the id the Manager started it under.
+
+[A session has at most one open question per tool
+use](domain.invariants.md#invariant-one-waiting-question-per-tool-use): hooks installed
+at two scopes that both register the same dialog get the same question back.
+
+### Presence
+
+```meta
+type: value-object
+status: draft
+aliases: [presence, away, at the keyboard, away after, notify after, dialog wait]
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
+```
+
+Whether the person is at this desktop's keyboard, as the desktop reads it at the
+moment a question is asked. It is made of:
+
+- the time since the last keyboard or mouse input on this desktop;
+- whether the screen is locked;
+- when the person last typed a prompt in the asking session, from hook telemetry.
+
+The person is **away** after 10 minutes without input, or while the screen is
+locked. Otherwise they are **at the keyboard**. Presence is read on the desktop only:
+a phone never sees it and it never travels.
+
+Three desktop settings shape the relay, each with its default:
+
+| Setting | Default | What it decides |
+| --- | --- | --- |
+| Away after | 10 minutes | How long without input makes the person away. |
+| Notify after | 15 minutes | How long an InSession question waits before it is published. |
+| Dialog wait | 8 hours | How long a dialog's hook waits for an answer from Backlog. |
+
+[Presence picks the route once, when the question is
+asked](domain.invariants.md#invariant-presence-picks-the-route-once). Equality is by
+its parts.
+
+The context reads it through the `IPresence` port: `IsAway`, `LastInputAt` and
+`LastPromptAt(sessionId)`. The rule itself is platform-free and takes the platform's
+reading of the input; the Windows desktop head answers that reading from
+`GetLastInputInfo`, sampled when asked, and from the session-switch events Windows
+raises on lock and unlock. An input the platform cannot read counts as at the
+keyboard, so the notify delay still publishes a question nobody answers. The last
+prompt per session comes from the `UserPromptSubmit` events the hook telemetry
+endpoint receives, is kept in memory, and is forgotten on `SessionEnd` or a restart.
+
+The settings are kept in the desktop's workspace settings file and edited on the
+Notifications settings page, in whole minutes for away after and notify after (1 to
+480) and whole hours for dialog wait (1 to 24). A value outside those bounds is
+refused with the setting named.
 
 ## Session Activity Publishing
 
@@ -1158,8 +1546,8 @@ type: shared-value-objects
 
 > Value Objects used by more than one aggregate in this bounded context.
 
-Sessions has a single aggregate; every value object is documented under it.
-This chapter is reserved for a second aggregate.
+No value object is shared yet: the Session Log's are documented under it, and the
+[Session Request Queue](#session-request-queue) shares none of them.
 
 ## Shared Enums
 
@@ -1169,8 +1557,8 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Single aggregate, so `Agent` and `Session State` are documented under it. Reserved
-for the same reason as the chapter above.
+`Agent` and `Session State` belong to the Session Log alone, so they are documented
+under it. The Session Request's states are its own.
 
 ## Ubiquitous Language
 

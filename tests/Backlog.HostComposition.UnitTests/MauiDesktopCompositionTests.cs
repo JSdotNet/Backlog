@@ -38,8 +38,8 @@ namespace Backlog.HostComposition.UnitTests;
 /// used to be found by somebody launching the app. Both heads now compose through
 /// <c>AddDesktopComposition</c>, and <see cref="WebHarnessHostTests"/> proves the
 /// harness's options; this validates the MAUI head's shape of them — the DPAPI
-/// credential store, the full tools adapter, and one window's state held as
-/// singletons — together with what the head registers beside the call.
+/// credential store, the full tools adapter, and each window's state scoped
+/// to that window — together with what the head registers beside the call.
 /// </para>
 /// <para>
 /// The options and the head-only lines are restated here rather than read from
@@ -94,21 +94,21 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
-    /// With scopes validated too, the head is refused for exactly one reason, and it
-    /// is one <c>MauiProgram</c> chose and says so: the Tasks and Inbox panes' state
-    /// is a singleton over the modules' scoped <c>ITaskItems</c> and
-    /// <c>IInboxItems</c>, because this head has one window and the state outlives
-    /// every page drawn on it. The harness registers the same state Scoped and passes
-    /// with scopes validated (see <see cref="WebHarnessHostTests"/>).
+    /// With scopes validated too, as a Debug build of the head now builds its provider,
+    /// the head is accepted: window state is scoped (local ADR 0043, §5), and nothing a
+    /// singleton is constructed from reaches it.
     /// <para>
-    /// Pinned rather than switched off, so a second captive dependency — a new
-    /// singleton over a scoped service nobody meant to hold — fails here instead of
-    /// hiding behind the two that are deliberate.
+    /// And every worker and service <c>MauiProgram</c> resolves from the root after
+    /// <c>Build()</c> resolves there under validated scopes. A factory registration is
+    /// opaque to validate-on-build; resolving it is what proves it asks the root for no
+    /// window's state. <c>McpServerWorker</c> and <c>WindowsAppNotifications</c> are the
+    /// head's own types, which no test project can reference; what they take is the
+    /// provider and singletons, and the Debug head's own validated start covers them.
     /// </para>
     /// </summary>
     [Fact]
     [SupportedOSPlatform("windows")]
-    public void With_scopes_validated_the_maui_head_is_refused_only_for_its_window_state()
+    public void With_scopes_validated_the_maui_head_builds_and_its_root_workers_resolve()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -116,26 +116,45 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             return;
         }
 
-        var refused = Assert.Throws<AggregateException>(() => BuildMauiShaped(validateScopes: true).Dispose());
+        using var provider = BuildMauiShaped(validateScopes: true);
 
-        string[] deliberate =
+        Type[] rootResolved =
         [
-            $"from singleton '{typeof(TasksDesktopState).FullName}'",
-            $"from singleton '{typeof(InboxDesktopState).FullName}'"
+            typeof(TaskSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.Sessions.SessionSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.Annotations.AnnotationSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener),
+            typeof(BackupWorker),
+            typeof(Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
+            typeof(BlockedTaskWatcher),
+            typeof(Backlog.Modules.Notifications.Services.NotificationsStartup),
+            typeof(Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher),
+            typeof(BrainFolderWatch),
+            typeof(Backlog.Modules.Notifications.UI.NotificationCentreRequests),
+            typeof(Backlog.Modules.Notifications.Abstractions.INotificationCentre),
+            typeof(Backlog.Modules.Sessions.Abstractions.ISessionsSurfaceActivator),
+            typeof(IMcpEndpointSource)
         ];
 
-        Assert.All(refused.InnerExceptions, error => Assert.True(
-            error.Message.Contains("Cannot consume scoped service", StringComparison.Ordinal)
-            && deliberate.Any(singleton => error.Message.Contains(singleton, StringComparison.Ordinal)),
-            "A captive dependency other than the window state MauiProgram holds on purpose: " + error.Message));
+        foreach (var service in rootResolved)
+        {
+            Assert.NotNull(provider.GetRequiredService(service));
+        }
     }
 
     /// <summary>
-    /// One window, so the window's state is one object from the root — where
-    /// every pane of that window, and the shell's footer and toast tray, ask for it.
+    /// Every factory-registered singleton of the product resolves from the root under
+    /// validated scopes. Validate-on-build cannot see inside a factory, so a singleton
+    /// built as <c>sp =&gt; new X(sp.GetRequiredService&lt;…&gt;())</c> that reached a
+    /// window's state would pass the build and keep whichever window's instance it was
+    /// first handed: the captive dependency scoped window state makes possible. The
+    /// scope check refusing a resolution is exactly that; anything else a factory
+    /// throws in a test process is not this test's business.
     /// </summary>
     [Fact]
-    public void The_maui_head_holds_one_windows_state_as_singletons()
+    [SupportedOSPlatform("windows")]
+    public void No_singleton_factory_reaches_a_windows_state_from_the_root()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -143,16 +162,93 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             return;
         }
 
-        using var provider = BuildMauiShaped(validateScopes: false);
+        var services = BuildMauiShapedServices();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        var captive = new List<string>();
+        var singletonFactories = services
+            .Where(descriptor => descriptor.Lifetime == ServiceLifetime.Singleton
+                && !descriptor.IsKeyedService
+                && descriptor.ImplementationFactory is not null
+                && !descriptor.ServiceType.ContainsGenericParameters
+                && descriptor.ServiceType.Namespace?.StartsWith("Backlog", StringComparison.Ordinal) == true)
+            .Select(descriptor => descriptor.ServiceType)
+            .Distinct()
+            .ToList();
+
+        Assert.NotEmpty(singletonFactories);
+
+        foreach (var service in singletonFactories)
+        {
+            try
+            {
+                _ = provider.GetService(service);
+            }
+            catch (InvalidOperationException error) when (error.Message.Contains("from root provider", StringComparison.Ordinal))
+            {
+                captive.Add($"{service.FullName}: {error.Message}");
+            }
+#pragma warning disable CA1031 // Only the scope check's refusal is under test here.
+            catch (Exception)
+            {
+            }
+#pragma warning restore CA1031
+        }
+
+        Assert.True(captive.Count == 0, "A singleton reaches a window's state from the root:\n" + string.Join("\n", captive));
+    }
+
+    /// <summary>
+    /// One set of window state per window (local ADR 0043, §5): each scope, as each
+    /// window's BlazorWebView opens one, gets its own panes' state, and inside a window
+    /// every pane, the footer and the toast tray ask for the same one. The data under
+    /// them is the process's: the task change signal is one object for every window.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_holds_each_windows_state_in_its_scope()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: true);
         using var first = provider.CreateScope();
         using var second = provider.CreateScope();
 
-        var tasks = provider.GetRequiredService<TasksDesktopState>();
+        var tasks = first.ServiceProvider.GetRequiredService<TasksDesktopState>();
         Assert.Same(tasks, first.ServiceProvider.GetRequiredService<TasksDesktopState>());
-        Assert.Same(tasks, second.ServiceProvider.GetRequiredService<TasksDesktopState>());
-        Assert.Same(tasks, provider.GetRequiredService<ISaveStatusSource>());
-        Assert.Same(provider.GetRequiredService<InboxDesktopState>(), second.ServiceProvider.GetRequiredService<InboxDesktopState>());
-        Assert.Same(provider.GetRequiredService<ToastChannel>(), provider.GetRequiredService<IToastChannel>());
+        Assert.Same(tasks, first.ServiceProvider.GetRequiredService<ISaveStatusSource>());
+        Assert.NotSame(tasks, second.ServiceProvider.GetRequiredService<TasksDesktopState>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<InboxDesktopState>(),
+            second.ServiceProvider.GetRequiredService<InboxDesktopState>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<ToastChannel>(),
+            first.ServiceProvider.GetRequiredService<IToastChannel>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<ToastChannel>(),
+            second.ServiceProvider.GetRequiredService<ToastChannel>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<FeedbackReportChannel>(),
+            second.ServiceProvider.GetRequiredService<FeedbackReportChannel>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<AppUpdateWindowRequests>(),
+            second.ServiceProvider.GetRequiredService<AppUpdateWindowRequests>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxPlanDrafter>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxPlanDrafter>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxTriageAdvisor>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxTriageAdvisor>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<ITaskChangeSignal>(),
+            second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
@@ -336,7 +432,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     /// <summary>
     /// Every service the head's inline Devbook block used to register still resolves,
     /// now that <c>AddDevbookModule</c> registers them through the shared composition —
-    /// and this head's choices survive the move: the domain store is one object for the
+    /// and this head's choices survive the move: the domain store is one object per
     /// window, and the Copilot launcher behind the Devbook offers is the one that
     /// starts the CLI.
     /// </summary>
@@ -358,7 +454,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             Assert.NotNull(first.ServiceProvider.GetRequiredService(service));
         }
 
-        Assert.Same(
+        Assert.NotSame(
             first.ServiceProvider.GetRequiredService<DomainDevbookStore>(),
             second.ServiceProvider.GetRequiredService<DomainDevbookStore>());
         Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
@@ -395,46 +491,68 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(watch, provider.GetRequiredService<BrainFolderWatch>());
         watch.Start();
         Assert.Equal(folder, watch.WatchedRoot);
+
+        // Show hidden is the device's, kept beside show archived in the shell's
+        // navigation file, never in the Brain folder or its setting.
+        var showHidden = provider.GetRequiredService<IBrainShowHidden>();
+        Assert.IsType<BrainShowHidden>(showHidden);
+        Assert.Same(showHidden, provider.GetRequiredService<IBrainShowHidden>());
+        showHidden.SetShown(true);
+        Assert.True(provider.GetRequiredService<ShellNavigationStore>().BrainHiddenShown);
     }
 
     [SupportedOSPlatform("windows")]
-    private ServiceProvider BuildMauiShaped(bool validateScopes)
+    private ServiceProvider BuildMauiShaped(bool validateScopes) =>
+        BuildMauiShapedServices().BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = validateScopes
+        });
+
+    [SupportedOSPlatform("windows")]
+    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_appData);
+
+    /// <summary>The MAUI head's container as <c>MauiProgram</c> composes it, every
+    /// per-user file under <paramref name="appData"/>; shared with
+    /// <see cref="SurfaceWindowPagesTests"/>, which serves pages over it.</summary>
+    [SupportedOSPlatform("windows")]
+    internal static IServiceCollection MauiShapedServices(string appData)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.AddServiceDefaults();
 
         builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         {
-            DeviceIdentity = new DeviceIdentityStore(Path.Combine(_appData, "device.json")),
-            DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(_appData, "device-credential.json")),
-            TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(_appData, "task-sync-state.json")),
-            SessionSyncFolder = _appData,
-            AnnotationSyncFolder = _appData,
-            BackupStatePath = Path.Combine(_appData, "backup-state.json"),
-            SyncServiceSettingsPath = Path.Combine(_appData, "sync-service.json"),
-            FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(_appData, "features.json")),
-            WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(_appData, "working-hours.json")),
-            UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(_appData, "usage-reset.json")),
-            SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(_appData, "spend-budgets.json")),
+            DeviceIdentity = new DeviceIdentityStore(Path.Combine(appData, "device.json")),
+            DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
+            SessionSyncFolder = appData,
+            AnnotationSyncFolder = appData,
+            BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
+            FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
+            WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),
+            UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(appData, "usage-reset.json")),
+            SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(appData, "spend-budgets.json")),
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
-                Path.Combine(_appData, "planning-velocity.json"),
+                Path.Combine(appData, "planning-velocity.json"),
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
-            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
+            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
-                Path.Combine(_appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
-            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
-            CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
-            CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
-            CaptureTargetLedger = _ => new CaptureTargetLedgerStore(Path.Combine(_appData, "capture-targets.json")),
-            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(Path.Combine(_appData, "connected-targets.json")),
-            SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(Path.Combine(_appData, "spec-manager-credentials.json")),
-            InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(_appData, "inbox-routing-rules.json")),
-            GitHubSettings = root => new GitHubSettingsStore(Path.Combine(_appData, "github.settings.json"), root),
-            PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(_appData, "pull-request-pins.json")),
-            ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(_appData, "claude.settings.json")),
-            AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(_appData, "azure-foundry.json")),
-            BrainSettings = _ => new BrainSettingsStore(Path.Combine(_appData, BrainSettingsStore.FileName)),
+                Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
+            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
+            CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
+            CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),
+            CaptureTargetLedger = _ => new CaptureTargetLedgerStore(Path.Combine(appData, "capture-targets.json")),
+            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(Path.Combine(appData, "connected-targets.json")),
+            SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(Path.Combine(appData, "spec-manager-credentials.json")),
+            InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(appData, "inbox-routing-rules.json")),
+            GitHubSettings = root => new GitHubSettingsStore(Path.Combine(appData, "github.settings.json"), root),
+            PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(appData, "pull-request-pins.json")),
+            ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(appData, "claude.settings.json")),
+            AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(appData, "azure-foundry.json")),
+            BrainSettings = _ => new BrainSettingsStore(Path.Combine(appData, BrainSettingsStore.FileName)),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),
             // MsixAppUpdateService is the head's and compiled for Windows only.
             AppUpdateService = _ => new UnsupportedAppUpdateService(),
@@ -444,25 +562,22 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 sp.GetRequiredService<IMcpEndpointSource>(),
                 sp.GetService<ILogger<DevToolService>>()),
             SessionRepositoryResolver = sp => new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()),
-            WindowStateLifetime = ServiceLifetime.Singleton
+            WindowStateLifetime = ServiceLifetime.Scoped
         });
 
         // The workspace store the composition registers reads the real per-user
         // settings; the container is the subject here, not the person's workspace,
         // so a later registration points it at a folder of the test's own.
-        builder.Services.AddSingleton(new WorkspaceSettingsStore(_appData, Path.Combine(_appData, "settings.json"), _ => null));
+        builder.Services.AddSingleton(new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"), _ => null));
 
         AddMauiHeadRegistrations(builder.Services);
 
-        return builder.Services.BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = true,
-            ValidateScopes = validateScopes
-        });
+        return builder.Services;
     }
 
     /// <summary>What <c>MauiProgram</c> registers beside the shared composition: the
-    /// MCP endpoint the tools adapter reads, and the cost client. There is no Devbook
+    /// MCP endpoint the tools adapter reads, the notification centre's request channel,
+    /// the pop-out pages' link tokens, and the cost client. There is no Devbook
     /// block here any more: <c>AddDesktopComposition</c> calls <c>AddDevbookModule</c>
     /// (issue #738), so neither the head nor this restatement of it registers one.</summary>
     private static void AddMauiHeadRegistrations(IServiceCollection services)
@@ -471,7 +586,45 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // stand-in answers the same port so the tools adapter can be composed.
         services.TryAddSingleton<IMcpEndpointSource>(new SwitchedOffMcpEndpoint());
 
+        // The channel a press on a Windows notification opens the centre through,
+        // registered by the head beside WindowsAppNotifications.
+        services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
+
+        // The link tokens the MCP listener admits a browser to its pop-out pages by,
+        // registered by the head beside McpServerWorker (local ADR 0043 §7).
+        services.TryAddSingleton<Backlog.Desktop.UI.Mcp.WindowLinkTokens>();
+
+        // What open_window opens and links to, registered by the head beside them: no
+        // OS window can open in a test, so its windows are a stand-in; the link names
+        // the port the listener is configured on.
+        services.TryAddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost>(sp => new Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost(
+            new NoShellWindows(),
+            sp.GetRequiredService<Backlog.Desktop.UI.Mcp.WindowLinkTokens>(),
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort));
+
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
+    }
+
+    /// <summary>The head's windows, which a test cannot open.</summary>
+    private sealed class NoShellWindows : Backlog.Desktop.UI.Shell.IShellWindows
+    {
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+        }
+
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null) => Task.FromResult(false);
+
+        public void Close(string windowKey)
+        {
+        }
+
+        public void SetTitle(string windowKey, string title)
+        {
+        }
+
+        public void ActivateMainWindow()
+        {
+        }
     }
 
     private sealed class SwitchedOffMcpEndpoint : IMcpEndpointSource

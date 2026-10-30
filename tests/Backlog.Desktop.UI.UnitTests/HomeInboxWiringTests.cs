@@ -63,8 +63,8 @@ public sealed class HomeInboxWiringTests
         // The Inbox the item was routed from keeps the screen.
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
         Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
-        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
+        Assert.Equal("inbox", harness.ShellNavigation.LastSurface);
+        Assert.Equal("tasks", harness.ShellNavigation.LastView);
 
         // The Inbox option returns to the list, which already holds the entry.
         await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
@@ -99,7 +99,7 @@ public sealed class HomeInboxWiringTests
         component.WaitForAssertion(() => Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Route me from the roadmap"));
 
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-        Assert.Equal("Roadmap", harness.ShellNavigation.LastView);
+        Assert.Equal("roadmap", harness.ShellNavigation.LastView);
 
         await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']")));
@@ -340,7 +340,7 @@ public sealed class HomeInboxWiringTests
         await component.InvokeAsync(() => component.Instance.CloseSurfaceOnEscapeAsync());
 
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface']"));
-        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
+        Assert.Equal("inbox", harness.ShellNavigation.LastSurface);
     }
 
     /// <summary>Opening the Inbox puts focus inside its pane, not on the surface
@@ -448,6 +448,7 @@ public sealed class HomeInboxWiringTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(shellNavigation);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);

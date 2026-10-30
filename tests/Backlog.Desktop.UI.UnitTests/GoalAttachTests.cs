@@ -179,6 +179,23 @@ public sealed class GoalAttachTests : IDisposable
         Assert.Equal(new GoalOption(late.Goal.Id, "Late", 1, 4, Today.AddDays(30)), offered[2]);
     }
 
+    /// <summary>The picker reads no iteration, so a goal without a due date has no day to
+    /// sort by: it follows the dated goals, by title, and says it is due at the iteration's end.</summary>
+    [Fact]
+    public void The_picker_offers_goals_without_a_due_date_after_the_dated_ones_by_title()
+    {
+        var undatedB = Summary("Search ships", due: null, done: 0, total: 2);
+        var late = Summary("Late", due: Today.AddDays(30), done: 1, total: 4);
+        var undatedA = Summary("Paid faster", due: null, done: 3, total: 8);
+
+        var offered = GoalSubjects.OpenGoals([undatedB, late, undatedA], null);
+
+        Assert.Equal(["Late", "Paid faster", "Search ships"], offered.Select(goal => goal.Title));
+        Assert.Null(offered[1].DueDate);
+        Assert.Equal("3/8 · due end of iteration", offered[1].Meta);
+        Assert.Equal("1/4 · due 16 Nov", offered[0].Meta);
+    }
+
     [Fact]
     public void A_subject_is_the_goal_ports_item_of_the_same_identity()
     {
@@ -293,7 +310,7 @@ public sealed class GoalAttachTests : IDisposable
         new(new GoalDto(Guid.NewGuid(), title, null, Today.AddDays(14), holds is null ? [] : [new GoalAttachmentDto(holds, Today)]),
             new GoalProgressDto(0, holds is null ? 0 : 1, 0, 0, holds is null ? 0 : 1, 0));
 
-    private static GoalSummaryDto Summary(string title, DateOnly due, int done, int total) =>
+    private static GoalSummaryDto Summary(string title, DateOnly? due, int done, int total) =>
         new(new GoalDto(Guid.NewGuid(), title, null, due, []), new GoalProgressDto(done, total, 0, 0, total - done, 0));
 
     private static RoadmapItemDto Item(string tag) =>
@@ -330,7 +347,7 @@ public sealed class GoalAttachTests : IDisposable
         public Task<Result<GoalDto>> CreateAsync(SetGoalRequest request, CancellationToken cancellationToken = default)
         {
             Writes.Add($"Create {request.Title} {request.DueDate:yyyy-MM-dd}");
-            var goal = new GoalDto(Guid.NewGuid(), request.Title, request.Outcome, request.DueDate!.Value, []);
+            var goal = new GoalDto(Guid.NewGuid(), request.Title, request.Outcome, request.DueDate, []);
             Goals.Add(new GoalSummaryDto(goal, new GoalProgressDto(0, 0, 0, 0, 0, 0)));
             return Task.FromResult(Result.Success(goal));
         }
@@ -339,6 +356,9 @@ public sealed class GoalAttachTests : IDisposable
             throw new NotSupportedException();
 
         public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)

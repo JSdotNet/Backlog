@@ -1,0 +1,651 @@
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+@*
+    A markdown document edited where it is read: every block rendered, except the
+    one holding the caret, which shows its own source.
+
+    It keeps the bargain MarkdownEditor's header sets out, by a different road.
+    There is no contenteditable anywhere. The block being edited is a plain
+    textarea over that block's own lines, and every other block is drawn from the
+    one parse of the whole document. The whole source is always the untouched
+    lines before the block, what was typed into it, and the untouched lines
+    after, so a block nobody opened is never written back out of the parser's
+    lossy model. MarkdownLiveState holds those rules; this component draws its
+    Document and forwards the clicks and the keys.
+
+    A block is what the parser says belongs together: a paragraph and its
+    wrapped lines, a whole list, a table, a fenced block from fence to fence. So
+    clicking a cell opens the table, not the row, and clicking a diagram opens
+    the fence it was drawn from.
+
+    The keys that cross a block's edge live in components.js
+    (`backlogMarkdownLive`), because whether ArrowUp leaves the box depends on
+    where the caret is, and only the browser knows that before the key lands. So
+    does the decision whether a click opens a block: only the browser knows
+    whether it landed on the block or on a control inside it. Without the script
+    every block still opens on a click, Enter or Space; the arrows, the joins and
+    Escape are lost, and a click on a control inside a block opens the block
+    too.
+*@
+
+<div @ref="_root" class="@ClassValue" id="@_id" data-testid="@TestId">
+    @for (var i = 0; i < State.Document.Segments.Count; i++)
+    {
+        var index = i;
+        var segment = State.Document.Segments[index];
+
+        if (State.Covers(index))
+        {
+            @* One box for the whole region, however many segments a join grew it
+               over. Keyed on a constant: there is only ever one, and a key that
+               followed the segment would rebuild the textarea, and its undo, on
+               every move. *@
+            if (index == State.ActiveIndex)
+            {
+                <div @key="ActiveKey" class="markdown-live__block markdown-live__block--active" data-live-active="true">
+                    @* The blur rides TextArea's unmatched attributes down onto the
+                       textarea itself, as MarkdownEditor's does: a wrapper is never
+                       what focus leaves. So does spellcheck, off: the box holds
+                       markdown source — a fence, a raw block, a table's pipes — and
+                       a squiggle under source is noise. *@
+                    <TextArea Value="@State.ActiveText"
+                              ValueChanged="OnTypedAsync"
+                              Id="@SourceId"
+                              AriaLabel="@AriaLabel"
+                              Placeholder="@Placeholder"
+                              Rows="1"
+                              AutoGrow="true"
+                              Bare="true"
+                              GrowCssClass="markdown-live__grow"
+                              InputCssClass="markdown-live__input"
+                              TestId="@SourceTestId"
+                              spellcheck="false"
+                              @onblur="OnBlur" />
+                </div>
+            }
+        }
+        else if (segment.Kind != MdSourceSegmentKind.Blank)
+        {
+            @* One wrapper for both kinds of block that can open, so how a block
+               opens is written once. The handlers are the way in without the
+               script; with it, the script decides from the click's target and
+               these stand down — see OnBlockClick. *@
+            <div @key="KeyOf(index)"
+                 id="@BlockId(index)"
+                 class="@BlockClass(segment)"
+                 data-live-block="@index"
+                 tabindex="@BlockTabIndex"
+                 role="group"
+                 aria-label="@Describe(segment)"
+                 @onclick="() => OnBlockClick(index)"
+                 @onkeydown="args => OnBlockKeyDown(args, index)">
+                @if (segment.Block is { } block)
+                {
+                    <MarkdownBlockView Block="@block"
+                                       InlineTarget="@InlineTarget"
+                                       DiagramTitle="@DiagramTitle"
+                                       OnTaskItemToggled="@TaskToggled" />
+                }
+                else
+                {
+                    @* Lines the parser does not model as a block — footnote
+                       definitions, or a whole body whose spans could not be
+                       trusted. Shown as the source they are, and said to be
+                       source, so nobody mistakes them for prose the editor
+                       understood. *@
+                    <span class="markdown-live__raw-label" aria-hidden="true">Raw Markdown</span>
+                    <pre class="markdown-live__raw"><code>@segment.Editable</code></pre>
+                }
+            </div>
+        }
+        @* A blank segment draws nothing: the gap between blocks is the
+           stylesheet's, and the blank lines themselves are still in the source,
+           byte for byte. *@
+    }
+
+    @if (State.Document.Footnotes is { } notes)
+    {
+        @* The notes are numbered from the whole document, so they are drawn once,
+           at the end, from the one parse — and edited where they are written,
+           in the raw block that holds their definitions. *@
+        <div class="markdown-live__notes">
+            <MarkdownBlockView Block="@notes" InlineTarget="@InlineTarget" />
+        </div>
+    }
+</div>
+
+@code {
+    private const string ActiveKey = "markdown-live-active";
+
+    private readonly string _id = "markdown-live-" + Guid.NewGuid().ToString("N");
+    private ElementReference _root;
+    private DotNetObjectReference<MarkdownLiveEditor>? _self;
+    private bool _watching;
+    private MarkdownLiveState? _state;
+
+    /// <summary>Where the caret goes in the source box once the render that put
+    /// it on screen has landed; null when nothing asked to move it.</summary>
+    private int? _caret;
+
+    /// <summary>The rendered block that takes focus once the render has landed —
+    /// the one Escape left, so the keyboard is still where the reader was.</summary>
+    private string? _focusBlock;
+
+    /// <summary>
+    /// The task whose checkbox takes focus once the render has landed — the one a
+    /// tick just ticked, or an undo or redo of a tick just put back.
+    /// <para>
+    /// A tick changes its list's source, so the list's block is drawn anew and
+    /// the checkbox that had focus goes with it; focus fell to the page, and the
+    /// next Ctrl+Z, which the editor only hears from inside it, did nothing. A
+    /// mouse tick never moved focus into the editor at all — the checkbox keeps
+    /// the pointer from taking it. Both end on the checkbox now.
+    /// </para>
+    /// </summary>
+    private int? _focusTask;
+
+    /// <summary>The document the keys below were built for, so they are built
+    /// once per cut rather than once per render.</summary>
+    private MdSourceDocument? _keyed;
+    private string[] _keys = [];
+
+    /// <summary>The markdown being edited: the whole document, not the block.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>Raised with the whole source on every keystroke and every ticked
+    /// task — never with one block of it — so a host saves it the way it saves
+    /// what <c>MarkdownEditor</c> raises.</summary>
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>
+    /// Focus has left the source box: whatever is pending should be written now.
+    /// <para>
+    /// The same contract as <c>MarkdownEditor.OnBlur</c>, and with the same
+    /// warning: it does not mean the author is done. Moving from one block to the
+    /// next leaves one box for another, so a host that read this as "close the
+    /// editor" would close it on the way to the block the reader just clicked.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnBlur { get; set; }
+
+    /// <summary>The source box's accessible name. There is never more than one
+    /// box, so one name serves every block.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Markdown source";
+
+    /// <summary>What the box shows while the document is empty.</summary>
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    /// <summary>Every block rendered, none of them opens, and a task's checkbox is
+    /// state rather than a control.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>What a drawn diagram is called in its own caption. Forwarded
+    /// verbatim to <c>MarkdownBlockView.DiagramTitle</c>.</summary>
+    [Parameter]
+    public string DiagramTitle { get; set; } = "Backlog diagram";
+
+    /// <summary>How an inline in a rendered block is read. Forwarded verbatim to
+    /// <c>MarkdownBlockView.InlineTarget</c>.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    private MarkdownLiveState State => _state ??= new MarkdownLiveState(Value);
+
+    private string SourceId => _id + "-source";
+
+    private string? SourceTestId => TestId is null ? null : $"{TestId}-source";
+
+    private string BlockId(int index) => $"{_id}-block-{index}";
+
+    /// <summary>A rendered block is a tab stop while it can be opened, and is not
+    /// one while it cannot: a stop that Enter does nothing on is a stop in the
+    /// way.</summary>
+    private string? BlockTabIndex => Disabled ? null : "0";
+
+    /// <summary>The checkbox handler, or none at all when disabled — which is how
+    /// <c>MarkdownListView</c> knows to draw the state rather than a
+    /// control.</summary>
+    private EventCallback<int> TaskToggled =>
+        Disabled ? default : EventCallback.Factory.Create<int>(this, OnTaskToggledAsync);
+
+    private static string BlockClass(MdSourceSegment segment) =>
+        segment.Kind == MdSourceSegmentKind.Unclaimed ? "markdown-live__block markdown-live__block--raw" : "markdown-live__block";
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "markdown-live",
+        Disabled ? "markdown-live--disabled" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// The host set <see cref="Value"/>. Usually that is the source this raised
+    /// coming back — trimmed or not — and the block being typed in stays open;
+    /// anything else is a new document. <see cref="MarkdownLiveState.Reset"/>
+    /// tells the two apart, by <c>MarkdownEditor</c>'s rule.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (_state is null)
+        {
+            _state = new MarkdownLiveState(Value);
+        }
+        else if (_state.Reset(Value))
+        {
+            _caret = null;
+            _focusBlock = null;
+            _focusTask = null;
+        }
+
+        if (Disabled)
+        {
+            if (_state.ActiveIndex is not null) _state.Commit();
+            return;
+        }
+
+        KeepSomewhereToType();
+    }
+
+    /// <summary>
+    /// An empty document is one run of blank lines, and blank lines never hold the
+    /// caret — so with nothing done about it the editor would draw nothing at all,
+    /// and there would be nothing to click to start. The box is opened instead,
+    /// unfocused: a page that loads with the caret in an editor nobody chose has
+    /// taken the keyboard from whatever the reader was doing.
+    /// </summary>
+    private void KeepSomewhereToType()
+    {
+        if (Disabled || State.ActiveIndex is not null) return;
+
+        var segments = State.Document.Segments;
+        if (segments.Count == 1 && segments[0].Kind == MdSourceSegmentKind.Blank) State.Activate(0);
+    }
+
+    private async Task OnTypedAsync(string text)
+    {
+        if (State.ActiveIndex is null) return;
+
+        await ValueChanged.InvokeAsync(State.Type(text));
+    }
+
+    /// <summary>A rendered block opened by a click, Enter or Space. The caret
+    /// lands at the end of its source: a click on rendered text says which block,
+    /// not which character of its markdown.</summary>
+    /// <returns>Whether a block opened.</returns>
+    private bool Activate(int index)
+    {
+        if (Disabled || !State.Activate(index)) return false;
+
+        _caret = State.ActiveText.Length;
+        return true;
+    }
+
+    /// <summary>
+    /// The block's own click, which is the way in only while the script is not
+    /// watching.
+    /// <para>
+    /// A click on a control inside a block — a reference a host can follow, a
+    /// diagram's own buttons — bubbles here after the control's handler has run,
+    /// and nothing in a Blazor click says where it started. Opening on it swapped
+    /// the block, control and all, for its source under the reader's hand. The
+    /// script can see the target, so while it watches it decides, through
+    /// <see cref="ActivateAsync"/>, and this stands down. Without it — a
+    /// prerender, a script that failed to load — a click anywhere in a block
+    /// opens it, which is the lesser loss.
+    /// </para>
+    /// </summary>
+    private void OnBlockClick(int index)
+    {
+        if (_watching) return;
+
+        Activate(index);
+    }
+
+    /// <summary>Enter or Space, the two keys that activate anything; the block
+    /// is not a native control, so it answers both itself. While the script
+    /// watches, the script answers them instead — it can tell a key on the block
+    /// from a key on a control inside it, and keep Space from scrolling the
+    /// page.</summary>
+    private void OnBlockKeyDown(KeyboardEventArgs args, int index)
+    {
+        if (_watching) return;
+        if (args.Key is not ("Enter" or " ") || args.ShiftKey || args.CtrlKey || args.AltKey || args.MetaKey) return;
+
+        Activate(index);
+    }
+
+    private async Task OnTaskToggledAsync(int taskIndex)
+    {
+        var source = State.ToggleTask(taskIndex);
+        _caret = null;
+        _focusTask = State.TickedTask;
+        KeepSomewhereToType();
+
+        await ValueChanged.InvokeAsync(source);
+    }
+
+    /// <summary>
+    /// The script's verdict on a click, Enter or Space that landed on the block
+    /// <paramref name="index"/> itself rather than on a control inside it.
+    /// </summary>
+    /// <returns>Whether a block opened, so the script knows whether to wait for
+    /// the focus that follows.</returns>
+    [JSInvokable]
+    public Task<bool> ActivateAsync(int index) => OnRendererAsync(() => Activate(index));
+
+    /// <summary>
+    /// ArrowUp on the box's first line (<paramref name="direction"/> -1) or
+    /// ArrowDown on its last (+1): the caret moves into the neighbouring block,
+    /// at its end going up and its start going down.
+    /// </summary>
+    /// <returns>False at the first or last block, where nothing moved and the
+    /// script puts the caret where the key would have.</returns>
+    [JSInvokable]
+    public Task<bool> StepAsync(int direction) => OnRendererAsync(() =>
+    {
+        if (direction == 0 || State.Step(direction) is not { } target) return false;
+
+        _caret = target.Offset;
+        return true;
+    });
+
+    /// <summary>
+    /// Backspace at the box's very start (-1) or Delete at its very end (+1): the
+    /// box grows over the neighbouring block and the blank lines between, so the
+    /// key the reader presses next removes the line break, as it would in one
+    /// textarea. Nothing in the source changes yet.
+    /// </summary>
+    /// <returns>Whether the box grew; false at the first or last block.</returns>
+    [JSInvokable]
+    public Task<bool> JoinAsync(int direction) => OnRendererAsync(() =>
+    {
+        if (direction == 0 || State.ActiveIndex is null) return false;
+
+        var before = (State.ActiveIndex, State.ActiveSegmentCount);
+        var caret = State.Join(direction);
+        if (before == (State.ActiveIndex, State.ActiveSegmentCount)) return false;
+
+        _caret = caret;
+        return true;
+    });
+
+    /// <summary>Escape: the block closes, the document is cut again, and focus
+    /// stays on the block that was open — rendered now — so the next Tab or Enter
+    /// starts from where the reader was.</summary>
+    /// <returns>Whether a block closed; false over an empty document, whose box
+    /// stays open because there would be nothing to click to start.</returns>
+    [JSInvokable]
+    public Task<bool> LeaveAsync() => OnRendererAsync(() =>
+    {
+        if (State.ActiveIndex is null || IsOnlyBlank) return false;
+
+        var line = State.ActiveLines.StartLine;
+        State.Commit();
+        KeepSomewhereToType();
+
+        _focusBlock = State.ActiveIndex is null ? BlockAtOrAbove(line) : null;
+        if (State.ActiveIndex is not null) _caret = State.ActiveText.Length;
+        return true;
+    });
+
+    /// <summary>
+    /// The caret left the open block for somewhere that is not its box: out of the
+    /// editor, or onto another rendered block by Tab. The block closes and the
+    /// document is cut again, and focus stays wherever the reader put it.
+    /// </summary>
+    [JSInvokable]
+    public Task<bool> CloseAsync() => OnRendererAsync(() =>
+    {
+        if (State.ActiveIndex is null || IsOnlyBlank) return false;
+
+        State.Commit();
+        KeepSomewhereToType();
+        return true;
+    });
+
+    /// <summary>
+    /// Ctrl+Z (Cmd+Z), from the box or from a focused block: the newest step of
+    /// the document's history taken back, wherever it was made. The textarea's
+    /// own undo is never used — it knows only what was typed since the box last
+    /// opened, and forgets that when it closes.
+    /// </summary>
+    /// <returns>Whether a box reopened, so the script knows a focus follows;
+    /// false when there was nothing to undo, or the step reopens no block — a
+    /// tick undone — though the source was still raised.</returns>
+    [JSInvokable]
+    public Task<bool> UndoAsync() => ApplyHistoryAsync(state => state.Undo());
+
+    /// <summary>Ctrl+Shift+Z or Ctrl+Y (Cmd+Shift+Z): the newest step undo took
+    /// back, put back in the block it was made in.</summary>
+    /// <returns>As <see cref="UndoAsync"/>.</returns>
+    [JSInvokable]
+    public Task<bool> RedoAsync() => ApplyHistoryAsync(state => state.Redo());
+
+    private async Task<bool> ApplyHistoryAsync(Func<MarkdownLiveState, HistoryStep?> take)
+    {
+        var reopened = false;
+
+        await InvokeAsync(async () =>
+        {
+            if (Disabled || take(State) is not { } step) return;
+
+            _caret = step.Caret?.Offset;
+            _focusBlock = null;
+            _focusTask = step.Caret is null ? step.Task : null;
+            KeepSomewhereToType();
+            reopened = State.ActiveIndex is not null && step.Caret is not null;
+
+            StateHasChanged();
+            await ValueChanged.InvokeAsync(step.Source);
+        });
+
+        return reopened;
+    }
+
+    /// <summary>One of the script's calls, run on the renderer's own thread, and
+    /// rendered when it changed something.</summary>
+    private async Task<bool> OnRendererAsync(Func<bool> change)
+    {
+        var changed = false;
+
+        await InvokeAsync(() =>
+        {
+            changed = change();
+            if (changed) StateHasChanged();
+        });
+
+        return changed;
+    }
+
+    /// <summary>The document is one run of blank lines, the box open over it, and
+    /// leaving it would only open it again.</summary>
+    private bool IsOnlyBlank =>
+        State.Document.Segments is [{ Kind: MdSourceSegmentKind.Blank }] && State.Source.Trim().Length == 0;
+
+    /// <summary>The id of the block the closed region starts on, or of the
+    /// nearest block above it when the region now opens on blank lines; null
+    /// when there is none to focus.</summary>
+    private string? BlockAtOrAbove(int line)
+    {
+        var segments = State.Document.Segments;
+        var found = -1;
+
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (segments[index].Kind == MdSourceSegmentKind.Blank) continue;
+            if (segments[index].Lines.StartLine > line && found >= 0) break;
+
+            found = index;
+            if (segments[index].Lines.EndLineExclusive > line) break;
+        }
+
+        return found < 0 ? null : BlockId(found);
+    }
+
+    /// <summary>
+    /// A rendered block's key: its own source, and how many identical blocks came
+    /// before it. Keyed on the text rather than the position so that typing a new
+    /// paragraph at the top does not shift every key below it — a diagram whose
+    /// key moved is a diagram torn down and drawn again for an edit somewhere
+    /// else. The count keeps two identical paragraphs from sharing one.
+    /// </summary>
+    private string KeyOf(int index)
+    {
+        if (!ReferenceEquals(_keyed, State.Document))
+        {
+            var segments = State.Document.Segments;
+            var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+            _keys = new string[segments.Count];
+
+            for (var i = 0; i < segments.Count; i++)
+            {
+                var text = $"{segments[i].Kind}:{segments[i].Text}";
+                seen[text] = seen.TryGetValue(text, out var count) ? count + 1 : 0;
+                _keys[i] = $"{text}#{seen[text]}";
+            }
+
+            _keyed = State.Document;
+        }
+
+        return _keys[index];
+    }
+
+    /// <summary>What a rendered block is called to a screen reader, and what
+    /// Enter on it does. A raw block says it is raw Markdown, so nobody edits it
+    /// believing it is prose the editor understood.</summary>
+    private string Describe(MdSourceSegment segment)
+    {
+        var kind = segment.Kind == MdSourceSegmentKind.Unclaimed ? "Raw Markdown" : segment.Block switch
+        {
+            MdHeading heading => $"Heading {heading.Level}",
+            MdParagraph => "Paragraph",
+            MdList list when list.Items.Any(item => item.Done is not null) => "Task list",
+            MdList { Ordered: true } => "Numbered list",
+            MdList => "List",
+            MdQuote => "Quote",
+            MdCode code when DiagramView.IsDiagram(code.Language) => "Diagram",
+            MdCode => "Code block",
+            MdTable => "Table",
+            MdDivider => "Divider",
+            _ => "Block"
+        };
+
+        return Disabled ? kind : $"{kind}. Press Enter to edit its Markdown.";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await WatchAsync();
+
+        // Both through the editor's own focus, which also tells the script the
+        // move that asked for this render has landed and the box's keys are the
+        // reader's again.
+        if (_caret is { } caret)
+        {
+            _caret = null;
+            await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", SourceId, caret, _id));
+        }
+        else if (_focusBlock is { } block)
+        {
+            _focusBlock = null;
+            await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", block, null, _id));
+        }
+        else if (_focusTask is { } task)
+        {
+            _focusTask = null;
+            if (TaskCheckbox(task) is { } checkbox)
+            {
+                await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", checkbox.Block, null, _id, checkbox.Position));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where task <paramref name="task"/>'s checkbox is drawn: the rendered block
+    /// that holds it, and how many checkboxes come before it in that block — the
+    /// order <c>MarkdownListView</c> draws them in, each item before the list
+    /// nested under it. Null when no rendered block holds it.
+    /// </summary>
+    private (string Block, int Position)? TaskCheckbox(int task)
+    {
+        static void Walk(MdList list, List<int> tasks)
+        {
+            foreach (var item in list.Items)
+            {
+                if (item.TaskIndex is { } index) tasks.Add(index);
+                foreach (var nested in item.Nested) Walk(nested, tasks);
+            }
+        }
+
+        var segments = State.Document.Segments;
+
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (State.Covers(index) || segments[index].Block is not MdList list) continue;
+
+            var tasks = new List<int>();
+            Walk(list, tasks);
+
+            var position = tasks.IndexOf(task);
+            if (position >= 0) return (BlockId(index), position);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Hands the keys and the clicks to the script. Watching only once the script
+    /// says it is: the block handlers stand down while it watches, so a call that
+    /// returned without the listeners in place — a script too old to answer, a
+    /// root that was not there — must leave them in charge.
+    /// </summary>
+    private async Task WatchAsync()
+    {
+        _self ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            _watching = await Js.InvokeAsync<bool>("backlogMarkdownLive.watch", _root, _self, _id);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            _watching = false;
+        }
+    }
+
+    /// <summary>One interop call, with the failures every caller here survives:
+    /// a script that is not there, a circuit that has gone, a prerender with no
+    /// browser yet. Each leaves the editor working by click alone.</summary>
+    private static async Task<bool> TryAsync(Func<ValueTask> call)
+    {
+        try
+        {
+            await call();
+            return true;
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_watching) await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.unwatch", _id));
+
+        _self?.Dispose();
+    }
+}

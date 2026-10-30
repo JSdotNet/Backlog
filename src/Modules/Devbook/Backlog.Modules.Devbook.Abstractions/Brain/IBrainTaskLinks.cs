@@ -2,7 +2,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
 /// The links between Brain notes and tasks, both ways (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/features.md#bi-directional-linking</c>): the tasks a
+/// <c>.devbook/domain/brain/features.md#bi-directional-linking</c>): the tasks a
 /// note's <c>tasks</c> field names, and the notes that name one task. Read from the
 /// Brain's own database in the owner's app storage, like <see cref="IBrainBacklinks"/>,
 /// and never written anywhere — a task's record carries no note, so nothing
@@ -36,7 +36,7 @@ public sealed record BrainTaskNote(string NotePath, string Title);
 
 /// <summary>
 /// One value of a Brain note's <c>tasks</c> field (a
-/// <c>Task Link</c>, <c>.devbook/domain/devbook/domain.md#task-link</c>). The value is
+/// <c>Task Link</c>, <c>.devbook/domain/brain/domain.md#task-link</c>). The value is
 /// the task's stored id, a GUID; <see cref="TaskId"/> is it in one spelling, or null
 /// when the value is no GUID — still listed, so the reader sees what they wrote.
 /// </summary>

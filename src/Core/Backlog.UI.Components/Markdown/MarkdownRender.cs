@@ -12,7 +12,7 @@ namespace Backlog.UI.Components.Markdown;
 /// <para>
 /// Everything is emitted through the render tree's normal escaping, so nothing
 /// typed into an entry can inject markup, and link URLs are filtered by scheme
-/// (see <see cref="IsNavigable"/>) so nothing typed into one can inject
+/// (see <see cref="LinkSchemes.IsNavigable"/>) so nothing typed into one can inject
 /// behaviour either.
 /// </para>
 /// </summary>
@@ -50,7 +50,7 @@ public static class MarkdownRender
     /// <para>
     /// A hook rather than a rule baked in here, because the same code span means
     /// different things in different places: <c>.devbook/domain/sessions/domain.md</c> in
-    /// a knowledge chapter is a chapter somebody can open, and the identical span
+    /// a devbook chapter is a chapter somebody can open, and the identical span
     /// in an entry's body is a path being quoted. Only the caller knows which
     /// document it is rendering.
     /// </para>
@@ -68,7 +68,7 @@ public static class MarkdownRender
     /// target is fetched with no click to consent to it, so a caller that cannot
     /// place one is not choosing between a link and plain words but between a
     /// request it cannot vouch for and none. A relative <c>src</c> is also the one
-    /// target with nowhere to resolve <em>to</em> — a knowledge chapter's picture
+    /// target with nowhere to resolve <em>to</em> — a devbook chapter's picture
     /// sits beside it on disk, outside any <c>wwwroot</c>, so there is no origin
     /// the path could be right about.
     /// </para>
@@ -119,7 +119,7 @@ public static class MarkdownRender
                 case MdTag tag:
                     Wrap(builder, ref seq, "span", "tag-chip", $"#{tag.Tag}");
                     break;
-                case MdLink link when IsNavigable(link.Url):
+                case MdLink link when LinkSchemes.IsNavigable(link.Url):
                     builder.OpenElement(seq++, "a");
                     builder.AddAttribute(seq++, "class", "md-link");
                     builder.AddAttribute(seq++, "href", link.Url);
@@ -134,7 +134,7 @@ public static class MarkdownRender
                     Wrap(builder, ref seq, "span", "md-link--inert", link.Text);
                     break;
 
-                case MdImage image when IsNavigable(image.Url):
+                case MdImage image when LinkSchemes.IsNavigable(image.Url):
                     builder.OpenElement(seq++, "img");
                     builder.AddAttribute(seq++, "class", "md-image");
                     builder.AddAttribute(seq++, "src", image.Url);
@@ -168,61 +168,6 @@ public static class MarkdownRender
             }
         }
     };
-
-    /// <summary>
-    /// Whether a link URL is one we are willing to put in an <c>href</c>.
-    /// Escaping keeps typed markup out of the document, but an <c>href</c> is a
-    /// second door: <c>javascript:</c> and <c>data:</c> URLs run in the app's own
-    /// origin under WebView2 (ADR 0001), and an entry body can arrive from a
-    /// repository file nobody here wrote. So the scheme is an allow-list, not a
-    /// block-list — anything unrecognised is text, not a link.
-    /// </summary>
-    private static bool IsNavigable(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return false;
-
-        var trimmed = url.Trim();
-
-        // Browsers strip control characters before resolving a URL, which is how
-        // "java\tscript:" gets through a naive scheme check. Nothing legitimate
-        // needs them.
-        if (trimmed.Any(char.IsControl)) return false;
-
-        if (!NamesScheme(trimmed)) return true;
-
-        var scheme = trimmed[..trimmed.IndexOf(':', StringComparison.Ordinal)];
-        return scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
-            || scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
-            || scheme.Equals("mailto", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Whether a link target opens with something a browser would read as a URL
-    /// scheme, rather than being relative to the document it was written in.
-    ///
-    /// <para>Public because a caller deciding what to do with a target it could not
-    /// place has to know which of two answers it is looking at. A relative target
-    /// that resolves nowhere is the author's mistake and belongs on screen as the
-    /// words they wrote; one that names a scheme was never the caller's to place,
-    /// and handing it back here is what keeps an <c>https</c> link the anchor it
-    /// has always been. Asking the question in one place is what stops the two
-    /// readings drifting: <see cref="IsNavigable"/>'s allow-list decides which
-    /// schemes are welcome, and this decides only whether there is one.</para>
-    /// </summary>
-    public static bool NamesScheme(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return false;
-
-        var trimmed = url.Trim();
-
-        var colon = trimmed.IndexOf(':', StringComparison.Ordinal);
-        if (colon < 0) return false;
-
-        // A colon after the path has begun is part of the path, not a scheme:
-        // "notes/10:30.md" is relative, "//host/x" is protocol-relative.
-        var pathStart = trimmed.IndexOfAny(['/', '?', '#']);
-        return pathStart < 0 || pathStart > colon;
-    }
 
     private static void Wrap(RenderTreeBuilder builder, ref int seq, string element, string? className, string text)
     {

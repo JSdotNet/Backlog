@@ -427,6 +427,110 @@ html, body {
     gap: var(--spacing-xs);
 }
 
+/* A header item and its ⧉, as the shell's `.header-surface-item` places them
+   (interaction-guidelines.md#shell-header): the button hangs centred under its
+   option, clear of its word and its underline, placed absolutely so showing it
+   never moves the row, and shown on hover, on focus, and always where nothing
+   can hover. The nav keeps the strip it hangs in, under every row it wraps
+   to, so it covers nothing. */
+.sb-header-nav,
+.sb-header-nav__workspace {
+    row-gap: calc(1.5rem + var(--spacing-xs));
+}
+
+.sb-header-nav {
+    padding-bottom: 1.5rem;
+}
+
+.sb-header-item {
+    position: relative;
+    display: inline-flex;
+}
+
+/* In a fused group the item, not the option, is the group's child, so the
+   outer corners move onto the end items' options. */
+.btn-group > .sb-header-item > .btn {
+    border-radius: var(--border-radius-none);
+}
+
+.btn-group > .sb-header-item:first-child > .btn {
+    border-top-left-radius: var(--border-radius-md);
+    border-bottom-left-radius: var(--border-radius-md);
+}
+
+.btn-group > .sb-header-item:last-child > .btn {
+    border-top-right-radius: var(--border-radius-md);
+    border-bottom-right-radius: var(--border-radius-md);
+}
+
+.sb-header-item__pop {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sb-header-item:hover .sb-header-item__pop,
+.sb-header-item:focus-within .sb-header-item__pop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.sb-header-item__pop:hover,
+.sb-header-item__pop:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.sb-header-item__pop:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .sb-header-item__pop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+/* The popped-out window's slim header: its title, its scope chips and Show in
+   main window on one row, wrapping on a narrow page. */
+.sb-window-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.sb-window-header__title {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--font-size-lg);
+}
+
+.sb-window-header .btn--toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* A phone's whole screen, for something that covers one — the capture sheet
    rises from the bottom edge over a dimmed screen. The transform makes this box
    the containing block of the sheet's fixed layers, so the sheet covers the
@@ -627,6 +731,43 @@ html, body {
     background: var(--color-background);
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: 0;
+}
+
+/* A strip narrower than its five tabs, as the Technology page's is at phone
+   width: it scrolls on its own, the way .tech-devbook-pane__tabs does. The
+   second strip scrolls the row around the tabs and its trailing link instead,
+   the way .dashboard-tabs__strip and .tools-tabs__strip do. */
+.sb-scrolling-tabs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    max-width: 16rem;
+}
+
+.sb-scrolling-tabs__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.sb-scrolling-tabs__row {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.sb-scrolling-tabs__row > .tabs__list {
+    flex: 1 0 auto;
+    flex-wrap: nowrap;
+}
+
+.sb-scrolling-tabs__list > [role="tab"],
+.sb-scrolling-tabs__row [role="tab"] {
+    flex: none;
+    white-space: nowrap;
 }
 
 /* A pretend host's pill strip, for the Tabs class-hook story. Same reasoning as
@@ -965,6 +1106,13 @@ html, body {
 .sb-callout {
     display: block;
     margin-bottom: var(--spacing-sm);
+}
+
+/* A sample that points at the page drawing its subject rather than drawing it
+   twice. The link takes the library's link colour; the browser's default blue
+   does not read on the dark ground. */
+.sb-pointer a {
+    color: var(--color-text-link);
 }
 
 /* The way out of a missing page. A link, not a button: the host's own class

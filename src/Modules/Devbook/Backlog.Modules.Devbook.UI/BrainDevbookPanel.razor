@@ -3,7 +3,7 @@
 
 @*
     One Brain note, read and edited the way a repository chapter is (local ADR 0026,
-    .devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane): the same file
+    .devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane): the same file
     view, the same DevbookMarkdownView for reading and the same DevbookChapterEditor
     for writing. What it leaves out is everything a repository chapter carries and a
     note does not — no sync scope, no scenario images, no status control. A note is
@@ -159,6 +159,24 @@
         _taskLinks = Services.GetService<IBrainTaskLinks>();
         _annotations.Changed += OnAnnotationsChanged;
         Brain.Changed += OnBrainChanged;
+
+        // The status display follows Devbook's switch here too, for consistency
+        // with the repository chapters. Edit does not: a Brain note is always
+        // editable, so the note never asks EditOffered.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, RedrawAsync);
+    }
+
+    /// <summary>Whether status is shown, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>A switch changed while the panel was open: redraw, so the note's
+    /// chapter statuses follow it.</summary>
+    private Task RedrawAsync()
+    {
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -338,6 +356,7 @@
                       RenderFileDevbookMetadata="false"
                       RenderDevbookMetadataFields="false"
                       CanEditDevbookStatus="false"
+                      ShowDevbookStatus="@StatusShown"
                       HostInlineTarget="@_inlineTarget"
                       Comments="@_noteComments"
                       Layout="MarkdownCommentLayout.Inline"
@@ -461,5 +480,6 @@
         _disposed = true;
         Brain.Changed -= OnBrainChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        _switches?.Dispose();
     }
 }

@@ -102,7 +102,7 @@ The navigation is the host's: the explorer knows nothing of chapters. Here it is
     </Story>
 
     <Story Name="The Code level"
-           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0037 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
+           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0044 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
 
 Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. Pick a box and the panel beside it names the files it is declared in, offers **Open in editor** where the host can open one, and lists the decision records linked to the component — each opens its chapter. Backspace on the picture zooms back out to the components view."
            Code="@CodeUsage">
@@ -615,7 +615,7 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                         }
 
                         shell = component "Shell" "Holds the panes." "Blazor"
-                        devbook = component "Devbook" "Draws the knowledge folders." "Razor Class Library"
+                        devbook = component "Devbook" "Draws the devbook folders." "Razor Class Library"
                         workers = component "Fetch Workers" "Polling and sync." "Background services"
                     }
 

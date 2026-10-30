@@ -127,8 +127,8 @@
                                       AllowCopy="true"
                                       DevbookDocumentPath="@DocumentPath(selectedDocument)"
                                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
-                                      CanEdit="@(_chapter.Chapter is { CanEdit: true })"
-                                      Editing="@(_editing && _chapter.Chapter is { CanEdit: true })"
+                                      CanEdit="@(EditOffered && _chapter.Chapter is { CanEdit: true })"
+                                      Editing="@(EditOffered && _editing && _chapter.Chapter is { CanEdit: true })"
                                       EditingChanged="OnEditingChangedAsync"
                                       EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
@@ -240,6 +240,24 @@
     {
         Folders.Changed += OnDevbookChanged;
         _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+
+        // Optional: a host with no scope offers Edit as the panel always did —
+        // DevbookScope.EditOfferedBy states the rule.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, OnSwitchesChangedAsync);
+    }
+
+    /// <summary>Whether Edit is offered, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    /// <summary>A switch changed while the panel was open: leave edit mode
+    /// through the path that flushes the editor when Edit is no longer offered,
+    /// so nothing typed is lost with the control, then redraw.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
     }
 
     /// <summary>A folder that moved or changed underneath the panel. A refresh
@@ -283,7 +301,11 @@
             StateHasChanged();
         });
 
-    public void Dispose() => Folders.Changed -= OnDevbookChanged;
+    public void Dispose()
+    {
+        Folders.Changed -= OnDevbookChanged;
+        _switches?.Dispose();
+    }
 
     protected override async Task OnParametersSetAsync()
     {

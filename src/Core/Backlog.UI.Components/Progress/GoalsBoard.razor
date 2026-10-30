@@ -12,18 +12,34 @@
     goal holds, each with Attach…: with a goal open it attaches to that goal, titled
     "Attach to ‹goal›"; with none open it hands the work to OnPickGoal, and the host
     opens the shared GoalPicker for it. Every item is a GoalSubject, handed back as it
-    came; the board never reads one.
+    came; the board never reads one. A search beside the No goal heading filters its rows
+    as it is typed, by the attach search's rule (GoalCard.IsMatch): title, number, a
+    leading + or # tolerated. A query that hides every row says No matches; clearing it
+    shows them all. The query is the board's own and never reaches the host.
 
     The open goal is edited in place, its rows detached and the goal deleted through
     GoalCard; each act reaches the host only when it listens (OnEditGoal, OnDetach,
-    OnDeleteGoal). Delete goal… asks first in a destructive ConfirmDialog that says what
+    OnDeleteGoal, and OnQuickAddTask for the open goal's "New task" row, with the goal and
+    the title typed). Delete goal… asks first in a destructive ConfirmDialog that says what
     the goal held stays as it is, and the goal is folded before the host is told.
+
+    The goals are in the person's order. With a host listening on OnMoveGoal, each goal can
+    be dragged by its grip — the library's one pointer reorder in components.js
+    (backlogListReorder), registered under the goals column's data-list-owner, since a
+    native drag is aborted in the desktop head's WebView2 — or moved one place with Move up
+    and Move down. A held goal is drawn in the place of the goal it is over, and a drop puts
+    it there. Passing over the held goal itself, or a gap between goals, keeps the last
+    target; a drag that never reached another goal, or Escape, moves nothing. The new order is drawn at once and
+    said in a live region ("Moved ‹goal› to position n of m."), and the move reaches the host
+    as the goal and its new place; the next model the host hands in replaces the order
+    drawn, which is how a refused move puts the stored order back.
 
     Beside the goals sits the StandUpPanel aside, which falls under them in one column
     once the board is narrower than 900 px. With no goals and nothing in progress
     outside one, the goals column is a real empty state with New goal as its action.
 *@
 @inject IJSRuntime Js
+@implements IAsyncDisposable
 <div class="@ClassValue" data-testid="@TestId">
     <header class="goals-board__header">
         <h1 class="goals-board__title">Goals</h1>
@@ -53,8 +69,13 @@
 
     <Alert Message="@Error" TestId="@Part("error")" />
 
+    @if (CanMoveGoals)
+    {
+        <p class="sr-only" role="status" aria-live="polite" data-testid="@Part("move-announcement")">@_moveAnnouncement</p>
+    }
+
     <div class="goals-board__layout">
-        <div class="goals-board__goals" data-testid="@Part("goals")">
+        <div class="goals-board__goals" data-testid="@Part("goals")" data-list-owner="@(CanMoveGoals ? _id : null)">
             <SectionHeader Title="Goals" Level="2" CssClass="goals-board__section-header">
                 <Actions>
                     <Badge Kind="tone" Slug="quiet" TestId="@Part("goals-count")">@Model.Goals.Count</Badge>
@@ -74,17 +95,26 @@
             }
             else
             {
-                @foreach (var goal in Model.Goals)
+                var shown = Shown;
+                for (var index = 0; index < shown.Count; index++)
                 {
+                    var goal = shown[index];
+                    var place = index;
                     <GoalCard @key="goal.Id"
+                              OnMove="@(CanMoveGoals ? EventCallback.Factory.Create<int>(this, delta => MoveByAsync(goal.Id, delta)) : default)"
+                              CanMoveUp="@(place > 0)"
+                              CanMoveDown="@(place < shown.Count - 1)"
+                              Dragging="@(goal.Id == _dragging)"
                               Goal="goal"
                               Expanded="@(goal.Id == _selected)"
                               OnToggle="() => ToggleAsync(goal.Id)"
                               Candidates="Model.Candidates"
+                              Repositories="Model.Repositories"
                               OnAttach="subject => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, subject))"
                               OnEdit="@(OnEditGoal.HasDelegate ? EventCallback.Factory.Create<GoalEditRequest>(this, request => OnEditGoal.InvokeAsync(request)) : default)"
                               OnDelete="@(OnDeleteGoal.HasDelegate ? EventCallback.Factory.Create(this, () => _deleting = goal) : default)"
                               OnDetach="@(OnDetach.HasDelegate ? EventCallback.Factory.Create<GoalSubject>(this, subject => OnDetach.InvokeAsync(new GoalDetachRequest(goal.Id, subject))) : default)"
+                              OnQuickAdd="@(OnQuickAddTask.HasDelegate ? EventCallback.Factory.Create<string>(this, title => OnQuickAddTask.InvokeAsync(new GoalQuickAddRequest(goal.Id, title))) : default)"
                               EditError="@(goal.Id == _selected ? EditError : null)"
                               Busy="Busy"
                               TestId="@Part($"goal-{goal.Id}")" />
@@ -93,8 +123,22 @@
                 @if (Model.NoGoal.Count > 0)
                 {
                     <section class="goals-board__no-goal" aria-labelledby="@($"{_id}-no-goal")" data-testid="@Part("no-goal")">
-                        <h3 class="goals-board__no-goal-title" id="@($"{_id}-no-goal")">No goal</h3>
-                        @foreach (var item in Model.NoGoal)
+                        <div class="goals-board__no-goal-head">
+                            <h3 class="goals-board__no-goal-title" id="@($"{_id}-no-goal")">No goal</h3>
+                            <SearchBox Value="@_noGoalQuery"
+                                       ValueChanged="value => _noGoalQuery = value"
+                                       Placeholder="Search"
+                                       AriaLabel="@NoGoalSearchLabel"
+                                       DebounceMilliseconds="0"
+                                       CssClass="goals-board__no-goal-search"
+                                       TestId="@Part("no-goal-search")" />
+                        </div>
+                        @{ var noGoalShown = NoGoalShown; }
+                        @if (noGoalShown.Count == 0)
+                        {
+                            <span class="goals-board__no-goal-none" role="status" data-testid="@Part("no-goal-none")">No matches</span>
+                        }
+                        @foreach (var item in noGoalShown)
                         {
                             <div class="goals-board__no-goal-row" data-kind="@GoalCard.KindLabel(item.Kind)">
                                 <span class="goals-board__no-goal-item">
@@ -143,7 +187,11 @@
     private static readonly IReadOnlyList<GoalsIteration> Iterations =
         [GoalsIteration.Day, GoalsIteration.Week, GoalsIteration.TwoWeeks, GoalsIteration.Month];
 
+    /// <summary>The No goal search's accessible name.</summary>
+    private const string NoGoalSearchLabel = "Search work with no goal";
+
     private readonly string _id = "goals-" + Guid.NewGuid().ToString("N");
+    private string _noGoalQuery = string.Empty;
     private string? _selected;
     private string? _selectedParameter;
     private bool _initialised;
@@ -206,6 +254,16 @@
     [Parameter]
     public EventCallback<GoalDetachRequest> OnDetach { get; set; }
 
+    /// <summary>A goal's "New task" row was picked: the goal and the title typed. Without a
+    /// listener no goal offers the row.</summary>
+    [Parameter]
+    public EventCallback<GoalQuickAddRequest> OnQuickAddTask { get; set; }
+
+    /// <summary>A goal was moved — dragged by its grip, or Move up / Move down: the goal and
+    /// its new place. Without a listener no goal can be moved.</summary>
+    [Parameter]
+    public EventCallback<GoalMoveRequest> OnMoveGoal { get; set; }
+
     /// <summary>Why the open goal's last edit was refused, in the module's words; shown in
     /// that goal, under its fields.</summary>
     [Parameter]
@@ -234,6 +292,10 @@
 
     private bool IsEmpty => Model.Goals.Count == 0 && Model.NoGoal.Count == 0;
 
+    /// <summary>The No goal rows the search keeps, by the attach search's rule; every row
+    /// for a blank query.</summary>
+    private List<GoalsItem> NoGoalShown => [.. Model.NoGoal.Where(item => GoalCard.IsMatch(item, _noGoalQuery))];
+
     private GoalCardModel? Selected => Model.Goals.FirstOrDefault(goal => goal.Id == _selected);
 
     private string AttachTitle => Selected is { } goal
@@ -242,8 +304,150 @@
 
     private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
 
+    // --- The person's order ------------------------------------------------------
+
+    private bool CanMoveGoals => OnMoveGoal.HasDelegate;
+
+    /// <summary>The order drawn at once after a move, by goal id, until the host's next
+    /// reading — a new <see cref="Model"/> — says what was stored.</summary>
+    private List<string>? _placed;
+    private GoalsBoardModel? _modelSeen;
+    private string? _moveAnnouncement;
+
+    /// <summary>The goal held in a pointer drag, and the goal it is over.</summary>
+    private string? _dragging;
+    private string? _over;
+    private DotNetObjectReference<GoalsBoard>? _dragSelf;
+
+    /// <summary>The goals in the order drawn: the model's, or the one a move drew at once.</summary>
+    private List<GoalCardModel> Placed
+    {
+        get
+        {
+            if (_placed is null) return [.. Model.Goals];
+
+            var byId = Model.Goals.ToDictionary(goal => goal.Id, StringComparer.Ordinal);
+            return
+            [
+                .. _placed.Where(byId.ContainsKey).Select(id => byId[id]),
+                .. Model.Goals.Where(goal => !_placed.Contains(goal.Id, StringComparer.Ordinal))
+            ];
+        }
+    }
+
+    /// <summary>The goals as shown: <see cref="Placed"/>, with a goal held in a drag drawn
+    /// in the place it would land — the place of the goal it is over.</summary>
+    private List<GoalCardModel> Shown =>
+        _dragging is { } dragging && _over is { } over
+            ? [.. new global::Backlog.UI.Components.Tasks.TaskMove(dragging, over).ApplyTo(Placed, goal => goal.Id)]
+            : Placed;
+
+    private Task MoveByAsync(string goalId, int delta)
+    {
+        var order = Placed;
+        var from = order.FindIndex(goal => goal.Id == goalId);
+        return from < 0 ? Task.CompletedTask : PlaceAsync(goalId, from + delta);
+    }
+
+    /// <summary>Draws the goal at <paramref name="to"/> at once, says where it went, and hands
+    /// the move to the host; a refusal shows in <see cref="Error"/>, and the host's reading
+    /// after it puts the stored order back.</summary>
+    private async Task PlaceAsync(string goalId, int to)
+    {
+        var order = Placed;
+        var from = order.FindIndex(goal => goal.Id == goalId);
+        if (from < 0 || to < 0 || to >= order.Count || from == to) return;
+
+        var goal = order[from];
+        order.RemoveAt(from);
+        order.Insert(to, goal);
+        _placed = [.. order.Select(g => g.Id)];
+        _moveAnnouncement = $"Moved {goal.Title} to position {to + 1} of {order.Count}.";
+
+        await OnMoveGoal.InvokeAsync(new GoalMoveRequest(goalId, to));
+    }
+
+    /// <summary>A goal's grip was pressed and moved far enough to be a drag — the shared
+    /// pointer reorder in components.js (<c>backlogListReorder</c>) owns the gesture, since a
+    /// native drag is aborted in the desktop head's WebView2.</summary>
+    [JSInvokable]
+    public void PointerDragStart(string id)
+    {
+        if (!CanMoveGoals || Busy || Model.Goals.All(goal => goal.Id != id)) return;
+
+        _dragging = id;
+        _over = null;
+        StateHasChanged();
+    }
+
+    /// <summary>The goal the pointer is over; the held goal is drawn in its place. The held
+    /// goal's own id, or null for the gap between two cards, is no new target: the held goal
+    /// now sits under the pointer, so taking either as one would put the order back and bring
+    /// the target under the pointer again, frame after frame — the last target stands, as
+    /// <c>TaskListView.DragOver</c> keeps it, and Escape is the way out.</summary>
+    [JSInvokable]
+    public void PointerDragOver(string? id)
+    {
+        if (_dragging is not { } dragging || id is null || string.Equals(id, dragging, StringComparison.Ordinal)) return;
+
+        _over = id;
+        StateHasChanged();
+    }
+
+    /// <summary>The pointer was released: the held goal takes the place of the last goal it
+    /// was over, as the board was already showing. Never over another goal, nothing moves.</summary>
+    [JSInvokable]
+    public async Task PointerDragEnd()
+    {
+        var (dragging, over) = (_dragging, _over);
+        _dragging = null;
+        _over = null;
+
+        if (dragging is not null && over is not null && dragging != over)
+        {
+            var to = Placed.FindIndex(goal => goal.Id == over);
+            if (to >= 0) await PlaceAsync(dragging, to);
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>The drag was taken away — Escape, a cancelled pointer, the window losing
+    /// focus: the goal goes back where it was.</summary>
+    [JSInvokable]
+    public void PointerDragCancel()
+    {
+        _dragging = null;
+        _over = null;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dragSelf is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogListReorder.unregister", _id);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _dragSelf.Dispose();
+    }
+
     protected override void OnParametersSet()
     {
+        if (!ReferenceEquals(Model, _modelSeen))
+        {
+            _modelSeen = Model;
+            _placed = null;
+        }
+
         if (SelectedGoalId != _selectedParameter)
         {
             _selectedParameter = SelectedGoalId;
@@ -263,6 +467,19 @@
     /// is told, so it never believes no goal is open.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (CanMoveGoals && _dragSelf is null)
+        {
+            _dragSelf = DotNetObjectReference.Create(this);
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogListReorder.register", _id, _dragSelf);
+            }
+            catch (JSException)
+            {
+            }
+        }
+
         if (_focusNewGoal)
         {
             // The deleted goal took Delete goal… with it: the focus waits on New goal.

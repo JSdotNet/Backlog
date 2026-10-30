@@ -14,7 +14,7 @@
 
     It is a separate project from Backlog.Infrastructure.FileSystem on purpose.
     That project holds the adapters that genuinely are files - the workspace
-    settings, the feature settings, the knowledge folder resolver - and a
+    settings, the feature settings, the devbook folder resolver - and a
     database inside a project called FileSystem would be misfiled.
   -->
   <PropertyGroup>
@@ -39,12 +39,19 @@
          claude_api_requests table in the same database. The context has no module
          project, so the port comes from its abstractions; same direction otherwise. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- Notifications' INotificationRepository, answered under Notifications/ by the
+         notifications table in the same database (local ADR 0039 §3). Same direction.
+         Its published INotifications too: the task store is where a task's end is
+         noticed, so it closes the notifications about that task. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- For SqliteRegistration, the one place the three stores are registered. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- A task notification that could not be closed is logged, and never fails the write. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

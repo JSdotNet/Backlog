@@ -432,11 +432,13 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             mergeCommitAllowed
             squashMergeAllowed
             rebaseMergeAllowed
+            defaultBranchRef { name }
             pullRequest(number: $number) {
               id
               number
               state
               isDraft
+              baseRefName
               mergeStateStatus
               reviewDecision
               autoMergeRequest { enabledAt }
@@ -1089,7 +1091,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// <summary>
     /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
     /// each asking for the number, title, url, state, draft flag, merge time, the time it
-    /// was opened and author. With <paramref name="withStatus"/>, each also asks for the
+    /// was opened, the branch it merges into and author — and, once for the repository,
+    /// its default branch, so a merge read here says whether it landed work
+    /// (<c>PullRequestLanding</c>) without a read of its own. With <paramref name="withStatus"/>, each also asks for the
     /// head commit's check counts and its first <see cref="HeadCheckLimit"/> checks under
     /// the list's <c>checkCounts</c> alias, the review decision and the latest opinionated
     /// reviews, and the base branch's rules — its branch protection rule and the rules
@@ -1116,6 +1120,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                       isDraft
                       mergedAt
                       createdAt
+                      baseRefName
                       author { login }{{status}}
                     }
                 """));
@@ -1123,6 +1128,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return $$"""
             query($owner: String!, $name: String!) {
               repository(owner: $owner, name: $name) {
+                defaultBranchRef { name }
             {{fields}}
               }
             }
@@ -1176,6 +1182,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         var pulls = new List<GitHubLinkedPullRequest>();
+        var defaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+            ? String(defaultRef, "name")
+            : null;
 
         foreach (var asked in numbers)
         {
@@ -1209,7 +1218,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                         .Select(check => check.Name)
                         .Distinct(StringComparer.Ordinal)
                 ],
-                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) }
+                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) },
+                BaseRefName = String(pull, "baseRefName"),
+                DefaultBranch = defaultBranch
             });
         }
 
@@ -1858,7 +1869,11 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             String(pull, "mergeStateStatus") is { } mergeState && MergeableNow.Contains(mergeState),
             PreferredMergeMethod(repository))
         {
-            ReviewState = ReadReviewState(pull)
+            ReviewState = ReadReviewState(pull),
+            BaseRefName = String(pull, "baseRefName"),
+            DefaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+                ? String(defaultRef, "name")
+                : null
         };
     }
 
@@ -2554,12 +2569,22 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                     ? GitHubItemState.Draft
                     : GitHubItemState.Open;
 
+        // The base names the branch it merges into, and the base repository's own
+        // default branch rides along on it — what the status query reads as
+        // baseRefName and defaultBranchRef, so the fallback can answer the same.
+        var hasBase = element.TryGetProperty("base", out var baseRef) && baseRef.ValueKind == JsonValueKind.Object;
+        JsonElement? baseRepo = hasBase && baseRef.TryGetProperty("repo", out var repo) && repo.ValueKind == JsonValueKind.Object ? repo : null;
+
         return new GitHubPullRequest(
             number,
             String(element, "html_url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
             String(element, "title") ?? string.Empty,
             state,
-            repositoryFullName);
+            repositoryFullName)
+        {
+            BaseRefName = hasBase ? String(baseRef, "ref") : null,
+            DefaultBranch = baseRepo is { } read ? String(read, "default_branch") : null
+        };
     }
 
     /// <summary>

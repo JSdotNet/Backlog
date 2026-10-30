@@ -1,4 +1,5 @@
 using Backlog.SharedKernel.Devbook;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
 
 using Microsoft.AspNetCore.Components;
@@ -10,7 +11,7 @@ namespace Backlog.UI.Components.Devbook;
 /// answer the whole product shares.
 ///
 /// <para>It lives here rather than inside <c>MarkdownView</c> because that view is
-/// not the only thing rendering a knowledge chapter. The arc42 fallback and the
+/// not the only thing rendering a devbook chapter. The arc42 fallback and the
 /// design sections render their own block trees straight through
 /// <see cref="MarkdownRender"/>, and while they passed no hook at all their links
 /// were browser anchors on repository paths — the same bug, in two places the fix
@@ -117,7 +118,7 @@ public static class DevbookInlineTargets
             // it does not claim keeps the rule below.
             if (images?.Image(target, text, documentPath) is { } image) return image;
 
-            return MarkdownRender.NamesScheme(target) ? null : Inert(text, "md-image--inert");
+            return LinkSchemes.NamesScheme(target) ? null : Inert(text, "md-image--inert");
         }
 
         var reference = kind is MarkdownInlineKind.Link
@@ -134,7 +135,7 @@ public static class DevbookInlineTargets
             return Link(reference, label, hrefFor?.Invoke(reference), onNavigate);
         }
 
-        if (kind is not MarkdownInlineKind.Link || MarkdownRender.NamesScheme(target)) return null;
+        if (kind is not MarkdownInlineKind.Link || LinkSchemes.NamesScheme(target)) return null;
 
         return Inert(text, "md-link--inert");
     }

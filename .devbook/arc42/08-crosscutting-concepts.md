@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -18,10 +18,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   `inbox_lists`, `inbox_groups`). JSON files hold the workspace settings and
   feature flags, which are per-device. See
   `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
-- **The Devbook is the other way round.** A repository's knowledge folders stay
+- **The Devbook is the other way round.** A repository's devbook folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: the app owns a task, and the repository owns a
-  knowledge chapter, which is edited outside the app. See
+  devbook chapter, which is edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 
@@ -41,6 +41,7 @@ Optional cloud sync carries this state between a person's devices:
 | Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
+| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0039 |
 
 - **A capture is a task-shaped document with its own kind token.** On the desktop
   it is handed to the Inbox's intake before the task merge. It becomes an inbox
@@ -83,8 +84,9 @@ carried by a file-sync product is the hazard
 `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists
 to remove.
 
-- **Five containers in the cloud.** The replicas `tasks`, `sessions` and
-  `annotations` are all partitioned on `/ownerId`. They are separate because each
+- **Seven containers in the cloud.** The replicas `tasks`, `sessions`,
+  `annotations`, `notifications` and `notificationReplies` are all partitioned on
+  `/ownerId`. They are separate because each
   wants its own change feed, indexing policy, and retention, and serverless
   billing levies no per-container charge to trade against. Beside them, `devices`
   and `pairingCodes` hold the device registry. They are not replicas, since no
@@ -92,7 +94,9 @@ to remove.
   on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
   annotation tombstones after 180 days, stamped on each tombstone. It expires
-  whole session records after 12 months, set on the `sessions` container. Nothing
+  whole session records after 12 months, set on the `sessions` container. It
+  expires a notification 30 days after it settled, and an unprocessed reply after
+  30 days, both stamped per document. Nothing
   reaps, so no scheduled job can fail silently at the moment nobody is watching,
   which is when a code-based reaper stops running.
 - **The sync service, not the store, keeps a device inside its own data.** The
@@ -312,7 +316,7 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 
 - **Markdown is canonical and the layer over it is generated.** The graph between
   chapters, the resolved reading outline, the retrieval indexes, the diagram
-  artifact index and the click demo index are all derived. Nothing derived is
+  artifact index, the click demo index and the C4 nodes and edges are all derived. Nothing derived is
   authoritative, and nothing authored lives only in the derived layer.
 - **One generated SQLite database per repository path, in the app's storage.** It
   sits at `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the
@@ -321,16 +325,17 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
 - **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace under `.devbook/arc42/_c4/` are committed and
-  reviewed in diffs. Only what a generator produces goes into the database. The
+  the Structurizr C4 workspace, `workspace.dsl` in the arc42 folder with any files
+  it includes from its `c4/` folder, are committed and reviewed in diffs. Only what a generator produces goes into the database. The
   rendered Archify pages are not committed at all: the app draws them on demand
   from the specifications into `_archify-renders/` beside `_databases/` (local
   ADR 0034). The
   reading order is not authored at all. Both writers derive it the way the devbook
   generator does, from `index: root`, the folder's convention root and the numbers
-  in filenames (local ADR 0016). The C4 workspace has no derived half. It is not
-  attached to a fence and nothing is rendered from it ahead of time, so an index
-  has nothing to hold or to go stale.
+  in filenames (local ADR 0016). The C4 workspace's derived half is its graph:
+  both writers add an `element` node per element and a `view` node per view, with
+  `contains`, `relationship`, `embeds`, `c4` and `c4-touches` edges. The app draws
+  each view from the DSL on demand, so no rendering of it is stored.
 - **Structural first, semantic optional.** The structural tier is deterministic and
   builds offline. Embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,
@@ -371,7 +376,8 @@ stateDiagram-v2
 - **The Brain is built the same way, under its own convention** (local ADR
   0026). Its database sits under `_databases/`, keyed by the Brain folder's
   absolute path. Nothing derived is written into the folder, which is often
-  synced. Its folders are the areas its `CONVENTIONS.md` declares.
+  synced. Its folders are the areas its `CONVENTIONS.md` declares, then every
+  other top folder holding a note, minus the folders it lists under `Ignore`.
 - **A OneDrive placeholder is indexed by its name.** While its content is still in
   the cloud it is not opened, since opening it would download it. Once the sync
   client hydrates it, the changed attributes make the database stale, and the next
@@ -395,6 +401,66 @@ flowchart TB
   because scanning the corpus per query is a hang, not a fallback.
 - **One artifact, every channel.** Desktop, mobile and the IDE extensions read the
   same schema rather than each carrying its own markdown parser.
+
+## Notifications
+
+```meta
+status: proposed
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
+```
+
+Every context that needs to tell the person something, or ask them a question,
+publishes through one port, `INotifications`, in
+`Backlog.Modules.Notifications.Abstractions`. No context builds its own channel
+between devices. Local ADR 0039 records the decision, and the
+[Notifications context](../domain/notifications/context.md) owns the model.
+The owner's side is built: the port, the handler and probe contracts, the
+`notifications` table in `backlog.db`, the answer replay and the startup probe
+pass, and each subject context's close and probe. So is the transport: the two
+replica containers, the sync routes and the owner desktop's exchange, and the
+desktops' Web PubSub nudge. So are the first publishers: a run's Personal
+Validation, the device that redeemed a pairing code, and a remark left on another
+device. So are the screens: the desktop's notification centre and the phone's
+list and answer screens. So is the Android phone push, declared in Bicep and not
+deployed; no push reaches a phone until the hub has its FCM credential.
+
+| Concern | How it works |
+|---|---|
+| Publishing | A source on a desktop calls `PublishAsync` with an alert or a question. That desktop becomes the notification's owner instance. |
+| Answering | A source that asks questions registers an `INotificationAnswerHandler` for its source name. The owner hands it the accepted answer, at least once. |
+| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
+| Storage | The owner keeps SQLite as its local store. Notifications replicate through the `notifications` container, which expires them 30 days after they close. Replies wait in `notificationReplies` until the owner deletes them. |
+| Exchange | The owner desktop pushes what it published or settled, and while a question is open lists the replies addressed to it every two minutes. It accepts the first valid reply, rejects the rest as already answered, closed or invalid, and puts each rejection on the notification it pushes next. A quiet desktop sends nothing. |
+| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a socket the sync service's negotiate route hands out. The Android phone gets it through Azure Notification Hubs to FCM, as a data-only push with the tray text, sent only when a notification is published or changes state. While a desktop's socket is down, its two-minute reply poll is the fallback. |
+
+- **One writer per document.** Only the owner instance writes a notification. A
+  viewer writes a reply document once, and the owner accepts or rejects it. The
+  first valid reply the owner processes wins.
+- **Push payloads hold no body.** A push carries the id, kind, severity, state,
+  title, summary and origin, from the push preview the owner writes on the
+  envelope, and never the body. An OS notification shows the title and the
+  summary, with the origin's "System · Place" as its attribution line. A source
+  can mark a notification private, and the summary then reads "Backlog has a
+  question for you"; the origin still travels, since it holds no content.
+- **Every notification says where it came from.** Its optional
+  [origin](../domain/notifications/domain.md#origin) names the system, the place
+  in it, who asked and how. It is shown everywhere a notification appears and is
+  never used to route: the source does that.
+- **Logs never hold content.** The service and the apps never log a body or the
+  text of an open answer. One trace follows each notification from publish to
+  answer, with the reply hop as a linked span. The metrics are time to first
+  view, time to answer, rejected replies and push failures. The sync service
+  counts pushes as `backlog.sync.push_sent` and contained failures as
+  `backlog.sync.push_failed`, tagged with the call that failed. No log line holds
+  an FCM token.
+- **Who may answer.** The sync API accepts a reply only from a device under the
+  same owner, and the owner checks again. Any paired viewer may answer, critical
+  questions included, unless the question says `answerOn: owner`.
+- **The flag is per device.** Off on a phone means no push and no list. Off on a
+  desktop means its sources fall back to toasts, and an MCP `ask` answers that
+  notifications are not available.
+- **The sync service still scales to zero.** No connection to the sync service
+  stays open. Web PubSub holds the desktop connections instead.
 
 ## Feature Enablement
 
@@ -454,7 +520,7 @@ knowledge base. That is how a roadmap item gathers contributing work without
 referencing each piece. A roadmap slug is derived from the item's title when it is
 created, and stays editable. It is deliberately **not** rewritten when the title is
 later renamed, because tags already written elsewhere would silently stop matching.
-Because a knowledge chapter's `roadmap:` entries are tag slugs rather than chapter
+Because a devbook chapter's `roadmap:` entries are tag slugs rather than chapter
 references, they stay node attributes and produce no edges in the knowledge graph.
 
 ## Authentication and Authorization
@@ -499,7 +565,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -510,7 +576,7 @@ boundaries, which makes them an architectural concern:
 |---|---|
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
-| **KnowledgeNote** | `.devbook/domain/devbook/domain.md#knowledge-note` |
+| **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
 | **ProgressSignal** (planned; no type in the code yet) | `.devbook/domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
@@ -522,7 +588,7 @@ boundaries, which makes them an architectural concern:
 rather than a shared type. It appears in three places:
 
 - on tasks;
-- on knowledge chapters, as the `effort` field of a `meta` block, emitted into the
+- on devbook chapters, as the `effort` field of a `meta` block, emitted into the
   knowledge graph as a number;
 - as the arithmetic rollup a roadmap item reports over what it gathers.
 

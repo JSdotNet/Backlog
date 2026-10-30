@@ -60,7 +60,7 @@
                     TestId="domain-devbook-error"
                     role="status">
             <Action>
-                <a class="md-link" href="settings">Configure repository knowledge folders</a>
+                <a class="md-link" href="settings">Configure repository devbook folders</a>
             </Action>
         </EmptyState>
     }
@@ -126,7 +126,10 @@
                            word rather than the component's "draft" default: a context with
                            no status reads "none" everywhere else in this panel, and a badge
                            that invented "draft" would disagree with the store. *@
-                        <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
+                        @if (StatusShown)
+                        {
+                            <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
+                        }
                     </Actions>
                 </SectionHeader>
 
@@ -171,7 +174,7 @@
 
     /// <summary>The chapter as it was when it was opened, and the chapter as it
     /// was last committed. Two answers to "compared with what?", and the two a
-    /// reader of a knowledge folder actually asks: what have I changed in this
+    /// reader of a devbook folder actually asks: what have I changed in this
     /// sitting, and what has changed since this was agreed.</summary>
     private const string OpenedBaselineId = "opened";
 
@@ -392,6 +395,12 @@
         // draws the chapters without them.
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
         if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        // Optional too: a host with no scope offers Edit and shows status as the
+        // panel always did — DevbookScope.EditOfferedBy states the rule. Asked of
+        // the scope rather than of Features, which this panel also holds, so the
+        // panel asks Devbook what to offer and not which flag answers it.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, OnSwitchesChangedAsync);
 
         // Optional for the same reason: a host that composed no scenario store
         // draws its pages as the additional pages they otherwise are.
@@ -837,7 +846,7 @@
         {
             GitFileAtRevisionState.Committed => (result.Content, (string?)null),
             GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
-            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The knowledge folder is not inside a git repository."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The devbook folder is not inside a git repository."),
             _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
         };
     }
@@ -1303,6 +1312,7 @@
                       DevbookDocumentPath="@document.Path"
                       ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Services.GetService<IDevbookFolderSource>(), RepositoryAlias, document.Path)"
                       CanEditDevbookStatus="@CanEdit"
+                      ShowDevbookStatus="@StatusShown"
                       OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
                       Comments="@_chapterComments"
@@ -1310,8 +1320,8 @@
                       OnResolveComment="@Remarks.Resolve"
                       OnEditComment="@Remarks.Edit"
                       OnDeleteComment="@Remarks.Delete"
-                      CanEdit="@(_chapter.Chapter is { CanEdit: true })"
-                      Editing="@_editing"
+                      CanEdit="@(EditOffered && _chapter.Chapter is { CanEdit: true })"
+                      Editing="@(EditOffered && _editing)"
                       EditingChanged="OnEditingChangedAsync"
                       EditBodyContent="@ChapterEditor()"
                       Comparing="@_comparing"
@@ -1438,13 +1448,16 @@
            and an explicit `status: active`, whose only option is the empty one —
            both read as the badge, the second with the title saying how the
            resting value is written. *@
-        @if (showStatus && (!CanEdit || !DevbookVocabulary.Selectable(DevbookActionMetadata.Status(item.Metadata))))
+        @* And none of it is drawn while the status display is switched off
+           (DevbookFeatures.Status): the select, the badge and the decision state
+           go together, as they do in MetadataView. *@
+        @if (showStatus && StatusShown && (!CanEdit || !DevbookVocabulary.Selectable(DevbookActionMetadata.Status(item.Metadata))))
         {
             <MetadataStatusBadge Status="@DevbookActionMetadata.Status(item.Metadata)"
                                  Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
                                  TestId="devbook-state-badge" />
         }
-        else if (showStatus)
+        else if (showStatus && StatusShown)
         {
             @* The slug comes from the vocabulary rather than being left to the
                control to derive. Without it a cleared item fell through to
@@ -1464,7 +1477,7 @@
            place contract 16 lets the nine state fields be drawn. Tied to showStatus
            for the same reason the select is: where the open file view is drawing
            this heading's status, it is drawing the record around it too. *@
-        @if (showStatus && DomainDevbookDecisionState.Describe(item.Metadata) is { Count: > 0 } decisionState)
+        @if (showStatus && StatusShown && DomainDevbookDecisionState.Describe(item.Metadata) is { Count: > 0 } decisionState)
         {
             <span class="domain-devbook__decision" data-testid="devbook-decision-state">@string.Join("; ", decisionState)</span>
         }
@@ -1490,7 +1503,7 @@
             <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
                         TestId="devbook-copilot-cli-button"
                         Disabled="@IsCopilotBusy(item)"
-                        Title="Start GitHub Copilot CLI for this knowledge item"
+                        Title="Start GitHub Copilot CLI for this devbook item"
                         AriaLabel="@($"Start GitHub Copilot CLI for {item.Title}")"
                         OnClick="() => StartDevbookCopilotAsync(item)">
                 @if (IsCopilotBusy(item))
@@ -1704,6 +1717,22 @@
 
     private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
 
+    /// <summary>Whether Edit is offered and status shown, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>A switch changed while the panel was open: leave edit mode
+    /// through the path that flushes the editor when Edit is no longer offered,
+    /// so nothing typed is lost with the control, then redraw.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
+    }
+
     public void Dispose()
     {
         _disposed = true;
@@ -1712,5 +1741,6 @@
         _annotations.Changed -= OnAnnotationsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
+        _switches?.Dispose();
     }
 }

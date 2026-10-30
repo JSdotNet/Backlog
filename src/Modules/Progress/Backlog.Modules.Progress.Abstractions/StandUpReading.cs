@@ -15,7 +15,7 @@ namespace Backlog.Modules.Progress.Abstractions;
 /// <param name="Length">The iteration length the stand-up is read by.</param>
 /// <param name="TwoWeekStart">The day two-week windows count from, or null for none set.</param>
 /// <param name="Week">The person's working week.</param>
-/// <param name="Goals">Every goal, in the order they were set.</param>
+/// <param name="Goals">Every goal, in the person's order (<see cref="GoalOrder"/>).</param>
 /// <param name="Impediments">Every impediment, open and resolved, in the order they were raised.</param>
 /// <param name="Tasks">The tasks the reading has: at least those
 /// <see cref="StandUpReading.TaskQuery"/> asks for. More are harmless.</param>
@@ -130,7 +130,14 @@ public static class StandUpReading
             counted.Any(task => heldBack.Contains(task.Id)),
             week);
 
-        return new StandUpGoalDto(goal.Id, goal.Title, goal.DueDate, progress, forecast.Standing, forecast.LandsOn);
+        return new StandUpGoalDto(
+            goal.Id,
+            goal.Title,
+            GoalForecasting.DueOn(goal.DueDate, next),
+            progress,
+            forecast.Standing,
+            forecast.LandsOn,
+            DueIsIterationEnd: goal.DueDate is null);
     }
 
     /// <summary>The tasks read that no goal counts.</summary>

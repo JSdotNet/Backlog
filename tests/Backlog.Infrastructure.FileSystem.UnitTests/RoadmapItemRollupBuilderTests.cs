@@ -385,7 +385,7 @@ public class RoadmapItemRollupBuilderTests
         Assert.Equal(expected, Assert.Single(rollup.BacklogEntries).Progress);
     }
 
-    /// <summary>A knowledge chapter has no status to read, so it registers no
+    /// <summary>A devbook chapter has no status to read, so it registers no
     /// progress rather than being called planned.</summary>
     [Fact]
     public void AKnowledgeChapter_RegistersNoProgress()

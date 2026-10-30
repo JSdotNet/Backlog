@@ -127,16 +127,18 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
     /// <summary>
     /// The session without the Claude desktop app's facts, unless it was read off this
     /// machine's disk. <see cref="AgentSession.Archived"/> and
-    /// <see cref="AgentSession.ScheduledTask"/> are a reading of the desktop app's own
-    /// store, which only the Local source opens; they never travel and a session record
-    /// keeps no copy, so a Recorded or Replicated answer that carried one would be
-    /// carrying something no record could have told it. Cleared here, where every
-    /// source's answer passes, so unknown stays null and never reads as open.
+    /// <see cref="AgentSession.ScheduledTask"/>, <see cref="AgentSession.DesktopTitle"/>
+    /// and <see cref="AgentSession.DesktopSessionId"/> are a reading of the desktop app's own store, which only the Local source opens;
+    /// they never travel and a session record keeps no copy, so a Recorded or Replicated
+    /// answer that carried one would be carrying something no record could have told it.
+    /// Cleared here, where every source's answer passes, so unknown stays null and never
+    /// reads as open.
     /// </summary>
     private static AgentSession LocalFactsOnly(AgentSession session) =>
-        session.Origin is AgentSessionOrigin.Local || (session.Archived is null && session.ScheduledTask is null)
+        session.Origin is AgentSessionOrigin.Local
+        || (session.Archived is null && session.ScheduledTask is null && session.DesktopTitle is null && session.DesktopSessionId is null)
             ? session
-            : session with { Archived = null, ScheduledTask = null };
+            : session with { Archived = null, ScheduledTask = null, DesktopTitle = null, DesktopSessionId = null };
 
     /// <summary>Which answer for one session wins: the files read now, then this
     /// machine's own record of them, then what a machine reported over sync.</summary>

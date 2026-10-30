@@ -1,0 +1,163 @@
+@page "/notifications"
+@using Backlog.Mobile.UI.Components.Notifications
+@using Backlog.Mobile.UI.Notifications
+@inject NotificationViewProjection Notifications
+@inject DeviceOutbox Outbox
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
+@implements IDisposable
+
+<PageTitle>Notifications</PageTitle>
+
+@*
+    The phone's notifications (.devbook/domain/notifications/context.md): every
+    alert and question the paired desktops published, open ones first, as the
+    proposal's phone mockup draws them. A question is answered right on its card;
+    the title opens the whole notification with its Markdown body.
+
+    The feed is pulled when the page opens and whenever the app comes back to the
+    front, and every 30 seconds while a reply made here waits for its owner to
+    accept it — the poll the proposal sets until a push wakes the phone. What the
+    phone last pulled is drawn first, so a phone with no signal still shows it.
+*@
+
+<header class="notifications-heading">
+    <div class="notifications-heading__titles">
+        <span class="notifications-heading__lede" data-testid="notifications-count">@CountLabel</span>
+        <h1>Notifications</h1>
+    </div>
+    <IconButton AriaLabel="Refresh notifications" Title="Refresh notifications" Disabled="_pulling"
+                OnClick="PullAsync" CssClass="notifications-heading__refresh" TestId="notifications-refresh">
+        <RefreshCwIcon Size="16" />
+    </IconButton>
+</header>
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="notifications-pull-notice" />
+}
+
+<section class="notifications" aria-label="Notifications">
+    @if (Items.Count == 0)
+    {
+        @if (_pulled)
+        {
+            <EmptyState Title="No notifications"
+                        Description="Questions and alerts from your desktops show up here."
+                        TestId="notifications-empty" />
+        }
+        else
+        {
+            <Spinner Label="Loading notifications" />
+        }
+    }
+    else
+    {
+        <ul class="notifications__list" data-testid="notifications-list">
+            @foreach (var item in Items)
+            {
+                <li @key="item.Id">
+                    <PhoneNotificationCard Notification="item"
+                                           Href="@($"notifications/{item.Id}")"
+                                           Busy="@(_replying == item.Id)"
+                                           OnReply="pick => ReplyAsync(item.Id, pick)"
+                                           OnRetry="RetryAsync" />
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    /// <summary>How often the feed is pulled while a reply made here waits on its owner.</summary>
+    public static readonly TimeSpan AwaitingPoll = TimeSpan.FromSeconds(30);
+
+    private bool _pulling;
+    private bool _pulled;
+    private string? _pullNotice;
+    private Guid? _replying;
+    private ITimer? _poll;
+
+    private IReadOnlyList<PhoneNotification> Items => Notifications.Notifications();
+
+    private string CountLabel => Notifications.Waiting switch
+    {
+        0 => "Nothing waiting for you",
+        1 => "1 question waiting",
+        var count => $"{count} questions waiting"
+    };
+
+    protected override void OnInitialized()
+    {
+        Notifications.Changed += OnChanged;
+        Lifecycle.Resumed += OnResumed;
+        _pulled = Items.Count > 0;
+        _poll = Clock.CreateTimer(_ => OnPoll(), null, AwaitingPoll, AwaitingPoll);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await PullAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(PullAsync);
+
+    private void OnPoll()
+    {
+        if (Items.Any(item => item.Standing == NotificationStanding.AwaitingOwner)) _ = InvokeAsync(PullAsync);
+    }
+
+    private async Task PullAsync()
+    {
+        if (_pulling) return;
+        _pulling = true;
+        StateHasChanged();
+
+        try
+        {
+            await Notifications.PullAsync();
+            _pullNotice = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _pullNotice = $"{SyncPullFailure.Reason(ex)} Showing notifications as this phone last saw them. An answer given here is kept and sent when it answers.";
+        }
+        finally
+        {
+            _pulling = false;
+            _pulled = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReplyAsync(Guid id, NotificationAnswerPick pick)
+    {
+        _replying = id;
+
+        try
+        {
+            await Notifications.ReplyAsync(id, pick.ChoiceIds, pick.Text, pick.Note);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The phone could not keep the reply — its own file, not the network, which the
+            // outbox rides out. Said where the pull's notice goes; the card can be answered again.
+            _pullNotice = "This phone could not keep your answer. Try again.";
+        }
+        finally
+        {
+            _replying = null;
+        }
+    }
+
+    private Task RetryAsync(Guid entryId) => Outbox.RetryAsync(entryId);
+
+    public void Dispose()
+    {
+        Notifications.Changed -= OnChanged;
+        Lifecycle.Resumed -= OnResumed;
+        _poll?.Dispose();
+    }
+}

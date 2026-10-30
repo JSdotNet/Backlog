@@ -1235,14 +1235,20 @@ public sealed class AgentSessionSourceTests : IDisposable
         var cliOnly = Assert.Single(catalog.Sessions, session => session.Id == "cli-only");
         Assert.Null(cliOnly.Archived);
         Assert.Null(cliOnly.ScheduledTask);
+        Assert.Null(cliOnly.DesktopTitle);
+        Assert.Null(cliOnly.DesktopSessionId);
 
         var desktop = Assert.Single(catalog.Sessions, session => session.Id == "desktop");
         Assert.Equal(true, desktop.Archived);
         Assert.Equal("nightly-sweep", desktop.ScheduledTask);
+        Assert.Equal("a title", desktop.DesktopTitle);
+        Assert.Equal("local_desktop", desktop.DesktopSessionId);
+        Assert.NotEqual("a title", desktop.Title);
 
         var copilot = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Copilot);
         Assert.Null(copilot.Archived);
         Assert.Null(copilot.ScheduledTask);
+        Assert.Null(copilot.DesktopTitle);
     }
 
     /// <summary>

@@ -520,10 +520,10 @@ is dark only and every value in the set is one this file already carries.
 ### The Brain's accent
 
 ```meta
-related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane", ".devbook/domain/devbook/features.md#repo-links-and-backlinks"]
+related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane", ".devbook/domain/brain/features.md#repo-links-and-backlinks"]
 ```
 
-The person's [Brain](../domain/devbook/domain.md#brain) sits in the repository
+The person's [Brain](../domain/brain/domain.md#brain) sits in the repository
 scope beside the repositories (local ADR 0027), so it takes an identity from the
 same set rather than a hue of its own: **`color-band-2`, teal `#7FD1C1`**. Gold,
 `color-primary`, stays what marks a repository devbook. Two devbooks can be on
@@ -648,7 +648,7 @@ Rules:
   the rule is worded this way. They are already anchors, and their state colours
   are the cue.
 
-Knowledge chapters are the largest consumer of this scale: five folders spell
+Devbook chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways. `DevbookStatus`
 (`src/Core/Backlog.UI.Components/Devbook/DevbookStatus.cs`) maps each folder's
 words onto one set of status tones. Review surface: storybook → *Badges*, and

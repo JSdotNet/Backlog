@@ -54,6 +54,15 @@ namespace Backlog.Desktop.Mcp;
 /// and a second connection the sync loops do not know" — so it composes none of
 /// them and forwards instead. See <see cref="BridgeToDesktopContainer"/>.
 /// </para>
+/// <para>
+/// <b>Pop-out pages.</b> The listener also serves <c>/window/{surfaceId}</c> as an
+/// interactive server page for Claude Desktop's browser pane (local ADR 0043 §7),
+/// with the files it loads; see <see cref="SurfaceWindowPages"/>. A page renders this
+/// head's panes, so the bridge forwards everything the head composed, one desktop
+/// scope per circuit. A page carries no bearer token: it is held to the
+/// <c>Origin</c> check, a loopback <c>Host</c> and the cookie its link token was
+/// exchanged for (<see cref="WindowLinkTokens"/>).
+/// </para>
 /// </summary>
 public sealed class McpServerWorker : IDisposable
 {
@@ -140,10 +149,34 @@ public sealed class McpServerWorker : IDisposable
 
     private bool _disposed;
 
+    /// <summary>A static web assets manifest the pages' files are read through
+    /// instead of the head's own web root, or null for that web root. Only a test,
+    /// which has no head output to serve from, names one.</summary>
+    private readonly string? _staticWebAssetsManifest;
+
+    /// <summary>The link tokens that admit a browser to the pop-out pages, or null
+    /// in a container that registered none, whose listener then admits no page.
+    /// Resolved where the listener is built and not in the constructor, which must
+    /// return without waiting on the head's container.</summary>
+    private volatile WindowLinkTokens? _windowLinkTokens;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log = null)
+        : this(services, settings, log, staticWebAssetsManifest: null)
+    {
+    }
+
+    /// <summary>The worker with the pop-out pages' files read through
+    /// <paramref name="staticWebAssetsManifest"/> when it is given — for a test,
+    /// which has no head output to serve them from. Internal, so the container
+    /// never picks it.</summary>
+    internal McpServerWorker(
+        IServiceProvider services,
+        WorkspaceSettingsStore settings,
+        ILogger<McpServerWorker>? log,
+        string? staticWebAssetsManifest)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(settings);
@@ -151,6 +184,7 @@ public sealed class McpServerWorker : IDisposable
         _services = services;
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
+        _staticWebAssetsManifest = staticWebAssetsManifest;
 
         // The port can move while the app is running, and somebody changing it
         // is watching to see whether the listener followed.
@@ -551,7 +585,20 @@ public sealed class McpServerWorker : IDisposable
 
         builder.Services.AddBacklogMcpServer().WithHttpTransport();
 
+        // The pop-out pages' own services, before the bridge: what the listener
+        // composes itself is never forwarded, so a page's IShellWindows is a
+        // browser's and not the head's windows.
+        SurfaceWindowPages.AddTo(builder.Services);
+
+        if (_staticWebAssetsManifest is not null)
+        {
+            builder.WebHost.UseSetting(WebHostDefaults.StaticWebAssetsKey, _staticWebAssetsManifest);
+            builder.WebHost.UseStaticWebAssets();
+        }
+
         BridgeToDesktopContainer(builder.Services);
+
+        _windowLinkTokens ??= _services.GetService<WindowLinkTokens>();
 
         var app = builder.Build();
 
@@ -559,6 +606,11 @@ public sealed class McpServerWorker : IDisposable
         // requirement rather than a preference: a refusal that happened after
         // dispatch would already have read somebody's backlog.
         app.Use(GuardAsync);
+
+        // The pop-out pages and their files (local ADR 0043 §7), behind the same
+        // Use: a page is held to the Origin check, and its bearer token is the link
+        // token's cookie, because a browser loading a page has none to send.
+        SurfaceWindowPages.Map(app);
 
         app.MapMcp(EndpointPath);
 
@@ -570,6 +622,7 @@ public sealed class McpServerWorker : IDisposable
                 context.Request.Body,
                 context.Request.ContentLength,
                 context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+                context.RequestServices.GetService<SessionPrompts>(),
                 context.RequestAborted).ConfigureAwait(false);
         });
 
@@ -591,6 +644,42 @@ public sealed class McpServerWorker : IDisposable
             if (reply.Failure is not null) _log.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
+        // And the question relay's hook script (local ADR 0041), the bytes this app embeds
+        // and writes to <app data>\hooks on start, behind the same guard.
+        app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
+
+        // And the long poll a dispatcher waits on for session requests (local ADR 0038
+        // §4), behind the same guard: the bearer token is the one /mcp takes. It
+        // answers 404 while the session-requests flag is off.
+        app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
+        {
+            SessionRequestWaitEndpoint.Reply reply;
+
+            try
+            {
+                reply = await SessionRequestWaitEndpoint.WaitAsync(
+                    context.RequestServices.GetRequiredService<ISessionRequestStore>(),
+                    context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+                    TimeProvider.System,
+                    context.RequestAborted,
+                    questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+                    sessions: context.RequestServices.GetService<IAgentSessionSource>()).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                // The dispatcher went away mid-wait; there is nobody to answer.
+                return;
+            }
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length == 0) return;
+
+            context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+            await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
         return app;
@@ -700,6 +789,34 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
+        // A page and its files carry no bearer token: a browser loading a page has
+        // none to send. They carry the link token's cookie instead, and only their
+        // paths do; /mcp and the routes beside it never accept it.
+        if (SurfaceWindowPages.IsPagePath(context.Request.Path))
+        {
+            // Addressed to loopback by name, or it is a rebound site reading a
+            // page with no Origin to refuse it on.
+            if (!SurfaceWindowPages.IsLoopbackHost(context.Request.Host))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                _log.LogWarning("A pop-out page request was refused: its Host is not loopback.");
+                return;
+            }
+
+            if (!SurfaceWindowPages.Admit(context, _windowLinkTokens))
+            {
+                if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
+                {
+                    _log.LogWarning("A pop-out page request was refused: no valid link token or cookie.");
+                }
+
+                return;
+            }
+
+            await next(context).ConfigureAwait(false);
+            return;
+        }
+
         var authorization = context.Request.Headers.Authorization;
 
         if (authorization.Count > 1
@@ -728,6 +845,18 @@ public sealed class McpServerWorker : IDisposable
     /// registered <c>AddScoped</c>, and a singleton holding one would pin it.
     /// </para>
     /// <para>
+    /// A port the head composed as a singleton is the exception: it is handed over
+    /// as the instance, resolved from the desktop root here, at build, the way
+    /// <see cref="SurfaceWindowPages.Forward"/> hands over every other singleton. The
+    /// listener's container disposes whatever a factory gives it when the scope that
+    /// asked ends, so a singleton store forwarded through a scoped factory was
+    /// disposed with the first request or page that ended, and went on serving the
+    /// main window disposed. An instance registered as one is never the container's
+    /// to dispose. The lifetime is read off <see cref="DesktopServiceRegistrations"/>;
+    /// a head that registered no snapshot forwards every port out of the request's
+    /// desktop scope, as before.
+    /// </para>
+    /// <para>
     /// Which ports, read off the tool classes' own constructors rather than
     /// listed here. A list would be a second statement of what the tools need,
     /// in a project that does not own them — and the group table is already
@@ -742,14 +871,67 @@ public sealed class McpServerWorker : IDisposable
     {
         var probe = _services.GetService<IServiceProviderIsService>();
 
+        var desktop = _services.GetService<DesktopServiceRegistrations>();
+
         listenerServices.AddScoped(_ => _services.CreateScope());
 
         foreach (var port in ForwardedPorts(probe))
         {
+            if (IsSingleton(desktop, port) && SingletonInstance(port) is { } instance)
+            {
+                listenerServices.Add(new ServiceDescriptor(port, instance));
+                continue;
+            }
+
             listenerServices.Add(new ServiceDescriptor(
                 port,
                 request => request.GetRequiredService<IServiceScope>().ServiceProvider.GetRequiredService(port),
                 ServiceLifetime.Scoped));
+        }
+
+        // And, for the pop-out pages, everything else the head composed (local ADR
+        // 0043 §7): a pane injects whatever it needs, so no list read off a few
+        // constructors would do. A Blazor circuit is one scope of this container, so
+        // the desktop scope opened above is one per circuit — a page has a window's
+        // own view state, as a native window does. A head that registered no
+        // snapshot forwards nothing more, and its page fails on the first service
+        // it asks for rather than being served by a second composition.
+        if (desktop is not null)
+        {
+            SurfaceWindowPages.Forward(listenerServices, desktop.Descriptors, _services, _log);
+        }
+    }
+
+    /// <summary>Whether the head composed <paramref name="port"/> as a singleton, and
+    /// only as one: a port with a scoped or transient registration beside it comes
+    /// out of the request's desktop scope.</summary>
+    private static bool IsSingleton(DesktopServiceRegistrations? desktop, Type port)
+    {
+        if (desktop is null) return false;
+
+        var lifetimes = desktop.Descriptors
+            .Where(descriptor => descriptor.ServiceType == port && !descriptor.IsKeyedService)
+            .Select(descriptor => descriptor.Lifetime)
+            .ToList();
+
+        return lifetimes.Count > 0 && lifetimes.All(lifetime => lifetime == ServiceLifetime.Singleton);
+    }
+
+    /// <summary>The desktop root's own instance of a singleton port, or null when it
+    /// cannot be built — that port is then forwarded through the request's desktop
+    /// scope, where the tool that needs it fails as loudly as it did before.</summary>
+    private object? SingletonInstance(Type port)
+    {
+        try
+        {
+            return _services.GetService(port);
+        }
+#pragma warning disable CA1031 // Any failure leaves the port to the scoped forward, which reports it per call.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _log.LogWarning(ex, "The MCP listener cannot use the desktop app's {Port} as an instance; it is forwarded per request.", port.Name);
+            return null;
         }
     }
 
@@ -763,8 +945,13 @@ public sealed class McpServerWorker : IDisposable
     /// filters resolve it from the request, so it appears in no tool's
     /// constructor and would be missed by the reflection below.
     /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
-    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does; and
-    /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it.
+    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does, and
+    /// <see cref="SessionPrompts"/> beside it, which the same route feeds; and
+    /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it, and
+    /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
+    /// dispatcher tools would carry across anyway but the route must not depend on, and
+    /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
+    /// for the answer deliveries the same route hands out, on the same grounds.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -782,7 +969,11 @@ public sealed class McpServerWorker : IDisposable
             .Select(parameter => parameter.ParameterType)
             .Append(typeof(IAppFeatureSettings))
             .Append(typeof(IDeliveryRunTelemetry))
+            .Append(typeof(SessionPrompts))
             .Append(typeof(IClaudeApiRequestStore))
+            .Append(typeof(ISessionRequestStore))
+            .Append(typeof(IWaitingQuestionStore))
+            .Append(typeof(IAgentSessionSource))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

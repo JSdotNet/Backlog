@@ -90,7 +90,7 @@ public abstract class DocumentDevbookProvider : IDisposable
         if (files.Count == 0)
         {
             return DocumentDevbookModel.Unavailable(
-                $"No Markdown files were found in the {Folder.DisplayName} knowledge folder at {folderPath}.");
+                $"No Markdown files were found in the {Folder.DisplayName} devbook folder at {folderPath}.");
         }
 
         files = OrderFiles(files);
@@ -422,8 +422,24 @@ public static class DocumentDevbookParser
             var match = ordered ? OrderedListRegex.Match(lines[index]) : UnorderedListRegex.Match(lines[index]);
             if (!match.Success) break;
 
-            items.Add(MarkdownPreview.ParseInlines(match.Groups[1].Value.Trim()));
+            var text = match.Groups[1].Value.Trim();
             index++;
+
+            // A wrapped item continues on the indented lines under it until a blank
+            // line or the next item; without this the rest of a long bullet fell out
+            // of the list and read as a paragraph of its own.
+            while (index < lines.Length
+                && lines[index].Length > 0
+                && char.IsWhiteSpace(lines[index][0])
+                && lines[index].Trim().Length > 0
+                && !OrderedListRegex.IsMatch(lines[index])
+                && !UnorderedListRegex.IsMatch(lines[index]))
+            {
+                text += " " + lines[index].Trim();
+                index++;
+            }
+
+            items.Add(MarkdownPreview.ParseInlines(text));
         }
 
         list = new DocumentDevbookList(ordered, items);

@@ -158,7 +158,7 @@
             }
 
             @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
-               both switches are on (local ADR 0037). The same model, walked one
+               both switches are on (local ADR 0044). The same model, walked one
                level at a time; it replaces the C4 tab only once it is validated, so
                until then the C4 tab above is left exactly as it was. *@
             @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
@@ -286,6 +286,7 @@
                           ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Folders, RepositoryAlias, DocumentPath(_selected))"
                           ChapterInsert="@ChapterC4Views()"
                           CanEditDevbookStatus="@CanEdit"
+                          ShowDevbookStatus="@StatusShown"
                           OnDevbookStatusChanged="ChangeChapterStatusAsync"
                           OnDevbookNavigate="NavigateDevbookReferenceAsync"
                           Comments="@_chapterComments"
@@ -293,8 +294,8 @@
                           OnResolveComment="@Remarks.Resolve"
                           OnEditComment="@Remarks.Edit"
                           OnDeleteComment="@Remarks.Delete"
-                          CanEdit="@(_chapter.Chapter is { CanEdit: true })"
-                          Editing="@(_editing && _chapter.Chapter is { CanEdit: true })"
+                          CanEdit="@(EditOffered && _chapter.Chapter is { CanEdit: true })"
+                          Editing="@(EditOffered && _editing && _chapter.Chapter is { CanEdit: true })"
                           EditingChanged="OnEditingChangedAsync"
                           EditBodyContent="@ChapterEditor()"
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />
@@ -583,9 +584,29 @@
         // draws the chapters without them.
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
         if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        // Optional too: a host with no scope offers Edit and shows status as the
+        // viewer always did — DevbookScope.EditOfferedBy states the rule.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, OnSwitchesChangedAsync);
     }
 
     private IDevbookSyncVerdicts? _syncVerdicts;
+
+    /// <summary>Whether Edit is offered and status shown, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>A switch changed while the panel was open: leave edit mode
+    /// through the path that flushes the editor when Edit is no longer offered,
+    /// so nothing typed is lost with the control, then redraw.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
+    }
 
     /// <summary>A sweep recorded verdicts while the pane was open: redraw, so the
     /// badges beside the headings are the latest.</summary>
@@ -878,7 +899,8 @@
     private RenderFragment ParsedChapter(DevbookDocument document) =>
         @<DevbookMarkdownView Blocks="@document.ContentBlocks"
                                 InlineTarget="@DevbookInlineTargets.For(DocumentPath(document), null, EventCallback.Factory.Create<DevbookReference>(this, NavigateDevbookReferenceAsync))"
-                                OnDevbookNavigate="NavigateDevbookReferenceAsync" />;
+                                OnDevbookNavigate="NavigateDevbookReferenceAsync"
+                                ShowStatus="@StatusShown" />;
 
     /// <summary>The chapter's path as the rest of the product spells one:
     /// repository-relative, with the area folder on the front.
@@ -1614,7 +1636,7 @@
 
     /// <summary>The chapters the open view documents, drawn under the diagram. Handed
     /// to the explorer as a slot because the component library has no idea what a
-    /// knowledge chapter is, and should not learn.</summary>
+    /// devbook chapter is, and should not learn.</summary>
     private RenderFragment<C4View> ViewReferences => view => builder =>
     {
         var references = ReferencesTo(view);
@@ -1686,5 +1708,6 @@
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
+        _switches?.Dispose();
     }
 }

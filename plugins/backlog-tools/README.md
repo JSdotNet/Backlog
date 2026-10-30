@@ -1,10 +1,11 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Six skills: one for each direction of a plan,
-one for running a whole plan, one for closing the entries whose pull request merged, one for
-bringing another tool's items into the Inbox, and one for the remarks a person leaves while
-reading — and a pane that follows a running plan.
+general-purpose or devbook tooling. Nine skills: one for each direction of a plan,
+one for running a whole plan, one for checking it once it has run, one for closing the entries
+whose pull request merged, one for bringing another tool's items into the Inbox, one for the
+remarks a person leaves while reading, one that dispatches the session requests the app
+queues, and one that tends a person's Brain — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -58,8 +59,9 @@ reading — and a pane that follows a running plan.
   `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
   (`get_plan_items`) or from a file `import-plan` wrote, builds the graph its `after:`
   tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
-  goes to its own sub-agent, briefed by `skills/execute-plan/assets/item-brief.md`,
-  which makes its own worktree and runs the entry through `run-plan-item` — so every
+  goes to its own nested session, started with `start_session` in a worktree the host makes and
+  briefed by `skills/execute-plan/assets/item-brief.md`, which switches it to the entry's
+  branch and runs the entry through `run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation. Entries that wait on
   nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
   references and linked Devbook chapters, and warns about each one it cannot reach, asking
@@ -73,16 +75,31 @@ reading — and a pane that follows a running plan.
   pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
-  anything merges and the person merges bottom-up. *Attended*, the orchestrator relays each
-  Personal Validation to the person; *unattended* (branch or stacked), each entry parks at
+  anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
+  at each Personal Validation, and the orchestrator relays it to the person, takes the first
+  answer — from the chat or from the question the gate raises on the person's devices
+  (`skills/execute-plan/assets/gates.md`) — and sends it back to that session (`SendMessage`);
+  Reject blocks the entry, and a follow-up an Approve + follow-up files runs as a ready entry
+  once the gated one lands; *unattended* (branch or stacked), each entry parks at
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
-  it. It titles its own session `<tag>:execute-plan` and labels each sub-agent
+  it. It titles its own session `<tag>:execute-plan` and each entry session
   `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
   in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
+- **`final-check`** — the one check at the end of a plan, run in the session that wrote it
+  with `import-plan`, since that session still holds the specification. It brings the checkout
+  up to the plan's landed tip — the base branch, or `origin/plan/<slug>` while its closing
+  pull request is open, or the top of a stack not yet merged — by fast-forward, or in a detached scratch worktree when the
+  checkout has work of its own. Then it reviews each `prompt` entry against its instructions,
+  checks and `Read first:` sections at that tip, with `file:line` for every verdict
+  (*implemented*, *partial*, *missing*, *not landed*), looks across entries for duplicated
+  work, leftovers and specification nobody covered, and runs the repository's build, tests and
+  checks and reads the base branch's CI. It reports one table and offers the fixes, which go
+  through the gate as their own change. User-invoked only; it edits, commits and transitions
+  nothing.
 - **`close-merged`** — moves to Done every entry whose pull request has merged into the
   default branch or a `plan/<slug>` branch: the merges `run-plan-item` and `execute-plan` did
   not see, made on GitHub's own page or after the session ended. It lists the repository's
@@ -119,6 +136,64 @@ reading — and a pane that follows a running plan.
   `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
   and the app is never the fence's writer. `run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
+- **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
+  ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
+  A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
+  Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
+  finds the app's port and token the way the telemetry forwarder does, loops on
+  `GET /session-requests/wait` and prints each item once — an answer delivery (`delivery`,
+  local ADR 0041) before any session request (`request`) — so the Manager spends no turn
+  while nothing is queued; it never polls the request tools in a loop. It delivers first: for
+  each pending delivery whose session the Claude desktop app holds open it claims it
+  (`claim_delivery`), sends "You asked: <question>. The answer from Backlog: <answer>" to the
+  session with `send_message`, which wakes an idle session, and marks it `delivered`, or
+  `released` when the session no longer exists. Before each start it
+  checks capacity, cheapest first: fewer than 3 of its own linked sessions working — a session
+  the `backlog` server's `list_sessions` reads `Waiting` on a question does not count — every plan
+  limit under 80%, and — through the PowerShell probe `assets/capacity.ps1` — average CPU
+  under 80% over 30 seconds and at least 4 GB free; all four are arguments with these
+  defaults, and a request that does not fit stays Requested. Oldest first, it claims the
+  request (`claim_session_request`), starts a local session in the request's clone folder in
+  its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
+  reports it (`mark_session_request` `started`), or gives the claim back (`released`) when
+  the start fails. A new request wakes it through the Monitor and a finished session through
+  `wake_when_done`; the `/loop` tick is the fallback only, 300 seconds while usage, CPU or
+  memory holds the queue and 1800 otherwise. On restart it releases the request and delivery
+  claims its dispatcher still holds. The dispatcher is named for the machine, and the skill runs one Manager per
+  machine. A request released after a failed start is skipped for that turn and comes up again
+  on the next tick or re-armed Monitor. It writes no brief — the app builds each from the request's kind and id — so
+  the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
+  gate like any pasted entry: it changes no file, is no flow, and adds no execution path beside
+  the gate. It needs the `session-requests` flag on in the app. User-invoked only
+  (`disable-model-invocation: true`). `tests/dispatch-sessions.test.ts` drives the wait
+  script's decisions under `claude plugin test`; the two processes themselves run under
+  `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
+  sandbox spawns nothing.
+- **`tend-brain`** — tends a person's Brain, the personal notes folder of local ADR 0026
+  (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). Run
+  from that folder as `/loop /backlog-tools:tend-brain` (or pass its path). It brings no
+  layout of its own: every tick it reads the Brain's root rules — `AGENTS.md`, else
+  `CLAUDE.md`, plus `CONVENTIONS.md` and the templates they point at. The person's words are
+  never changed: each new input in the inbox gets a structured copy, filed where the rules
+  put it with their metadata and a `source:` link back to the original, the words kept
+  verbatim. The original is then stamped with the date — `filed: <ISO date>` in its metadata,
+  unless the rules name a field or a filename form — and moved out of the inbox to the folder the
+  rules keep for processed input, else `archive/processed/`. The folders and the `source:` links
+  are its only state, so a tick over an unchanged folder changes nothing — and costs little: it
+  re-reads the rules only when one changed, and stops after one line when the inbox is empty and
+  no follow-up is open. A remark the person routes to the rules' Backlog follow-up heading, with
+  no reference yet, becomes a `task` entry through the `backlog` MCP server — `find_item` by
+  its title first, so a second tick files no duplicate — and the new id is reported for the
+  person to fill in; the line itself is never edited. An input with more than one possible home, or whose filing needs a fact it does not
+  hold (a customer, a date), is listed for the person, as is every OneDrive conflict copy or
+  ` copy` duplicate. A copy, once written, is the person's too and is never rewritten,
+  and a status such as a meeting's `processed` is reported
+  as due rather than set. For continuous improvement it suggests, at most three a tick, the
+  rules the inputs show a need for — as checkboxes in `AGENTS.suggestions.md`, unless the rules
+  name another file. The person ticks one to adopt it into `AGENTS.md`, or strikes it through to
+  reject it; neither comes back. It never edits the rule files, and writes no state file, index
+  or log into the folder. Model-invoked as well — "tend my second brain" runs one tick — and no
+  flow.
 
 The plan-item marker exists because a plan is written before the app has given its entries
 an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The
@@ -154,25 +229,29 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
   draws there, such as `delivery-run-view`'s flow band, stays under it.
 - **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
   the whole plan as a matrix — every entry a row, every stage a column under its short name
-  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's run and worktree and each block's reason under it.
   A surface has no `parked` status, so an unattended entry reports the Personal Validation it
   moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
   run stopped at.
 
 The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
 
-It writes nothing and calls nothing: it reads the calls the run already makes.
+It writes nothing and calls nothing: it reads the calls the run already makes, so an entry
+session resumed by message, with no `start_session` in this session, has no row until
+`execute-plan` starts a new one for it.
 
 | What it shows | Read from |
 | --- | --- |
 | The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
-| Which sub-agent runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `Agent` call's prompt — change it and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned. A call the surface answered with an error still counts, since the pane mirrors what the worker said; a call a function hook refused with `deny` never ran and does not |
-| How the entry ended | The sub-agent's one-line return: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before` |
+| Which session runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `start_session` call's `prompt`, and the `local_…` session id its answer carries — change that line and `parseBrief` in `hooks/parse.ts` with it |
+| Each entry session's worktree | The session's `cwd` in a `list_sessions` or `get_session` answer |
+| Each entry's stages | `list_runs` and `get_run` answers on any delivery surface, matched to the entry session by its worktree |
+| How the entry ended | The first line of the session's final message, in a `list_events` answer: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before`. A `SendMessage` to the session puts it back to running |
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
 checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,
-which drive the hooks against the engine and a scripted run (`tests/demo.ts`). Once Claude
+which drive the hooks against the engine and a scripted run (`tests/demo.ts`), and the
+`dispatch-sessions` wait script's decisions. Once Claude
 Code has loaded the plugin from this checkout it lays its declarations in the ignored
 `.claude-plugin/types/`, and `tsc -p plugins/backlog-tools` type-checks the module. Function hooks
 are early access in Claude Code: a release can change the API, and the pane is what breaks.

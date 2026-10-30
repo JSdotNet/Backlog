@@ -1,4 +1,4 @@
-# Design Knowledge (`.devbook/design`)
+# Design (`.devbook/design`)
 
 ```meta
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
@@ -101,9 +101,9 @@ Page map — each file here and the storybook pages that show it:
 | `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges*, *Devbook* → **State**, *Task detail* and *Focus*; `#chart-roles` → *Usage metrics*, *Productivity over time*, *Stand-up*; `#impediment-state-tones` and `#goal-forecast-badges` → *Goals view*, *Stand-up*; `#pull-request-status-marks` → *Pull request status*, *Goals view*, *Work cards*; `#integration-roles` → the *Integrations* pages |
 | `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion**; `#metadata-lines` → *Task list*, *Integrations* → **References** |
 | `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton); *Overlays*; *Capture* (the phone's capture sheet and its Inbox row); *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*, *Today*, *Task detail*, *Focus*; `#optimistic-ui` → *Today*, *Capture*; `#auto-save-no-save-buttons` → *Notes* (a note that saves a second after typing stops, and its Saved / Waiting to sync line); `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#focus-and-selection` → *Selection bar*, *Goals* (the goal picker's dialog: searching, nothing to choose, the note before a move); `#empty-states`, `#error-states` and `#busy-actions` → *Goals*; `#combobox` → *Inputs*; `#timelines-and-roadmaps` → *Roadmap* |
-| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
+| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *Live editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
-| `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer* and *Graph atlas* (Mermaid, the first-party canvas renderer), plus the library itself |
+| `component-libraries.md` | *Diagrams*, *Diagrams in markdown* (Mermaid); *Graph explorer*, *Graph atlas* and *Lobes atlas* (the first-party canvas renderer, which draws the Brain's and a repository devbook's atlas, and the Lobes atlas); *Technology page* (the technology graph, drawn with CSS-positioned components); plus the library itself |
 | `effort-and-mode-chips.md` | `#effort-chips` → *Session list* (the effort ladder, an effort nobody recorded, and the stage strip beside it); `#mode-chips`, `#stage-marks` and `#legend` → *Badges* |
 | `settings-pages.md` | *Settings frame* (panel, headline, Saved as you go, the phone-width grouped list), *Settings menu* (groups, badges, matched cards), *Settings card*. Those pages do not yet link back to it, as its *Materialization* chapter says. |
 

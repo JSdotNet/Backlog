@@ -7,7 +7,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// <para>
 /// The component library knows neither the C# reader nor the devbook, so this is the
 /// picture already put into words — a stereotype, a name, member lines — and the host
-/// fills it from both (local ADR 0037 §3).
+/// fills it from both (local ADR 0044 §3).
 /// </para>
 /// </summary>
 /// <param name="Component">The component's name, as the model spells it.</param>

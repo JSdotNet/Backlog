@@ -59,7 +59,7 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
+public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource
 {
     private const int DebounceMilliseconds = 750;
 
@@ -110,6 +110,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>Where the state of a linked agent session is read from, or null in a
     /// host that composes no Sessions record. See <see cref="ReadSessionStatesAsync"/>.</summary>
     private readonly ILinkedSessionStates? _sessionStates;
+
+    /// <summary>Where the outcomes of the pull requests read here are kept on this
+    /// device, or null in a host that keeps none — every launch then reads them from
+    /// GitHub again. See <see cref="RestoreRememberedOutcomes"/>.</summary>
+    private readonly IPullRequestStateMemory? _pullRequestMemory;
 
     /// <summary>What an entry's Devbook references point at, and what a picker may
     /// offer. <see cref="UnavailableDevbookReferenceResolver"/> in a host that
@@ -208,6 +213,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
     private bool _disposed;
 
+    /// <summary>1 once <see cref="DisposeAsync"/> has begun its flush.</summary>
+    private int _disposeStarted;
+
     /// <summary>The wait after which a "Saved" band goes quiet, or null when
     /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
     private CancellationTokenSource? _saveStateSettle;
@@ -218,6 +226,36 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private Task _pullRequestCheck = Task.CompletedTask;
     private bool _pullRequestCheckRunning;
     private bool _pullRequestCheckOwed;
+
+    /// <summary>The tick that raises <see cref="PullRequestRecheckDue"/>, or null until
+    /// the first check arms it. Created and disposed under its own lock, because the
+    /// shell's dispatcher arms it and a host may dispose this state from anywhere.
+    /// See <see cref="ArmPullRequestRecheck"/>.</summary>
+    private ITimer? _pullRequestRecheck;
+    private readonly Lock _pullRequestRecheckLock = new();
+
+    /// <summary>The entries a merged pull request has already moved to Done in this
+    /// run, by entry and pull request, so one merge moves an entry once: a person
+    /// who takes it back to In progress keeps it there. In memory only — see
+    /// <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private readonly HashSet<(Guid Entry, EntryPullRequestLink PullRequest)> _finishedByMerge = [];
+
+    /// <summary>The moves a merge read has asked for and that have not landed yet —
+    /// waiting on the raw editor to close, or after a save that failed — with the
+    /// branches the read named. See <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private readonly Dictionary<(Guid Entry, EntryPullRequestLink PullRequest), (string? BaseRefName, string? DefaultBranch)> _owedFinishes = [];
+
+    /// <summary>Guards <see cref="_finishedByMerge"/> and <see cref="_owedFinishes"/>.
+    /// Both are only written from the renderer's dispatcher today — a merge read, and
+    /// the editor closing — but the drain awaits saves between its reads of them, and
+    /// the lock keeps each key's take-and-move atomic whatever interleaves there.</summary>
+    private readonly Lock _finishLock = new();
+
+    /// <summary>Whether the save on this async flow is one the app made on its own —
+    /// a merge finishing an entry — and so stays off the undo history. Async-local
+    /// rather than a field like <see cref="_replaying"/>, so a person's own save
+    /// running alongside it is still recorded.</summary>
+    private readonly AsyncLocal<bool> _outsideHistory = new();
 
     public TasksDesktopState(
         ITaskStore store,
@@ -232,7 +270,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         LinkedTaskSources? linkedSources = null,
         ILinkedSessionStates? sessionStates = null,
         IShowArchivedRepositories? showArchived = null,
-        IMyDayPreferences? myDayPreferences = null)
+        IMyDayPreferences? myDayPreferences = null,
+        IPullRequestStateMemory? pullRequestMemory = null)
     {
         // First, so it runs before any component's handler can queue a render
         // that reads the index — see DependencyIndex.
@@ -256,6 +295,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
         _sessionStates = sessionStates;
+        _pullRequestMemory = pullRequestMemory;
 
         _showArchived = showArchived;
         if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
@@ -410,6 +450,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// that wrote it. The shell answers with <see cref="ReloadFromStoreAsync"/> on
     /// its own dispatcher. See <see cref="OnTaskWritten"/>.</summary>
     public event Action? WrittenElsewhere;
+
+    /// <summary>Raised on a timer thread each <see cref="PullRequestRecheckInterval"/>
+    /// once the background pull request check has run, so a list nobody reloads still
+    /// notices a merge. The shell answers with <see cref="CheckPullRequestsAsync"/> on
+    /// its own dispatcher, behind the feature switch only it can see. Ends at
+    /// <see cref="Dispose"/>. See <see cref="ArmPullRequestRecheck"/>.</summary>
+    public event Action? PullRequestRecheckDue;
 
     /// <summary>
     /// The statuses the strip offers, which is not every status the backlog has.
@@ -1184,6 +1231,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         finally
         {
             IsLoading = false;
+            HasLoaded = true;
         }
 
         Changed?.Invoke();
@@ -1192,7 +1240,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// The last known state of each agent session a task links to, keyed by session
+    /// The last known state of each agent session a task links to, with whether the
+    /// desktop app archived it, keyed by session
     /// id without regard to case; a session never read, or no longer in the record, is
     /// absent. Not persisted, for the reason <see cref="EntryRow.Snapshot"/> is not: it
     /// is a view of something the Sessions record owns.
@@ -1202,13 +1251,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// nothing to carry across.
     /// </para>
     /// </summary>
-    public IReadOnlyDictionary<string, LinkedSessionState> SessionStates { get; private set; } =
-        new Dictionary<string, LinkedSessionState>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, LinkedSession> SessionStates { get; private set; } =
+        new Dictionary<string, LinkedSession>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The last known state of one linked session, or null when none is
     /// known.</summary>
-    public LinkedSessionState? SessionStateOf(string sessionId) =>
-        SessionStates.TryGetValue(sessionId, out var state) ? state : null;
+    public LinkedSessionState? SessionStateOf(string sessionId) => SessionOf(sessionId)?.State;
+
+    /// <summary>What was last read of one linked session — its state, and whether the
+    /// desktop app archived it — or null when nothing is known.</summary>
+    public LinkedSession? SessionOf(string sessionId) =>
+        SessionStates.TryGetValue(sessionId, out var session) ? session : null;
 
     /// <summary>
     /// Reads the state of every session the rows link to, in one ask, and redraws.
@@ -1227,7 +1280,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .ToList();
         if (ids.Count == 0) return;
 
-        IReadOnlyDictionary<string, LinkedSessionState> read;
+        IReadOnlyDictionary<string, LinkedSession> read;
         try
         {
             read = await _sessionStates.StatesOfAsync(ids, _untilDisposed);
@@ -1239,13 +1292,18 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (_untilDisposed.IsCancellationRequested) return;
 
-        SessionStates = new Dictionary<string, LinkedSessionState>(read, StringComparer.OrdinalIgnoreCase);
+        SessionStates = new Dictionary<string, LinkedSession>(read, StringComparer.OrdinalIgnoreCase);
         Changed?.Invoke();
     }
 
     /// <summary>Whether the first load of a freshly opened view is still out.
     /// Only that one: a reload over rows already on screen keeps them there.</summary>
     public bool IsLoading { get; private set; }
+
+    /// <summary>Whether <see cref="InitializeAsync"/> has read the list once in this
+    /// window. A surface shown in a window whose shell loads nothing — a popped-out
+    /// one (local ADR 0043 §4) — loads it while this is false.</summary>
+    public bool HasLoaded { get; private set; }
 
     public void SetStatusFilter(string? wire)
     {
@@ -1308,6 +1366,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (alias.Length == 0) return;
 
         ToggleInScope(alias);
+    }
+
+    /// <summary>
+    /// Widens the repository scope so <paramref name="row"/> is in it: its repository —
+    /// or the Brain, for an entry filed against none — joins the ones already scoped,
+    /// and every one already there stays. What an entry opened from outside the list
+    /// asks for (local ADR 0043 §6, <c>entry=</c>). Nothing changes, and nothing is
+    /// announced, when the scope is every repository or already holds the row; any
+    /// other filter in the row's way is <see cref="Reveal"/>'s.
+    /// </summary>
+    /// <returns>Whether the scope changed.</returns>
+    public bool WidenRepositoryScopeTo(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (_selectedRepositoryAliases.Count == 0 || RowInRepositoryScope(row)) return false;
+
+        _selectedRepositoryAliases.Add(RepositoryFor(row)?.Alias ?? BrainScope.Value);
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
     }
 
     /// <summary>Scopes the backlog to the Brain alone — the entries filed against no
@@ -1741,6 +1821,53 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
+    /// Saves a new task titled <paramref name="title"/> and answers with its id — the Goals
+    /// view's "New task" row, which the shell hands this to because Progress UI may not
+    /// reach Tasks (ADR 0035 §6, local ADR 0028). The Goals view attaches it to the goal
+    /// itself: nothing about a goal is written into the task.
+    /// <para>
+    /// It starts as <see cref="NewRow"/> starts an entry — <c>`task`</c> <c>`*medium`</c>
+    /// <c>`!draft`</c>, filed in the anchored repository so it stays in the scope it was
+    /// typed in — with no plan tag and nothing else. The title comes from a one-line
+    /// search box and is written as one title line, its line breaks folded to spaces, so
+    /// caller text never becomes a step.
+    /// </para>
+    /// <para>
+    /// Saved the way any new entry is, through the self-attributed use cases, so the pane
+    /// knows the write for its own and undo can take it back. The row is in
+    /// <see cref="Rows"/> when this answers: the Goals view maps its reading over the list
+    /// straight after, and a task it does not find there is one it counts but cannot show.
+    /// A refusal is the module's, handed back with no row left behind.
+    /// </para>
+    /// </summary>
+    public async Task<Result<Guid>> CreateTaskAsync(string title)
+    {
+        var line = string.Join(' ', (title ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+        var tokens = "`task` `*medium` `!draft`";
+        if (AnchorRepositoryAlias.Length > 0) tokens += $" `repo:{AnchorRepositoryAlias}`";
+        var text = EntryTextParser.WithTitle($"# \n{tokens}\n", line);
+
+        var row = new EntryRow { RawText = text };
+        Rows.Add(row);
+
+        var saved = await ApplySegmentAsync(row, text, rewriteText: true);
+        if (saved.IsFailure || row.Id is not { } id)
+        {
+            Rows.Remove(row);
+            ApplyFilter();
+            Changed?.Invoke();
+            return Result.Failure<Guid>(saved.IsFailure
+                ? saved.Error
+                : Error.Unexpected("entry.save_failed", "The task was not saved."));
+        }
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return id;
+    }
+
+    /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
     /// turns it into backlog entries in one step. Per ADR 0007 this is a use case
     /// over the same grammar every entry already goes through, so the only thing
@@ -1880,13 +2007,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // than instead of it, so the row shows what was typed before it shows
         // what somebody else wrote.
         await DrainDeferredReloadAsync();
-    }
 
-    // The sub-item raw editor is gone, and its capability is not: a step's notes
-    // are edited in the shared task row's own body editor, which reports every
-    // keystroke to ChangeSubItemNote below. That is the same rewrite through the
-    // same ReplaceSubItemText, arriving from a library control instead of a
-    // hand-rolled textarea — so what went is an implementation, not a way in.
+        // A merge that finished this entry while its editor was open waited for the
+        // editor to close — after the reload, so it acts on the rows as they now
+        // stand. Here and not in the drain above: that one also runs after a
+        // debounced save, on the timer's thread, and a move made there would race
+        // the dispatcher's next keystroke on the same row.
+        await FinishOwedOnMergeAsync();
+    }
 
     /// <summary>Explicit, deliberate destructive action — distinct from the
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
@@ -2055,7 +2183,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private void RecordSave(TaskItemDto entry, bool created, string? before, bool open)
     {
-        if (_replaying) return;
+        if (_replaying || _outsideHistory.Value) return;
 
         var after = EntryTextParser.ToRawText(entry);
         var label = $"editing “{entry.Title}”";
@@ -2087,7 +2215,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var before = _persistedOrder;
         _persistedOrder = ids;
 
-        if (_replaying || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
+        if (_replaying || _outsideHistory.Value || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
 
         _history.Record(new TaskOrderUndoStep("reordering", before, ids));
     }
@@ -2102,8 +2230,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         foreach (var row in Rows.Where(row => pending.Contains(row.Key)).ToList())
         {
-            CancelDebounce(row);
-            await SaveRowAsync(row, isFlush: false);
+            // Saved only while its arm was still waiting: one that came due while an
+            // earlier row was saving has been saved by its own callback, and saving a
+            // new row twice would make two entries of it.
+            if (CancelDebounce(row)) await SaveRowAsync(row, isFlush: false);
         }
     }
 
@@ -2525,45 +2655,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
     }
 
-    public async Task ToggleSubItemAsync(EntryRow row, int subItemIndex)
-    {
-        if (row.IsReadOnly) return;
-
-        // Two ways a sub-item can be finished, and which one applies is decided by
-        // what the author wrote rather than by this method. A heading carrying a
-        // literal `[ ]` has its marker flipped, because the checkbox glyph is
-        // reserved for literal task-list syntax
-        // (.devbook/design/content-editing.md#backlog-entry-structure). A plain heading has
-        // no marker to flip, and inventing one would put checkbox syntax into
-        // somebody's document because they pressed a control — so its completion
-        // goes on its own metadata line as `!done`, which is the same form the
-        // cascading parent status change already writes and the same form the read
-        // view already reads back.
-        var rewritten = EntryTextParser.ToggleSubItem(row.RawText, subItemIndex);
-
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal))
-        {
-            var done = subItemIndex >= 0
-                && subItemIndex < row.PreviewSubItems.Count
-                && row.PreviewSubItems[subItemIndex].Done;
-
-            rewritten = EntryTextParser.WithSubItemStatus(
-                row.RawText,
-                subItemIndex,
-                done ? EntryStatus.Ready : EntryStatus.Done);
-        }
-
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        CancelDebounce(row);
-        row.RawText = rewritten;
-
-        await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
-    }
-
     public async Task ChangeTypeAsync(EntryRow row, EntryType type) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithType(row.RawText, type));
 
@@ -2649,81 +2740,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     // method with no caller and no test. An orphan that still compiles reads as a
     // supported way in, so it went with its caller rather than after it.
 
-    /// <summary>Renames one step. Same shape as renaming the entry, one level
-    /// down, and indexed the way every other sub-item write here is indexed — the
-    /// nth chapter.</summary>
-    public async Task RenameSubItemAsync(EntryRow row, int subItemIndex, string title)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTitle(row.RawText, subItemIndex, title));
-    }
-
-    /// <summary>One step's notes, per keystroke, debounced for the same reason the
-    /// entry's note is.</summary>
-    public void ChangeSubItemNote(EntryRow row, int subItemIndex, string note)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (row.IsReadOnly) return;
-
-        var rewritten = EntryTextParser.WithSubItemNote(row.RawText, subItemIndex, note);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        row.RawText = rewritten;
-        ScheduleDebouncedSave(row);
-        Changed?.Invoke();
-    }
-
-    /// <summary>Adds a step to the end of the entry. Nothing happens on an empty
-    /// name: there is no such thing as a step with no name, and adding one would
-    /// leave a chapter the reader cannot see or remove.</summary>
-    public async Task AddSubItemAsync(EntryRow row, string title)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.AppendSubItem(row.RawText, title));
-    }
-
-    /// <summary>
-    /// Deletes one step: the chapter, its own metadata line and its notes.
-    /// <para>
-    /// No confirmation and no undo, which is the entry-level bin's bargain one level
-    /// down — <see cref="DeleteRowAsync"/> asks nothing and offers nothing back, and
-    /// a step that asked while the entry holding it did not would be inconsistent in
-    /// the wrong direction: the step is the cheaper of the two to lose and the
-    /// cheaper of the two to type again.
-    /// </para>
-    /// <para>
-    /// Indexed the way every other sub-item write here is — the nth chapter — and
-    /// guarded the way the move is, against an index that names no step: the id came
-    /// off a row, and a row the reader pressed may already have gone.
-    /// </para>
-    /// <para>
-    /// <c>_editingSubItemCount</c> is deliberately left alone, exactly as
-    /// <see cref="AddSubItemAsync"/> leaves it. It is the count the raw editor was
-    /// opened against, and a count higher than the chapters that remain falls back
-    /// to the first chapter in <c>ChildStartLine</c> — which is the honest boundary
-    /// for an entry nobody has typed a new <c>##</c> into. Rewriting it here would
-    /// be this method deciding what an open editor is showing, which is
-    /// <see cref="BeginEdit"/>'s answer rather than a step delete's.
-    /// </para>
-    /// </summary>
-    public async Task RemoveSubItemAsync(EntryRow row, int subItemIndex)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
-
-        await RewriteMetadataAsync(row, EntryTextParser.RemoveSubItem(row.RawText, subItemIndex));
-    }
-
-    // No per-sub-item type, priority, status or tag edits. A sub-item carries a
-    // title, a status, notes and an order and nothing else, and the four
-    // rewrites that used to live here wrote tokens that TaskTextSync then
-    // discarded on the next save — the UI was editing values the domain had no
-    // room for. Sub-item completion is still expressible, through the checkbox
-    // and ToggleSubItemAsync above.
+    // No step writes here. A step is a `##` chapter, so it is renamed, added,
+    // moved, deleted and finished (`!done` on its line, or `[x]` in its heading)
+    // in the body's editor, through ChangeBody. A sub-item carries a title, a
+    // status, notes and an order and nothing else, so there are no per-step type,
+    // priority or tag edits either: TaskTextSync would discard them on the next save.
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
@@ -2951,30 +2972,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await RewriteMetadataAsync(row, EntryTextParser.WithAttachment(row.RawText, Attachment.From(path)));
 
     /// <summary>
-    /// Remembers which reading of the body the person asked for.
-    /// <para>
-    /// A metadata rewrite like every other one on this list, and flushed rather than
-    /// debounced for the same reason a status change is: it is one discrete decision,
-    /// not typing. The entry is where it is kept because the markdown is canonical —
-    /// a preference held anywhere else would not survive the file being shared, and
-    /// the next person to open it from a clone would get somebody else's default.
-    /// </para>
-    /// </summary>
-    public async Task ChangeViewAsync(EntryRow row, EntryView? view)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.WithView(row.RawText, view));
-    }
-
-    /// <summary>
     /// The whole body, per keystroke, debounced for the same reason a note is
     /// (see <c>interaction-guidelines.md#auto-save-no-save-buttons</c>) — prose is prose, and a save per character would be a save per character.
     /// <para>
-    /// The body rather than the note, because the markdown block in the pane is a
-    /// view of the same text the steps list is a view of. A writer scoped to the
-    /// prose half would silently discard a <c>##</c> chapter somebody typed into the
-    /// block, which is the one thing a raw-ish surface must never do.
+    /// The body rather than the note, because the pane's editor holds the prose and
+    /// the steps' <c>##</c> chapters together. A writer scoped to the prose would
+    /// silently discard a chapter somebody typed into it, which is the one thing a
+    /// raw-ish surface must never do.
     /// </para>
     /// </summary>
     public void ChangeBody(EntryRow row, string body)
@@ -3275,40 +3279,32 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// Moves one step into another step's place, within the same entry.
+    /// Writes every save still waiting on its debounce, then disposes. This is the
+    /// end a window's scope gives its state (local ADR 0043 §5): closing a
+    /// popped-out window, or the WebView reloading its page, disposes the scope its
+    /// <c>BlazorWebView</c> opened, asynchronously, and an edit typed in the last
+    /// debounce interval would otherwise be dropped with the timer that held it.
     /// <para>
-    /// Two indices rather than a direction, and no drag state to consult: the
-    /// shared task list holds the whole gesture and reports where the step landed,
-    /// exactly as it does for the entries above. Steps only ever re-rank inside
-    /// their own entry — a step belongs to what it is written under, so dropping
-    /// one on another entry would be moving text between two documents, which is a
-    /// rewrite rather than a re-rank, and no list here offers it.
-    /// </para>
-    /// <para>
-    /// The re-focus the keyboard move needs is the list's now too. It puts the
-    /// caret back on the row it moved, by an id only it knows, which is why there
-    /// is nothing left here for a pane to consume.
+    /// The disposal runs whether or not the flush did. <see cref="Dispose"/> alone is
+    /// the synchronous end, for a host that throws the state away without a store
+    /// worth writing to; it writes nothing. The main window's own close is not
+    /// covered: MAUI ends its scope without waiting while the app quits.
     /// </para>
     /// </summary>
-    public async Task MoveSubItemAsync(EntryRow row, int from, int to)
+    public async ValueTask DisposeAsync()
     {
-        ArgumentNullException.ThrowIfNull(row);
+        // Once: the state is registered under more than one service type, and a
+        // second call arriving during the flush would write the same rows again.
+        if (_disposed || Interlocked.Exchange(ref _disposeStarted, 1) == 1) return;
 
-        if (row.IsReadOnly) return;
-        if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
-
-        var rewritten = EntryTextParser.MoveSubItem(row.RawText, from, to);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        CancelDebounce(row);
-        row.RawText = rewritten;
-
-        // A re-rank is a finished gesture, not a keystroke: save it now rather
-        // than on a debounce that a drag never generates.
-        await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
+        try
+        {
+            await FlushPendingSavesAsync();
+        }
+        finally
+        {
+            Dispose();
+        }
     }
 
     /// <summary>
@@ -3337,6 +3333,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _roadmapTags.Changed -= OnRoadmapPlanChanged;
 
         _lifetime.Cancel();
+
+        lock (_pullRequestRecheckLock)
+        {
+            _pullRequestRecheck?.Dispose();
+            _pullRequestRecheck = null;
+        }
 
         lock (_debounceTimers)
         {
@@ -4204,6 +4206,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var repository = repositoryOverride ?? RepositoryFor(row);
         if (repository is null) return;
 
+        // The busy mark rides across a reload (CarryGitHubRead), so it is let go on the
+        // row on screen as well as this one, or a reload mid-push leaves it busy for good.
+        var live = LiveRow(row);
+
         row.GitHubBusy = true;
         row.GitHubError = null;
         Changed?.Invoke();
@@ -4251,6 +4257,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         finally
         {
             row.GitHubBusy = false;
+            if (live() is { } onScreen) onScreen.GitHubBusy = false;
             Changed?.Invoke();
         }
 
@@ -4283,44 +4290,121 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// The inline line on the row is unaffected either way: that is the record, and
     /// every row still gets its own.
     /// </para>
+    /// <para>
+    /// The answer is written onto the row the list holds when it comes back, looked
+    /// up by id (<see cref="LiveRow"/>) — a reload while the read is out replaces
+    /// every row, and the answer written onto the one it started from would land
+    /// where nobody can see it.
+    /// </para>
     /// </summary>
-    public async Task RefreshGitHubAsync(EntryRow row, bool announce = true)
+    public Task RefreshGitHubAsync(EntryRow row, bool announce = true) => RefreshGitHubCoreAsync(row, announce, readPullRequests: true);
+
+    /// <summary>One row's refresh; true when its issue could not be read, so the
+    /// sweep can count failures without asking a row that may since have been
+    /// replaced.</summary>
+    /// <param name="row">The row to refresh.</param>
+    /// <param name="announce">Whether a failure raises a toast of its own.</param>
+    /// <param name="readPullRequests">Whether its pull requests are read here too, one by
+    /// one — false for the sweep, which reads every row's together after the issues.</param>
+    private async Task<bool> RefreshGitHubCoreAsync(EntryRow row, bool announce, bool readPullRequests)
     {
-        if (row.IssueLink is not { } link || row.GitHubBusy) return;
+        if (row.IssueLink is not { } link || row.GitHubBusy) return false;
+
+        var live = LiveRow(row);
 
         row.GitHubBusy = true;
         row.GitHubError = null;
         Changed?.Invoke();
 
+        GitHubIssueSnapshot? snapshot = null;
+        string? error = null;
+
         try
         {
-            row.Snapshot = await _gitHub.RefreshAsync(link);
+            snapshot = await _gitHub.RefreshAsync(link);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
         {
-            row.GitHubError = ex.Message;
-            if (announce) AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
+            error = ex.Message;
         }
         catch (Exception)
         {
-            row.GitHubError = "Couldn't read that issue from GitHub.";
-            if (announce) AnnounceRowFailure(row, row.GitHubError, GitHubFailureTestId);
+            error = "Couldn't read that issue from GitHub.";
         }
         finally
         {
             row.GitHubBusy = false;
-            Changed?.Invoke();
+            if (live() is { } onScreen) onScreen.GitHubBusy = false;
         }
 
-        await RefreshPullRequestStatesAsync(row);
+        // Onto the row on screen now, while it still names the issue that was read.
+        // One the list no longer holds keeps the answer itself, so a caller holding
+        // it sees what happened.
+        var target = live() ?? row;
+        if (target.IssueLink == link)
+        {
+            if (error is null)
+            {
+                target.Snapshot = snapshot;
+                target.GitHubError = null;
+            }
+            else
+            {
+                target.GitHubError = error;
+                if (announce) AnnounceRowFailure(target, error, GitHubFailureTestId);
+            }
+        }
+
+        Changed?.Invoke();
+
+        if (readPullRequests) await RefreshPullRequestStatesAsync(target);
+        return error is not null;
+    }
+
+    /// <summary>
+    /// How to find <paramref name="row"/> again after an await: the row the list holds
+    /// under its id at that moment, or null once the entry is gone. A row with no id
+    /// has nothing to be found by and stays itself.
+    /// </summary>
+    private Func<EntryRow?> LiveRow(EntryRow row) =>
+        row.Id is { } id ? () => RowById(id) : () => row;
+
+    /// <summary>
+    /// The rows a sweep over the list should visit: those that match
+    /// <paramref name="predicate"/> now, each handed out as the list holds it when its
+    /// turn comes — looked up by id, and skipped if it is gone or no longer matches.
+    /// A sweep awaits GitHub between rows, and a reload in the meantime replaces every
+    /// one of them.
+    /// </summary>
+    /// <param name="predicate">Which rows the sweep is for, asked now and again at each turn.</param>
+    /// <param name="count">How many rows matched now — what the sweep set out to visit.</param>
+    private IEnumerable<EntryRow> LiveRowsWhere(Func<EntryRow, bool> predicate, out int count)
+    {
+        var ids = Rows
+            .Where(row => row.Id is not null && predicate(row))
+            .Select(row => row.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        count = ids.Count;
+        return Visit();
+
+        IEnumerable<EntryRow> Visit()
+        {
+            foreach (var id in ids)
+            {
+                if (RowById(id) is { } row && predicate(row)) yield return row;
+            }
+        }
     }
 
     /// <summary>
     /// Reads whether each pull request the entry's work recorded is open, merged
     /// or closed — and, in the same query, how its checks stand and whether GitHub
-    /// is holding it for auto-merge. The entry went Done when the pull request was
-    /// recorded; this is what says the work actually landed, or what it is waiting
-    /// on.
+    /// is holding it for auto-merge. Recording a pull request does not finish the
+    /// entry; this is what says the work actually landed, or what it is waiting on,
+    /// and a merge into the default branch or a plan branch is what moves a prompt
+    /// entry to Done (<see cref="FinishOwedOnMergeAsync"/>).
     /// <para>
     /// Quietly per pull request: one that cannot be read keeps whatever was last
     /// known, and says nothing out loud. The issue is what an entry was filed as
@@ -4328,10 +4412,18 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// the failure that would take one out — a dead token — already fails the
     /// issue beside it, or the sync that asked.
     /// </para>
+    /// <para>
+    /// Onto the row the list holds when each read comes back, as
+    /// <see cref="ReadDuePullRequestsAsync"/> does: a read written onto a row a reload
+    /// replaced is lost to the screen, and still counts as the latest read of its
+    /// pull request — enough to make the background check drop its own answer.
+    /// </para>
     /// </summary>
     private async Task RefreshPullRequestStatesAsync(EntryRow row)
     {
         if (row.PullRequestLinks.Count == 0) return;
+
+        var live = LiveRow(row);
 
         // Each pull request is written as its read comes back, into the row's maps
         // as they are at that moment. A copy taken when the sweep began and written
@@ -4339,10 +4431,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // that landed in the meantime — undoing the act's own, newer re-read.
         foreach (var pr in row.PullRequestLinks.ToList())
         {
-            if (await TryReadPullRequestAsync(pr) is { } read)
-            {
-                RecordPullRequestRead(row, pr, read.State, read.Status);
-            }
+            // Merged is final, so there is nothing a re-read could change. Asking
+            // anyway is what kept the sync's toast up for minutes on a list of long-
+            // merged work.
+            if (live() is { } known && KnownFinal(known, pr)) continue;
+
+            if (await TryReadPullRequestAsync(pr) is not { } read) continue;
+
+            if (live() is not { } current) break;
+            if (!current.PullRequestLinks.Contains(pr)) continue;
+
+            await RecordPullRequestReadAsync(current, pr, read);
         }
 
         Changed?.Invoke();
@@ -4358,15 +4457,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// What is due (<see cref="PullRequestDue"/>): a pull request never asked about,
     /// and one last read open or draft — or not read at all — once
     /// <see cref="PullRequestRecheckInterval"/> has passed since it was last asked
-    /// about. An entry goes Done when its pull request is recorded, usually while it
-    /// is still open, so the first read is rarely the one that says it merged; a
-    /// check that only filled in unread pull requests left that first Open read on
-    /// screen for the life of the app. Merged and closed are not asked about again,
-    /// and nothing is asked about twice within the interval: an agent's every write
-    /// reloads the list, and asking on each would put the network behind all of them.
-    /// Every entry with a pull request, whatever its status: a plan item's pull
-    /// request merges into its plan branch while the item stays In progress until
-    /// the plan lands, and that merge is owed its colour as much as a Done entry's.
+    /// about. A pull request is recorded while it is still open, so the first read
+    /// is rarely the one that says it merged; a check that only filled in unread pull
+    /// requests left that first Open read on screen for the life of the app. Merged
+    /// and closed are not asked about again, and nothing is asked about twice within
+    /// the interval: an agent's every write reloads the list, and asking on each
+    /// would put the network behind all of them. Every entry with a pull request,
+    /// whatever its status, because the merge is what finishes the work: a prompt
+    /// entry goes Done when its pull request merges into the repository's default
+    /// branch or a <c>plan/</c> branch (<see cref="FinishOwedOnMergeAsync"/>), and any
+    /// other entry's merge is owed its colour all the same.
+    /// </para>
+    /// <para>
+    /// Not only when the list reloads. The first check arms a tick
+    /// (<see cref="ArmPullRequestRecheck"/>), so an app left idle overnight still asks
+    /// again once the interval has passed.
     /// </para>
     /// <para>
     /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
@@ -4384,6 +4489,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public Task CheckPullRequestsAsync()
     {
         if (_disposed || !GitHubConfigured) return Task.CompletedTask;
+
+        ArmPullRequestRecheck();
 
         _pullRequestCheckOwed = true;
         if (_pullRequestCheckRunning) return _pullRequestCheck;
@@ -4408,6 +4515,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             while (_pullRequestCheckOwed && !_untilDisposed.IsCancellationRequested)
             {
                 _pullRequestCheckOwed = false;
+
+                // A load owes the moves of remembered merges no entry has had yet
+                // (RestoreRememberedOutcomes); the shell asks for a check after every
+                // load, so this is where they land.
+                await FinishOwedOnMergeAsync();
+                if (_untilDisposed.IsCancellationRequested) break;
+
                 await ReadDuePullRequestsAsync();
             }
         }
@@ -4428,58 +4542,224 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// One pass of <see cref="CheckPullRequestsAsync"/>.
+    /// One pass of <see cref="CheckPullRequestsAsync"/>: every pull request that is due
+    /// (<see cref="PullRequestDue"/>), read through <see cref="ReadPullRequestsAsync"/>.
+    /// Quiet: a read that fails, or that something it did not expect takes out, is that
+    /// pull request's alone and waits out the interval.
+    /// </summary>
+    private Task ReadDuePullRequestsAsync() => ReadPullRequestsAsync(PullRequestDue);
+
+    /// <summary>
+    /// Reads the pull requests <paramref name="wanted"/> picks out of the list, and
+    /// writes each answer onto every row that records it.
     /// <para>
-    /// By id rather than by row, and the row looked up again after every read. A
-    /// reload replaces every row while a read is in flight — the writes that set
-    /// one off are an agent recording exactly this kind of work — and a read written
-    /// onto the row it started from would land on a row nobody can see any more.
+    /// One read per repository first (<see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/>),
+    /// side by side, rather than one per pull request in list order — which on a list of
+    /// hundreds left a merge recorded today waiting behind every older one, for minutes.
+    /// That read says how each ended and where a merge went, so a merged or closed pull
+    /// request needs nothing more, and a merge it is the first to see still finishes its
+    /// entry. An open or draft one is still read on its own
+    /// (<see cref="TryReadPullRequestAsync"/>), because its checks and the merge offer
+    /// need its status; so is any pull request of a repository the batched read could
+    /// not read, the way every one was read before. A pull request of an archived
+    /// repository is not read at all (local ADR 0029), nor is a number GitHub does not
+    /// know.
+    /// </para>
+    /// <para>
+    /// By id rather than by row, and every row looked up again after every read. A
+    /// reload replaces every row while a read is in flight — the writes that set one
+    /// off are an agent recording exactly this kind of work — and a read written onto
+    /// the row it started from would land on a row nobody can see any more. A read that
+    /// another — the sync button's, or a merge act's — overtook while it was out is
+    /// dropped: the other is no older.
     /// </para>
     /// </summary>
-    private async Task ReadDuePullRequestsAsync()
+    private async Task ReadPullRequestsAsync(Func<EntryRow, EntryPullRequestLink, bool> wanted)
     {
-        var ids = Rows
-            .Where(row => row.Id is not null && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
-            .Select(row => row.Id!.Value)
-            .Distinct()
-            .ToList();
+        List<EntryPullRequestLink> asked =
+        [
+            .. Rows
+                .Where(row => row.Id is not null)
+                .SelectMany(row => row.PullRequestLinks.Where(pr => wanted(row, pr)))
+                .Distinct()
+        ];
 
-        foreach (var id in ids)
+        if (asked.Count == 0) return;
+
+        var landedBefore = asked.ToDictionary(pr => pr, pr => _pullRequestReadStamps.GetValueOrDefault(pr));
+        var batch = await ReadPullRequestStatesTogetherAsync(asked);
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        // Everything the batched answer settles goes on screen first, so a merged or
+        // closed link never waits behind the reads of the open ones listed before it.
+        var readAlone = new List<EntryPullRequestLink>();
+        foreach (var pr in asked)
         {
-            if (RowById(id) is not { } row) continue;
-
-            foreach (var pr in row.PullRequestLinks.Where(pr => PullRequestDue(row, pr)).ToList())
+            if (SettledByBatch(pr, batch) is { } settled)
             {
-                var landedBefore = _pullRequestReadStamps.GetValueOrDefault(pr);
-                PullRequestRead? read;
-
-                try
-                {
-                    read = await TryReadPullRequestAsync(pr);
-                }
-                catch (Exception) when (!_untilDisposed.IsCancellationRequested)
-                {
-                    // Anything the reads do not already expect — a client defect, a
-                    // timeout surfacing as a cancellation — is that pull request's
-                    // failure alone, so the rest are still read. The state has no
-                    // logger, and nobody asked for this read; it is retried from the
-                    // sync button like any other failure.
-                    read = null;
-                }
-
-                if (_untilDisposed.IsCancellationRequested) return;
-
-                // Unreadable: the ask is already stamped, so it waits out the interval.
-                if (read is null) continue;
-
-                // Somebody else's read may have landed while this one was out — the
-                // sync button's, or a merge act's — and it is no older than this.
-                if (RowById(id) is not { } current) break;
-                if (!current.PullRequestLinks.Contains(pr) || _pullRequestReadStamps.GetValueOrDefault(pr) != landedBefore) continue;
-
-                RecordPullRequestRead(current, pr, read.Value.State, read.Value.Status);
-                Changed?.Invoke();
+                if (!await LandPullRequestReadAsync(pr, settled, landedBefore[pr])) return;
             }
+            else
+            {
+                readAlone.Add(pr);
+            }
+        }
+
+        foreach (var pr in readAlone)
+        {
+            PullRequestRead? read;
+
+            try
+            {
+                read = await ResolvePullRequestReadAsync(pr, batch);
+            }
+            catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+            {
+                // Anything the reads do not already expect — a client defect, a
+                // timeout surfacing as a cancellation — is that pull request's
+                // failure alone, so the rest are still read. The state has no
+                // logger, and nobody asked for this read by name; it is retried like
+                // any other failure.
+                read = null;
+            }
+
+            if (_untilDisposed.IsCancellationRequested) return;
+
+            // Unreadable: the ask is already stamped, so it waits out the interval.
+            if (read is null) continue;
+
+            if (!await LandPullRequestReadAsync(pr, read.Value, landedBefore[pr])) return;
+        }
+    }
+
+    /// <summary>
+    /// Writes one pull request's read onto every row the list holds that records it —
+    /// unless somebody else's read, the sync button's or a merge act's, landed while
+    /// this one was out: that one is no older. False once the list is disposed.
+    /// </summary>
+    private async Task<bool> LandPullRequestReadAsync(EntryPullRequestLink pr, PullRequestRead read, long landedBefore)
+    {
+        if (_pullRequestReadStamps.GetValueOrDefault(pr) != landedBefore) return true;
+
+        foreach (var row in LiveRowsWhere(row => row.PullRequestLinks.Contains(pr), out _))
+        {
+            await RecordPullRequestReadAsync(row, pr, read);
+            if (_untilDisposed.IsCancellationRequested) return false;
+        }
+
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>The read the batched answer gives <paramref name="pr"/> on its own — how
+    /// it ended, and where a merge went — or null when it needs a read of its own: open
+    /// or draft, for its status; merged without its branches, for the move to Done; or
+    /// not in the answer at all.</summary>
+    private static PullRequestRead? SettledByBatch(EntryPullRequestLink pr, PullRequestStatesRead batch)
+    {
+        if (batch.AnswerFor(pr) is not { } answer) return null;
+        if (answer.State is GitHubItemState.Open or GitHubItemState.Draft) return null;
+        if (answer.State == GitHubItemState.Merged && (answer.BaseRefName is null || answer.DefaultBranch is null)) return null;
+
+        return new PullRequestRead(answer.State, Status: null, answer.BaseRefName, answer.DefaultBranch);
+    }
+
+    /// <summary>What the one read per repository answered, by pull request, and the
+    /// repositories it could not read. See <see cref="ReadPullRequestsAsync"/>.</summary>
+    private sealed record PullRequestStatesRead(
+        IReadOnlyDictionary<(string Repository, int Number), GitHubLinkedPullRequest> Answers,
+        IReadOnlySet<string> Unread)
+    {
+        public GitHubLinkedPullRequest? AnswerFor(EntryPullRequestLink pr) =>
+            Answers.GetValueOrDefault(OutcomeKey(pr));
+
+        public bool CouldNotRead(EntryPullRequestLink pr) => Unread.Contains(pr.Repository.Trim());
+    }
+
+    /// <summary>
+    /// The one read per repository of <paramref name="pullRequests"/>, every one stamped
+    /// as asked — answered or not, which is what spaces out the retries of an
+    /// unreadable one. A read that throws, whole, leaves every repository unread, so
+    /// each pull request falls back to a read of its own.
+    /// </summary>
+    private async Task<PullRequestStatesRead> ReadPullRequestStatesTogetherAsync(IReadOnlyCollection<EntryPullRequestLink> pullRequests)
+    {
+        var now = _timeProvider.GetUtcNow();
+        foreach (var pr in pullRequests) _pullRequestAskedAt[pr] = now;
+
+        var repositories = pullRequests.Select(pr => pr.Repository.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var listing = await _gitHub.ListLinkedPullRequestsAsync(
+                pullRequests.Select(pr => new GitHubPullRequestReference(pr.Repository, pr.Number)));
+
+            var answers = new Dictionary<(string Repository, int Number), GitHubLinkedPullRequest>();
+            foreach (var pull in listing.PullRequests) answers[OutcomeKey(pull.RepositoryFullName, pull.Number)] = pull;
+
+            return new PullRequestStatesRead(
+                answers,
+                listing.Failures.Select(failure => failure.RepositoryFullName.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        }
+        catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+        {
+            return new PullRequestStatesRead(new Dictionary<(string Repository, int Number), GitHubLinkedPullRequest>(), repositories);
+        }
+    }
+
+    /// <summary>
+    /// One pull request's read, from the batched answer where that says enough: how it
+    /// ended, and where a merge went. An open or draft one is read on its own for its
+    /// status; so is a merge the batched answer did not say the branches of, when a row
+    /// is yet to see it merged — the move to Done needs them; and so is a pull request
+    /// of a repository the batched read could not read. Null for one there is nothing
+    /// to read: an archived repository's, or a number GitHub does not know.
+    /// </summary>
+    private async Task<PullRequestRead?> ResolvePullRequestReadAsync(EntryPullRequestLink pr, PullRequestStatesRead batch)
+    {
+        if (batch.AnswerFor(pr) is { } answer)
+        {
+            if (answer.State is GitHubItemState.Open or GitHubItemState.Draft) return await TryReadPullRequestAsync(pr);
+
+            // A merge without its branches: its own read says them. Failing that, the
+            // merge is still drawn, and the move waits for a read that says where it
+            // went (_heldForBranches).
+            return await TryReadPullRequestAsync(pr)
+                ?? new PullRequestRead(answer.State, Status: null, answer.BaseRefName, answer.DefaultBranch);
+        }
+
+        return batch.CouldNotRead(pr) ? await TryReadPullRequestAsync(pr) : null;
+    }
+
+    /// <summary>
+    /// Arms the tick that keeps the background check going while nothing reloads the
+    /// list, once. Periodic on <see cref="PullRequestRecheckInterval"/> — the floor
+    /// between two asks about one pull request, so a tick sooner would find nothing
+    /// due.
+    /// <para>
+    /// The tick only raises <see cref="PullRequestRecheckDue"/>; the check itself
+    /// runs where the shell's other checks do. The rows are only touched on the
+    /// renderer's dispatcher, and the timer fires on a thread of its own — which is
+    /// why <see cref="WrittenElsewhere"/> is passed on rather than answered here too.
+    /// Armed by the first check rather than at construction, so a host with GitHub
+    /// switched off never ticks; one switched off later ticks into the shell's own
+    /// feature check, which asks nothing.
+    /// </para>
+    /// </summary>
+    private void ArmPullRequestRecheck()
+    {
+        lock (_pullRequestRecheckLock)
+        {
+            if (_pullRequestRecheck is not null || _untilDisposed.IsCancellationRequested) return;
+
+            _pullRequestRecheck = _timeProvider.CreateTimer(
+                _ =>
+                {
+                    if (!_untilDisposed.IsCancellationRequested) PullRequestRecheckDue?.Invoke();
+                },
+                null,
+                PullRequestRecheckInterval,
+                PullRequestRecheckInterval);
         }
     }
 
@@ -4488,7 +4768,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>How long the background check leaves a pull request it asked about
     /// before asking again, when it is still open or could not be read. Long enough
     /// that a burst of agent writes, each reloading the list, asks GitHub once; short
-    /// enough that a merge shows within a couple of minutes of the next reload.</summary>
+    /// enough that a merge shows within a couple of minutes, and the period of the tick
+    /// that asks again while nothing reloads the list.</summary>
     public static readonly TimeSpan PullRequestRecheckInterval = TimeSpan.FromMinutes(2);
 
     /// <summary>When each pull request was last asked about, by any read. Only
@@ -4505,28 +4786,282 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// now. See <see cref="CheckPullRequestsAsync"/>.</summary>
     private bool PullRequestDue(EntryRow row, EntryPullRequestLink pr)
     {
-        if (row.PullRequestStates.TryGetValue(pr, out var state) && state is GitHubItemState.Merged or GitHubItemState.Closed) return false;
+        if (row.PullRequestStates.TryGetValue(pr, out var state))
+        {
+            if (KnownFinal(row, pr)) return false;
+
+            // A close this run read stays closed for the run, as it always has; one
+            // restored from the memory is asked about once more, since it may have
+            // been reopened while the app was not looking.
+            if (state == GitHubItemState.Closed && !_closedToAskAgain.Contains(pr)) return false;
+        }
 
         return !_pullRequestAskedAt.TryGetValue(pr, out var askedAt)
             || _timeProvider.GetUtcNow() - askedAt >= PullRequestRecheckInterval;
     }
 
-    /// <summary>What one read of a pull request found: its state, and its status
-    /// when the status query answered.</summary>
-    private readonly record struct PullRequestRead(GitHubItemState State, GitHubPullRequestStatus? Status);
+    /// <summary>
+    /// Whether <paramref name="pr"/> has nothing more for a read to say on
+    /// <paramref name="row"/>: merged — final — and not holding the entry's move back
+    /// for want of the branches it went into.
+    /// </summary>
+    private bool KnownFinal(EntryRow row, EntryPullRequestLink pr) =>
+        row.PullRequestStates.TryGetValue(pr, out var state)
+        && state == GitHubItemState.Merged
+        && !(row.Id is { } id && _heldForBranches.Contains((id, pr)));
+
+    /// <summary>The entries whose move on a merge was held because no read said where
+    /// the merge went, so it cannot be told whether it finishes them. Such a merge is
+    /// asked about again at the recheck interval (<see cref="KnownFinal"/>), and the read
+    /// that says its branches owes the move again
+    /// (<see cref="RecordPullRequestReadAsync"/>). Only touched on the renderer's
+    /// dispatcher.</summary>
+    private readonly HashSet<(Guid Entry, EntryPullRequestLink PullRequest)> _heldForBranches = [];
+
+    /// <summary>The closed pull requests drawn from the memory rather than read in
+    /// this run, which the background check asks about once more. A read of one takes
+    /// it off. Only touched on the renderer's dispatcher, as the rows are.</summary>
+    private readonly HashSet<EntryPullRequestLink> _closedToAskAgain = [];
+
+    /// <summary>What <see cref="_pullRequestMemory"/> holds, or null until the first
+    /// load reads it. See <see cref="RememberedOutcomes"/>.</summary>
+    private Dictionary<(string Repository, int Number), RememberedPullRequest>? _rememberedOutcomes;
+
+    /// <summary>What one read of a pull request found: its state, its status when the
+    /// status query answered, and the branch it merges into beside the repository's
+    /// default branch — which either query answers, so a merge can finish its entry
+    /// on the fallback too.</summary>
+    private readonly record struct PullRequestRead(
+        GitHubItemState State,
+        GitHubPullRequestStatus? Status,
+        string? BaseRefName,
+        string? DefaultBranch)
+    {
+        public static PullRequestRead From(GitHubPullRequestStatus status) =>
+            new(status.State, status, status.BaseRefName, status.DefaultBranch);
+
+        public static PullRequestRead From(GitHubPullRequest pull) =>
+            new(pull.State, Status: null, pull.BaseRefName, pull.DefaultBranch);
+    }
 
     /// <summary>One pull request read, or null when neither query could read it.</summary>
     private async Task<PullRequestRead?> TryReadPullRequestAsync(EntryPullRequestLink pr)
     {
-        if (await TryReadPullRequestStatusAsync(pr) is { } status) return new PullRequestRead(status.State, status);
+        if (await TryReadPullRequestStatusAsync(pr) is { } status) return PullRequestRead.From(status);
 
         // The state alone, so the merged colour survives a server that cannot
         // answer the status query. The status is dropped rather than kept from an
         // earlier read: a stale one would draw checks and offer a merge the state
         // beside it may no longer allow.
-        if (await TryReadPullRequestStateAsync(pr) is { } state) return new PullRequestRead(state, Status: null);
+        if (await TryReadPullRequestOverRestAsync(pr) is { } pull) return PullRequestRead.From(pull);
 
         return null;
+    }
+
+    /// <summary>
+    /// Writes one pull request's read onto the row, then lets a merge that just landed
+    /// finish the entry. Every read that colours a link comes through here — the
+    /// background check, the sync button, the re-read after a merge act — so the move
+    /// rides on the same read and there is no second reader of the same pull request.
+    /// </summary>
+    private async Task RecordPullRequestReadAsync(EntryRow row, EntryPullRequestLink pr, PullRequestRead read)
+    {
+        var before = row.PullRequestStates.TryGetValue(pr, out var known) ? known : (GitHubItemState?)null;
+
+        RecordPullRequestRead(row, pr, read.State, read.Status);
+        RememberOutcome(pr, read);
+
+        // Only a merge this read is the first to see. A Merged state carried across a
+        // reload was already acted on, or deliberately undone by the person since —
+        // unless its move was held for want of the branches it went into, which this
+        // read may now say.
+        if (read.State == GitHubItemState.Merged
+            && row.Id is { } id
+            && (before != GitHubItemState.Merged || _heldForBranches.Remove((id, pr))))
+        {
+            lock (_finishLock)
+            {
+                if (!_finishedByMerge.Contains((id, pr))) _owedFinishes[(id, pr)] = (read.BaseRefName, read.DefaultBranch);
+            }
+
+            await FinishOwedOnMergeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Moves a prompt entry to Done because its pull request merged where the work
+    /// lands — the repository's default branch, or a <c>plan/</c> branch
+    /// (<see cref="PullRequestLanding"/>). The policy the plan skills already follow,
+    /// carried out by the app that reads the merge, so an entry whose pull request
+    /// auto-merged overnight is Done without a session to say so.
+    /// <para>
+    /// The status alone: no sub-item cascade, no completion date, so no recurrence
+    /// spawns. Only a move the
+    /// lifecycle graph allows — a Ready entry has no edge to Done and stays. Quiet,
+    /// like the check that set it off; the row redraws at Done. Kept off the undo
+    /// history (<see cref="_outsideHistory"/>): it is not the person's edit, and a
+    /// Ctrl+Z meant for their own last change must not take it back instead.
+    /// </para>
+    /// <para>
+    /// On the row as the list holds it <em>now</em>, looked up by id — never the row
+    /// the read was written onto. A reload can replace every row while a read is
+    /// out, and saving the replaced row's text would put back what it held before
+    /// the write that set the reload off.
+    /// </para>
+    /// <para>
+    /// Never from under the person, and never dropped for it. The entry open in the
+    /// raw editor stays owed and moves when <see cref="EndEditAsync"/> closes it. A
+    /// keystroke's save still pending is landed first, as the person's own save on
+    /// the history — again if they typed on during it, up to
+    /// <see cref="MaxTypingFlushesBeforeMove"/> times — and the history is then
+    /// sealed, so their next keystroke opens a step whose before already says Done
+    /// and Ctrl+Z on it cannot take the move back. A save that fails stays owed. An
+    /// owed move is let go only when it no longer applies: the entry gone, its pull
+    /// request no longer recorded, or the entry no longer one the merge finishes.
+    /// </para>
+    /// <para>
+    /// The status token is written into the row's text as it stands and saved
+    /// without the flush's rewrite, because the person may still be typing in it.
+    /// Run on the renderer's dispatcher — after a merge read, and when the editor
+    /// closes — so no timer thread touches the row, but a keystroke can still land
+    /// at any await here. One that lands during the move's save builds on text that
+    /// already says Done and is never replaced by the store's copy; its own debounce
+    /// saves it. Keystrokes typed through every one of the flushes are the one case
+    /// that rides along in the move's save, off the history.
+    /// </para>
+    /// <para>
+    /// Once per entry and pull request in a run, so a person who takes the entry back
+    /// to In progress keeps it there. Across a restart the merge itself is what is
+    /// kept: a pull request remembered merged (<see cref="RestoreRememberedOutcomes"/>)
+    /// is not read again, so it moves nothing. Only one this device never saw merge —
+    /// no memory in the host, or the memory lost — moves its entry again on its first
+    /// read.
+    /// </para>
+    /// </summary>
+    private async Task FinishOwedOnMergeAsync()
+    {
+        List<KeyValuePair<(Guid Entry, EntryPullRequestLink PullRequest), (string? BaseRefName, string? DefaultBranch)>> owed;
+        lock (_finishLock)
+        {
+            if (_owedFinishes.Count == 0) return;
+            owed = [.. _owedFinishes];
+        }
+
+        foreach (var ((id, pr), (baseRef, defaultBranch)) in owed)
+        {
+            if (_untilDisposed.IsCancellationRequested) return;
+
+            var row = RowById(id);
+            if (row is not null && ReferenceEquals(row, EditingRow)) continue;
+
+            // The person's typing lands first, as their own step on the history — and
+            // again if they typed on while it was saving.
+            for (var flushes = 0; row is not null && HasPendingSave(row) && flushes < MaxTypingFlushesBeforeMove; flushes++)
+            {
+                CancelDebounce(row);
+                await SaveRowAsync(row, isFlush: false);
+                row = RowById(id);
+            }
+
+            // Opened in the raw editor while that save was out: owed until it closes.
+            if (row is not null && ReferenceEquals(row, EditingRow)) continue;
+
+            bool ruledOut;
+            bool heldBack;
+            lock (_finishLock)
+            {
+                // Taken off before the save, so a drain that runs alongside this one
+                // cannot move the same entry a second time.
+                if (!_owedFinishes.Remove((id, pr))) continue;
+
+                var branchesKnown = !string.IsNullOrWhiteSpace(baseRef) && !string.IsNullOrWhiteSpace(defaultBranch);
+
+                ruledOut = row is null
+                    || row.IsReadOnly
+                    || !row.PullRequestLinks.Contains(pr)
+                    || row.Type != EntryType.Prompt
+                    || row.Status == EntryStatus.Done
+                    || (branchesKnown && !PullRequestLanding.LandsWhereWorkFinishes(baseRef, defaultBranch));
+                heldBack = !ruledOut
+                    && (!branchesKnown || !PullRequestLanding.FinishesEntry(row!.Type, row.Status, baseRef, defaultBranch));
+                ruledOut = ruledOut || (!heldBack && !_finishedByMerge.Add((id, pr)));
+            }
+
+            // Nothing to move, and nothing that could ever change that — the entry gone,
+            // not a prompt, already Done (whoever got there first, the work is finished),
+            // the merge somewhere work does not land, or moved already: settled for this
+            // entry, so the next launch does not owe it again.
+            if (ruledOut || row is null)
+            {
+                SettleMerge(id, pr);
+                continue;
+            }
+
+            if (heldBack && (string.IsNullOrWhiteSpace(baseRef) || string.IsNullOrWhiteSpace(defaultBranch)))
+            {
+                _heldForBranches.Add((id, pr));
+            }
+
+            // Held back, not settled — let go for this run, and owed again by the next
+            // read that says where the merge went, or the next launch:
+            // - by its status alone: Ready has no edge to Done, and the status is the
+            //   person's to change;
+            // - by branches no read could say: whether the merge finishes the entry is not
+            //   known yet, and a merge whose branches are unknown is asked about again
+            //   (_heldForBranches).
+            if (heldBack) continue;
+
+            // Closes the person's open typing step, so the next keystroke on this entry
+            // starts a step of its own rather than joining one whose before is the
+            // status the move just replaced.
+            _history.Seal();
+
+            // Not RewriteMetadataAsync: its flush writes the store's copy back over the
+            // row's text after the await, and a keystroke typed meanwhile would vanish.
+            // A non-flush save leaves the text to the person, as a debounced save does.
+            row.RawText = EntryTextParser.WithStatus(row.RawText, EntryStatus.Done, cascadeSubItems: false);
+
+            Result saved;
+            _outsideHistory.Value = true;
+            try
+            {
+                saved = await SaveRowAsync(row, isFlush: false);
+            }
+            finally
+            {
+                _outsideHistory.Value = false;
+            }
+
+            ApplyFilter();
+            Changed?.Invoke();
+
+            if (saved.IsFailure)
+            {
+                lock (_finishLock)
+                {
+                    _finishedByMerge.Remove((id, pr));
+                    _owedFinishes.TryAdd((id, pr), (baseRef, defaultBranch));
+                }
+            }
+            else
+            {
+                SettleMerge(id, pr);
+            }
+        }
+    }
+
+    /// <summary>How many times the move lands the person's pending typing before it
+    /// moves anyway — so somebody typing faster than the store saves cannot hold a
+    /// merge off for good. See <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private const int MaxTypingFlushesBeforeMove = 3;
+
+    /// <summary>Whether a keystroke's save is still waiting on this row's debounce.</summary>
+    private bool HasPendingSave(EntryRow row)
+    {
+        lock (_debounceTimers)
+        {
+            return _debounceTimers.ContainsKey(row.Key);
+        }
     }
 
     /// <summary>
@@ -4546,6 +5081,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         GitHubPullRequestStatus? status)
     {
         _pullRequestReadStamps[pr] = ++_pullRequestReadsRecorded;
+        _closedToAskAgain.Remove(pr);
 
         row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates) { [pr] = state };
 
@@ -4576,21 +5112,23 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// One pull request's state over REST, or null when that cannot be read either.
+    /// One pull request over REST — its state and where it merges — or null when that
+    /// cannot be read either.
     /// <para>
     /// The fallback for a status query that failed. The status query asks for
     /// fields — the auto-merge request, the merge state — that an older GitHub
     /// Enterprise Server's schema may not have, and GraphQL fails the whole query
     /// over one missing field. Without this, such a server would lose the merged
-    /// colour it showed before the status query existed. Only the state comes back,
-    /// so a pull request read this way draws no checks mark and offers no merge.
+    /// colour it showed before the status query existed. Only the state and the
+    /// branches come back, so a pull request read this way draws no checks mark and
+    /// offers no merge — but can still finish its entry.
     /// </para>
     /// </summary>
-    private async Task<GitHubItemState?> TryReadPullRequestStateAsync(EntryPullRequestLink pr)
+    private async Task<GitHubPullRequest?> TryReadPullRequestOverRestAsync(EntryPullRequestLink pr)
     {
         try
         {
-            return (await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number)).State;
+            return await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
@@ -4673,6 +5211,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (row.GitHubBusy) return;
         if (!row.PullRequestStatuses.TryGetValue(pr, out var status)) return;
 
+        var live = LiveRow(row);
+
         row.GitHubBusy = true;
         Changed?.Invoke();
 
@@ -4694,14 +5234,20 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 AnnounceRowFailure(row, fallbackMessage, GitHubFailureTestId);
             }
 
-            if (await TryReadPullRequestStatusAsync(pr) is { } reread)
+            // Onto the row on screen when the re-read returns: a reload while the act
+            // was out replaced the one it started from, and the re-read written there
+            // would be lost to the screen and still count as the latest read.
+            if (await TryReadPullRequestStatusAsync(pr) is { } reread
+                && live() is { } current
+                && current.PullRequestLinks.Contains(pr))
             {
-                RecordPullRequestRead(row, pr, reread.State, reread);
+                await RecordPullRequestReadAsync(current, pr, PullRequestRead.From(reread));
             }
         }
         finally
         {
             row.GitHubBusy = false;
+            if (live() is { } onScreen) onScreen.GitHubBusy = false;
             Changed?.Invoke();
         }
     }
@@ -4744,23 +5290,25 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         GitHubSyncing = true;
         Changed?.Invoke();
 
-        var linked = Rows.Where(r => r.IssueLink is not null).ToList();
+        // Each row as the list holds it when its turn comes (LiveRowsWhere): the sweep
+        // takes as long as GitHub does over every linked row, and a reload in the
+        // meantime — an agent's write, a sync pull — replaces every row. The reads
+        // themselves land on the row on screen when they return (LiveRow).
         var failed = 0;
+        var linked = 0;
 
         try
         {
-            foreach (var row in linked)
+            foreach (var row in LiveRowsWhere(r => r.IssueLink is not null, out linked))
             {
-                await RefreshGitHubAsync(row, announce: false);
-                if (row.GitHubError is not null) failed++;
+                if (await RefreshGitHubCoreAsync(row, announce: false, readPullRequests: false)) failed++;
             }
 
-            // An entry an agent worked from the backlog is often never filed as
-            // an issue, and still has the pull request its session recorded.
-            foreach (var row in Rows.Where(r => r.IssueLink is null && r.PullRequestLinks.Count > 0).ToList())
-            {
-                await RefreshPullRequestStatesAsync(row);
-            }
+            // Then every row's pull requests together — an entry an agent worked from the
+            // backlog is often never filed as an issue, and still has the pull request
+            // its session recorded — one read per repository. Merged is final, so a
+            // merged one is not asked about again.
+            await ReadPullRequestsAsync((row, pr) => !KnownFinal(row, pr));
         }
         finally
         {
@@ -4777,7 +5325,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             var subject = failed == 1 ? "task" : "tasks";
 
             _toasts?.Publish(ToastMessage.Error(
-                $"{failed} of {linked.Count} {subject} couldn't be read from GitHub.",
+                $"{failed} of {linked} {subject} couldn't be read from GitHub.",
                 GitHubFailureTestId));
         }
     }
@@ -4938,7 +5486,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await DrainDeferredReloadAsync();
     }
 
-    private void CancelDebounce(EntryRow row)
+    /// <summary>Disarms the row's debounce, and answers whether one was still
+    /// waiting.</summary>
+    private bool CancelDebounce(EntryRow row)
     {
         ITimer? timer;
 
@@ -4948,6 +5498,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         timer?.Dispose();
+        return timer is not null;
     }
 
     /// <summary>
@@ -5366,6 +5917,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             var row = before is null ? new EntryRow { Id = entry.Id } : new EntryRow { Id = entry.Id, Key = before.Key };
             RefreshRowFromEntry(row, entry, rewriteText: true);
             if (before is not null) CarryGitHubRead(before, row);
+            RestoreRememberedOutcomes(row);
             rows.Add(row);
         }
 
@@ -5391,6 +5943,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (before.IssueLink is not null && before.IssueLink == after.IssueLink) after.Snapshot = before.Snapshot;
 
+        // A read still out on the row keeps the one replacing it busy, so its Refresh
+        // or merge act cannot start a second read beside it; the read that set it lets
+        // the row on screen go when it ends (LiveRow).
+        after.GitHubBusy = before.GitHubBusy;
+
         var recorded = after.PullRequestLinks.ToHashSet();
         after.PullRequestStates = before.PullRequestStates
             .Where(read => recorded.Contains(read.Key))
@@ -5399,6 +5956,190 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .Where(read => recorded.Contains(read.Key))
             .ToDictionary(read => read.Key, read => read.Value);
     }
+
+    /// <summary>
+    /// Draws a recorded pull request's remembered ending — merged or closed, as the
+    /// last launch, or this one, read it — on a row that has no read of it yet, so the
+    /// list opens with its links coloured before GitHub is asked, and offline too.
+    /// <para>
+    /// A read already on the row wins: it is this run's own, and no older than what
+    /// was remembered. A restored merge is never asked about again
+    /// (<see cref="PullRequestDue"/>), and counts as acted on only for the entries the
+    /// memory says its finish is settled for (<see cref="SettleMerge"/>): any other
+    /// entry recording it is owed the move, which the next check pass drains. A restored close is asked about once
+    /// more when <see cref="PullRequestRecheckInterval"/> has passed since it was read,
+    /// because a closed pull request can be reopened.
+    /// </para>
+    /// <para>
+    /// Only the state. The status — checks, auto-merge — is never remembered, so a
+    /// restored link draws no checks mark and offers no merge until it is read.
+    /// </para>
+    /// </summary>
+    private void RestoreRememberedOutcomes(EntryRow row)
+    {
+        if (row.PullRequestLinks.Count == 0) return;
+
+        var remembered = RememberedOutcomes();
+        if (remembered.Count == 0) return;
+
+        Dictionary<EntryPullRequestLink, GitHubItemState>? states = null;
+
+        foreach (var pr in row.PullRequestLinks)
+        {
+            if (row.PullRequestStates.ContainsKey(pr)) continue;
+            if (!remembered.TryGetValue(OutcomeKey(pr), out var outcome)) continue;
+
+            states ??= new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates);
+
+            if (outcome.Outcome == PullRequestOutcome.Merged)
+            {
+                states[pr] = GitHubItemState.Merged;
+
+                // Drawn merged either way; acted on only per entry. One whose finish
+                // was never settled — the move still owed when the app quit, or the
+                // pull request recorded on it after the merge — is owed it now.
+                if (row.Id is { } id && !outcome.SettledEntries.Contains(id))
+                {
+                    lock (_finishLock)
+                    {
+                        if (!_finishedByMerge.Contains((id, pr))) _owedFinishes.TryAdd((id, pr), (outcome.BaseRefName, outcome.DefaultBranch));
+                    }
+                }
+            }
+            else
+            {
+                states[pr] = GitHubItemState.Closed;
+                _closedToAskAgain.Add(pr);
+
+                // Spaced from the read that closed it, not from this launch: a close
+                // read yesterday is asked about at once.
+                _pullRequestAskedAt.TryAdd(pr, outcome.ReadAt);
+            }
+        }
+
+        if (states is not null) row.PullRequestStates = states;
+    }
+
+    /// <summary>What <see cref="_pullRequestMemory"/> holds, read from it once — the
+    /// first load — and kept up to date by <see cref="RememberOutcome"/> after that,
+    /// so a reload, which an agent's every write sets off, reads no file.</summary>
+    private Dictionary<(string Repository, int Number), RememberedPullRequest> RememberedOutcomes()
+    {
+        if (_rememberedOutcomes is not null) return _rememberedOutcomes;
+
+        var read = new Dictionary<(string Repository, int Number), RememberedPullRequest>();
+        if (_pullRequestMemory is not null)
+        {
+            foreach (var outcome in _pullRequestMemory.ReadAll())
+            {
+                read[OutcomeKey(outcome.Repository, outcome.Number)] = outcome;
+            }
+        }
+
+        return _rememberedOutcomes = read;
+    }
+
+    /// <summary>
+    /// Keeps a read's ending on this device, or forgets one GitHub no longer says —
+    /// a closed pull request reopened. Every read that lands comes through
+    /// <see cref="RecordPullRequestRead"/>, so this is the one writer. Written only
+    /// when it changes, so the background check's reads cost no disk.
+    /// </summary>
+    private void RememberOutcome(EntryPullRequestLink pr, PullRequestRead read)
+    {
+        if (_pullRequestMemory is null) return;
+
+        var remembered = RememberedOutcomes();
+        var key = OutcomeKey(pr);
+        PullRequestOutcome? outcome = read.State switch
+        {
+            GitHubItemState.Merged => PullRequestOutcome.Merged,
+            GitHubItemState.Closed => PullRequestOutcome.Closed,
+            _ => null
+        };
+
+        if (outcome is { } ended)
+        {
+            if (remembered.TryGetValue(key, out var known) && known.Outcome == ended)
+            {
+                // A close read closed again: remembered as read now, so the next launch
+                // waits the recheck interval from this read, not from the first — but
+                // only once the kept read is that old. The sync button re-reads every
+                // closed pull request, and a fresher time than that changes nothing a
+                // launch would do, so it is not worth a file write each.
+                if (ended == PullRequestOutcome.Closed)
+                {
+                    var now = _timeProvider.GetUtcNow();
+                    if (now - known.ReadAt < PullRequestRecheckInterval) return;
+
+                    var reread = known with { ReadAt = now };
+                    remembered[key] = reread;
+                    _pullRequestMemory.Remember(reread);
+                    return;
+                }
+
+                // A merge: only branches it lacked are worth a write, so a later launch
+                // can owe the move without a read of its own.
+                if ((known.BaseRefName is not null && known.DefaultBranch is not null)
+                    || read.BaseRefName is null
+                    || read.DefaultBranch is null)
+                {
+                    return;
+                }
+
+                var completed = known with { BaseRefName = read.BaseRefName, DefaultBranch = read.DefaultBranch };
+                remembered[key] = completed;
+                _pullRequestMemory.Remember(completed);
+                return;
+            }
+
+            // No entry settled yet: the move this read owes is settled by the drain,
+            // entry by entry, once it has landed (SettleMerge).
+            var kept = new RememberedPullRequest(pr.Repository, pr.Number, ended, _timeProvider.GetUtcNow())
+            {
+                BaseRefName = read.BaseRefName,
+                DefaultBranch = read.DefaultBranch
+            };
+            remembered[key] = kept;
+            _pullRequestMemory.Remember(kept);
+        }
+        else if (remembered.Remove(key))
+        {
+            _pullRequestMemory.Forget(pr.Repository, pr.Number);
+        }
+    }
+
+    /// <summary>
+    /// Records that a remembered merge's finish is settled for one entry — moved to
+    /// Done, or found to be one the merge does not finish — so a restart owes that
+    /// entry nothing. Written only once the move has landed, never with the merge
+    /// itself: a move still owed when the app quits, or one whose save failed, stays
+    /// owed on the next launch.
+    /// </summary>
+    private void SettleMerge(Guid entry, EntryPullRequestLink pr)
+    {
+        if (_pullRequestMemory is null) return;
+
+        var remembered = RememberedOutcomes();
+        var key = OutcomeKey(pr);
+        if (!remembered.TryGetValue(key, out var known)
+            || known.Outcome != PullRequestOutcome.Merged
+            || known.SettledEntries.Contains(entry))
+        {
+            return;
+        }
+
+        var settled = known with { SettledEntries = [.. known.SettledEntries, entry] };
+        remembered[key] = settled;
+        _pullRequestMemory.Remember(settled);
+    }
+
+    private static (string Repository, int Number) OutcomeKey(EntryPullRequestLink pr) => OutcomeKey(pr.Repository, pr.Number);
+
+    /// <summary>GitHub compares owner and name without regard to case, so the memory
+    /// does too.</summary>
+    private static (string Repository, int Number) OutcomeKey(string repository, int number) =>
+        (repository.Trim().ToLowerInvariant(), number);
 
     private void ApplyFilter()
     {
@@ -6072,7 +6813,11 @@ public sealed class EntryRow
 
     /// <summary>Last known state of each recorded pull request in
     /// <see cref="PullRequestLinks"/>; one that was never read, or could not be,
-    /// is absent. Not persisted, for the reason <see cref="Snapshot"/> is not.</summary>
+    /// is absent. Never in the entry's text or its replica, for the reason
+    /// <see cref="Snapshot"/> is not. The ending states alone — merged and closed —
+    /// are remembered on this device, in app storage, so a restart draws them before
+    /// GitHub is asked (<see cref="IPullRequestStateMemory"/>); an open one is read
+    /// again each launch.</summary>
     public IReadOnlyDictionary<EntryPullRequestLink, GitHubItemState> PullRequestStates { get; set; } =
         new Dictionary<EntryPullRequestLink, GitHubItemState>();
 
@@ -6080,7 +6825,8 @@ public sealed class EntryRow
     /// Last known status of each recorded pull request — its checks, whether GitHub
     /// is holding it for auto-merge, and what a merge act needs to act on it. Read
     /// in the same query as <see cref="PullRequestStates"/>, so the two always come
-    /// from one answer. Not persisted, for the reason <see cref="Snapshot"/> is not.
+    /// from one answer. Not persisted anywhere, not even beside the remembered states:
+    /// a stale status would draw checks and offer a merge GitHub may no longer allow.
     /// <para>
     /// Kept beside the state map rather than replacing it, because the state is what
     /// every existing reader asks and the only thing a pull request whose status
@@ -6164,14 +6910,6 @@ public sealed class EntryRow
 
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
 
-    /// <summary>The rendered body shown when this row is not being edited. Stops
-    /// at the first sub-item: sub-items are items in their own right and are laid
-    /// out below the entry rather than inside its body.</summary>
-    public IReadOnlyList<MdBlock> PreviewBlocks
-    {
-        get { Render(); return _bodyBlocks; }
-    }
-
     /// <summary>The entry's sub-items, in the order they are written. Each is
     /// rendered as its own draggable card beneath the entry.</summary>
     public IReadOnlyList<MdSubItem> PreviewSubItems
@@ -6185,41 +6923,6 @@ public sealed class EntryRow
     public string PreviewBody
     {
         get { Render(); return _parsed!.Body; }
-    }
-
-    /// <summary>One reading of the steps and the text it was read from, published
-    /// together so another thread never pairs one text with another's steps.</summary>
-    private sealed record StepTextsCache(string From, IReadOnlyList<EntryTextParser.SubItemTitleAndNote> Steps);
-
-    private volatile StepTextsCache? _stepTexts;
-
-    /// <summary>
-    /// Every step's title and notes as <see cref="EntryTextParser.GetSubItemTitle"/>
-    /// and <see cref="EntryTextParser.GetSubItemNote"/> read them, indexed the
-    /// same way — read once per text rather than twice per step per render.
-    /// <para>
-    /// Not <see cref="PreviewSubItems"/>: that list is the Markdown preview's own
-    /// reading of the body, while the steps list writes back by the parser's
-    /// index. Where the two counts differ, an index past the end here is a step
-    /// with no title or notes, which is what the per-index reads return for it.
-    /// </para>
-    /// <para>
-    /// Kept apart from <see cref="Render"/> and built only when asked, because
-    /// only the open entry's steps list reads it.
-    /// </para>
-    /// </summary>
-    public IReadOnlyList<EntryTextParser.SubItemTitleAndNote> PreviewStepTexts
-    {
-        get
-        {
-            var text = RawText;
-            var cached = _stepTexts;
-            if (cached is not null && string.Equals(cached.From, text, StringComparison.Ordinal)) return cached.Steps;
-
-            var steps = EntryTextParser.GetSubItemTitlesAndNotes(text);
-            _stepTexts = new StepTextsCache(text, steps);
-            return steps;
-        }
     }
 
     public bool HasExpandableContent
@@ -6404,62 +7107,13 @@ public sealed class EntryRow
     }
 
     /// <summary>
-    /// Which reading of the body this entry was last looked at in, as written down.
-    /// Null when nobody has said, which is a different answer from either view —
-    /// see <see cref="EffectiveView"/> for what the pane does with that.
+    /// The <c>view:</c> token as written down, or null when there is none. Inert:
+    /// the pane draws one editor whatever it says, and nothing writes it any more.
+    /// Still read so the metadata hint reports a token found on the line.
     /// </summary>
     public EntryView? PreviewView
     {
         get { Render(); return _parsed!.View; }
-    }
-
-    /// <summary>
-    /// The view to actually draw: the one that was asked for, or the one that has
-    /// something to show.
-    /// <para>
-    /// An entry with no <c>##</c> chapters has no steps for the steps view to list,
-    /// so defaulting it there would open every prose entry on an empty list with a
-    /// line underneath explaining that its text is somewhere else. Derived rather
-    /// than written down, because a default written into the text is a preference
-    /// the reader never expressed — and it would then have to be unwritten from
-    /// every entry before this default could ever change.
-    /// </para>
-    /// </summary>
-    public EntryView EffectiveView
-    {
-        get
-        {
-            Render();
-
-            // Off the cached parse rather than re-locating the chapters. The pane
-            // asks this several times per render, and the text has not changed
-            // while it did.
-            return _parsed!.View ?? (_subItems.Count > 0 ? EntryView.Steps : EntryView.Notes);
-        }
-    }
-
-    /// <summary>
-    /// Whether the entry opens with prose before its first chapter.
-    /// <para>
-    /// The steps view lists chapters, and the prose an entry opens with is not one.
-    /// A view that quietly hid it would make the markdown look like it had lost
-    /// text, so the pane reads it out above the steps (<see cref="PreviewBlocks"/>) —
-    /// <c>.devbook/design/content-editing.md#round-trip-fidelity</c> is about the text
-    /// surviving, and a reader who cannot see it has no way to know that it did.
-    /// </para>
-    /// </summary>
-    public bool StepsViewHidesProse
-    {
-        get
-        {
-            Render();
-
-            // The blocks in front of the first chapter, which is exactly the prose
-            // the steps have no row for. Read off the same cached parse the steps
-            // themselves come from, so the two cannot disagree about where the first
-            // chapter starts.
-            return _bodyBlocks.Count > 0;
-        }
     }
 
     /// <summary>What the app actually understood from the meta line, in plain

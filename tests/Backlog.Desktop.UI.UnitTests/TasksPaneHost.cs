@@ -95,7 +95,8 @@ internal sealed class TasksPaneHost : IDisposable
         TaskStoreCalls? storeCalls = null,
         IDevbookReferenceResolver? devbookReferences = null,
         LinkedTaskSources? linkedSources = null,
-        ILinkedSessionStates? sessionStates = null)
+        ILinkedSessionStates? sessionStates = null,
+        ITaskChangeSignal? taskWrites = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -115,7 +116,7 @@ internal sealed class TasksPaneHost : IDisposable
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
         var myDay = new MyDayPreferencesStore(Path.Combine(root, MyDayPreferencesStore.FileName));
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, myDayPreferences: myDay);
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, myDayPreferences: myDay, taskWrites: taskWrites);
 
         await state.InitializeAsync();
 
@@ -183,6 +184,13 @@ internal sealed class TasksPaneHost : IDisposable
     /// far as the pane can tell. A write through these is never the pane's own.</summary>
     public ITaskItems EntriesElsewhere() =>
         TasksTestHost.EntriesFor(new WorkspaceSettingsStore(StorageRoot, Path.Combine(StorageRoot, "elsewhere.json")));
+
+    /// <summary>As <see cref="EntriesElsewhere()"/>, raising <paramref name="changes"/> on
+    /// every write: the process-wide signal an MCP write or another window's save is
+    /// heard through. Hand it the one this host's state was composed over.</summary>
+    public ITaskItems EntriesElsewhere(ITaskChangeSignal changes) =>
+        TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(
+            new WorkspaceSettingsStore(StorageRoot, Path.Combine(StorageRoot, "elsewhere.json")), changes));
 
     /// <summary>As <see cref="FromElsewhereAsync"/>, for the one act every test
     /// of it wants: the other machine wrote a new entry.</summary>
@@ -283,6 +291,10 @@ internal sealed class TasksPaneHost : IDisposable
         /// from <see cref="ReadByNumber"/>, so a test tells the status read from the slim one.</summary>
         public List<string> StatusReadByNumber { get; } = [];
 
+        /// <summary>The repositories whose status read GitHub refuses — a typo, or one the
+        /// token cannot read.</summary>
+        public HashSet<string> RefusedStatusReads { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>The status read answers what <see cref="PullRequestsByNumber"/> holds,
         /// status facts and all, and records itself in <see cref="StatusReadByNumber"/>.</summary>
         public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
@@ -291,6 +303,11 @@ internal sealed class TasksPaneHost : IDisposable
             CancellationToken cancellationToken = default)
         {
             StatusReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            if (RefusedStatusReads.Contains(repository.FullName))
+            {
+                return Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException($"{repository.FullName} refused."));
+            }
 
             IReadOnlyList<GitHubLinkedPullRequest> answer =
                 [.. PullRequestsByNumber.Where(pull =>

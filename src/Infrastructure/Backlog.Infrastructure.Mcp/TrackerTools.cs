@@ -1,8 +1,10 @@
 using System.ComponentModel;
 
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
@@ -76,12 +78,19 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>DevbookAnnotationStore</c>, <c>GhCliAccountSource</c>,
 /// <c>GitHubSettingsStore</c>): optional, so a test can pin the date, and
 /// <see cref="TimeProvider.System"/> when nobody does.</param>
+/// <param name="sessionRequests">The session request queue (local ADR 0038), which
+/// <c>link_session</c> tells that a session picked its entry up. Optional, like
+/// <paramref name="clock"/>, so a host without the queue still links sessions.</param>
+/// <param name="features">The feature switches; the queue is told only while
+/// <c>session-requests</c> is on. Null reads as on, for a test that passes a queue.</param>
 [McpServerToolType]
 public sealed class TrackerTools(
     ITaskItems entries,
     IRepositoryDirectory repositories,
     IDevbookReferenceResolver devbookReferences,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    ISessionRequestStore? sessionRequests = null,
+    IAppFeatureSettings? features = null)
 {
     internal const string FindItem = "find_item";
     internal const string ReadItem = "read_item";
@@ -476,6 +485,8 @@ public sealed class TrackerTools(
                 string.Equals(p.TargetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(p.ExternalId, session, StringComparison.OrdinalIgnoreCase)))
         {
+            await LinkSessionRequestsAsync(existing, session, cancellationToken).ConfigureAwait(false);
+
             return new SessionLinkPayload(existing.Id, scope.Id, session, AlreadyLinked: true);
         }
 
@@ -485,7 +496,33 @@ public sealed class TrackerTools(
 
         var entry = linked.ValueOrThrow();
 
+        await LinkSessionRequestsAsync(entry, session, cancellationToken).ConfigureAwait(false);
+
         return new SessionLinkPayload(entry.Id, scope.Id, session, AlreadyLinked: false);
+    }
+
+    /// <summary>
+    /// Moves the session request this link answers to Linked (local ADR 0038 §3): an
+    /// entry request on this entry, or a plan request for a plan the entry belongs to,
+    /// that a dispatcher reported as Started with this very session. A link already
+    /// recorded still tells the queue, because the request may have been reported
+    /// after the session first linked itself.
+    /// </summary>
+    private async Task LinkSessionRequestsAsync(TaskItemDto entry, string session, CancellationToken cancellationToken)
+    {
+        if (sessionRequests is null) return;
+        if (features is not null && !features.IsEnabled(SessionFeatures.SessionRequests)) return;
+
+        // The plan an entry belongs to is its import plan and any `+plan` tag it
+        // carries; an ordinary tag names no plan.
+        IReadOnlyCollection<string> plans =
+        [
+            .. entry.Tags.Where(tag => tag.StartsWith('+'))
+                .Append(entry.ImportPlanId ?? string.Empty)
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+        ];
+
+        await sessionRequests.LinkAsync(entry.Id, plans, session, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

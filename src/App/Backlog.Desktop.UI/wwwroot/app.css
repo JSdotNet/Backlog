@@ -707,6 +707,52 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/*
+   The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
+   after the copy. It wears the copy segment's class, so it takes the same fill,
+   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
+   copy it stays inside the strip's one-row clip, which cuts anything taller than a
+   chip, so its target is the segment itself.
+
+   Disabled (no clone folder, no repository) or busy, it keeps the fill and dims the
+   glyph, with no hover: the press does nothing then. It sits in a wrapper that
+   carries the disabled reason as its title, as the roadmap dialog's icon does; the
+   wrapper stretches to the pair's height and passes it on to the segment.
+*/
+.filter-bar__plan-queue {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.filter-bar__plan-copy:has(+ .filter-bar__plan-queue) .filter-bar__plan-copy-button {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.filter-bar__plan-queue-button:disabled,
+.filter-bar__plan-queue-button[aria-disabled="true"],
+.filter-bar__plan-queue-button:disabled:hover,
+.filter-bar__plan-queue-button[aria-disabled="true"]:hover {
+    background: var(--color-primary);
+    color: color-mix(in srgb, var(--color-text-inverse) 55%, transparent);
+    cursor: not-allowed;
+}
+
+/* The wait the plan is on, where the queue icon was: the waiting chip and, while no
+   dispatcher has picked the request up, Cancel. Beside the pair's segments rather
+   than fused to them, because it is news about the plan, not a control on it; the
+   Cancel's block padding goes so it fits the strip's one chip-high row. */
+.filter-bar__plan-session {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-inline-start: var(--spacing-xs);
+}
+
+.filter-bar__plan-session .filter-bar__plan-cancel {
+    padding-block: 0;
+}
+
 /* The one group in the bar that is not a filter. It keeps its room for the same
    reason the scopes do, and more strongly: it is the only way into the selection
    gutter and the only way back out of the mode, so a chip squeezed out of view
@@ -1382,16 +1428,10 @@ h1, h2, h3 {
     text-align: left;
 }
 
-/* --- The body's two readings -------------------------------------------- */
+/* --- The body ------------------------------------------------------------ */
 /*
-  The steps and the markdown block are two views of one text, so they share a
-  region and only one of them is ever in it. The switch above them is the shared
-  Tabs strip, which is what a choice between two named views of one region is:
-  the strip announces itself as a tablist, each reading is a panel labelled by
-  its own tab, the arrow keys move between them, and the pair is one stop in the
-  tab order. It was a pressed ButtonGroup, and before that this pane's own row of
-  chips — the same control drawn three ways, the last of which was miming a tab
-  strip without the wiring.
+  One MarkdownEditor over the whole text, with no tab strip or label above it:
+  the steps are `##` chapters written in it.
 */
 .entry-detail__body {
     display: flex;
@@ -1399,36 +1439,13 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
     min-width: 0;
 
-    /* The body is the part of the panel with room to grow, so it takes the room:
-       the view switch stays where it is and whichever reading is under it fills
-       the rest of the column. Never less than the reading needs — see the note on
+    /* The body is the part of the panel with room to grow, so it takes the room
+       and the editor fills it. Never less than the editor needs — see the note on
        task-panel__body above. */
     flex: 1 0 auto;
 }
 
-/* The strip keeps its own height; the reading under it takes the rest. */
-.entry-detail__views {
-    flex: 0 0 auto;
-}
-
-/* Only the panel that is showing. TabPanel marks the other one `hidden`, and a
-   display of any kind here would overrule that and draw both. */
-.entry-detail__view:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    flex: 1 0 auto;
-    min-width: 0;
-    gap: var(--spacing-sm);
-}
-
-/* The panel is a tab stop, so it takes focus when the reader arrives from the
-   strip — but it is a region rather than a control, and a ring around the whole
-   reading would read as though the text itself were selected. */
-.entry-detail__view:focus-visible {
-    outline: none;
-}
-
-/* The markdown reading, filling what the body was given. Auto-grow is still what
+/* The editor, filling what the body was given. Auto-grow is still what
    sizes it past that — the editor grows with the text once the text is longer
    than the space — so this is a floor rather than a height, and the panel above
    scrolls when the two disagree. */
@@ -1453,24 +1470,12 @@ h1, h2, h3 {
     resize: none;
 }
 
-/*
-  The text an entry opens with, read in the Steps tab above its steps. Read, not
-  edited — the Markdown tab is where it is written — and indented with the steps
-  so the two read as one body.
-*/
-.entry-detail__prose {
-    margin: 0 0 var(--spacing-sm) var(--spacing-lg);
-    min-width: 0;
-    color: var(--color-text-primary);
-}
-
 /* --- The raw-markdown escape hatch --------------------------------------- */
 /*
   Always available and never the default, per
   .devbook/design/content-editing.md#raw-markdown-escape-hatch. Reached by Ctrl+Shift+M
   rather than by a control of its own — the toggle that used to open it sat under
-  the body saying "Markdown" beside a view switch that already said "Markdown",
-  and the switch is the one a reader means.
+  a body that is already the markdown, and the body is the one a reader means.
 */
 
 .entry-detail__raw {
@@ -1690,9 +1695,12 @@ h1, h2, h3 {
     color: var(--color-success-text);
 }
 
+/* Closed takes the quiet ink, not the disabled one: a closed pull request is
+   information, not an unavailable control
+   (.devbook/design/color-scheme.md#integration-roles). */
 .entry-doc__work-link--closed.integration-link--link,
 .entry-doc__work-link--closed.integration-link--link:hover {
-    color: var(--color-text-disabled);
+    color: var(--integration-ink-quiet);
 }
 
 /* The panel's: in the footer beside the creation date, small like it, wrapping
@@ -1886,6 +1894,37 @@ h1, h2, h3 {
 .entry-doc__icon-action--push { border-style: dashed; }
 
 .entry-doc__icon-action--copilot { border-color: var(--color-primary-dark); }
+
+/* The session a prompt asked for and has not got yet, above the linked work. */
+.entry-session-request {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-sm);
+}
+
+/* The repositories a prompt naming several could start its session in. */
+.session-chooser__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-chooser__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.session-chooser__reason {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
 
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
@@ -3706,6 +3745,14 @@ h1, h2, h3 {
     border-left: var(--border-width) solid var(--color-border);
 }
 
+/* The header's options each stand in a header item beside their ⧉ (local ADR
+   0043 §4), so in a fused group the neighbour the hairline follows is the item
+   before, not the option. A loose option is left out: it draws its whole border
+   itself, and this rule's weight would beat its selected colour on the left. */
+.header-surface-item + .header-surface-item > .header-group__option:not(.header-group__option--loose) {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
 .header-group__option:hover:not(:disabled) {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
@@ -3797,6 +3844,91 @@ h1, h2, h3 {
 .header-group__option--loose.header-group__option--brain.header-group__option--selected:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-band-2) 26%, transparent);
     color: var(--color-text-primary);
+}
+
+/*
+  A header item — every option the header draws for a catalog surface, loose or
+  fused — and its ⧉ Open in new window button (local ADR 0043 §4). The button
+  hangs centred under its option, its top on the option's bottom edge, so it
+  covers none of the option: not the word, not the glyph of a folded option,
+  not the selected underline, and not a fused neighbour, since every option is
+  wider than the button. Placed absolutely, so showing it never moves the
+  header or what backlogHeaderFit measures; the top-right corner stays the
+  feature flag's. While it shows it covers the strip under the header, which
+  is why it shows only on hover and while anything in the item has focus — a
+  keyboard user tabbing from the option lands on it and sees it — and the item
+  never loses hover on the way down to it, because the two touch. Where nothing
+  can hover it is always shown, and the header keeps the strip it hangs in
+  clear below itself and between the rows it wraps to (the hover: none
+  block), so it covers nothing there either. Hidden by opacity, not display,
+  so it stays in the tab order. 24px square, the smallest target
+  accessibility.md allows beside the header's own options.
+*/
+.header-surface-item {
+    position: relative;
+    display: inline-flex;
+}
+
+.header-surface-item__pop {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.header-surface-item:hover .header-surface-item__pop,
+.header-surface-item:focus-within .header-surface-item__pop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.header-surface-item__pop:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.header-surface-item__pop:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .header-surface-item__pop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Always shown, the ⧉ keeps a strip of its own: under the header, and
+       between the rows a wrapped header folds onto, so it never sits over what
+       is below it. On the header rather than the navigation, so the regions
+       beside the navigation stay centred on its options. Height only: the
+       fold measures widths. */
+    .app-header:has(.header-surface-item__pop) {
+        padding-bottom: 1.5rem;
+    }
+
+    .app-header--wrap:has(.header-surface-item__pop),
+    .app-header--wrap:has(.header-surface-item__pop) :is(.app-header__nav, .app-header__workspace) {
+        row-gap: calc(1.5rem + var(--spacing-xs));
+    }
 }
 
 /* --- Header navigation folds ---------------------------------------------- */
@@ -3909,17 +4041,26 @@ h1, h2, h3 {
 
 /* A fused group clips its members to its rounded corners, and would clip a flag
    standing past them just the same. Where one carries a flag the group stops
-   clipping, and its end members take the corners the clip used to cut. */
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) {
+   clipping, and its end members take the corners the clip used to cut.
+
+   A group of header items never clips: each item's ⧉ hangs below its option
+   (.header-surface-item__pop), past the group's own bottom edge, so a clip
+   would cut it whether a flag is there or not. The
+   corners move onto the end items' options the same way. Not onto a loose
+   option, which keeps the full radius of its own border. */
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)),
+.header-group:has(> .header-surface-item) {
     overflow: visible;
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child,
+.header-group > .header-surface-item:first-child > .header-group__option:not(.header-group__option--loose) {
     border-top-left-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-left-radius: calc(var(--border-radius-md) - var(--border-width));
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child,
+.header-group > .header-surface-item:last-child > .header-group__option:not(.header-group__option--loose) {
     border-top-right-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-right-radius: calc(var(--border-radius-md) - var(--border-width));
 }
@@ -4255,11 +4396,32 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* A filter wraps its control under its label on a narrow pane, and no control is
+   wider than the bar, so a phone never scrolls the panel sideways. */
 .sessions-filter {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
     align-items: center;
     min-width: 0;
+    max-width: 100%;
+}
+
+.sessions-filter > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* A strip with more options than a phone's width (Purpose, Plan state) wraps its
+   buttons onto further rows. Each wrapped button keeps its own rounded edge, since
+   the joined edges of one strip only read as one control on a single row. */
+.btn-group.sessions-filter__options {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.btn-group.sessions-filter__options > .btn {
+    border-radius: var(--border-radius-md);
 }
 
 /* Pushed to the trailing edge on a wide window, and simply next in line once the
@@ -4463,6 +4625,88 @@ h1, h2, h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 500;
+}
+
+/* A row with a plan tag: the row button and the tag chip, its sibling, stacked in
+   one cell. The chip sits at the end of the row's first line, over the slot the row
+   keeps for it, so it never covers the state beside it. */
+.sessions-group__item--tagged {
+    display: grid;
+}
+
+.sessions-group__item--tagged > * {
+    grid-area: 1 / 1;
+}
+
+.sessions-group__item--tagged > .sessions-row__tag {
+    align-self: start;
+    justify-self: end;
+    margin: var(--spacing-sm) var(--spacing-md) 0 0;
+}
+
+.sessions-row__tag-slot {
+    flex: 0 0 auto;
+    visibility: hidden;
+    padding: 0 var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* What the title's prefix said, as a small pill before the title. Each purpose wears
+   its own edge; the word is always drawn, so the hue is never the only carrier. A
+   skill-written title (a plan run, an entry) is outlined dashed: nobody typed it. */
+.sessions-purpose,
+.sessions-plan-badge {
+    flex: 0 0 auto;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.sessions-purpose--plan {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.sessions-purpose--plan-run,
+.sessions-purpose--entry {
+    border-color: var(--color-primary);
+    border-style: dashed;
+    color: var(--color-primary);
+}
+
+.sessions-purpose--artifact,
+.sessions-purpose--design,
+.sessions-purpose--research,
+.sessions-purpose--hold {
+    color: var(--color-text-primary);
+}
+
+.sessions-purpose--scheduled {
+    border-style: dotted;
+}
+
+.sessions-plan-badge--draft {
+    font-weight: 500;
+}
+
+.sessions-plan-badge--imported {
+    border-color: var(--color-success-text);
+    color: var(--color-success-text);
+    font-weight: 500;
+}
+
+/* A plan tag is a name, so the Plan section's heading keeps its case. */
+.sessions-group__name--tag {
+    font-family: var(--font-family-mono);
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .sessions-row__facts {
@@ -6436,6 +6680,14 @@ a.pull-request-detail-checks__name:hover {
     flex: 0 0 auto;
 }
 
+/* A tab Show hidden brought back — a folder the Brain ignores, or a dot-folder
+   (local ADR 0026 §2). Dimmed below the other tabs, pressed or not, and the
+   hidden badge after its name says the same in words. */
+.devbook-stack__tab-title--hidden {
+    font-style: italic;
+    opacity: 0.7;
+}
+
 /* The pane's title, on the strip and only while there can be two devbooks — on
    the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
    quiet word, so it names the pane without competing with the tabs. */
@@ -6635,16 +6887,10 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /*
-    The Technology pane holds a map, and a map does not scroll — you look at the
-    whole of it and move about inside it. So the pane itself clips instead of
-    scrolling, the header and the stat tiles keep their own height, and the tab
-    strip takes everything that is left.
-
-    Which tab scrolls is then the tab's own business, and the two want opposite
-    things: the atlas fits its area exactly, and the layer detail is a document
-    that runs past the bottom. The scroll moved off the pane and onto the Layers
-    panel below for exactly that reason — a scrollbar on the pane scrolled the
-    atlas out of the frame it had just been fitted to.
+    The Technology pane clips instead of scrolling: the header keeps its own
+    height, and the tab strip takes everything that is left. Which view scrolls
+    is then the view's own business — a later view may draw a map that fits
+    its area — so the scroll sits on the tab panel, not on the pane.
 */
 .tech-devbook-pane {
     display: flex;
@@ -6669,6 +6915,24 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+}
+
+/* Five tabs are wider than a phone. The strip scrolls on its own, so its width
+   never stretches the pane and the whole area does not scroll sideways. */
+.tech-devbook-pane__tabs {
+    flex: none;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tech-devbook-pane__tabs > [role="tab"] {
+    flex: none;
+    white-space: nowrap;
 }
 
 .tech-devbook-pane .tabs__panels {
@@ -6678,24 +6942,14 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
 }
 
+/* Each view scrolls on its own, under a header and a strip that stay put. */
 .tech-devbook-pane .tabs__panel {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-/* The atlas fits. */
-.tech-devbook-pane [data-testid="technology-graph-panel"] {
-    overflow: hidden;
-}
-
-/* The layer detail scrolls. */
-.tech-devbook-pane [data-testid="technology-layers-panel"] {
-    display: grid;
-    align-content: start;
-    gap: var(--spacing-md);
     overflow-y: auto;
     scrollbar-gutter: stable;
     padding-right: var(--spacing-2xs);
+    container-type: inline-size;
 }
 
 /* The Technology header holds a title and one action and nothing else, so it is
@@ -6713,137 +6967,1146 @@ a.pull-request-detail-checks__name:hover {
     grid-column: 1 / -1;
 }
 
-.tech-devbook-pane > .devbook-pane__header,
-.tech-devbook-pane > .tech-stats {
-    flex: 0 0 auto;
+/* --------------------------------------------------------------------------
+   Technology views: Dependencies
+   --------------------------------------------------------------------------
+   One technology in context: the controls, the columns by hop or by layer on
+   each side of the focus, then the change impact and the paths down.
+   .devbook/domain/devbook/features.md#technology-view
+   -------------------------------------------------------------------------- */
+
+.tech-deps {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
 }
 
-.tech-stats {
+.tech-deps__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__focus {
+    min-width: 14rem;
+    margin: 0;
+}
+
+.tech-deps__control {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+}
+
+.tech-deps__control-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__links {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-deps__lanes-section {
+    display: grid;
     gap: var(--spacing-sm);
 }
 
-.tech-stat {
+/* The columns flow left to right — furthest under it, the focus, furthest
+   above it — and wrap on a narrow pane rather than scrolling sideways. */
+.tech-deps__lanes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.tech-deps__column {
     display: grid;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.tech-deps__column-head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-deps__column--selected .tech-deps__column-head {
+    color: var(--color-primary);
+}
+
+.tech-deps__tally {
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-deps__cards {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-deps__card {
+    display: grid;
+    gap: var(--spacing-2xs);
+    width: 100%;
     padding: var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-deps__card:hover {
+    border-color: var(--color-border-strong);
+}
+
+.tech-deps__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Two hops or more away reads quieter; not yet adopted is drawn hollow. */
+.tech-deps__card--far {
+    border-style: dashed;
     background: var(--color-background);
 }
 
-.tech-stat__value {
-    color: var(--color-primary);
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    font-weight: 700;
+.tech-deps__card--hollow {
+    background: transparent;
 }
 
-.tech-stat__label,
-.tech-layer__header p,
-.tech-node__header p,
-.tech-node__relations > span {
+.tech-deps__card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__card-name {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.tech-deps__code {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.tech-deps__card-detail,
+.tech-deps__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__focus-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+}
+
+.tech-deps__focus-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+}
+
+.tech-deps__focus-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    margin: 0;
+    text-align: center;
+}
+
+/* The figure reads above its caption, as the design prints it; the markup keeps
+   the term first so the list reads term, then value. */
+.tech-deps__figures > div {
+    display: flex;
+    flex-direction: column-reverse;
+    padding: var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__figures dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__figures dd {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-deps__panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.tech-deps__panel {
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__lede strong {
+    color: var(--color-text-primary);
+}
+
+.tech-deps__paths {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-deps__path {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-deps__subheading {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-deps__path-focus {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Technology views
+   --------------------------------------------------------------------------
+   The Overview board and the inspector beside it.
+   .devbook/domain/devbook/features.md#technology-view
+   -------------------------------------------------------------------------- */
+
+.tech-overview {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-overview__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.tech-overview__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-overview__types {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-overview__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tech-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+}
+
+.tech-chip__code,
+.tech-overview__code {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.tech-chip__tally {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The table and the inspector side by side while there is room; the inspector
+   drops under the list on a narrow pane rather than squeezing the columns. */
+.tech-overview__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-overview__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-overview__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tech-overview__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.tech-overview__toolbar .tech-overview__heading {
+    flex: 1 1 auto;
+}
+
+.tech-overview__search {
+    flex: 0 1 16rem;
+}
+
+.tech-overview__figure {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The selected row: a raised surface and a rule on its leading edge, and the
+   row's button says aria-pressed, so colour is never the only carrier. */
+.tech-overview__row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-overview__pick {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-overview__pick:hover .tech-overview__name,
+.tech-overview__pick--pressed .tech-overview__name {
+    color: var(--color-text-link);
+}
+
+.tech-overview__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-overview__name {
+    font-weight: 500;
+}
+
+/* The band is printed as its word; the ink only repeats it. */
+.tech-overview__band {
+    font-weight: 600;
+}
+
+.tech-overview__band--high {
+    color: var(--color-error-text);
+}
+
+.tech-overview__band--medium {
+    color: var(--color-primary);
+}
+
+.tech-overview__band--low {
+    color: var(--color-success-text);
+}
+
+.tech-overview__score {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-overview__legend {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The Complexity board: the scatter, the hotspot lists beside it, and the table
+   companion under both. Every point is a button placed with --x and --y, which
+   the view writes as percentages of the plot; every hue below is a var() of a
+   palette, band or semantic token, so the board adds no colour of its own. */
+.tech-complexity {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-complexity__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-complexity__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-complexity__board,
+.tech-complexity__card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__side {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.tech-complexity__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.tech-complexity__intro {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-complexity__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-complexity__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__note--small {
+    font-size: var(--font-size-xs);
+}
+
+/* The plot keeps a floor on its width and scrolls sideways under it, so the
+   labels never fold into each other on a narrow pane. */
+.tech-complexity__frame {
+    display: grid;
+    grid-template-columns: 2rem minmax(32rem, 1fr);
+    grid-template-rows: 28rem 3rem;
+    overflow: auto hidden;
+}
+
+.tech-complexity__axis-title {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tech-complexity__axis-title--y {
+    align-self: center;
+    justify-self: center;
+    transform: rotate(-90deg);
+}
+
+.tech-complexity__axis-title--x {
+    position: absolute;
+    top: var(--spacing-lg);
+    right: 0;
+}
+
+.tech-complexity__plot {
+    position: relative;
+    margin: var(--spacing-sm) var(--spacing-lg) 0 0;
+    border-left: var(--border-width) solid var(--chart-axis);
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+.tech-complexity__region {
+    position: absolute;
+}
+
+.tech-complexity__region--deep-leaves {
+    top: 0;
+    left: 0;
+    width: var(--split-x, 50%);
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-error) 55%, transparent);
+}
+
+.tech-complexity__region--hubs {
+    top: 0;
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-background-raised) 35%, transparent);
+}
+
+.tech-complexity__region--foundations {
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: 0;
+    height: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+
+.tech-complexity__split {
+    position: absolute;
+    border: 0 dashed var(--chart-axis);
+}
+
+.tech-complexity__split--x {
+    top: 0;
+    bottom: 0;
+    left: var(--split-x, 50%);
+    border-left-width: var(--border-width);
+}
+
+.tech-complexity__split--y {
+    left: 0;
+    right: 0;
+    bottom: var(--split-y, 50%);
+    border-top-width: var(--border-width);
+}
+
+/* The quadrant key: the four corners' names and meanings, two by two as the
+   plot holds them, above it rather than inside it. */
+.tech-complexity__quadrants {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__quadrant {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--point-colour);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant-name {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--point-colour);
+}
+
+.tech-complexity__quadrant--deep-leaves {
+    --point-colour: var(--color-error-text);
+}
+
+.tech-complexity__quadrant--hubs {
+    --point-colour: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant--foundations {
+    --point-colour: var(--color-primary);
+}
+
+.tech-complexity__quadrant--leaves {
+    --point-colour: var(--color-success-text);
+}
+
+/* A point is the dot and its label in one button. The button sits on the dot's
+   centre; the label hangs to its right, or to its left near the right edge. */
+.tech-complexity__point {
+    position: absolute;
+    left: var(--x, 0%);
+    bottom: var(--y, 0%);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    max-width: var(--room, none);
+    cursor: pointer;
+    transform: translate(-0.5625rem, 50%);
+}
+
+/* A label longer than the room before the next point is cut short, and read
+   whole while its point is hovered, focused or selected. */
+.tech-complexity__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tech-complexity__point--label-start {
+    flex-direction: row-reverse;
+    transform: translate(calc(-100% + 0.5625rem), 50%);
+}
+
+.tech-complexity__dot {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt);
+}
+
+/* Status is never left to colour: a point not yet adopted is a ring. */
+.tech-complexity__point--hollow .tech-complexity__dot {
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__point:hover,
+.tech-complexity__point--selected {
+    z-index: 2;
+    max-width: none;
+}
+
+.tech-complexity__point:focus-visible .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.tech-complexity__point:hover .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+}
+
+.tech-complexity__point--selected .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__point--selected .tech-complexity__dot {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt), 0 0 0 var(--border-width-4) var(--color-text-primary);
+}
+
+.tech-complexity__point:focus-visible {
+    z-index: 2;
+    max-width: none;
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__ticks {
+    grid-column: 2;
+    position: relative;
+    margin-right: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__tick {
+    position: absolute;
+    top: var(--spacing-xs);
+    left: var(--x, 0%);
+    transform: translateX(-50%);
+}
+
+.tech-complexity__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-complexity__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-complexity__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+}
+
+.tech-complexity__swatch--hollow {
+    --point-colour: var(--color-text-secondary);
+    background: none;
+}
+
+/* The hues. A quadrant takes the design's; a family one of the band, brand or
+   semantic hues; a layer the band hues in reading order, repeating after six. */
+.tech-complexity__point--deep-leaves,
+.tech-complexity__swatch--deep-leaves { --point-colour: var(--color-error-text); }
+.tech-complexity__point--hubs,
+.tech-complexity__swatch--hubs { --point-colour: var(--color-text-secondary); }
+.tech-complexity__point--foundations,
+.tech-complexity__swatch--foundations { --point-colour: var(--color-primary); }
+.tech-complexity__point--leaves,
+.tech-complexity__swatch--leaves { --point-colour: var(--color-success-text); }
+
+.tech-complexity__point--family-framework,
+.tech-complexity__swatch--family-framework { --point-colour: var(--color-band-2); }
+.tech-complexity__point--family-platform,
+.tech-complexity__swatch--family-platform { --point-colour: var(--color-band-5); }
+.tech-complexity__point--family-runtime,
+.tech-complexity__swatch--family-runtime { --point-colour: var(--color-band-4); }
+.tech-complexity__point--family-languageandpackage,
+.tech-complexity__swatch--family-languageandpackage { --point-colour: var(--color-band-3); }
+.tech-complexity__point--family-librarytoolandplugin,
+.tech-complexity__swatch--family-librarytoolandplugin { --point-colour: var(--color-primary); }
+.tech-complexity__point--family-skill,
+.tech-complexity__swatch--family-skill { --point-colour: var(--color-error-text); }
+.tech-complexity__point--family-agentserviceandformat,
+.tech-complexity__swatch--family-agentserviceandformat { --point-colour: var(--color-text-primary); }
+.tech-complexity__point--family-protocol,
+.tech-complexity__swatch--family-protocol { --point-colour: var(--color-primary-light); }
+.tech-complexity__point--family-other,
+.tech-complexity__swatch--family-other { --point-colour: var(--color-text-disabled); }
+
+.tech-complexity__point--layer-1,
+.tech-complexity__swatch--layer-1 { --point-colour: var(--color-band-1); }
+.tech-complexity__point--layer-2,
+.tech-complexity__swatch--layer-2 { --point-colour: var(--color-band-2); }
+.tech-complexity__point--layer-3,
+.tech-complexity__swatch--layer-3 { --point-colour: var(--color-band-3); }
+.tech-complexity__point--layer-4,
+.tech-complexity__swatch--layer-4 { --point-colour: var(--color-band-4); }
+.tech-complexity__point--layer-5,
+.tech-complexity__swatch--layer-5 { --point-colour: var(--color-band-5); }
+.tech-complexity__point--layer-6,
+.tech-complexity__swatch--layer-6 { --point-colour: var(--color-error-text); }
+
+.tech-complexity__hotspots {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__chain {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-complexity__pick {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-complexity__hotspot {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem 1.5rem;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.tech-complexity__hotspot-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-complexity__hotspot:hover .tech-complexity__hotspot-name,
+.tech-complexity__pick:hover {
+    color: var(--color-text-link);
+}
+
+.tech-complexity__hotspot--pressed .tech-complexity__hotspot-name,
+.tech-complexity__pick--pressed {
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__hotspot:focus-visible,
+.tech-complexity__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__bar {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.tech-complexity__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+}
+
+.tech-complexity__bar-fill--deep-leaves {
+    background: var(--color-error-text);
+}
+
+.tech-complexity__bar-fill--foundations {
+    background: var(--color-primary);
+}
+
+.tech-complexity__hotspot-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__companion {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* The inspector: the selected technology beside the list. */
+.tech-inspector {
+    display: grid;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-inspector__head {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-inspector__kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.tech-layer-tabs {
+.tech-inspector__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
+.tech-inspector__lede,
+.tech-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-inspector__meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.tech-layer-tab {
-    display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background);
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.tech-inspector__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+}
+
+.tech-inspector__facts > div {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-inspector__facts dt {
     color: var(--color-text-secondary);
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-}
-
-.tech-layer-tab:hover,
-.tech-layer-tab:focus-visible,
-.tech-layer-tab--active {
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-}
-
-.tech-layer-tab--active {
-    background: var(--color-warning);
-}
-
-.tech-layer-tab__count {
-    color: var(--color-primary);
     font-size: var(--font-size-xs);
+}
+
+.tech-inspector__facts dd {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
     font-variant-numeric: tabular-nums;
 }
 
-.tech-layer,
-.tech-node-grid {
+.tech-inspector__relations {
     display: grid;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xs);
 }
 
-.tech-layer__header,
-.tech-node__header {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-    align-items: center;
-}
-
-.tech-layer__header h3,
-.tech-node__header h4 {
-    margin: 0 0 var(--spacing-xs);
-}
-
-.tech-node-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.tech-node--accepted {
-    border-left-color: var(--color-primary);
-}
-
-.tech-node--proposed {
-    border-left-color: var(--color-secondary);
-}
-
-.tech-node--candidate {
-    border-left-color: var(--color-border-focus);
-}
-
-.tech-node__kind {
-    color: var(--color-primary);
+.tech-inspector__relations h4 {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    white-space: nowrap;
 }
 
-.tech-node__meta,
-.tech-node__relations div {
+.tech-inspector__chips,
+.tech-inspector__links {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
-/* The status select sets the row's height; the version beside it is a line of
-   text and sits on its centre rather than stretching to match. */
-.tech-node__meta {
-    align-items: center;
-}
-
-.tech-node__relations {
+/* A type lens: the section a technology's type chooses, in the inspector and on
+   each card of the Type lenses board. */
+.tech-lens {
     display: grid;
     gap: var(--spacing-xs);
+}
+
+.tech-lens__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tech-lens__rows {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.tech-lens__row {
+    display: grid;
+    grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.tech-lens__row dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__row dd {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens__group {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens__layer {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A long package id wraps inside its card rather than pushing the board sideways. */
+.tech-lens__chips > * {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
+
+/* The Type lenses board: a card per type in use, then the lens-per-type table. */
+.tech-lenses {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.tech-lenses__lede {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.tech-lenses__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.tech-lens-card {
+    align-content: start;
+}
+
+/* The shared selection's card: the Overview's selected-row treatment — a raised
+   surface and a rule on the leading edge — with "Selected" in its kicker and
+   aria-current on the card, so colour is never the only carrier. */
+.tech-lens-card--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-lens-card__selected {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-lens-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lens-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens-card__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lens-card__facts {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lenses__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lenses__table {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lenses__types,
+.tech-lenses__reads {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
 }
 
 .relation-chip {
@@ -7393,6 +8656,511 @@ a.pull-request-detail-checks__name:hover {
     overflow: hidden;
 }
 
+/* --------------------------------------------------------------------------
+   Technology Clusters
+   --------------------------------------------------------------------------
+   The whole stack by layer, as the design's Clusters board: a map of buttons
+   and lines on a stage beside a side panel.
+   .devbook/domain/devbook/features.md#technology-view
+
+   Every position is set inline, in percent of the stage, by
+   TechnologyClustersLayout; the stage keeps the layout's aspect ratio, so a
+   line's angle holds at any width. A line is a border on a box turned about
+   its left end.
+
+   The eight type families take a hue each, derived from the chart category
+   hues and the neutrals as color-scheme.md#role-tokens requires, and never from
+   a semantic token; a technology not adopted is hollow, so status never rests on
+   colour alone. What it sits on is gold, what uses it the primary ink.
+   -------------------------------------------------------------------------- */
+
+.tech-clusters {
+    --tech-clusters-sits-on: var(--chart-series);
+    --tech-clusters-used-by: var(--chart-ink);
+    --tech-family-framework: var(--chart-category-2);
+    --tech-family-platform: var(--chart-category-3);
+    --tech-family-runtime: var(--chart-category-4);
+    --tech-family-language-package: color-mix(in srgb, var(--chart-category-3) 50%, var(--chart-category-4));
+    --tech-family-library-tool-plugin: var(--chart-category-5);
+    --tech-family-skill: color-mix(in srgb, var(--chart-category-4) 50%, var(--chart-category-5));
+    --tech-family-agent-service-format: color-mix(in srgb, var(--chart-category-2) 50%, var(--chart-category-5));
+    --tech-family-protocol: var(--chart-ink-muted);
+    --tech-family-other: var(--chart-axis);
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-clusters .tech-family--framework { --tech-family: var(--tech-family-framework); }
+.tech-clusters .tech-family--platform { --tech-family: var(--tech-family-platform); }
+.tech-clusters .tech-family--runtime { --tech-family: var(--tech-family-runtime); }
+.tech-clusters .tech-family--language-package { --tech-family: var(--tech-family-language-package); }
+.tech-clusters .tech-family--library-tool-plugin { --tech-family: var(--tech-family-library-tool-plugin); }
+.tech-clusters .tech-family--skill { --tech-family: var(--tech-family-skill); }
+.tech-clusters .tech-family--agent-service-format { --tech-family: var(--tech-family-agent-service-format); }
+.tech-clusters .tech-family--protocol { --tech-family: var(--tech-family-protocol); }
+.tech-clusters .tech-family--other { --tech-family: var(--tech-family-other); }
+
+/* Where you are: Back, All layers › layer › technology, then the trail. */
+.tech-clusters__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.tech-clusters__back,
+.tech-clusters__crumb {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tech-clusters__back:disabled {
+    color: var(--color-border);
+    cursor: default;
+}
+
+.tech-clusters__sep {
+    color: var(--color-border-strong);
+}
+
+.tech-clusters__here {
+    padding: 0 var(--spacing-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__trail-label {
+    margin-left: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__trail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__trail-step {
+    min-height: 1.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tech-clusters__trail-step--current {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.tech-clusters__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__muted {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+/* The map beside its companion; the companion goes under the map in a narrow pane. */
+.tech-clusters__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+@container (max-width: 60rem) {
+    .tech-clusters__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-clusters__map {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+.tech-clusters__stage {
+    position: relative;
+    width: 100%;
+    min-width: 40rem;
+    overflow: hidden;
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__stage > * {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.tech-clusters__line {
+    height: 0;
+    border-top-style: solid;
+    border-top-color: var(--color-background-raised);
+    transform-origin: 0 50%;
+    pointer-events: none;
+}
+
+.tech-clusters__line--link {
+    border-top-color: var(--color-border-strong);
+}
+
+.tech-clusters__line--sits-on {
+    border-top-color: var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__line--used-by {
+    border-top-color: var(--tech-clusters-used-by);
+}
+
+.tech-clusters__line--dashed {
+    border-top-style: dashed;
+}
+
+.tech-clusters__tally {
+    min-width: 1.5rem;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.tech-clusters__tally--link {
+    min-width: 2rem;
+    min-height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+    line-height: 1;
+}
+
+.tech-clusters__tally--sits-on {
+    background: var(--tech-clusters-sits-on);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__tally--used-by {
+    background: var(--tech-clusters-used-by);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__cluster {
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    box-shadow: 0 0 4.5rem color-mix(in srgb, var(--color-primary) 10%, transparent);
+    cursor: pointer;
+}
+
+.tech-clusters__cluster:hover,
+.tech-clusters__satellite:hover {
+    border-color: var(--color-border-strong);
+}
+
+.tech-clusters__cluster:focus-visible,
+.tech-clusters__satellite:focus-visible,
+.tech-clusters__pill:focus-visible,
+.tech-clusters__back:focus-visible,
+.tech-clusters__crumb:focus-visible,
+.tech-clusters__trail-step:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 3px;
+}
+
+.tech-clusters__cluster-name {
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite-name {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.tech-clusters__satellite--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__satellite--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+.tech-clusters__satellite--dimmed,
+.tech-clusters__satellite-name--dimmed {
+    opacity: 0.5;
+}
+
+.tech-clusters__halo {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 1.75rem;
+    background: var(--color-background-alt);
+    box-shadow: 0 0 7.5rem color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.tech-clusters__halo-title {
+    overflow: hidden;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__pill {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__pill-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-clusters__pill--selected {
+    border: var(--border-width-2) solid var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__pill--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__pill--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+/* Dimmed by its edge and its dot, never by its text, which stays readable. */
+.tech-clusters__pill--dimmed {
+    border-color: var(--color-background-raised);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__pill--dimmed .tech-clusters__dot {
+    opacity: 0.45;
+}
+
+/* A dot: filled in its family's hue when adopted, a ring of it when not. */
+.tech-clusters__dot {
+    display: inline-block;
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--tech-family, var(--tech-family-other));
+    border-radius: var(--border-radius-full);
+    background: var(--tech-family, var(--tech-family-other));
+    pointer-events: none;
+}
+
+.tech-clusters__dot--hollow {
+    background: transparent;
+}
+
+.tech-clusters__dot--selected {
+    outline: var(--border-width-2) solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* The companion: the layers, or the open layer's technologies, as a list. */
+.tech-clusters__side {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-content: start;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+/* The inspector is the side panel's own content here, so the panel's frame is
+   the only one drawn. */
+.tech-clusters__side > .tech-inspector {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__side > .tech-inspector > * {
+    min-width: 0;
+}
+
+.tech-clusters__side-head {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__kicker {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__kicker code {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-normal);
+    text-transform: none;
+}
+
+.tech-clusters__side-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+}
+
+.tech-clusters__list-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-clusters__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__row:hover {
+    border-color: var(--color-border);
+}
+
+.tech-clusters__row--selected {
+    border-color: var(--color-primary);
+}
+
+.tech-clusters__row-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__row-figure {
+    min-width: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tech-clusters__legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The inspector names each related technology's layer in Clusters. */
+.tech-inspector__layer {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 /* The `folder-*` family is the document-folder view — one view for `.design`
    and `.ai`, told which folder it is drawing — so nothing below names a folder;
    the token strip is the exception and keeps its `design-` prefix because only a
@@ -7631,6 +9399,25 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
+/* On the Brain, whose heading carries the Show hidden switch, the heading's name
+   takes the room, so the open button and the switch sit together at its end
+   rather than spread across it. Scoped to that heading: a repository's heading
+   keeps its own layout, where a long name pushes the button rather than
+   shrinking under it. */
+.devbook-stack__menu-heading:has(> .devbook-stack__show-hidden) > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Show hidden is a small icon toggle at the heading's end: it keeps its size
+   when the name wraps, and sits no taller than the heading's line. */
+.devbook-stack__show-hidden {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
 
 
 
@@ -7788,9 +9575,7 @@ a.pull-request-detail-checks__name:hover {
 .folder-section__header,
 .domain-context__header,
 .domain-document__header,
-.domain-section__header,
-.tech-layer__header,
-.tech-node__header {
+.domain-section__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -7989,19 +9774,6 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-background);
 }
 
-/* The `border` after `border-left` resets it, as it did when the two sat in
-   separate rules, so neither this accent nor the status colours above it show.
-   Kept as it was: folding the rules was not meant to change what is drawn. */
-.tech-node {
-    display: grid;
-    gap: var(--spacing-sm);
-    border-left: 4px solid var(--color-border-strong);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
 /* The same withdrawal, per document rather than per class: a domain article is a
    card for every file it lists and stops being one for the single file it shows
    through the file view. Padding goes too, not only the edge — a frame's inset
@@ -8034,271 +9806,6 @@ a.pull-request-detail-checks__name:hover {
 .design-token__name,
 .design-token__value {
     font-family: var(--font-family-mono);
-}
-
-/* The AI area's DevOps loop (AiLoopView): the infinity figure across the middle,
-   a card per stage above or below the quarter of the band it names. The ladder is
-   shaded on the chart ramp — one hue, paler for less adopted — because the
-   palette is single-hue by rule (color-scheme.md's chart roles); hold is the
-   border ink, dashed, and an empty stage or a retired one the track. No new
-   colour: every value is a chart role or a palette token. */
-.ai-loop {
-    --ai-loop-adopted: var(--chart-ramp-4);
-    --ai-loop-trial: var(--chart-ramp-3);
-    --ai-loop-candidate: var(--chart-ramp-1);
-    --ai-loop-hold: var(--chart-axis);
-    --ai-loop-retired: var(--chart-track);
-    --ai-loop-empty: var(--chart-track);
-    container: ai-loop / inline-size;
-    display: grid;
-    gap: var(--spacing-md);
-    margin-block: var(--spacing-sm) var(--spacing-md);
-}
-
-.ai-loop__grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-areas:
-        "code plan release deploy"
-        "figure figure figure figure"
-        "build test monitor operate";
-    gap: var(--spacing-sm) var(--spacing-md);
-    align-items: start;
-}
-
-.ai-loop__figure {
-    grid-area: figure;
-    width: 100%;
-    max-height: 15rem;
-}
-
-.ai-loop__segment {
-    fill: none;
-    stroke-width: 22;
-    stroke: var(--ai-loop-empty);
-}
-
-.ai-loop__segment--adopted { stroke: var(--ai-loop-adopted); }
-.ai-loop__segment--trial { stroke: var(--ai-loop-trial); }
-.ai-loop__segment--candidate { stroke: var(--ai-loop-candidate); }
-.ai-loop__segment--hold { stroke: var(--ai-loop-hold); stroke-dasharray: 6 4; }
-.ai-loop__segment--retired { stroke: var(--ai-loop-retired); }
-
-.ai-loop__arrow {
-    fill: none;
-    stroke: var(--chart-surface);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.ai-loop__label,
-.ai-loop__lobe {
-    text-anchor: middle;
-    dominant-baseline: middle;
-    font-family: var(--font-family-base, inherit);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.ai-loop__label {
-    font-size: 11px;
-    fill: var(--chart-ink);
-}
-
-/* Dark ink on the two deepest steps, where the light ink would sit on the
-   brand hue at its brightest. */
-.ai-loop__label--adopted,
-.ai-loop__label--trial {
-    fill: var(--color-text-inverse);
-}
-
-.ai-loop__lobe {
-    font-size: 28px;
-    fill: var(--chart-ink-muted);
-}
-
-.ai-loop__stage,
-.ai-loop__concepts {
-    --ai-loop-accent: var(--ai-loop-empty);
-    display: grid;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-top: 4px solid var(--ai-loop-accent);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
-.ai-loop__stage--adopted { --ai-loop-accent: var(--ai-loop-adopted); }
-.ai-loop__stage--trial { --ai-loop-accent: var(--ai-loop-trial); }
-.ai-loop__stage--candidate { --ai-loop-accent: var(--ai-loop-candidate); }
-.ai-loop__stage--hold { --ai-loop-accent: var(--ai-loop-hold); border-top-style: dashed; }
-.ai-loop__stage--retired { --ai-loop-accent: var(--ai-loop-retired); }
-
-/* The bottom row reads up towards the band, so its accent faces it. */
-.ai-loop__stage--below {
-    border-top: var(--border-width) solid var(--color-border);
-    border-bottom: 4px solid var(--ai-loop-accent);
-}
-
-.ai-loop__stage--below.ai-loop__stage--hold { border-bottom-style: dashed; }
-
-.ai-loop__stage-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-}
-
-.ai-loop__stage-name {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.ai-loop__half {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.ai-loop__empty-text {
-    margin: 0;
-    color: var(--color-text-disabled);
-    font-size: var(--font-size-xs);
-    font-style: italic;
-}
-
-.ai-loop__usages {
-    display: grid;
-    gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.ai-loop__usages--inline {
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-}
-
-.ai-loop__usage {
-    display: grid;
-    gap: 2px;
-    width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-left: 3px solid var(--ai-loop-empty);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-alt);
-    color: var(--color-text-primary);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.ai-loop__usage:hover {
-    border-color: var(--color-border-strong);
-    background: var(--color-background-raised);
-}
-
-.ai-loop__usage:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.ai-loop__usage--adopted { border-left-color: var(--ai-loop-adopted); }
-.ai-loop__usage--trial { border-left-color: var(--ai-loop-trial); }
-.ai-loop__usage--candidate { border-left-color: var(--ai-loop-candidate); }
-.ai-loop__usage--hold { border-left-color: var(--ai-loop-hold); border-left-style: dashed; }
-.ai-loop__usage--retired { border-left-color: var(--ai-loop-retired); }
-
-.ai-loop__usage-name {
-    min-width: 0;
-    font-size: var(--font-size-sm);
-    overflow-wrap: anywhere;
-}
-
-.ai-loop__usage-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-/* The badge keeps its word's width here, not the 7.5rem column it takes in a
-   table of them: on a card it is a qualifier on the line, not a column. */
-.ai-loop__usage-meta > .badge {
-    min-width: 0;
-    width: auto;
-    padding: 0 var(--spacing-xs);
-    font-size: var(--font-size-2xs);
-}
-
-.ai-loop__usage-type {
-    color: var(--color-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.ai-loop__usage-tech::before {
-    content: "· ";
-}
-
-.ai-loop__usage-type + .ai-loop__usage-tech::before,
-.ai-loop__usage-meta > .badge + .ai-loop__usage-tech::before {
-    content: none;
-}
-
-.ai-loop__legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md);
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.ai-loop__key {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.ai-loop__key::before {
-    content: "";
-    width: 1.5rem;
-    height: 0.5rem;
-    border-radius: 999px;
-    background: var(--ai-loop-empty);
-}
-
-.ai-loop__key--adopted::before { background: var(--ai-loop-adopted); }
-.ai-loop__key--trial::before { background: var(--ai-loop-trial); }
-.ai-loop__key--candidate::before { background: var(--ai-loop-candidate); }
-.ai-loop__key--hold::before { background: repeating-linear-gradient(90deg, var(--ai-loop-hold) 0 6px, transparent 6px 10px); }
-.ai-loop__key--retired::before { background: var(--ai-loop-retired); }
-
-/* Too narrow for four cards abreast: the figure goes and the stages read as a
-   list in loop order, which states the same facts without the geometry. */
-@container ai-loop (max-width: 48rem) {
-    .ai-loop__grid {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "plan" "code" "build" "test" "release" "deploy" "operate" "monitor";
-    }
-
-    .ai-loop__figure {
-        display: none;
-    }
-
-    .ai-loop__stage--below {
-        border-top: 4px solid var(--ai-loop-accent);
-        border-bottom: var(--border-width) solid var(--color-border);
-    }
 }
 
 /* .devbook-pane__summary was here until the architecture panel gave up the
@@ -8768,69 +10275,11 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Technology atlas sheet
-   --------------------------------------------------------------------------
-   The parts of the atlas's detail sheet that are about technologies rather than
-   about sheets: the fact strip, the boundary-node note, and the three reference
-   lists. The sheet itself, its motion and its focus behaviour are the library's.
-   -------------------------------------------------------------------------- */
-
-.tech-atlas-facts {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs) var(--spacing-xs);
-}
-
-.tech-atlas-status {
-    display: grid;
-    gap: var(--spacing-2xs);
-    justify-items: start;
-}
-
-.tech-atlas-prose,
-.tech-atlas-note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-}
-
-/* A boundary node is a chapter this folder does not own, and the note saying so
-   is the one piece of prose in the sheet that explains rather than reports. */
-.tech-atlas-note {
-    padding: var(--spacing-sm);
-    border-left: var(--border-width-2) solid var(--color-border-strong);
-    background: var(--color-background-raised);
-    border-radius: var(--border-radius-sm);
-}
-
-.tech-atlas-relations {
-    display: grid;
-    gap: var(--spacing-2xs);
-}
-
-.tech-atlas-relations__label {
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.tech-atlas-relations > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-/* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
-   The map over a knowledge folder, or over all of them. It takes the section
+   The map over a devbook folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
-   map fits and the list inside it scrolls, exactly as the technology atlas
-   does.
+   map fits and the list inside it scrolls.
    -------------------------------------------------------------------------- */
 
 .devbook-atlas {
@@ -8887,6 +10336,686 @@ a.pull-request-detail-checks__name:hover {
 .devbook-atlas > .graph-atlas {
     flex: 1 1 auto;
     min-height: 0;
+}
+
+/* The Lobes atlas takeover (.devbook/domain/devbook/features.md#lobes-atlas),
+   laid out as Lobes.dc.html draws it: the map fills the takeover and everything
+   else floats over it — the title and the scope switch at the top left, the
+   picture's controls and the close at the top right with the chips under them,
+   the panel and the scope card down the left, the index list down the right,
+   and the foot's hint and orientation marker at the bottom. It was a header row
+   and a grid column until #1494, #1498 and #1500 each found the map squeezed to
+   about 760 x 494 px of a 1440 x 960 window. None of the floating parts is
+   inside the canvas, so a drag or a wheel on one never reaches the camera.
+
+   A window narrower than 60rem has no room to float a panel either side of a
+   map, so it stacks the parts in one column instead (the second media query
+   below): the scopes and the chips scroll sideways, the panel and the card fold
+   into a sheet behind one disclosure, and the map and its list take the rest.
+
+   What both layouts share comes first. */
+.workspace-surface > .lobes-atlas {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Layout containment makes the takeover the box a fixed child is placed in, so
+   a selection's detail sheet opens over the takeover and above everything that
+   floats on the map, not over the shell. */
+.lobes-atlas {
+    --lobes-atlas-inset: var(--spacing-md);
+    --lobes-atlas-target: 44px;
+    --lobes-atlas-side: 16.375rem;
+    --lobes-atlas-glass: color-mix(in srgb, var(--color-background) 82%, transparent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    contain: layout;
+}
+
+.lobes-atlas__lead {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+/* The heading keeps its width beside the scope switch, up to half the row; a
+   longer headline ends in an ellipsis rather than starving the switch. */
+.lobes-atlas__heading {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    max-width: 50%;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    letter-spacing: 0.08em;
+}
+
+.lobes-atlas__title {
+    flex: none;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__headline {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* With no map yet, whose atlas is waiting: the library's Brain badge
+   (badge--brain), set in the body face rather than the heading's spaced mono. */
+.lobes-atlas__subject {
+    flex: none;
+    font-family: var(--font-family-base);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: normal;
+}
+
+.lobes-atlas__dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-band-2);
+}
+
+.lobes-atlas__dot--devbook {
+    background: var(--color-primary);
+}
+
+.lobes-atlas__dot--ghost {
+    background: var(--color-text-secondary);
+}
+
+/* The scope switch scrolls sideways when its scopes outgrow the room it has,
+   and no option shrinks below its name. It clipped until the live QA pass found
+   six of thirteen scopes out of reach at 390 px and the rest squeezed until
+   their names ran into each other. The padding, taken back by the margin,
+   keeps a focused option's ring clear of the scrolling edge. */
+.lobes-atlas__scopes {
+    min-width: 0;
+    max-width: 100%;
+    margin: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.lobes-atlas__scopes > .header-group__option {
+    flex: none;
+}
+
+/* A ghost devbook's scope option is dashed, as its outline is on the map. */
+.lobes-atlas__scopes .lobes-atlas__scope--ghost {
+    outline: var(--border-width) dashed var(--color-border-strong);
+    outline-offset: calc(-1 * var(--spacing-2xs));
+    color: var(--color-text-secondary);
+}
+
+.lobes-atlas__controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.lobes-atlas__tools {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The chips keep one row and scroll sideways rather than wrap: a scope chip per
+   devbook in All outgrows any row. The padding, taken back by the margin, keeps
+   a focused chip's ring clear of the scrolling edge. */
+.lobes-atlas__chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--spacing-2xs);
+    max-width: calc(100% + 2 * var(--spacing-xs));
+    margin: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.lobes-atlas__chip {
+    flex: none;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+}
+
+/* The panel's one disclosure, the library's fold: only a narrow window folds
+   the panel and the card into a sheet, so over the map it is not there at all.
+   Its trigger is a full-width row naming the panel and the card it opens. */
+.lobes-atlas__sheet-toggle {
+    display: none;
+}
+
+.lobes-atlas__sheet-toggle .fold__trigger {
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.lobes-atlas__sheet-toggle-title {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__sheet-toggle-sub {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The sheet holds the two boxes, the panel's list over the scope card. Only a
+   window too short even for two rows and the card scrolls it as a whole, so the
+   card is never cut off out of reach. */
+.lobes-atlas__sheet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* The panel's own box: its title and its rows. The rows scroll before anything
+   else does. The panel scrolled as a whole until the live QA pass found the
+   scope card's one action under its fold at 1440 x 900; the title and the card
+   now keep their height and the list gives way, down to two rows: the box's
+   floor is the title, two rows and its padding, and below its content height
+   it clips rather than letting the rows run out over the card. */
+.lobes-atlas__legend {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: calc(2 * 44px + var(--spacing-2xs) + 2 * var(--spacing-xs) + 2.75rem);
+    overflow: hidden;
+    padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--lobes-atlas-glass);
+    backdrop-filter: blur(6px);
+}
+
+.lobes-atlas__panel-title {
+    flex: none;
+    margin: 0 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+/* The padding keeps a focused row's ring, 2 px out and 2 px wide, clear of
+   the scrolling edge. The floor is two rows. */
+.lobes-atlas__rows {
+    display: grid;
+    flex: 0 1 auto;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    min-height: calc(2 * 44px + var(--spacing-2xs) + 2 * var(--spacing-xs));
+    margin: 0;
+    padding: var(--spacing-xs);
+    overflow-y: auto;
+    list-style: none;
+}
+
+.lobes-atlas__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 44px;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lobes-atlas__row:hover {
+    background: var(--color-background-alt);
+}
+
+/* A region row is a toggle: pressed while the region is drawn, faded while it
+   is hidden. A scope row in All is a plain button and never fades. */
+.lobes-atlas__row[aria-pressed="false"] {
+    opacity: 0.45;
+}
+
+.lobes-atlas__swatch {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--color-primary);
+}
+
+.lobes-atlas__swatch--brain {
+    border-radius: 50%;
+    background: var(--color-band-2);
+}
+
+.lobes-atlas__swatch--ghost {
+    border: 1.5px dashed var(--color-text-secondary);
+    background: transparent;
+    box-sizing: border-box;
+}
+
+.lobes-atlas__row-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.lobes-atlas__row-name {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+}
+
+.lobes-atlas__row-sub,
+.lobes-atlas__row-count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Every control of the atlas is a full target (accessibility.md#target-size):
+   at least 44 x 44 px whatever its glyph, the scope switch's fused options
+   included, which the shell header draws shorter. */
+.lobes-atlas__header :is(button, a),
+.lobes-atlas__panel :is(button, a),
+.lobes-atlas__empty button {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+/* And every one shows where the keyboard is: the panel's rows are bare
+   buttons with no .btn ring of their own. */
+.lobes-atlas__row:focus-visible,
+.lobes-atlas__chip:focus-visible,
+.lobes-atlas__header .header-group__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The foot: the drag/scroll hint on the left, the orientation marker turning
+   with the camera on the right. */
+.lobes-atlas__footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.lobes-atlas__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__orientation {
+    flex: none;
+}
+
+.lobes-atlas__orientation-ring {
+    fill: none;
+    stroke: var(--color-border);
+}
+
+.lobes-atlas__orientation-axis {
+    stroke: var(--color-text-secondary);
+    stroke-width: 1;
+}
+
+.lobes-atlas__orientation-tag {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+}
+
+/* While the atlas reads, the spinner sits where the map will be. */
+.lobes-atlas > .spinner {
+    margin: auto;
+}
+
+/* No Brain index yet: the shared empty state, centred where the map would be,
+   with the offer to build it and the way back side by side. */
+.lobes-atlas__empty {
+    flex: 0 1 auto;
+    width: 100%;
+    max-width: 34rem;
+    margin: auto;
+}
+
+.lobes-atlas__art {
+    stroke: var(--color-text-secondary);
+}
+
+.lobes-atlas__art path {
+    stroke: var(--color-border-strong);
+}
+
+/* The empty state's action slot is a row; here it stacks the buttons, the
+   alert a failed build leaves and the footnote. */
+.lobes-atlas__empty .empty-state__action {
+    flex-direction: column;
+    align-items: center;
+}
+
+.lobes-atlas__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.lobes-atlas__footnote {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.lobes-atlas__card {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--lobes-atlas-glass);
+    backdrop-filter: blur(6px);
+}
+
+.lobes-atlas__card--brain {
+    border-color: color-mix(in srgb, var(--color-band-2) 35%, transparent);
+}
+
+.lobes-atlas__card--devbook {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.lobes-atlas__card--ghost {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+.lobes-atlas__card-kind {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__card--brain .lobes-atlas__card-kind {
+    color: var(--color-band-2);
+}
+
+.lobes-atlas__card--devbook .lobes-atlas__card-kind {
+    color: var(--color-primary);
+}
+
+.lobes-atlas__card-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.lobes-atlas__card-line {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+}
+
+.lobes-atlas__card-action {
+    align-self: flex-start;
+}
+
+.lobes-atlas__open {
+    margin-top: var(--spacing-sm);
+}
+
+/* The detail sheet fills the takeover it is placed in, rather than the
+   window's height, and never outgrows its width. The atlas stops being a size
+   container in both layouts below, so the takeover is the sheet's box and its
+   backdrop covers every control while the sheet holds the focus. */
+.lobes-atlas .detail-sheet {
+    max-width: 100%;
+    height: 100%;
+}
+
+.lobes-atlas__graph {
+    container-type: normal;
+}
+
+/* Over the map. The floating boxes take no pointer themselves, so a drag that
+   starts on the empty part of one — the title's row, the gap beside the tools
+   — still turns the map; their controls take it.
+
+   The offsets follow the parts' own sizes: the left column starts under the
+   one 44 px row of the title and the switch, the right one under the tools'
+   row and the chips' row (whose sideways scrollbar the 1.25rem leaves room
+   for), and the index stops above the orientation marker, which
+   LobesAtlasCompass draws 96 px square. */
+@media (width > 60rem) {
+    .lobes-atlas {
+        --lobes-atlas-left-top: calc(var(--lobes-atlas-inset) + var(--lobes-atlas-target) + 1.25rem);
+        --lobes-atlas-right-top: calc(var(--lobes-atlas-inset) + 2 * var(--lobes-atlas-target) + var(--spacing-sm) + 1.25rem);
+        --lobes-atlas-foot: 96px;
+        padding: var(--lobes-atlas-left-top) var(--spacing-md) var(--spacing-md);
+    }
+
+    .lobes-atlas__header,
+    .lobes-atlas__panel,
+    .lobes-atlas__footer {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .lobes-atlas__scopes,
+    .lobes-atlas__tools,
+    .lobes-atlas__chips,
+    .lobes-atlas__sheet {
+        pointer-events: auto;
+    }
+
+    /* The title and the switch at the top left, the controls at the top right;
+       the switch gives way to the controls, never the other way round. */
+    .lobes-atlas__header {
+        top: var(--lobes-atlas-inset);
+        right: var(--lobes-atlas-inset);
+        left: var(--lobes-atlas-inset);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--spacing-md);
+    }
+
+    .lobes-atlas__lead {
+        flex: 1 1 auto;
+        min-height: var(--lobes-atlas-target);
+    }
+
+    .lobes-atlas__controls {
+        flex: none;
+        align-items: flex-end;
+        max-width: 50%;
+    }
+
+    /* The panel's box and the card under it, down the left. The room left at
+       the foot is the hint's. */
+    .lobes-atlas__panel {
+        top: var(--lobes-atlas-left-top);
+        left: var(--lobes-atlas-inset);
+        display: flex;
+        flex-direction: column;
+        width: var(--lobes-atlas-side);
+        max-height: calc(100% - var(--lobes-atlas-left-top) - 3.5rem);
+    }
+
+    /* The map, full-bleed: the atlas's canvas fills the takeover and its index
+       floats down the right, under the chips and clear of the orientation
+       marker. Being no size container, the atlas is no stacking context
+       either, so the detail sheet inside it rises above every floating box. */
+    .lobes-atlas__graph {
+        position: absolute;
+        inset: 0;
+    }
+
+    .lobes-atlas__graph > .graph-atlas__stage {
+        display: block;
+        position: relative;
+    }
+
+    .lobes-atlas__graph .graph-atlas__canvas {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .lobes-atlas__graph .graph-atlas-index {
+        position: absolute;
+        z-index: 1;
+        top: var(--lobes-atlas-right-top);
+        right: var(--lobes-atlas-inset);
+        width: var(--lobes-atlas-side);
+        max-height: calc(100% - var(--lobes-atlas-right-top) - var(--lobes-atlas-inset) - var(--lobes-atlas-foot) - var(--spacing-sm));
+        background: var(--lobes-atlas-glass);
+        backdrop-filter: blur(6px);
+    }
+
+    .lobes-atlas__footer {
+        right: var(--lobes-atlas-inset);
+        bottom: var(--lobes-atlas-inset);
+        left: var(--lobes-atlas-inset);
+    }
+}
+
+/* A narrow window: one column, read top to bottom in the order the keyboard
+   meets it — the title, the scopes, the controls, the chips, the panel's
+   disclosure, the map with its list under it, and the foot. Nothing floats, so
+   nothing overlaps, and the column scrolls when an opened sheet makes it
+   taller than the window. */
+@media (width <= 60rem) {
+    .lobes-atlas {
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+        overflow-y: auto;
+    }
+
+    .lobes-atlas__header {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .lobes-atlas__lead {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .lobes-atlas__heading {
+        max-width: 100%;
+    }
+
+    .lobes-atlas__scopes {
+        align-self: flex-start;
+    }
+
+    .lobes-atlas__controls {
+        align-items: flex-end;
+    }
+
+    .lobes-atlas__panel {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .lobes-atlas__sheet-toggle {
+        display: flex;
+    }
+
+    .lobes-atlas:not(.lobes-atlas--sheet-open) .lobes-atlas__sheet {
+        display: none;
+    }
+
+    .lobes-atlas__sheet {
+        overflow: visible;
+    }
+
+    /* The disclosure already names the list it opens. */
+    .lobes-atlas__panel-title {
+        display: none;
+    }
+
+    .lobes-atlas__rows {
+        max-height: 18rem;
+    }
+
+    /* The map and its list take what is left, and never less than a usable
+       map, with the list under the canvas keeping a real share of the height —
+       the atlas's own narrow layout, set here because the atlas is no size
+       container to query in the takeover. */
+    .lobes-atlas__graph {
+        flex: 1 0 26rem;
+    }
+
+    .lobes-atlas__graph > .graph-atlas__stage {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(12rem, 1fr) minmax(8rem, 0.75fr);
+    }
+
+    .lobes-atlas__footer {
+        flex: none;
+        align-items: center;
+    }
+
+    .lobes-atlas__orientation {
+        width: 56px;
+        height: 56px;
+    }
 }
 
 /* Search shares the atlas's shape because it replaces the same panel body: a
@@ -9239,6 +11368,137 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__update-status--ok { color: var(--color-text-secondary); }
 .devbook-stack__update-status--available { color: var(--color-primary); }
 .devbook-stack__update-status--blocked { color: var(--color-error-text); }
+
+/* The AI section's tab strip: four tabs that outgrow a phone-width pane. The
+   strip wraps onto a second row rather than clipping, and no tab squeezes or
+   breaks its word, so every tab stays whole, readable and reachable at once. */
+.ai-tabs { min-width: 0; }
+
+.ai-tabs > .tabs__list { flex-wrap: wrap; }
+
+.ai-tabs > .tabs__list > .tabs__tab {
+    flex: none;
+    white-space: nowrap;
+}
+
+/* The AI section's Devbook tab: one card per stack component, read from the
+   stamps in .devbook/config.json. The cards wrap rather than squeeze, so a
+   narrow pane stacks them. */
+.devbook-adoption {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__lead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    align-items: start;
+}
+
+.devbook-adoption__card .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__key,
+.devbook-adoption__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__facts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+}
+
+.devbook-adoption__facts > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__facts dt {
+    color: var(--color-text-secondary);
+}
+
+.devbook-adoption__facts dd {
+    margin: 0;
+}
+
+.devbook-adoption__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.devbook-adoption__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.devbook-adoption__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+.devbook-adoption__migrations,
+.devbook-adoption__usages {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+/* A long migration record scrolls inside the card rather than lengthening it. */
+.devbook-adoption__card .devbook-adoption__migrations {
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.devbook-adoption__date,
+.devbook-adoption__place {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__usage-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.devbook-adoption__usage-link:hover {
+    color: var(--color-primary-light);
+}
+
+.devbook-adoption__usage-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
 
 .devbook-atlas-facts {
     display: flex;
@@ -9681,4 +11941,31 @@ a.pull-request-detail-checks__name:hover {
         max-height: none;
         overflow: visible;
     }
+
+/*
+  A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
+  the repository scope chips, Show in main window — over one surface. The title
+  takes the room that is left, so Show in main window sits at the far edge where
+  the main window keeps its utilities.
+*/
+/* A popped-out window is often narrow and has no tiers to fold, so its header
+   wraps rather than pushing Show in main window off the edge; the scope chips
+   wrap inside their group the same way. */
+.surface-window__header,
+.surface-window__scope {
+    flex-wrap: wrap;
+}
+
+.surface-window__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.surface-window__unavailable {
+    padding: var(--spacing-lg);
 }

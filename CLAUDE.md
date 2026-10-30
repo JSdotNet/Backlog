@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its six skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its nine skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -58,14 +58,24 @@ app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
+entry of a plan to a nested session that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation — relayed to the person when attended,
 moved onto a draft pull request when unattended.
+`final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
+each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
 whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
+`dispatch-sessions` is user-invoked and changes no file: started once as
+`/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session, it turns each
+session request the app queues into a new session whose whole prompt is the app's fixed
+`run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry. It
+is no flow and adds no execution path beside the gate.
+`tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
+repository, by the rules that folder carries, plus the Backlog `task` entries it files for the
+follow-ups the person routes there — so it is no flow and never meets the gate.
 
 `.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
@@ -166,10 +176,16 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `plugins/backlog-tools/skills/run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
 - `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
-  delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
+  running its prompt entries in nested sessions, one worktree and pull request each; user-invoked only.
+- `plugins/backlog-tools/skills/final-check/SKILL.md` — checks a finished plan once, in the
+  session that wrote it: what each entry implemented, and that it all builds; user-invoked only.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left
   on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.
 - `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
   pull request merged into the default branch or a `plan/` branch to Done.
+- `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
+  dispatches the app's session requests (local ADR 0038); user-invoked only, no flow.
+- `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
+  ADR 0026) by its own root rules, once or under `/loop`; no flow.

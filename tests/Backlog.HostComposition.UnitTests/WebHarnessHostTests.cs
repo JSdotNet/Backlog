@@ -332,6 +332,45 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Each context that owns subjects answers the notifications startup probe about
+    /// them, one probe per subject context, and the places that notice an end are the
+    /// ones the hosts resolve: the remark store every caller gets is the watched one,
+    /// and the pull request port the Sessions probe asks is composed.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
+
+        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
+            harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
+        Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionPullRequestStates>());
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Infrastructure.Sync.PairingSubjects>());
+    }
+
+    /// <summary>
+    /// Every context that asks questions registers an answer handler for its source, and
+    /// the port resolves with them: the MCP tools, the Settings page's test question
+    /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
+    /// (the spec-manager adapter), and the device that
+    /// redeemed a pairing code (Sync).
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
+
+        Assert.Equal(["mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.
@@ -455,5 +494,35 @@ public class WebHarnessHostTests
         Assert.Single(sections, section => section.Id == "devices"
             && section.Title == "Devices"
             && section.FeatureKey == Backlog.Modules.Sync.Abstractions.SyncFeatures.Sync);
+    }
+
+    /// <summary>
+    /// The desktop harness opens a popped-out surface in a browser tab of its own
+    /// (local ADR 0043 §7): it composes <see cref="Backlog.Desktop.UI.Shell.IShellWindows"/>
+    /// per circuit, so <c>Home</c> draws the ⧉, and the address a ⧉ opens renders the
+    /// Devbook under the popped-out window's slim header rather than "not available".
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_renders_the_devbook_at_its_popped_out_window_route()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using (var scope = harness.Services.CreateScope())
+        {
+            Assert.IsType<Backlog.Desktop.UI.Shell.BrowserTabShellWindows>(
+                scope.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Shell.IShellWindows>());
+        }
+
+        using var client = harness.CreateClient();
+        using var response = await client.GetAsync(
+            Backlog.Desktop.UI.Shell.SurfaceWindowRoute.PathFor("devbook"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("data-testid=\"surface-window\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-surface-id=\"devbook\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-surface\"", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"surface-window-unavailable\"", page, StringComparison.Ordinal);
     }
 }

@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
@@ -21,8 +22,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// was read-only until the tracker operations arrived, and several docs under it
 /// said so in those words. What replaced that claim is narrower and still worth
 /// stating: nothing here registers a repository (see <see cref="RepositoryScope"/>),
-/// nothing here deletes, and every write goes through the Tasks port's one text
-/// grammar rather than setting a field.
+/// nothing here deletes a backlog entry — the one delete is <c>delete_goal</c>, which
+/// removes a goal and leaves its work as it was — and every backlog write goes through
+/// the Tasks port's one text grammar rather than setting a field.
 /// </para>
 /// <para>
 /// Local ADR 0012 §7 exposes tools "in groups, each behind one
@@ -60,12 +62,13 @@ public static class BacklogMcpTools
     /// <c>WithTools&lt;T&gt;()</c>, the feature key that decides whether its tools
     /// are listed at all, and the names those tools carry on the wire.</summary>
     /// <param name="FeatureKey">The <see cref="IAppFeatureSettings"/> key. One per
-    /// group, per local ADR 0012 §7.</param>
+    /// group, per local ADR 0012 §7 — or null for a group no flag gates, which is
+    /// always listed: <see cref="Windows"/>, whose record decided it has none.</param>
     /// <param name="ToolType">The attributed class. The host hands this to
     /// <c>WithTools</c>; nothing here constructs it.</param>
     /// <param name="ToolNames">The <c>tools/list</c> names, exactly as the
     /// <c>[McpServerTool(Name = …)]</c> attributes spell them.</param>
-    public sealed record McpToolGroup(string FeatureKey, Type ToolType, IReadOnlyList<string> ToolNames);
+    public sealed record McpToolGroup(string? FeatureKey, Type ToolType, IReadOnlyList<string> ToolNames);
 
     /// <summary>The backlog and import-plan tools, behind <c>backlog</c> — the
     /// key the Tasks context owns and the pane reads.</summary>
@@ -204,8 +207,74 @@ public static class BacklogMcpTools
         typeof(ImpedimentTools),
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
 
+    /// <summary>
+    /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
+    /// came of it, list the queue — and the answer delivery tools beside them (local ADR
+    /// 0041, Amends), behind <c>session-requests</c>, the key that also
+    /// gates the Start session action and the wait route (§5). Its own key rather than
+    /// <c>sessions</c>: the queue is off by default while its dispatchers are built, and
+    /// somebody who watches sessions has not thereby asked for sessions to be started.
+    /// </summary>
+    public static McpToolGroup SessionRequests { get; } = new(
+        SessionFeatures.SessionRequests,
+        typeof(SessionRequestTools),
+        [
+            SessionRequestTools.ClaimSessionRequest,
+            SessionRequestTools.MarkSessionRequest,
+            SessionRequestTools.ListSessionRequests,
+            SessionRequestTools.ClaimDelivery,
+            SessionRequestTools.MarkDelivery,
+            SessionRequestTools.ListDeliveries
+        ]);
+
+    /// <summary>
+    /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
+    /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
+    /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
+    /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
+    /// switch of its own (local ADR 0035 §10), and a goal's work is the backlog's.
+    /// </summary>
+    public static McpToolGroup Goals { get; } = new(
+        TasksFeatures.Tasks,
+        typeof(GoalTools),
+        [
+            GoalTools.ListGoals,
+            GoalTools.CreateGoal,
+            GoalTools.UpdateGoal,
+            GoalTools.AttachToGoal,
+            GoalTools.DetachFromGoal,
+            GoalTools.DeleteGoal
+        ]);
+
+    /// <summary>
+    /// The notification tools - <c>notify</c>, <c>ask</c>, <c>get_answer</c> and <c>close</c> -
+    /// behind <c>notifications</c>, the key Notifications owns (local ADR 0039). Off, a desktop
+    /// publishes nothing, so the tools that publish and poll are absent rather than present and
+    /// refusing with <c>notifications.not_available</c>.
+    /// </summary>
+    public static McpToolGroup Notifications { get; } = new(
+        NotificationsFeatures.Notifications,
+        typeof(NotificationTools),
+        [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
+
+    /// <summary>
+    /// <c>open_window</c>, which shows the person a registered surface in a window or
+    /// as a web link (local ADR 0043 §7), and the one group behind no key.
+    /// <para>
+    /// <b>Ungated on purpose.</b> ADR 0043 §7 gives pop-out, its routes and this tool
+    /// no feature flag: the tool adds no surface and removes none. What a flag hides is
+    /// the surface, and the catalog the tool reads leaves out a surface whose own flag
+    /// is off — so switching the Devbook off still takes it out of reach here, as a
+    /// refusal naming the surfaces that remain.
+    /// </para>
+    /// </summary>
+    public static McpToolGroup Windows { get; } = new(
+        FeatureKey: null,
+        typeof(WindowTools),
+        [WindowTools.OpenWindow]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests, Notifications, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
@@ -261,6 +330,6 @@ public static class BacklogMcpTools
 
         var group = Groups.FirstOrDefault(candidate => candidate.ToolNames.Contains(toolName, comparer));
 
-        return group is null || features.IsEnabled(group.FeatureKey);
+        return group?.FeatureKey is not { } key || features.IsEnabled(key);
     }
 }

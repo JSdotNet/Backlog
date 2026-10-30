@@ -1,8 +1,8 @@
 # ADR 0026: The Brain is a personal devbook, one folder per user outside any repository
 
 ```meta
-date: 2026-10-13
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/devbook/domain.md#para-category"]
+date: 2026-10-28
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/brain/domain.md#para-category"]
 c4: [backlog.desktop.devbook]
 c4-touches: [backlog.desktop.inbox, backlog.mobile]
 ```
@@ -19,6 +19,18 @@ the derived database into its own storage, as it does for a repository.
 
 Accepted, 2026-10-14. Built by the plan `+brain` (pull requests #1168 and #1197
 into `plan/brain`).
+
+Amended 2026-10-28 by the change that makes the folders on disk the tabs
+([§2](#2-the-convention-lives-in-the-folder)). A Brain's agent may reorganise it
+and put notes into a new top folder. Under the first rule those notes vanished
+from the pane until someone also edited `CONVENTIONS.md`. Now the folders on
+disk are the tabs, and `CONVENTIONS.md` is an overlay with an `Ignore` list.
+
+> **Superseded in part, 2026-10-29, by
+> [ADR 0040](0040-the-brain-is-its-own-bounded-context.md) (proposed).** The
+> Brain's place inside the Devbook bounded context gives way to a context of its
+> own. The folder, its convention, the three fields, the database in app storage
+> and the reuse of the devbook machinery still stand.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -97,14 +109,45 @@ written into the folder. OneDrive is the expected place, but any folder works.
 The folder carries its own convention in two files:
 
 - `README.md`, marked `index: root`.
-- `CONVENTIONS.md`, which declares the areas.
+- `CONVENTIONS.md`, which declares the areas and lists the folders to ignore.
 
-Each area is a top folder, and the Brain shows each area as a tab. When
-`CONVENTIONS.md` declares no areas, the PARA set applies: `_inbox`, `projects`,
-`areas`, `resources`, `people`, `journal` and `archive`.
+Each area is a top folder, and the Brain shows each area as a tab. The tabs come
+in two groups:
+
+1. **Declared areas come first.** They are the areas the `## Areas` section of
+   `CONVENTIONS.md` lists, in its order. When it declares none, the PARA set
+   applies: `_inbox`, `projects`, `areas`, `resources`, `people`, `journal` and
+   `archive`. A declared area keeps its tab when its folder is empty or missing,
+   so capture always has a target.
+2. **Discovered areas follow.** Every other top folder that holds at least one
+   Markdown note, at any depth, is an area too. Its tab is named after the
+   folder, so `side-projects` reads "Side projects". Discovered areas are
+   ordered by folder name, ignoring case. A top folder with no note is not an
+   area until it gets one.
+
+Some folders are never an area:
+
+- A dot-folder, such as `.obsidian`.
+- Every folder the `## Ignore` section of `CONVENTIONS.md` lists. Ignore uses
+  the same list syntax as Areas and matches case-insensitively. It wins over a
+  declaration of the same folder.
+
+Markdown files at the Brain's root, such as `README.md`, `CONVENTIONS.md` and
+`AGENTS.md`, stay outside every area. Search, the Brain database and the atlas
+index the same set of areas the tabs show.
+
+**Show hidden** in the pane's menu is a view switch, off by default and kept in
+the app's settings per device: while on, ignored folders and dot-folders show as
+tabs marked hidden. It changes no area, so search and the database still leave
+them out.
+
+`CONVENTIONS.md` is the one structure file the app parses. An `AGENTS.md` or
+`CLAUDE.md` in the Brain holds the agent's own instructions, for example "when
+you add a top folder, describe it in `CONVENTIONS.md`". The app never parses it.
 
 The app ships a template. **Create conventions** scaffolds both files and the
-declared folders from it.
+declared folders from it. The template's `## Ignore` section lists `_templates`,
+the folder note templates usually live in.
 
 ### 3. A note is a devbook chapter with three more fields
 
@@ -165,8 +208,9 @@ Positive:
   annotations work on the Brain as they do on a repository.
 - **A synced folder stays safe.** No SQLite file or sidecar is ever written into
   it.
-- **The person shapes the areas.** `CONVENTIONS.md` sets the tabs, and PARA is
-  only the fallback.
+- **The folders on disk are the tabs.** A note in a new top folder shows at once,
+  even when an agent made the folder. `CONVENTIONS.md` names, orders and
+  describes the areas, and PARA is only the fallback.
 
 Negative:
 
@@ -178,6 +222,9 @@ Negative:
   merges or deletes it by hand.
 - **The phone does not see the Brain** through the app. Only Inbox notes reach
   the phone, on the task feed.
+- **A stray folder becomes a tab.** A folder of attachments or an agent's
+  scratch notes shows as a tab once it holds a note. It stays one until the
+  person lists it under `Ignore`.
 
 Neutral:
 
@@ -205,6 +252,17 @@ Neutral:
 - **Carrying Brain notes on the task feed.** The folder already syncs itself. A
   second channel would race the folder's sync and duplicate every note in the
   replica.
+- **Declared areas only.** This was the first rule. Notes in a new folder
+  vanished from the pane until a second file was edited.
+- **Folders only, with no `CONVENTIONS.md`.** It loses tab names, order,
+  `Holds`, dated areas, and an inbox target that exists before its folder does.
+- **Skipping every `_` folder.** `_inbox` is one, so the rule would need
+  exceptions. An explicit `Ignore` list says what it means.
+- **Reading the areas from `AGENTS.md`.** It is prose an agent rewrites freely,
+  so any rewording would move the tabs.
+- **Showing every top folder, empty or not.** An attachments folder or an
+  agent's scratch folder would become an empty tab. Holding a note is the
+  signal.
 
 ## Verification
 
@@ -217,12 +275,16 @@ Look for tests that show these behaviours:
    no default path.
 2. **The path stays in settings.** After the person picks a folder, the path is
    in the app's settings and no file in the folder names it.
-3. **Areas come from `CONVENTIONS.md`.** Declared areas show as tabs. With none
-   declared, the seven PARA folders show.
+3. **Declared areas first, then discovered folders.** Declared areas show as
+   tabs in their order, even when empty; with none declared, the seven PARA
+   folders show. Every other top folder holding a note follows, ordered by
+   name. A top folder without a note and a dot-folder show no tab.
 4. **Create conventions scaffolds.** It writes `README.md` with `index: root`,
-   `CONVENTIONS.md`, and every declared folder.
+   `CONVENTIONS.md` with an `## Ignore` section listing `_templates`, and every
+   declared folder.
 5. **`para` follows the folder.** A note's area is its top folder unless its
-   `meta` block sets `para`.
+   `meta` block sets `para`. A note in a discovered folder has that folder as
+   its area.
 6. **Nothing derived lands in the folder.** After a build the folder holds no
    SQLite file and no sidecar, and the database sits in app storage under the
    folder's absolute path.
@@ -230,6 +292,9 @@ Look for tests that show these behaviours:
    warning, and neither file changes.
 8. **To Brain writes a note.** Triaging an Inbox note To Brain writes a Markdown
    note into the Brain, and no `note` document for it goes onto the task feed.
+9. **Ignore hides a folder.** A folder listed under `## Ignore` shows no tab,
+   even when it holds notes or is also declared. Search and the database leave
+   its notes out.
 
 ## History
 

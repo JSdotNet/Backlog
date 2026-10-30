@@ -1,0 +1,152 @@
+/* The notification centre (Backlog.Modules.Notifications.UI), served at
+   _content/Backlog.Modules.Notifications.UI/notifications.css. The card itself is
+   the library's NotificationCard and styled there; this file lays out the
+   takeover around it — the list grouped by subject on the left, the detail on
+   the right — and the list's rows. Tokens only, no colour of its own. */
+
+.notification-centre {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    height: 100%;
+    min-height: 0;
+    padding: var(--spacing-lg);
+}
+
+.notification-centre__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.notification-centre__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.notification-centre__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.notification-centre__subtitle {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.notification-centre__header-actions {
+    margin-left: auto;
+}
+
+.notification-centre__body {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    gap: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+}
+
+/* The "From" filter over the list: which system the notifications come from. */
+.notification-centre__filter {
+    margin-bottom: var(--spacing-sm);
+}
+
+.notification-centre__list,
+.notification-centre__detail {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.notification-centre__detail {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+@media (max-width: 48rem) {
+    .notification-centre__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.notification-list__subject {
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.notification-list__rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notification-list__row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.notification-list__row:hover {
+    background: var(--color-background-alt);
+}
+
+.notification-list__row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.notification-list__row--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+.notification-list__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.notification-list__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notification-list__meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.notification-list__row--answered .notification-list__title,
+.notification-list__row--acknowledged .notification-list__title,
+.notification-list__row--closed .notification-list__title {
+    color: var(--color-text-secondary);
+}

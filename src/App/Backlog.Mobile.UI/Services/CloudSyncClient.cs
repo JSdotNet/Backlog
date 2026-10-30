@@ -108,6 +108,66 @@ public sealed class CloudSyncClient(HttpClient http)
             ?? new PullTasksResponse([], since ?? string.Empty, HasMore: false);
     }
 
+    /// <summary>One page of the owner's notification feed from <paramref name="since"/>,
+    /// or from the beginning when it is null (local ADR 0039) — the same paging and the
+    /// same <see cref="SyncUnavailableException"/> as <see cref="PullTasksAsync"/>.</summary>
+    public async Task<PullNotificationsResponse> PullNotificationsAsync(string? since, CancellationToken ct = default)
+    {
+        var route = SyncRoutes.Absolute(SyncRoutes.Notifications);
+        route = string.IsNullOrWhiteSpace(since)
+            ? $"{route}?maxItems={PullPageSize}"
+            : $"{route}?maxItems={PullPageSize}&since={Uri.EscapeDataString(since)}";
+
+        using var response = await http.GetAsync(route, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<PullNotificationsResponse>(ct)
+            ?? new PullNotificationsResponse([], since ?? string.Empty, HasMore: false);
+    }
+
+    /// <summary>One attempt at one reply to a question: the status, and the problem's
+    /// detail when it failed. Throws only when there was no answer at all. Posting the
+    /// same reply id twice stores it once, so a retry is safe.</summary>
+    public async Task<(HttpStatusCode Status, string? Detail)> PostNotificationReplyAsync(NotificationReplyPost reply, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(reply);
+
+        using var response = await http.PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.NotificationReplies), reply, ct);
+
+        if (response.IsSuccessStatusCode) return (response.StatusCode, null);
+
+        var problem = await SyncProblem.ReadAsync(response, ct);
+        return (response.StatusCode, problem.Detail);
+    }
+
+    /// <summary>Hands the service this install's FCM token, so it keeps this device's Notification
+    /// Hubs installation (local ADR 0039 §4). <see cref="RegisterPushInstallationResponse.Registered"/>
+    /// is false from a service with no hub, which is not worth asking again; any other refusal is
+    /// <see cref="SyncUnavailableException"/> with the problem's code.</summary>
+    public async Task<RegisterPushInstallationResponse> RegisterPushAsync(string fcmToken, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fcmToken);
+
+        using var response = await http.PutAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.NotificationPush),
+            new RegisterPushInstallationRequest(fcmToken),
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<RegisterPushInstallationResponse>(ct)
+            ?? new RegisterPushInstallationResponse(Registered: false);
+    }
+
     /// <summary>One attempt at one task: the status, and the problem's detail
     /// when it failed. Throws only when there was no answer at all.</summary>
     public async Task<(HttpStatusCode Status, string? Detail)> PushTaskAsync(TaskChange change, CancellationToken ct = default)

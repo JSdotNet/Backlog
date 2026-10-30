@@ -18,7 +18,7 @@ type: tool
 
 Source control for the repository and its worktree-based session model.
 
-- **Used for** — versioning code, the knowledge folders, and all governance
+- **Used for** — versioning code, the devbook folders, and all governance
   assets. `GitFileHistoryService` in `Backlog.Infrastructure.GitHub` also reads
   history as a product signal.
 - **Why** — it is the non-negotiable baseline, and worktrees are how parallel
@@ -392,9 +392,10 @@ flowchart LR
   `--out <file>` writes where it is told; neither writes into a repository.
   `--brain --root <folder>` builds a Brain (local ADR 0026) under its own
   convention, `tools/devbook/brain.mjs`. That convention takes the areas its
-  `CONVENTIONS.md` declares as the folders, the `para`, `repos` and `tasks`
-  fields as node attributes, and `repo:` links as edges with no node at their
-  target.
+  `CONVENTIONS.md` declares, then every other top folder holding a note, minus
+  the folders its `Ignore` section lists, as the folders. It takes the `para`,
+  `repos` and `tasks` fields as node attributes, and `repo:` links as edges with
+  no node at their target.
 
   One difference between the writers is deliberate and stays. A Brain kept in
   a synced folder, OneDrive's Files On-Demand, is all reparse-point placeholders.
@@ -437,7 +438,7 @@ related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons
 
 A JSON-IR diagram renderer, vendored under `tools/archify/`.
 
-- **Used for** — re-authoring a knowledge-chapter mermaid fence as a
+- **Used for** — re-authoring a devbook-chapter mermaid fence as a
   specification and rendering a self-contained HTML artifact from it. The
   desktop app shows that artifact in place of the drawn mermaid behind the
   `archify-diagrams` flag. `tools/diagrams/archify-artifacts.mjs` wraps it with
@@ -472,7 +473,8 @@ A browser-based visual editor for C4 architecture diagrams that saves Structuriz
 DSL, under the Apache-2.0 licence. It is **not vendored and not a runtime
 dependency**.
 
-- **Used for** — authoring `.devbook/arc42/_c4/*.dsl`, the C4 model kept beside
+- **Used for** — authoring `.devbook/arc42/workspace.dsl` and the files it includes
+  from `.devbook/arc42/c4/`, the C4 model kept beside
   the architecture chapters. The desktop app reads that DSL and draws it itself
   on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
@@ -484,7 +486,7 @@ dependency**.
   rather than one of our own, because Structurizr Lite, Studio and the JSON
   exporters already read it.
 - **How** — a person opens it at `app.c4hero.com`, or runs it from a clone
-  (Node 22+), and points it at the `_c4` folder. Nothing here installs it,
+  (Node 22+), and points it at the `.devbook/arc42/` folder. Nothing here installs it,
   vendors it, or shells out to it, and it has no CLI. The app reads the DSL with
   its own reader in `src/Core/Backlog.UI.Components/Diagrams/C4/`, not through
   anything c4hero ships. That reader is a second implementation of c4hero's

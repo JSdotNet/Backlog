@@ -130,6 +130,59 @@ public sealed class ConnectedTargetEditorTests
         Assert.Equal("false", toggle.QuerySelector("button[role='switch']")!.GetAttribute("aria-checked"));
     }
 
+    /// <summary>"Only questions assigned to me" is offered only where the source asks
+    /// questions, and starts off.</summary>
+    [Fact]
+    public void Only_questions_assigned_to_me_is_offered_only_where_the_source_asks_questions()
+    {
+        using var context = new BunitContext();
+
+        var none = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+        var asks = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target with { HasQuestions = true }).Add(c => c.TestId, "t"));
+
+        Assert.Empty(none.FindAll("[data-testid='t-only-assigned-questions']"));
+        var toggle = asks.Find("[data-testid='t-only-assigned-questions']");
+        Assert.Contains("Only questions assigned to me", toggle.TextContent);
+        Assert.Equal("false", toggle.QuerySelector("button[role='switch']")!.GetAttribute("aria-checked"));
+    }
+
+    /// <summary>A connector that asks questions also pushes them to a phone subscribed
+    /// to it, so its card says which of its preferences leaves only Backlog's push;
+    /// a connector that asks none says nothing about it.</summary>
+    [Fact]
+    public void A_connector_that_asks_questions_says_how_to_switch_off_its_own_push()
+    {
+        using var context = new BunitContext();
+        var specManager = new ConnectedTargetOptions("spec-manager", "billing") { HasQuestions = true };
+
+        var asks = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, specManager).Add(c => c.TestId, "t"));
+        var none = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+
+        var hint = asks.Find("[data-testid='t-only-assigned-questions'] [data-testid='t-question-push-hint']");
+        Assert.Equal(
+            "Questions also arrive as spec-manager's own push on a phone subscribed to it. "
+            + "Switch off \"Backlog question\" in spec-manager's notification preferences on that phone to get only Backlog's.",
+            hint.TextContent);
+        Assert.Empty(none.FindAll("[data-testid='t-question-push-hint']"));
+    }
+
+    [Fact]
+    public async Task Switching_only_questions_assigned_to_me_on_reports_the_whole_record()
+    {
+        using var context = new BunitContext();
+        ConnectedTargetOptions? changed = null;
+        var options = Target with { HasQuestions = true };
+
+        var card = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, options)
+            .Add(c => c.OnChange, value => changed = value)
+            .Add(c => c.TestId, "t"));
+
+        await card.Find("[data-testid='t-only-assigned-questions'] button[role='switch']").ClickAsync(new());
+
+        Assert.Equal(options with { OnlyQuestionsAssignedToMe = true }, changed);
+    }
+
     [Fact]
     public async Task Switching_complete_at_the_source_on_reports_the_whole_record()
     {

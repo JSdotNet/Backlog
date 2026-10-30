@@ -1135,7 +1135,7 @@ button.badge:hover {
     min-width: 2.25rem;
 }
 
-/* The area an entry is filed under, and what kind of thing a knowledge chapter
+/* The area an entry is filed under, and what kind of thing a devbook chapter
    describes — a quiet counterpart to the tag chips.
 
    One rule for the two because they are the same fact about different things: the
@@ -1437,6 +1437,13 @@ button.badge:hover {
 .connected-target__paused,
 .connected-target__sync-message {
     margin: var(--spacing-xs) 0 0;
+}
+
+/* The line under "Only questions assigned to me" on how to stop the source's own
+   push: worded as the switch's description, a line of its own under it. */
+.connected-target__push-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
 }
 
 .connected-target__options {
@@ -3424,6 +3431,302 @@ button.devbook-chip__label:focus-visible {
 
 .scenario-checklist__count { color: var(--color-text-secondary); }
 
+/* --- Delivery path board ------------------------------------------------------
+   The stages as columns, each a head over its cards; the layers as rows beneath.
+   The columns keep a minimum width and the grid scrolls inside its own box below
+   it, so a narrow pane scrolls the board rather than the page. Picking a usage
+   lights the cards that hold it — an edge strip as well as the border hue, so
+   the cue is a shape and not a colour alone — and quietens the rest by their
+   surface and edge only, never their ink, so every word stays at AA. */
+.delivery-path {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.delivery-path__detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-height: 2.5rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.delivery-path__detail-text {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.delivery-path__detail-name {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__detail-reach,
+.delivery-path__detail-hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.delivery-path__detail-actions {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.delivery-path__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.delivery-path__grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: calc(var(--delivery-path-stages, 7) * 9.5rem + (var(--delivery-path-stages, 7) - 1) * var(--spacing-sm));
+    padding-top: var(--spacing-sm);
+}
+
+/* The arrow runs from the middle of the last column back to the middle of the
+   first and ends in a head pointing down at it: half a column in from each end,
+   a column being the row less its gaps, divided out. */
+.delivery-path__feedback {
+    position: relative;
+    height: 2rem;
+    margin-inline: calc((100% - (var(--delivery-path-stages, 7) - 1) * var(--spacing-sm)) / var(--delivery-path-stages, 7) / 2);
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__feedback-arrow {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+    overflow: visible;
+}
+
+.delivery-path__feedback-head {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-50%);
+    border-left: 0.3rem solid transparent;
+    border-right: 0.3rem solid transparent;
+    border-top: 0.45rem solid currentColor;
+}
+
+.delivery-path__feedback-label {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -0.6em);
+    padding: 0 var(--spacing-sm);
+    background: var(--color-background);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.delivery-path__stages {
+    display: grid;
+    grid-template-columns: repeat(var(--delivery-path-stages, 7), minmax(9.5rem, 1fr));
+    gap: var(--spacing-sm);
+    align-items: start;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.delivery-path__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.delivery-path__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-height: 5rem;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 0.25rem solid var(--color-primary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.delivery-path__stage--after .delivery-path__head {
+    border-top-color: var(--color-border-strong);
+}
+
+/* The pull request is the line between the two loops: the first stage after it
+   carries a marker on its leading edge and says so in words. */
+.delivery-path__stage--pull-request .delivery-path__head {
+    box-shadow: calc(-1 * var(--spacing-xs)) 0 0 calc(-1 * var(--border-width)) var(--color-primary);
+}
+
+.delivery-path__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.delivery-path__number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__where {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: right;
+}
+
+.delivery-path__pr {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.delivery-path__name {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.delivery-path__card--empty {
+    background: transparent;
+    border-style: dashed;
+}
+
+.delivery-path__card--lit {
+    border-color: var(--color-primary);
+    box-shadow: inset 0.25rem 0 0 var(--color-primary);
+}
+
+.delivery-path__card--dim {
+    background: transparent;
+    border-color: transparent;
+}
+
+.delivery-path__card-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__none {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__usage {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.delivery-path__usage:hover {
+    border-color: var(--color-border-strong);
+}
+
+.delivery-path__usage:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+/* Picked is a filled edge strip inside the chip; focus is the ring outside it,
+   so the two never read as one another. */
+.delivery-path__usage--picked {
+    border-color: var(--color-primary);
+    box-shadow: inset 0.25rem 0 0 var(--color-primary);
+    padding-left: calc(var(--spacing-xs) + 0.25rem);
+}
+
+.delivery-path__usage-name {
+    line-height: var(--line-height-tight);
+}
+
+.delivery-path__layers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.delivery-path__layer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.delivery-path__layer-name {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__layer .delivery-path__card {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.delivery-path__layer .delivery-path__usage {
+    width: auto;
+    min-width: 9.5rem;
+    max-width: 16rem;
+}
+
 /* The key to the scenario dot: one entry per state, wrapping to the width it is
    given — under a tree column that is narrow, so two to a line there. */
 .scenario-legend {
@@ -3660,6 +3963,450 @@ button.devbook-chip__label:focus-visible {
 
 .devbook-scenario-shot--unknown-label .devbook-scenario-shot__source,
 .devbook-scenario-shot--unknown-page .devbook-scenario-shot__source { color: var(--color-error-text); }
+
+/* --- Adoption board ------------------------------------------------------
+   How far AI adoption has got (AdoptionBoard): the strip, the three findings,
+   the evidence legend and the ladder grid. Every colour is a palette token or a
+   chart role: adopted is the success surface and its ink, trial the warning
+   surface with the primary edge, candidate a dashed strong border on the card
+   surface, retired the base surface. The groups are told apart by their edge —
+   primary before the pull request, strong border after it, secondary
+   underneath — and always by their name; the band hues are repository identity
+   and are not spent here. */
+.adoption-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+}
+
+.adoption-board__strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+}
+
+.adoption-strip__group {
+    --adoption-accent: var(--color-primary);
+    flex: var(--adoption-group-span, 1) 1 0;
+    min-width: min(100%, 14rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.adoption-strip__group--after { --adoption-accent: var(--color-border-strong); }
+.adoption-strip__group--underneath { --adoption-accent: var(--color-secondary); }
+
+.adoption-strip__group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 3px solid var(--adoption-accent);
+}
+
+.adoption-strip__group-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.adoption-strip__group-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.adoption-strip__tiles {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.adoption-strip__tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--adoption-accent);
+    border-radius: var(--border-radius-md);
+}
+
+.adoption-strip__tile-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.adoption-strip__tile-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-strip__tile-number,
+.adoption-strip__mix {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-strip__bar {
+    display: flex;
+    height: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.adoption-strip__bar-part--adopted { background: var(--color-success-text); }
+.adoption-strip__bar-part--trial { background: var(--color-primary-dark); }
+.adoption-strip__bar-part--candidate { background: var(--color-border-strong); }
+
+.adoption-board__findings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.adoption-finding {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+}
+
+.adoption-finding--adopted { background: var(--color-success); border-color: var(--color-success-text); }
+.adoption-finding--trial { background: var(--color-warning); border-color: var(--color-primary-dark); }
+
+.adoption-finding__count {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding--adopted .adoption-finding__count { color: var(--color-success-text); }
+.adoption-finding--trial .adoption-finding__count { color: var(--color-primary); }
+
+.adoption-finding__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.adoption-finding__body {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding__bar {
+    display: flex;
+    height: 0.875rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+.adoption-finding__bar-part--recorded,
+.adoption-finding__swatch--recorded { background: var(--color-success-text); }
+.adoption-finding__bar-part--partial,
+.adoption-finding__swatch--partial { background: var(--color-primary); }
+.adoption-finding__bar-part--fired,
+.adoption-finding__swatch--fired { background: var(--chart-ramp-2); }
+.adoption-finding__bar-part--none { background: var(--color-background-raised); }
+
+.adoption-finding__key {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding__key li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.adoption-finding__swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.adoption-finding__swatch--none {
+    background: var(--color-background-raised);
+    border: var(--border-width) solid var(--color-border-strong);
+    box-sizing: border-box;
+}
+
+.adoption-ladder__bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+}
+
+.adoption-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.adoption-legend__lead {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.adoption-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.adoption-ladder__toggle { min-height: 2.75rem; border-radius: var(--border-radius-full); }
+
+.adoption-dots {
+    display: inline-flex;
+    gap: 3px;
+    flex: none;
+}
+
+.adoption-dots__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: var(--border-width) solid var(--color-border-strong);
+}
+
+.adoption-dots__dot--on { border: none; background: var(--color-primary); }
+.adoption-dots--recorded .adoption-dots__dot--on { background: var(--color-success-text); }
+
+.adoption-ladder__grid {
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+}
+
+.adoption-ladder__row {
+    display: grid;
+    grid-template-columns: 10rem minmax(9rem, 1fr) minmax(12rem, 2fr) minmax(12rem, 2fr) minmax(9rem, 1fr);
+    column-gap: var(--spacing-sm);
+    padding: var(--spacing-md) 0;
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+    min-width: 56rem;
+}
+
+.adoption-ladder__row--head {
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    border-bottom-color: var(--color-border);
+}
+
+.adoption-ladder__home-head {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__column-head {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.adoption-ladder__column-head--trial { color: var(--color-primary); }
+.adoption-ladder__column-head--adopted { color: var(--color-success-text); }
+.adoption-ladder__column-head--retired { color: var(--color-secondary); }
+
+.adoption-ladder__divider {
+    min-width: 56rem;
+    padding: var(--spacing-sm) 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    border-top: var(--border-width-2) solid var(--color-secondary);
+}
+
+.adoption-ladder__divider--after {
+    color: var(--color-primary);
+    border-top-style: dashed;
+    border-top-color: var(--color-primary);
+}
+
+.adoption-ladder__home {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.adoption-ladder__home-number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__home-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-ladder__home-empty {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__cell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    align-content: start;
+}
+
+.adoption-ladder__cell--trial,
+.adoption-ladder__cell--adopted { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.adoption-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    border: 1.5px dashed var(--color-border-strong);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition: opacity var(--transition-fast), border-color var(--transition-fast);
+}
+
+.adoption-card:hover { border-color: var(--color-primary-light); }
+.adoption-card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.adoption-card--adopted { background: var(--color-success); border: var(--border-width) solid var(--color-success-text); }
+.adoption-card--trial { background: var(--color-warning); border: var(--border-width) solid var(--color-primary-dark); }
+.adoption-card--retired,
+.adoption-card--hold { background: var(--color-background); border: var(--border-width) solid var(--color-border); }
+
+/* "Only what still needs evidence": what has its record, and what is off the
+   ladder, steps back. It stays in place and stays a button — the grid keeps its
+   shape, and a reader can still open a settled card. */
+.adoption-card--settled { opacity: 0.4; }
+.adoption-card--settled:hover,
+.adoption-card--settled:focus-visible { opacity: 1; }
+
+.adoption-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+/* The scheduled clock, the Cohesion board's glyph: stroke only, in the
+   secondary ink, so it never reads as a rung's colour. */
+.adoption-scheduled {
+    flex: none;
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.adoption-card__head .adoption-scheduled { margin-top: 2px; }
+
+.adoption-card__title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-card--retired .adoption-card__title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.adoption-card__rung {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__evidence {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__next {
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card--trial .adoption-card__next {
+    color: var(--color-primary);
+    border-top-color: var(--color-primary-dark);
+}
+
+.adoption-card__next strong { font-weight: var(--font-weight-semibold); }
 
 /* --- Devbook type marker ------------------------------------------------ */
 /*
@@ -4941,6 +5688,50 @@ button.task-panel__check:focus-visible {
     vertical-align: baseline;
 }
 
+/*
+  A web address typed into a task title — on the row, the card and the panel
+  heading. It sits inside the control that opens or renames the task, so it is a
+  span a pointer can follow rather than an anchor; it still has to read as a link,
+  and by more than its colour: the dotted underline is the shape the inert link
+  already wears (`.md-link--inert`), and the pointer cursor says a click goes
+  somewhere. Inline and unclamped, like a title tag: it is part of the sentence,
+  and the title ellipses as a whole.
+*/
+.task-title-url {
+    color: var(--color-text-link);
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+}
+
+/* A finished task's address goes quiet with the rest of the title. */
+.task-item--done .task-title-url,
+.task-card--done .task-title-url {
+    color: inherit;
+}
+
+/*
+  The followable link beside the title: a linked badge, the shape the source
+  badge next to it has, labelled with the host. The arrow is the badge's own
+  text so it inherits the tone; it is hidden from the accessible name, which is
+  the whole address.
+*/
+.task-title-link {
+    flex: 0 0 auto;
+}
+
+.task-title-link__arrow {
+    white-space: pre;
+}
+
+/* The panel's heading line holds its title links together, like the row's slot. */
+.task-panel__links {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
 /* Beside the title, and never squeezed by it: a badge that shrank would
    hyphenate a single word. The title takes the space instead, which it already
    knows how to give up — it ellipses.
@@ -5767,13 +6558,21 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* A host control in the row's Actions slot that should sit as quietly as the
+   copy beside it wears .task-item__action-button on its button and shares these
+   rules, refused under the slot as the copy is under its wrapper. Its resting ink
+   is the copy's too, declared with its target further down so the selector has
+   one rule. */
 .task-item__copy-button {
     color: var(--color-text-disabled);
 }
 
 .task-item:hover .task-item__copy-button,
 .task-item__copy-button:hover,
-.task-item__copy-button:focus-visible {
+.task-item__copy-button:focus-visible,
+.task-item:hover .task-item__action-button,
+.task-item__action-button:hover,
+.task-item__action-button:focus-visible {
     color: var(--color-text-primary);
 }
 
@@ -5784,7 +6583,9 @@ button.task-panel__check:focus-visible {
    same specificity as a bare `.task-item__copy-button:disabled` and comes later
    in this file, so the bare rule lost and the row disagreed with the heading. */
 .task-item:hover .task-item__copy-button:disabled,
-.task-item__copy .task-item__copy-button:disabled {
+.task-item__copy .task-item__copy-button:disabled,
+.task-item:hover .task-item__action-button:disabled,
+.task-item__actions .task-item__action-button:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
 }
@@ -6793,6 +7594,15 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* The host's controls on the heading line, just before the copy: a fixed track,
+   so a long title gives up room before they do. */
+.task-panel__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
 /* Behind the state on the heading line, the same order the row reads in: what
    the task is, where it has got to, then the one control that takes it away with
    you. Quiet until the panel is reached, like the row's — but the panel is
@@ -6804,22 +7614,58 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* A host control in the HeaderActions slot wears .task-panel__action-button,
+   the heading's counterpart of .task-item__action-button, and shares these. Its
+   resting ink is declared with its target below, as the row's is. */
 .task-panel__copy-button {
     color: var(--color-text-disabled);
 }
 
 .task-panel:hover .task-panel__copy-button,
 .task-panel__copy-button:hover,
-.task-panel__copy-button:focus-visible {
+.task-panel__copy-button:focus-visible,
+.task-panel:hover .task-panel__action-button,
+.task-panel__action-button:hover,
+.task-panel__action-button:focus-visible {
     color: var(--color-text-primary);
 }
 
 /* Refused the same way the row's is, scoped under the wrapper for the same
    reason, so the heading wears the same not-allowed cursor as the row. */
 .task-panel:hover .task-panel__copy-button:disabled,
-.task-panel__copy .task-panel__copy-button:disabled {
+.task-panel__copy .task-panel__copy-button:disabled,
+.task-panel:hover .task-panel__action-button:disabled,
+.task-panel__actions .task-panel__action-button:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
+}
+
+/* The 44 px target floor (design accessibility, target sizes) for a host action on
+   the row and the heading, without growing either: the button keeps the 2rem the
+   copy beside it draws, so the line holds its height, and a transparent 2.75rem
+   square centred on it takes the press. It reaches 0.375rem past each edge. Up and
+   down that stays inside the row's spacing-sm padding and the panel's spacing-lg.
+   Sideways a spacing-xs margin on both sides pays for the reach wherever the button
+   sits in its slot: a plain neighbour is then at least 0.5rem away (the slot's
+   spacing-xs gap plus the margin), the copy 0.75rem, and two action buttons side
+   by side 0.75rem apart, so their reaches meet without overlapping (target sizes,
+   spacing). The resting ink is the copy's, as the rules above say. */
+.task-item__action-button,
+.task-panel__action-button {
+    position: relative;
+    margin-inline: var(--spacing-xs);
+    color: var(--color-text-disabled);
+}
+
+.task-item__action-button::before,
+.task-panel__action-button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
 }
 
 /* Announced, not drawn — the heading line must not reflow because someone
@@ -7160,6 +8006,135 @@ button.task-panel__check:focus-visible {
     padding: var(--spacing-sm);
     tab-size: 4;
     word-break: normal;
+}
+
+/* --- Markdown live editor ------------------------------------------------ */
+/*
+   A document read and edited in one place: every block rendered, except the one
+   holding the caret, which shows its source where the block was.
+
+   Each block keeps the same box whether it is rendered or open — the same
+   padding, the same edge — so opening one changes what is inside the box and
+   not where the box is. The text still reflows, because the source is set in
+   the mono face and the prose is not; the frame around it does not move.
+*/
+.markdown-live {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* The edge is there before it is shown: transparent at rest, so hovering a
+   block draws a line rather than pushing everything below it down by one. */
+.markdown-live__block {
+    position: relative;
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    cursor: text;
+}
+
+/* A block's own outer margins are the read view's spacing between blocks; here
+   the column's gap is, and both together would double it. */
+.markdown-live__block > :first-child {
+    margin-top: 0;
+}
+
+.markdown-live__block > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown-live__block:hover {
+    border-color: var(--color-border);
+}
+
+.markdown-live__block:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The open block sits on the deep surface, the way MarkdownEditor's box does:
+   it is source now, and source is what that surface means. */
+.markdown-live__block--active {
+    border-color: var(--color-border);
+    background: var(--color-background);
+    cursor: auto;
+}
+
+.markdown-live__block--active:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Nothing opens, so nothing says it would. */
+.markdown-live--disabled .markdown-live__block {
+    cursor: default;
+}
+
+.markdown-live--disabled .markdown-live__block:hover {
+    border-color: transparent;
+}
+
+/* The grow wrapper, as the box's positioning grid only. `.grow-wrap` pads itself
+   for a field with a border of its own, and the block around this already
+   carries the padding; both would indent the source past the prose it opened
+   from. Declared after `.grow-wrap` and at its weight, so position decides. */
+.markdown-live__grow {
+    padding: 0;
+}
+
+.markdown-live__input {
+    display: block;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    resize: none;
+    overflow: hidden;
+}
+
+/* Chrome, not content, and set the way editor chrome is set
+   (.devbook/design/content-editing.md#editing-model): it says where to start,
+   and it is not text anyone wrote. */
+.markdown-live__input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   ring belongs to the open block around the box, `.markdown-live__block--active:focus-within`
+   above, at the same weight and offset as every other ring. A second outline
+   hugging the text inside it would draw a box inside a box. */
+.markdown-live__input:focus-visible {
+    outline: none;
+}
+
+/* Lines the editor does not understand as a block, said to be source before they
+   are read as prose. */
+.markdown-live__raw-label {
+    display: block;
+    margin-bottom: var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.markdown-live__raw {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--color-text-secondary);
+}
+
+/* The footnotes, under the blocks and aligned with their text: the same inset a
+   block's padding and edge give it. */
+.markdown-live__notes {
+    padding: 0 calc(var(--spacing-sm) + var(--border-width));
 }
 
 /* --- Markdown syntax colours --------------------------------------------- */
@@ -16034,6 +17009,19 @@ select.field__input {
     color: var(--integration-ink-off);
 }
 
+/* A finished session's presence in its own app, where the host knows it: still
+   open in the muted ink, archived in the quiet one — information, never the
+   disabled ink (.devbook/design/color-scheme.md#integration-roles). A finished
+   session with no record to say keeps the off ink above. The words ride in the
+   .sr-only copy and the host's tooltip. */
+.integration-link--session-finished.integration-link--session-open .provider-mark {
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--session-finished.integration-link--session-archived .provider-mark {
+    color: var(--integration-ink-quiet);
+}
+
 .integration-link--session-stalled {
     padding: 0 var(--spacing-xs);
     border-radius: var(--border-radius-full);
@@ -16716,6 +17704,7 @@ select.field__input {
 .graph-atlas__canvas[data-tone="blocked"] { --atlas-tint: var(--chart-ramp-3); }
 .graph-atlas__canvas[data-tone="active"] { --atlas-tint: var(--chart-ramp-4); }
 .graph-atlas__canvas[data-tone="done"] { --atlas-tint: var(--chart-ramp-4); }
+.graph-atlas__canvas[data-tone="brain"] { --atlas-tint: var(--color-band-2); }
 .graph-atlas__canvas[data-tone="archived"] { --atlas-tint: var(--chart-track); }
 .graph-atlas__canvas[data-tone="unknown"] { --atlas-tint: var(--chart-track); }
 
@@ -16763,8 +17752,12 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-sm);
 
-    /* 44px, because this is the target the canvas cannot be. */
+    /* 44px, because this is the target the canvas cannot be. An explicit
+       min-height replaces the flex item's content-based minimum, so without the
+       flex-shrink an overflowing list squeezed a row whose label or status wraps
+       back to 44px, and it spilled over the row under it. */
     min-height: 2.75rem;
+    flex-shrink: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-bottom: var(--border-width) solid var(--color-border);
     cursor: pointer;
@@ -16802,6 +17795,9 @@ select.field__input {
 .graph-atlas-index__mark[data-tone="draft"] { background: var(--chart-ramp-2); }
 .graph-atlas-index__mark[data-tone="active"] { background: var(--chart-ramp-4); }
 .graph-atlas-index__mark[data-tone="done"] { background: var(--chart-ramp-4); }
+/* A Brain note in the Lobes atlas wears the Brain's accent, as its mark on the
+   map does (color-scheme.md#the-brains-accent). */
+.graph-atlas-index__mark[data-tone="brain"] { background: var(--color-band-2); }
 
 .graph-atlas-index__mark[data-tone="blocked"] {
     border-radius: var(--border-radius-none);
@@ -17292,8 +18288,8 @@ select.field__input {
    hue, which is what `color-scheme.md#chart-roles` requires.
 
    The glyph carries the rest. A person, a store and a service differ by mark
-   before they differ by anything else — the rule the technology atlas follows for
-   the same reason.                                                              */
+   before they differ by anything else — the rule the graph atlas's status marks
+   follow for the same reason.                                                   */
 
 .c4-diagram__node rect {
     fill: var(--chart-ramp-2);
@@ -17663,7 +18659,7 @@ select.field__input {
 /* ---- the C4 zoom tab ------------------------------------------------------
 
    One model zoomed a level at a time, beside the C4 tab rather than inside it
-   (local ADR 0037). The zoom bar heads it: the current step ringed in the primary
+   (local ADR 0044). The zoom bar heads it: the current step ringed in the primary
    colour, a step that jumps drawn plain, a step still waiting on a selection
    drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
    exactly as before.                                                           */
@@ -21429,6 +22425,16 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: var(--color-success-text);
 }
 
+/* A finished session's presence in its own app, as on the session badge: open in
+   the muted ink, archived in the quiet one, the word beside the state. */
+.work-card--session-finished.work-card--session-open .work-card__dot {
+    background: var(--integration-ink-muted);
+}
+
+.work-card--session-finished.work-card--session-archived .work-card__dot {
+    background: var(--integration-ink-quiet);
+}
+
 .work-card--session-stalled .work-card__dot,
 .work-card--session-waiting .work-card__dot {
     background: var(--color-primary);
@@ -22701,6 +23707,23 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     border-radius: var(--border-radius-lg);
 }
 
+.goals-board__no-goal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.goals-board__no-goal-search {
+    flex: 0 1 16rem;
+    min-width: 0;
+}
+
+.goals-board__no-goal-none {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .goals-board__no-goal-title {
     margin: 0;
     font-size: var(--font-size-xs);
@@ -22739,11 +23762,81 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding: var(--spacing-md);
 }
 
+/* The whole row opens and folds the goal, so the whole row says it can be pressed. */
 .goal-card__head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+}
+
+/* ChevronUpIcon turned half a turn: down while folded, up once open, as the
+   ChevronAtEnd fold does it. */
+.goal-card__chevron {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    transform: rotate(180deg);
+    transition: transform var(--transition-fast);
+}
+
+.goal-card__chevron--open {
+    transform: none;
+}
+
+/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
+   row's grip is, with a target as tall as the guideline's drag affordance. */
+.goal-card__grip {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 2.75rem;
+    color: var(--color-text-disabled);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.goal-card__grip:hover {
+    color: var(--color-text-secondary);
+}
+
+/* Move up and Move down sit before the chevron, which then follows them directly. */
+.goal-card__moves {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.goal-card__moves + .goal-card__chevron {
+    margin-left: 0;
+}
+
+.goal-card__move--down svg {
+    transform: rotate(180deg);
+}
+
+/* The goal held in a drag is drawn where it would land, set back so the place reads as
+   the one it is moving to. */
+.goal-card--dragging {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.goal-card__head:hover .goal-card__chevron {
+    color: var(--color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .goal-card__chevron {
+        transition: none;
+    }
 }
 
 .goal-card__title {
@@ -22938,6 +24031,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: var(--color-background-alt);
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+.goal-card__match:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+/* The "New task" row closes the list, set off from the matches above it. */
+.goal-card__match-row:has(.goal-card__match--new):not(:first-child) {
+    margin-top: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
 }
 
 .goal-card__match-kind {
@@ -23316,6 +24421,547 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     max-height: 100%;
     overflow: auto;
     box-sizing: border-box;
+
+/* --- Notifications ---------------------------------------------------------
+   NotificationCard: one alert or question, read and answered in place. The kind
+   and severity are badges on the existing tones — a question reads gold like
+   every other thing that wants the person, critical takes the error tone — and
+   a settled card steps back to the secondary text colour, so the open ones lead
+   a list without a second palette. */
+
+.notification-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.notification-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.notification-card__meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.notification-card__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+/* Where it came from: the system as a badge and the place beside it above the
+   title, who asked and how under it, "Open in <System> ↗" at the foot. All on
+   the existing badge tones — the system badge stands out by weight, the via pill
+   by its outline, so an origin reads as context and never as a second state. */
+.notification-card__origin,
+.notification-card__asked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__place {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__footer {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.badge--notification-origin-system {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-origin-via {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+}
+
+.notification-card__body {
+    min-width: 0;
+}
+
+.notification-card__answer,
+.notification-card__open {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.notification-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+/* Seven or eight choices: an even grid that wraps, so a long row of buttons
+   never runs past the card and a long label breaks inside its button. */
+.notification-card__actions--many {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+
+.notification-card__actions--many .btn {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__note {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.notification-card__choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.notification-card__legend {
+    padding: 0;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__outcome {
+    margin: 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card--answered .notification-card__title,
+.notification-card--acknowledged .notification-card__title,
+.notification-card--closed .notification-card__title {
+    color: var(--color-text-secondary);
+}
+
+.badge--notification-question { background: var(--color-primary); color: var(--color-text-inverse); }
+.badge--notification-alert { background: var(--color-info); color: var(--color-text-primary); }
+/* The count of questions waiting on the shell's Notifications option: the question's gold,
+   as a small pill beside the label. */
+.badge--notification-waiting {
+    min-width: 1.25rem;
+    justify-content: center;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+.badge--severity-warning { background: var(--color-warning); color: var(--color-text-primary); }
+.badge--severity-critical { background: var(--color-error); color: var(--color-text-primary); }
+.badge--notification-state-answered { background: var(--color-success); color: var(--color-success-text); }
+.badge--notification-state-acknowledged { background: var(--color-background-raised); color: var(--color-text-secondary); }
+.badge--notification-state-closed { background: transparent; color: var(--color-text-disabled); border: var(--border-width) solid var(--color-border); }
+
+/* --- Cohesion board -----------------------------------------------------------
+   How the parts form a whole: the stage lanes and layer bands as a fixed-size
+   canvas that scrolls inside its own box, usages as absolutely placed buttons,
+   the edges as one SVG beneath them. A box's rung is its surface and edge — a
+   dashed edge for a candidate or an unrated usage, a struck name for a retired
+   one — so the rung reads as a shape as well as a hue. Dimmed boxes keep their
+   ink; only the surface and edge go quiet. Edges dim by opacity: they carry no
+   text, their labels are drawn only on the lit ones. */
+.cohesion {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.cohesion__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: stretch;
+}
+
+.cohesion__views {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    flex: 1 1 22rem;
+    max-width: 36rem;
+}
+
+.cohesion__eyebrow,
+.cohesion__detail-link dt {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.cohesion__views .btn-group { flex-wrap: wrap; }
+
+.cohesion__view-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.cohesion__detail {
+    flex: 2 1 26rem;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    min-height: 7rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.cohesion__detail-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.cohesion__detail-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.cohesion__detail-title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.cohesion__detail-sub {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+}
+
+.cohesion__detail-actions {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.cohesion__detail-body {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.cohesion__detail-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.cohesion__detail-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.cohesion__detail-link dd {
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.cohesion__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.cohesion__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.cohesion__legend-pr {
+    width: 2.75rem;
+    height: 0.875rem;
+    border-left: 3px dashed var(--color-primary);
+}
+
+.cohesion__scroll {
+    overflow: auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.cohesion__canvas {
+    position: relative;
+    flex: none;
+}
+
+.cohesion__lane {
+    position: absolute;
+    top: 0;
+    box-sizing: border-box;
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 15px;
+    border-top: 3px solid var(--cohesion-lane-tone);
+    background: rgba(255, 255, 255, 0.035);
+    --cohesion-lane-tone: var(--color-secondary);
+}
+
+.cohesion__lane--odd { background: rgba(255, 255, 255, 0.018); }
+.cohesion__lane--first,
+.cohesion__lane--before { --cohesion-lane-tone: var(--color-primary); }
+.cohesion__lane--after { --cohesion-lane-tone: var(--color-secondary); }
+
+.cohesion__lane-number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-secondary);
+}
+
+.cohesion__lane-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--cohesion-lane-tone);
+    white-space: nowrap;
+}
+
+.cohesion__pr {
+    position: absolute;
+    top: 0;
+    border-left: 3px dashed var(--color-primary);
+}
+
+.cohesion__pr-label {
+    position: absolute;
+    left: 6px;
+    bottom: 2px;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    white-space: nowrap;
+}
+
+.cohesion__band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-radius: var(--border-radius-md);
+}
+
+.cohesion__band--1 { background: rgba(255, 255, 255, 0.06); }
+.cohesion__band--2 { background: rgba(255, 255, 255, 0.045); }
+.cohesion__band--3 { background: rgba(255, 255, 255, 0.03); }
+
+.cohesion__band-name {
+    position: absolute;
+    left: 40px;
+    top: 6px;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+
+.cohesion__edges {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.cohesion__edge {
+    color: var(--color-secondary);
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.cohesion__edge path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cohesion__edge .cohesion__head {
+    fill: currentColor;
+    stroke: none;
+}
+
+.cohesion__edge--dashed .cohesion__line { stroke-dasharray: 6 6; }
+
+.cohesion__edge--support { color: var(--color-border-strong); opacity: 0.8; }
+.cohesion__edge--support .cohesion__line { stroke-dasharray: 3 5; }
+
+.cohesion__edge--open-loop { color: var(--color-error-text); }
+
+.cohesion__legend .cohesion__edge { opacity: 1; }
+
+.cohesion__edge--dim { opacity: 0.1; }
+
+.cohesion__edge--picked,
+.cohesion__edge--forward,
+.cohesion__edge--back { opacity: 1; }
+
+.cohesion__edge--picked .cohesion__line,
+.cohesion__edge--forward .cohesion__line,
+.cohesion__edge--back .cohesion__line { stroke-width: 2.4; }
+
+.cohesion__edge--picked:not(.cohesion__edge--open-loop):not(.cohesion__edge--support) { color: var(--color-text-primary); }
+.cohesion__edge--forward:not(.cohesion__edge--open-loop) { color: var(--color-primary); }
+.cohesion__edge--back:not(.cohesion__edge--open-loop) { color: var(--color-text-primary); }
+
+.cohesion__node {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--spacing-xs) 10px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    --cohesion-meta: var(--color-secondary);
+}
+
+.cohesion__node--adopted { background: var(--color-success); border-color: var(--color-success-text); --cohesion-meta: var(--color-success-text); }
+.cohesion__node--trial { background: var(--color-warning); border-color: var(--color-primary-dark); --cohesion-meta: var(--color-primary); }
+.cohesion__node--candidate { background: var(--color-background-alt); border: 1.5px dashed var(--color-border-strong); }
+.cohesion__node--hold { background: var(--color-background-alt); border-color: var(--color-border-strong); }
+.cohesion__node--retired { color: var(--color-secondary); }
+.cohesion__node--unrated { border: 1.5px dashed var(--color-border); color: var(--color-text-secondary); }
+
+.cohesion__node--dim {
+    background: var(--color-background);
+    border-color: var(--color-border);
+}
+
+.cohesion__node--picked {
+    box-shadow: 0 0 0 3px var(--color-background), 0 0 0 5px var(--color-primary);
+}
+
+.cohesion__node:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 3px;
+}
+
+.cohesion__node-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+.cohesion__node--retired .cohesion__node-name { text-decoration: line-through; }
+
+.cohesion__node-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cohesion-meta);
+}
+
+.cohesion__scheduled {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cohesion__step {
+    position: absolute;
+    left: -9px;
+    top: -9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.cohesion__label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    padding: 2px 7px;
+    border: var(--border-width) solid var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.cohesion__label--open-loop { border-color: var(--color-error-text); }
+.cohesion__label--support { border-color: var(--color-border-strong); }
+
+.cohesion__platforms {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
@@ -23431,4 +25077,73 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
 
 .c4-diagram__arrowhead--related {
     fill: var(--color-primary);
+
+.cohesion__platforms-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.cohesion__platforms-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.cohesion__platforms-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.cohesion__platform-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.cohesion__platform {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 8px 0 16px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+}
+
+.cohesion__platform:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 3px;
+}
+
+.cohesion__platform-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.cohesion__platform--picked {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.cohesion__platform--picked .cohesion__platform-count {
+    background: var(--color-text-inverse);
+    color: var(--color-primary);
 }

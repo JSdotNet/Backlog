@@ -156,6 +156,34 @@ A sigil only opens a tag when nothing is welded to its left, so `bob@@example.co
         </div>
     </Story>
 
+    <Story Name="Links typed into the title"
+           Description="Nothing to switch on: a bare `http://` or `https://` address in a title is drawn in the link colour with a dotted underline where it stands, and the title stays verbatim — the rename field, the copy and every label still carry the raw string. `TaskItem` draws it through `TaskTitleText`, the same splitter that draws the tag chips, so a `#frag` inside an address is part of the address and never a chip.
+
+The address in the title is a span with no tab stop. A click on it opens the address in the browser (a new tab here, the system browser from the desktop app) and does not open the row, start a rename or start a drag. The row's badge slot holds `TaskTitleLinks`: one linked badge per distinct address, labelled with the host and named `Open` plus the whole address, which is the link a keyboard and a screen reader reach.
+
+Only http and https become links: `javascript:`, `data:`, `ftp://`, `mailto:` and a bare `www.` stay text. Trailing sentence punctuation and a closing bracket the address did not open stay outside it. Press a row's prose to open it and watch the line below; press its address and the line does not change."
+           Code="@TitleLinkCode">
+        <div class="sb-menu-wide" data-testid="task-list-title-links">
+            <TaskListView Tasks="@TitleLinks"
+                          OnToggle="_ => { }"
+                          OnSelected="id => _titleLinkOpened = id"
+                          OnRename="_ => { }"
+                          OnTagSelected="_ => { }"
+                          AriaLabel="Tasks with links in their titles"
+                          TestId="title-links" />
+            <p class="sb-label" data-testid="task-list-title-links-opened">Last row opened: @(_titleLinkOpened ?? "none")</p>
+        </div>
+    </Story>
+
+    <Story Name="The title's parts, for a host that draws its own title"
+           Description="The two components the row draws a title's addresses with, on their own. `TaskTitleText` draws the title's runs with no element of its own, so it goes inside whatever element the host's title already is; `Tags` turns its tags into chips, as the row does. `TaskTitleLinks` draws one linked badge per distinct address, and nothing for a title without one, so a host places it unconditionally in the slot beside its title. `TaskCard` and `TaskPanel` use both."
+           Code="@TitlePartsCode">
+        <div class="sb-stack" data-testid="task-list-title-parts">
+            <p><TaskTitleText Title="@TitleLinkSample" /></p>
+            <p><TaskTitleLinks Title="@TitleLinkSample" TestId="title-part-link" /></p>
+        </div>
+    </Story>
+
     <Story Name="Done moves to Completed"
            Description="`TaskListView` owns the Completed section: a finished row leaves the list and joins it, behind a count that folds. Folded by default.
 
@@ -231,6 +259,8 @@ While a row is in flight the list shows the order the drop would produce. The ke
     <Story Name="The host's own controls on a row"
            Description="`RowActions` is a slot at the end of the row, after the copy button, and it is handed the task it is about. Clicks stop at the slot, the same way they stop at the pencil.
 
+A control that should sit as quietly as the copy — like the push arrow here — wears `CssClass=&quot;task-item__action-button&quot;`: the copy's ink until the row is reached, and refused the way the copy is.
+
 `RowBadges` is its companion ahead of the link handle, for what the host knows about a task rather than what a reader sets on it — the desktop pane puts the latest pull request and session there. Every row is handed it; a row with nothing in it draws nothing.
 
 Unset, a row renders exactly the markup it rendered before the slot existed."
@@ -263,6 +293,23 @@ Every badge carries its full state twice, on its tooltip and as its `AriaLabel`,
                           RowBadges="@(task => WorkBadges(task))" />
         </div>
         <p class="sb-state" data-testid="task-list-work-badge-state">@(_lastSessionOpened is null ? "No session opened yet." : $"Opened session {_lastSessionOpened}.")</p>
+    </Story>
+
+    <Story Name="Finished sessions: still open, or archived"
+           Description="A finished session's badge also says whether the Claude desktop app still holds it open or has archived it, through `SessionPresence` on the `IntegrationLinkRef`: still open in the muted ink, archived in the quiet ink — information, never the disabled ink. A session with no desktop record to say — CLI-only, Copilot, another machine — keeps the plain finished look, because unknown is not open.
+
+Live first: a running or stalled session is drawn as live whatever its app holds. The word rides in the tooltip, the accessible name and the sr-only copy, so the ink is never the only carrier."
+           Code="@PresenceCode">
+        <div class="sb-row" data-testid="task-list-session-presence">
+            @foreach (var session in IntegrationFixtures.PresenceSessions)
+            {
+                <IntegrationLink Link="@session"
+                                 ShowTitle="false"
+                                 StateAsInk="true"
+                                 AriaLabel="@session.Title"
+                                 TestId="@($"session-presence-{session.Id}")" />
+            }
+        </div>
     </Story>
 
     <Story Name="Right-click, and what the host puts there"
@@ -349,6 +396,8 @@ It exists for the row that was projected from a document the task itself does no
         new("interaction-guidelines.md#keyboard-accessible-reordering", "The keys that move a row without a pointer."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why a rename and a tick commit without asking."),
         new("content-editing.md#task-structure", "The file a row is read out of and written back to."),
+        new("content-editing.md#inline-constructs", "Which schemes an address in a title may lead to."),
+        new("accessibility.md#target-sizes-and-text", "Why an address in a title is underlined as well as coloured."),
         new("typography-and-layout.md#metadata-lines", "How dates, repeats and tags are set beside a title.")
     ];
 
@@ -481,6 +530,34 @@ It exists for the row that was projected from a document the task itself does no
         new("t4", "Ask @bob about #bob", Group: "Tasks"),
         new("t5", "Ship the installer @bob #deploy", Group: "Tasks", Tags: ["@bob", "deploy"])
     ];
+
+    /// <summary>Addresses typed into titles: the case the feature came from, one beside tags,
+    /// two distinct addresses, one repeated, sentence punctuation and brackets around one, and the
+    /// schemes that stay text.</summary>
+    private static readonly IReadOnlyList<TaskRow> TitleLinks =
+    [
+        new("l1", "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr", Group: "Tasks"),
+        new("l2", "Fix #deploy https://example.com/runbook#rollback @bob", Group: "Tasks"),
+        new("l3", "Compare https://example.com/a with https://example.org/b", Group: "Tasks"),
+        new("l4", "Read https://example.com/a, then https://example.com/a again", Group: "Tasks"),
+        new("l5", "Notes (https://en.wikipedia.org/wiki/Foo_(bar)).", Group: "Tasks"),
+        new("l6", "Stays text: javascript:alert(1) ftp://files.example.com www.example.com", Group: "Tasks")
+    ];
+
+    private const string TitleLinkSample = "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr";
+
+    private string? _titleLinkOpened;
+
+    private const string TitleLinkCode = """
+        // Nothing to switch on: the row reads the title it was given, and draws the
+        // link beside it in its badge slot whether or not the host passes Badges.
+        new TaskRow("id", "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr")
+        """;
+
+    private const string TitlePartsCode = """
+        <h2 class="my-title"><TaskTitleText Title="@title" /></h2>
+        <span class="my-badges"><TaskTitleLinks Title="@title" /></span>
+        """;
 
     /// <summary>Linked tasks: one per flag the sync or the write-back can leave, one from a connector
     /// this build does not know, and one local task for contrast.</summary>
@@ -804,6 +881,7 @@ It exists for the row that was projected from a document the task itself does no
     private RenderFragment HostActions(TaskRow task) =>
         @<text>
             <IconButton BaseClass="btn btn--icon"
+                        CssClass="task-item__action-button"
                         AriaLabel="@($"Push {task.Title}")"
                         TestId="@($"row-actions-{task.Id}-push")"
                         OnClick='() => Record("Pushed", task)'>↑</IconButton>
@@ -858,6 +936,21 @@ It exists for the row that was projected from a document the task itself does no
                          OnOpen="@(link => _lastSessionOpened = link.Id)"
                          TestId="@($"work-badges-{task.Id}-session")" />
     };
+
+    private const string PresenceCode = """
+        <IntegrationLink Link="@archived" ShowTitle="false" StateAsInk="true" AriaLabel="@archived.Title" />
+
+        @code {
+            // Finished, and the desktop app archived it: the quiet ink, "archived" in the words.
+            private readonly IntegrationLinkRef archived = new("c04e8a57", IntegrationProvider.Claude,
+                IntegrationLinkKind.Session, "c04e8a57",
+                "Session c04e8a57 · finished, archived — open in Sessions",
+                SessionState: IntegrationSessionState.Finished)
+            {
+                SessionPresence = IntegrationSessionPresence.Archived
+            };
+        }
+        """;
 
     private const string WorkBadgeCode = """
         <IntegrationLink Link="@pullRequest" ShowTitle="false" AriaLabel="@pullRequest.Title" />
@@ -929,7 +1022,7 @@ It exists for the row that was projected from a document the task itself does no
 
         @code {
             private RenderFragment Actions(TaskRow task) =>
-                @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
+                @<IconButton AriaLabel="@($"Push {task.Title}")" CssClass="task-item__action-button" OnClick="() => Push(task)">↑</IconButton>;
         }
         """;
 

@@ -156,6 +156,73 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         });
     }
 
+    /// <summary>Most of a folded row is not its title: a press on the bar, the line, the
+    /// forecast or the space between them opens the goal as the title does.</summary>
+    [Theory]
+    [InlineData("bar")]
+    [InlineData("meta")]
+    [InlineData("forecast")]
+    [InlineData("head")]
+    public void A_folded_goal_opens_on_a_press_anywhere_on_its_head_row(string part)
+    {
+        var board = RenderBoard();
+
+        board.Find($"[data-testid='goals-board-goal-search-{part}']").Click();
+
+        board.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", board.Find("[data-testid='goals-board-goal-search']").GetAttribute("data-expanded"));
+            Assert.Equal("false", board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-expanded"));
+        });
+    }
+
+    [Fact]
+    public void A_press_on_the_open_goals_head_folds_it_and_a_press_in_its_body_does_not()
+    {
+        var board = RenderBoard(more: p => p
+            .Add(c => c.OnEditGoal, (GoalEditRequest _) => { })
+            .Add(c => c.OnDeleteGoal, (string _) => { }));
+
+        // Delete goal… sits in the body: it asks, and the goal stays open.
+        board.Find("[data-testid='goals-board-goal-paid-delete']").Click();
+        board.WaitForAssertion(() => board.Find("[data-testid='goals-board-delete-confirm']"));
+        Assert.Equal("true", board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-expanded"));
+        board.Find("[data-testid='goals-board-delete-confirm-no']").Click();
+
+        board.Find("[data-testid='goals-board-goal-paid-meta']").Click();
+
+        board.WaitForAssertion(() =>
+            Assert.Equal("false", board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-expanded")));
+    }
+
+    /// <summary>The title is still the one control a keyboard reaches, and a press on it
+    /// toggles once, not once for it and again for the row around it.</summary>
+    [Fact]
+    public void The_head_shows_a_chevron_that_turns_open_and_the_title_keeps_its_disclosure_state()
+    {
+        var board = RenderBoard();
+
+        var open = board.Find("[data-testid='goals-board-goal-paid-chevron']");
+        var folded = board.Find("[data-testid='goals-board-goal-search-chevron']");
+        Assert.Contains("goal-card__chevron--open", open.ClassList);
+        Assert.DoesNotContain("goal-card__chevron--open", folded.ClassList);
+        Assert.Equal("true", folded.GetAttribute("aria-hidden"));
+        Assert.NotNull(folded.QuerySelector("svg.chevron-up-icon"));
+
+        var toggle = board.Find("[data-testid='goals-board-goal-paid-toggle']");
+        Assert.Equal("true", toggle.GetAttribute("aria-expanded"));
+        Assert.NotNull(toggle.GetAttribute("aria-controls"));
+
+        board.Find("[data-testid='goals-board-goal-paid-toggle']").Click();
+
+        board.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-expanded"));
+            Assert.Equal("false", board.Find("[data-testid='goals-board-goal-paid-toggle']").GetAttribute("aria-expanded"));
+            Assert.DoesNotContain("goal-card__chevron--open", board.Find("[data-testid='goals-board-goal-paid-chevron']").ClassList);
+        });
+    }
+
     /// <summary>A host bound to the selection hears the goal the board opened on its own.</summary>
     [Fact]
     public void Opening_the_first_goal_on_its_own_tells_the_host()
@@ -260,6 +327,243 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Empty(GoalCard.Match(Board.Candidates, "  "));
     }
 
+    private static readonly GoalSubject Schuld = GoalSubject.ForPlan("schuldregeling-financieel");
+
+    private static readonly GoalsItem[] Sigils =
+    [
+        new(Schuld, "schuldregeling-financieel"),
+        new(Terms, "+1 for the retry banner"),
+        new(Widget, "#hashtag cleanup"),
+        new(Webhook, "Payment status webhook")
+    ];
+
+    /// <summary>The app writes a plan tag as <c>+slug</c>, so that is what a person types;
+    /// the plan's title is the bare slug. The defect: <c>+slug</c> never matched it.</summary>
+    [Theory]
+    [InlineData("+schuldregeling-financieel")]
+    [InlineData("+Schuldregeling")]
+    [InlineData("schuldregeling")]
+    [InlineData("#schuldregeling")]
+    [InlineData("  +SCHULDREGELING-fin  ")]
+    public void A_plan_is_matched_by_its_tag_with_or_without_its_sigil(string query)
+    {
+        Assert.Equal([Schuld], GoalCard.Match(Sigils, query).Select(m => m.Subject));
+        Assert.Equal([Schuld], GoalCard.Match(Sigils, query, ["JSdotNet/Backlog"]).Select(m => m.Subject));
+    }
+
+    /// <summary>A title that really holds a sigil still matches as typed, and a number still
+    /// finds its pull request with or without the <c>#</c>.</summary>
+    [Fact]
+    public void A_title_holding_a_sigil_matches_as_typed_and_a_number_still_finds_its_pull_request()
+    {
+        Assert.Equal([Terms], GoalCard.Match(Sigils, "+1 for").Select(m => m.Subject));
+        Assert.Equal([Widget], GoalCard.Match(Sigils, "#hashtag").Select(m => m.Subject));
+        Assert.Equal([Webhook], GoalCard.Match(Sigils, "#135").Select(m => m.Subject));
+        Assert.Equal([Webhook], GoalCard.Match(Sigils, "135").Select(m => m.Subject));
+        Assert.Equal([Webhook], GoalCard.Match(Sigils, "webhook").Select(m => m.Subject));
+    }
+
+    /// <summary>A sigil alone holds nothing to match once dropped: it matches as typed only.</summary>
+    [Theory]
+    [InlineData("+")]
+    [InlineData("#")]
+    public void A_sigil_alone_matches_only_the_titles_that_hold_it(string query)
+    {
+        var matches = GoalCard.Match(Sigils, query).Select(m => m.Subject).ToList();
+
+        Assert.DoesNotContain(Schuld, matches);
+        Assert.DoesNotContain(Webhook, matches);
+    }
+
+    private IRenderedComponent<GoalCard> RenderQuickAddCard(Action<ComponentParameterCollectionBuilder<GoalCard>>? more = null) =>
+        _context.Render<GoalCard>(p =>
+        {
+            p.Add(c => c.Goal, Paid).Add(c => c.Expanded, true).Add(c => c.Candidates, Board.Candidates).Add(c => c.TestId, "goal");
+            more?.Invoke(p);
+        });
+
+    [Fact]
+    public void With_a_host_listening_the_matches_end_with_a_new_task_row_that_hands_back_the_trimmed_title()
+    {
+        var added = new List<string>();
+        var card = RenderQuickAddCard(p => p.Add(c => c.OnQuickAdd, (string title) => added.Add(title)));
+
+        Assert.Empty(card.FindAll("[data-testid='goal-quick-add']"));
+        card.Find("[data-testid='goal-attach'] input").Input("  pay  ");
+
+        card.WaitForAssertion(() =>
+        {
+            var rows = card.FindAll("[data-testid='goal-matches'] .goal-card__match");
+            Assert.Equal(4, rows.Count);
+            Assert.Equal("goal-quick-add", rows[^1].GetAttribute("data-testid"));
+            Assert.Equal("New task “pay”", Normalise(rows[^1].QuerySelector(".goal-card__match-title")!.TextContent));
+        });
+
+        card.Find("[data-testid='goal-quick-add']").Click();
+
+        card.WaitForAssertion(() => Assert.Equal(["pay"], added));
+    }
+
+    [Fact]
+    public void The_new_task_row_shows_even_when_nothing_matches()
+    {
+        var card = RenderQuickAddCard(p => p.Add(c => c.OnQuickAdd, (string _) => { }));
+
+        card.Find("[data-testid='goal-attach'] input").Input("Bank export");
+
+        card.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(card.FindAll("[data-testid='goal-matches'] .goal-card__match"));
+            Assert.Equal("New task “Bank export”", Normalise(row.QuerySelector(".goal-card__match-title")!.TextContent));
+        });
+    }
+
+    /// <summary>The storybook and the phone hand no listener: the card behaves as before.</summary>
+    [Fact]
+    public void Without_a_listener_there_is_no_new_task_row()
+    {
+        var card = RenderQuickAddCard();
+
+        card.Find("[data-testid='goal-attach'] input").Input("Bank export");
+
+        Assert.Empty(card.FindAll("[data-testid='goal-quick-add']"));
+        Assert.Empty(card.FindAll("[data-testid='goal-matches']"));
+    }
+
+    [Fact]
+    public void While_the_host_writes_the_new_task_row_waits()
+    {
+        var card = RenderQuickAddCard(p => p.Add(c => c.OnQuickAdd, (string _) => { }).Add(c => c.Busy, true));
+
+        card.Find("[data-testid='goal-attach'] input").Input("Bank export");
+
+        card.WaitForAssertion(() => Assert.True(card.Find("[data-testid='goal-quick-add']").HasAttribute("disabled")));
+    }
+
+    /// <summary>A refused quick add leaves the goal as it was: the typed text stays, so the
+    /// person can change it and try again.</summary>
+    [Fact]
+    public void A_quick_add_the_goal_does_not_take_keeps_the_typed_text()
+    {
+        var card = RenderQuickAddCard(p => p.Add(c => c.OnQuickAdd, (string _) => { }));
+        card.Find("[data-testid='goal-attach'] input").Input("Bank export");
+        card.WaitForAssertion(() => card.Find("[data-testid='goal-quick-add']"));
+
+        card.Find("[data-testid='goal-quick-add']").Click();
+
+        card.WaitForAssertion(() =>
+        {
+            Assert.Equal("Bank export", card.Find("[data-testid='goal-attach'] input").GetAttribute("value"));
+            Assert.NotNull(card.Find("[data-testid='goal-quick-add']"));
+        });
+    }
+
+    [Fact]
+    public void The_new_task_row_on_the_board_names_the_goal_it_was_typed_in()
+    {
+        GoalQuickAddRequest? request = null;
+        var board = RenderBoard(more: p => p
+            .Add(c => c.OnQuickAddTask, (GoalQuickAddRequest r) => request = r)
+            .Add(c => c.TestId, "board"));
+
+        board.Find("[data-testid='board-goal-paid-attach'] input").Input(" Bank export ");
+        board.WaitForAssertion(() => board.Find("[data-testid='board-goal-paid-quick-add']"));
+        board.Find("[data-testid='board-goal-paid-quick-add']").Click();
+
+        board.WaitForAssertion(() => Assert.Equal(new GoalQuickAddRequest("paid", "Bank export"), request));
+    }
+
+    [Fact]
+    public void Without_a_quick_add_listener_the_board_offers_no_new_task_row()
+    {
+        var board = RenderBoard(more: p => p.Add(c => c.TestId, "board"));
+
+        board.Find("[data-testid='board-goal-paid-attach'] input").Input("Bank export");
+
+        Assert.Empty(board.FindAll("[data-testid='board-goal-paid-quick-add']"));
+    }
+
+    [Fact]
+    public void A_pull_request_number_no_candidate_holds_is_offered_in_each_repository_in_scope_first()
+    {
+        var matches = GoalCard.Match(Board.Candidates, "#1477", ["JSdotNet/Backlog", "JSdotNet/Marketplace"]);
+
+        Assert.Equal(
+            [GoalSubject.ForPullRequest("JSdotNet/Backlog", 1477), GoalSubject.ForPullRequest("JSdotNet/Marketplace", 1477)],
+            matches.Select(m => m.Subject));
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Marketplace"], matches.Select(m => m.Title));
+    }
+
+    [Fact]
+    public void A_bare_pull_request_number_is_offered_in_every_registered_repository_past_the_match_limit()
+    {
+        string[] repositories = [.. Enumerable.Range(1, GoalCard.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
+
+        var matches = GoalCard.Match(Board.Candidates, "#1477", repositories);
+
+        Assert.Equal(
+            repositories.Select(repository => GoalSubject.ForPullRequest(repository, 1477)),
+            matches.Select(m => m.Subject));
+    }
+
+    [Fact]
+    public void The_match_limit_caps_only_the_candidate_matches_after_the_named_pull_requests()
+    {
+        string[] repositories = [.. Enumerable.Range(1, GoalCard.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
+        GoalsItem[] candidates =
+        [
+            .. Enumerable.Range(0, GoalCard.MatchLimit + 3)
+                .Select(n => new GoalsItem(GoalSubject.ForPullRequest("JSdotNet/Other", 50 + n), $"Change {n}")),
+        ];
+
+        var matches = GoalCard.Match(candidates, "5", repositories);
+
+        Assert.Equal(repositories.Length + GoalCard.MatchLimit, matches.Count);
+        Assert.All(matches.Take(repositories.Length), m => Assert.Equal(5, m.Subject.Number));
+    }
+
+    [Theory]
+    [InlineData("#1357")]
+    [InlineData("1357")]
+    [InlineData("jsdotnet/backlog#1357")]
+    [InlineData("https://github.com/JSdotNet/Backlog/pull/1357")]
+    public void A_pull_request_a_candidate_holds_is_listed_once_as_the_candidate(string query)
+    {
+        var match = Assert.Single(GoalCard.Match(Board.Candidates, query, ["JSdotNet/Backlog"]));
+
+        Assert.Equal(new GoalsItem(Webhook, "Payment status webhook"), match);
+    }
+
+    [Fact]
+    public void A_query_that_names_no_pull_request_matches_as_before()
+    {
+        Assert.Equal(GoalCard.Match(Board.Candidates, "pay"), GoalCard.Match(Board.Candidates, "pay", ["JSdotNet/Backlog"]));
+        Assert.Equal(GoalCard.Match(Board.Candidates, "#135"), GoalCard.Match(Board.Candidates, "#135", []));
+    }
+
+    [Fact]
+    public void The_open_goal_attaches_a_pull_request_by_its_number_in_the_repository_the_board_names()
+    {
+        GoalAttachRequest? attached = null;
+        var board = RenderBoard(Board with { Repositories = ["JSdotNet/Backlog"] }, p => p
+            .Add(c => c.OnAttach, (GoalAttachRequest request) => attached = request)
+            .Add(c => c.TestId, "board"));
+
+        board.Find("[data-testid='board-goal-paid-attach'] input").Input("#1477");
+
+        var subject = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1477);
+        board.WaitForAssertion(() =>
+        {
+            var match = board.Find($"[data-testid='board-goal-paid-match-{subject.Key}']");
+            Assert.Equal("PR", match.QuerySelector(".goal-card__match-kind")!.TextContent);
+            Assert.Equal("#1477 JSdotNet/Backlog", Normalise(match.QuerySelector(".goal-card__match-title")!.TextContent));
+        });
+
+        board.Find($"[data-testid='board-goal-paid-match-{subject.Key}']").Click();
+
+        board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", subject), attached));
+    }
+
     [Fact]
     public void No_goal_lists_what_no_goal_holds_and_attaches_to_the_open_goal()
     {
@@ -282,6 +586,223 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         attach.Click();
 
         board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", Vat), request));
+    }
+
+    private static List<string> NoGoalRows(IRenderedComponent<GoalsBoard> board) =>
+        [.. board.FindAll(".goals-board__no-goal-item").Select(item => Normalise(item.TextContent))];
+
+    [Fact]
+    public void No_goal_filters_its_rows_live_as_the_attach_search_matches_and_clearing_shows_them_all()
+    {
+        var board = RenderBoard();
+        var search = board.Find("[data-testid='goals-board-no-goal-search'] input");
+        Assert.Equal("Search work with no goal", search.GetAttribute("aria-label"));
+
+        search.Input("VAT");
+        board.WaitForAssertion(() => Assert.Equal(["VAT rate per line item"], NoGoalRows(board)));
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("#135");
+        board.WaitForAssertion(() => Assert.Equal(["#1357 Payment status webhook"], NoGoalRows(board)));
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("+payment");
+        board.WaitForAssertion(() => Assert.Equal(["#1357 Payment status webhook"], NoGoalRows(board)));
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input(string.Empty);
+        board.WaitForAssertion(() => Assert.Equal(2, NoGoalRows(board).Count));
+        Assert.Empty(board.FindAll("[data-testid='goals-board-no-goal-none']"));
+    }
+
+    [Fact]
+    public void A_no_goal_search_that_hides_every_row_says_no_matches()
+    {
+        var board = RenderBoard();
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("nothing like it");
+
+        board.WaitForAssertion(() =>
+        {
+            Assert.Empty(NoGoalRows(board));
+            Assert.Equal("No matches", board.Find("[data-testid='goals-board-no-goal-none']").TextContent.Trim());
+            Assert.Equal("status", board.Find("[data-testid='goals-board-no-goal-none']").GetAttribute("role"));
+            // The section and its search stay, so the query can be changed.
+            Assert.NotNull(board.Find("[data-testid='goals-board-no-goal-search'] input"));
+        });
+    }
+
+    [Fact]
+    public void Attach_on_a_filtered_no_goal_row_attaches_that_rows_work()
+    {
+        GoalAttachRequest? request = null;
+        var board = RenderBoard(more: p => p.Add(c => c.OnAttach, (GoalAttachRequest r) => request = r));
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("webhook");
+        board.WaitForAssertion(() => Assert.Single(NoGoalRows(board)));
+        board.Find($"[data-testid='goals-board-attach-{Webhook.Key}']").Click();
+
+        board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", Webhook), request));
+    }
+
+    // --- Reordering the goals ---------------------------------------------------
+
+    private static readonly GoalCardModel Phone = new(
+        "phone", "Phone capture in daily use", Oct(30), null, false, new GoalCounts(3, 10, 1, 0, 6, 1), [], [], []);
+
+    private static readonly GoalsBoardModel Three = Board with { Goals = [Paid, Search, Phone] };
+
+    private static List<string> GoalOrder(IRenderedComponent<GoalsBoard> board) =>
+        [.. board.FindAll(".goal-card").Select(card => card.GetAttribute("data-testid")!)];
+
+    private IRenderedComponent<GoalsBoard> RenderReorderable(List<GoalMoveRequest> moves, GoalsBoardModel? model = null) =>
+        RenderBoard(model ?? Three, p => p.Add(c => c.OnMoveGoal, (GoalMoveRequest request) => moves.Add(request)));
+
+    [Fact]
+    public void With_a_host_listening_each_goal_has_a_grip_and_move_up_and_down_named_for_it_and_dead_at_the_ends()
+    {
+        var board = RenderReorderable([]);
+
+        var paid = board.Find("[data-testid='goals-board-goal-paid']");
+        Assert.Equal("paid", paid.GetAttribute("data-reorder-item"));
+        Assert.Equal("true", paid.GetAttribute("data-draggable"));
+        Assert.NotNull(paid.QuerySelector("[data-reorder-grip]"));
+
+        var up = board.Find("[data-testid='goals-board-goal-paid-move-up']");
+        var down = board.Find("[data-testid='goals-board-goal-paid-move-down']");
+        Assert.Equal("Move Customers get paid faster up", up.GetAttribute("aria-label"));
+        Assert.Equal("Move Customers get paid faster down", down.GetAttribute("aria-label"));
+        Assert.True(up.HasAttribute("disabled"));
+        Assert.False(down.HasAttribute("disabled"));
+        Assert.True(board.Find("[data-testid='goals-board-goal-phone-move-down']").HasAttribute("disabled"));
+        Assert.NotNull(board.Find("[data-list-owner]"));
+    }
+
+    [Fact]
+    public void Without_a_host_listening_no_goal_can_be_moved()
+    {
+        var board = RenderBoard(Three);
+
+        Assert.Empty(board.FindAll("[data-reorder-grip]"));
+        Assert.Empty(board.FindAll("[data-testid$='-move-up']"));
+        Assert.Null(board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-reorder-item"));
+    }
+
+    /// <summary>Move down hands the goal's new place back, draws the new order at once and
+    /// says it; the press neither opens nor folds the goal.</summary>
+    [Fact]
+    public void Move_down_hands_the_new_place_back_shows_the_order_at_once_and_says_it()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+
+        board.Find("[data-testid='goals-board-goal-paid-move-down']").Click();
+
+        board.WaitForAssertion(() =>
+        {
+            Assert.Equal([new GoalMoveRequest("paid", 1)], moves);
+            Assert.Equal(["goals-board-goal-search", "goals-board-goal-paid", "goals-board-goal-phone"], GoalOrder(board));
+            Assert.Equal("Moved Customers get paid faster to position 2 of 3.", board.Find("[data-testid='goals-board-move-announcement']").TextContent.Trim());
+            Assert.Equal("polite", board.Find("[data-testid='goals-board-move-announcement']").GetAttribute("aria-live"));
+            Assert.Equal("true", board.Find("[data-testid='goals-board-goal-paid']").GetAttribute("data-expanded"));
+        });
+    }
+
+    [Fact]
+    public void Move_up_on_the_last_goal_hands_back_the_place_before_it()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+
+        board.Find("[data-testid='goals-board-goal-phone-move-up']").Click();
+
+        board.WaitForAssertion(() =>
+        {
+            Assert.Equal([new GoalMoveRequest("phone", 1)], moves);
+            Assert.Equal(["goals-board-goal-paid", "goals-board-goal-phone", "goals-board-goal-search"], GoalOrder(board));
+        });
+    }
+
+    /// <summary>The order drawn at once gives way to the host's next reading — the stored
+    /// order back, after a refusal.</summary>
+    [Fact]
+    public void A_new_reading_replaces_the_order_drawn_at_once()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+        board.Find("[data-testid='goals-board-goal-paid-move-down']").Click();
+        board.WaitForAssertion(() => Assert.Single(moves));
+
+        board.Render(p => p.Add(c => c.Model, Three with { }));
+
+        Assert.Equal(["goals-board-goal-paid", "goals-board-goal-search", "goals-board-goal-phone"], GoalOrder(board));
+    }
+
+    /// <summary>The drag is the shared pointer reorder's (components.js): it reports the goal
+    /// picked up and the goal it is over, and a drop puts the goal in that one's place.</summary>
+    [Fact]
+    public async Task A_goal_dragged_onto_another_takes_its_place()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+        Assert.Contains(_context.JSInterop.Invocations, call => call.Identifier == "backlogListReorder.register");
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+
+        // While held, the board shows where the goal would land.
+        Assert.Equal(["goals-board-goal-phone", "goals-board-goal-paid", "goals-board-goal-search"], GoalOrder(board));
+        Assert.Contains("goal-card--dragging", board.Find("[data-testid='goals-board-goal-phone']").ClassList);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Equal([new GoalMoveRequest("phone", 0)], moves);
+        Assert.Equal(["goals-board-goal-phone", "goals-board-goal-paid", "goals-board-goal-search"], GoalOrder(board));
+    }
+
+    /// <summary>The held goal is drawn in its target's place, so the pointer then sits over
+    /// the held goal itself, or over the gap between two cards. Neither is a new target: the
+    /// last goal it was over stays the target, and the drop moves the goal there.</summary>
+    [Fact]
+    public async Task Passing_over_the_held_goal_or_a_gap_keeps_the_last_target()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        Assert.Equal(["goals-board-goal-search", "goals-board-goal-phone", "goals-board-goal-paid"], GoalOrder(board));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver(null));
+        Assert.Equal(["goals-board-goal-search", "goals-board-goal-phone", "goals-board-goal-paid"], GoalOrder(board));
+
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Equal([new GoalMoveRequest("paid", 2)], moves);
+    }
+
+    [Fact]
+    public async Task A_drag_that_never_reached_another_goal_or_was_cancelled_moves_nothing()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var board = RenderReorderable(moves);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragCancel());
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver(null));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Empty(moves);
+        Assert.Equal(["goals-board-goal-paid", "goals-board-goal-search", "goals-board-goal-phone"], GoalOrder(board));
+    }
+
+    [Fact]
+    public void While_the_host_writes_the_moves_wait()
+    {
+        var board = RenderBoard(Three, p => p.Add(c => c.OnMoveGoal, (GoalMoveRequest _) => { }).Add(c => c.Busy, true));
+
+        Assert.True(board.Find("[data-testid='goals-board-goal-paid-move-down']").HasAttribute("disabled"));
     }
 
     [Fact]
@@ -760,9 +1281,9 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     {
         var dialog = _context.Render<GoalCreateDialog>(p => p
             .Add(c => c.Open, true)
-            .Add(c => c.Error, "A goal needs a due date."));
+            .Add(c => c.Error, "A goal needs a title."));
 
-        Assert.Equal("A goal needs a due date.", dialog.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim());
+        Assert.Equal("A goal needs a title.", dialog.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim());
         Assert.Equal("date", dialog.Find("[data-testid='goal-create-dialog-due'] input").GetAttribute("type"));
     }
 

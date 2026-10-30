@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-13
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/color-scheme.md#band-identity-tokens", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#bi-directional-linking", ".devbook/arc42/12-glossary.md#terms"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/color-scheme.md#band-identity-tokens", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/brain/features.md#bi-directional-linking", ".devbook/arc42/12-glossary.md#terms"]
 c4: [backlog.desktop.shell]
 c4-touches: [backlog.desktop.devbook, backlog.desktop.backlogModule, backlog.desktop.roadmap]
 ```

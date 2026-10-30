@@ -9,19 +9,19 @@ without its owner.
 | What | Name |
 | --- | --- |
 | This session | `<tag>:execute-plan`, plus ` @<repo>` when the plan's entries span more than one repository |
-| Each sub-agent | `<tag>:<n> - <Title>` — the name `run-plan-item` would give the entry's own session — as the label the host shows for it |
+| Each entry session | Its title `<tag>:<n> - <Title>`, cut to 60 characters — the name `run-plan-item` gives the entry's own session — passed to `start_session` |
 | A handoff session | Titles itself by the first row, in its own repository |
 
-The session is titled once, before Graph, where the host allows it. The sub-agent label is
+The session is titled once, before Graph, where the host allows it. An entry session's title is
 separate from the brief: the plan-progress band keys on the brief's first line, never on the
-label.
+title.
 
 ## Handoff
 
 Each session owns the entries of its own checkout's repository: only those are ever ready,
 dispatched or started an app for, and Stop counts only those. An entry that would be ready but
-for its `repo:` — a *foreign* entry — is never dispatched from here, because a sub-agent works
-in this checkout's worktrees only. It is handed to a session in its own repository instead,
+for its `repo:` — a *foreign* entry — is never dispatched from here, because the session in
+that repository owns its landing, its manual entries and its Stop. It is handed to a session in its own repository instead,
 which runs this skill for the same plan.
 
 - **When.** At Dispatch and at Stop, for a repository with a foreign entry and **no entry In

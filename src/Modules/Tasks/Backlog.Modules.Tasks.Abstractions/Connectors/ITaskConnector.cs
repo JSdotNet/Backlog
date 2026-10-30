@@ -190,13 +190,17 @@ public sealed record TaskConnectorDescriptor(string Id, string DisplayName, stri
 /// <c>owner/name</c>, so the sync files each of its linked tasks under that
 /// repository — the one thing the sync learns from a target's name. Off for a
 /// source whose targets are anything else, such as a product.</param>
+/// <param name="HasQuestions">The source asks the person questions about its items,
+/// which reach them as notifications, so the settings page offers "Only questions
+/// assigned to me" for its targets.</param>
 public sealed record TaskConnectorCapabilities(
     bool HasEffort = false,
     bool HasDependencies = false,
     bool CanSetStatus = false,
     bool CanComment = false,
     bool CanComplete = false,
-    bool TargetIsRepository = false);
+    bool TargetIsRepository = false,
+    bool HasQuestions = false);
 
 /// <summary>
 /// The four states every source's statuses are normalised to. One map turns each

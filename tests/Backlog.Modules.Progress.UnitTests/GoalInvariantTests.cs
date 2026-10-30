@@ -31,16 +31,27 @@ public sealed class GoalInvariantTests
         Assert.Equal("Customers get paid faster", Goal.Create(Guid.NewGuid(), "  Customers get paid faster ", null, MakeGoal.Due).Value.Title);
     }
 
-    // --- Invariant: A goal has a due date ----------------------------------------
+    // --- A due date is optional (domain.md#goal) ---------------------------------
 
     [Fact]
-    public void A_goal_without_a_due_date_is_refused()
+    public void A_goal_without_a_due_date_is_set_without_one()
     {
-        Assert.Equal("progress.goal_without_due_date", Goal.Create(Guid.NewGuid(), "Customers get paid faster", null, null).Error.Code);
+        var goal = Goal.Create(Guid.NewGuid(), "Customers get paid faster", null, null);
 
+        Assert.True(goal.IsSuccess);
+        Assert.Null(goal.Value.DueDate);
+    }
+
+    [Fact]
+    public void A_due_date_can_be_cleared_and_set_again()
+    {
         var goal = MakeGoal.Named();
-        Assert.Equal("progress.goal_without_due_date", goal.ChangeDueDate(null).Error.Code);
-        Assert.Equal(MakeGoal.Due, goal.DueDate);
+
+        Assert.True(goal.ChangeDueDate(null).IsSuccess);
+        Assert.Null(goal.DueDate);
+
+        Assert.True(goal.ChangeDueDate(new DateOnly(2026, 11, 6)).IsSuccess);
+        Assert.Equal(new DateOnly(2026, 11, 6), goal.DueDate);
     }
 
     // --- Invariant: An outcome is one line ---------------------------------------

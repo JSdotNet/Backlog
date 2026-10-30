@@ -142,6 +142,13 @@ public sealed record DeliveryRun(
     /// </summary>
     public DeliveryQualityFacts? Quality { get; init; }
 
+    /// <summary>
+    /// The run's Personal Validation decision as the run file's <c>approval</c> holds it,
+    /// or null where it holds none yet. What an orchestrator reads back to act on a gate
+    /// answered from a notification.
+    /// </summary>
+    public DeliveryRunApproval? Approval { get; init; }
+
     /// <summary>Whether a schedule fired the run rather than a person.</summary>
     public bool Scheduled => string.Equals(Trigger, DeliveryRunTriggers.Scheduled, StringComparison.OrdinalIgnoreCase);
 
@@ -182,6 +189,28 @@ public sealed record DeliveryRun(
 
     private readonly IReadOnlyList<string>? _runIds;
 }
+
+/// <summary>
+/// A run's Personal Validation decision, as the run file's <c>approval</c> records it
+/// (<c>.devbook/domain/notifications/features.md#asking-from-the-contexts</c>).
+/// </summary>
+/// <param name="Decision"><c>pending</c>, <c>approved</c> or <c>rejected</c>, verbatim, or
+/// null where only a note was recorded.</param>
+/// <param name="Note">The note recorded with it: the person's words for Revise and Approve +
+/// follow-up, a fixed note for Approve and Reject.</param>
+/// <param name="DecidedAt">When it was decided, where recorded.</param>
+/// <param name="Choice">Which answer the notification gave — the choice ids of
+/// <see cref="SessionNotificationSubjects"/>: <c>approve</c>, <c>approve-follow-up</c>,
+/// <c>revise</c> or <c>reject</c> — or null for a decision taken at the desktop. An open
+/// answer to a question an older build asked records as <c>revise</c>.</param>
+/// <param name="FollowUpEntryId">The follow-up entry an Approve + follow-up filed, or
+/// null.</param>
+public sealed record DeliveryRunApproval(
+    string? Decision,
+    string? Note,
+    DateTimeOffset? DecidedAt,
+    string? Choice = null,
+    Guid? FollowUpEntryId = null);
 
 /// <summary>What a run is linked to.</summary>
 public enum DeliveryRunReferenceKind
@@ -573,10 +602,11 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     public string Environment => Session?.Environment ?? First.Environment;
 
-    /// <summary>The session's title; for a row of scheduled runs the schedule's name,
-    /// since each run cut a worktree of its own and none of those names is the row's;
-    /// otherwise the run's worktree.</summary>
-    public string Title => Session?.Title ?? Schedule ?? First.WorktreeName;
+    /// <summary>The name the Claude desktop app's sidebar gives the session, where it
+    /// gives one (<see cref="AgentSession.DesktopTitle"/>), else the session's title;
+    /// for a row of scheduled runs the schedule's name, since each run cut a worktree of
+    /// its own and none of those names is the row's; otherwise the run's worktree.</summary>
+    public string Title => Session?.DesktopTitle ?? Session?.Title ?? Schedule ?? First.WorktreeName;
 
     /// <summary>The session's folder, where there is a session. A run knows only its
     /// worktree key, which is not a path anyone can open.</summary>

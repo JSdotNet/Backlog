@@ -12,7 +12,10 @@ type: stage
 ```meta
 status: adopted
 type: agent
-stage: [test]
+stage: [verify]
+substage: [verify/functional-qa]
+feeds: [".devbook/ai/03-test.md#personal-validation-gate: evidence"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#subagents", ".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/tech/testing.md#playwright"]
 related: [".devbook/ai/concepts.md#evidence-over-assertion"]
 date: 2026-09-25
@@ -36,8 +39,11 @@ and returns an evidence path for every scenario it reports.
 ```meta
 status: trial
 type: skill
-stage: [code, test]
+stage: [verify]
+substage: [verify/functional-qa]
+evidence: partial
 depends-on: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-plugin"]
+related: [".devbook/ai/03-test.md#qa-agent-on-the-running-application"]
 date: 2026-09-25
 ```
 
@@ -56,6 +62,7 @@ through `run` instead of guessing a command.
   `/debug`. There is no `show` procedure: a flow walks a change through `run` and `capture`,
   and a person on Claude Code who wants to see it working uses the built-in `/run`.
 - **Evidence** — none yet beyond the flows that started the application this way.
+- **Moves up when** — `capture` and `diagnose` show up in a run's evidence, not only `run`.
 - **Limits** — the body is the repository's to edit; the goal in the wrapper is not. Devbook
   also ships a `prototype` procedure, which this repository deliberately has not adopted.
 
@@ -64,7 +71,11 @@ through `run` instead of guessing a command.
 ```meta
 status: trial
 type: practice
-stage: [test]
+stage: [verify]
+layer: [thread]
+substage: [verify/spec-conformance]
+feeds: [".devbook/ai/03-test.md#personal-validation-gate: drift found"]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
 related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
 date: 2026-09-25
@@ -78,6 +89,7 @@ The flows' `phases` maps in `.devbook/config.json` hang the devbook skills on th
 - **Used for** — catching a chapter the change left behind before the person reviews it.
 - **Adopted by** — every flow run since 2026-09-25.
 - **Evidence** — none yet recorded against a pull request.
+- **Moves up when** — a drift catch is recorded against a pull request.
 - **Limits** — `verify-change` reports drift and writes nothing; the chapter is updated
   through `flow-spec`.
 
@@ -86,7 +98,9 @@ The flows' `phases` maps in `.devbook/config.json` hang the devbook skills on th
 ```meta
 status: adopted
 type: guardrail
-stage: [test, release]
+stage: [verify, integrate]
+substage: [verify/acceptance]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#delivery-engine"]
 related: [".devbook/ai/concepts.md#human-in-the-loop"]
 date: 2026-09-25

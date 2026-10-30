@@ -60,13 +60,34 @@ public sealed class GoalsTests : IDisposable
         Assert.Equal(1, _repository.Saves);
     }
 
-    /// <summary>Scenario "No due date": not saved.</summary>
+    /// <summary>Scenario "No due date": saved without one.</summary>
     [Fact]
-    public async Task A_goal_without_a_title_or_a_due_date_is_not_saved()
+    public async Task A_goal_without_a_due_date_is_saved_without_one()
     {
-        Assert.Equal("progress.goal_without_due_date", (await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation)).Error.Code);
+        var created = await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation);
+
+        Assert.True(created.IsSuccess);
+        Assert.Null(created.Value.DueDate);
+        Assert.Null((await Goals.GetAsync(created.Value.Id, Cancellation)).Value.DueDate);
+        Assert.Equal(1, _repository.Saves);
+    }
+
+    [Fact]
+    public async Task A_goal_without_a_title_is_not_saved()
+    {
         Assert.Equal("progress.goal_without_title", (await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Error.Code);
         Assert.Equal(0, _repository.Saves);
+    }
+
+    [Fact]
+    public async Task An_edit_without_a_due_date_clears_it()
+    {
+        var goal = await CreateAsync();
+
+        var edited = await Goals.EditAsync(goal.Id, Paid with { DueDate = null }, Cancellation);
+
+        Assert.True(edited.IsSuccess);
+        Assert.Null((await Goals.GetAsync(goal.Id, Cancellation)).Value.DueDate);
     }
 
     [Fact]
@@ -238,6 +259,106 @@ public sealed class GoalsTests : IDisposable
         Assert.Equal((1, 1, 0), (progress.Done, progress.Total, progress.DoneInWindow));
     }
 
+    // --- The person's order -----------------------------------------------------
+
+    /// <summary>Three goals set a minute apart, in that order.</summary>
+    private async Task<List<GoalDto>> SetThreeAsync()
+    {
+        List<GoalDto> set = [];
+        foreach (var title in new[] { "First", "Second", "Third" })
+        {
+            set.Add(await CreateAsync(title));
+            _time.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        return set;
+    }
+
+    private async Task<List<string>> TitlesAsync() =>
+        [.. (await Goals.ListAsync(cancellationToken: Cancellation)).Value.Select(summary => summary.Goal.Title)];
+
+    [Fact]
+    public async Task Goals_nobody_moved_are_listed_in_the_order_they_were_set_and_a_new_one_lands_last()
+    {
+        var set = await SetThreeAsync();
+        Assert.True((await Goals.MoveAsync(set[2].Id, 0, Cancellation)).IsSuccess);
+
+        await CreateAsync("Fourth");
+
+        Assert.Equal(["Third", "First", "Second", "Fourth"], await TitlesAsync());
+    }
+
+    /// <summary>A goal moved to the bottom is ranked past the newest goal's key, ahead of the
+    /// clock; a goal set straight after still lands below it, and its create is the one
+    /// write.</summary>
+    [Fact]
+    public async Task A_goal_set_after_one_was_moved_to_the_bottom_still_lands_last()
+    {
+        var set = await SetThreeAsync();
+        await Goals.MoveAsync(set[0].Id, 2, Cancellation);
+        var saves = _repository.Saves;
+
+        await CreateAsync("Fourth");
+        _time.Advance(TimeSpan.FromMinutes(1));
+        await CreateAsync("Fifth");
+
+        Assert.Equal(["Second", "Third", "First", "Fourth", "Fifth"], await TitlesAsync());
+        Assert.Equal(saves + 2, _repository.Saves);
+    }
+
+    [Fact]
+    public async Task A_move_puts_the_goal_at_its_place_writes_that_goal_once_and_is_announced_once()
+    {
+        var set = await SetThreeAsync();
+        var saves = _repository.Saves;
+        var heard = 0;
+        Goals.Changed += () => heard++;
+
+        var moved = await Goals.MoveAsync(set[0].Id, 2, Cancellation);
+
+        Assert.True(moved.IsSuccess);
+        Assert.Equal(["Second", "Third", "First"], await TitlesAsync());
+        Assert.Equal(saves + 1, _repository.Saves);
+        Assert.Equal(1, heard);
+    }
+
+    [Fact]
+    public async Task A_move_changes_nothing_the_goal_holds()
+    {
+        var set = await SetThreeAsync();
+        await Goals.AttachAsync(set[1].Id, GoalItemDto.ForPlan("bank"), cancellationToken: Cancellation);
+
+        await Goals.MoveAsync(set[1].Id, 0, Cancellation);
+
+        var goal = (await Goals.GetAsync(set[1].Id, Cancellation)).Value;
+        Assert.Equal(set[1] with { Attachments = goal.Attachments }, goal);
+        Assert.Equal(GoalItemDto.ForPlan("bank"), Assert.Single(goal.Attachments).Item);
+    }
+
+    [Fact]
+    public async Task A_goal_moved_to_the_place_it_holds_writes_nothing_and_says_nothing()
+    {
+        var set = await SetThreeAsync();
+        var saves = _repository.Saves;
+        var heard = 0;
+        Goals.Changed += () => heard++;
+
+        Assert.True((await Goals.MoveAsync(set[1].Id, 1, Cancellation)).IsSuccess);
+
+        Assert.Equal(saves, _repository.Saves);
+        Assert.Equal(0, heard);
+    }
+
+    [Fact]
+    public async Task Moving_a_goal_that_is_not_there_is_refused()
+    {
+        await SetThreeAsync();
+
+        var moved = await Goals.MoveAsync(Guid.NewGuid(), 0, Cancellation);
+
+        Assert.Equal("progress.goal_not_found", moved.Error.Code);
+    }
+
     // --- The notice --------------------------------------------------------------
 
     [Fact]
@@ -248,7 +369,7 @@ public sealed class GoalsTests : IDisposable
 
         var goal = await CreateAsync();
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForPlan("x"), cancellationToken: Cancellation);
-        await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation);
+        await Goals.CreateAsync(Paid with { Title = " " }, Cancellation);
         await Goals.DeleteAsync(goal.Id, Cancellation);
 
         Assert.Equal(3, heard);

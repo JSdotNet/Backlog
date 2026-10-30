@@ -87,6 +87,7 @@ serialize them to canonical Markdown.
 ### Inline Constructs
 
 ```meta
+related: [".devbook/design/content-editing.md#paste-behavior", ".devbook/design/interaction-guidelines.md#task-rows"]
 ```
 
 | Construct | Notes |
@@ -94,6 +95,8 @@ serialize them to canonical Markdown.
 | Bold, italic, strikethrough | `**`, `*`/`_`, `~~`. |
 | Inline code | Backticks; `font-family-mono`. |
 | Links | Editable target + text; keyboard-accessible link editing. A link is rendered as a link only when its scheme is `http`, `https`, `mailto`, or a relative path — anything else (`javascript:`, `data:`) MUST render as the literal text the author typed, still readable but inert. The read view is a webview, and an `href` is the one place typed text could otherwise become behaviour. |
+| Bare web addresses | A bare `http://` or `https://` address in prose renders as a link, the same anchor a written `[url](url)` draws. A `<…>` autolink with one of those two schemes does too, and its brackets are dropped. Every other address stays the literal text typed, bare or bracketed: `www.` without a scheme, `mailto:`, `ftp:` and the rest. An address runs to whitespace, `<` or `>`, then sheds trailing `.,:;!?*_~'"` and an unbalanced `)`, as GFM's extended autolinks do. A scheme glued to the word before it starts no link. A task title finds and ends its addresses the same way, per `interaction-guidelines.md#task-rows`. |
+| Addresses among other inlines | A code span, a written link or image, an autolink, or a footnote mark with a note behind it binds before an address. One that opens inside an address ends the address there. Emphasis, strikethrough and a tag do not bind first, so the `*`, `_`, `~` and `#` inside an address stay in it. An address inside code or inside emphasis is not linked. Linking is display only: the source keeps the text as typed, and `#paste-behavior` still governs what the editor inserts. |
 | `#tags` | Recognized inline per `.devbook/arc42/08-crosscutting-concepts.md#tagging-and-organization`; rendered as a subtle chip but stored as literal `#tag` text. |
 | Mentions / references | If supported, stored as their canonical Markdown/text form. |
 
@@ -177,7 +180,7 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
 | `effort:` | size in story points | `` `effort:5` `` — a non-negative whole number; not honoured on a `plan` entry |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
-| `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
+| `view:` | a retired body-view preference, kept as written | `` `view:steps` ``, `` `view:notes` `` |
 
 A full metadata line mixes both forms, sigils first:
 
@@ -221,9 +224,9 @@ although neither is saved yet and so neither has a real `task_id`:
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
-| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#task-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
-| A view is chosen, never derived onto the line | An entry nobody has expressed a preference about carries no `view:` token and MUST NOT acquire one by being saved — "absent means absent" applies here too. The surface picks a sensible reading for an entry with no token (an entry with no `##` chapters has no steps to list), and that choice stays in the surface: a default written into the text is a preference nobody made, and it would have to be unwritten from every entry before the default could change. |
-| Neither reading may hide text without saying so | The steps reading lists `##` chapters, so prose an entry opens with has no row. It is read out above them instead. Where a reading omits body text that exists, the surface MUST say so and offer the Markdown block in the same breath. Silently showing less than the entry holds reads as text the app has lost, which is the failure `#round-trip-fidelity` exists to prevent — only on screen rather than on disk. |
+| `view:` is kept, not read | `view:` once recorded which of two readings of the body an entry opened in: the steps list or the Markdown block. The desktop now shows the body as one Markdown editor with no second reading, so nothing reads the token and nothing writes it. The parser still reads it, refuses a value it does not know, and carries it through every save as written. It is persisted, synced text somebody may have typed. Dropping it would be the silent loss `#round-trip-fidelity` forbids. |
+| A view is never derived onto the line | An entry that carries no `view:` token MUST NOT acquire one by being saved. "Absent means absent" applies here too. |
+| No surface may hide body text without saying so | A surface that shows less of the body than the entry holds MUST say so and offer the whole text in the same breath. Silently showing less reads as text the app has lost. That is the failure `#round-trip-fidelity` exists to prevent, only on screen rather than on disk. The desktop detail shows the body whole, in one editor. |
 
 ## Live Parse Confirmation
 
@@ -335,7 +338,7 @@ Review surface: storybook → *Integrations* → **AI in the document**.
 ## Knowledge Metadata Blocks
 
 ```meta
-related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/content-editing.md#materialization"]
+related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/content-editing.md#materialization", ".devbook/domain/devbook/context.md#devbook-status"]
 ```
 
 > The repository's own documentation — `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
@@ -347,10 +350,11 @@ related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typogr
 | Rule | Requirement |
 |---|---|
 | Drawn against its subject | A block is drawn against the thing it describes and not as the fence it was written in. The subject is what decides the place, so the two levels land in two different ones. |
-| Chapter level | A chapter's block MUST be drawn folded into that chapter's heading, in the body, with the status held at the right edge of the heading's line. Every chapter that carries one shows one, so a reader scrolling a long file meets each chapter's currency where that chapter starts. |
+| Chapter level | A chapter's block MUST be drawn folded into that chapter's heading, in the body, with the status held at the right edge of the heading's line. While status is switched on, every chapter that carries one shows one, so a reader scrolling a long file meets each chapter's currency where that chapter starts. |
 | File level | A file's block MUST be drawn in the **header** of the surface reading the file, beside the name. The header is the part that stays on the screen while the body scrolls, and whether *the file* is current is not a question about the part of it currently in view. |
 | Once, never twice | A block drawn in the header MUST NOT also be drawn in the body — neither as a second record nor as the raw fence it would otherwise fall back to. Two answers to one question read as two facts. |
-| Status first, fields under | Both levels keep the record's two tiers: the status shares the line with the name or the heading it qualifies, everything else sits underneath, quieter and tighter. A surface reading rather than working on a file MAY show the status alone; it MUST NOT show the fields without it. |
+| Status first, fields under | Both levels keep the record's two tiers: the status shares the line with the name or the heading it qualifies, everything else sits underneath, quieter and tighter. A surface reading rather than working on a file MAY show the status alone; while status is switched on, it MUST NOT show the fields without it. |
+| Status switched off | The status display is a Devbook switch, off by default (`.devbook/domain/devbook/context.md#devbook-status`). Off, neither level draws a status, a decision state, or a finding about either, and the other fields stay drawn under the name or heading. A heading over an empty block still renders. Brain notes follow the same switch; whether a chapter offers Edit is a separate one, and a Brain note keeps Edit under both. |
 | Never invented | A status is never invented: none is defaulted to the first word the folder allows, and no empty row is drawn where a record would have been. Absent means absent (`README.md#status-vocabulary`). What that looks like depends on whether the folder lets a chapter state none. Where a status is required, a block stating nothing MUST draw nothing at either level. Where stating none is itself an answer, the record MUST stay and report it as such — an explicitly selected "No status" invents nothing, and it is what keeps clearing a status reversible: judged on the folder's word list alone the control would disappear the moment a reader used it. |
 | Opt-in | Reading a `meta` fence as a record is something a surface asks for. Everywhere else — an entry body somebody typed, a snippet quoted in a chat — a fence that happens to say `meta` stays the fenced block it has always been. |
 | Bounded chrome | A header identifies; it is not a second document. What the file-level record may add to one is bounded by `design-principles.md#low-chrome-content-first` — where the fields would crowd the name, a surface shows the status and leaves the rest to the body. |
@@ -361,13 +365,14 @@ and *Metadata* → **A chapter is a heading, a record, and prose**.
 ## Materialization
 
 ```meta
-related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/typography-and-layout.md#heading-defaults", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/typography-and-layout.md#heading-defaults", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/design/interaction-guidelines.md#undo-and-history"]
 ```
 
 | Piece | Where | Review surface |
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.SharedKernel/Markdown/MarkdownPreview.cs`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* for every block and inline; *Markdown document* for a section with copy, remarks and a way into the editor |
+| Live block editing | `MarkdownLiveEditor` over `MarkdownSourceBlocks` — the kernel that cuts the body into verbatim segments along `MdBlock.Source` and splices an edited one back with `Replace` — and `MarkdownLiveState`. Every block is rendered except the one holding the caret, which opens as its own source; lines no block claims show as a labelled raw passthrough. Undo and redo cover the whole document, not the open block: typing is grouped per word, ticks and joins are steps of their own, the newest 500 steps are kept, and the history is cleared when the host sets a new document. They are taken from Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y and the Edit menu. No product screen adopts it | Storybook → *Markdown* → *Live editing* |
 | Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare) and the file's own `meta` record — the status beside the name, where it stays while the body moves (`#knowledge-metadata-blocks`). A Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view*; *Markdown document* → **Reading a knowledge chapter** for a chapter's records in the body |
 | What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it: the description as prose, `applyTo` and `tools` as badges, and every other key the file wrote as a label and a value in that order. Asked for, never assumed, and the block leaves the read view when it is shown — `---` parses as a divider, so frontmatter otherwise reads as two rules around a run-together paragraph. Keys it does not draw are still drawn, because a view must not hide what it does not show; a buffer being edited keeps the block verbatim, since a save without those lines would drop them | Storybook → *File content* → **What the file says it is for** |
 | Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Two versions, aligned by the pane** |
@@ -376,23 +381,28 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
-| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either the steps reading (a read-only `MarkdownView` of the text it opens with, above a `TaskListView` of steps) or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **SplitPane**, **SplitPane, anchored to the end** |
-| The body's two readings | One region, switched by `view:` and remembered on the entry. The steps reading shows the prose the body opens with, read-only, above the steps, and the Markdown reading is where that prose is written. | Backlog pane → the **Steps** / **Markdown** tabs |
+| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as one `MarkdownEditor` over the whole text with no label above it (a step is a `##` chapter written there), the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **SplitPane**, **SplitPane, anchored to the end** |
+| The body | One `MarkdownEditor` over the prose and the `##` chapters together. A person adds, renames, reorders, ticks and deletes a step as text: `[x]` in its heading or `!done` on its line ticks it. There is no step list and no Steps / Markdown switch. A `view:` token is kept and not read (`#scheduling-and-dependency-tokens`). | Backlog pane → the open entry's body |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
 - **The editing model edits fields, and is not yet WYSIWYG.** The backlog's
-  detail pane edits an entry a field at a time: a title, a note, a step, a date,
-  a dependency. The canonical Markdown is a keyboard shortcut away. That is the
+  detail pane edits an entry a field at a time: a title, the body, a date, a
+  dependency. The canonical Markdown is a keyboard shortcut away. That is the
   escape hatch `#raw-markdown-escape-hatch` asks for, not the primary surface
   `#editing-model` rules out. What `#editing-model` still lacks is the rich-text
-  part. The note is a Markdown editor with a formatting toolbar, not a WYSIWYG
+  part. The body is a Markdown editor with a formatting toolbar, not a WYSIWYG
   view, and there is no slash menu (`#slash-and-inline-commands`) and no inline
   autoformat. Markdown being canonical is therefore trivially satisfied.
   `#round-trip-fidelity` is under pressure only where a field rewrite touches
   text it was not asked about, so each of those rewrites is scoped to one chapter
   and leaves the rest byte-for-byte.
+
+  Steps have no control of their own. A step is a `##` chapter, edited in the
+  body as source. The desktop detail therefore does not draw the sub-item
+  rendering `#task-structure` describes, indented with a strikethrough
+  done-state. A `scenario:` image in the body likewise shows as the text written.
 - **The escape hatch has a shortcut but not yet a command.**
   `#raw-markdown-escape-hatch` asks for the raw view to be reachable "via a
   command and keyboard shortcut". Ctrl+Shift+M opens it and Escape closes it.
@@ -400,16 +410,14 @@ What is true today, and where it differs from the model above:
   list it in. Only a reader who already knows the shortcut can find the hatch.
   The unmet half of the rule is the command, and it stays unmet until there is a
   palette to put it in.
-- **The shortcut does not reach the pane from three fields.** The task fields
-  contain their own keydown (`interaction-guidelines.md#task-rows`, "Escape
-  belongs to the innermost draft"). The boundary they draw stops the whole
-  keydown, not Escape alone, so Ctrl+Shift+M does not reach the pane from inside:
-  - a step's title,
-  - the step composer,
-  - the entry's heading rename.
+- **The shortcut does not reach the pane from one field.** The entry's heading
+  rename contains its own keydown (`interaction-guidelines.md#task-rows`,
+  "Escape belongs to the innermost draft"). The boundary it draws stops the
+  whole keydown, not Escape alone, so Ctrl+Shift+M does not reach the pane from
+  inside the heading rename.
 
   From anywhere else in the pane the shortcut opens and closes the hatch, and
-  from those three fields the way to it is to leave the field first. It is open
+  from that field the way to it is to leave it first. It is open
   whether that price is acceptable, or whether the shortcut should be lifted out
   of the pane's own handler so it is heard everywhere.
   [Issue #366](https://github.com/JSdotNet/Backlog/issues/366) decided that the
@@ -422,6 +430,13 @@ What is true today, and where it differs from the model above:
 - **Body text renders in `color-text-secondary`.** `design-principles.md#low-chrome-content-first`
   reserves `color-text-primary` for content and `color-text-secondary` for
   chrome. The read view has that the other way round for paragraphs, list items
-  and code blocks. It reads as intended inside a dense card and washed-out in a
+  and code blocks, and the live editor's raw passthrough block draws its author
+  text the same way. It reads as intended inside a dense card and washed-out in a
   document; a document surface SHOULD move to `color-text-primary`.
   `[TODO: clarify]`
+- **The live editor's undo stops at a task checkbox.** Its keys are the editor's
+  only from the open block's source or a focused rendered block. With focus on a
+  task checkbox — where a tick leaves it — Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and
+  Ctrl+Y are ignored, so the tick just made cannot be undone from the keyboard
+  without moving focus first. That falls short of
+  `interaction-guidelines.md#undo-and-history`, "Undo always available".

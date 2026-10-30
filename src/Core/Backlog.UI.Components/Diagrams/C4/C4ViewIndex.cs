@@ -60,8 +60,8 @@ public sealed record C4ViewIndexEntry(
 /// one line per level and indented one step per level — then the flows, the
 /// deployments, and last any second view of a level the chain already shows.
 /// <para>
-/// The chain takes, per level and scope, the view the zoom bar opens — the first in
-/// level order — so the line and the bar never disagree about which view "Containers"
+/// The chain takes, per level and scope, the view the zoom bar opens, so the line
+/// and the bar never disagree about which view "Containers"
 /// is. A second view of the same level and scope is still listed, under Other views by
 /// its own title: it is a view somebody authored, and dropping it would hide it.
 /// </para>
@@ -89,9 +89,22 @@ public static class C4ViewIndex
             if (entry.CodeComponentId is null) listed.Add(entry.ViewKey);
         }
 
-        // The chain's view of a level: the first of that kind and scope.
-        C4View? Chain(C4ViewKind kind, string? scope) =>
-            views.FirstOrDefault(view => view.Kind == kind && string.Equals(view.ScopeId, scope, StringComparison.OrdinalIgnoreCase));
+        // The chain's view of a level is the one the zoom bar opens for it, so the open
+        // line and the bar's current step always name the same view: a system's
+        // context view as C4ZoomNavigation finds it (the first in level order), and
+        // below it the drill C4Exploration.DrillViewKey picks (the first declared).
+        C4View? Chain(C4ViewKind kind, string? scope)
+        {
+            if (scope is null) return null;
+
+            if (kind == C4ViewKind.SystemContext)
+            {
+                return views.FirstOrDefault(view => view.Kind == kind && string.Equals(view.ScopeId, scope, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var drill = C4Exploration.DrillViewKey(workspace, scope);
+            return drill is null ? null : workspace.View(drill) is { } view && view.Kind == kind ? view : null;
+        }
 
         if (views.FirstOrDefault(view => view.Kind == C4ViewKind.SystemLandscape) is { } landscape)
         {

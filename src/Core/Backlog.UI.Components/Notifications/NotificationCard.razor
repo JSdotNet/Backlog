@@ -1,0 +1,464 @@
+@namespace Backlog.UI.Components.Notifications
+@*
+    One notification, read and answered in place: the question card of the
+    notification centre (.devbook/domain/notifications/context.md).
+
+    The body is Markdown through MarkdownView, so a ```mermaid fence draws through
+    DiagramView like it does everywhere else; nothing here reaches for Archify.
+
+    The answer controls follow the question's shape, and nothing else decides
+    them:
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
+      multiple choice    one Checkbox per set answer, and Answer to send the picks
+      open               a plain-text TextArea and Send
+      choices with open  the buttons, and the box with Send beside them
+      alert              Acknowledge
+    Seven or eight choices lay out as an even grid that wraps, so no row runs
+    past the card. A question that takes a note adds a plain-text box, "Add a
+    note (optional)", under the answers; whatever is in it goes with the answer.
+    A settled card draws no controls, only how it was settled: the winning answer
+    and the device it came from, Acknowledged, or Closed with its reason.
+
+    An Origin, when the host hands one, says where the notification came from:
+    the system as a badge and the place beside it above the title, who asked and
+    how under it, and "Open in <System> ↗" at the foot when it carries a link.
+    Without one the header names the source beside the time, as it always did.
+
+    The card does not answer anything itself. It raises OnAnswer or OnAcknowledge,
+    the host takes the answer to its own reply path, and hands back Busy while it
+    works and ErrorMessage when the answer was refused, so the person can answer
+    again.
+*@
+
+<article class="@ClassValue"
+         data-testid="@(TestId ?? "notification-card")"
+         data-state="@StateSlug"
+         aria-labelledby="@TitleId">
+    <header class="notification-card__header">
+        <Badge Kind="notification" Slug="@KindSlug" TestId="notification-card-kind">@KindLabel</Badge>
+        @if (Model.Severity != NotificationCardSeverity.Info)
+        {
+            <Badge Kind="severity" Slug="@SeveritySlug" TestId="notification-card-severity">@SeverityLabel</Badge>
+        }
+        @if (!Model.IsOpen)
+        {
+            <Badge Kind="notification-state" Slug="@StateSlug" TestId="notification-card-state">@StateLabel</Badge>
+        }
+        <span class="notification-card__meta">@(Model.Origin is null ? $"{Model.Source} · {Model.When}" : Model.When)</span>
+    </header>
+
+    @if (Model.Origin is { } origin)
+    {
+        <p class="notification-card__origin" data-testid="notification-card-origin">
+            <Badge Kind="notification-origin" Slug="system" TestId="notification-card-system">@origin.System</Badge>
+            @if (!string.IsNullOrWhiteSpace(origin.Place))
+            {
+                <span class="notification-card__place" data-testid="notification-card-place">@origin.Place</span>
+            }
+        </p>
+    }
+
+    <h3 class="notification-card__title" id="@TitleId">@Model.Title</h3>
+
+    @if (Model.Origin is { } asked && (!string.IsNullOrWhiteSpace(asked.AskedBy) || !string.IsNullOrWhiteSpace(asked.Via)))
+    {
+        <p class="notification-card__asked" data-testid="notification-card-asked">
+            @if (!string.IsNullOrWhiteSpace(asked.AskedBy))
+            {
+                <span data-testid="notification-card-asked-by">Asked by @asked.AskedBy</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(asked.Via))
+            {
+                <Badge Kind="notification-origin" Slug="via" TestId="notification-card-via">@asked.Via</Badge>
+            }
+        </p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.Summary))
+    {
+        <p class="notification-card__summary">@Model.Summary</p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.BodyMarkdown))
+    {
+        <div class="notification-card__body" data-testid="notification-card-body">
+            <MarkdownView Blocks="@_blocks" />
+        </div>
+    }
+
+    @if (Model.IsOpen)
+    {
+        <div class="notification-card__answer" data-testid="notification-card-answer">
+            @if (Model.Kind == NotificationCardKind.Alert)
+            {
+                <div class="notification-card__actions">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               Busy="@Busy"
+                               BusyLabel="Acknowledging"
+                               TestId="notification-card-acknowledge"
+                               OnClick="AcknowledgeAsync">Acknowledge</AppButton>
+                </div>
+            }
+            else if (Model.Answer is null)
+            {
+                @* A question always carries its answers; one that arrives without any has
+                   nothing to offer, and Acknowledge would only be refused. *@
+            }
+            else if (Model.Answer.AllowMultiple)
+            {
+                <fieldset class="notification-card__choices" data-testid="notification-card-checkboxes">
+                    <legend class="notification-card__legend">@PickHint</legend>
+                    @foreach (var choice in Model.Answer.Choices)
+                    {
+                        <Checkbox Label="@choice.Label"
+                                  Checked="@_picked.Contains(choice.Id)"
+                                  CheckedChanged="@(on => Toggle(choice.Id, on))"
+                                  Disabled="@Busy"
+                                  TestId="@($"notification-card-check-{choice.Id}")" />
+                    }
+                </fieldset>
+                <div class="notification-card__actions">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               Busy="@Busy"
+                               BusyLabel="Answering"
+                               Disabled="@(!PickFits)"
+                               TestId="notification-card-submit"
+                               OnClick="SubmitPicksAsync">Answer</AppButton>
+                </div>
+            }
+            else
+            {
+                @if (Model.Answer.Choices.Count > 0)
+                {
+                    <div class="@ChoicesClass" data-testid="notification-card-choices">
+                        @foreach (var choice in Model.Answer.Choices)
+                        {
+                            <AppButton Variant="@VariantFor(choice.Style)"
+                                       Busy="@(Busy && _pressed == choice.Id)"
+                                       BusyLabel="Answering"
+                                       Disabled="@(Busy && _pressed != choice.Id)"
+                                       TestId="@($"notification-card-choice-{choice.Id}")"
+                                       OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                        }
+                    </div>
+                }
+
+                @if (Composing is { } composing)
+                {
+                    <div class="notification-card__open" data-testid="notification-card-choice-text">
+                        <TextArea Label="@($"{composing.Label}: in your own words")"
+                                  @bind-Value="_choiceText"
+                                  Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                                  Disabled="@Busy"
+                                  Rows="2"
+                                  maxlength="@TextLimit" />
+                        <div class="notification-card__actions">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="@(Busy && _pressed == composing.Id)"
+                                       BusyLabel="Sending"
+                                       Disabled="@(Busy || string.IsNullOrWhiteSpace(_choiceText))"
+                                       TestId="notification-card-choice-send"
+                                       OnClick="SendChoiceTextAsync">Send</AppButton>
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@Busy"
+                                       TestId="notification-card-choice-cancel"
+                                       OnClick="CancelChoiceText">Cancel</AppButton>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.Answer.Open is { } open)
+                {
+                    <div class="notification-card__open" data-testid="notification-card-open">
+                        <TextArea Label="@(Model.Answer.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
+                                  @bind-Value="_text"
+                                  Placeholder="@(open.Placeholder ?? "Write an answer…")"
+                                  Disabled="@Busy"
+                                  Rows="2"
+                                  TestId="notification-card-text"
+                                  maxlength="@open.MaxLength" />
+                        <div class="notification-card__actions">
+                            <AppButton Variant="@(Model.Answer.Choices.Count > 0 ? ButtonVariant.Secondary : ButtonVariant.Primary)"
+                                       Busy="@(Busy && _pressed == SendKey)"
+                                       BusyLabel="Sending"
+                                       Disabled="@(Busy && _pressed != SendKey)"
+                                       TestId="notification-card-send"
+                                       OnClick="SendTextAsync">Send</AppButton>
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (Model.Kind == NotificationCardKind.Question && Model.Answer?.Note is { } note)
+            {
+                <div class="notification-card__note" data-testid="notification-card-note">
+                    <TextArea Label="Add a note (optional)"
+                              @bind-Value="_note"
+                              Placeholder="@note.Placeholder"
+                              Disabled="@Busy"
+                              Rows="2"
+                              TestId="notification-card-note-text"
+                              maxlength="@note.MaxLength" />
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(ShownError))
+            {
+                <Alert Message="@ShownError" Inline="true" TestId="notification-card-error" />
+            }
+        </div>
+    }
+    else
+    {
+        <p class="notification-card__outcome" data-testid="notification-card-outcome">@OutcomeText</p>
+    }
+
+    @if (Model.Origin is { OpenLink: { Length: > 0 } link } linked && IsWebLink(link))
+    {
+        <div class="notification-card__footer">
+            <AppButton Href="@link"
+                       External="true"
+                       Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="notification-card-open-origin">Open in @linked.System ↗</AppButton>
+        </div>
+    }
+</article>
+
+@code {
+    private const string SendKey = "\u0000send";
+
+    private readonly string _titleId = "notification-card-" + Guid.NewGuid().ToString("N");
+    private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
+    private IReadOnlyList<MdBlock> _blocks = [];
+    private string? _blocksFor;
+    private string? _modelId;
+    private string? _text;
+    private string? _composing;
+    private string? _choiceText;
+    private string? _note;
+    private string? _pressed;
+    private string? _localError;
+
+    /// <summary>The notification to draw.</summary>
+    [Parameter, EditorRequired]
+    public NotificationCardModel Model { get; set; } = default!;
+
+    /// <summary>Raised with the person's answer to an open question.</summary>
+    [Parameter]
+    public EventCallback<NotificationCardReply> OnAnswer { get; set; }
+
+    /// <summary>Raised when the person acknowledges an open alert.</summary>
+    [Parameter]
+    public EventCallback OnAcknowledge { get; set; }
+
+    /// <summary>True while the host takes the answer to its reply path.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the host refused the last answer, so the person can answer again.</summary>
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TitleId => _titleId;
+
+    private string? ShownError => _localError ?? ErrorMessage;
+
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private NotificationCardChoice? Composing => _composing is null
+        ? null
+        : Model.Answer?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private int TextLimit => Model.Answer?.Open?.MaxLength ?? NotificationCardOpenAnswer.DefaultMaxLength;
+
+    protected override void OnParametersSet()
+    {
+        ArgumentNullException.ThrowIfNull(Model);
+
+        if (!string.Equals(_modelId, Model.Id, StringComparison.Ordinal))
+        {
+            _modelId = Model.Id;
+            _picked.Clear();
+            _text = null;
+            _composing = null;
+            _choiceText = null;
+            _note = null;
+            _pressed = null;
+            _localError = null;
+        }
+
+        if (!string.Equals(_blocksFor, Model.BodyMarkdown, StringComparison.Ordinal))
+        {
+            _blocksFor = Model.BodyMarkdown;
+            _blocks = MarkdownPreview.ParseDocument(Model.BodyMarkdown);
+        }
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"notification-card notification-card--{StateSlug} notification-card--{SeveritySlug}{extra}";
+        }
+    }
+
+    /// <summary>The choices that lay out as a wrapping grid once there are this many.</summary>
+    private const int ManyChoices = 7;
+
+    private string ChoicesClass => Model.Answer?.Choices.Count >= ManyChoices
+        ? "notification-card__actions notification-card__actions--many"
+        : "notification-card__actions";
+
+    private string? NoteToSend => Model.Answer?.Note is not null && !string.IsNullOrWhiteSpace(_note) ? _note.Trim() : null;
+
+    private string KindSlug => Model.Kind == NotificationCardKind.Question ? "question" : "alert";
+
+    private string KindLabel => Model.Kind == NotificationCardKind.Question ? "Question" : "Alert";
+
+    private string SeveritySlug => Model.Severity.ToString().ToLowerInvariant();
+
+    private string SeverityLabel => Model.Severity.ToString();
+
+    private string StateSlug => Model.State.ToString().ToLowerInvariant();
+
+    private string StateLabel => Model.State.ToString();
+
+    private int MinPicks => Model.Answer?.MinChoices ?? 1;
+
+    private int MaxPicks => Model.Answer?.MaxChoices ?? Model.Answer?.Choices.Count ?? 0;
+
+    private bool PickFits => _picked.Count >= MinPicks && _picked.Count <= MaxPicks;
+
+    private string PickHint => (MinPicks, MaxPicks, Model.Answer?.Choices.Count ?? 0) switch
+    {
+        var (min, max, all) when min <= 1 && max >= all => "Pick any that apply",
+        var (min, max, _) when min == max => $"Pick {min}",
+        var (min, max, _) when min <= 1 => $"Pick up to {max}",
+        var (min, max, _) => $"Pick {min} to {max}"
+    };
+
+    private string OutcomeText => Model.State switch
+    {
+        NotificationCardState.Answered => Join(
+            Model.Outcome?.Device is { Length: > 0 } device ? $"Answered from {device}" : "Answered",
+            Model.Outcome?.Answer,
+            Model.Outcome?.When),
+        NotificationCardState.Acknowledged => Join("Acknowledged", null, Model.Outcome?.When),
+        NotificationCardState.Closed => Join(
+            "Closed",
+            Model.Outcome?.Reason is { Length: > 0 } reason ? reason : "no longer needs an answer",
+            Model.Outcome?.When),
+        _ => string.Empty
+    };
+
+    private static string Join(string lead, string? middle, string? when)
+    {
+        var parts = new List<string>(3) { lead };
+        if (!string.IsNullOrWhiteSpace(middle)) parts.Add(middle);
+        if (!string.IsNullOrWhiteSpace(when)) parts.Add(when);
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>Only an absolute http or https address becomes "Open in …": anything else — a
+    /// <c>javascript:</c> link above all — is dropped here whatever the host checked.</summary>
+    private static bool IsWebLink(string link) =>
+        Uri.TryCreate(link, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+
+    private static ButtonVariant VariantFor(NotificationCardChoiceStyle style) => style switch
+    {
+        NotificationCardChoiceStyle.Primary => ButtonVariant.Primary,
+        NotificationCardChoiceStyle.Destructive => ButtonVariant.Danger,
+        _ => ButtonVariant.Secondary
+    };
+
+    private void Toggle(string choiceId, bool on)
+    {
+        _localError = null;
+        if (on) _picked.Add(choiceId);
+        else _picked.Remove(choiceId);
+    }
+
+    private Task ChooseAsync(NotificationCardChoice choice)
+    {
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is sent until Send.
+            _localError = null;
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal)) _choiceText = null;
+            _composing = choice.Id;
+            return Task.CompletedTask;
+        }
+
+        _composing = null;
+        _pressed = choice.Id;
+        return AnswerAsync(new NotificationCardReply([choice.Id], null, NoteToSend));
+    }
+
+    private Task SendChoiceTextAsync()
+    {
+        if (Composing is not { } choice) return Task.CompletedTask;
+
+        if (string.IsNullOrWhiteSpace(_choiceText))
+        {
+            _localError = $"Write your words for {choice.Label} first.";
+            return Task.CompletedTask;
+        }
+
+        _pressed = choice.Id;
+        return AnswerAsync(new NotificationCardReply([choice.Id], _choiceText.Trim(), NoteToSend));
+    }
+
+    private void CancelChoiceText()
+    {
+        _composing = null;
+        _choiceText = null;
+        _localError = null;
+    }
+
+    private Task SubmitPicksAsync()
+    {
+        if (!PickFits)
+        {
+            _localError = PickHint + ".";
+            return Task.CompletedTask;
+        }
+
+        _pressed = null;
+        var order = Model.Answer!.Choices.Select(choice => choice.Id).Where(_picked.Contains).ToList();
+        return AnswerAsync(new NotificationCardReply(order, null, NoteToSend));
+    }
+
+    private Task SendTextAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_text))
+        {
+            _localError = "Write an answer first.";
+            return Task.CompletedTask;
+        }
+
+        _pressed = SendKey;
+        return AnswerAsync(new NotificationCardReply([], _text.Trim(), NoteToSend));
+    }
+
+    private async Task AnswerAsync(NotificationCardReply reply)
+    {
+        _localError = null;
+        await OnAnswer.InvokeAsync(reply);
+    }
+
+    private async Task AcknowledgeAsync()
+    {
+        _localError = null;
+        await OnAcknowledge.InvokeAsync();
+    }
+}

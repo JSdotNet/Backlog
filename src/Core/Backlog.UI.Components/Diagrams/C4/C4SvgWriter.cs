@@ -8,7 +8,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// <para>
 /// Every option is off by default, and a writer handed no options draws exactly
 /// what it drew before options existed. The C4 tab's explorer never passes any; the
-/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0037
+/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0044
 /// sets for the two tabs while they stand side by side: the new one may ask the shared
 /// renderer for more, and the old one must not notice.
 /// </para>
@@ -421,8 +421,8 @@ public static class C4SvgWriter
             : $"[{C4LayoutEngine.KindLabel(node.Node.Kind)}: {Truncate(node.Node.Technology, 22)}]";
 
     /// <summary>A glyph per level, because shape has to carry what one hue's ramp
-    /// cannot — the rule `color-scheme.md#chart-roles` states and the technology atlas
-    /// already follows. Characters rather than an icon set: nothing should pull a font
+    /// cannot — the rule `color-scheme.md#chart-roles` states and the graph atlas's
+    /// status marks already follow. Characters rather than an icon set: nothing should pull a font
     /// or a sprite sheet in for six marks.</summary>
     private static string Glyph(C4Node node) => node.Kind switch
     {

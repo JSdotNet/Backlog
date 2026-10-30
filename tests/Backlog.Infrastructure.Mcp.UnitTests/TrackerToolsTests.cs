@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -816,6 +817,43 @@ public class TrackerToolsTests
         Assert.Empty(entries.Links);
     }
 
+    /// <summary>A link tells the session request queue (local ADR 0038), with the
+    /// entry and the plans it belongs to, so the request its session answers is
+    /// Linked — and tells it again on a link already recorded.</summary>
+    [Fact]
+    public async Task Link_session_tells_the_session_request_queue_while_the_flag_is_on()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, importPlanId: "+session-dispatch", tags: ["+session-dispatch", "parser"]));
+        var queue = new RecordingSessionRequestStore();
+        var features = new FakeAppFeatureSettings(SessionFeatures.SessionRequests);
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), sessionRequests: queue, features: features);
+
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", " session-a ", TestContext.Current.CancellationToken);
+
+        var link = Assert.Single(queue.Links);
+        Assert.Equal(id, link.EntryId);
+        Assert.Equal("session-a", link.SessionId);
+        Assert.Contains("+session-dispatch", link.PlanTags);
+        Assert.DoesNotContain("parser", link.PlanTags);
+    }
+
+    [Fact]
+    public async Task Link_session_leaves_the_queue_alone_while_the_flag_is_off()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
+        var queue = new RecordingSessionRequestStore();
+        var features = new FakeAppFeatureSettings(SessionFeatures.SessionRequests);
+        features.Enabled.Clear();
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), sessionRequests: queue, features: features);
+
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", TestContext.Current.CancellationToken);
+
+        Assert.Empty(queue.Links);
+        Assert.Single(entries.Links);
+    }
+
     [Fact]
     public async Task Linking_a_session_to_an_entry_that_is_gone_is_refused()
     {
@@ -921,12 +959,18 @@ public class TrackerToolsTests
     /// <see cref="FakeTaskItems"/> throws on, so any tool that ever grew one
     /// would fail its own tests rather than this one.
     /// </para>
+    /// <para>
+    /// One delete is named, and it is not an entry's: <c>delete_goal</c> removes a goal
+    /// and leaves every task, plan and pull request it held as it was (local ADR 0035 §6).
+    /// It is excepted by name, on <see cref="GoalTools"/> alone, so a second delete
+    /// anywhere still fails here and has to be argued for in this list.
+    /// </para>
     /// </summary>
     [Fact]
     public void No_tool_in_the_catalog_is_a_delete()
     {
         Assert.DoesNotContain(
-            BacklogMcpTools.ToolNames,
+            BacklogMcpTools.ToolNames.Where(name => name != GoalTools.DeleteGoal),
             name => name.Contains("delete", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("remove", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("archive", StringComparison.OrdinalIgnoreCase));
@@ -937,6 +981,7 @@ public class TrackerToolsTests
             .Select(group => group.ToolType)
             .Distinct()
             .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            .Where(method => !(method.DeclaringType == typeof(GoalTools) && method.Name == nameof(GoalTools.DeleteAsync)))
             .Select(method => method.Name);
 
         Assert.DoesNotContain(sources, name => name.Contains("Delete", StringComparison.Ordinal));
@@ -947,7 +992,7 @@ public class TrackerToolsTests
     [Fact]
     public void Every_tracker_tool_is_gated_on_the_tasks_key()
     {
-        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).Distinct(StringComparer.Ordinal)]);
+        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>().Distinct(StringComparer.Ordinal)]);
 
         Assert.All(BacklogMcpTools.Tracker.ToolNames, name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
 
@@ -977,4 +1022,34 @@ public class TrackerToolsTests
 
     private static TrackerTools Tools(params TaskItemDto[] entries) =>
         new(new FakeTaskItems(entries), new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver(), Clock());
+}
+
+/// <summary>A session request queue that records what <c>link_session</c> told it and
+/// answers nothing else.</summary>
+internal sealed class RecordingSessionRequestStore : ISessionRequestStore
+{
+    public List<(Guid EntryId, IReadOnlyCollection<string> PlanTags, string SessionId)> Links { get; } = [];
+
+    public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default)
+    {
+        Links.Add((entryId, planTags, sessionId));
+
+        return Task.FromResult<IReadOnlyList<SessionRequest>>([]);
+    }
+
+    public Task<SessionRequest> RequestAsync(SessionRequest candidate, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequest?> GetAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<IReadOnlyList<SessionRequest>> ListAsync(SessionRequestState? state = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }

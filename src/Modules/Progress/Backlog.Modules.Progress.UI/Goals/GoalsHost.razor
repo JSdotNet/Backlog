@@ -37,17 +37,26 @@
     - attach, through IGoals.AttachAsync, every item a GoalSubject that GoalSubjects
       turns into the module's item. A No goal row's Attach… with no goal open opens the
       shared GoalPicker for it, over the open goals, its New goal… setting a goal (title
-      and due date) and attaching to it. An item another goal holds is refused with
+      and an optional due date) and attaching to it. An item another goal holds is refused with
       progress.item_in_other_goal: the GoalPicker opens on the goal it was meant for,
       with IGoals.FindGoalOfAsync's goal as the one it holds — the picker names that
       goal and says the attach moves it — and Attach attaches again with
       moveFromOtherGoal. A refusal inside the picker stays in it;
-    - a field of the open goal, through IGoals.EditAsync with the other two as stored.
-      A refusal — no title, no due date, an outcome of more than one line — shows in the
+    - a goal's "New task" row, when the shell hands in CreateTask: the shell creates the
+      task — Progress UI may not reach Tasks — and IGoals.AttachAsync attaches it. The
+      shell's refusal shows above the board and nothing is attached; an attach refused
+      after the create says the task is in the backlog but not on the goal, and the task
+      stays as ordinary work;
+    - a field of the open goal, through IGoals.EditAsync with the other two as stored;
+      an emptied due date clears it. A refusal — no title, an outcome of more than one
+      line — shows in the
       goal under its fields, in the module's words, and the field shows the stored value;
     - Delete goal…, once the board's ConfirmDialog has asked, through IGoals.DeleteAsync.
       What the goal held is left as it is and shows under No goal on the next reading;
     - a row's Detach, through IGoals.DetachAsync. A refusal shows above the board;
+    - a goal moved on the board — dragged by its grip, or Move up / Move down — through
+      IGoals.MoveAsync at its new place. The board draws the new order at once; a refusal
+      shows above the board, and the reading after it puts the stored order back;
     - a state picked for an impediment, through IImpediments.MoveAsync with no person,
       so the last one stands. A refusal shows above the board and the picker goes back
       to the stored state;
@@ -88,6 +97,8 @@ else
                 OnEditGoal="EditGoalAsync"
                 OnDeleteGoal="DeleteGoalAsync"
                 OnDetach="DetachAsync"
+                OnMoveGoal="MoveGoalAsync"
+                OnQuickAddTask="@(CreateTask is null ? default : EventCallback.Factory.Create<GoalQuickAddRequest>(this, QuickAddAsync))"
                 EditError="@_editError"
                 Error="@(_writeError ?? _readError)"
                 Busy="_writing"
@@ -134,6 +145,11 @@ else
     /// open pull requests as its other views do.</summary>
     [Parameter]
     public EventCallback<bool> OnRead { get; set; }
+
+    /// <summary>The shell's create for a goal's "New task" row: a task titled with the text
+    /// given, its id back or the Tasks module's refusal. Without it no goal offers the row.</summary>
+    [Parameter]
+    public Func<string, Task<Result<Guid>>>? CreateTask { get; set; }
 
     private IStandUp? _standUp;
     private IGoals? _goals;
@@ -380,6 +396,44 @@ else
         });
     }
 
+    /// <summary>A goal's "New task" row: the shell creates the task, then it is attached
+    /// here. A create refused attaches nothing and reads nothing; an attach refused after it
+    /// leaves the task in the backlog — creating it wrote no goal into it — and is read
+    /// again so it shows under No goal.</summary>
+    private async Task QuickAddAsync(GoalQuickAddRequest request)
+    {
+        // Not while a write is under way: creating is not idempotent, and the row's Busy
+        // reaches the screen a render after the press that started this one.
+        if (_goals is not { } goals || CreateTask is not { } create || _writing || !Guid.TryParse(request.GoalId, out var goalId)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var created = await create(request.Title);
+                if (created.IsFailure)
+                {
+                    _writeError = created.Error.Message;
+                    return false;
+                }
+
+                var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(created.Value));
+                if (attached.IsFailure)
+                {
+                    _writeError = $"{request.Title} was added to the backlog, but not to this goal: {attached.Error.Message}";
+                }
+
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
     /// <summary>A No goal row's Attach… with no goal open.</summary>
     private void OpenPicker(GoalSubject subject) => Open(new Picking(subject, null, null));
 
@@ -521,6 +575,29 @@ else
             {
                 var detached = await goals.DetachAsync(goalId, item);
                 if (detached.IsFailure) _writeError = detached.Error.Message;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    /// <summary>A goal moved on the board, which drew the new order at once. The view is
+    /// read again either way, so a refusal puts the stored order back.</summary>
+    private async Task MoveGoalAsync(GoalMoveRequest request)
+    {
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var moved = await goals.MoveAsync(goalId, request.ToIndex);
+                if (moved.IsFailure) _writeError = moved.Error.Message;
                 return true;
             }
             finally

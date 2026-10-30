@@ -9,8 +9,8 @@ related: [.devbook/domain/progress/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
-The requirements of the Goals view, the stand-up, pull request status and syncing name
-the tests that prove them. Syncing is proved between two desktops through the real sync
+The requirements of the Goals view, the stand-up and syncing name the tests that prove
+them. Syncing is proved between two desktops through the real sync
 service; none is proved end to end in the app yet. The scenarios use the goal
 "Customers get paid faster", due Friday 30 October 2026, with the plan `+bank-integration`
 attached. Today is Monday 19 October 2026 unless a scenario says otherwise, and the
@@ -68,6 +68,28 @@ The system SHALL show a goal as At risk when its landing date falls after its du
 - **Given** the goal "Devbook search ships" is due 23 October and lands 23 October, and no open impediment holds it back
 - **When** the Goals view is read
 - **Then** the goal reads "On track"
+
+### Requirement: A goal without a due date is At risk when it lands after the current iteration
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_after_next_is_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_inside_next_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_is_due_on_the_last_day_of_next_at_every_length, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_without_a_due_date_reads_as_due_at_the_end_of_next, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_goal_without_a_due_date_reaches_the_card_due_at_the_iteration_end]
+```
+
+The system SHALL show a goal without a due date as At risk when its landing date falls after the last day of [next](domain.md#iteration).
+
+#### Scenario: A dateless goal landing a week late
+
+- **Given** the goal "Devbook search ships" has no due date and lands 30 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)", "At risk" and "lands ~30 Oct"
+
+#### Scenario: A dateless goal landing in the iteration
+
+- **Given** the goal "Devbook search ships" has no due date and lands 23 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)" and "On track"
 
 ### Requirement: An open impediment puts its goal at risk
 
@@ -131,20 +153,21 @@ status: draft
 related: [.devbook/domain/progress/features.md#setting-a-goal]
 ```
 
-### Requirement: A goal needs a title and a due date
+### Requirement: A goal needs a title
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_due_date_is_saved_without_one, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_title_is_not_saved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests.New_goal_with_a_title_and_no_due_date_hands_back_no_date]
 ```
 
-The system SHALL refuse to save a goal without a title or without a due date.
+The system SHALL refuse to save a goal only when it has no title.
 
 #### Scenario: No due date
 
 - **Given** the person opened New goal
 - **When** they give the title "Customers get paid faster" and no due date, and save
-- **Then** the goal is not saved and the due date field says it is needed
+- **Then** the goal is saved and reads "due 23 Oct (end of iteration)"
 
 ### Requirement: Deleting a goal leaves its work unchanged
 
@@ -226,6 +249,90 @@ The system SHALL count an attached pull request that no attached task links as o
 - **When** the goal is read
 - **Then** its progress is 1/1
 
+### Requirement: An attached session counts once with its tasks and pull request
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+```
+
+The system SHALL count an attached session as one item, and SHALL not count again the tasks linked to it or the pull request on its branch.
+
+#### Scenario: A session with a task and a pull request
+
+- **Given** the goal holds only "Session abcd1234", which is linked to the task "Quick add by session" and whose branch has #1531
+- **When** the goal is read
+- **Then** its total is 1
+
+#### Scenario: A session beside its linked task
+
+- **Given** the goal holds "Session abcd1234" and also the task "Quick add by session", which is linked to it
+- **When** the goal is read
+- **Then** its total is 1, counted as the task
+
+#### Scenario: A session beside its pull request
+
+- **Given** the goal holds "Session abcd1234" and also #1531, the pull request on its branch
+- **When** the goal is read
+- **Then** its total is 1
+
+### Requirement: An attached session is done by its work
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#done]
+```
+
+The system SHALL count an attached session as done when the pull request on its branch is merged, or when it has linked tasks and every one of them is done, and SHALL NOT count it done because the session finished.
+
+#### Scenario: Its pull request merges
+
+- **Given** the goal holds only "Session abcd1234", whose branch pull request #1531 is open
+- **When** #1531 is merged
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: Its linked task is done
+
+- **Given** the goal holds only "Session abcd1234", linked to "Quick add by session", and its branch has no pull request
+- **When** "Quick add by session" is marked Done
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: A finished session that shipped nothing
+
+- **Given** the goal holds only "Session abcd1234", which has finished, has no linked task and no pull request on its branch
+- **When** the goal is read
+- **Then** its progress is 0/1
+
+### Requirement: Quick add by session number offers the session and what it has
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal]
+```
+
+The system SHALL find a session in a goal's attach search by its session id, typed whole or as its first eight characters, and SHALL list the session first, then each task linked to it, then the pull request on its branch when there is one.
+
+#### Scenario: Typing a short id
+
+- **Given** "Session abcd1234" is linked to "Quick add by session" and its branch has #1531
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** the list shows "Session abcd1234", then "Quick add by session", then #1531, each named by its kind
+
+#### Scenario: A session with nothing yet
+
+- **Given** "Session ef015678" has no linked task and no pull request on its branch
+- **When** the person types `Session ef015678` in the goal's attach search
+- **Then** the list shows only "Session ef015678"
+
+#### Scenario: The Sessions area is off
+
+- **Given** the Sessions area is switched off
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** no session is listed
+
 ### Requirement: A task in an attached plan counts once
 
 ```meta
@@ -249,7 +356,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests]
 ```
 
-The system SHALL NOT attach a plan, task or pull request that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
+The system SHALL NOT attach a plan, task, pull request or session that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
 
 #### Scenario: A task another goal holds
 
@@ -282,7 +389,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL leave a plan, task or pull request unchanged when it is attached to a goal or detached from one.
+The system SHALL leave a plan, task, pull request or session unchanged when it is attached to a goal or detached from one.
 
 #### Scenario: Detaching a task
 
@@ -620,80 +727,36 @@ The system SHALL leave an impediment's state unchanged when a task it holds back
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/progress/features.md#pull-request-status]
+related: [.devbook/domain/progress/features.md#pull-request-status, .devbook/domain/repository-management/requirements.md#pull-request-status]
 ```
 
-### Requirement: A pull request row shows its checks as passed over total
+> What the checks and approvals marks show, and how a screen reader hears them, is
+> [Repository Management's](../repository-management/requirements.md#pull-request-status),
+> which publishes the status (local
+> [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)).
+> Progress promises only that its rows carry that status.
+
+### Requirement: A goal's pull request row shows the status Repository Management publishes
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
+status: proposed
+related: [.devbook/domain/repository-management/features.md#pull-request-status]
 ```
 
-The system SHALL show on every open pull request row in Progress an icon and its checks as `passed/total`, in a running variant while a check runs and a failing variant once one fails.
+The system SHALL draw every pull request row in Progress from the status Repository Management publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
 
-#### Scenario: Every check passed
+#### Scenario: An open pull request on a goal
 
-- **Given** #1341 has 14 checks, all passed
-- **When** its row is drawn
-- **Then** it shows the passed icon and `14/14`
+- **Given** #1341 is attached to "Customers get paid faster", and Repository Management reads it with 14 of 14 checks passed and one of two approvals
+- **When** the Goals view draws its row
+- **Then** it shows `14/14` and `1/2`, as the pull requests pane's row of #1341 does
 
-#### Scenario: Checks still running
+#### Scenario: A merged pull request on a goal
 
-- **Given** #1358 has 14 checks, 9 passed and 5 running
-- **When** its row is drawn
-- **Then** it shows the running icon and `9/14`
-
-#### Scenario: A failing check
-
-- **Given** #1344 has 14 checks, 2 passed and one failed
-- **When** its row is drawn
-- **Then** it shows the failing icon and `2/14`
-
-### Requirement: A pull request row shows approvals over required
-
-```meta
-type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_base_branch_with_no_rule_has_no_required_total]
-```
-
-The system SHALL show on every open pull request row in Progress an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.
-
-#### Scenario: One of two approvals
-
-- **Given** #1341 has one approval and its base branch `main` requires two
-- **When** its row is drawn
-- **Then** it shows the approvals icon and `1/2`
-
-#### Scenario: A ruleset asks for the approval
-
-- **Given** #1350's base branch has no protection rule and a ruleset whose pull request rule requires one approval
-- **When** its row is drawn
-- **Then** required is 1
-
-#### Scenario: No rule asks for an approval
-
-- **Given** #1358's base branch `main` has a ruleset that requires status checks and no review
-- **When** its status is read
-- **Then** it has no required total, and its approvals still count the ones received
-
-### Requirement: Checks and approvals are named for screen readers only
-
-```meta
-type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.The_visible_text_holds_counts_and_a_screen_reader_hears_the_words]
-```
-
-The system SHALL name the checks and approvals marks with the words "checks" and "approvals" in their accessible labels and not in their visible text.
-
-#### Scenario: Read by a screen reader
-
-- **Given** #1341's row shows `14/14` and `1/2`
-- **When** a screen reader reads the row
-- **Then** it hears "14 of 14 checks passed" and "1 of 2 approvals", and the visible text holds neither word
+- **Given** #1344 is attached to "Customers get paid faster", and Repository Management reads it as merged
+- **When** the Goals view draws its row
+- **Then** it reads "merged" instead of both marks
 
 ## Goals on the phone
 

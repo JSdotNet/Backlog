@@ -1,18 +1,36 @@
 @*
     One goal in the Goals view (.devbook/domain/progress/features.md#the-goals-view).
-    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" and its
-    forecast badge. Opened, the bar runs under the title and the goal lists what is
+    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" — or "due 23 Oct
+    (end of iteration)" for a goal without a due date of its own — and its forecast badge,
+    and a chevron at its end that points down folded and up open. A press
+    anywhere on that row opens the goal, or folds the open one; the title is its button,
+    which the keyboard reaches and which carries aria-expanded. Nothing in the body
+    toggles. Opened, the bar runs under the title and the goal lists what is
     attached to it in three columns — Plan with each plan's done/total, Tasks with a
     status dot each, Pull requests with a status line each, the merged ones gathered
     on one line as pills and "merged" — and below them the attach search.
 
     The search matches the host's candidates — plans, tasks and pull requests — by
     title, or a pull request by its number, and lists each match under its kind label.
+    A query is tried as typed and with one leading + or # dropped, since a plan is titled
+    with its bare slug and the app writes its tag as +slug; a title that holds the sigil
+    still matches as typed.
+    A query that names a pull request — #N or N, read in each of the host's Repositories,
+    owner/name#N, or its GitHub address — leads the list with it, titled with its
+    repository, even when no candidate holds it: attaching names it by identity alone.
     Picking one hands its GoalSubject back through OnAttach and puts the focus back in the
     search box; the host attaches it — through the GoalPicker, which
     names the other goal and asks first, when another goal holds it — and reads the view
     again. It is a list of matches over the view's own candidates; choosing the goal is
     GoalPicker's.
+
+    With a host listening on OnQuickAdd, a query that is not blank ends the list with
+    "New task “‹query›”", shown even when nothing matches. Picking it hands the trimmed
+    query back; the host creates the task and attaches it. Once a task exists that did not
+    before — on the goal, or among the candidates when the attach after the create was
+    refused — the query clears and the focus goes back to the search box, as a pick does, so
+    the row cannot create the task twice; a refused create leaves the typed text. The row
+    waits while the host writes.
 
     With a host listening on OnEdit, the open goal leads with its title, outcome and due
     date as fields, edited in place (.devbook/design/interaction-guidelines.md
@@ -24,10 +42,12 @@
     first one's reading lands carries both. The module owns the rules, so a blank title or
     a second outcome line comes back as the module's refusal in EditError, on the refused
     field, and the field shows what the goal still says — written back onto the same
-    input, so the focus stays (the way ImpedimentRow's picker does it). A date the field
-    cannot read is not handed back: leaving the field puts the goal's date back. The date
-    is handed back on leaving the field or Enter, never per keystroke, since a date field
-    reads 0002, 0020 and 0202 on its way to a typed year.
+    input, so the focus stays (the way ImpedimentRow's picker does it). The Due field holds
+    the goal's own date, empty for a goal without one: the iteration end such a goal is
+    shown due on is read, never handed back as its date. Emptying the field clears the
+    date; a date the field cannot read is not handed back, and leaving the field puts the
+    goal's date back. The date is handed back on leaving the field or Enter, never per
+    keystroke, since a date field reads 0002, 0020 and 0202 on its way to a typed year.
     Delete goal… sits beside them and asks first, through the board's ConfirmDialog.
     Without a listener the outcome is a line of text and nothing is editable.
 
@@ -37,16 +57,43 @@
     Detaching changes nothing on the item, so it does not ask; the focus then waits in the
     attach search, since the row goes with the next reading.
 
+    With a host listening on OnMove, the head row leads with a grip and carries Move up and
+    Move down before the chevron, each named for the goal; a press on any of them neither
+    opens nor folds the goal. The grip is a press origin for the library's shared pointer
+    reorder (data-reorder-grip on a data-reorder-item); the board owns the drag. Move up
+    and Move down hand -1 or +1 back, are disabled at the ends (CanMoveUp, CanMoveDown) and
+    while the host writes, and keep the focus on the button pressed — on the other one once
+    the goal has reached that end. Dragging draws the goal held set back, in the place it
+    would land.
+
     The forecast badge is the forecast family of .devbook/design/color-scheme.md
     #goal-forecast-badges: At risk takes the fault fill with its own ink as edge, On
     track the settled fill inside the strong edge.
 *@
-<section class="@ClassValue" aria-labelledby="@TitleId" data-testid="@TestId" data-expanded="@(Expanded ? "true" : "false")">
-    <div class="goal-card__head">
+@inject IJSRuntime Js
+<section class="@ClassValue"
+         aria-labelledby="@TitleId"
+         data-testid="@TestId"
+         data-expanded="@(Expanded ? "true" : "false")"
+         data-reorder-item="@(CanMove ? Goal.Id : null)"
+         data-draggable="@(CanMove ? "true" : null)">
+    @* The whole head row opens and folds the goal: most of a folded row is its bar, its
+       line and the space between them, not its title. The title stays the one control
+       the keyboard reaches and the one that says expanded; its press stops at itself so
+       the row does not toggle a second time. *@
+    <div class="goal-card__head" @onclick="() => OnToggle.InvokeAsync()" data-testid="@Part("head")">
+        @if (CanMove)
+        {
+            @* The grip is a press origin for the shared pointer reorder and nothing else, so
+               a press on it never opens or folds the goal; the keyboard moves the goal with
+               Move up and Move down. *@
+            <span class="goal-card__grip" data-reorder-grip aria-hidden="true" @onclick:stopPropagation="true" data-testid="@Part("grip")">⠿</span>
+        }
         <h3 class="goal-card__title" id="@TitleId">
             <AppButton Variant="ButtonVariant.None"
                        BaseClass="goal-card__toggle"
                        OnClick="() => OnToggle.InvokeAsync()"
+                       StopPropagation="true"
                        aria-expanded="@(Expanded ? "true" : "false")"
                        aria-controls="@(Expanded ? BodyId : null)"
                        TestId="@Part("toggle")">@Goal.Title</AppButton>
@@ -57,6 +104,32 @@
         }
         <span class="goal-card__meta" data-testid="@Part("meta")">@GoalsText.GoalLine(Goal)</span>
         <Badge Kind="forecast" Slug="@(Goal.AtRisk ? "at-risk" : "on-track")" TestId="@Part("forecast")">@GoalsText.Forecast(Goal.AtRisk)</Badge>
+        @if (CanMove)
+        {
+            <span class="goal-card__moves" @onclick:stopPropagation="true">
+                <IconButton AriaLabel="@($"Move {Goal.Title} up")"
+                            Title="Move up"
+                            Disabled="@(Busy || !CanMoveUp)"
+                            CssClass="goal-card__move"
+                            OnClick="() => MoveAsync(-1)"
+                            id="@MoveId(-1)"
+                            TestId="@Part("move-up")">
+                    <ChevronUpIcon Size="14" />
+                </IconButton>
+                <IconButton AriaLabel="@($"Move {Goal.Title} down")"
+                            Title="Move down"
+                            Disabled="@(Busy || !CanMoveDown)"
+                            CssClass="goal-card__move goal-card__move--down"
+                            OnClick="() => MoveAsync(1)"
+                            id="@MoveId(1)"
+                            TestId="@Part("move-down")">
+                    <ChevronUpIcon Size="14" />
+                </IconButton>
+            </span>
+        }
+        <span class="@(Expanded ? "goal-card__chevron goal-card__chevron--open" : "goal-card__chevron")" aria-hidden="true" data-testid="@Part("chevron")">
+            <ChevronUpIcon />
+        </span>
     </div>
 
     @if (Expanded)
@@ -161,7 +234,7 @@
                            DebounceMilliseconds="0"
                            CssClass="goal-card__search"
                            TestId="@Part("attach")" />
-                @if (Matches.Count > 0)
+                @if (Matches.Count > 0 || QuickAddTitle is not null)
                 {
                     <ul class="goal-card__matches" aria-label="Matches" data-testid="@Part("matches")">
                         @foreach (var match in Matches)
@@ -179,6 +252,20 @@
                                         }
                                         @match.Title
                                     </span>
+                                </AppButton>
+                            </li>
+                        }
+                        @if (QuickAddTitle is { } title)
+                        {
+                            <li class="goal-card__match-row">
+                                <AppButton Variant="ButtonVariant.None"
+                                           BaseClass="goal-card__match"
+                                           CssClass="goal-card__match--new"
+                                           Disabled="Busy"
+                                           OnClick="() => QuickAddAsync(title)"
+                                           TestId="@Part("quick-add")">
+                                    <span class="goal-card__match-kind">New</span>
+                                    <span class="goal-card__match-title">New task “@title”</span>
                                 </AppButton>
                             </li>
                         }
@@ -208,7 +295,8 @@
     [Parameter]
     public bool Expanded { get; set; }
 
-    /// <summary>The title was pressed: open the goal, or fold it.</summary>
+    /// <summary>The title, or anywhere on the head row, was pressed: open the goal, or fold
+    /// it.</summary>
     [Parameter]
     public EventCallback OnToggle { get; set; }
 
@@ -240,9 +328,38 @@
     [Parameter]
     public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
 
+    /// <summary>The repositories a bare pull request number in the attach search is read
+    /// in, <c>owner/name</c> each, so a pull request no candidate holds can be attached by
+    /// its number. Empty reads a bare number against <see cref="Candidates"/> alone.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
     /// <summary>A match was picked: the work it names.</summary>
     [Parameter]
     public EventCallback<GoalSubject> OnAttach { get; set; }
+
+    /// <summary>The "New task" row was picked: the title typed, trimmed, for the host to
+    /// create a task with and attach. Without a listener there is no such row.</summary>
+    [Parameter]
+    public EventCallback<string> OnQuickAdd { get; set; }
+
+    /// <summary>Move up or Move down was pressed: -1 or +1, one place. Without a listener the
+    /// goal has no grip and no Move buttons and cannot be picked up.</summary>
+    [Parameter]
+    public EventCallback<int> OnMove { get; set; }
+
+    /// <summary>Whether a goal sits above this one, so Move up has somewhere to go.</summary>
+    [Parameter]
+    public bool CanMoveUp { get; set; }
+
+    /// <summary>Whether a goal sits below this one, so Move down has somewhere to go.</summary>
+    [Parameter]
+    public bool CanMoveDown { get; set; }
+
+    /// <summary>Whether the goal is the one held in a drag, which the board draws in the
+    /// place it would land.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -260,12 +377,29 @@
         get
         {
             var expanded = Expanded ? " goal-card--expanded" : string.Empty;
+            var dragging = Dragging ? " goal-card--dragging" : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"goal-card{expanded}{extra}";
+            return $"goal-card{expanded}{dragging}{extra}";
         }
     }
 
     private bool CanEdit => OnEdit.HasDelegate;
+
+    private bool CanMove => OnMove.HasDelegate;
+
+    private string MoveId(int direction) => _id + (direction < 0 ? "-move-up" : "-move-down");
+
+    /// <summary>The Move button to give the focus back to once the goal has moved, or null.</summary>
+    private int? _focusMove;
+
+    /// <summary>Hands the move to the board. The goal's element is moved, not drawn again,
+    /// so the focus is put back on the Move button pressed — or on the other one, once the
+    /// goal has reached the end the pressed one pointed at.</summary>
+    private async Task MoveAsync(int direction)
+    {
+        await OnMove.InvokeAsync(direction);
+        _focusMove = direction;
+    }
 
     /// <summary>Each pull request with its subject, in the goal's order.</summary>
     private List<(PullRequestStatusModel Pull, GoalSubject? Subject)> Pulls =>
@@ -336,7 +470,8 @@
     {
         GoalField.Title => Goal.Title,
         GoalField.Outcome => Goal.Outcome ?? string.Empty,
-        _ => DueText(Goal.DueDate)
+        // The goal's own date: a derived iteration end is shown, never handed back as one.
+        _ => Goal.OwnDueDate is { } own ? DueText(own) : string.Empty
     };
 
     /// <summary>What the field holds: the value handed back while the goal does not say it
@@ -371,6 +506,10 @@
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
+    /// <summary>Whether the Due field's text is one to hand back: a date, or empty, which
+    /// clears the goal's date.</summary>
+    private static bool SettlesDue(string text) => text.Length == 0 || ReadDue(text) is not null;
+
     private static DateOnly? ReadDue(string? text) =>
         DateOnly.TryParseExact(text?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var day) ? day : null;
@@ -389,7 +528,7 @@
             _ => Clean(raw) ?? string.Empty
         };
 
-        if (field == GoalField.Due && ReadDue(value) is null)
+        if (field == GoalField.Due && !SettlesDue(value))
         {
             // Kept as typed, so leaving the field puts the goal's date back.
             _typed[field] = value;
@@ -442,13 +581,13 @@
 
     private Task LeaveAsync(GoalField field) => field == GoalField.Due ? SettleDueAsync() : Task.CompletedTask;
 
-    /// <summary>Hands the held date back, or puts the goal's date back when the field cannot
-    /// read what it holds.</summary>
+    /// <summary>Hands the held date back — an empty field as no date — or puts the goal's
+    /// date back when the field cannot read what it holds.</summary>
     private async Task SettleDueAsync()
     {
         if (!_typed.TryGetValue(GoalField.Due, out var typed)) return;
 
-        if (ReadDue(typed) is not null)
+        if (SettlesDue(typed))
         {
             await CommitAsync(GoalField.Due, typed);
             return;
@@ -484,24 +623,77 @@
         || Goal.Tasks.Any(task => task.Subject == subject)
         || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestSubject(index) == subject);
 
-    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query);
+    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query, Repositories);
+
+    /// <summary>The title the "New task" row offers: the query trimmed, while a host listens
+    /// and the query is not blank.</summary>
+    private string? QuickAddTitle =>
+        OnQuickAdd.HasDelegate && !string.IsNullOrWhiteSpace(_query) ? _query.Trim() : null;
 
     private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
 
-    /// <summary>The candidates whose title holds <paramref name="query"/>, or whose number
-    /// starts with it, a leading <c>#</c> ignored; none for a blank query.</summary>
-    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query)
-    {
-        var text = query?.Trim() ?? string.Empty;
-        if (text.Length == 0) return [];
+    /// <summary>The candidates <see cref="IsMatch"/> keeps for <paramref name="query"/>; none
+    /// for a blank query.</summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query) =>
+        [.. Matching(candidates, query).Take(MatchLimit)];
 
+    private static IEnumerable<GoalsItem> Matching(IReadOnlyList<GoalsItem> candidates, string? query) =>
+        string.IsNullOrWhiteSpace(query) ? [] : candidates.Where(item => IsMatch(item, query));
+
+    /// <summary>
+    /// Whether <paramref name="item"/> answers <paramref name="query"/>, ignoring case: its
+    /// title holds the query as typed or with one leading <c>+</c> or <c>#</c> dropped — a
+    /// plan is titled with its bare slug, and the app writes its tag as <c>+slug</c> — or
+    /// its number starts with the query, a leading <c>#</c> ignored. A blank query answers
+    /// every item.
+    /// </summary>
+    public static bool IsMatch(GoalsItem item, string? query)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var text = query?.Trim() ?? string.Empty;
+        if (text.Length == 0) return true;
+
+        var bare = text[0] is '+' or '#' ? text[1..].TrimStart() : string.Empty;
         var number = text.TrimStart('#');
-        return [.. candidates
-            .Where(item => item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
-                           || (number.Length > 0 && item.Number is { } n
-                               && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal)))
-            .Take(MatchLimit)];
+        return item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
+               || (bare.Length > 0 && item.Title.Contains(bare, StringComparison.OrdinalIgnoreCase))
+               || (number.Length > 0 && item.Number is { } n
+                   && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// <see cref="Match(IReadOnlyList{GoalsItem}, string?)"/>, led by the pull requests
+    /// <paramref name="query"/> names (<see cref="PullRequestReference.Resolve"/>) — a bare
+    /// number in each of <paramref name="repositories"/> — so one no candidate holds can be
+    /// attached by identity, titled with its repository. A pull request a candidate holds is
+    /// listed once, as that candidate. Every named pull request is listed; <see cref="MatchLimit"/>
+    /// caps only the candidate matches after them, so no registered repository goes unoffered.
+    /// </summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query, IReadOnlyList<string> repositories)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        List<GoalsItem> named = [.. PullRequestReference.Resolve(query, repositories)
+            .Select(subject => candidates.FirstOrDefault(item => SamePullRequest(item.Subject, subject))
+                               ?? new GoalsItem(subject, subject.Repository!))
+            .DistinctBy(Key)];
+
+        var listed = named.Select(Key).ToHashSet(StringComparer.Ordinal);
+
+        return [.. named.Concat(Matching(candidates, query)
+            .Where(item => !listed.Contains(Key(item)))
+            .DistinctBy(Key)
+            .Take(MatchLimit))];
+    }
+
+    private static string Key(GoalsItem item) => item.Subject.Key.ToUpperInvariant();
+
+    private static bool SamePullRequest(GoalSubject left, GoalSubject right) =>
+        left.Kind == GoalSubjectKind.PullRequest
+        && right.Kind == GoalSubjectKind.PullRequest
+        && left.Number == right.Number
+        && string.Equals(left.Repository, right.Repository, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The kind label a match or a No goal row reads under.</summary>
     public static string KindLabel(GoalSubjectKind kind) => kind switch
@@ -520,8 +712,40 @@
         await OnAttach.InvokeAsync(match.Subject);
     }
 
+    /// <summary>Hands the title back for the host to create and attach. Once a task exists
+    /// that did not before — held by the goal, or among the candidates when the attach after
+    /// the create was refused — the query clears and the focus goes back to the search box,
+    /// as a pick does, so the row cannot create it a second time. A refused create leaves the
+    /// typed text, to change and try again.</summary>
+    private async Task QuickAddAsync(string title)
+    {
+        var known = TasksKnown();
+
+        await OnQuickAdd.InvokeAsync(title);
+        await Task.Yield();
+
+        if (TasksKnown().IsSubsetOf(known)) return;
+
+        _query = string.Empty;
+        _focusSearch = true;
+    }
+
+    /// <summary>Every task the card can see: the goal's own and the candidates'.</summary>
+    private HashSet<string> TasksKnown() =>
+    [
+        .. Goal.Tasks.Select(task => "goal:" + task.Id),
+        .. Candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Subject.Key)
+    ];
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusMove is { } direction)
+        {
+            _focusMove = null;
+            var stillGoes = direction < 0 ? CanMoveUp : CanMoveDown;
+            await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, MoveId(stillGoes ? direction : -direction), select: false);
+        }
+
         if (!_focusSearch || _search is null) return;
 
         _focusSearch = false;

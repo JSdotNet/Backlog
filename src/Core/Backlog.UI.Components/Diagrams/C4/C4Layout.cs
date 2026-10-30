@@ -71,7 +71,7 @@ public sealed record C4PlacedGroup(
 /// <para>
 /// Off by default, and a layout handed no options places exactly what it placed before
 /// options existed. The C4 tab's explorer never passes any; the C4 zoom tab passes
-/// <see cref="GroupBands"/> - the rule local ADR 0037 sets for the two tabs while they
+/// <see cref="GroupBands"/> - the rule local ADR 0044 sets for the two tabs while they
 /// stand side by side, as <see cref="C4SvgOptions"/> does for the writer.
 /// </para>
 /// </summary>

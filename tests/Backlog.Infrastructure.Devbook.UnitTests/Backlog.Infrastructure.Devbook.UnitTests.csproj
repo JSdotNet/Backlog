@@ -25,6 +25,7 @@
          it again into a folder of its own and change it. -->
     <Compile Remove="Fixtures\**" />
     <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 
 </Project>

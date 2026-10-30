@@ -21,8 +21,13 @@ namespace Backlog.Desktop.UI.PullRequests;
 internal static partial class SessionPullRequestStatuses
 {
     /// <summary>The verdict on one pull request, or null where it cannot be placed on
-    /// GitHub, GitHub is not configured, or the read failed.</summary>
-    public static async Task<SessionPullRequestStatus?> ReadAsync(GitHubIntegration? gitHub, DeliveryRunReference pull)
+    /// GitHub, GitHub is not configured, or the read failed. A reading that finds it merged
+    /// or closed is reported to <paramref name="subjects"/>, so the notifications about it
+    /// close.</summary>
+    public static async Task<SessionPullRequestStatus?> ReadAsync(
+        GitHubIntegration? gitHub,
+        DeliveryRunReference pull,
+        PullRequestSubjects? subjects = null)
     {
         if (gitHub is not { IsConfigured: true } || PinOf(pull) is not { } pin) return null;
 
@@ -32,6 +37,8 @@ internal static partial class SessionPullRequestStatuses
             && string.Equals(candidate.RepositoryFullName, pin.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
 
         if (found is null) return null;
+
+        if (subjects is not null) await subjects.ObserveAsync(found);
 
         return Of(found, await StackParentOfAsync(gitHub, found));
     }

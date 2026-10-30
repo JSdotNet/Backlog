@@ -27,10 +27,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.4" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -44,8 +44,8 @@
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.1-preview.1.26506.6" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.1-preview.1.26506.6" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.4-preview.1.26523.11" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.4-preview.1.26523.11" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -53,7 +53,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.4" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -61,7 +61,31 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.4" />
+
+    <!--
+      The client-side half of the realtime nudge (local ADR 0039 §4): it registers the
+      WebPubSubServiceClient that Backlog.Infrastructure.WebPubSub mints client access
+      URLs and publishes "pull now" through, with the managed identity as its
+      credential. Moves with the hosting packages above, like the Cosmos one.
+    -->
+    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.1" />
+
+    <!--
+      The Android push (local ADR 0039 §4): the Notification Hubs data-plane client that
+      Backlog.Infrastructure.NotificationHubs keeps each phone's FCM v1 installation
+      through and sends the data message with. No Aspire integration exists for it, and
+      the hub takes no managed identity, so the client is built from the SAS connection
+      strings Bicep puts into the container app's secrets. FCM v1 installations and
+      native sends arrived in 4.2.0.
+    -->
+    <PackageVersion Include="Microsoft.Azure.NotificationHubs" Version="4.2.0" />
+    <!--
+      Lifted from the 6.0.1 Microsoft.Azure.NotificationHubs above depends on, which carries
+      a high-severity advisory (GHSA-qj66-m88j-hmgj). Referenced directly by
+      Backlog.Infrastructure.NotificationHubs only, because transitive pinning is off.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
 
     <!--
       Pinned to the version Aspire.Azure.Storage.Blobs above resolves
@@ -71,7 +95,7 @@
       of one assembly. Bump the two together or not at all.
     -->
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="bunit" Version="2.11.3" />
+    <PackageVersion Include="bunit" Version="2.12.5" />
     <!--
       Named explicitly so the lock files stop depending on which SDK restored them.
       A Microsoft.NET.Sdk.Web project with .razor content gets an implicit
@@ -83,9 +107,11 @@
       any other SDK (a newer runner image, an older local install) rewrites the lock
       file or fails CI's locked restore with NU1004. An explicit PackageReference of
       the same id replaces the implicit one, so the version is this line's.
-      Only the three web projects under src/Harness reference it, PrivateAssets="all"
-      as the implicit one was. The scripts may run a patch apart from the runtime,
-      which these undeployed harnesses can afford; keep the version at the ASP.NET
+      Only the three web projects under src/Harness and the desktop head, whose MCP
+      listener serves the pop-out pages, reference it, PrivateAssets="all" as the
+      implicit one was. The scripts may run a patch apart from the runtime,
+      which these undeployed harnesses can afford, and so can the head while its
+      pages are served in a Debug build only (local ADR 0043 §7); keep the version at the ASP.NET
       Core patch of the SDK CI installs, and regenerate the lock files with it.
     -->
     <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="10.0.13" />
@@ -106,7 +132,7 @@
     -->
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <!--
-      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0037 §3):
+      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0044 §3):
       Backlog.Infrastructure.Devbook parses a component's C# files with
       CSharpSyntaxTree.ParseText and never creates a compilation, so nothing
       here has to match the SDK's own compiler version.
@@ -118,16 +144,16 @@
       does (AddInboxModule() over in-memory ports) rather than newing its
       handlers one by one. Products get it from their host; only tests name it.
     -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.13" />
     <!--
       A HostApplicationBuilder in a test. Backlog.Infrastructure.Cosmos's
       registration extension takes an IHostApplicationBuilder and decides what to
       do by its environment, and the only honest way to assert that is to hand it
       a real builder rather than a stand-in that implements the interface.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!--
       ILoggingBuilder and its filters, for the file log the installed desktop
@@ -135,9 +161,9 @@
       package in their framework already; the library that registers the provider
       has to name it.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.13" />
 
     <!--
       ValidateDataAnnotations(), for a project that is a plain library rather than
@@ -145,9 +171,16 @@
       only Backlog.Infrastructure.Cosmos names it: without it, options with
       [Required] and [Range] on them would bind and never be checked.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
+
+    <!--
+      The screen lock and unlock events the desktop head's presence reads (local ADR 0041).
+      Part of the Windows Desktop shared framework, which the MAUI head does not take, so
+      it is named here; only Backlog.Desktop references it.
+    -->
+    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="10.0.13" />
 
     <!--
       Pinned to the version Microsoft.AspNetCore.Authentication.JwtBearer 10.0.11
@@ -197,6 +230,26 @@
     -->
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <!--
+      The Android push (local ADR 0039 §4): Firebase Cloud Messaging's token and
+      the data messages Notification Hubs relays, in the Android head only. The
+      Microsoft-maintained binding, with an explicit net10.0-android36.0 group;
+      its Play Services targets turn Platforms/Android/google-services.json into
+      the resources Firebase reads at start.
+    -->
+    <PackageVersion Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
+    <!--
+      Firebase Messaging's Play Services graph lifts AndroidX Fragment, Collection
+      and Lifecycle past the versions MAUI's own -ktx packages are pinned to. Those
+      artifacts merged their -ktx classes into the main one, so the older -ktx left
+      beside a newer main artifact puts each class in the dex twice (D8 "defined
+      multiple times"). The Android head references these at the matching versions.
+    -->
+    <PackageVersion Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.11.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
