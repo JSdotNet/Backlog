@@ -2,7 +2,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
 /// Writes a new note into the Brain's inbox area
-/// (<c>.devbook/domain/devbook/features.md#capture-into-the-brain</c>): the one
+/// (<c>.devbook/domain/brain/features.md#capture-into-the-brain</c>): the one
 /// writer the Devbook pane's <b>Capture</b>, Inbox triage's <b>To Brain</b> and an
 /// assistant's capture tool all go through, so the three cannot write three kinds
 /// of note. The text is <see cref="BrainNoteText.Compose"/>'s, and the area is

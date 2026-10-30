@@ -69,6 +69,116 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         Assert.Equal("Hide atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim());
     }
 
+    // ----- The Lobes atlas (.devbook/domain/devbook/context.md#lobes-atlas) ------------
+
+    /// <summary>With the atlas-lobes flag on, the Atlas button asks the host for the
+    /// Lobes atlas at this repository's scope, and the pane opens no atlas of its
+    /// own.</summary>
+    [Fact]
+    public async Task With_the_lobes_flag_on_the_atlas_button_opens_the_lobes_atlas_at_the_repository()
+    {
+        await using var harness = CreateHarness(lobesAtlas: true);
+        var asked = new List<string>();
+
+        var component = harness.Render(scope => asked.Add(scope));
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+        Assert.Equal("Open this devbook in the atlas, beside the Brain", component.Find("[data-testid='devbook-atlas-toggle']").GetAttribute("title"));
+
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(["repo:" + harness.RepositoryAlias.ToLowerInvariant()], asked));
+        Assert.Empty(component.FindAll("[data-testid='devbook-atlas']"));
+        Assert.Equal("Atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim());
+    }
+
+    /// <summary>With the flag off, the same button opens today's atlas in the pane
+    /// and asks the host for nothing, even when the host would answer.</summary>
+    [Fact]
+    public async Task With_the_lobes_flag_off_the_atlas_button_opens_todays_atlas()
+    {
+        await using var harness = CreateHarness(lobesAtlas: false);
+        var asked = new List<string>();
+
+        var component = harness.Render(scope => asked.Add(scope));
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas']")));
+        Assert.Empty(asked);
+    }
+
+    /// <summary>A host that answers nothing keeps the pane's own atlas, flag or
+    /// not: there is nowhere else for the button to go.</summary>
+    [Fact]
+    public async Task A_host_without_the_lobes_atlas_keeps_the_panes_own_atlas()
+    {
+        await using var harness = CreateHarness(lobesAtlas: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas']")));
+    }
+
+    /// <summary>On the Brain, the button opens the Lobes atlas at the Brain's
+    /// scope.</summary>
+    [Fact]
+    public async Task On_the_brain_the_atlas_button_opens_the_lobes_atlas_at_the_brain()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "# Conventions\n\n## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n");
+        harness.WriteNote("projects/plan.md", "# Plan\n\nThe plan.\n");
+        _ = ((AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>()).SetEnabled(DevbookFeatures.LobesAtlas, true);
+        var asked = new List<string>();
+
+        var component = harness.Context.Render<DevbookPane>(parameters => parameters
+            .Add(pane => pane.RepositoryAlias, string.Empty)
+            .Add(pane => pane.OnOpenLobesAtlas, (string scope) => asked.Add(scope)));
+        component.WaitForAssertion(() => Assert.Contains("Projects", DevbookPaneBrainHarness.Tabs(component)));
+
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(["brain"], asked));
+        Assert.Empty(component.FindAll("[data-testid='devbook-atlas']"));
+    }
+
+    /// <summary>
+    /// The Technology section has views of its own, and the canvas atlas no longer
+    /// draws the stack (<c>.devbook/domain/devbook/features.md#technology-view</c>).
+    /// With the atlas open, pressing Technology used to move the map onto a
+    /// <c>.tech</c> scope; it now closes the map and shows the section.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_Technology_with_the_atlas_open_closes_the_atlas()
+    {
+        await using var harness = CreateHarness(withTechnology: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Domain", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
+
+        await component.InvokeAsync(() => component.Find("#tab-tech").Click());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("#tab-tech").GetAttribute("aria-selected"));
+            Assert.Empty(component.FindAll(".devbook-atlas"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-atlas-toggle']"));
+        });
+
+        // Back on a section the atlas draws, the map stays closed until asked for
+        // again.
+        await component.InvokeAsync(() => component.Find("#tab-domain").Click());
+        component.WaitForAssertion(() =>
+            Assert.Equal("Atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim()));
+        Assert.Empty(component.FindAll(".devbook-atlas"));
+    }
+
     private const string ContextMap = """
         # Context Map
 
@@ -77,6 +187,26 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         ```
 
         The context map.
+        """;
+
+    private const string SharedTechnologies = """
+        # Shared Technologies
+
+        ```meta
+        status: accepted
+        kind: layer
+        ```
+
+        Shared platform choices.
+
+        ## .NET
+
+        ```meta
+        status: accepted
+        kind: runtime
+        ```
+
+        The runtime everything is built on.
         """;
 
     private const string Graph = """
@@ -90,7 +220,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         }
         """;
 
-    private Harness CreateHarness()
+    private Harness CreateHarness(bool lobesAtlas = false, bool withTechnology = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-atlas", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "_meta"));
@@ -101,10 +231,17 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "_meta", "graph.json"), Graph);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
+        if (withTechnology)
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".tech"));
+            File.WriteAllText(Path.Combine(root, ".tech", "shared.md"), SharedTechnologies);
+        }
+
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        _ = features.SetEnabled(DevbookFeatures.LobesAtlas, lobesAtlas);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -114,7 +251,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         var repository = Assert.Single(repositories) with
         {
             CloneDirectory = root,
-            DevbookFolders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" })]
+            DevbookFolders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" || (withTechnology && folder.Key is ".tech") })]
         };
         Assert.Null(gitHub.SetRepositories([repository]));
 
@@ -127,6 +264,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -159,6 +297,12 @@ public sealed class DevbookPaneAtlasTests : IDisposable
     {
         public IRenderedComponent<DevbookPane> Render() =>
             Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+
+        /// <summary>The pane in a host that answers the Lobes atlas.</summary>
+        public IRenderedComponent<DevbookPane> Render(Action<string> onOpenLobesAtlas) =>
+            Context.Render<DevbookPane>(parameters => parameters
+                .Add(pane => pane.RepositoryAlias, RepositoryAlias)
+                .Add(pane => pane.OnOpenLobesAtlas, (string scope) => onOpenLobesAtlas(scope)));
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }

@@ -62,12 +62,13 @@ public static class BacklogMcpTools
     /// <c>WithTools&lt;T&gt;()</c>, the feature key that decides whether its tools
     /// are listed at all, and the names those tools carry on the wire.</summary>
     /// <param name="FeatureKey">The <see cref="IAppFeatureSettings"/> key. One per
-    /// group, per local ADR 0012 §7.</param>
+    /// group, per local ADR 0012 §7 — or null for a group no flag gates, which is
+    /// always listed: <see cref="Windows"/>, whose record decided it has none.</param>
     /// <param name="ToolType">The attributed class. The host hands this to
     /// <c>WithTools</c>; nothing here constructs it.</param>
     /// <param name="ToolNames">The <c>tools/list</c> names, exactly as the
     /// <c>[McpServerTool(Name = …)]</c> attributes spell them.</param>
-    public sealed record McpToolGroup(string FeatureKey, Type ToolType, IReadOnlyList<string> ToolNames);
+    public sealed record McpToolGroup(string? FeatureKey, Type ToolType, IReadOnlyList<string> ToolNames);
 
     /// <summary>The backlog and import-plan tools, behind <c>backlog</c> — the
     /// key the Tasks context owns and the pane reads.</summary>
@@ -208,7 +209,8 @@ public static class BacklogMcpTools
 
     /// <summary>
     /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
-    /// came of it, list the queue — behind <c>session-requests</c>, the key that also
+    /// came of it, list the queue — and the answer delivery tools beside them (local ADR
+    /// 0041, Amends), behind <c>session-requests</c>, the key that also
     /// gates the Start session action and the wait route (§5). Its own key rather than
     /// <c>sessions</c>: the queue is off by default while its dispatchers are built, and
     /// somebody who watches sessions has not thereby asked for sessions to be started.
@@ -219,7 +221,10 @@ public static class BacklogMcpTools
         [
             SessionRequestTools.ClaimSessionRequest,
             SessionRequestTools.MarkSessionRequest,
-            SessionRequestTools.ListSessionRequests
+            SessionRequestTools.ListSessionRequests,
+            SessionRequestTools.ClaimDelivery,
+            SessionRequestTools.MarkDelivery,
+            SessionRequestTools.ListDeliveries
         ]);
 
     /// <summary>
@@ -252,8 +257,24 @@ public static class BacklogMcpTools
         typeof(NotificationTools),
         [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
 
+    /// <summary>
+    /// <c>open_window</c>, which shows the person a registered surface in a window or
+    /// as a web link (local ADR 0043 §7), and the one group behind no key.
+    /// <para>
+    /// <b>Ungated on purpose.</b> ADR 0043 §7 gives pop-out, its routes and this tool
+    /// no feature flag: the tool adds no surface and removes none. What a flag hides is
+    /// the surface, and the catalog the tool reads leaves out a surface whose own flag
+    /// is off — so switching the Devbook off still takes it out of reach here, as a
+    /// refusal naming the surfaces that remain.
+    /// </para>
+    /// </summary>
+    public static McpToolGroup Windows { get; } = new(
+        FeatureKey: null,
+        typeof(WindowTools),
+        [WindowTools.OpenWindow]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests, Notifications];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests, Notifications, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
@@ -309,6 +330,6 @@ public static class BacklogMcpTools
 
         var group = Groups.FirstOrDefault(candidate => candidate.ToolNames.Contains(toolName, comparer));
 
-        return group is null || features.IsEnabled(group.FeatureKey);
+        return group?.FeatureKey is not { } key || features.IsEnabled(key);
     }
 }

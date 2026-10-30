@@ -376,7 +376,8 @@ stateDiagram-v2
 - **The Brain is built the same way, under its own convention** (local ADR
   0026). Its database sits under `_databases/`, keyed by the Brain folder's
   absolute path. Nothing derived is written into the folder, which is often
-  synced. Its folders are the areas its `CONVENTIONS.md` declares.
+  synced. Its folders are the areas its `CONVENTIONS.md` declares, then every
+  other top folder holding a note, minus the folders it lists under `Ignore`.
 - **A OneDrive placeholder is indexed by its name.** While its content is still in
   the cloud it is not opened, since opening it would download it. Once the sync
   client hydrates it, the changed attributes make the database stale, and the next
@@ -436,10 +437,15 @@ deployed; no push reaches a phone until the hub has its FCM credential.
   viewer writes a reply document once, and the owner accepts or rejects it. The
   first valid reply the owner processes wins.
 - **Push payloads hold no body.** A push carries the id, kind, severity, state,
-  title and summary, from the push preview the owner writes on the envelope, and
-  never the body. An OS notification shows the title and the summary. A source
+  title, summary and origin, from the push preview the owner writes on the
+  envelope, and never the body. An OS notification shows the title and the
+  summary, with the origin's "System · Place" as its attribution line. A source
   can mark a notification private, and the summary then reads "Backlog has a
-  question for you".
+  question for you"; the origin still travels, since it holds no content.
+- **Every notification says where it came from.** Its optional
+  [origin](../domain/notifications/domain.md#origin) names the system, the place
+  in it, who asked and how. It is shown everywhere a notification appears and is
+  never used to route: the source does that.
 - **Logs never hold content.** The service and the apps never log a body or the
   text of an open answer. One trace follows each notification from publish to
   answer, with the reply hop as a linked span. The metrics are time to first
@@ -559,7 +565,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -570,7 +576,7 @@ boundaries, which makes them an architectural concern:
 |---|---|
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
-| **KnowledgeNote** | `.devbook/domain/devbook/domain.md#knowledge-note` |
+| **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
 | **ProgressSignal** (planned; no type in the code yet) | `.devbook/domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |

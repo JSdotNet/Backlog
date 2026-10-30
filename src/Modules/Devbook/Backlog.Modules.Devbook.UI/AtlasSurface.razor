@@ -1,0 +1,69 @@
+@using Backlog.Desktop.UI.Devbook.Extensions
+@inject ISurfaceNavigator Navigator
+
+@*
+    The Lobes atlas as a shell surface (local ADR 0043 §1, §3;
+    .devbook/domain/devbook/features.md#lobes-atlas): the scope it opens on arrives
+    as its one query key, and every jump out of it — a Brain note, a repository's
+    chapter, a scope card's Devbook — goes through the window's ISurfaceNavigator to
+    the Devbook surface, so it lands in the window it was pressed in. Where its way
+    back leads — the surface it was opened over — is the shell's to answer, so its
+    close is the callback the shell hands it.
+*@
+<LobesAtlasTakeover Scope="@Scope"
+                    OnClose="OnClose"
+                    OnOpenNote="OpenNote"
+                    OnOpenRepositoryChapter="OpenRepositoryChapter"
+                    OnOpenScope="OpenScope"
+                    OnRegisterRepository="RememberScope" />
+
+@code {
+    /// <summary>The surface's id in the catalog.</summary>
+    public const string SurfaceId = AtlasSurfaceRegistration.SurfaceId;
+
+    /// <summary>The query the surface was shown with; its one key is
+    /// <see cref="AtlasSurfaceRegistration.ScopeKey"/>.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>The atlas's way back: the surface it was opened over.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>The scope to open on — <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
+    /// <c>ghost:&lt;alias&gt;</c> — or null for All.</summary>
+    private string? Scope =>
+        Query is not null && Query.TryGetValue(AtlasSurfaceRegistration.ScopeKey, out var scope) ? scope : null;
+
+    /// <summary>A Brain note followed out of the atlas: the Devbook on the Brain, at it.</summary>
+    private void OpenNote(string notePath) => ShowDevbook(DevbookSurfaceQuery.Brain, notePath);
+
+    /// <summary>A repository chapter followed out of the atlas: that repository's
+    /// devbook, at it.</summary>
+    private void OpenRepositoryChapter(BrainRepoLink link) =>
+        ShowDevbook(DevbookSurfaceQuery.ScopeFor(link.Alias), link.Reference);
+
+    /// <summary>The scope card's action: the Devbook on the Brain (an empty alias) or
+    /// on that repository's devbook, without a chapter.</summary>
+    private void OpenScope(string repositoryAlias) =>
+        ShowDevbook(string.IsNullOrWhiteSpace(repositoryAlias) ? DevbookSurfaceQuery.Brain : repositoryAlias, null);
+
+    /// <summary>
+    /// Register repository on a ghost's card, just before the atlas leaves for
+    /// Settings: the atlas asked for again on that ghost's scope. The shell keeps it
+    /// as the atlas's place and leaves the atlas on screen as it is, so the remounted
+    /// shell reopens it there rather than on All.
+    /// </summary>
+    private void RememberScope(string scope) =>
+        Navigator.Show(SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [AtlasSurfaceRegistration.ScopeKey] = scope,
+        });
+
+    private void ShowDevbook(string scope, string? chapter)
+    {
+        var query = new Dictionary<string, string>(StringComparer.Ordinal) { [DevbookSurfaceQuery.Scope] = scope };
+        if (chapter is not null) query[DevbookSurfaceQuery.Chapter] = chapter;
+        Navigator.Show(DevbookSurfaceQuery.SurfaceId, query);
+    }
+}

@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// A bounded context's <c>classDiagram</c>, read and arranged the way the Domain
-/// view's Model page draws it (local ADR 0040): the aggregate root in its
+/// view's Model page draws it (local ADR 0044): the aggregate root in its
 /// consistency-boundary band with the parts composed into it, what it holds by
 /// identity outside the band, the domain services below — and nothing at all when
 /// the fence is not one the reader understands in full, so the page falls back to

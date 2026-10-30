@@ -992,7 +992,7 @@ public class TrackerToolsTests
     [Fact]
     public void Every_tracker_tool_is_gated_on_the_tasks_key()
     {
-        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).Distinct(StringComparer.Ordinal)]);
+        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>().Distinct(StringComparer.Ordinal)]);
 
         Assert.All(BacklogMcpTools.Tracker.ToolNames, name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
 

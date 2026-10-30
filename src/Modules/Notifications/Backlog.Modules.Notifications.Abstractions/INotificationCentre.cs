@@ -27,14 +27,16 @@ public interface INotificationCentre
 
     /// <summary>
     /// Answers a question from this device: picks <paramref name="choiceIds"/>, or writes
-    /// <paramref name="text"/>, or both where the question takes both. Rejected for the reasons
-    /// <see cref="INotificationReplies.AcceptReplyAsync"/> gives, with its error codes, so a
-    /// person can answer again.
+    /// <paramref name="text"/>, or both where the question takes both, with an optional
+    /// <paramref name="note"/> beside the answer where the question takes one. Rejected for the
+    /// reasons <see cref="INotificationReplies.AcceptReplyAsync"/> gives, with its error codes, so
+    /// a person can answer again.
     /// </summary>
     Task<Result<NotificationAnswer>> AnswerAsync(
         Guid notificationId,
         IReadOnlyList<string> choiceIds,
         string? text,
+        string? note = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Acknowledges an open alert, through <see cref="INotificationReplies.AcknowledgeAsync"/>.</summary>
@@ -75,7 +77,8 @@ public sealed record NotificationView(
     NotificationState State,
     DateTimeOffset? SettledAt,
     string? CloseReason,
-    NotificationAnswer? Answer)
+    NotificationAnswer? Answer,
+    NotificationOrigin? Origin = null)
 {
     /// <summary>How long a settled notification stays in the centre.</summary>
     public static readonly TimeSpan SettledWindow = TimeSpan.FromDays(7);

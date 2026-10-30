@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <summary>
 /// A Brain note's <c>repo:</c> links read as links, and read in reverse as the
 /// backlinks a repository chapter shows its owner (local ADR 0027 §6,
-/// <c>.devbook/domain/devbook/requirements.md#repo-links-and-backlinks</c>): from
+/// <c>.devbook/domain/brain/requirements.md#repo-links-and-backlinks</c>): from
 /// the Brain's own database, never from the repository.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]

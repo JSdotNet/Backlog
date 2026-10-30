@@ -424,7 +424,7 @@ public sealed class DomainDevbookStore : IDisposable
     /// <summary>
     /// The Markdown of a document <paramref name="view"/> listed, as it is on disk
     /// — for a page that reads its chapters whole rather than as this store's
-    /// excerpts: the Domain view's Domain page (local ADR 0040). Read from the
+    /// excerpts: the Domain view's Domain page (local ADR 0044). Read from the
     /// folder the view was prepared from, so a branch snapshot reads the branch.
     /// </summary>
     public static string ReadText(DomainDevbookView view, DomainDevbookDocument document)

@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// <summary>
 /// Writing a new note into the Brain's inbox area — the writer the Devbook pane's
 /// Capture, Inbox triage's To Brain and the capture tool share
-/// (<c>.devbook/domain/devbook/requirements.md#capture-into-the-brain</c>). The
+/// (<c>.devbook/domain/brain/requirements.md#capture-into-the-brain</c>). The
 /// text itself is <c>BrainNoteTextTests</c>'; these are the file: where it lands,
 /// that it never overwrites, and what an unusable Brain answers.
 /// </summary>
@@ -73,6 +73,21 @@ public sealed class BrainNoteWriterTests : IDisposable
 
         Assert.Equal("incoming/call-back.md", written.RelativePath);
         Assert.True(File.Exists(Path.Combine(Brain, "incoming", "call-back.md")));
+    }
+
+    /// <summary>An ignored inbox has no tab and is not indexed, so a capture
+    /// written there would vanish from view: it lands in the first area instead.</summary>
+    [Fact]
+    public async Task A_capture_never_lands_in_an_ignored_inbox()
+    {
+        UseBrain();
+        File.WriteAllText(Path.Combine(Brain, "CONVENTIONS.md"), "## Areas\n\n- `_inbox`\n- `work`\n\n## Ignore\n\n- `_INBOX`\n");
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Call back", null, BrainNoteSource.Manual), TestContext.Current.CancellationToken);
+
+        Assert.Equal("work/call-back.md", written.RelativePath);
+        Assert.False(Directory.Exists(Path.Combine(Brain, "_inbox")));
     }
 
     [Fact]

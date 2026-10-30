@@ -44,7 +44,7 @@ public sealed record DomainEventContract(
     DomainEventDelivery Delivery);
 
 /// <summary>The technical half of a context's domain chapters: how each domain
-/// service runs and what each event carries (local ADR 0040 §6).</summary>
+/// service runs and what each event carries (local ADR 0044 §6).</summary>
 public sealed record DomainChapterReading(IReadOnlyList<DomainServiceInvocation> Services, IReadOnlyList<DomainEventContract> Events)
 {
     /// <summary>What the context listens to from others, out of its dependency

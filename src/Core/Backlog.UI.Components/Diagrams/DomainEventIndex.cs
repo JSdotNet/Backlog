@@ -21,7 +21,7 @@ public sealed record DomainEventConsumer(string Name, string? What);
 
 /// <summary>
 /// The Events tab's index and detail, read out of the chapters as written
-/// (local ADR 0040 §5): when an event fires, who consumes it, its payload as
+/// (local ADR 0044 §5): when an event fires, who consumes it, its payload as
 /// rows, and what the context listens to from its dependency tables.
 /// </summary>
 public static partial class DomainEventIndex

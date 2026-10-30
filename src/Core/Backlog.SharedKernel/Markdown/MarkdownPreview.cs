@@ -9,9 +9,18 @@ namespace Backlog.SharedKernel.Markdown;
 /// Hand-written and still partial, but partial on purpose rather than by
 /// accident: it covers the markdown people actually write in this product —
 /// headings, lists (nested), checklists, quotes, code, tables, footnotes,
-/// emphasis, strikethrough, links, images and <c>#tags</c> — and renders
-/// anything else as plain text, so an unfinished line in a half-typed entry
-/// degrades into readable prose instead of disappearing or erroring.
+/// emphasis, strikethrough, links (<c>&lt;https://…&gt;</c> autolinks and bare
+/// <c>http</c>/<c>https</c> URLs too, read by <see cref="BareUrlScanner"/>), images
+/// and <c>#tags</c> — and renders anything else as plain text, so an unfinished
+/// line in a half-typed entry degrades into readable prose instead of disappearing
+/// or erroring.
+/// </para>
+/// <para>
+/// A URL inside emphasis or strikethrough — <c>**https://example.com**</c> — is
+/// not linked: <see cref="MdStrong"/>, <see cref="MdEm"/> and <see cref="MdStrike"/>
+/// hold plain text, so it reads as bold words, as a written <c>[x](url)</c> inside
+/// them already does. Nesting inlines is the fix, and it wants the same state
+/// machine as the gaps below.
 /// </para>
 /// <para>
 /// What it still does not do, deliberately: setext headings, reference-style
@@ -57,24 +66,53 @@ public static partial class MarkdownPreview
     [GeneratedRegex(@"^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")]
     private static partial Regex TableDelimiterRegex();
 
+    // The inline alternatives, named once so InlineRegex and BindingRegex read the
+    // same constructs the same way.
+    private const string CodePattern = @"(?<code>`[^`\n]+`)";
+
+    // CommonMark's autolink, `<scheme:...>`. Any scheme is matched so the
+    // allow-list stays LinkSchemes' alone; one it does not welcome is kept as the
+    // literal text it was.
+    private const string AutolinkPattern = @"(?<autolink><[A-Za-z][A-Za-z0-9+.\-]{1,31}:[^<>\s]*>)";
+
+    private const string ImagePattern = @"(?<image>!\[[^\]\n]*\]\((?:[^()\s]|\([^()\s]*\))+\))";
+
+    private const string FootnotePattern = @"(?<footnote>\[\^[^\]\s]+\])";
+
+    // The URL may contain one level of balanced brackets — Wikipedia article
+    // titles do — so stopping at the first `)` would truncate the link and leave a
+    // stray bracket in the text.
+    private const string LinkPattern = @"(?<link>\[[^\]\n]+\]\((?:[^()\s]|\([^()\s]*\))+\))";
+
     [GeneratedRegex(
-        @"(?<code>`[^`\n]+`)" +
+        // The CommonMark backslash escape, tried at each position before anything
+        // else: a `\` before ASCII punctuation is that character as text, so `\#x`
+        // is no tag and `\*` opens no emphasis. A backslash before anything else —
+        // a Windows path — is text as typed, and one inside a code span is the
+        // code's, because the span is matched from its opening backtick first.
+        @"(?<escape>\\[!-/:-@\[-`{-~])" +
+        "|" + CodePattern +
+        "|" + AutolinkPattern +
         // Image before link: both start with a bracket run, and the link
         // alternative would otherwise match from the `[` and leave the `!`
         // stranded as text.
-        @"|(?<image>!\[[^\]\n]*\]\((?:[^()\s]|\([^()\s]*\))+\))" +
+        "|" + ImagePattern +
         @"|(?<bold>\*\*[^*\n]+\*\*)" +
         @"|(?<strike>~~[^~\n]+~~)" +
         @"|(?<em>(?<!\*)\*[^*\n]+\*(?!\*))" +
         // Before the link alternative for the same reason as the image, though a
         // footnote reference has no `(...)` after it to be confused with one.
-        @"|(?<footnote>\[\^[^\]\s]+\])" +
-        // The URL may contain one level of balanced brackets — Wikipedia article
-        // titles do — so stopping at the first `)` would truncate the link and
-        // leave a stray bracket in the text.
-        @"|(?<link>\[[^\]\n]+\]\((?:[^()\s]|\([^()\s]*\))+\))" +
+        "|" + FootnotePattern +
+        "|" + LinkPattern +
         @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)")]
     private static partial Regex InlineRegex();
+
+    // Only the constructs GFM reads before it looks for an extended autolink, in
+    // InlineRegex's order: one that opens inside a bare URL ends the URL there.
+    // Emphasis, strikethrough and tags are not among them — a URL keeps its `*`,
+    // `_`, `~` and `#`.
+    [GeneratedRegex(CodePattern + "|" + AutolinkPattern + "|" + ImagePattern + "|" + FootnotePattern + "|" + LinkPattern)]
+    private static partial Regex BindingRegex();
 
     /// <summary>
     /// Reads a body as an <em>entry</em>: a <c>##</c> heading is a sub-item, and
@@ -739,15 +777,65 @@ public static partial class MarkdownPreview
     {
         var parts = new List<MdInline>();
         var cursor = 0;
+        var bare = BareUrlScanner.FindNext(text, 0);
 
-        foreach (Match match in InlineRegex().Matches(text))
+        // Plain text and escaped characters gather here, so an escape reads as part
+        // of the text around it — one MdText — rather than splitting it in pieces.
+        var run = new System.Text.StringBuilder();
+
+        void FlushText()
         {
+            if (run.Length == 0) return;
+            parts.Add(new MdText(run.ToString()));
+            run.Clear();
+        }
+
+        while (cursor < text.Length)
+        {
+            var match = InlineRegex().Match(text, cursor);
+
+            // A bare URL is a link only where it starts before every other
+            // construct still ahead: one inside a code span, or inside a link's
+            // words or its target, was already consumed with them. Starting first
+            // also means it wins over an emphasis marker inside it, so the `_` and
+            // `*` a URL may carry stay in its address.
+            //
+            // `bare` is always the next URL in the whole line; what this step
+            // takes is that URL cut short where a construct that binds first opens
+            // inside it, or nothing when the cut leaves no address.
+            if (bare is { } skipped && skipped.Index < cursor) bare = BareUrlScanner.FindNext(text, cursor);
+            if (bare is { } whole && (!match.Success || whole.Index < match.Index)
+                && CutShort(text, whole, footnotes) is { } url)
+            {
+                if (url.Index > cursor) run.Append(text, cursor, url.Index - cursor);
+                FlushText();
+
+                // The words are the URL itself, so the read view draws the same
+                // anchor a `[url](url)` would, and every reader of an MdLink —
+                // a plain-text label, a host's inline-target hook — sees nothing new.
+                parts.Add(new MdLink(url.Url, url.Url));
+                cursor = url.Index + url.Length;
+                continue;
+            }
+
+            if (!match.Success) break;
+
             if (match.Index > cursor)
             {
-                parts.Add(new MdText(text[cursor..match.Index]));
+                run.Append(text, cursor, match.Index - cursor);
             }
 
             var value = match.Value;
+            cursor = match.Index + match.Length;
+
+            if (match.Groups["escape"].Success)
+            {
+                run.Append(value[1]);
+                continue;
+            }
+
+            FlushText();
+
             if (match.Groups["code"].Success) parts.Add(new MdCodeSpan(value[1..^1]));
             else if (match.Groups["bold"].Success) parts.Add(new MdStrong(value[2..^2]));
             else if (match.Groups["strike"].Success) parts.Add(new MdStrike(value[2..^2]));
@@ -773,14 +861,47 @@ public static partial class MarkdownPreview
                 var split = value.IndexOf("](", StringComparison.Ordinal);
                 parts.Add(new MdLink(value[1..split], value[(split + 2)..^1]));
             }
-
-            cursor = match.Index + match.Length;
+            else if (match.Groups["autolink"].Success)
+            {
+                // The brackets are syntax, as CommonMark drops them; the URL is
+                // both the words and the target. An address a bare URL would not
+                // link — another scheme, no host — stays the literal text the
+                // author typed, asked of the scanner so the two forms agree.
+                var address = value[1..^1];
+                parts.Add(BareUrlScanner.IsWebUrl(address) ? new MdLink(address, address) : new MdText(value));
+            }
         }
 
-        if (cursor < text.Length) parts.Add(new MdText(text[cursor..]));
+        if (cursor < text.Length) run.Append(text, cursor, text.Length - cursor);
+        FlushText();
         return parts;
     }
-}
+
+    /// <summary>
+    /// The bare URL as far as the first construct inside it that GFM reads before an
+    /// extended autolink — a code span, a link, an image, an angle-bracket autolink,
+    /// or a footnote mark that has a note behind it — read again as if the line
+    /// stopped there, trailing punctuation and all. The whole URL when nothing
+    /// inside it binds; <see langword="null"/> when the cut leaves no address.
+    /// <para>
+    /// A footnote mark with no note renders as the characters typed, and GFM reads
+    /// text characters into an autolink like any others, so it stays in the URL.
+    /// Asking for its number here is safe: a mark that resolves is the next thing
+    /// the caller parses, so notes are still numbered in reading order.
+    /// </para>
+    /// </summary>
+    private static BareUrl? CutShort(string text, BareUrl url, Footnotes? footnotes)
+    {
+        var end = url.Index + url.Length;
+        for (var binding = BindingRegex().Match(text, url.Index); binding.Success && binding.Index < end; binding = binding.NextMatch())
+        {
+            if (binding.Groups["footnote"].Success && footnotes?.NumberFor(binding.Value[2..^1]) is null) continue;
+
+            return BareUrlScanner.FindNext(text[..binding.Index], url.Index);
+        }
+
+        return url;
+    }}
 
 /// <summary>
 /// Reads the metadata line that may follow a sub-item heading. The shape of that

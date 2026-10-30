@@ -522,10 +522,10 @@ is dark only and every value in the set is one this file already carries.
 ### The Brain's accent
 
 ```meta
-related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane", ".devbook/domain/devbook/features.md#repo-links-and-backlinks"]
+related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane", ".devbook/domain/brain/features.md#repo-links-and-backlinks"]
 ```
 
-The person's [Brain](../domain/devbook/domain.md#brain) sits in the repository
+The person's [Brain](../domain/brain/domain.md#brain) sits in the repository
 scope beside the repositories (local ADR 0027), so it takes an identity from the
 same set rather than a hue of its own: **`color-band-2`, teal `#7FD1C1`**. Gold,
 `color-primary`, stays what marks a repository devbook. Two devbooks can be on
@@ -573,7 +573,7 @@ Rules:
 ## Domain View Element Tones
 
 ```meta
-related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0040-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0044-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
 ```
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)

@@ -36,7 +36,7 @@ public sealed record DomainProofTally(int Count, int Proved)
 }
 
 /// <summary>
-/// One feature as the Features page draws it (local ADR 0040): a card in the
+/// One feature as the Features page draws it (local ADR 0044): a card in the
 /// column of what it builds on, and the detail picking it opens.
 /// </summary>
 /// <param name="Key">The chapter's anchor, unique on the page.</param>
@@ -86,7 +86,7 @@ public sealed record DomainFeatureColumn(int Depth, IReadOnlyList<DomainFeature>
 }
 
 /// <summary>
-/// Reads the Features page of the Domain view (local ADR 0040) from a context's
+/// Reads the Features page of the Domain view (local ADR 0044) from a context's
 /// files. Pure: text in, records out, so the storybook draws the page the app
 /// draws from a repository.
 /// <para>

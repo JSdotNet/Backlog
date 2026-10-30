@@ -64,7 +64,7 @@ public sealed record DomainFlowchartLayout(double Width, double Height, IReadOnl
 
 /// <summary>
 /// Reads a flow chapter's <c>flowchart</c> and lays it out in ranks, in the
-/// lifecycle's cards and lines (local ADR 0040, the Flow page): each node a rank
+/// lifecycle's cards and lines (local ADR 0044, the Flow page): each node a rank
 /// past every node that links to it, every line running between the ranks with a
 /// rounded turn, and a link back to an earlier rank round the outside. Pure, so
 /// the storybook draws the same chart from a sample string.

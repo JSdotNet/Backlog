@@ -96,7 +96,13 @@ public sealed record TaskPayload(
     // planned hours. Last and defaulted for the same reason, and null rather than
     // empty on a task with none, so its document serialises as it did before; the
     // service never reads one.
-    IReadOnlyList<PlannedHoursPayload>? PlannedHours = null)
+    IReadOnlyList<PlannedHoursPayload>? PlannedHours = null,
+    // The notification whose answer filed the task as a follow-up, so the other
+    // device knows the answer was already acted on. Last and defaulted for the
+    // reason StartedOn is: an older document carries none and reads as filed from
+    // no answer, and a service built before it passes it through in Unrecognised.
+    // Null on every other task, so its document serialises as it did before.
+    Guid? SourceNotificationId = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

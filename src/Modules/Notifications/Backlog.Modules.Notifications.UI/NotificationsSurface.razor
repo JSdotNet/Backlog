@@ -1,0 +1,63 @@
+@using Microsoft.Extensions.DependencyInjection
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The notification centre as a shell surface (local ADR 0043 §1, §6): a takeover, in
+    the main window in place of the main view or in a window of its own.
+    `notification=<id>` opens it on that notification. While it is on screen it listens
+    to NotificationCentreRequests itself, so a Windows notification pressed while the
+    centre is open in a window of its own opens on that notification there too — every
+    window that shows the centre answers, not only the main one.
+*@
+<NotificationCentrePane OnClose="OnClose" FocusNotificationId="@FocusNotificationId" />
+
+@code {
+    /// <summary>The query the surface was shown with: <c>notification</c>, or nothing.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private IDisposable? _requests;
+
+    /// <summary>The notification a request from outside asked for while this surface
+    /// was on screen; it wins over the query until a newer query arrives.</summary>
+    private Guid? _requested;
+
+    /// <summary>The query last handed in, so a new one — a newer jump — is noticed.</summary>
+    private IReadOnlyDictionary<string, string>? _query;
+
+    /// <summary>A new query is a newer jump than any request heard before it, so the
+    /// request gives way to it. The same query handed again on a redraw is not.</summary>
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Query, _query)) return;
+
+        _query = Query;
+        _requested = null;
+    }
+
+    private Guid? FocusNotificationId =>
+        _requested
+        ?? (Query is not null
+            && Query.TryGetValue(NotificationsSurfaceRegistration.NotificationKey, out var text)
+            && Guid.TryParse(text, out var id)
+                ? id
+                : null);
+
+    protected override void OnInitialized() =>
+        _requests = Services.GetService<NotificationCentreRequests>()?.Listen(OnRequested, takeMissed: false);
+
+    private void OnRequested(Guid? notificationId) => _ = InvokeAsync(() =>
+    {
+        if (notificationId is null) return;
+
+        _requested = notificationId;
+        StateHasChanged();
+    });
+
+    public void Dispose() => _requests?.Dispose();
+}

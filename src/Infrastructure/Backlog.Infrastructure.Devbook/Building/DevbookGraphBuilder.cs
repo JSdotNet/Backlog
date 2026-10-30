@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// block, one per structural heading something cites, and one per reference that
 /// points outside the devbook folders; <c>contains</c> edges down the heading
 /// hierarchy, and one edge per <c>depends-on</c>, <c>feature-flag</c>,
-/// <c>setting</c> and <c>related</c> entry.
+/// <c>setting</c>, <c>related</c> and labelled <c>feeds</c> entry.
 ///
 /// <para>Only what the database stores is ported. The generator also lints every
 /// block and counts open review notes; neither reaches a column, and the lint is
@@ -32,7 +32,8 @@ internal static partial class DevbookGraphBuilder
         ("depends-on", "depends-on"),
         ("feature-flag", "gated-by"),
         ("setting", "configured-by"),
-        ("related", "related")
+        ("related", "related"),
+        ("feeds", "feeds")
     ];
 
     public static DevbookGraph Build(string repositoryRoot, DevbookBuildLayout layout)
@@ -211,6 +212,7 @@ internal static partial class DevbookGraphBuilder
         foreach (var (field, _) in ReferenceFields)
         {
             var references = DevbookMarkdown.AsList(meta.GetValueOrDefault(field));
+            if (field == "feeds") references = [.. references.Select(FeedReference).OfType<string>()];
             if (references.Count > 0) node.References[field] = references;
         }
 
@@ -218,7 +220,7 @@ internal static partial class DevbookGraphBuilder
         // `feature-flag` and `roadmap` only when non-empty (the generator's
         // asList), `aliases` and `alternatives` whenever stated, then `tests`
         // only when non-empty — the test identifiers a requirement or invariant
-        // is proved by, which the Domain view reads (local ADR 0040). Only the
+        // is proved by, which the Domain view reads (local ADR 0044). Only the
         // authored entries: the generator also appends an `e2e:playwright` entry
         // for each `Proved by:` pointer whose scenario page a spec implements,
         // and that derivation is not ported — this corpus has no such spec yet,
@@ -293,6 +295,27 @@ internal static partial class DevbookGraphBuilder
 
     [GeneratedRegex(@"\]\(\s*<?(repo:[^\s)>]+)>?")]
     private static partial Regex RepoLink();
+
+    /// <summary>
+    /// The reference one <c>feeds</c> entry, <c>"&lt;path&gt;#&lt;anchor&gt;: &lt;label&gt;"</c>,
+    /// draws its edge to: the part before the first <c>": "</c>, or <c>null</c> when
+    /// the entry has no label, an empty reference, or whitespace inside the
+    /// reference — the generator's <c>parseFeed</c>, which draws no edge for such
+    /// an entry and leaves it to the lint. The label rides on the generator's edge
+    /// and reaches no column. Whitespace is JavaScript's <c>trim</c> and <c>\s</c>,
+    /// not .NET's, as everywhere in <see cref="DevbookMarkdown"/>.
+    /// </summary>
+    private static string? FeedReference(string entry)
+    {
+        var at = entry.IndexOf(": ", StringComparison.Ordinal);
+        if (at <= 0) return null;
+
+        var reference = DevbookMarkdown.JsTrim(entry[..at]);
+        var label = DevbookMarkdown.JsTrim(entry[(at + 2)..]);
+        if (reference.Length == 0 || label.Length == 0 || reference.Any(DevbookMarkdown.IsJsWhitespace)) return null;
+
+        return reference;
+    }
 
     /// <summary>A file's label: its title, and its type in parentheses when the
     /// title does not already say it.</summary>

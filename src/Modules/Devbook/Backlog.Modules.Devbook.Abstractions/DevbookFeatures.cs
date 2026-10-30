@@ -95,7 +95,7 @@ public static class DevbookFeatures
 
     /// <summary>Read the Domain area one unit at a time — the context map, each
     /// bounded context, each file inside it — on a page drawn for the kind of file
-    /// the unit is (local ADR 0040), instead of the Domain area as it reads today.
+    /// the unit is (local ADR 0044), instead of the Domain area as it reads today.
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
     /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
@@ -103,4 +103,13 @@ public static class DevbookFeatures
     /// the view, and is retired when the old Domain view is removed.
     /// </para></summary>
     public const string DomainView = "devbook-domain-view";
+
+    /// <summary>Map the Brain and every registered devbook as brains in one
+    /// full-window atlas (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>).
+    /// <para>
+    /// A devbook key by the same rule as its neighbours: the pane's own Atlas
+    /// button reads it to choose which atlas it opens, and the Shell reads it to
+    /// decide whether the header offers the atlas at all.
+    /// </para></summary>
+    public const string LobesAtlas = "atlas-lobes";
 }

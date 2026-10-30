@@ -442,6 +442,52 @@ public sealed class SpecManagerSignInTests : IDisposable
         Assert.Equal(ConnectorScenario.ClientId, kept.ClientId);
     }
 
+    [Fact]
+    public async Task The_first_sign_in_moment_is_kept_through_a_sign_out_and_a_later_sign_in()
+    {
+        using var scenario = new ConnectorScenario();
+        var first = scenario.Time.GetUtcNow();
+
+        ComeBack(scenario, (_, state) => $"code=first&state={state}");
+        Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(first, scenario.SignIn.FirstSignedInAt);
+
+        await scenario.Connector.SignOutAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(first, scenario.Store.Get(scenario.Options.Root)!.FirstSignedInAt);
+
+        scenario.Time.Advance(TimeSpan.FromDays(3));
+        ComeBack(scenario, (_, state) => $"code=second&state={state}");
+        Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(first, scenario.SignIn.FirstSignedInAt);
+        Assert.Equal(first.AddDays(3), scenario.Connector.Account?.SignedInAt);
+    }
+
+    /// <summary>A sign-in kept before the first sign-in moment was: its own moment is the
+    /// first one, and stays so through a sign-out.</summary>
+    [Fact]
+    public async Task A_sign_in_kept_before_the_moment_was_takes_its_own_moment_as_the_first()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        var signedInAt = scenario.Store.Get(scenario.Options.Root)!.SignedInAt;
+        Assert.Null(scenario.Store.Get(scenario.Options.Root)!.FirstSignedInAt);
+
+        Assert.Equal(signedInAt, scenario.SignIn.FirstSignedInAt);
+
+        await scenario.Connector.SignOutAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(signedInAt, scenario.SignIn.FirstSignedInAt);
+    }
+
+    [Fact]
+    public void An_installation_never_signed_in_to_has_no_first_sign_in_moment()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.Registered();
+
+        Assert.Null(scenario.SignIn.FirstSignedInAt);
+    }
+
     /// <summary>Makes the "browser" follow the authorization request back to the
     /// loopback listener with the query <paramref name="answer"/> builds from the
     /// redirect URI and the state it was sent.</summary>

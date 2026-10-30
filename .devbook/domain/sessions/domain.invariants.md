@@ -89,6 +89,19 @@ type: invariant
 
 Enforced at: `AgentSessionState` (Running, Stalled, Finished)
 
+### Invariant: An open Waiting Question makes a live session Waiting
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.An_open_waiting_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.An_open_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_finished_idle_session_keeps_its_question_open]
+```
+
+A session that would read Running or Stalled reads Waiting while it holds a Waiting Question in InSession or Notified, and a Finished session never reads Waiting.
+The relay registers every question a session asks, so the waiting state is derived from that record rather than claimed (local ADR 0041).
+
+Enforced at: `WaitingQuestions.StateWith()`, `WaitingSessionSource` (the session list reads the relay last)
+
 ### Invariant: The log never fills a gap
 
 ```meta
@@ -193,6 +206,46 @@ The session's display title is not changed by it.
 The Dashboard's longest sessions name a session the same way; every other surface, the MCP server's included, names it by its display title.
 
 Enforced at: `SessionRow.Title`, `AgentSessionAssistantSessionSource` (the longest sessions), `ClaudeDesktopSessionReader` (a blank or absent `title` reads null), `ClaudeSessionReader.Stamped()`
+
+### Invariant: A row shows its title less its prefix
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_session_the_desktop_app_names_is_called_by_its_sidebar_name, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_standing_prefix_is_the_purpose_and_leaves_the_title, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Anything_else_is_other_and_shown_whole]
+```
+
+A row on the session list shows its title less the prefix the `Session Title Reading` recognised, and shows that prefix as a purpose badge.
+The row's tooltip, its detail panel and every other surface keep the whole title, so the title the desktop app calls a session is never lost.
+A title with no prefix it recognises is shown whole.
+
+Enforced at: `SessionTitles.Read()` (`Shown` and `Raw`), `SessionsPane.RowButton()` (the shown title, with `SessionRow.Title` as its tooltip)
+
+### Invariant: A scheduled row is Scheduled whatever its title says
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_scheduled_task_run_is_scheduled_whatever_its_title_says, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_schedule_row_is_scheduled]
+```
+
+A row whose session is a desktop scheduled task's run, and a schedule's row, read as Scheduled before their title is read.
+So a routine is never standing and never part of a plan.
+
+Enforced at: `SessionTitles.Of()`
+
+### Invariant: Plan tags match ignoring case and the leading plus
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Tags_compare_case_blind_with_the_plus_lifted, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_narrows_to_its_rows_case_blind_and_none_is_the_same_list]
+```
+
+Two plan tags name one plan when they match ignoring case, with one leading `+` lifted from either.
+An entry's title writes the bare tag and a plan run's keeps the `+`, and both belong to one plan.
+
+Enforced at: `SessionTitles.SameTag()`, `SessionPlans.On()`, `AgentSessionGroups.Of()` (the Plan grouping keys on `plan/` and the bare tag lower-cased)
 
 ### Invariant: A session record is added to and never taken from
 
@@ -718,12 +771,26 @@ related: [.devbook/domain/sessions/domain.md#session-view]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 Every narrowing of the session list is applied before the list is grouped, never after, so an environment with nothing left in it loses its section rather than keeping an empty one.
+The narrowings that read the title, by plan, plan state and purpose, are bound by it as the others are.
 
-Enforced at: the Sessions pane's derived view (`SessionsPane.View`), which hands `AgentSessionGroups.Of()` only what the narrowings kept
+Enforced at: the Sessions pane's derived view (`SessionsPane.View`), which hands `AgentSessionGroups.Of()` only what the narrowings kept, `SessionPlans.On()`, `SessionPlans.InState()` and `SessionPurposes.On()` included
+
+### Invariant: A plan's state is read off the whole reading
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Every_tag_present_is_offered_with_its_plans_state, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_state_keeps_every_row_of_a_plan_in_that_state, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_state_reads_the_plans_off_the_whole_list_not_the_narrowed_one]
+```
+
+A plan is Imported when any of its sessions is a `+PLAN` session or a plan run, Draft when it has only `PLAN:` sessions, and of unknown state otherwise.
+The state comes from every row of the reading, so a narrowing applied first never changes it, and Plan State keeps every row of a plan in that state.
+
+Enforced at: `SessionPlans.Of()`, `SessionPlans.InState()` (its `plans` parameter); the Sessions pane, which passes the plans of its whole reading
 
 ### Invariant: Open admits on the desktop record, never on state
 
@@ -765,12 +832,25 @@ related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Scheduled_rows_close_the_list_in_one_section_of_their_own]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Scheduled_rows_close_the_list_in_one_section_of_their_own, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.The_new_groupings_carry_every_row_exactly_once, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_plan_is_a_section_per_tag_with_the_plan_then_its_runs_then_its_entries_by_step]
 ```
 
 Every row handed to a grouping comes out in exactly one of its sections, so a count taken before grouping is still correct after it.
 
-Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section rather than leave those rows out; `AgentSessionGroups.ScheduledApart()`, which moves the scheduled rows into one section and drops none
+Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section and the Plan grouping with a "Not part of a plan" section rather than leave those rows out, and puts each row in one When bucket, Standing included; `AgentSessionGroups.ScheduledApart()`, which moves the scheduled rows into one section and drops none
+
+### Invariant: A standing session leaves Standing only while it runs
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Under_when_the_standing_sessions_open_the_list_above_live_now
+```
+
+Under When, a standing session that is not live sits in Standing, above Live now, whatever day it was last active.
+While it runs it sits in Live now, and a Scheduled row is never standing.
+
+Enforced at: `AgentSessionGroups.Of()` (the When grouping), `SessionTitles.IsStanding()`
 
 ### Invariant: An environment is told apart by its id
 
@@ -894,3 +974,115 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_St
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
 
 Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0038 §3)
+
+## Question Relay
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/sessions/domain.md#question-relay]
+```
+
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them, `QuestionRelay` the route, the publishing and the answers, `SqliteWaitingQuestionStore` the record, and the session-request tools and the dispatch wait route hand the deliveries to the Manager.
+
+### Invariant: Presence picks the route once
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_at_the_keyboard_it_stays_in_the_session_until_the_notify_delay_passes, unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_while_away_it_is_routed_to_backlog_and_due_at_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_held_question_is_published_by_the_escalation_timer_once_the_delay_passes]
+```
+
+A Waiting Question's route is set from the person's Presence when it is asked, and never changes: an InSession question becomes Notified only when its escalate at passes.
+The caller passes the question and never a route, because only the desktop knows where the person is.
+
+Enforced at: `WaitingQuestions.Ask()` (the route, set once), `QuestionRelay.AskAsync()` (presence read when asked), `QuestionRelay.EscalateDueAsync()`
+
+### Invariant: Presence never takes a question back
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Publishing_takes_one_notification_per_question_and_never_goes_back]
+```
+
+A Notified question never returns to InSession; only an answer, the session's end or the hook's timeout ends it.
+Opening Backlog to answer is input too, so a question taken back on input would close as the person reached for it.
+
+Enforced at: `WaitingQuestions.Notify()`, `Postpone()` (InSession only); nothing moves a Notified question back
+
+### Invariant: One Waiting Question per tool use
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Registering_the_same_session_and_tool_use_finds_the_first_question, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Registering_the_same_session_and_tool_use_twice_returns_the_existing_question, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteWaitingQuestionStoreTests.Registering_the_same_session_and_tool_use_twice_returns_the_first]
+```
+
+A second `ask` for the same session and tool use answers the question already registered and publishes nothing new.
+Hooks installed at two scopes both fire for one dialog.
+
+Enforced at: `WaitingQuestions.DuplicateOf()`, `SqliteWaitingQuestionStore.RegisterAsync()` (one immediate transaction)
+
+### Invariant: Answered and Closed are final
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_and_Closed_are_final, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_replayed_answer_changes_nothing]
+```
+
+An Answered or Closed question changes no further; an answer that arrives after it closed is not delivered.
+
+Enforced at: `WaitingQuestions.Answer()`, `Close()`, `Notify()`
+
+### Invariant: An answer in the session closes the question everywhere
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_in_the_session_it_is_answered_with_the_answers_and_gets_no_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Answered_in_the_session_closes_its_notifications_with_the_answers]
+```
+
+A question answered in the session moves to Answered, closes each of its notifications with the answers, and gets no delivery.
+
+Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each notification closed with its answer)
+
+### Invariant: A delivery carries only the stored question and the accepted answer
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_delivery_carries_the_stored_question_and_the_accepted_answer, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_dialog_of_several_questions_is_delivered_numbered_one_per_line, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request]
+```
+
+A delivery holds the session id, the question as the session asked it and the answer the owner accepted, and nothing else the Manager could act on.
+The Manager never answers a question itself, and writes its message from these alone.
+
+Enforced at: `WaitingQuestions.DeliveryText()`, `AnswerDeliveryPayload.From()` (ADR 0041 §3)
+
+### Invariant: Only one Manager holds a delivery
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_second_dispatcher_cannot_claim_a_held_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_reads_as_pending_again_and_can_be_claimed_by_another, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Delivered_is_final, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Only_the_holder_marks_a_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_nobody_took_since_is_still_marked_delivered_by_its_claimant, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_released_delivery_is_pending_and_held_back_from_the_route_for_one_lease, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DeliveryToolsTests.A_lapsed_claim_reads_as_pending_and_its_holder_can_no_longer_release_it]
+```
+
+A delivery is claimed only while Pending, under a two-minute lease; a lease that runs out reads as Pending again, and Delivered is final.
+Only the dispatcher holding the claim marks it, but its `delivered` still counts after its lease ran out while nobody else claimed it, because the answer was sent; a release holds the delivery back from the wait route and from a new claim for one lease.
+
+Enforced at: `WaitingQuestions.ClaimDelivery()`, `MarkDelivered()`, `ReleaseDelivery()`, applied in one write by `SqliteWaitingQuestionStore.ChangeAsync()` (ADR 0041, Amends)
+
+### Invariant: Deliveries come before session requests, and only for a session the desktop app holds open
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.Deliveries_are_handed_out_oldest_answer_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_whose_session_the_desktop_app_does_not_hold_open_is_not_handed_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_released_delivery_is_held_back_for_one_lease]
+```
+
+The dispatch wait route hands out a due delivery, oldest answer first, before any session request, because its session already holds a worktree.
+A delivery whose session the Claude desktop app holds no open record of is never handed out: a CLI session gets its answer only through the hook or in the session, and an ended one has nobody to send it to.
+
+Enforced at: `SessionRequestWaitEndpoint.WaitAsync()`, `WaitingQuestions.DueDeliveries()`, `DesktopSessionIds` (ADR 0041, Amends)

@@ -1,0 +1,66 @@
+@*
+    A task title as text, with the tags and web addresses typed into it drawn where
+    they stand. Every task surface puts its title inside the control that opens or
+    renames the task — the row's open button, the card, the panel's rename button —
+    so nothing drawn here may be a control of its own: a button cannot hold a link,
+    and ARIA makes a button's children presentational, so a nested anchor would
+    vanish from the accessibility tree anyway.
+
+    A tag is an inert chip, as it always was on the row. A URL is a span styled as
+    a link that a pointer can still follow: a click on it opens the address in the
+    browser and stops there, so the row does not open, the panel does not start a
+    rename and the card does not open. It takes no tab stop. The keyboard's and a
+    screen reader's way to the same address is the real anchor TaskTitleLinks draws
+    beside the title, outside the control.
+
+    The two halves of that click live in two places, on purpose. Opening is
+    components.js's: a native listener on `data-title-url` calls `window.open`
+    inside the click itself, because a browser lets a page open a window only while
+    the gesture is still running, and a trip through .NET first — a Blazor Server
+    circuit away in the harnesses — can outlast it and be dropped by the popup
+    blocker without a word. Stopping is Blazor's: `@onclick:stopPropagation` ends
+    Blazor's walk at the span, so the open button's, the card's and the rename
+    button's handlers never hear it. A new window is the request every host already
+    routes the way it routes an `<a target="_blank">`: a browser opens a tab, the
+    desktop head's WebView hands it to the system browser. NavigationManager would
+    navigate the harness's own tab away.
+
+    No element of its own, so the host's title element stays the one that ellipses
+    and the text inside it is the title, verbatim — see TitleRuns.
+*@
+@foreach (var run in TitleRuns.Split(Title))
+{
+    if (run.Kind == TitleRunKind.Url)
+    {
+        @* data-title-url is the address components.js opens, and what taskListDrag
+           keeps out of the row-drag gesture: a press here is a press on the
+           address, not on the row. *@
+        <span class="task-title-url"
+              data-title-url="@run.Text"
+              @onclick:stopPropagation="true">@run.Text</span>
+    }
+    else if (run.Kind == TitleRunKind.Tag && Tags)
+    {
+        <TagChip Text="@run.Text" CssClass="@TagCssClass" />
+    }
+    else
+    {
+        @run.Text
+    }
+}
+
+@code {
+    /// <summary>The title, exactly as stored.</summary>
+    [Parameter, EditorRequired]
+    public string? Title { get; set; }
+
+    /// <summary>Whether the tags typed into the title are drawn as chips. The row
+    /// draws them; the card and the panel list the tags on a line of their own and
+    /// leave them as words in the title.</summary>
+    [Parameter]
+    public bool Tags { get; set; }
+
+    /// <summary>Appended to each tag chip's class.</summary>
+    [Parameter]
+    public string? TagCssClass { get; set; }
+}

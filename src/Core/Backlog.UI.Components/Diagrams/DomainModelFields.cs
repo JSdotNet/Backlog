@@ -40,7 +40,7 @@ public sealed record DomainFieldGroup(DomainFieldKind Kind, IReadOnlyList<Domain
 public sealed record DomainFieldsClass(string Name, DomainModelKind Kind, string? Stereotype, IReadOnlyList<DomainFieldGroup> Groups);
 
 /// <summary>
-/// The Model page's Fields reading of a <c>classDiagram</c> (local ADR 0040): every
+/// The Model page's Fields reading of a <c>classDiagram</c> (local ADR 0044): every
 /// class that holds state — aggregate roots, entities, value objects and the classes
 /// another context owns — with its attributes grouped by what their types say.
 /// <para>

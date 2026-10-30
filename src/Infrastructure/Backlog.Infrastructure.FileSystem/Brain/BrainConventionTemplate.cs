@@ -39,12 +39,16 @@ public static class BrainConventionTemplate
     /// <summary>The shipped <c>README.md</c>.</summary>
     public static string Readme { get; } = ReadResource(ReadmeFileName);
 
-    /// <summary>The shipped <c>CONVENTIONS.md</c>, declaring <see cref="ParaAreas"/>.</summary>
+    /// <summary>The shipped <c>CONVENTIONS.md</c>, declaring <see cref="ParaAreas"/>
+    /// and listing <c>_templates</c> under <c>## Ignore</c>, the folder note
+    /// templates usually live in (<see cref="BrainConventions.Ignored"/>).</summary>
     public static string Conventions { get; } = ReadResource(ConventionsFileName);
 
     /// <summary>
     /// The areas a <c>CONVENTIONS.md</c> declares, in the order it declares them,
     /// or <see cref="ParaAreas"/> when it declares none — <see cref="BrainConventions.Parse"/>.
+    /// The Markdown alone: no folder on disk is discovered and nothing is ignored,
+    /// since this is what <b>Create conventions</b> scaffolds.
     /// <para>
     /// Deliberately forgiving: a row whose folder is not one plain folder name —
     /// empty, nested, rooted, or climbing out with <c>..</c> — is skipped rather

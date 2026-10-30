@@ -30,7 +30,8 @@ public sealed record PushAction(string Key, string Label, PushActionKind Kind, s
 /// the reply one of them makes. Pure, so the mapping is tested without a device.
 /// <para>
 /// Android shows at most three actions, the inline reply included. A question whose whole answer
-/// does not fit — several picks, more choices than buttons, an open answer beside three choices —
+/// does not fit — several picks, more choices than buttons, an open answer beside three choices,
+/// a choice that takes text —
 /// gets no actions, and its tap opens the question in the app instead. So does anything this
 /// phone may not answer now: an alert, an owner-only question, a reply already on its way.
 /// </para>
@@ -59,6 +60,10 @@ public static class PushActions
         if (notification.Notification.AnswerSpec is not { AllowMultiple: false, AnswerOn: AnswerOn.AnyInstance } spec) return [];
 
         var choices = spec.Choices ?? [];
+
+        // A tray action carries no words, so a choice that needs them is answered in the app.
+        if (choices.Any(choice => choice.TakesText)) return [];
+
         var slots = choices.Count + (spec.Open is null ? 0 : 1);
         if (slots == 0 || slots > MaxActions) return [];
 
@@ -110,7 +115,7 @@ public static class PushActions
         ArgumentNullException.ThrowIfNull(projection);
 
         return ToReply(key, text) is { } pick
-            ? projection.ReplyAsync(notificationId, pick.ChoiceIds, pick.Text, cancellationToken)
+            ? projection.ReplyAsync(notificationId, pick.ChoiceIds, pick.Text, cancellationToken: cancellationToken)
             : Task.FromResult<NotificationReplyPost?>(null);
     }
 }

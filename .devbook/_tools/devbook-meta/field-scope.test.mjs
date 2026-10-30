@@ -301,8 +301,8 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
 {
     const issues = validateDocument(
         ".devbook/ai/03-build.md",
-        `# Build\n\n${fence("status: adopted\ntype: stage\nstage: build\n")}\n## TDD with an agent\n\n` +
-            `${fence("status: trial\ntype: practice\nstage: build\n")}\nProse.\n`
+        `# Build\n\n${fence("status: adopted\ntype: stage\nstage: verify\n")}\n## TDD with an agent\n\n` +
+            `${fence("status: trial\ntype: practice\nstage: verify\n")}\nProse.\n\n- **Moves up when** — a second person works this way.\n`
     );
 
     check(

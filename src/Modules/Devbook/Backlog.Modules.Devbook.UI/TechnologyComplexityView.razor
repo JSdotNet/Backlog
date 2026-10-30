@@ -1,0 +1,321 @@
+@inherits TechnologyViewBase
+@using System.Globalization
+
+@*
+    Complexity — blast radius against depth (.devbook/domain/devbook/features.md#technology-view).
+    The design's Complexity board: a scatter of every technology by how many use it
+    (across, square-root scaled) and how much sits under it (up), split into four
+    quadrants, coloured by quadrant, type family or layer; beside it the two hotspot
+    lists and the longest chain; under it the table companion that operates the same
+    selection from the keyboard.
+
+    Every point is a button positioned with CSS, so the picture is in the
+    accessibility tree. Every figure is a measure TechnologyGraphMeasures computed;
+    TechnologyComplexityBoard only groups, orders and places them.
+*@
+
+<div class="tech-complexity" data-testid="technology-complexity">
+    <div class="tech-complexity__body">
+        <section class="tech-complexity__board" aria-labelledby="tech-complexity-board">
+            <div class="tech-complexity__toolbar">
+                <div class="tech-complexity__intro">
+                    <h3 id="tech-complexity-board" class="tech-complexity__heading">Blast radius against depth</h3>
+                    <p class="tech-complexity__note">Right = more technologies use it. Up = more sits underneath it.</p>
+                </div>
+                <ButtonGroup AriaLabel="Colour by" CssClass="tech-complexity__colours" TestId="technology-complexity-colours">
+                    @foreach (var (mode, label) in ColourModes)
+                    {
+                        <ToggleButton Pressed="@(_colour == mode)"
+                                      PressedChanged="_ => _colour = mode"
+                                      TestId="technology-complexity-colour"
+                                      data-colour="@mode.ToString().ToLowerInvariant()">@label</ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+
+            @{
+                var points = Points;
+                var rooms = TechnologyComplexityBoard.LabelRoom(points, UsedByMax);
+            }
+
+            @* The quadrants' names and meanings, laid out as the plot's four corners
+               rather than printed inside them, where a full stack's points would
+               cover the words. *@
+            <ul class="tech-complexity__quadrants" aria-label="Quadrants">
+                @foreach (var quadrant in KeyOrder)
+                {
+                    <li class="tech-complexity__quadrant tech-complexity__quadrant--@TechnologyQuadrants.Slug(quadrant)"
+                        data-testid="technology-complexity-quadrant"
+                        data-quadrant="@TechnologyQuadrants.Slug(quadrant)">
+                        <span class="tech-complexity__quadrant-name">@TechnologyQuadrants.Label(quadrant)</span>
+                        <span class="tech-complexity__quadrant-meaning">@QuadrantMeaning(points, quadrant)</span>
+                    </li>
+                }
+            </ul>
+
+            <div class="tech-complexity__frame">
+                <span class="tech-complexity__axis-title tech-complexity__axis-title--y" aria-hidden="true">Rests on (transitive) →</span>
+                <div class="tech-complexity__plot"
+                     role="group"
+                     aria-label="Technologies by direct users and by what they rest on"
+                     style="--split-x: @TechnologyComplexityBoard.Css(SplitX); --split-y: @TechnologyComplexityBoard.Css(SplitY)"
+                     data-testid="technology-complexity-plot">
+                    <div class="tech-complexity__region tech-complexity__region--deep-leaves" aria-hidden="true"></div>
+                    <div class="tech-complexity__region tech-complexity__region--hubs" aria-hidden="true"></div>
+                    <div class="tech-complexity__region tech-complexity__region--foundations" aria-hidden="true"></div>
+                    <div class="tech-complexity__split tech-complexity__split--x" aria-hidden="true"></div>
+                    <div class="tech-complexity__split tech-complexity__split--y" aria-hidden="true"></div>
+
+                    @foreach (var point in points)
+                    {
+                        var x = TechnologyComplexityBoard.X(point.UsedBy, UsedByMax);
+                        var room = TechnologyComplexityBoard.Css(rooms[point]);
+                        <ToggleButton BaseClass="@PointClass(point, x)"
+                                      PressedCssClass="tech-complexity__point--selected"
+                                      Pressed="@point.Contains(SelectedId)"
+                                      PressedChanged="_ => SelectAsync(point.NextId(SelectedId))"
+                                      AriaLabel="@PointName(point)"
+                                      TestId="technology-complexity-point"
+                                      data-used-by="@point.UsedBy"
+                                      data-rests-on="@point.RestsOn"
+                                      style="@($"--x: {TechnologyComplexityBoard.Css(x)}; --y: {TechnologyComplexityBoard.Css(TechnologyComplexityBoard.Y(point.RestsOn, RestsOnMax))}; --room: {room}")">
+                            <span class="tech-complexity__dot" aria-hidden="true"></span>
+                            <span class="tech-complexity__label">@point.ShortLabel</span>
+                        </ToggleButton>
+                    }
+                </div>
+                <div class="tech-complexity__ticks" aria-hidden="true">
+                    @foreach (var tick in Ticks)
+                    {
+                        <span class="tech-complexity__tick" style="--x: @TechnologyComplexityBoard.Css(tick.Percent)">@tick.Value</span>
+                    }
+                    <span class="tech-complexity__axis-title tech-complexity__axis-title--x">Used by (direct) →</span>
+                </div>
+            </div>
+
+            <ul class="tech-complexity__legend" aria-label="Colours" data-testid="technology-complexity-legend">
+                @foreach (var (slug, label) in LegendEntries)
+                {
+                    <li><span class="tech-complexity__swatch tech-complexity__swatch--@slug" aria-hidden="true"></span>@label</li>
+                }
+                <li><span class="tech-complexity__swatch tech-complexity__swatch--hollow" aria-hidden="true"></span>Not yet adopted</li>
+            </ul>
+            <p class="tech-complexity__note tech-complexity__note--small">
+                The horizontal axis is square-root scaled so the long tail of single-user technologies stays readable.
+                Technologies at the same place share one point; pressing it again moves to the next name on it.
+            </p>
+        </section>
+
+        <aside class="tech-complexity__side" aria-label="Hotspots">
+            <section class="tech-complexity__card" aria-labelledby="tech-complexity-deep">
+                <h3 id="tech-complexity-deep" class="tech-complexity__heading">Most complex</h3>
+                <p class="tech-complexity__note tech-complexity__note--small">Rests on the most, transitively</p>
+                @if (MostComplex.Count == 0)
+                {
+                    <p class="tech-complexity__note">No technology to rank.</p>
+                }
+                <ol class="tech-complexity__hotspots" data-testid="technology-complexity-most-complex">
+                    @foreach (var node in MostComplex)
+                    {
+                        <li>@HotspotRow(node, node.RestsOn, MostComplexMax, "deep-leaves")</li>
+                    }
+                </ol>
+            </section>
+            <section class="tech-complexity__card" aria-labelledby="tech-complexity-blast">
+                <h3 id="tech-complexity-blast" class="tech-complexity__heading">Widest blast radius</h3>
+                <p class="tech-complexity__note tech-complexity__note--small">Direct users</p>
+                @if (WidestBlastRadius.Count == 0)
+                {
+                    <p class="tech-complexity__note">No technology to rank.</p>
+                }
+                <ol class="tech-complexity__hotspots" data-testid="technology-complexity-blast-radius">
+                    @foreach (var node in WidestBlastRadius)
+                    {
+                        <li>@HotspotRow(node, node.UsedBy, WidestBlastRadiusMax, "foundations")</li>
+                    }
+                </ol>
+            </section>
+            <section class="tech-complexity__card" aria-labelledby="tech-complexity-chain">
+                <h3 id="tech-complexity-chain" class="tech-complexity__heading">@ChainTitle</h3>
+                @if (Chain.Count > 1)
+                {
+                    <ol class="tech-complexity__chain" data-testid="technology-complexity-chain">
+                        @foreach (var node in Chain)
+                        {
+                            <li>
+                                <ToggleButton BaseClass="tech-complexity__pick"
+                                              PressedCssClass="tech-complexity__pick--pressed"
+                                              Pressed="@IsSelected(node)"
+                                              PressedChanged="_ => SelectAsync(node.Id)"
+                                              TestId="technology-complexity-chain-row">@node.Label</ToggleButton>
+                            </li>
+                        }
+                    </ol>
+                }
+                else
+                {
+                    <p class="tech-complexity__note">No technology rests on another.</p>
+                }
+            </section>
+        </aside>
+    </div>
+
+    <section class="tech-complexity__companion" aria-labelledby="tech-complexity-table">
+        <h3 id="tech-complexity-table" class="tech-complexity__heading">Every technology on the board</h3>
+        <DataTable TItem="TechnologyGraphNode"
+                   Columns="@Columns"
+                   Items="@Rows"
+                   RowKey="node => node.Id"
+                   RowCssClass="@(node => IsSelected(node) ? "tech-overview__row--selected" : null)"
+                   AriaLabel="Technologies by used by and rests on"
+                   EmptyMessage="No technology to place."
+                   RowNoun="technology"
+                   CssClass="tech-complexity__table"
+                   TestId="technology-complexity-table">
+            <Row Context="node">
+                <td>
+                    <ToggleButton BaseClass="tech-overview__pick"
+                                  PressedCssClass="tech-overview__pick--pressed"
+                                  Pressed="@IsSelected(node)"
+                                  PressedChanged="_ => SelectAsync(node.Id)"
+                                  Title="@TechnologyTypeCodes.Label(node.Kind)"
+                                  TestId="technology-complexity-row">
+                        <span class="tech-overview__code">@TechnologyTypeCodes.Code(node.Kind)</span>
+                        <span class="tech-overview__name">@node.Label</span>
+                    </ToggleButton>
+                </td>
+                <td class="tech-overview__figure">@node.UsedBy</td>
+                <td class="tech-overview__figure">@node.RestsOn</td>
+                <td>@TechnologyQuadrants.Label(TechnologyQuadrants.Of(node))</td>
+            </Row>
+        </DataTable>
+    </section>
+</div>
+
+@code {
+    /// <summary>What the points are coloured by.</summary>
+    public enum ColourBy
+    {
+        Quadrant,
+        Type,
+        Layer,
+    }
+
+    /// <summary>How many layer hues there are before they repeat.</summary>
+    private const int LayerHues = 6;
+
+    private static readonly IReadOnlyList<(ColourBy Mode, string Label)> ColourModes =
+    [
+        (ColourBy.Quadrant, "Quadrant"),
+        (ColourBy.Type, "Type"),
+        (ColourBy.Layer, "Layer"),
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Technology"),
+        new("Used by", "tech-overview__figure"),
+        new("Rests on", "tech-overview__figure"),
+        new("Quadrant"),
+    ];
+
+    /// <summary>The key reads as the plot does: the upper corners, then the lower.</summary>
+    private static readonly IReadOnlyList<TechnologyQuadrant> KeyOrder =
+        [TechnologyQuadrant.DeepLeaves, TechnologyQuadrant.Hubs, TechnologyQuadrant.Leaves, TechnologyQuadrant.Foundations];
+
+    private ColourBy _colour = ColourBy.Quadrant;
+
+    private IReadOnlyList<TechnologyComplexityPoint> Points => TechnologyComplexityBoard.Points(Technologies);
+
+    private int UsedByMax => TechnologyComplexityBoard.UsedByMax(Technologies);
+
+    private int RestsOnMax => TechnologyComplexityBoard.RestsOnMax(Technologies);
+
+    private double SplitX => TechnologyComplexityBoard.X(TechnologyQuadrants.UsedBySplit, UsedByMax);
+
+    private double SplitY => TechnologyComplexityBoard.Y(TechnologyQuadrants.RestsOnSplit, RestsOnMax);
+
+    private IReadOnlyList<TechnologyComplexityTick> Ticks => TechnologyComplexityBoard.Ticks(UsedByMax);
+
+    private IReadOnlyList<TechnologyGraphNode> MostComplex => TechnologyComplexityBoard.MostComplex(Technologies);
+
+    private IReadOnlyList<TechnologyGraphNode> WidestBlastRadius => TechnologyComplexityBoard.WidestBlastRadius(Technologies);
+
+    private int MostComplexMax => MostComplex.Count == 0 ? 0 : MostComplex[0].RestsOn;
+
+    private int WidestBlastRadiusMax => WidestBlastRadius.Count == 0 ? 0 : WidestBlastRadius[0].UsedBy;
+
+    /// <summary>The chain the graph measured, as nodes; an id the graph no longer
+    /// has is dropped rather than printed raw.</summary>
+    private IReadOnlyList<TechnologyGraphNode> Chain => [.. View.Graph.LongestChain.Select(NodeById).OfType<TechnologyGraphNode>()];
+
+    private string ChainTitle => Chain.Count > 1
+        ? $"Longest chain · {Chain.Count - 1} {(Chain.Count == 2 ? "hop" : "hops")}"
+        : "Longest chain";
+
+    /// <summary>The companion lists by name, so a reader finds a technology the way
+    /// they would in an index.</summary>
+    private IReadOnlyList<TechnologyGraphNode> Rows => [.. Technologies.OrderBy(node => node.Label, StringComparer.CurrentCultureIgnoreCase)];
+
+    private bool IsSelected(TechnologyGraphNode node) => string.Equals(node.Id, SelectedId, StringComparison.Ordinal);
+
+    /// <summary>A quadrant no technology sits in says so, as the design's Hubs does.</summary>
+    private static string QuadrantMeaning(IReadOnlyList<TechnologyComplexityPoint> points, TechnologyQuadrant quadrant) =>
+        points.Any(point => point.Quadrant == quadrant)
+            ? TechnologyQuadrants.Meaning(quadrant)
+            : $"{TechnologyQuadrants.Meaning(quadrant)} None today.";
+
+    private static string PointName(TechnologyComplexityPoint point) =>
+        $"{point.Label}: used by {point.UsedBy}, rests on {point.RestsOn}, {TechnologyQuadrants.Label(point.Quadrant)}";
+
+    /// <summary>The point's classes: its colour in the chosen mode — a merged point
+    /// takes its first technology's, which the legend and the table resolve — hollow until a
+    /// member is adopted, and its label on the left once it sits far enough right
+    /// that the label would run off the plot.</summary>
+    private string PointClass(TechnologyComplexityPoint point, double x)
+    {
+        var classes = $"tech-complexity__point tech-complexity__point--{ColourSlug(point.Members[0], point.Quadrant)}";
+        if (!point.IsAdopted) classes += " tech-complexity__point--hollow";
+        if (x > TechnologyComplexityBoard.LabelStartFrom) classes += " tech-complexity__point--label-start";
+        return classes;
+    }
+
+    private string ColourSlug(TechnologyGraphNode node, TechnologyQuadrant quadrant) => _colour switch
+    {
+        ColourBy.Type => FamilySlug(node.Family),
+        ColourBy.Layer => LayerSlug(node.LayerIndex),
+        _ => TechnologyQuadrants.Slug(quadrant),
+    };
+
+    private static string FamilySlug(TechnologyTypeFamily family) => "family-" + family.ToString().ToLowerInvariant();
+
+    private static string LayerSlug(int layerIndex) => "layer-" + ((Math.Max(layerIndex, 0) % LayerHues) + 1).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>The legend for the chosen mode: the four quadrants, the families
+    /// on the board, or the layers in reading order.</summary>
+    private IEnumerable<(string Slug, string Label)> LegendEntries => _colour switch
+    {
+        ColourBy.Type => Enum.GetValues<TechnologyTypeFamily>()
+            .Where(family => Technologies.Any(node => node.Family == family))
+            .Select(family => (FamilySlug(family), TechnologyTypeFamilies.Label(family))),
+        ColourBy.Layer => View.Layers
+            .Select((layer, index) => (LayerSlug(index), TechnologyViews.LayerLabel(layer.Title))),
+        _ => TechnologyQuadrants.All.Select(quadrant => (TechnologyQuadrants.Slug(quadrant), TechnologyQuadrants.Label(quadrant))),
+    };
+
+    private RenderFragment HotspotRow(TechnologyGraphNode node, int value, int max, string tone) => __builder =>
+    {
+        <ToggleButton BaseClass="tech-complexity__hotspot"
+                      PressedCssClass="tech-complexity__hotspot--pressed"
+                      Pressed="@IsSelected(node)"
+                      PressedChanged="_ => SelectAsync(node.Id)"
+                      TestId="technology-complexity-hotspot">
+            <span class="tech-complexity__hotspot-name">@node.Label</span>
+            <span class="tech-complexity__bar" aria-hidden="true">
+                <span class="tech-complexity__bar-fill tech-complexity__bar-fill--@tone"
+                      style="width: @TechnologyComplexityBoard.Css(max == 0 ? 0 : value * 100.0 / max)"></span>
+            </span>
+            <span class="tech-complexity__hotspot-value">@value</span>
+        </ToggleButton>
+    };
+}

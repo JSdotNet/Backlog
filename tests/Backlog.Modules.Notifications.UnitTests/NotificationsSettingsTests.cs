@@ -29,6 +29,7 @@ public sealed class NotificationsSettingsTests : IDisposable
     private readonly OwnerNotifications _owner;
     private readonly NotificationCentre _centre;
     private readonly BunitContext _context = new();
+    private readonly FakeTimings _timings = new();
 
     public NotificationsSettingsTests()
     {
@@ -40,6 +41,7 @@ public sealed class NotificationsSettingsTests : IDisposable
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _context.Services.AddSingleton<INotifications>(_owner);
         _context.Services.AddSingleton<INotificationCentre>(_centre);
+        _context.Services.AddSingleton<INotificationTimingSettings>(_timings);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -242,7 +244,7 @@ public sealed class NotificationsSettingsTests : IDisposable
         page.Find(SendQuestion).Click();
         page.WaitForAssertion(() => Assert.NotNull(page.Find(Clear)));
 
-        await _centre.AnswerAsync((await OnlyTestAsync()).Id, [TestNotifications.NotYetChoiceId], null, Ct);
+        await _centre.AnswerAsync((await OnlyTestAsync()).Id, [TestNotifications.NotYetChoiceId], null, cancellationToken: Ct);
 
         page.WaitForAssertion(() => Assert.StartsWith(
             "Answered: Not yet — from this desktop", Step(page, "answered"), StringComparison.Ordinal));
@@ -314,6 +316,95 @@ public sealed class NotificationsSettingsTests : IDisposable
             "switched off", page.Find("[data-testid='notifications-test-error']").TextContent, StringComparison.Ordinal));
         Assert.Empty(await _centre.ListAsync(Ct));
         Assert.Null(page.Find(SendAlert).GetAttribute("disabled"));
+    }
+
+    // --- Questions from sessions: the relay's timings ---------------------------------------
+
+    private static string Timing(string key) => $"[data-testid='notifications-timing-{key}'] input";
+
+    [Fact]
+    public void The_timings_card_shows_the_three_stored_timings_in_their_units()
+    {
+        var page = _context.Render<NotificationsSettings>();
+
+        Assert.Equal("10", page.Find(Timing("away-after")).GetAttribute("value"));
+        Assert.Equal("15", page.Find(Timing("notify-after")).GetAttribute("value"));
+        Assert.Equal("8", page.Find(Timing("dialog-wait")).GetAttribute("value"));
+        Assert.Equal(
+            "Away after 10 minutes without input or while locked; questions asked at the keyboard reach you after 15 minutes; a dialog waits up to 8 hours.",
+            page.Find("[data-testid='notifications-timings-status']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_changed_timing_is_kept_and_the_others_left_alone()
+    {
+        var page = _context.Render<NotificationsSettings>();
+
+        page.Find(Timing("notify-after")).Change("30");
+        page.Find(Timing("dialog-wait")).Change("4");
+
+        Assert.Equal(TimeSpan.FromMinutes(10), _timings.AwayAfter);
+        Assert.Equal(TimeSpan.FromMinutes(30), _timings.NotifyAfter);
+        Assert.Equal(TimeSpan.FromHours(4), _timings.DialogWait);
+        Assert.Equal("30", page.Find(Timing("notify-after")).GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_timing_that_is_not_a_whole_number_is_refused_and_kept_on_screen()
+    {
+        var page = _context.Render<NotificationsSettings>();
+
+        page.Find(Timing("away-after")).Change("ten");
+
+        Assert.Equal(TimeSpan.FromMinutes(10), _timings.AwayAfter);
+        Assert.Equal("ten", page.Find(Timing("away-after")).GetAttribute("value"));
+        Assert.Equal("Give away after as a whole number of minutes.", page.Find("[data-testid='notifications-timings-status']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_timing_the_settings_refuse_shows_their_sentence()
+    {
+        _timings.Refusal = "Dialog wait must be between 1 and 24 hours.";
+        var page = _context.Render<NotificationsSettings>();
+
+        page.Find(Timing("dialog-wait")).Change("48");
+
+        Assert.Equal(TimeSpan.FromHours(8), _timings.DialogWait);
+        Assert.Equal("48", page.Find(Timing("dialog-wait")).GetAttribute("value"));
+        Assert.Equal(_timings.Refusal, page.Find("[data-testid='notifications-timings-status']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_timing_changed_elsewhere_redraws_the_card()
+    {
+        var page = _context.Render<NotificationsSettings>();
+
+        _timings.Set(TimeSpan.FromMinutes(5), _timings.NotifyAfter, _timings.DialogWait);
+
+        page.WaitForAssertion(() => Assert.Equal("5", page.Find(Timing("away-after")).GetAttribute("value")));
+    }
+
+    /// <summary>The timings in memory, with the defaults; <see cref="Refusal"/> set refuses every change.</summary>
+    private sealed class FakeTimings : INotificationTimingSettings
+    {
+        public TimeSpan AwayAfter { get; private set; } = TimeSpan.FromMinutes(10);
+
+        public TimeSpan NotifyAfter { get; private set; } = TimeSpan.FromMinutes(15);
+
+        public TimeSpan DialogWait { get; private set; } = TimeSpan.FromHours(8);
+
+        public string? Refusal { get; set; }
+
+        public event Action? Changed;
+
+        public string? Set(TimeSpan awayAfter, TimeSpan notifyAfter, TimeSpan dialogWait)
+        {
+            if (Refusal is not null) return Refusal;
+
+            (AwayAfter, NotifyAfter, DialogWait) = (awayAfter, notifyAfter, dialogWait);
+            Changed?.Invoke();
+            return null;
+        }
     }
 
     /// <summary>A port that refuses every publish the way a desktop with notifications off does.</summary>

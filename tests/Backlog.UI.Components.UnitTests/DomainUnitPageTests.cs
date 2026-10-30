@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Devbook;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Domain page of the Domain view (local ADR 0040): an unsplit domain file
+/// The Domain page of the Domain view (local ADR 0044): an unsplit domain file
 /// picks its units in a chapter bar, a split file opens on its one unit, an
 /// aggregate reads as About beside Always true, and a domain service lists what
 /// you can count on — with nothing technical on either.

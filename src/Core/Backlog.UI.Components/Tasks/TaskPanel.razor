@@ -149,11 +149,11 @@
                         id="@_titleButtonId"
                         data-testid="@Suffix("title")"
                         @onkeydown="e => OnLeadingKeyAsync(e, leading: !CanToggle)"
-                        @onclick="StartRename">@Title</button>
+                        @onclick="StartRename"><TaskTitleText Title="@Title" /></button>
             }
             else
             {
-                @Title
+                <TaskTitleText Title="@Title" />
             }
         </h2>
 
@@ -179,6 +179,18 @@
         @* Where a linked task came from, on the heading line as on the row, so the
            reader who opened it from the list finds the link in the same shape. *@
         <SourceBadge Source="@Source" CssClass="task-panel__source" TestId="@Suffix("source")" />
+
+        @* The addresses typed into the title, as links beside it. The title is the
+           rename button, so the address inside it is link-styled text a pointer can
+           follow without starting the rename (see TaskTitleText); this is the link a
+           keyboard and a screen reader reach, outside the heading, after the source
+           as on the row. *@
+        @if (TitleRuns.HasUrl(Title))
+        {
+            <span class="task-panel__links" data-testid="@Suffix("links")">
+                <TaskTitleLinks Title="@Title" TestId="@Suffix("title-link")" />
+            </span>
+        }
 
         @* The host's own controls for the whole task, just before the copy button —
            the order TaskItem puts its Actions slot and its copy in, so a control a

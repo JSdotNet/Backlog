@@ -10,91 +10,14 @@ status: draft
 > `domain.md` (which describes responsibilities/invariants in prose) — this
 > file focuses on structure and relationships.
 
-## Model diagram
-
-```mermaid
-classDiagram
-    class KnowledgeNote {
-        <<aggregate root>>
-        +Id id
-        +String title
-        +String body_md
-        +PARACategory category
-        +NoteSource source
-        +Integer effort
-        +Timestamp created_at
-        +Timestamp updated_at
-    }
-    class ProjectRef {
-        <<value object>>
-        +String repo_id
-        +String project_name
-    }
-    class Tag {
-        <<value object>>
-        +String name
-    }
-    class RoadmapContribution {
-        <<value object>>
-        +String tag
-    }
-    class TaskLink {
-        <<value object>>
-        +String task_id
-    }
-    class PARACategory {
-        <<value object>>
-        +String folder
-        +String name
-        +Integer order
-    }
-    class NoteSource {
-        <<enumeration>>
-        inbox
-        manual
-        import
-    }
-
-    KnowledgeNote "1" *-- "1" PARACategory : organized under
-    KnowledgeNote --> NoteSource : originated from
-    KnowledgeNote "1" *-- "0..*" ProjectRef : scoped to
-    KnowledgeNote "1" *-- "0..*" Tag : tagged with
-    KnowledgeNote "1" *-- "0..*" RoadmapContribution : contributes to
-    KnowledgeNote "1" *-- "0..*" TaskLink : linked to
-```
-
-## Relationship notes
-
-- `KnowledgeNote` is the aggregate root. `ProjectRef`, `Tag`,
-  `RoadmapContribution`, `TaskLink` and `PARACategory` are owned value objects,
-  and there are no separately identified child entities.
-- The [Brain](domain.md#brain) is the folder the person picked, not a building
-  block, so the diagram does not draw it: it holds the notes as Markdown files and
-  declares its areas in `CONVENTIONS.md`, the PARA set when it declares none. A
-  note's `PARACategory` is one of those areas, a value the note holds, read from
-  the note's top folder unless its `para` field overrides it.
-- `ProjectRef` is written as the note's `repos` field and `TaskLink` as its
-  `tasks` field (local ADR 0026). A `repo:` link to a repository chapter is not a
-  `ProjectRef`: it addresses one chapter, and the Brain's database keeps it as an
-  edge that resolves only on a machine where that repository is configured.
-- `TaskLink` references a Task by id only, never by object reference,
-  so the two contexts stay decoupled. It is a value on the note's node, not an
-  edge. Both directions are read from the note's `tasks` field, and a task's
-  record carries no note ([Bi-directional linking](features.md#bi-directional-linking)).
-- `effort` is the [Effort](domain.md#effort) scalar on the root. It carries no relationship to another type. Roadmap
-  Planning reads and totals it; Devbook owns it.
-- `Tag` and `RoadmapContribution` are both owned value objects, and neither is an
-  edge in the knowledge graph; for the contribution, see
-  [its invariant](domain.invariants.md#invariant-a-roadmap-contribution-draws-no-graph-edge).
-  Why they are two different things is the
-  [Roadmap Contribution](domain.md#roadmap-contribution) chapter's.
-
 ## Chapter metadata the panels read
 
-A repository devbook chapter is not a `KnowledgeNote`: it is a file this context
-reads and never owns (see [Repository devbook areas](features.md#repository-devbook-areas)).
-What the panels read off one is modelled here because it is what they show, and
-because three of its parts are easy to confuse.
+A devbook chapter is a file this context reads and never owns (see
+[Repository devbook areas](features.md#repository-devbook-areas)); a Brain note is
+one too, and the [Brain](../brain/model.md#model-diagram) models what it adds.
+What the panels read off a chapter is modelled here because it is what they show,
+and because three of its parts are easy to confuse. `effort` and `roadmap` are the
+[planning fields](domain.md#shared-value-objects) Devbook registers.
 
 ```mermaid
 classDiagram

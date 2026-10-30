@@ -144,4 +144,9 @@ public sealed class LinkedTaskSources
     /// have.</summary>
     public bool CanComplete(string? connectorId) =>
         Connector(connectorId)?.Capabilities.CanComplete == true;
+
+    /// <summary>Whether the connector asks questions about its items, so its targets
+    /// offer "Only questions assigned to me".</summary>
+    public bool HasQuestions(string? connectorId) =>
+        Connector(connectorId)?.Capabilities.HasQuestions == true;
 }

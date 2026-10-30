@@ -340,6 +340,17 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         </div>
     </Story>
 
+    <Story Name="A link typed into the title"
+           Description="Nothing to switch on: a bare `http://` or `https://` address in the title is drawn link-styled where it stands, and the heading line holds a linked badge for it after the source badge, labelled with the host — as on the row. The address in the title is a span with no tab stop; a click on it opens the address in the browser and does not start the rename, while a click on the title's prose still does, seeded with the whole title, address included. The badge on the heading line is the link a keyboard reaches."
+           Code="@TitleLinkPanelCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="@_titleLinkTitle"
+                       Status="Ready"
+                       OnRename="title => _titleLinkTitle = title"
+                       TestId="panel-title-link" />
+        </div>
+    </Story>
+
     <Story Name="A row whose act is still running"
            Description="An act a row starts can take a while — the Tasks bulk bar's My Day writes every selected task. While it runs the row is `Busy`: a spinner in place of the icon, `aria-busy`, and a press dropped, with the label, the place and the focus kept. The rows beside it are `Blocked`: they read as disabled and drop a press too, but stay in the tab order, which the native `disabled` would not."
            Code="@BusyCode">
@@ -830,6 +841,13 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
                 </IconButton>
             </HeaderActions>
         </TaskPanel>
+        """;
+
+    private string _titleLinkTitle = "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr";
+
+    private const string TitleLinkPanelCode = """
+        // Nothing to switch on: the panel reads the title it was given.
+        <TaskPanel Title="@task.Title" OnRename="Rename" />
         """;
 
     private const string BareCode = """

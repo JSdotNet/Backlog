@@ -61,12 +61,16 @@ between inherited ADRs 0005 and 0009.
 - **[0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](0032-my-day-preferences-ride-the-task-feed.md)** *(accepted, not yet built; follows 0018 and 0021)*
 - **[0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)** *(accepted, built in PR #1316; widens what Ask AI sends, beside 0023)*
 - **[0034 — Archify renders are generated on demand into app storage, not committed](0034-archify-renders-are-generated-on-demand-not-committed.md)** *(proposed, built; amends 0004 and 0008, changes the remediation of TDR 0001)*
-- **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028; §2, §8 and §9 amended by 0037)*
+- **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028; §2, §8 and §9 amended by 0037; §7's GitHub edge amended by 0042)*
 - **[0036 — The iteration settings ride the task feed as one whole document](0036-the-iteration-settings-ride-the-task-feed.md)** *(accepted, built; refines 0035 §3, follows 0032)*
 - **[0037 — A session attaches to a goal as its own item](0037-a-session-attaches-to-a-goal-as-its-own-item.md)** *(proposed, not yet built; amends 0035 §2, §8 and §9)*
-- **[0038 — Backlog queues session requests and a Manager session dispatches them](0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)** *(proposed, not yet built; adds a route and a tool group to 0012's listener, beside 0024)*
-- **[0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md)** *(proposed, built and declared in Bicep, not deployed; extends 0005, follows 0011)*
-- **[0040 — The Domain view reads by unit](0040-the-domain-view-reads-by-unit.md)** *(proposed, not yet built)*
+- **[0038 — Backlog queues session requests and a Manager session dispatches them](0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)** *(proposed, not yet built; adds a route and a tool group to 0012's listener, beside 0024; wait route and capacity amended by 0041)*
+- **[0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md)** *(proposed, built and declared in Bicep, not deployed; extends 0005, follows 0011; MCP `ask`, `get_answer` and `close` amended by 0041)*
+- **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part)*
+- **[0041 — Agent questions reach Backlog by presence and come back through the hook or the Manager](0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)** *(proposed, not yet built; amends 0038 and 0039)*
+- **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(proposed, not yet built; amends 0035 §7's GitHub edge)*
+- **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
+- **[0044 — The Domain view reads by unit](0044-the-domain-view-reads-by-unit.md)** *(proposed, not yet built)*
 
 ## Inherited decisions
 

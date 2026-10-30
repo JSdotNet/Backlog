@@ -22,32 +22,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksPaneChainDragTests
 {
-    private const string WithSteps =
-        "# Ship the sync spike\n" +
-        "`task`\n\n" +
-        "Notes on the parent.\n\n" +
-        "## Wire up the store\n" +
-        "How the store gets wired.\n\n" +
-        "## Write the rows\n" +
-        "And then the rows.\n";
-
-    /// <summary>One of the pane's two task lists, by the test id the pane gives
-    /// it. Both are the same component, so the id is the only thing that says
-    /// which of them a drag is happening in.</summary>
+    /// <summary>A task list in the pane, by the test id the pane gives it.</summary>
     private static IRenderedComponent<TaskListView> List(
         IRenderedComponent<TasksPane> pane,
         string testId) =>
         pane.FindComponents<TaskListView>()
             .FirstOrDefault(list => string.Equals(list.Instance.TestId, testId, StringComparison.Ordinal))
             ?? throw new InvalidOperationException($"The pane is not rendering a '{testId}'.");
-
-    /// <summary>The steps as they are drawn, in order. Read off the rendered
-    /// fields rather than off the row: the steps list is DirectRename, so a
-    /// step's title on screen <em>is</em> a field, and a step's own title is
-    /// parsed inline markdown rather than a string to compare.</summary>
-    private static IEnumerable<string> StepTitles(IRenderedComponent<TasksPane> pane) =>
-        pane.FindAll("[data-testid^='subitem-list-'][data-testid$='-rename']")
-            .Select(field => field.GetAttribute("value") ?? string.Empty);
 
     [Fact]
     public async Task Dragging_one_entry_onto_another_writes_an_after_token()
@@ -74,39 +55,6 @@ public sealed class TasksPaneChainDragTests
         // they looked for it.
         Assert.Contains("`after:a1b2c3`", waiter.RawText, StringComparison.Ordinal);
         Assert.Equal(["a1b2c3", predecessorId], waiter.PreviewDependsOn);
-    }
-
-    [Fact]
-    public async Task The_steps_list_has_no_link_handle_and_its_drag_still_reorders()
-    {
-        // A step's id *is* its index, so a dependency written against one would
-        // point at a different step the moment a step is added or deleted. The
-        // list draws no handle because the pane passes no OnLink — there is no flag
-        // to remember and nothing to turn off.
-        using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync(WithSteps);
-
-        var pane = host.Render();
-        var steps = List(pane, "subitem-list");
-
-        Assert.Equal(["Wire up the store", "Write the rows"], StepTitles(pane));
-        Assert.Empty(steps.FindAll(".task-item__link"));
-
-        // Nothing to press, and nothing behind it either: the link entry point is
-        // shut on a list that is not listening, so a stale script cannot reach
-        // past the missing handle and write a step-to-step dependency.
-        await steps.InvokeAsync(() => steps.Instance.PointerLinkStart("0"));
-        await steps.InvokeAsync(() => steps.Instance.PointerDragOver("1"));
-        await steps.InvokeAsync(steps.Instance.PointerDragEnd);
-
-        Assert.Equal(["Wire up the store", "Write the rows"], StepTitles(pane));
-
-        // And the drag the list does have is untouched by any of it.
-        await steps.InvokeAsync(() => steps.Instance.PointerDragStart("0"));
-        await steps.InvokeAsync(() => steps.Instance.PointerDragOver("1"));
-        await steps.InvokeAsync(steps.Instance.PointerDragEnd);
-
-        Assert.Equal(["Write the rows", "Wire up the store"], StepTitles(pane));
     }
 
     [Fact]

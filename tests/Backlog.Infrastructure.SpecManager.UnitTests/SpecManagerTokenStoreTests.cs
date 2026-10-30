@@ -65,6 +65,27 @@ public sealed class SpecManagerTokenStoreTests : IDisposable
     }
 
     [Fact]
+    public void The_first_sign_in_moment_survives_a_restart()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var first = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);
+        new DpapiSpecManagerTokenStore(StorePath).Save(BaseUrl, Credential with { FirstSignedInAt = first });
+
+        Assert.Equal(first, new DpapiSpecManagerTokenStore(StorePath).Get(BaseUrl)?.FirstSignedInAt);
+    }
+
+    [Fact]
+    public void Signing_out_keeps_the_first_sign_in_moment_and_drops_the_rest()
+    {
+        var first = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);
+
+        var signedOut = (Credential with { FirstSignedInAt = first }).SignedOut();
+
+        Assert.Equal(new SpecManagerCredential(Credential.ClientId, Credential.RedirectUri, FirstSignedInAt: first), signedOut);
+    }
+
+    [Fact]
     public void Nothing_is_written_outside_the_store_path()
     {
         if (!OperatingSystem.IsWindows()) return;

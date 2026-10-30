@@ -49,6 +49,10 @@
          only thing that composes the host the way the host composes itself. -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- A real browser on the pop-out page's circuit, for SurfaceWindowPagesTests:
+         nothing short of one speaks Blazor's circuit protocol. That test skips
+         where no Playwright Chromium is installed. -->
+    <PackageReference Include="Microsoft.Playwright" />
   </ItemGroup>
 
   <!-- The shared test doubles this project uses. Linked per project rather than
@@ -57,6 +61,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\InMemorySessionRequestStore.cs" Link="Shared\TestDoubles\InMemorySessionRequestStore.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 
   <!-- The MAUI head's MCP listener, compiled here from its own source: the head
@@ -65,6 +70,9 @@
        arrives through the desktop harness's references. -->
   <ItemGroup>
     <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\McpServerWorker.cs" Link="Head\McpServerWorker.cs" />
+    <!-- And the pop-out pages it serves (local ADR 0043 §7), which it calls:
+         SurfaceWindowPagesTests renders /window/{surfaceId} through it. -->
+    <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\SurfaceWindowPages.cs" Link="Head\SurfaceWindowPages.cs" />
   </ItemGroup>
 
   <!-- And the port the Settings page reads that listener through, for the same

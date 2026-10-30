@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Domain view's context page, reached the way a reader reaches it: the New
 /// domain view switch on, a context's row picked. The row opens one page with no
-/// tabs (local ADR 0040): the neighbours, read from <c>dependencies.md</c> or the
+/// tabs (local ADR 0044): the neighbours, read from <c>dependencies.md</c> or the
 /// <c>## Dependencies</c> chapter of a <c>context.md</c> that keeps its tables
 /// inline, then the Overview — the boundary prose, the chapters per kind, the proof
 /// coverage, how settled they are and the flags and settings.

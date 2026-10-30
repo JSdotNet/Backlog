@@ -157,7 +157,7 @@ const lints = [
     {
         name: ".ai: a chapter omitting status errors",
         path: ".devbook/ai/02-build.md",
-        markdown: `# 02. Build\n\n${fence("status: trial\ntype: stage\n")}\n## Agent-Driven TDD\n\n${fence("type: practice\nstage: build\n")}\nProse.\n`,
+        markdown: `# 02. Build\n\n${fence("status: trial\ntype: stage\n")}\n## Agent-Driven TDD\n\n${fence("type: practice\nstage: verify\n")}\nProse.\n`,
         errors: 1,
         warnings: 0,
     },

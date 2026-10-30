@@ -116,6 +116,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // Per worktree, like the device credential: a sign-in here is not the installed
     // app's, and DPAPI still keeps the refresh token out of the clear.
     SpecManagerTokenStore = _ => CreateLocalDevelopmentSpecManagerTokenStore(builder.Environment.ContentRootPath),
+    // The SpecManager section, bound by the composition (ADR 0018): SpecManager__BaseUrl in
+    // this harness's environment points it at a local spec-manager.
+    Configuration = builder.Configuration,
     InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
     GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
     PullRequestPins = _ => CreateLocalDevelopmentPullRequestPinsStore(builder.Environment.ContentRootPath),
@@ -212,6 +215,15 @@ builder.Services.AddBacklogMcpServer().WithHttpTransport();
 // Cost section has figures without an Azure sign-in. A person's own Foundry
 // configuration keeps the real client, and their real bill.
 AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
+// The ⧉ on a header item opens /window/{surfaceId} in a new browser tab (local ADR
+// 0043 §7). Each tab is its own circuit and so its own scope; nothing more is needed
+// for a tab to be a window with view state of its own. It is the same class the
+// desktop app's served pages use; this host opens no tab under a window key, so
+// SurfaceWindow never asks it to close or retitle one.
+builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
+// What open_window opens and links to: no native window, and this harness's own
+// /window/{surfaceId} page at the address it listens on, with no token.
+builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, HarnessSurfaceWindowHost>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
@@ -261,9 +273,15 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+// And the spec-manager question source, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
+
 // And the blocked-task watcher, on the same terms and for the same reason the desktop
 // head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+// The question relay's escalation timer (local ADR 0041), as the desktop head starts it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop
 // head starts it.
@@ -305,7 +323,9 @@ app.UseWhen(
         // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
-        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath),
+        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the question relay's hook script (local ADR 0041).
+        || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         // The same predicate the desktop listener refuses on, and the same
@@ -333,6 +353,10 @@ app.MapRazorComponents<App>()
 // given — read it off the Aspire dashboard, never from a previous session.
 app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
 
+// And the question relay's hook script the desktop app serves beside /mcp (local ADR
+// 0041). Served only: the harness is not the installed app, so it writes no hooks folder.
+app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
+
 // And the hook telemetry a session forwards, attributed to the run it is driving —
 // into this harness's profile folders, which are the real ones.
 app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
@@ -341,6 +365,7 @@ app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
         context.Request.Body,
         context.Request.ContentLength,
         context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+        context.RequestServices.GetService<SessionPrompts>(),
         context.RequestAborted);
 });
 
@@ -377,7 +402,9 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             context.RequestServices.GetRequiredService<ISessionRequestStore>(),
             context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
             TimeProvider.System,
-            context.RequestAborted);
+            context.RequestAborted,
+            questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+            sessions: context.RequestServices.GetService<IAgentSessionSource>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {

@@ -1,8 +1,8 @@
 # ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
-date: 2026-10-22
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste"]
+date: 2026-10-27
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
 ```
 
 A click on an entry in the desktop app creates a **session request**: a Backlog record
@@ -18,7 +18,7 @@ sits behind the flag `session-requests`, off by default.
 ```meta
 ```
 
-Proposed, 2026-10-22, by the flow-spec run `run-mviose3i-v0k24o` that drafted it, the
+Proposed, 2026-10-22, and amended on 2026-10-27 ([History](#history)), by the flow-spec run `run-mviose3i-v0k24o` that drafted it, the
 `record-decision` item of the `session-dispatch` plan, run unattended. It awaits
 acceptance at the Personal Validation gate of that run's draft pull request. Not yet
 built: the plan's later items build the record, the endpoint, the tools and the
@@ -94,6 +94,17 @@ request, so nothing that writes entry text can start a session.
 **No entry text ever becomes a brief.** The dispatcher builds the brief from the
 request's kind and id alone (§2). The new session reads the entry through
 `run-plan-item`, which treats it as an item to check, not as instructions to obey.
+
+**Amended 2026-10-27: a gate answer can file a follow-up entry.** The Personal
+Validation question a run asks
+([Asking from the contexts](../../domain/notifications/requirements.md#asking-from-the-contexts))
+can be answered **Approve + follow-up** on any paired device. That answer files one
+ready prompt entry in the gated entry's plan and repository, `after:` the gated entry
+([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An attended `execute-plan` orchestrator then
+dispatches it like any ready entry. The answer never creates a session request, so
+only a click still creates one. The accepted trust is that a paired device already
+approves the gate, so it may also queue the next step behind it. `run-plan-item` still
+treats the follow-up's text as an item to check.
 
 ### 2. Two kinds, each with a fixed brief
 
@@ -233,4 +244,5 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-10-27 | §1 amended: an Approve + follow-up answer to a Personal Validation question, from any paired device, files one ready prompt entry `after:` the gated entry in the same plan and repository, which an attended `execute-plan` dispatches; it never creates a session request. | A paired device already approves the gate, so it may queue the next step; only a click still starts a session. |
 | 2026-10-22 | Proposed: a click queues a session request, and a Manager session dispatches it through a long poll on the MCP listener. | A person wants a button that starts the work, and only a session inside Claude Desktop can start one there. |

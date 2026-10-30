@@ -66,6 +66,8 @@ public static class NotificationsModuleRegistration
             sp.GetRequiredService<ObservedNotificationRepository>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetService<ILogger<AnswerDelivery>>()));
+        // The same delivery, for a source that knows when its handler can take an answer again.
+        services.TryAddSingleton<INotificationAnswerReplay>(sp => sp.GetRequiredService<AnswerDelivery>());
 
         // One instance behind both ports: the gate that makes the first valid reply win has to
         // be the one every change passes through.

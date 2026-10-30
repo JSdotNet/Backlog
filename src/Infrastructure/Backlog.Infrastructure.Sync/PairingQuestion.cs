@@ -42,7 +42,8 @@ internal static class PairingQuestion
                     new AnswerChoice(SyncNotificationSubjects.AllowChoice, "Allow", AnswerChoiceStyle.Primary),
                     new AnswerChoice(SyncNotificationSubjects.RefuseChoice, "Refuse", AnswerChoiceStyle.Destructive)
                 ],
-                AnswerOn: AnswerOn.Owner));
+                AnswerOn: AnswerOn.Owner),
+            Origin: NotificationOrigin.Fit(NotificationOrigins.Backlog, "Pairing"));
     }
 
     /// <summary>"Pair &lt;name&gt;?", the name shortened to fit the title's 80 characters.</summary>

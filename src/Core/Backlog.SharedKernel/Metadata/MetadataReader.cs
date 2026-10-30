@@ -301,7 +301,7 @@ public static class MetadataReader
         if (value.StartsWith('[') && value.EndsWith(']'))
         {
             var inner = value[1..^1];
-            return [.. inner.Split(',')
+            return [.. SplitInline(inner)
                 .Select(Unquote)
                 .Where(item => item.Length > 0)];
         }
@@ -313,6 +313,35 @@ public static class MetadataReader
         return scalar.Length == 0 || scalar.Equals("null", StringComparison.OrdinalIgnoreCase)
             ? []
             : [scalar];
+    }
+
+    /// <summary>An inline list's items, split on the commas outside quotes: a
+    /// quoted entry may hold a comma of its own — an <c>ai/</c> <c>feeds</c>
+    /// label is quoted for exactly that reason.</summary>
+    private static IEnumerable<string> SplitInline(string inner)
+    {
+        var start = 0;
+        char? quote = null;
+
+        for (var index = 0; index < inner.Length; index++)
+        {
+            var ch = inner[index];
+            if (quote is not null)
+            {
+                if (ch == quote) quote = null;
+            }
+            else if ((ch == '"' || ch == '\'') && inner[start..index].Trim().Length == 0)
+            {
+                quote = ch;
+            }
+            else if (ch == ',')
+            {
+                yield return inner[start..index];
+                start = index + 1;
+            }
+        }
+
+        yield return inner[start..];
     }
 
     private static bool IsItem(string trimmedLine) =>

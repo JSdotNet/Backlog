@@ -51,10 +51,13 @@ public sealed class GoalsHostTests : IDisposable
 
     public void Dispose() => _context.Dispose();
 
-    private IRenderedComponent<GoalsHost> Render(List<bool>? reads = null) =>
-        _context.Render<GoalsHost>(p => p
-            .Add(c => c.Candidates, () => _candidates)
-            .Add(c => c.OnRead, (bool refresh) => reads?.Add(refresh)));
+    private IRenderedComponent<GoalsHost> Render(List<bool>? reads = null, Func<string, Task<Result<Guid>>>? createTask = null) =>
+        _context.Render<GoalsHost>(p =>
+        {
+            p.Add(c => c.Candidates, () => _candidates)
+             .Add(c => c.OnRead, (bool refresh) => reads?.Add(refresh));
+            if (createTask is not null) p.Add(c => c.CreateTask, createTask);
+        });
 
     [Fact]
     public void The_view_reads_the_stand_up_and_the_goals_over_the_last_window_and_draws_the_board()
@@ -660,6 +663,186 @@ public sealed class GoalsHostTests : IDisposable
         Assert.Empty(host.FindAll("[role='dialog']"));
     }
 
+    [Fact]
+    public void Moving_a_goal_puts_it_at_its_place_through_the_module_and_reads_again()
+    {
+        var host = Render();
+        var down = $"[data-testid='goals-board-goal-{PaidId}-move-down']";
+        host.WaitForAssertion(() => host.Find(down));
+        var before = _standUp.Reads;
+
+        host.Find(down).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal((PaidId, 1), Assert.Single(_goals.Moved));
+            Assert.Equal(before + 1, _standUp.Reads);
+        });
+    }
+
+    /// <summary>A refused move shows why above the board, and the reading after it puts the
+    /// stored order back in place of the one the board drew at once.</summary>
+    [Fact]
+    public void A_refused_move_shows_why_and_the_stored_order_comes_back()
+    {
+        _goals.MoveFailure = Error.NotFound("progress.goal_not_found", "That goal is gone.");
+        var host = Render();
+        var down = $"[data-testid='goals-board-goal-{PaidId}-move-down']";
+        host.WaitForAssertion(() => host.Find(down));
+
+        host.Find(down).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("That goal is gone.", host.Find("[data-testid='goals-board-error']").TextContent);
+            var titles = host.FindAll(".goal-card__toggle").Select(title => title.TextContent.Trim()).ToList();
+            Assert.Equal(["Customers get paid faster", "Devbook search ships"], titles);
+        });
+    }
+
+    private static readonly Guid BankExport =Guid.Parse("00000000-0000-0000-0000-000000000009");
+
+    private string PaidSearch => $"[data-testid='goals-board-goal-{PaidId}-attach'] input";
+
+    private string PaidQuickAdd => $"[data-testid='goals-board-goal-{PaidId}-quick-add']";
+
+    /// <summary>The shell's create, as the desktop hands it in: the task joins the shell's
+    /// list before it answers, and the next reading has the goal holding it.</summary>
+    private Task<Result<Guid>> CreateBankExport(string title, List<string> created)
+    {
+        created.Add(title);
+        _candidates = _candidates with
+        {
+            Tasks = [.. _candidates.Tasks, new GoalsTaskCandidate(BankExport, title, GoalTaskStatus.ToDo, [], [], true)]
+        };
+        _goals.Summaries =
+        [
+            new(new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [new GoalAttachmentDto(GoalItemDto.ForTask(BankExport), Oct(19))]),
+                new GoalProgressDto(9, 15, 3, 1, 2, 3)),
+            new(new GoalDto(SearchId, "Devbook search ships", null, Oct(23), []), new GoalProgressDto(5, 6, 0, 0, 1, 0))
+        ];
+        return Task.FromResult(Result.Success(BankExport));
+    }
+
+    [Fact]
+    public void A_new_task_typed_in_a_goal_is_created_by_the_shell_attached_through_the_module_and_read_again()
+    {
+        var created = new List<string>();
+        var host = Render(createTask: title => CreateBankExport(title, created));
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        var before = _standUp.Reads;
+
+        host.Find(PaidSearch).Input("  Bank export  ");
+        host.WaitForAssertion(() => host.Find(PaidQuickAdd));
+        host.Find(PaidQuickAdd).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal(["Bank export"], created);
+            Assert.Equal((PaidId, GoalItemDto.ForTask(BankExport), false), Assert.Single(_goals.Attached));
+            Assert.Equal(before + 1, _standUp.Reads);
+            Assert.Contains("Bank export", host.Find($"[data-testid='goals-board-goal-{PaidId}-tasks']").TextContent);
+            Assert.Equal(string.Empty, host.Find(PaidSearch).GetAttribute("value") ?? string.Empty);
+            Assert.Empty(host.FindAll(PaidQuickAdd));
+        });
+    }
+
+    [Fact]
+    public void A_new_task_the_shell_refuses_shows_its_words_attaches_nothing_and_keeps_the_text()
+    {
+        var host = Render(createTask: _ =>
+            Task.FromResult(Result.Failure<Guid>(Error.Validation("entry.plan_belongs_to_import", "A plan comes in through import."))));
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        var before = _standUp.Reads;
+
+        host.Find(PaidSearch).Input("Bank export");
+        host.WaitForAssertion(() => host.Find(PaidQuickAdd));
+        host.Find(PaidQuickAdd).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("A plan comes in through import.", host.Find("[data-testid='goals-board-error']").TextContent);
+            Assert.Equal("Bank export", host.Find(PaidSearch).GetAttribute("value"));
+        });
+        Assert.Empty(_goals.Attached);
+        Assert.Equal(before, _standUp.Reads);
+    }
+
+    /// <summary>A second pick while the first is still being written creates nothing: the
+    /// create is not idempotent, and the row's Busy reaches the screen a render late.</summary>
+    [Fact]
+    public async Task A_second_new_task_picked_while_the_first_is_written_creates_nothing()
+    {
+        var release = new TaskCompletionSource<Result<Guid>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var created = new List<string>();
+        var host = Render(createTask: title =>
+        {
+            created.Add(title);
+            return release.Task;
+        });
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board']"));
+        var board = host.FindComponent<GoalsBoard>();
+        var request = new GoalQuickAddRequest(PaidId.ToString(), "Bank export");
+
+        var first = host.InvokeAsync(() => board.Instance.OnQuickAddTask.InvokeAsync(request));
+        await host.InvokeAsync(() => board.Instance.OnQuickAddTask.InvokeAsync(request));
+        release.SetResult(Result.Success(BankExport));
+        await first;
+
+        Assert.Equal(["Bank export"], created);
+        Assert.Single(_goals.Attached);
+    }
+
+    /// <summary>Creating a task writes no goal into it (ADR 0035 §6): an attach refused after
+    /// the create leaves the task in the backlog, and the error says so.</summary>
+    [Fact]
+    public void A_new_task_the_goal_refuses_stays_in_the_backlog_and_the_error_says_so()
+    {
+        var created = new List<string>();
+        var host = Render(createTask: title =>
+        {
+            // The shell's create puts the task in its list, as the desktop's does.
+            created.Add(title);
+            _candidates = _candidates with
+            {
+                Tasks = [.. _candidates.Tasks, new GoalsTaskCandidate(BankExport, title, GoalTaskStatus.ToDo, [], [], true)]
+            };
+            return Task.FromResult(Result.Success(BankExport));
+        });
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        var before = _standUp.Reads;
+        _goals.AttachFailure = Error.NotFound("progress.goal_not_found", "That goal is gone.");
+
+        host.Find(PaidSearch).Input("Bank export");
+        host.WaitForAssertion(() => host.Find(PaidQuickAdd));
+        host.Find(PaidQuickAdd).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            var error = host.Find("[data-testid='goals-board-error']").TextContent;
+            Assert.Contains("Bank export", error);
+            Assert.Contains("not to this goal", error);
+            Assert.Contains("That goal is gone.", error);
+            Assert.Equal(before + 1, _standUp.Reads);
+
+            // The task exists now: the row that would create it again is gone with the text.
+            Assert.Equal(string.Empty, host.Find(PaidSearch).GetAttribute("value") ?? string.Empty);
+            Assert.Empty(host.FindAll(PaidQuickAdd));
+        });
+        Assert.Equal(["Bank export"], created);
+    }
+
+    [Fact]
+    public void Without_a_shell_create_the_goal_offers_no_new_task_row()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+
+        host.Find(PaidSearch).Input("Bank export");
+
+        Assert.Empty(host.FindAll(PaidQuickAdd));
+    }
+
     internal sealed class FakeStandUp : IStandUp
     {
         public StandUpDto Reading { get; set; } = new(
@@ -720,6 +903,9 @@ public sealed class GoalsHostTests : IDisposable
         /// <summary>The goal that holds whatever is attached without moving it.</summary>
         public string? HeldBy { get; set; }
 
+        /// <summary>Why every attach is refused, when set.</summary>
+        public Error? AttachFailure { get; set; }
+
         public void RaiseChanged() => _changed?.Invoke();
 
         public Task<Result<IReadOnlyList<GoalSummaryDto>>> ListAsync(DateOnly? windowStart = null, DateOnly? windowEnd = null, CancellationToken cancellationToken = default)
@@ -747,6 +933,8 @@ public sealed class GoalsHostTests : IDisposable
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Attached.Add((goalId, item, moveFromOtherGoal));
+            if (AttachFailure is { } refused) return Task.FromResult(Result.Failure<GoalDto>(refused));
+
             return Task.FromResult(HeldBy is { } other && !moveFromOtherGoal
                 ? Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(other))
                 : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [new GoalAttachmentDto(item, Oct(19))])));
@@ -774,6 +962,16 @@ public sealed class GoalsHostTests : IDisposable
             return Task.FromResult(EditFailure is { } error
                 ? Result.Failure<GoalDto>(error)
                 : Result.Success(new GoalDto(goalId, request.Title, request.Outcome, request.DueDate, [])));
+        }
+
+        public List<(Guid, int)> Moved { get; } = [];
+
+        public Error? MoveFailure { get; set; }
+
+        public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default)
+        {
+            Moved.Add((goalId, toIndex));
+            return Task.FromResult(MoveFailure is { } error ? Result.Failure(error) : Result.Success());
         }
 
         public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default)

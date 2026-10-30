@@ -41,6 +41,40 @@
         <BrainNotesBadge Notes="@TwoNotes" OnOpen="_ => { }" TestId="brain-pane-notes-two" />
     </Story>
 
+    <Story Name="Show hidden toggle"
+           Description="A small icon ToggleButton (an eye, named Show hidden folders), at the end of the Brain menu's heading through TreeView's HeadingTrailing slot; only the Brain's menu carries it. Pressed, every folder CONVENTIONS.md lists under Ignore and every dot-folder gets a tab after the rest, and each area's menu lists its dot-entries. It is off until pressed, and the app keeps the choice per device, never in the folder. Search, the atlas and the Brain database are unchanged by it."
+           Code="@ShowHiddenCode">
+        <TreeView Nodes="@InboxNotes"
+                  HeadingLabel="Inbox"
+                  HeadingTestId="brain-pane-show-hidden-heading"
+                  ShowOpenButton="false">
+            <HeadingTrailing>
+                <ToggleButton Pressed="@_showHidden"
+                              PressedChanged="pressed => _showHidden = pressed"
+                              BaseClass="btn btn--icon btn--toggle"
+                              TestId="brain-pane-show-hidden"
+                              AriaLabel="Show hidden folders"
+                              Title="@(_showHidden ? "Hide the folders the Brain hides" : "Show the folders the Brain hides")"><EyeIcon /></ToggleButton>
+            </HeadingTrailing>
+        </TreeView>
+    </Story>
+
+    <Story Name="A tab marked hidden"
+           Description="While Show hidden is on, a hidden folder's tab comes after every other tab: an ignored folder such as _templates reads Templates, a dot-folder such as .obsidian reads Obsidian. Its title carries a Badge of the quiet tone reading hidden, so the mark is a word and not only a shade. In the pane the title also wears the devbook-stack__tab-title--hidden modifier, which the app's stylesheet dims; this storybook does not load that stylesheet."
+           Code="@HiddenTabCode">
+        <Tabs AriaLabel="Brain areas" ActiveId="@_activeArea" ActiveIdChanged="id => _activeArea = id" TestId="brain-pane-hidden-tabs">
+            <TabPanel Id="inbox" Title="Inbox">
+                <ChildContent><p>The declared inbox.</p></ChildContent>
+            </TabPanel>
+            <TabPanel Id="templates" Title="Templates">
+                <TitleContent>
+                    <span>Templates <Badge Kind="tone" Slug="quiet" TestId="brain-pane-hidden-badge">hidden</Badge></span>
+                </TitleContent>
+                <ChildContent><p>The _templates folder, listed under Ignore.</p></ChildContent>
+            </TabPanel>
+        </Tabs>
+    </Story>
+
     <Story Name="First use"
            Description="The pane on a Brain with no folder set. No tabs and no menu: an EmptyState in the status role whose action links to the Brain card on Settings › Storage, the one place the folder is chosen. A folder that is set and missing says what is wrong in an Alert instead, in the Brain source's own words."
            Code="@FirstUseCode">
@@ -65,6 +99,34 @@
     ];
 
     private bool _showsBrain = true;
+
+    private bool _showHidden;
+
+    private string _activeArea = "templates";
+
+    private static readonly IReadOnlyList<TreeNode> InboxNotes =
+    [
+        TreeNode.Leaf("inbox-idea", "Idea"),
+        TreeNode.Leaf("inbox-call", "Call notes")
+    ];
+
+    private const string ShowHiddenCode = """
+        <DevbookMenuTreeView HeadingTrailing="@(BrainMode && _brainShowHidden is not null ? ShowHiddenSwitch : null)" ... />
+
+        <ToggleButton Pressed="@ShowHidden"
+                      PressedChanged="SetShowHidden"
+                      BaseClass="btn btn--icon btn--toggle"
+                      AriaLabel="Show hidden folders"
+                      Title="@(ShowHidden ? "Hide the folders the Brain hides" : "Show the folders the Brain hides")"><EyeIcon /></ToggleButton>
+        """;
+
+    private const string HiddenTabCode = """
+        <TitleContent>
+            <span class="devbook-stack__tab-title devbook-stack__tab-title--hidden">
+                <DevbookAreaIcon Area="@area.Key" />@area.Label<Badge Kind="tone" Slug="quiet">hidden</Badge>
+            </span>
+        </TitleContent>
+        """;
 
     private static readonly BrainNoteLink[] OneNote = [new("projects/plan.md", "Plan")];
 

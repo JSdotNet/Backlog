@@ -19,7 +19,9 @@ public sealed class GlobalPaneMarkupTests
         // is no longer a pane: the pane strip, its label and the Tasks option are
         // gone.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
+        // The Devbook's option is drawn from its catalog entry (local ADR 0043 §1),
+        // its test id its surface id's: devbook-pane-option.
+        Assert.Contains("TestId=\"@($\"{surfaceId}-pane-option\")\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("backlog-pane-option", home, StringComparison.Ordinal);
         Assert.DoesNotContain("global-pane-multiselect", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Visible panes", home, StringComparison.Ordinal);
@@ -38,10 +40,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-controls=\"backlog-pane\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"roadmap-view\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"inbox-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"inbox-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("aria-controls=\"devbook-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"devbook-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"roadmap-view\"", home, StringComparison.Ordinal);
+        // The Devbook's, from its surface id: devbook-surface.
+        Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
+        Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
+        // The roadmap's view landmark is its surface's own (local ADR 0043 §1).
+        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -49,7 +52,7 @@ public sealed class GlobalPaneMarkupTests
     /// switch, the Devbook toggle, the work in progress, and the other takeovers.
     /// Every takeover is named here rather than counted, so adding one to the header
     /// without adding it to a group cannot pass. They are pressed states, not
-    /// disclosures: <c>WorkspaceSurface</c> is one field with one state at a time.
+    /// disclosures: the takeover on screen is one field with one state at a time.
     /// </summary>
     [Fact]
     public void The_nav_orders_the_workspace_controls_then_the_takeover_groups()
@@ -65,7 +68,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"board-view-option\"",
             "TestId=\"calendar-view-option\"",
             "TestId=\"roadmap-view-option\"",
-            "TestId=\"devbook-pane-option\"",
+            "@foreach (var surface in RegisteredTakeoversOffered)",
             "TestId=\"work-in-progress-switcher\"",
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
@@ -107,9 +110,9 @@ public sealed class GlobalPaneMarkupTests
 
         // During a takeover no view option reads pressed; the Devbook's reads its
         // own surface.
-        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;",
+            "private bool ViewOptionPressed(string viewId) => WorkspaceVisible && EffectiveView == viewId;",
             home,
             StringComparison.Ordinal);
 
@@ -144,8 +147,8 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
-        // Two standalone toggles and the two loose takeovers wear the loose option.
-        Assert.Equal(5, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // Two standalone toggles and the four loose takeovers wear the loose option.
+        Assert.Equal(6, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.
@@ -219,31 +222,29 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The roadmap's option is gated on its feature the way the Inbox option is, and
-    /// it is a view, not a takeover and not a pane: it lives in <c>ShellView</c> beside
-    /// Tasks. <c>WorkspaceSurface.Roadmap</c> stays only as a stored name an older file
-    /// may hold, and nothing assigns it.
+    /// it is a view, not a takeover and not a pane: a view-group surface beside Tasks
+    /// (local ADR 0043 §1), offered while the catalog offers it — which it does while its
+    /// feature is on. <c>Roadmap</c> stays only as a surface name an older file may
+    /// hold, which the navigation store reads as the Roadmap view over the workspace.
     /// </summary>
     [Fact]
     public void Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-        var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
+        var store = NormalizeLineEndings(File.ReadAllText(FindShellNavigationStore()));
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
-        Assert.Contains("private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);", home, StringComparison.Ordinal);
+        Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
+        Assert.Contains("RoadmapFeatures.Roadmap,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
+        Assert.Contains("private bool WorkspaceVisible => TakeoverOnScreen is null;", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;",
-            home,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,",
+            "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",
             home,
             StringComparison.Ordinal);
 
-        // Readable as a stored name, never assigned as a surface.
-        Assert.Contains("    Roadmap,\n", surface, StringComparison.Ordinal);
-        Assert.DoesNotContain("_surface = WorkspaceSurface.Roadmap", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("ToggleSurface(WorkspaceSurface.Roadmap)", home, StringComparison.Ordinal);
+        // Readable as a stored name, which reopens as the view, never as a surface.
+        Assert.Contains("return (null, RoadmapViewId);", store, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleSurface(RoadmapViewId)", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("GlobalPane", home, StringComparison.Ordinal);
         Assert.DoesNotContain("RoadmapBandVisible", home, StringComparison.Ordinal);
@@ -256,9 +257,11 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (InboxPaneOptionVisible)", home, StringComparison.Ordinal);
         Assert.Contains("AppFeatures.InboxPane", home, StringComparison.Ordinal);
+        Assert.Contains("private bool InboxVisible => TakeoverVisible(InboxSurfaceId);", home, StringComparison.Ordinal);
+        Assert.Contains("private bool InboxPaneOptionVisible => TakeoverOffered(InboxSurfaceId);", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool InboxVisible => _surface == WorkspaceSurface.Inbox && InboxPaneOptionVisible;",
-            home,
+            "InboxFeatures.Pane,",
+            NormalizeLineEndings(File.ReadAllText(FindModuleFile("Inbox", "InboxSurfaceRegistration.cs"))),
             StringComparison.Ordinal);
     }
 
@@ -273,15 +276,18 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("OnClick=\"ToggleDevbook\"", home, StringComparison.Ordinal);
-        Assert.Contains("Title=\"@DevbookOptionTitle\"", home, StringComparison.Ordinal);
-        Assert.Contains("private void ToggleDevbook() => ToggleSurface(WorkspaceSurface.Devbook);", home, StringComparison.Ordinal);
+        // Drawn from the Devbook's catalog entry (local ADR 0043 §1): pressed while
+        // it is the registered surface on screen, toggled through the surface switch.
+        Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"() => ToggleRegisteredSurface(surfaceId)\"", home, StringComparison.Ordinal);
+        Assert.Contains("Title=\"@SurfaceOptionTitle(surface)\"", home, StringComparison.Ordinal);
+        Assert.Contains("private void ToggleRegisteredSurface(string surfaceId) => ToggleSurface(surfaceId);", home, StringComparison.Ordinal);
+        Assert.Contains("DevbookSurfaceId => DevbookPaneOptionVisible,", home, StringComparison.Ordinal);
 
-        foreach (var view in new[] { "Tasks", "Roadmap" })
+        foreach (var view in new[] { "TasksViewId", "RoadmapViewId" })
         {
-            Assert.Contains($"Pressed=\"ViewOptionPressed(ShellView.{view})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"OnClick=\"() => ShowView(ShellView.{view})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"Pressed=\"ViewOptionPressed({view})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"OnClick=\"() => ShowView({view})\"", home, StringComparison.Ordinal);
         }
 
         Assert.DoesNotContain("PaneToggleDisabled", home, StringComparison.Ordinal);
@@ -478,34 +484,45 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (PullRequestsVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (InboxVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (DevbookVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"pull-requests-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"inbox-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"devbook-surface\"", home, StringComparison.Ordinal);
+        // Every takeover is a module's surface, rendered from its catalog entry in one
+        // branch (local ADR 0043 §1): the if chain that named each is gone.
+        foreach (var gone in new[] { "@if (ToolsVisible)", "else if (DashboardVisible)", "else if (SessionsVisible)", "else if (PullRequestsVisible)", "else if (InboxVisible)" })
+        {
+            Assert.DoesNotContain(gone, home, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("@if (TakeoverOnScreen is { } shown)", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
-        // One landmark per branch, and the branches are exclusive, so the page has
+        // One landmark per branch — a takeover that closes on Escape, one that keeps
+        // Escape, the workspace — and the branches are exclusive, so the page has
         // exactly one. The roadmap gave up its own when it became a view.
-        Assert.Equal(8, CountOccurrences(home, "<main class="));
+        Assert.Equal(3, CountOccurrences(home, "<main class="));
+        // The Lobes atlas is a takeover like the rest, drawn from its catalog entry:
+        // the shell never names the component its module registered.
+        Assert.DoesNotContain("<LobesAtlasTakeover", home, StringComparison.Ordinal);
 
-        // The Devbook is rendered once, inside its own surface.
-        Assert.Equal(1, CountOccurrences(home, "<DevbookPane "));
-        var devbookSurface = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
+        // The shell names none of the takeovers' panes (local ADR 0043 §1).
+        foreach (var pane in new[] { "<DevbookPane ", "<ToolsPane ", "<DashboardPane ", "<SessionsPane ", "<PullRequestsPane ", "<NotificationCentrePane ", "<InboxPane " })
+        {
+            Assert.Equal(0, CountOccurrences(home, pane));
+        }
+
+        Assert.Equal(3, CountOccurrences(home, "<DynamicComponent "));
+        var takeover = home.IndexOf("@if (TakeoverOnScreen is { } shown)", StringComparison.Ordinal);
         var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
-        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
-        Assert.True(devbookPane > devbookSurface && devbookPane < workspace);
+        var takeoverComponent = home.IndexOf("<DynamicComponent ", StringComparison.Ordinal);
+        Assert.True(takeoverComponent > takeover && takeoverComponent < workspace);
 
-        // The roadmap view is the workspace's main view, directly inside it.
-        Assert.True(home.IndexOf("@if (RoadmapViewVisible)", StringComparison.Ordinal) > workspace);
-        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", home, StringComparison.Ordinal);
+        // The main view — Tasks, Board, Calendar, the Roadmap or Goals — is rendered
+        // from the catalog directly inside the workspace (local ADR 0043 §1), and the
+        // shell names none of their panes.
+        Assert.True(home.IndexOf("<DynamicComponent Type=\"view.Component\"", StringComparison.Ordinal) > workspace);
+        Assert.Equal(0, CountOccurrences(home, "<TasksPane "));
+        Assert.Equal(0, CountOccurrences(home, "<RoadmapBand "));
+        Assert.Equal(0, CountOccurrences(home, "<GoalsHost "));
+        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
         Assert.DoesNotContain("devbook-layout", home, StringComparison.Ordinal);
     }
 
@@ -524,10 +541,14 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@ref=\"_surfaceElement\"", home, StringComparison.Ordinal);
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
-        Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
-        // Six takeovers close on Escape, the Devbook and the notification centre among
-        // them; the Inbox keeps Escape for its own keys.
-        Assert.Equal(6, CountOccurrences(home, "data-escape-closes"));
+        // Escape is a takeover's close, which for the Lobes atlas is its way back to
+        // the surface it was opened over.
+        Assert.Contains("if (e.Key == \"Escape\") CloseTakeover();", home, StringComparison.Ordinal);
+        Assert.Contains("if (AtlasVisible) CloseAtlas();", home, StringComparison.Ordinal);
+        // Every takeover closes on Escape through the one branch that draws those whose
+        // registration says so; the Inbox keeps Escape for its own keys.
+        Assert.Equal(1, CountOccurrences(home, "data-escape-closes"));
+        Assert.Contains("if (shown.EscapeCloses)", home, StringComparison.Ordinal);
 
         // A view option pressed during a takeover closes it the same way.
         Assert.Contains("if (!WorkspaceVisible) CloseSurface();", home, StringComparison.Ordinal);
@@ -537,26 +558,22 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// Closing a surface has to put the reader back where they were. It does so by
-    /// construction rather than by remembering anything: the surface is a field of
+    /// construction rather than by remembering anything: the takeover is a field of
     /// its own, so the view is never touched to open one.
     /// </summary>
     [Fact]
     public void Opening_a_surface_leaves_the_view_alone()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-        var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
 
-        Assert.Contains("private WorkspaceSurface _surface = WorkspaceSurface.Workspace;", home, StringComparison.Ordinal);
-        Assert.Contains("_surface = _surface == surface ? WorkspaceSurface.Workspace : surface;", home, StringComparison.Ordinal);
-
-        // States in one field is what makes a takeover exclusive with the workspace
-        // and with every other takeover, the Devbook included.
-        Assert.Contains("Workspace,", surface, StringComparison.Ordinal);
-        Assert.Contains("Tools,", surface, StringComparison.Ordinal);
-        Assert.Contains("Dashboard", surface, StringComparison.Ordinal);
-        Assert.Contains("    Inbox,\n", surface, StringComparison.Ordinal);
-        Assert.Contains("    Devbook,\n", surface, StringComparison.Ordinal);
-        Assert.Contains("    Notifications\n", surface, StringComparison.Ordinal);
+        // One field, holding one takeover's id or none, is what makes a takeover
+        // exclusive with the workspace and with every other takeover (local ADR 0043
+        // §2): the enum that did so is retired.
+        Assert.Contains("    private string? _takeover;\n", home, StringComparison.Ordinal);
+        Assert.Contains("        _takeover = surfaceId;\n", home, StringComparison.Ordinal);
+        Assert.Contains("        _takeover = null;\n", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_view =", home[home.IndexOf("private void OpenTakeover(", StringComparison.Ordinal)..home.IndexOf("private void RememberSurface()", StringComparison.Ordinal)], StringComparison.Ordinal);
+        Assert.Throws<FileNotFoundException>(() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "WorkspaceSurface.cs"));
 
         Assert.DoesNotContain("_workspaceWasHidden", home, StringComparison.Ordinal);
     }
@@ -564,7 +581,8 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// The Inbox takes the screen as a surface of its own and is never in the pane
     /// row beside the main view. Unlike the other takeovers it is not closed by
-    /// Escape: its surface carries neither the document-level marker nor the
+    /// Escape: it is registered with <c>EscapeCloses</c> off, and the branch that
+    /// draws such a surface carries neither the document-level marker nor the
     /// surface key handler, so Escape stays with the Inbox's own keys.
     /// </summary>
     [Fact]
@@ -577,22 +595,25 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("devbook-layout--inbox-before-backlog", css, StringComparison.Ordinal);
         Assert.Contains(".workspace-surface > .inbox-pane {", css, StringComparison.Ordinal);
 
-        var surfaceStart = home.IndexOf("else if (InboxVisible)", StringComparison.Ordinal);
-        var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
-        var inbox = home.IndexOf("@InboxPaneContent", StringComparison.Ordinal);
-        Assert.True(surfaceStart >= 0);
-        Assert.True(inbox > surfaceStart && inbox < workspace);
-        Assert.Equal(1, CountOccurrences(home, "@InboxPaneContent"));
+        Assert.Contains(
+            "EscapeCloses: false",
+            NormalizeLineEndings(File.ReadAllText(FindModuleFile("Inbox", "InboxSurfaceRegistration.cs"))),
+            StringComparison.Ordinal);
 
-        var surface = home[surfaceStart..inbox];
+        var takeover = home.IndexOf("@if (TakeoverOnScreen is { } shown)", StringComparison.Ordinal);
+        var keepsEscape = home.IndexOf("        else\n", takeover, StringComparison.Ordinal);
+        var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
+        Assert.True(takeover >= 0 && keepsEscape > takeover && keepsEscape < workspace);
+
+        var surface = home[keepsEscape..workspace];
         Assert.Contains("<main class=\"workspace-surface\"", surface, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"inbox-surface\"", surface, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-escape-closes\n", surface, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"@($\"{shown.Id}-surface\")\"", surface, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-escape-closes", surface, StringComparison.Ordinal);
         Assert.DoesNotContain("@onkeydown=\"OnSurfaceKeyDown\"", surface, StringComparison.Ordinal);
 
         // The option toggles the surface; the shell's document-level Escape leaves it alone.
-        Assert.Contains("private void ToggleInbox() => ToggleSurface(WorkspaceSurface.Inbox);", home, StringComparison.Ordinal);
-        Assert.Contains("if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;", home, StringComparison.Ordinal);
+        Assert.Contains("private void ToggleInbox() => ToggleSurface(InboxSurfaceId);", home, StringComparison.Ordinal);
+        Assert.Contains("if (TakeoverOnScreen is not { EscapeCloses: true }) return Task.CompletedTask;", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -607,22 +628,22 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        var surfaceStart = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
-        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
+        var surfaceStart = home.IndexOf("if (shown.EscapeCloses)", StringComparison.Ordinal);
+        var devbookPane = home.IndexOf("<DynamicComponent ", StringComparison.Ordinal);
         Assert.True(surfaceStart >= 0 && devbookPane > surfaceStart);
 
         var surface = home[surfaceStart..devbookPane];
         Assert.Contains("<main class=\"workspace-surface\"", surface, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"devbook-surface\"", surface, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"@($\"{shown.Id}-surface\")\"", surface, StringComparison.Ordinal);
         Assert.Contains("data-escape-closes\n", surface, StringComparison.Ordinal);
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", surface, StringComparison.Ordinal);
         Assert.Contains("@ref=\"_surfaceElement\"", surface, StringComparison.Ordinal);
 
-        Assert.Contains(
-            "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
-            home,
-            StringComparison.Ordinal);
+        Assert.Contains("private bool DevbookVisible => TakeoverVisible(DevbookSurfaceId);", home, StringComparison.Ordinal);
+        // An entry's reference, a Brain note's badge and the Lobes atlas's card all
+        // open it through OpenDevbookOnAsync, the one road.
         Assert.Equal(2, CountOccurrences(home, "        ShowDevbook();\n"));
+        Assert.Contains("private Task OpenDevbookOnAsync(string alias, string? reference, string unavailable)", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -883,22 +904,30 @@ public sealed class GlobalPaneMarkupTests
         // context, which the Inbox never sees - and, in the pane's sources
         // slot, that context's own panel: composed here, so the Inbox draws a
         // region it cannot name, and nothing else.
-        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\">", home, StringComparison.Ordinal);
-        Assert.Contains("<Sources>", home, StringComparison.Ordinal);
-        Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
+        // That is answered for each window by ShellInboxCapture, through the Inbox
+        // surface's wiring, so a popped-out Inbox captures too.
+        var capture = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "ShellInboxCapture.cs")));
+        Assert.Contains("builder.OpenComponent<CaptureSourcesPanel>(0);", capture, StringComparison.Ordinal);
+        Assert.Contains("nameof(CaptureSourcesPanel.OnImported)", capture, StringComparison.Ordinal);
+        Assert.DoesNotContain("<InboxPane ", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" BrainNotesFor=\"@BrainNotesForTask\" DevbookImagesFor=\"@DevbookImagesForEntry\" OnOpenBrainNote=\"OpenBrainNoteAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
-        Assert.Contains("<DevbookPane OnClose=\"CloseSurface\"", home, StringComparison.Ordinal);
+        // The views are their modules' surfaces (local ADR 0043 §1): the shell renders
+        // the one on screen from the catalog, and hands the Tasks views what only it
+        // holds through the window's wiring rather than as the pane's parameters.
+        Assert.Contains("<DynamicComponent Type=\"view.Component\" Parameters=\"ViewParameters(view)\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<DynamicComponent @key=\"shown.Id\" Type=\"shown.Component\" Parameters=\"SurfaceParameters(shown)\" />", home, StringComparison.Ordinal);
+        Assert.Contains("wiring.LinkedWork = _linkedWork;", home, StringComparison.Ordinal);
 
-        // The roadmap and the dashboard are composed on the same terms. Their content
-        // belongs to Roadmap and the Dashboard; the shell only decides where it goes.
-        // The roadmap takes one parameter, and it is a way out rather than content: its
-        // "Open in Tasks" asks the shell to show a plan in the task list, because the
-        // view switch and the list's filters are the shell's and the roadmap
-        // references no Tasks module. No plan, item or bar is handed down.
-        Assert.Contains("<RoadmapBand OnOpenTasks=\"OpenPlanTasks\" />", home, StringComparison.Ordinal);
-        Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
+        // The dashboard is its module's surface too: its content belongs to the
+        // Dashboard, which draws its pane, and the shell only decides where it goes.
+        // The roadmap's "Open in Tasks" is a jump through the window's navigator, from
+        // its own surface.
+        Assert.DoesNotContain("<DashboardPane ", home, StringComparison.Ordinal);
+        Assert.Contains(
+            "<DashboardPane OnClose=",
+            NormalizeLineEndings(File.ReadAllText(FindModuleFile("Dashboard", "DashboardSurface.razor"))),
+            StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
         Assert.DoesNotContain("inbox-pane__list", home, StringComparison.Ordinal);
@@ -1152,7 +1181,6 @@ public sealed class GlobalPaneMarkupTests
         {
             ".entry-detail__panel .task-panel__body {",
             ".entry-detail__body {",
-            ".entry-detail__view:not([hidden]) {",
             ".entry-detail__note {",
             ".entry-detail__note .markdown-editor__surface {",
             ".entry-detail__note .markdown-editor__grow {"
@@ -1268,8 +1296,8 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The entry card, its four grab rails, its drop zones and the sub-item cards
-    /// are gone from the stylesheet as well as from the markup.
+    /// The entry card, its four grab rails, its drop zones, the sub-item cards and
+    /// the body's two readings are gone from the stylesheet as well as from the markup.
     /// <para>
     /// Dead CSS is not harmless: it is the next reader's evidence that a shape still
     /// exists. Every selector below styled something the shared components now draw,
@@ -1292,7 +1320,10 @@ public sealed class GlobalPaneMarkupTests
                      ".entry-doc__read {",
                      ".entry-doc__title-line",
                      ".subitem-card",
-                     ".subitem-list"
+                     ".subitem-list",
+                     ".entry-detail__views",
+                     ".entry-detail__view",
+                     ".entry-detail__prose"
                  })
         {
             Assert.DoesNotContain(dead, css, StringComparison.Ordinal);
@@ -1329,13 +1360,17 @@ public sealed class GlobalPaneMarkupTests
 
     private static string FindSettingsRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Settings", "Settings.razor");
 
-    private static string FindWorkspaceSurface() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "WorkspaceSurface.cs");
+    private static string FindShellNavigationStore() =>
+        RepositoryRoot.File("src", "Infrastructure", "Backlog.Infrastructure.FileSystem", "Workspace", "ShellNavigationStore.cs");
 
     // The three bounded contexts left Backlog.Desktop.UI and became their own
     // projects under src/Modules; only the shell's own chrome stayed behind.
     private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
     private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
+
+    private static string FindModuleFile(string module, string file) =>
+        RepositoryRoot.File("src", "Modules", module, $"Backlog.Modules.{module}.UI", file);
 
     private static string FindDevbookPane() => RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", "DevbookPane.razor");
 

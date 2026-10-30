@@ -51,4 +51,36 @@ public sealed class SqliteNotificationViewStoreTests : IDisposable
         Assert.Null(reopened.ReadCursor());
         Assert.Single(reopened.ReadRows());
     }
+
+    [Fact]
+    public async Task A_choice_that_takes_text_survives_a_new_store_over_the_same_file()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var question = TestNotifications.Question("Approve the validation of run-58?", T0, TestNotifications.Validation());
+        var change = NotificationPayloads.ToChange(question, [], T0);
+
+        await new SqliteNotificationViewStore(_path).SaveAsync([new NotificationChangeRecord(change, Guid.NewGuid(), 3)], "pos:1", ct);
+        var row = Assert.Single(new SqliteNotificationViewStore(_path).ReadRows());
+
+        Assert.Equal(
+            [("approve", false, (string?)null), ("revise", true, "What should change?"), ("reject", false, null)],
+            NotificationPayloads.Read(row.Change)!.Notification.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.TakesText, choice.Placeholder)));
+    }
+
+    [Fact]
+    public async Task A_notifications_origin_survives_the_store()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var origin = new Modules.Notifications.Abstractions.NotificationOrigin(
+            "spec-manager", "Billing · #7 Rounding in invoices", "Ada Lovelace", "Agent session", "https://spec-manager.example/q/7");
+        var question = TestNotifications.Question("Which rounding rule?", T0) with { Origin = origin };
+
+        var store = new SqliteNotificationViewStore(_path);
+        await store.SaveAsync([new NotificationChangeRecord(NotificationPayloads.ToChange(question, [], T0), Guid.NewGuid(), 1)], "pos:1", ct);
+
+        var row = Assert.Single(new SqliteNotificationViewStore(_path).ReadRows());
+
+        Assert.Equal(origin, NotificationPayloads.Read(row.Change)!.Notification.Origin);
+        Assert.Equal("spec-manager · Billing · #7 Rounding in invoices", row.Change.Preview!.Origin);
+    }
 }

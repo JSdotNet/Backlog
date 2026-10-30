@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The Features board and the Requirements view as a reader sees them (local ADR
-/// 0040): cards in columns, dashed and struck-through statuses, a detail on pick;
+/// 0044): cards in columns, dashed and struck-through statuses, a detail on pick;
 /// requirements with their SHALL sentence and proof, Given / When / Then rows with
 /// bullets, and an Always true link the host is told about.
 /// </summary>

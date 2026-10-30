@@ -8,7 +8,7 @@ public sealed record DomainPageLink(string Text, string TestId, Func<Task> Follo
 
 /// <summary>
 /// The Domain view's functional pages in the domain's own language (local ADR
-/// 0040 §5–6): a chapter's first sentence as its summary, with any list of
+/// 0044 §5–6): a chapter's first sentence as its summary, with any list of
 /// fields it closes on left to Model, and an enum's values read as words.
 /// </summary>
 public static partial class DomainUnits

@@ -107,6 +107,11 @@ public static class SqliteRegistration
         services.AddSingleton<ISessionRequestStore>(sp =>
             new RootedSqliteSessionRequestStore(() => rootDirectory(sp)));
 
+        // The questions sessions are waiting on (local ADR 0041): this machine's, the
+        // same context's table, in the same file.
+        services.AddSingleton<IWaitingQuestionStore>(sp =>
+            new RootedSqliteWaitingQuestionStore(() => rootDirectory(sp)));
+
         return services;
     }
 }

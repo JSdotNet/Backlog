@@ -32,6 +32,7 @@ namespace Backlog.Desktop.Services;
 internal sealed class WindowsAppNotifications(
     INotificationCentre centre,
     NotificationCentreRequests requests,
+    ShellWindows windows,
     ILogger<WindowsAppNotifications> logger) : IDisposable
 {
     private bool _registered;
@@ -120,6 +121,9 @@ internal sealed class WindowsAppNotifications(
             .AddText(content.Title)
             .AddText(content.Summary);
 
+        // Where it came from, "System · Place", on the attribution line under the text.
+        if (!string.IsNullOrWhiteSpace(content.Attribution)) builder.SetAttributionText(content.Attribution);
+
         foreach (var (key, value) in content.Arguments) builder.AddArgument(key, value);
 
         if (content.Severity == NotificationSeverity.Critical && AppNotificationBuilder.IsUrgentScenarioSupported())
@@ -186,8 +190,11 @@ internal sealed class WindowsAppNotifications(
         }
     }
 
-    /// <summary>Brings the window forward on the centre, open on the notification — where a
-    /// refused answer's reason is shown and the person can answer again.</summary>
+    /// <summary>Brings the main window forward on the centre, open on the notification — where a
+    /// refused answer's reason is shown and the person can answer again. The main window, not
+    /// whichever window the app lists first: with surfaces popped out beside it (local ADR 0043
+    /// §4) the first is not always the main one, and it is the main window's shell that opens the
+    /// centre. A centre already open in a window of its own answers the request there too.</summary>
     private void OpenCentre(Guid notificationId)
     {
         requests.Open(notificationId);
@@ -196,7 +203,7 @@ internal sealed class WindowsAppNotifications(
         {
             try
             {
-                if (Application.Current?.Windows.FirstOrDefault()?.Handler?.PlatformView is Microsoft.UI.Xaml.Window window)
+                if (windows.MainWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window window)
                 {
                     window.Activate();
                 }

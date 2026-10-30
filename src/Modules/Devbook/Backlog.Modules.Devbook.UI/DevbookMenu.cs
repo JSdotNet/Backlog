@@ -23,7 +23,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
     }
 
     /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
-    /// 0040) rather than as the flat list of its files.</summary>
+    /// 0044) rather than as the flat list of its files.</summary>
     private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>
@@ -77,26 +77,32 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         && areaKey.StartsWith(BrainAreaPrefix, StringComparison.Ordinal);
 
     /// <summary>
-    /// The rail over the Brain (local ADR 0026 §2): one root per area its
-    /// <c>CONVENTIONS.md</c> declares, in that order, or the PARA set — keyed
-    /// <see cref="BrainAreaKey"/>, labelled with the area's name — each listing
-    /// that area folder's notes.
+    /// The rail over the Brain (local ADR 0026 §2): one root per area — the ones
+    /// its <c>CONVENTIONS.md</c> declares, in that order, or the PARA set, then
+    /// every other top folder holding a note — keyed <see cref="BrainAreaKey"/>,
+    /// labelled with the area's name, each listing that area folder's notes.
+    /// <para>
+    /// With <paramref name="showHidden"/> on (Show hidden), the hidden areas —
+    /// each folder <c>## Ignore</c> lists and each dot-folder — follow every other
+    /// root, and every area lists its dot-entries too. Off, a dot-folder or
+    /// dot-file — an editor's or a sync client's own state — is not a note and is
+    /// not listed.
+    /// </para>
     /// <para>
     /// Every node's <see cref="DevbookMenuNode.Path"/> is relative to the Brain's
     /// root (<c>projects/plan.md</c>), the way the Brain's database names a note,
     /// so a panel opens it against the one folder the Brain resolves to. An area
-    /// whose folder is not there yet is a root that says so rather than an error,
-    /// and a dot-folder or dot-file — an editor's or a sync client's own state —
-    /// is not a note and is not listed. With no Brain folder set, or one that is
-    /// not there, the tree is empty: what to say about that is
-    /// <see cref="IDevbookFolderSource.Resolve"/>'s message, not a menu row.
+    /// whose folder is not there yet is a root that says so rather than an error.
+    /// With no Brain folder set, or one that is not there, the tree is empty:
+    /// what to say about that is <see cref="IDevbookFolderSource.Resolve"/>'s
+    /// message, not a menu row.
     /// </para>
     /// <para>
     /// No generated outline is read: a Brain note's place in its area is its
     /// name, the same order the folder shows in any file browser.
     /// </para>
     /// </summary>
-    public async Task<DevbookMenuTree> LoadBrainAsync(IBrainFolderSource brain, CancellationToken cancellationToken = default)
+    public async Task<DevbookMenuTree> LoadBrainAsync(IBrainFolderSource brain, bool showHidden = false, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(brain);
         cancellationToken.ThrowIfCancellationRequested();
@@ -108,13 +114,16 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         var brainRoot = location.FullPath;
 
         // On the pool for the reason ReadFolderAsync gives: the pane awaits this
-        // on the dispatcher. The areas' own read is one small file.
-        return await Task.Run(
-            () => new DevbookMenuTree([.. brain.Areas().Select(area => ReadBrainArea(tree, brainRoot, area, cancellationToken))]),
-            cancellationToken).ConfigureAwait(false);
+        // on the dispatcher. Reading the areas is a disk walk of its own too —
+        // CONVENTIONS.md, then each undeclared top folder probed for a note.
+        return await Task.Run(() =>
+        {
+            IReadOnlyList<BrainArea> areas = showHidden ? [.. brain.Areas(), .. brain.HiddenAreas()] : brain.Areas();
+            return new DevbookMenuTree([.. areas.Select(area => ReadBrainArea(tree, brainRoot, area, showHidden, cancellationToken))]);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
-    private static DevbookMenuNode ReadBrainArea(IDevbookFileTree tree, string brainRoot, BrainArea area, CancellationToken cancellationToken)
+    private static DevbookMenuNode ReadBrainArea(IDevbookFileTree tree, string brainRoot, BrainArea area, bool showHidden, CancellationToken cancellationToken)
     {
         var areaKey = BrainAreaKey(area.Folder);
         var folder = Path.Combine(brainRoot, area.Folder);
@@ -132,7 +141,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
                 $"There is no {area.Folder} folder in the Brain yet.");
         }
 
-        var children = EnumerateChildren(tree, folder, folder, areaKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: true);
+        var children = EnumerateChildren(tree, folder, folder, areaKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: !showHidden);
         IEnumerable<DevbookMenuNode> rebased = children.Select(child => RebaseOnBrain(child, area.Folder, areaKey));
         if (BrainConventions.IsDated(area)) rebased = NewestFirst(rebased);
 
@@ -645,7 +654,7 @@ public sealed record DevbookMenuNode(
     public bool HasChildren => Children.Count > 0;
 
     /// <summary>The number the row shows beside its label, or null for none —
-    /// how many pages a kind's row holds in the New domain view (local ADR 0040).</summary>
+    /// how many pages a kind's row holds in the New domain view (local ADR 0044).</summary>
     public int? Count { get; init; }
 }
 

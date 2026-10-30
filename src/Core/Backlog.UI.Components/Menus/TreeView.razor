@@ -17,6 +17,7 @@
                               Busy="@IsFolderOpening(rootFolder)"
                               OnClick="() => OnOpenFolder.InvokeAsync(rootFolder)" />
         }
+        @HeadingTrailing
     </div>
     }
     <Alert Message="@OpenErrorMessage"
@@ -64,6 +65,12 @@
     /// titles stacked on one thing reads as two things.</summary>
     [Parameter]
     public bool ShowHeading { get; set; } = true;
+
+    /// <summary>A control the host puts at the end of the heading row, after
+    /// the open button — a switch over what the tree lists, say. The tree
+    /// draws it and decides nothing about it. Drawn only with the heading.</summary>
+    [Parameter]
+    public RenderFragment? HeadingTrailing { get; set; }
 
     [Parameter]
     public TreeNode? RootFolder { get; set; }

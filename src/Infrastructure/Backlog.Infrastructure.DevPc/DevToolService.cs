@@ -906,6 +906,9 @@ public sealed class DevToolService : IDevToolService
 
     private static string ClaudeCacheRoot => DevToolCache.CacheRoot(ClaudeConfigDirectory);
 
+    /// <summary>Claude's user settings, where the question hooks are installed.</summary>
+    private static string ClaudeSettingsPath => Path.Combine(ClaudeConfigDirectory, "settings.json");
+
     /// <summary>The versions of one plugin sitting in Claude's cache, read
     /// against what the listing said is installed. Empty for a plugin with no
     /// cache folder, and empty — rather than a failed listing — when the folder
@@ -2240,12 +2243,12 @@ public sealed class DevToolService : IDevToolService
         {
             if (details is null)
             {
-                return DevToolActionResult.Ok($"'{name}' was already unregistered.");
+                return await WithQuestionHooksAsync(name, enabled, DevToolActionResult.Ok($"'{name}' was already unregistered."), log, ct).ConfigureAwait(false);
             }
 
             var remove = await RunClaudeMcpAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
             return remove.ExitCode == 0
-                ? DevToolActionResult.Ok($"'{name}' was unregistered.")
+                ? await WithQuestionHooksAsync(name, enabled, DevToolActionResult.Ok($"'{name}' was unregistered."), log, ct).ConfigureAwait(false)
                 : DevToolActionResult.Failed(log.Failure(name, remove));
         }
 
@@ -2286,7 +2289,7 @@ public sealed class DevToolService : IDevToolService
         // different one however its command reads.
         if (details is not null && !DevToolConfiguration.RegistrationDrifted(DeclaredTransport(claude), target, details))
         {
-            return DevToolActionResult.Ok($"'{name}' was already registered.");
+            return await WithQuestionHooksAsync(name, enabled, DevToolActionResult.Ok($"'{name}' was already registered."), log, ct).ConfigureAwait(false);
         }
 
         if (details is not null)
@@ -2300,8 +2303,32 @@ public sealed class DevToolService : IDevToolService
 
         var add = await RunClaudeMcpAsync(cli, addArguments, log, ct).ConfigureAwait(false);
         return add.ExitCode == 0
-            ? DevToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered.")
+            ? await WithQuestionHooksAsync(name, enabled, DevToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered."), log, ct).ConfigureAwait(false)
             : DevToolActionResult.Failed(log.Failure(name, add));
+    }
+
+    /// <summary>
+    /// The question relay's hooks (local ADR 0041), which travel with the user-scope
+    /// <c>backlog</c> registration: merged into Claude's <c>settings.json</c> once the
+    /// server is registered there, and taken out once it is not. Only after the
+    /// registration itself succeeded at user scope — a server left alone at another scope
+    /// is somebody else's arrangement, and its hooks are too.
+    /// </summary>
+    private static async Task<DevToolActionResult> WithQuestionHooksAsync(string name, bool enabled, DevToolActionResult registration, CommandLog log, CancellationToken ct)
+    {
+        if (!DevToolClaudeQuestionHooks.IsBacklogServer(name))
+        {
+            return registration;
+        }
+
+        var hooks = await DevToolClaudeQuestionHooks.ApplyAsync(ClaudeSettingsPath, enabled, ct).ConfigureAwait(false);
+
+        // Nothing ran, so nothing reached the command log; without this line the pane's
+        // account of the action would be silent about a file it changed.
+        log.RecordStep($"{ClaudeSettingsPath}: {hooks.Message}", hooks.Succeeded ? 0 : 1, string.Empty);
+
+        var message = $"{registration.Message} {char.ToUpperInvariant(hooks.Message[0])}{hooks.Message[1..]}";
+        return hooks.Succeeded ? DevToolActionResult.Ok(message) : DevToolActionResult.Failed(message);
     }
 
     /// <summary>

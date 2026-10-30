@@ -97,10 +97,14 @@ public static class DevbookSchema
         "requirements", "invariants", "model", "flow", "dependencies"
     ];
 
+    // The last three — plugin, skill, agent — are contract 34 (devbook 1.29.0),
+    // ahead of the rest of this class as ScenarioFileType and SyncValues are: the
+    // `ai/` words, for a technology that is a Claude Code plugin, skill or agent.
     private static readonly string[] TechChapterTypes =
     [
         "language", "runtime", "framework", "library", "package",
-        "tool", "service", "platform", "protocol", "format"
+        "tool", "service", "platform", "protocol", "format",
+        "plugin", "skill", "agent"
     ];
 
     private static readonly string[] AiChapterTypes =
