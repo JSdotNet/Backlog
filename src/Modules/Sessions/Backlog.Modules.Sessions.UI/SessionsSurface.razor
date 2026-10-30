@@ -1,0 +1,46 @@
+@using Microsoft.Extensions.DependencyInjection
+@inject global::Backlog.SharedKernel.ISurfaceCatalog Catalog
+@inject IServiceProvider Services
+
+@*
+    The Sessions context's session list as a shell surface (local ADR 0043 §1, §3, §6):
+    a takeover, in the main window in place of the main view or in a window of its own.
+    `session=<id>` opens it on that session, its row selected and focused — a jump from
+    a task or a pull request that names the session. What only the host can answer
+    comes through the window's SessionsSurfaceWiring, and opening an entry is a jump to
+    the Tasks surface that lands in this window. A pull request's chip is asked for only
+    while the catalog offers the pull requests surface, the flag that gates it.
+*@
+<SessionsPane OnClose="OnClose"
+              RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
+              RepositoryAlias="@_wiring?.RepositoryAlias"
+              RepositoryColour="@_wiring?.RepositoryColour"
+              OnOpenTask="@OpenTaskCallback"
+              SessionTask="@_wiring?.SessionTask"
+              PullRequestStatus="@(Catalog.TryGet(PullRequestsSurfaceId, out _) ? _wiring?.PullRequestStatus : null)"
+              FocusSessionId="@FocusSessionId" />
+
+@code {
+    /// <summary>The pull requests surface's id, the Sessions context's second list.</summary>
+    private const string PullRequestsSurfaceId = SessionsSurfaceRegistration.PullRequestsSurfaceId;
+
+    /// <summary>The query the surface was shown with: <c>session</c>, or nothing.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private SessionsSurfaceWiring? _wiring;
+
+    protected override void OnInitialized() => _wiring = Services.GetService<SessionsSurfaceWiring>();
+
+    private string? FocusSessionId =>
+        Query is not null && Query.TryGetValue(SessionsSurfaceRegistration.SessionKey, out var session) && session.Length > 0
+            ? session
+            : null;
+
+    private EventCallback<DeliveryRunReference> OpenTaskCallback =>
+        _wiring?.OpenTask is { } open ? EventCallback.Factory.Create(this, open) : default;
+}

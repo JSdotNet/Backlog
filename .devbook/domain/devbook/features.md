@@ -462,7 +462,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#c4-zoom
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
-related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0043-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0044-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Walk the architecture the way C4 draws it, one level at a time, from the system
@@ -558,7 +558,7 @@ stays the text that is read; the model is what is drawn.
 
 Which element a record names, a TDR's severity and lifecycle, which ADR supersedes
 which, and which code a component maps to are read from the chapters' own devbook
-metadata, never from a file kept beside the model (local ADR 0043).
+metadata, never from a file kept beside the model (local ADR 0044).
 
 ## Lobes atlas
 

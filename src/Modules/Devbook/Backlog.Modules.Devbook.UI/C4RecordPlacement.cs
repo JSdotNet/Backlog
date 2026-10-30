@@ -59,7 +59,7 @@ public sealed record C4RecordCitation(string Path, string? Anchor, string Number
 /// — the right-hand panel of the design's ADR screen (plan c4-zoom-navigation).
 /// <para>
 /// Every part is read from what the chapters already say, never from a file kept
-/// beside the model (local ADR 0043): the map from the record's <c>c4</c> and
+/// beside the model (local ADR 0044): the map from the record's <c>c4</c> and
 /// <c>c4-touches</c> fields as <see cref="C4Catalog.ElementsOf"/> resolved them, the
 /// chain from the records' <c>related:</c> lists and <c>## History</c> tables, the
 /// citations from the arc42 chapters' <c>related:</c> lists.

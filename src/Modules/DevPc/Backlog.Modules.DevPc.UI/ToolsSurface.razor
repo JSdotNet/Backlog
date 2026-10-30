@@ -1,0 +1,17 @@
+@*
+    Dev PC Management's Tools as a shell surface (local ADR 0043 §1): a takeover, in
+    the main window in place of the main view or in a window of its own. The pane
+    needs nothing from the shell but the callback that closes it, which in a window
+    of its own closes the window.
+*@
+<ToolsPane OnClose="OnClose" />
+
+@code {
+    /// <summary>Unused: Tools takes no query.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+}

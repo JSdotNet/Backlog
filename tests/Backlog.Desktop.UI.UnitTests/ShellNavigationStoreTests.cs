@@ -21,7 +21,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
-            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("tasks", store.LastView);
             Assert.Equal(path, store.SettingsPath);
         }
         finally
@@ -56,7 +56,7 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Devbook", store.LastSurface);
+            Assert.Equal("devbook", store.LastSurface);
 
             store.SetLastView("Board");
 
@@ -89,22 +89,22 @@ public sealed class ShellNavigationStoreTests
             store.SetLastView("Board");
             store.SetLastSurface("Dashboard");
 
-            Assert.Equal("Dashboard", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("dashboard", store.LastSurface);
+            Assert.Equal("board", store.LastView);
 
             var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal("Dashboard", restarted.LastSurface);
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("dashboard", restarted.LastSurface);
+            Assert.Equal("board", restarted.LastView);
 
             restarted.SetLastSurface("Workspace");
 
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("board", restarted.LastView);
 
             var restartedAgain = new ShellNavigationStore(path);
 
-            Assert.Equal("Workspace", restartedAgain.LastSurface);
-            Assert.Equal("Board", restartedAgain.LastView);
+            Assert.Null(restartedAgain.LastSurface);
+            Assert.Equal("board", restartedAgain.LastView);
         }
         finally
         {
@@ -163,7 +163,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal("Sessions", restarted.LastSurface);
+            Assert.Equal("sessions", restarted.LastSurface);
         }
         finally
         {
@@ -231,7 +231,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
-            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("tasks", store.LastView);
         }
         finally
         {
@@ -267,7 +267,7 @@ public sealed class ShellNavigationStoreTests
 
             using var document = JsonDocument.Parse(Written(path));
 
-            Assert.Equal("Tools", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.Equal("tools", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
@@ -301,7 +301,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.False(restarted.RoadmapHoursShown);
-            Assert.Equal("Tools", restarted.LastSurface);
+            Assert.Equal("tools", restarted.LastSurface);
 
             restarted.SetRoadmapHoursShown(true);
             Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
@@ -372,7 +372,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.True(restarted.CalendarPlansShown);
-            Assert.Equal("Tools", restarted.LastSurface);
+            Assert.Equal("tools", restarted.LastSurface);
 
             restarted.SetCalendarPlansShown(false);
             Assert.False(new ShellNavigationStore(path).CalendarPlansShown);
@@ -400,7 +400,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.False(store.CalendarPlansShown);
-            Assert.Equal("Calendar", store.LastView);
+            Assert.Equal("calendar", store.LastView);
         }
         finally
         {
@@ -432,7 +432,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal(["JSdotNet/Backlog", "docs"], restarted.RoadmapCollapsedGroups);
-            Assert.Equal("Tools", restarted.LastSurface);
+            Assert.Equal("tools", restarted.LastSurface);
 
             restarted.SetRoadmapCollapsedGroups([]);
             Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
@@ -456,9 +456,9 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastView("Roadmap");
 
-            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
         }
         finally
         {
@@ -491,7 +491,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal("Plan", restarted.BoardColumns);
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("board", restarted.LastView);
 
             restarted.SetBoardColumns("Status");
             Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
@@ -532,7 +532,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal("Week", restarted.CalendarRange);
-            Assert.Equal("Calendar", restarted.LastView);
+            Assert.Equal("calendar", restarted.LastView);
 
             restarted.SetCalendarRange("Month");
             Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
@@ -810,8 +810,8 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Tasks", store.LastView);
-            Assert.Equal("Dashboard", store.LastSurface);
+            Assert.Equal("tasks", store.LastView);
+            Assert.Equal("dashboard", store.LastSurface);
         }
         finally
         {
@@ -841,16 +841,16 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Roadmap", store.LastView);
-            Assert.Equal("Workspace", store.LastSurface);
+            Assert.Equal("roadmap", store.LastView);
+            Assert.Null(store.LastSurface);
 
             // The roadmap takeover covered the Inbox pane, so the Inbox was not on
             // screen: it does not become the surface, and leaves the pane list.
             store.SetBoardColumns("Plan");
 
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+            Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
+            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
             Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
@@ -872,10 +872,10 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastSurface("Roadmap");
 
-            Assert.Equal("Workspace", store.LastSurface);
-            Assert.Equal("Roadmap", store.LastView);
+            Assert.Null(store.LastSurface);
+            Assert.Equal("roadmap", store.LastView);
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
         }
         finally
         {
@@ -910,8 +910,8 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Inbox", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("inbox", store.LastSurface);
+            Assert.Equal("board", store.LastView);
         }
         finally
         {
@@ -938,7 +938,7 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Dashboard", store.LastSurface);
+            Assert.Equal("dashboard", store.LastSurface);
         }
         finally
         {
@@ -964,7 +964,7 @@ public sealed class ShellNavigationStoreTests
             store.SetLastView("Calendar");
 
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Inbox", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.Equal("inbox", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
@@ -984,7 +984,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastSurface("Inbox");
 
-            Assert.Equal("Inbox", new ShellNavigationStore(path).LastSurface);
+            Assert.Equal("inbox", new ShellNavigationStore(path).LastSurface);
         }
         finally
         {
@@ -1021,8 +1021,8 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Devbook", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("devbook", store.LastSurface);
+            Assert.Equal("board", store.LastView);
         }
         finally
         {
@@ -1033,12 +1033,12 @@ public sealed class ShellNavigationStoreTests
     /// <summary>A takeover stored over the Devbook pane was what the reader saw, so it
     /// stays the surface — the roadmap takeover as the Roadmap view, as ever.</summary>
     [Theory]
-    [InlineData("Devbook", "Dashboard", "Dashboard", "Calendar")]
-    [InlineData("Knowledge", "Sessions", "Sessions", "Calendar")]
-    [InlineData("Devbook", "Tools", "Tools", "Calendar")]
-    [InlineData("Knowledge", "Roadmap", "Workspace", "Roadmap")]
+    [InlineData("Devbook", "Dashboard", "dashboard", "calendar")]
+    [InlineData("Knowledge", "Sessions", "sessions", "calendar")]
+    [InlineData("Devbook", "Tools", "tools", "calendar")]
+    [InlineData("Knowledge", "Roadmap", null, "roadmap")]
     public void A_devbook_pane_under_another_surface_leaves_that_surface(
-        string pane, string storedSurface, string surface, string view)
+        string pane, string storedSurface, string? surface, string view)
     {
         var path = NewSettingsPath();
 
@@ -1082,15 +1082,15 @@ public sealed class ShellNavigationStoreTests
             store.SetLastView("Calendar");
 
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Devbook", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.Equal("devbook", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
 
             store.SetLastSurface("Workspace");
 
             using var after = JsonDocument.Parse(Written(path));
-            Assert.Equal("Workspace", after.RootElement.GetProperty("lastSurface").GetString());
+            Assert.False(after.RootElement.TryGetProperty("lastSurface", out var written) && written.ValueKind != JsonValueKind.Null);
             Assert.False(after.RootElement.TryGetProperty("lastEnabledPanes", out _));
-            Assert.Equal("Workspace", new ShellNavigationStore(path).LastSurface);
+            Assert.Null(new ShellNavigationStore(path).LastSurface);
         }
         finally
         {
@@ -1109,7 +1109,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastSurface("Devbook");
 
-            Assert.Equal("Devbook", new ShellNavigationStore(path).LastSurface);
+            Assert.Equal("devbook", new ShellNavigationStore(path).LastSurface);
         }
         finally
         {
@@ -1146,7 +1146,7 @@ public sealed class ShellNavigationStoreTests
             var restarted = new ShellNavigationStore(path);
             Assert.Equal("checklist", restarted.ToolsTab);
             Assert.Equal("claude", restarted.ToolsHostFilter);
-            Assert.Equal("Tools", restarted.LastSurface);
+            Assert.Equal("tools", restarted.LastSurface);
         }
         finally
         {
@@ -1155,9 +1155,10 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
-    /// The atlas's place — the surface it was opened over and the scope it is on —
-    /// survives a restart, so leaving it for Settings and coming back keeps both;
-    /// neither key is written until the atlas has been opened.
+    /// The atlas's place — the takeover it was opened over, by its surface id, and the
+    /// scope it is on — survives a restart, so leaving it for Settings and coming back
+    /// keeps both; neither key is written until the atlas has been opened. A name the
+    /// retired enum stored reads as its id, and the workspace as none.
     /// </summary>
     [Fact]
     public void The_atlas_place_survives_a_restart_and_writes_no_key_until_the_atlas_opens()
@@ -1177,19 +1178,56 @@ public sealed class ShellNavigationStoreTests
                 Assert.False(none.RootElement.TryGetProperty("atlasScope", out _));
             }
 
-            store.SetLastSurface("Atlas");
-            store.SetAtlasPlace("Dashboard", "ghost:devbook-stack");
+            store.SetLastSurface("atlas");
+            store.SetAtlasPlace("dashboard", "ghost:devbook-stack");
 
             var restarted = new ShellNavigationStore(path);
-            Assert.Equal("Atlas", restarted.LastSurface);
-            Assert.Equal("Dashboard", restarted.AtlasReturnSurface);
+            Assert.Equal("atlas", restarted.LastSurface);
+            Assert.Equal("dashboard", restarted.AtlasReturnSurface);
             Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
 
-            // All, from the header, is no scope at all.
-            restarted.SetAtlasPlace("Workspace", null);
+            // All, from the header, is no scope at all; the workspace is no takeover.
+            restarted.SetAtlasPlace(null, null);
             var again = new ShellNavigationStore(path);
-            Assert.Equal("Workspace", again.AtlasReturnSurface);
+            Assert.Null(again.AtlasReturnSurface);
             Assert.Null(again.AtlasScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A file from before the atlas was a registered surface names it, and the
+    /// takeover it was opened over, by the retired enum's members: each reads as its
+    /// surface id, the workspace and the Roadmap as no takeover at all.
+    /// </summary>
+    [Theory]
+    [InlineData("Devbook", "devbook")]
+    [InlineData("PullRequests", "pull-requests")]
+    [InlineData("Workspace", null)]
+    [InlineData("Roadmap", null)]
+    public void A_retired_atlas_place_reads_as_surface_ids(string storedReturn, string? returnId)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  "lastSurface": "Atlas",
+                  "atlasReturnSurface": "{{storedReturn}}",
+                  "atlasScope": "repo:backlog"
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("atlas", store.LastSurface);
+            Assert.Equal(returnId, store.AtlasReturnSurface);
+            Assert.Equal("repo:backlog", store.AtlasScope);
         }
         finally
         {
@@ -1209,7 +1247,7 @@ public sealed class ShellNavigationStoreTests
         try
         {
             var store = new ShellNavigationStore(path);
-            string[] views = ["Board", "Calendar", "Roadmap", "InProgress", "Tasks", "Board", "Calendar"];
+            string[] views = ["board", "calendar", "roadmap", "goals", "tasks", "board", "calendar"];
 
             foreach (var view in views)
             {
@@ -1220,7 +1258,7 @@ public sealed class ShellNavigationStoreTests
             store.Flush();
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
-            Assert.Equal("Calendar", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("calendar", document.RootElement.GetProperty("lastView").GetString());
             Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
         }
         finally
@@ -1242,7 +1280,7 @@ public sealed class ShellNavigationStoreTests
 
             for (var press = 0; press < 20; press++)
             {
-                var surface = press % 2 == 0 ? "Sessions" : "Dashboard";
+                var surface = press % 2 == 0 ? "sessions" : "dashboard";
                 store.SetLastSurface(surface);
 
                 Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
@@ -1272,5 +1310,62 @@ public sealed class ShellNavigationStoreTests
         if (directory is null) return;
 
         try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+    }
+
+    /// <summary>
+    /// Every surface name the retired <c>WorkspaceSurface</c> enum wrote still restores
+    /// (local ADR 0043 §2): each takeover as its surface id, <c>Workspace</c> as no
+    /// takeover at all, and <c>Roadmap</c>, a takeover once, as the Roadmap view over
+    /// the workspace. Every member is listed, so a name left out of the map cannot pass.
+    /// </summary>
+    [Theory]
+    [InlineData("Workspace", null, "tasks")]
+    [InlineData("Tools", "tools", "tasks")]
+    [InlineData("Dashboard", "dashboard", "tasks")]
+    [InlineData("Roadmap", null, "roadmap")]
+    [InlineData("Sessions", "sessions", "tasks")]
+    [InlineData("PullRequests", "pull-requests", "tasks")]
+    [InlineData("Inbox", "inbox", "tasks")]
+    [InlineData("Devbook", "devbook", "tasks")]
+    [InlineData("Notifications", "notifications", "tasks")]
+    [InlineData("Atlas", "atlas", "tasks")]
+    public void Every_retired_surface_name_restores_as_its_surface_id(string storedSurface, string? surface, string view)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  "lastSurface": "{{storedSurface}}",
+                  "lastView": "Tasks"
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal(surface, store.LastSurface);
+            Assert.Equal(view, store.LastView);
+
+            // The next save writes the id, never the old name back.
+            store.SetRepositoryScope(["backlog"]);
+            store.Flush();
+            Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The map names exactly the retired enum's members but <c>Roadmap</c>,
+    /// which the store reads as a view.</summary>
+    [Fact]
+    public void The_retired_surface_names_are_the_retired_enum_members()
+    {
+        string[] members = ["Workspace", "Tools", "Dashboard", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas"];
+
+        Assert.Equal(members.Order(StringComparer.Ordinal), ShellNavigationStore.RetiredSurfaceNames.Keys.Order(StringComparer.Ordinal));
     }
 }

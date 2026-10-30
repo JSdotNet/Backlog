@@ -3745,6 +3745,14 @@ h1, h2, h3 {
     border-left: var(--border-width) solid var(--color-border);
 }
 
+/* The header's options each stand in a header item beside their ⧉ (local ADR
+   0043 §4), so in a fused group the neighbour the hairline follows is the item
+   before, not the option. A loose option is left out: it draws its whole border
+   itself, and this rule's weight would beat its selected colour on the left. */
+.header-surface-item + .header-surface-item > .header-group__option:not(.header-group__option--loose) {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
 .header-group__option:hover:not(:disabled) {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
@@ -3836,6 +3844,91 @@ h1, h2, h3 {
 .header-group__option--loose.header-group__option--brain.header-group__option--selected:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-band-2) 26%, transparent);
     color: var(--color-text-primary);
+}
+
+/*
+  A header item — every option the header draws for a catalog surface, loose or
+  fused — and its ⧉ Open in new window button (local ADR 0043 §4). The button
+  hangs centred under its option, its top on the option's bottom edge, so it
+  covers none of the option: not the word, not the glyph of a folded option,
+  not the selected underline, and not a fused neighbour, since every option is
+  wider than the button. Placed absolutely, so showing it never moves the
+  header or what backlogHeaderFit measures; the top-right corner stays the
+  feature flag's. While it shows it covers the strip under the header, which
+  is why it shows only on hover and while anything in the item has focus — a
+  keyboard user tabbing from the option lands on it and sees it — and the item
+  never loses hover on the way down to it, because the two touch. Where nothing
+  can hover it is always shown, and the header keeps the strip it hangs in
+  clear below itself and between the rows it wraps to (the hover: none
+  block), so it covers nothing there either. Hidden by opacity, not display,
+  so it stays in the tab order. 24px square, the smallest target
+  accessibility.md allows beside the header's own options.
+*/
+.header-surface-item {
+    position: relative;
+    display: inline-flex;
+}
+
+.header-surface-item__pop {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.header-surface-item:hover .header-surface-item__pop,
+.header-surface-item:focus-within .header-surface-item__pop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.header-surface-item__pop:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.header-surface-item__pop:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .header-surface-item__pop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Always shown, the ⧉ keeps a strip of its own: under the header, and
+       between the rows a wrapped header folds onto, so it never sits over what
+       is below it. On the header rather than the navigation, so the regions
+       beside the navigation stay centred on its options. Height only: the
+       fold measures widths. */
+    .app-header:has(.header-surface-item__pop) {
+        padding-bottom: 1.5rem;
+    }
+
+    .app-header--wrap:has(.header-surface-item__pop),
+    .app-header--wrap:has(.header-surface-item__pop) :is(.app-header__nav, .app-header__workspace) {
+        row-gap: calc(1.5rem + var(--spacing-xs));
+    }
 }
 
 /* --- Header navigation folds ---------------------------------------------- */
@@ -3948,17 +4041,26 @@ h1, h2, h3 {
 
 /* A fused group clips its members to its rounded corners, and would clip a flag
    standing past them just the same. Where one carries a flag the group stops
-   clipping, and its end members take the corners the clip used to cut. */
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) {
+   clipping, and its end members take the corners the clip used to cut.
+
+   A group of header items never clips: each item's ⧉ hangs below its option
+   (.header-surface-item__pop), past the group's own bottom edge, so a clip
+   would cut it whether a flag is there or not. The
+   corners move onto the end items' options the same way. Not onto a loose
+   option, which keeps the full radius of its own border. */
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)),
+.header-group:has(> .header-surface-item) {
     overflow: visible;
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child,
+.header-group > .header-surface-item:first-child > .header-group__option:not(.header-group__option--loose) {
     border-top-left-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-left-radius: calc(var(--border-radius-md) - var(--border-width));
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child,
+.header-group > .header-surface-item:last-child > .header-group__option:not(.header-group__option--loose) {
     border-top-right-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-right-radius: calc(var(--border-radius-md) - var(--border-width));
 }
@@ -11454,4 +11556,32 @@ a.pull-request-detail-checks__name:hover {
 .devbook-atlas-relations__link:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
+}
+
+/*
+  A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
+  the repository scope chips, Show in main window — over one surface. The title
+  takes the room that is left, so Show in main window sits at the far edge where
+  the main window keeps its utilities.
+*/
+/* A popped-out window is often narrow and has no tiers to fold, so its header
+   wraps rather than pushing Show in main window off the edge; the scope chips
+   wrap inside their group the same way. */
+.surface-window__header,
+.surface-window__scope {
+    flex-wrap: wrap;
+}
+
+.surface-window__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.surface-window__unavailable {
+    padding: var(--spacing-lg);
 }

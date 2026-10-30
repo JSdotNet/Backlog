@@ -59,7 +59,7 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
+public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource
 {
     private const int DebounceMilliseconds = 750;
 
@@ -212,6 +212,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
     private bool _disposed;
+
+    /// <summary>1 once <see cref="DisposeAsync"/> has begun its flush.</summary>
+    private int _disposeStarted;
 
     /// <summary>The wait after which a "Saved" band goes quiet, or null when
     /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
@@ -1228,6 +1231,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         finally
         {
             IsLoading = false;
+            HasLoaded = true;
         }
 
         Changed?.Invoke();
@@ -1296,6 +1300,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// Only that one: a reload over rows already on screen keeps them there.</summary>
     public bool IsLoading { get; private set; }
 
+    /// <summary>Whether <see cref="InitializeAsync"/> has read the list once in this
+    /// window. A surface shown in a window whose shell loads nothing — a popped-out
+    /// one (local ADR 0043 §4) — loads it while this is false.</summary>
+    public bool HasLoaded { get; private set; }
+
     public void SetStatusFilter(string? wire)
     {
         SelectedStatusFilterWire = wire ?? string.Empty;
@@ -1357,6 +1366,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (alias.Length == 0) return;
 
         ToggleInScope(alias);
+    }
+
+    /// <summary>
+    /// Widens the repository scope so <paramref name="row"/> is in it: its repository —
+    /// or the Brain, for an entry filed against none — joins the ones already scoped,
+    /// and every one already there stays. What an entry opened from outside the list
+    /// asks for (local ADR 0043 §6, <c>entry=</c>). Nothing changes, and nothing is
+    /// announced, when the scope is every repository or already holds the row; any
+    /// other filter in the row's way is <see cref="Reveal"/>'s.
+    /// </summary>
+    /// <returns>Whether the scope changed.</returns>
+    public bool WidenRepositoryScopeTo(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (_selectedRepositoryAliases.Count == 0 || RowInRepositoryScope(row)) return false;
+
+        _selectedRepositoryAliases.Add(RepositoryFor(row)?.Alias ?? BrainScope.Value);
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
     }
 
     /// <summary>Scopes the backlog to the Brain alone — the entries filed against no
@@ -2199,8 +2230,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         foreach (var row in Rows.Where(row => pending.Contains(row.Key)).ToList())
         {
-            CancelDebounce(row);
-            await SaveRowAsync(row, isFlush: false);
+            // Saved only while its arm was still waiting: one that came due while an
+            // earlier row was saving has been saved by its own callback, and saving a
+            // new row twice would make two entries of it.
+            if (CancelDebounce(row)) await SaveRowAsync(row, isFlush: false);
         }
     }
 
@@ -3243,6 +3276,35 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
 
         return new BulkEditOutcome(updated, unchanged, failures);
+    }
+
+    /// <summary>
+    /// Writes every save still waiting on its debounce, then disposes. This is the
+    /// end a window's scope gives its state (local ADR 0043 §5): closing a
+    /// popped-out window, or the WebView reloading its page, disposes the scope its
+    /// <c>BlazorWebView</c> opened, asynchronously, and an edit typed in the last
+    /// debounce interval would otherwise be dropped with the timer that held it.
+    /// <para>
+    /// The disposal runs whether or not the flush did. <see cref="Dispose"/> alone is
+    /// the synchronous end, for a host that throws the state away without a store
+    /// worth writing to; it writes nothing. The main window's own close is not
+    /// covered: MAUI ends its scope without waiting while the app quits.
+    /// </para>
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        // Once: the state is registered under more than one service type, and a
+        // second call arriving during the flush would write the same rows again.
+        if (_disposed || Interlocked.Exchange(ref _disposeStarted, 1) == 1) return;
+
+        try
+        {
+            await FlushPendingSavesAsync();
+        }
+        finally
+        {
+            Dispose();
+        }
     }
 
     /// <summary>
@@ -5424,7 +5486,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await DrainDeferredReloadAsync();
     }
 
-    private void CancelDebounce(EntryRow row)
+    /// <summary>Disarms the row's debounce, and answers whether one was still
+    /// waiting.</summary>
+    private bool CancelDebounce(EntryRow row)
     {
         ITimer? timer;
 
@@ -5434,6 +5498,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         timer?.Dispose();
+        return timer is not null;
     }
 
     /// <summary>

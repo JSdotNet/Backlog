@@ -1,0 +1,42 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+@*
+    The HTML document a popped-out surface is served in as a web page (local ADR 0043
+    §7): the desktop app's loopback listener renders it for /window/{surfaceId}, for
+    Claude Desktop's browser pane. The stylesheets and scripts are the ones the MAUI
+    head's index.html loads, in its order, so a surface looks and behaves as in a
+    native window; blazor.web.js replaces blazor.webview.js because this page talks
+    to the app over a circuit rather than through a WebView.
+
+    The body is SurfaceWindowHost, interactive on the server: one circuit per page,
+    and the listener gives each circuit a scope of the desktop container of its own.
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backlog</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/Backlog.UI.Components/components.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.Capture.UI/capture.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.Roadmap.UI/roadmap.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.Dashboard.UI/dashboard.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.DevPc.UI/devpc.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.Inbox.UI/inbox.css" />
+    <link rel="stylesheet" href="_content/Backlog.Modules.Notifications.UI/notifications.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="icon" href="data:,">
+    @* Interactive, as the body is, so the surface's PageTitle follows a jump. *@
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <SurfaceWindowHost @rendermode="InteractiveServer" />
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/Backlog.UI.Components/components.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

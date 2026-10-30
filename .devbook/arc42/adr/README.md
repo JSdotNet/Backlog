@@ -69,7 +69,8 @@ between inherited ADRs 0005 and 0009.
 - **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part)*
 - **[0041 — Agent questions reach Backlog by presence and come back through the hook or the Manager](0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)** *(proposed, not yet built; amends 0038 and 0039)*
 - **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(proposed, not yet built; amends 0035 §7's GitHub edge)*
-- **[0043 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](0043-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
+- **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
+- **[0044 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](0044-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
 
 ## Inherited decisions
 
