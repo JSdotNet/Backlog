@@ -156,25 +156,27 @@ public sealed class PullRequestStateBoundaryTests
     /// <summary>
     /// The shell asks Tasks which task a session or a pull request belongs to, through
     /// Tasks' own <c>ITaskLookup</c> (local ADR 0042 §9, V8): the bodies of
-    /// <c>SessionTaskFor</c> and <c>PullRequestTaskFor</c> in <c>Home.razor</c> read no
-    /// task rows. The rule covers those two reverse lookups only, from a session and from
-    /// a pull request to its task. Home's other reads of the rows open or title a task by
-    /// its id, which is the shell hosting the Tasks pane, not another screen asking Tasks.
+    /// <c>SessionTaskFor</c> and <c>PullRequestTaskFor</c> in <c>ShellTaskReferences.cs</c>
+    /// — where they moved out of <c>Home</c> when the lists became surfaces a window of
+    /// their own can show (local ADR 0043) — read no task rows. The rule covers those two
+    /// reverse lookups only, from a session and from a pull request to its task. The
+    /// class's other read of the rows opens a task by its id, which is the shell hosting
+    /// the Tasks pane, not another screen asking Tasks.
     /// </summary>
     [Theory]
     [InlineData("SessionTaskFor", "TaskForSession")]
     [InlineData("PullRequestTaskFor", "TaskForPullRequest")]
     public void The_shell_asks_Tasks_for_a_session_or_pull_requests_task(string method, string lookupMember)
     {
-        var home = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor"));
+        var references = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "ShellTaskReferences.cs"));
 
-        var body = MethodBody(home, method);
+        var body = MethodBody(references, method);
 
         Assert.DoesNotContain("Rows", body, StringComparison.Ordinal);
         Assert.DoesNotContain("TasksDesktopState", body, StringComparison.Ordinal);
         // Asked of the port, not of a matcher the shell builds over the rows elsewhere.
         Assert.Contains($".{lookupMember}(", body, StringComparison.Ordinal);
-        Assert.Contains("ITaskLookup", home, StringComparison.Ordinal);
+        Assert.Contains("ITaskLookup", references, StringComparison.Ordinal);
     }
 
     /// <summary>
