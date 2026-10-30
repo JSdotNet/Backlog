@@ -75,4 +75,23 @@ public static class TasksModuleRegistration
 
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="ITaskLookup"/>, which answers the shell's other screens which
+    /// task a session or a pull request belongs to (local ADR 0042, V8), over the
+    /// <see cref="ITaskLookupCandidates"/> the host registers for the window's Tasks
+    /// state. It lives as long as that state does, so the host passes the same lifetime:
+    /// one window's rows are matched by one lookup.
+    /// </summary>
+    public static IServiceCollection AddTaskLookup(this IServiceCollection services, ServiceLifetime windowLifetime)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.Add(new ServiceDescriptor(
+            typeof(ITaskLookup),
+            provider => new TaskLookup(provider.GetRequiredService<ITaskLookupCandidates>()),
+            windowLifetime));
+
+        return services;
+    }
 }

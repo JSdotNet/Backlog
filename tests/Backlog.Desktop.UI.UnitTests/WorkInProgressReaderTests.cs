@@ -3,9 +3,11 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Integrations;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -248,15 +250,36 @@ public sealed class WorkInProgressReaderTests
         Assert.Empty(reader.LinkedPullRequests);
     }
 
+    /// <summary>The reader the shell builds over what the host composed asks Tasks which
+    /// pull requests the tasks link (local ADR 0042, V8), at the start of every read —
+    /// and with no lookup composed, reads none by number.</summary>
     [Fact]
-    public void The_links_are_every_entrys_pull_requests_each_once_whatever_the_case_of_the_repository()
+    public async Task The_reader_the_shell_builds_reads_the_pull_requests_tasks_link_through_the_tasks_lookup()
     {
-        var first = new EntryRow { PullRequestLinks = [new EntryPullRequestLink(Repository, 655), new EntryPullRequestLink(Repository, 700)] };
-        var second = new EntryRow { PullRequestLinks = [new EntryPullRequestLink("jsdotnet/backlog", 655)] };
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        host.Client.PullRequestsByNumber.Add(Linked(655, GitHubItemState.Merged, "octocat", Noon.AddHours(-2)));
+        var clock = new FakeTimeProvider(Noon);
+        var lookup = new LinkingLookup([new TaskPullRequestLink(Repository, 655)]);
 
-        var links = WorkInProgressReader.LinksOf([first, second]).ToList();
+        var services = new ServiceCollection()
+            .AddSingleton(RepositoryManagementChain.For(host.GitHub, clock))
+            .AddSingleton<IAgentSessionSource>(new NoSessions())
+            .AddSingleton<TimeProvider>(clock);
+        using (var withLookup = services.AddSingleton<ITaskLookup>(lookup).BuildServiceProvider())
+        {
+            var reader = WorkInProgressReader.From(withLookup);
+            await ReadAsync(reader);
 
-        Assert.Equal([655, 700], links.Select(link => link.Number));
+            Assert.Equal([$"{Repository} 655"], host.Client.PinnedReadByNumber);
+            Assert.Equal(655, Assert.Single(reader.LinkedPullRequests).Number);
+        }
+
+        services.RemoveAll<ITaskLookup>();
+        using var withoutLookup = services.BuildServiceProvider();
+        var unlinked = WorkInProgressReader.From(withoutLookup);
+        await ReadAsync(unlinked);
+
+        Assert.Empty(unlinked.LinkedPullRequests);
     }
 
     /// <summary>The work-link record carries the read — state, author, merge date — and
@@ -270,7 +293,7 @@ public sealed class WorkInProgressReaderTests
         row.PullRequestLinks = [new EntryPullRequestLink(Repository, 655), new EntryPullRequestLink(Repository, 700)];
         host.Client.OpenPullRequests.Add(Open(700, author: "JSdotNet"));
         host.Client.PullRequestsByNumber.Add(Linked(655, GitHubItemState.Merged, "octocat", Noon.AddHours(-2)));
-        var reader = Reader(host, out _, () => WorkInProgressReader.LinksOf(host.State.Rows));
+        var reader = Reader(host, out _, Link(655), Link(700));
         await ReadAsync(reader);
 
         var projection = new WorkLinksProjection(
@@ -352,5 +375,16 @@ public sealed class WorkInProgressReaderTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog([], [], 0));
+    }
+
+    /// <summary>A Tasks lookup whose tasks link the given pull requests and own no
+    /// session or pull request.</summary>
+    private sealed class LinkingLookup(IReadOnlyList<TaskPullRequestLink> linked) : ITaskLookup
+    {
+        public TaskReference? TaskForSession(string sessionId) => null;
+
+        public TaskReference? TaskForPullRequest(PullRequestTaskQuestion pullRequest, bool mineOnly = false) => null;
+
+        public IReadOnlyList<TaskPullRequestLink> LinkedPullRequests() => linked;
     }
 }

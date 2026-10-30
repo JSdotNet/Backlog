@@ -1611,8 +1611,9 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// <summary>
     /// An entry the task list's old outcome memory settled stays settled when the merge
     /// itself is not among Repository Management's settled facts yet — the first launch
-    /// after the move to them (local ADR 0042, OQ-5): the merge is read once more and
-    /// drawn merged, but the entry the person took back out of Done is not moved again.
+    /// after the move to them (local ADR 0042 §3): the merge is read once more and drawn
+    /// merged, but the entry the person took back out of Done is not moved again, because
+    /// which entries a merge settled is Tasks' own fact, kept in the folder it always had.
     /// </summary>
     [Fact]
     public async Task An_entry_settled_before_the_merge_was_a_settled_fact_is_not_moved_again()

@@ -10,6 +10,10 @@
    component library's reference record shares one too, and is not used here. *@
 @using PullRequestStatus = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestStatus
 @using PullRequestReference = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestReference
+@* Which task a pull request belongs to is Tasks' answer (local ADR 0042, V8), asked
+   in Tasks' own words; the shell hands the question on. *@
+@using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion
+@using TaskIssueReference = Backlog.Modules.Tasks.Abstractions.Services.TaskIssueReference
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Results
 @inject IServiceProvider Services
@@ -413,11 +417,11 @@
     /// <summary>
     /// The Backlog entry a pull request belongs to, or null. With the flag set, only
     /// among the reader's own tasks — what Mine adds to the pull requests they opened.
-    /// Asked of the shell because the relations are on the entries, and entries
-    /// belong to Tasks.
+    /// Asked of the shell, which asks Tasks: the relations are on the entries, and
+    /// entries belong to Tasks.
     /// </summary>
     [Parameter]
-    public Func<PullRequestTaskSubject, bool, DeliveryRunReference?>? PullRequestTask { get; set; }
+    public Func<PullRequestTaskQuestion, bool, DeliveryRunReference?>? PullRequestTask { get; set; }
 
     /// <summary>How the shell opens that entry. Without it the task renders as inert
     /// text rather than as a control that would have to refuse the click.</summary>
@@ -963,7 +967,8 @@
     private PullRequestListing? PlacingListing => _read ? _listing : null;
 
     /// <summary>The merge button's words. Handing it to auto-merge reads "Merge when
-    /// ready", the verdict table's word in <c>features.md#one-verdict-per-pull-request</c>:
+    /// ready", the verdict table's word in
+    /// <c>repository-management/features.md#one-verdict-per-pull-request</c>:
     /// GitHub merges it once everything it waits on is through — checks, a required
     /// review, or both — so naming only the checks would send a reader whose pull
     /// request waits for an approval to look at the wrong thing.</summary>
@@ -1027,26 +1032,26 @@
     private string LabelFilterSentence =>
         string.Join(" ", LabelFiltered.Select(filter => $"Label filter on {filter.Repository}: {string.Join(" or ", filter.Labels)}."));
 
-    /// <summary>The pull request as the shell's task relation asks about it, with the
-    /// session this pane matched it to.</summary>
-    private PullRequestTaskSubject TaskSubject(PullRequestStatus pull) =>
-        TaskSubject(pull.RepositoryFullName, pull.Number, pull.Title, pull.Url, pull.HeadRefName, pull.ClosingIssues);
+    /// <summary>The pull request as Tasks' lookup asks about it, with the session this
+    /// pane matched it to.</summary>
+    private PullRequestTaskQuestion TaskQuestion(PullRequestStatus pull) =>
+        TaskQuestion(pull.RepositoryFullName, pull.Number, pull.Title, pull.Url, pull.HeadRefName, pull.ClosingIssues);
 
-    private PullRequestTaskSubject TaskSubject(MergedPullRequest pull) =>
-        TaskSubject(pull.RepositoryFullName, pull.Number, pull.Title, pull.Url, pull.HeadRefName, pull.ClosingIssues);
+    private PullRequestTaskQuestion TaskQuestion(MergedPullRequest pull) =>
+        TaskQuestion(pull.RepositoryFullName, pull.Number, pull.Title, pull.Url, pull.HeadRefName, pull.ClosingIssues);
 
-    private PullRequestTaskSubject TaskSubject(
+    private PullRequestTaskQuestion TaskQuestion(
         string repositoryFullName, int number, string title, string url, string headRefName, IReadOnlyList<IssueReference> closingIssues) =>
         new(
             repositoryFullName,
             number,
             title,
             headRefName,
-            closingIssues,
+            [.. closingIssues.Select(issue => new TaskIssueReference(issue.RepositoryFullName, issue.Number))],
             SessionFor(url, headRefName, repositoryFullName)?.Id);
 
     /// <summary>Mine: the reader opened it, or it is related to one of their tasks.</summary>
-    private bool IsMine(bool viewerDidAuthor, Func<PullRequestTaskSubject> subject) =>
+    private bool IsMine(bool viewerDidAuthor, Func<PullRequestTaskQuestion> subject) =>
         viewerDidAuthor || PullRequestTask?.Invoke(subject(), true) is not null;
 
     /// <summary>Everything the open view can draw: the open list, plus each pinned pull
@@ -1080,7 +1085,7 @@
         [.. OpenRows.Where(pull => IsPinned(pull) || IsFocused(pull)
             || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
-                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
+                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskQuestion(pull)))))];
 
     private PullRequestStacks? _stacks;
     private Dictionary<string, PullRequestStatus?>? _placed;
@@ -1163,7 +1168,7 @@
         [.. MergedRows.Where(pull => IsPinned(pull.RepositoryFullName, pull.Number)
             || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
-                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
+                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskQuestion(pull)))))];
 
     /// <summary>
     /// The view's counts: everything read, what the scope leaves, what the label
@@ -2108,7 +2113,7 @@
     /// <summary>The task the pull request is related to, among every task — not only
     /// mine, so Everyone's rows lead back to their task too.</summary>
     private DeliveryRunReference? TaskFor(BoardRow row) =>
-        PullRequestTask?.Invoke(row.Open is { } open ? TaskSubject(open) : TaskSubject(row.MergedPull!), false);
+        PullRequestTask?.Invoke(row.Open is { } open ? TaskQuestion(open) : TaskQuestion(row.MergedPull!), false);
 
     private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
         new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");

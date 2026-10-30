@@ -1,7 +1,7 @@
-using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.InProgress;
 
@@ -49,29 +49,20 @@ public sealed class WorkInProgressReader(
 
     /// <summary>A reader over whatever the host composed — each source optional, the
     /// way the pull requests list resolves them — so the shell that owns it names
-    /// neither.</summary>
+    /// neither. The pull requests tasks link are Tasks' answer
+    /// (<see cref="ITaskLookup.LinkedPullRequests"/>, local ADR 0042 V8); a host that
+    /// composes no lookup reads none by number.</summary>
     public static WorkInProgressReader From(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var tasks = services.GetService(typeof(TasksDesktopState)) as TasksDesktopState;
+        var tasks = services.GetService(typeof(ITaskLookup)) as ITaskLookup;
 
         return new WorkInProgressReader(
             services.GetService(typeof(IPullRequests)) as IPullRequests,
             services.GetService(typeof(IAgentSessionSource)) as IAgentSessionSource,
             services.GetService(typeof(TimeProvider)) as TimeProvider,
-            tasks is null ? null : () => LinksOf(tasks.Rows));
-    }
-
-    /// <summary>Every pull request the given entries link, each once.</summary>
-    public static IEnumerable<PullRequestReference> LinksOf(IEnumerable<EntryRow> rows)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-
-        return rows
-            .SelectMany(row => row.PullRequestLinks)
-            .Select(link => new PullRequestReference(link.Repository, link.Number))
-            .DistinctBy(link => link.Key, StringComparer.OrdinalIgnoreCase);
+            tasks is null ? null : () => tasks.LinkedPullRequests().Select(link => new PullRequestReference(link.RepositoryFullName, link.Number)));
     }
 
     /// <summary>The sessions the last read found, newest activity first.</summary>

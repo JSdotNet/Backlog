@@ -6,6 +6,7 @@
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
 @using Backlog.Modules.Devbook.Abstractions
+@using Backlog.Modules.Tasks.Abstractions.Services
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -2087,87 +2088,48 @@
     /// <summary>
     /// The entry that linked a session, as the sessions list asks for it: the entry's
     /// own record of the session it was worked in, written by the Backlog server's
-    /// <c>link_session</c>. Answered here for the reason <see cref="OpenPlanEntryAsync"/>
-    /// is — the link is stored on the entry and the session is in the other pane — and
-    /// by stored id, so opening it is the surest match that method makes.
+    /// <c>link_session</c>. Asked of Tasks (<see cref="ITaskLookup"/>, local ADR 0042
+    /// V8) — the link is stored on the entry and the session is in the other pane — and
+    /// answered by stored id, so opening it is the surest match
+    /// <see cref="OpenPlanEntryAsync"/> makes.
     /// </summary>
-    private DeliveryRunReference? SessionTaskFor(string sessionId)
-    {
-        var row = State.Rows.FirstOrDefault(candidate =>
-            candidate.Id is not null
-            && candidate.SessionLinks.Any(link => string.Equals(link.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)));
-
-        return TaskReference(row);
-    }
+    private DeliveryRunReference? SessionTaskFor(string sessionId) =>
+        TaskRunReference(Lookup?.TaskForSession(sessionId));
 
     /// <summary>
     /// The entry a pull request belongs to, as the pull requests list asks for it,
-    /// found by <see cref="PullRequestTaskMatcher"/> in order of how sure each
-    /// relation is: the entry's own <c>pull-request</c> projection, a GitHub issue a
-    /// linked task follows that the pull request closes, a linked task's external key
-    /// in its title or branch, and the entry that linked its session. Answered here
-    /// for the reason <see cref="SessionTaskFor"/> is — the record is on the entry and
-    /// the pull request is in another pane — and by stored id, so opening it is the
-    /// surest match <see cref="OpenPlanEntryAsync"/> makes.
+    /// asked of Tasks (<see cref="ITaskLookup"/>, local ADR 0042 V8), which finds it in
+    /// order of how sure each relation is: the entry's own <c>pull-request</c>
+    /// projection, a GitHub issue a linked task follows that the pull request closes, a
+    /// linked task's external key in its title or branch, and the entry that linked its
+    /// session. Answered by stored id, so opening it is the surest match
+    /// <see cref="OpenPlanEntryAsync"/> makes.
     /// <para>
-    /// With <paramref name="mineOnly"/> only my tasks are asked — open ones, and a
-    /// linked task only where the Tasks pane would count it as mine — which is what the
-    /// pane's "Mine" adds to the pull requests I opened myself.
+    /// With <paramref name="mineOnly"/> only my tasks are asked — open ones — which is
+    /// what the pane's "Mine" adds to the pull requests I opened myself.
     /// </para>
     /// </summary>
-    private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
-    {
-        var (matcher, rows) = PullRequestMatcher;
-        return matcher.Match(pull, mineOnly) is { } match && rows.TryGetValue(match.Candidate.EntryId, out var row)
-            ? TaskReference(row)
-            : null;
-    }
+    private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskQuestion pull, bool mineOnly) =>
+        TaskRunReference(Lookup?.TaskForPullRequest(pull, mineOnly));
 
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows)? _pullRequestMatcher;
-    private List<EntryRow>? _pullRequestMatcherRows;
+    private ITaskLookup? _lookup;
 
-    /// <summary>One matcher over every entry, built on first ask and again whenever
-    /// the task list changed — not per row the pane draws, which asks once per cell.</summary>
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows) PullRequestMatcher
-    {
-        get
-        {
-            if (_pullRequestMatcher is { } built && ReferenceEquals(_pullRequestMatcherRows, State.Rows)) return built;
+    /// <summary>Tasks' lookup over this window's rows, or null in a host that composes
+    /// none — then no session or pull request has a task.</summary>
+    private ITaskLookup? Lookup => _lookup ??= Services.GetService<ITaskLookup>();
 
-            var rows = new Dictionary<Guid, EntryRow>();
-            var candidates = new List<PullRequestTaskCandidate>();
-            foreach (var row in State.Rows)
-            {
-                if (row.Id is not { } id || !rows.TryAdd(id, row)) continue;
-
-                var source = row.SourceRef;
-                candidates.Add(new PullRequestTaskCandidate(
-                    id,
-                    [.. row.PullRequestLinks.Select(link => new RecordedPullRequest(link.Repository, link.Number))],
-                    source is null ? null : PullRequestTaskMatcher.GitHubIssueOf(source.ConnectorId, source.Target, source.DisplayKey, source.Url),
-                    PullRequestTaskMatcher.ExternalKeysOf(source?.DisplayKey),
-                    [.. row.SessionLinks.Select(link => link.SessionId)],
-                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived)));
-            }
-
-            _pullRequestMatcherRows = State.Rows;
-            _pullRequestMatcher = (new PullRequestTaskMatcher(candidates), rows);
-            return _pullRequestMatcher.Value;
-        }
-    }
-
-    /// <summary>An entry as a task reference another pane can hand back: its title, or
-    /// the first block of its id where it has none, and the id itself to open it by.</summary>
-    private static DeliveryRunReference? TaskReference(EntryRow? row) =>
-        row is { Id: { } id }
-            ? new DeliveryRunReference(
+    /// <summary>A task as a reference another pane can hand back: the title Tasks gave
+    /// it, and its id to open it by.</summary>
+    private static DeliveryRunReference? TaskRunReference(TaskReference? task) =>
+        task is null
+            ? null
+            : new DeliveryRunReference(
                 DeliveryRunReferenceKind.Task,
-                string.IsNullOrWhiteSpace(row.PreviewTitle) ? id.ToString()[..8] : row.PreviewTitle,
+                task.Title,
                 Title: null,
                 Url: null,
                 Repository: null,
-                EntryId: id)
-            : null;
+                EntryId: task.EntryId);
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {
@@ -2424,9 +2386,6 @@
     /// </summary>
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {
-        // A row's links, status or assignee can change in place, which the list's
-        // identity would not show, so any change rebuilds the pull request matcher.
-        _pullRequestMatcher = null;
         SynchronizeDevbookAvailability();
         ForgetDevbookRepositoryRequestLeftBehind();
 

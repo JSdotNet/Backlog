@@ -59,7 +59,7 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
+public sealed class TasksDesktopState : IDisposable, ISaveStatusSource, ITaskLookupCandidates
 {
     private const int DebounceMilliseconds = 750;
 
@@ -288,8 +288,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         IPullRequestFinishMemory? finishMemory = null)
     {
         // First, so it runs before any component's handler can queue a render
-        // that reads the index — see DependencyIndex.
-        Changed += ForgetDependencyIndex;
+        // that reads what is built over the rows — see RowsReading.
+        Changed += ForgetRowReadings;
 
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -2880,75 +2880,96 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         return DependencyResolution.ResolveAll(dependsOn, index, row.ImportPlanId, row.PreviewTags);
     }
 
-    /// <summary>One reading of the rows for the resolver, and what it was read
-    /// from. Published as one object so a reader on another thread never pairs
-    /// one change's index with another change's stamp.</summary>
-    private sealed record DependencyIndexCache(
-        List<EntryRow> Rows,
-        int Count,
-        int Version,
-        int EditStamp,
-        DependencyResolution.CandidateIndex Index);
+    /// <summary>
+    /// One value built over the rows, kept until anything it was built from may have
+    /// moved, so a screen that asks once per row it draws builds it once per change.
+    /// <para>
+    /// It is read again when a row's text, id or plan changes
+    /// (<see cref="EntryRow.EditStamp"/>, which also covers a keystroke in the raw
+    /// editor that raises nothing), when the list is replaced or grows or shrinks, and
+    /// when <see cref="_rowsVersion"/> moves, which every <see cref="Changed"/>, every
+    /// <see cref="ApplyFilter"/> and a reorder in place (<see cref="NormalizeOrderAsync"/>)
+    /// do.
+    /// </para>
+    /// <para>
+    /// The stamps are read before the build and stored with it, as one object: a change
+    /// landing on another thread while this one builds leaves stamps that no longer
+    /// match, so the next read builds again instead of keeping a stale value, and a
+    /// reader on another thread never pairs one change's value with another's stamps.
+    /// </para>
+    /// </summary>
+    private sealed class RowsReading<T>
+    {
+        private sealed record Reading(List<EntryRow> Rows, int Count, int Version, int EditStamp, T Value);
 
-    private volatile DependencyIndexCache? _dependencyIndex;
+        private volatile Reading? _last;
 
-    /// <summary>Moved on by every <see cref="Changed"/> and every
-    /// <see cref="ApplyFilter"/>; a cached index built under an earlier value is
-    /// not read again.</summary>
-    private int _dependencyIndexVersion;
+        public T Of(List<EntryRow> rows, int version, Func<List<EntryRow>, T> build)
+        {
+            var count = rows.Count;
+            var edits = EntryRow.EditStamp;
 
-    private void ForgetDependencyIndex() => Interlocked.Increment(ref _dependencyIndexVersion);
+            var last = _last;
+            if (last is not null
+                && last.Version == version
+                && last.EditStamp == edits
+                && ReferenceEquals(last.Rows, rows)
+                && last.Count == count)
+            {
+                return last.Value;
+            }
+
+            var value = build(rows);
+            _last = new Reading(rows, count, version, edits, value);
+            return value;
+        }
+    }
+
+    /// <summary>Moved on by every <see cref="Changed"/>, every <see cref="ApplyFilter"/>
+    /// and every reorder in place; a <see cref="RowsReading{T}"/> built under an earlier
+    /// value is not read again.</summary>
+    private int _rowsVersion;
+
+    private void ForgetRowReadings() => Interlocked.Increment(ref _rowsVersion);
+
+    /// <summary>Builds <paramref name="reading"/>'s value over the rows as they stand,
+    /// or hands back the one it kept.</summary>
+    private T Read<T>(RowsReading<T> reading, Func<List<EntryRow>, T> build) =>
+        reading.Of(Rows, Volatile.Read(ref _rowsVersion), build);
+
+    private readonly RowsReading<DependencyResolution.CandidateIndex> _dependencyIndex = new();
 
     /// <summary>
     /// The resolver's index over the rows as they stand, built at most once per
-    /// change rather than once per row asked.
+    /// change rather than once per row asked (<see cref="RowsReading{T}"/>).
     /// <para>
     /// A row's chain, its "Waiting for" line and the picker's chips each resolve
     /// on every render, and a render follows every keystroke, so building the
-    /// candidates per call made one render quadratic in the rows.
-    /// </para>
-    /// <para>
-    /// The index is read again whenever anything it was built from may have
-    /// moved: a row's text, id or plan (<see cref="EntryRow.EditStamp"/>, which
-    /// also covers a keystroke in the raw editor that raises nothing), the list
-    /// being replaced or growing or shrinking, a reorder in place
-    /// (<see cref="NormalizeOrderAsync"/>), which moves which of two same-named
-    /// steps counts as the first, and every <see cref="Changed"/> and
-    /// <see cref="ApplyFilter"/>.
-    /// </para>
-    /// <para>
-    /// The stamps are read before the build and stored with it: a change landing
-    /// on another thread while this one builds leaves stamps that no longer
-    /// match, so the next read builds again instead of keeping a stale index.
+    /// candidates per call made one render quadratic in the rows. A reorder in place
+    /// matters here because it moves which of two same-named steps counts as the first.
     /// </para>
     /// </summary>
-    private DependencyResolution.CandidateIndex DependencyIndex()
-    {
-        var rows = Rows;
-        var count = rows.Count;
-        var version = Volatile.Read(ref _dependencyIndexVersion);
-        var edits = EntryRow.EditStamp;
-
-        var cached = _dependencyIndex;
-        if (cached is not null
-            && cached.Version == version
-            && cached.EditStamp == edits
-            && ReferenceEquals(cached.Rows, rows)
-            && cached.Count == count)
-        {
-            return cached.Index;
-        }
-
-        var index = new DependencyResolution.CandidateIndex(DependencyCandidates(rows));
-        _dependencyIndex = new DependencyIndexCache(rows, count, version, edits, index);
-        return index;
-    }
+    private DependencyResolution.CandidateIndex DependencyIndex() =>
+        Read(_dependencyIndex, static rows => new DependencyResolution.CandidateIndex(DependencyCandidates(rows)));
 
     /// <summary>Every persisted row as the resolver sees it.</summary>
     private static List<DependencyResolution.Candidate> DependencyCandidates(List<EntryRow> rows) =>
         [.. rows
             .Where(row => row.Id is not null)
             .Select(row => new DependencyResolution.Candidate(row.Id!.Value, row.PreviewImportItemId, row.ImportPlanId))];
+
+    private readonly RowsReading<IReadOnlyList<TaskLookupCandidate>> _lookupCandidates = new();
+
+    /// <summary>
+    /// The rows as the Tasks lookup matches over them, for the screens that ask which
+    /// task a session or a pull request belongs to (local ADR 0042, V8). The same list
+    /// instance until something it was read from may have moved
+    /// (<see cref="RowsReading{T}"/>), so a lookup asked once per drawn cell builds its
+    /// matching once. Every <see cref="Changed"/> counts, because a row's links, source
+    /// or status can change in place where the list and the rows' text do not show it.
+    /// </summary>
+    IReadOnlyList<TaskLookupCandidate> ITaskLookupCandidates.Candidates =>
+        Read(_lookupCandidates, static rows => TaskLookupCandidates.Of(rows));
 
     /// <summary>Attaches a place, or detaches what was attached. A path and never a
     /// copy, and one place and never a list — both decisions live on
@@ -5598,7 +5619,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // keeps the list, its count and every row's text: none of them tells the
         // dependency index that which of two same-named steps comes first has
         // moved. Dropped before the write's await, because a render can land in it.
-        ForgetDependencyIndex();
+        ForgetRowReadings();
 
         var ids = Rows.Select(row => row.Id).OfType<Guid>().ToList();
         if (ids.Count == 0) return;
@@ -5929,10 +5950,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private void ApplyFilter()
     {
-        // Every caller has just changed what the rows say. Dropping the
-        // resolver's cached index here as well means its freshness does not rest
-        // on a Changed following each of them.
-        ForgetDependencyIndex();
+        // Every caller has just changed what the rows say. Dropping what is
+        // built over the rows here as well means its freshness does not rest on a
+        // Changed following each of them.
+        ForgetRowReadings();
         _readyTaskIds = ReadyTaskIds();
 
         IEnumerable<EntryRow> rows = Rows;

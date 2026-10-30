@@ -17,6 +17,9 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Tasks.Extensions;
+using ITaskLookupCandidates = Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates;
+using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion;
 using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -2289,8 +2292,8 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal(row.Id, pane.PullRequestTask(branch, true)?.EntryId);
         Assert.Null(pane.PullRequestTask(longer, false));
 
-        // Done in the entry's own text, then any change the shell hears of — which is
-        // what rebuilds its matcher, since a row changes in place.
+        // Done in the entry's own text, then any change the Tasks state announces —
+        // which is what has the lookup read the rows again, since a row changes in place.
         row.RawText = row.RawText.Replace("`!ready`", "`!done`", StringComparison.Ordinal);
         Assert.Equal(EntryStatus.Done, row.PreviewStatus);
         component.InvokeAsync(() => state.SetSelectionMode(true));
@@ -2302,7 +2305,7 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    private static PullRequestTaskSubject PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
+    private static PullRequestTaskQuestion PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
         new(repository, number, title, head, [], SessionId: null);
 
     // --- What a change draws again ------------------------------------------
@@ -3693,6 +3696,10 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
             toasts: sp.GetRequiredService<IToastChannel>()));
+        // Which task a session or a pull request belongs to is Tasks' answer over the
+        // same state, composed as the application hosts compose it (local ADR 0042, V8).
+        context.Services.AddScoped<ITaskLookupCandidates>(sp => sp.GetRequiredService<TasksDesktopState>());
+        context.Services.AddTaskLookup(ServiceLifetime.Scoped);
         // Home answers the Inbox's Capture button through the module's runner and
         // injects it hard, so a host that renders Home composes the module and
         // picks where its sources are kept, the same as the application hosts do.

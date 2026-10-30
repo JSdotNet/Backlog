@@ -153,6 +153,80 @@ public sealed class PullRequestStateBoundaryTests
         Assert.Equal(flagged, PullRequestMemberCall().IsMatch(line));
     }
 
+    /// <summary>
+    /// The shell asks Tasks which task a session or a pull request belongs to, through
+    /// Tasks' own <c>ITaskLookup</c> (local ADR 0042 §9, V8): the bodies of
+    /// <c>SessionTaskFor</c> and <c>PullRequestTaskFor</c> in <c>Home.razor</c> read no
+    /// task rows. The rule covers those two reverse lookups only, from a session and from
+    /// a pull request to its task. Home's other reads of the rows open or title a task by
+    /// its id, which is the shell hosting the Tasks pane, not another screen asking Tasks.
+    /// </summary>
+    [Theory]
+    [InlineData("SessionTaskFor", "TaskForSession")]
+    [InlineData("PullRequestTaskFor", "TaskForPullRequest")]
+    public void The_shell_asks_Tasks_for_a_session_or_pull_requests_task(string method, string lookupMember)
+    {
+        var home = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor"));
+
+        var body = MethodBody(home, method);
+
+        Assert.DoesNotContain("Rows", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("TasksDesktopState", body, StringComparison.Ordinal);
+        // Asked of the port, not of a matcher the shell builds over the rows elsewhere.
+        Assert.Contains($".{lookupMember}(", body, StringComparison.Ordinal);
+        Assert.Contains("ITaskLookup", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The side panel's reader lists the pull requests tasks link through Tasks'
+    /// <c>ITaskLookup</c>, not by walking the window's task rows (local ADR 0042, V8):
+    /// <c>WorkInProgressReader.cs</c> names neither the Tasks state nor its rows.
+    /// </summary>
+    [Fact]
+    public void The_side_panels_reader_lists_the_linked_pull_requests_through_Tasks()
+    {
+        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "InProgress", "WorkInProgressReader.cs"));
+
+        Assert.DoesNotContain("TasksDesktopState", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("EntryRow", reader, StringComparison.Ordinal);
+        Assert.Contains("ITaskLookup", reader, StringComparison.Ordinal);
+    }
+
+    /// <summary>The body of the one method <paramref name="name"/> declares in
+    /// <paramref name="source"/>: from its signature to the end of its block, or of its
+    /// expression body.</summary>
+    private static string MethodBody(string source, string name)
+    {
+        var declarations = Regex.Matches(source, $@"\n\s*(private|public|internal|protected)\b[^\n;=]*\s{name}\(", RegexOptions.None, TimeSpan.FromSeconds(1));
+        var declaration = Assert.Single(declarations);
+
+        // Past the parameter list.
+        var at = declaration.Index + declaration.Length;
+        for (var depth = 1; depth > 0; at++)
+        {
+            depth += source[at] switch { '(' => 1, ')' => -1, _ => 0 };
+        }
+
+        var start = at;
+        while (char.IsWhiteSpace(source[at])) at++;
+
+        if (source[at] == '{')
+        {
+            for (var depth = 0; ; at++)
+            {
+                depth += source[at] switch { '{' => 1, '}' => -1, _ => 0 };
+                if (depth == 0) return source[start..(at + 1)];
+            }
+        }
+
+        Assert.True(source.AsSpan(at).StartsWith("=>"), $"{name} has neither a block nor an expression body.");
+        for (var depth = 0; ; at++)
+        {
+            depth += source[at] switch { '(' or '{' or '[' => 1, ')' or '}' or ']' => -1, _ => 0 };
+            if (depth == 0 && source[at] == ';') return source[start..(at + 1)];
+        }
+    }
+
     private static Regex PullRequestMemberCall() =>
         new($@"\.({string.Join('|', PullRequestMembers.Concat(ClientPullRequestMembers))})\b", RegexOptions.None, TimeSpan.FromSeconds(1));
 }

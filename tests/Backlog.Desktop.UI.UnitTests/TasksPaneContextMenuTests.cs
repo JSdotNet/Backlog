@@ -410,7 +410,9 @@ public sealed class TasksPaneContextMenuTests
     /// <summary>
     /// A row like no other in this file, read through the list's own port: a pull
     /// request in conflict with its base gets no merge item, as it gets no merge act in
-    /// the Pull requests pane — the one rule both follow (local ADR 0042, P6). The row
+    /// the Pull requests pane — the one rule both follow, Repository Management's
+    /// <c>PullRequestMerges.For</c>, so the row never offers a merge the pane's verdict
+    /// would not (local ADR 0042, V2). The row
     /// still shows the pull request, wearing its verdict.
     /// </summary>
     [Fact]

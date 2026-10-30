@@ -13,7 +13,8 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// Tasks' port on the pull requests a task links to, answered out of Repository
 /// Management's contract (<see cref="LinkedPullRequestStates"/>, local ADR 0042 §4): the
 /// task row wears the verdict the Pull requests pane draws (V2), offers the merge the
-/// pane would (P6, V5), and acts and hears changes through the contract (V10). A host
+/// pane would, by the pane's own <c>PullRequestMerges.For</c> (V2, V5), and acts and hears
+/// changes through the contract (V10). A host
 /// with no contract answers nothing (V5).
 /// </summary>
 public sealed class LinkedPullRequestStatesTests
@@ -113,7 +114,7 @@ public sealed class LinkedPullRequestStatesTests
         ["status not read"] = Pull(4) with { StatusRead = false }
     };
 
-    /// <summary>The row offers the merge the pane offers, by the module's one rule (P6,
+    /// <summary>The row offers the merge the pane offers, by the module's one rule (V2,
     /// V5): conflicts and drafts get none, and a status that was not read — an older
     /// GitHub Enterprise Server's REST answer — offers nothing it cannot name.</summary>
     [Theory]
@@ -128,7 +129,8 @@ public sealed class LinkedPullRequestStatesTests
     }
 
     /// <summary>A pull request stacked on another open one waits on its parent: the
-    /// row's verdict names the parent, as the pane's does, and offers no merge (P6). Its
+    /// row's verdict names the parent, as the pane's does, and offers no merge, as the
+    /// pane offers none (V2). Its
     /// place in the stack comes from the repository's open list, as the session card's
     /// does.</summary>
     [Fact]

@@ -336,6 +336,11 @@ public static class DesktopCompositionRegistration
         // modules' scoped services; see WindowStateLifetime for why that makes it a
         // singleton in one head and scoped in the other.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
+        // Which task a session or a pull request belongs to, asked of Tasks over this
+        // window's rows (local ADR 0042, V8): the window's state answers the candidates,
+        // and the lookup lives as long as it does.
+        services.Add(new ServiceDescriptor(typeof(ITaskLookupCandidates), provider => provider.GetRequiredService<TasksDesktopState>(), options.WindowStateLifetime));
+        services.AddTaskLookup(options.WindowStateLifetime);
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
         services.AddInboxAiContentSource();

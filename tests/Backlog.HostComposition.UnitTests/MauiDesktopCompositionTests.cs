@@ -151,6 +151,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(tasks, first.ServiceProvider.GetRequiredService<TasksDesktopState>());
         Assert.Same(tasks, second.ServiceProvider.GetRequiredService<TasksDesktopState>());
         Assert.Same(tasks, provider.GetRequiredService<ISaveStatusSource>());
+        // Which task a session or a pull request belongs to is Tasks' answer over that
+        // one state (local ADR 0042, V8).
+        Assert.Same(tasks, provider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+        Assert.Same(
+            provider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
         Assert.Same(provider.GetRequiredService<InboxDesktopState>(), second.ServiceProvider.GetRequiredService<InboxDesktopState>());
         Assert.Same(provider.GetRequiredService<ToastChannel>(), provider.GetRequiredService<IToastChannel>());
 

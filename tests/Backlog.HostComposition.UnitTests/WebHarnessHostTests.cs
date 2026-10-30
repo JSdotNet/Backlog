@@ -385,6 +385,28 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Which task a session or a pull request belongs to is Tasks' answer over the
+    /// circuit's own Tasks state (local ADR 0042, V8): one lookup per circuit, over the
+    /// state that circuit draws, so two visitors never match over each other's rows.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_asks_tasks_for_a_task_over_each_circuits_own_rows()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Tasks.TasksDesktopState>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+
+        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>();
+        Assert.Equal("Backlog.Modules.Tasks", lookup.GetType().Assembly.GetName().Name);
+        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+    }
+
+    /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools, the Settings page's test question
     /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
