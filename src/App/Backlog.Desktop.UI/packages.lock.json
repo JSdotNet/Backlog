@@ -406,7 +406,7 @@
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )",
           "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
@@ -416,7 +416,7 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
@@ -424,7 +424,7 @@
       "backlog.infrastructure.copilot": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.infrastructure.devbook": {
@@ -435,7 +435,7 @@
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -468,7 +468,7 @@
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )",
           "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
@@ -484,7 +484,7 @@
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "ModelContextProtocol.Core": "[2.2.0, )"
         }
       },
@@ -498,7 +498,7 @@
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -532,7 +532,7 @@
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.dashboard.abstractions": {
@@ -548,7 +548,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.devbook.abstractions": {
@@ -564,7 +564,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )"
         }
       },
@@ -578,7 +578,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.inbox": {
@@ -586,7 +586,7 @@
         "dependencies": {
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -604,7 +604,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )"
         }
       },
@@ -613,7 +613,7 @@
         "dependencies": {
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -636,7 +636,7 @@
         "dependencies": {
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.progress.abstractions": {
@@ -652,7 +652,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.roadmap": {
@@ -660,7 +660,7 @@
         "dependencies": {
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.roadmap.abstractions": {
@@ -677,7 +677,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )"
         }
       },
@@ -691,7 +691,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.sync.abstractions": {
@@ -709,7 +709,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -718,7 +718,7 @@
         "dependencies": {
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -737,7 +737,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.13, )"
         }
       },
@@ -749,7 +749,7 @@
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
@@ -775,7 +775,7 @@
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "CentralTransitive",
-        "requested": "[10.0.13, )",
+        "requested": "[10.0.14, )",
         "resolved": "10.0.13",
         "contentHash": "4tnWU9vrU/A8NwYe9Z6wvieZ0EBb/uM82LAT+edNhdepOBWREZ7M7mzb941EIDPJaeOFdbVrDd5+7s9e89U6bQ==",
         "dependencies": {
@@ -784,9 +784,9 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.13, )",
-        "resolved": "10.0.13",
-        "contentHash": "G2GrGWNAPZBsii2F6AU8n+JT2tC1/I0Ml/e9ZyNCgPjf3hZqronP7o0X91aAynCmVeae8KkSIUNXXeXCNRmdVQ=="
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "QtpQzuSZVyTPCuHW058yCs9Nj0394uUkNyFHS813nOmK9UgUdBdaprJ5PPsBgsQIpxADTsTkbaMMonykem6qdw=="
       },
       "Microsoft.Extensions.Http": {
         "type": "CentralTransitive",
