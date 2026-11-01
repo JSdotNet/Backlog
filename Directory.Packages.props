@@ -69,7 +69,7 @@
       URLs and publishes "pull now" through, with the managed identity as its
       credential. Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.4" />
 
     <!--
       The Android push (local ADR 0039 §4): the Notification Hubs data-plane client that
