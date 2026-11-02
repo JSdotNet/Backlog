@@ -3,7 +3,7 @@
 @inject NavigationManager Navigation
 
 @*
-    The Lobes atlas, full-window (.devbook/domain/devbook/features.md#lobes-atlas):
+    The Lobes atlas, full-window (.devbook/domain/brain/features.md#lobes-atlas):
     the Brain and every registered devbook drawn as brains, one scope at a time or
     all of them at once.
 
@@ -93,6 +93,20 @@
                                   OnClick="ToggleLabels">
                         Labels
                     </ToggleButton>
+                    @* All's chips act on scopes, not regions, so every devbook's
+                       technology — hidden in All to start with — has a toggle of
+                       its own here. It acts on All alone: each devbook scope's
+                       Parietal chip keeps what the reader set. *@
+                    @if (IsAll)
+                    {
+                        <ToggleButton BaseClass="btn btn--toggle"
+                                      Pressed="_showTech"
+                                      TestId="lobes-atlas-tech"
+                                      Title="@(_showTech ? "Hide every devbook's technology chapters" : "Show every devbook's technology chapters")"
+                                      OnClick="ToggleTech">
+                            Tech
+                        </ToggleButton>
+                    }
                     @* Named apart from the scope switch's All, and starting with
                        the word it shows, so a speech user can still say it
                        (WCAG 2.5.3). *@
@@ -407,6 +421,12 @@
 
     private readonly HashSet<string> _hiddenScopes = new(StringComparer.Ordinal);
     private readonly HashSet<LobesAtlasRegionKey> _hiddenLobes = [];
+    // The devbook and ghost scopes whose Parietal has had its hidden start:
+    // once per scope key, so a reread never hides again what the reader turned
+    // on, and a devbook registered since — a ghost's included, under its new
+    // repo: key — still starts with its technology hidden.
+    private readonly HashSet<string> _seededScopes = new(StringComparer.Ordinal);
+    private bool _showTech;
     private DevbookLobesGraph? _graph;
     private LobesAtlasModel? _model;
     private IReadOnlyList<GraphAtlasNode> _nodes = [];
@@ -627,6 +647,7 @@
     {
         var wasAvailable = _graph is { Available: true };
         _graph = await Lobes.ReadAsync();
+        SeedHiddenTechnology();
 
         // An atlas that opened on the empty state and has its index now opens
         // where the host asked, not on All.
@@ -663,6 +684,27 @@
     private void ToggleLabels()
     {
         _showLabels = !_showLabels;
+        Project();
+    }
+
+    /// <summary>Each devbook's Parietal — its <c>tech/</c> chapters, a ghost
+    /// devbook's included — starts hidden in that scope, the first time the
+    /// atlas reads it.</summary>
+    private void SeedHiddenTechnology()
+    {
+        if (_graph is null) return;
+
+        foreach (var region in DevbookLobesAtlas.TechRegions(_graph))
+        {
+            if (_seededScopes.Add(region.Scope)) _hiddenLobes.Add(region);
+        }
+    }
+
+    /// <summary>All's Tech toggle: every devbook's technology drawn and listed
+    /// in All, or hidden again. It never touches a scope's own regions.</summary>
+    private void ToggleTech()
+    {
+        _showTech = !_showTech;
         Project();
     }
 
@@ -712,8 +754,9 @@
             return;
         }
 
-        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels);
-        _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes);
+        IReadOnlyList<LobesAtlasRegionKey> hiddenAll = _showTech ? [] : DevbookLobesAtlas.TechRegions(_graph);
+        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels, hiddenAll);
+        _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes, hiddenAll);
         if (_selectedId is not null && _nodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal))) _selectedId = null;
     }
 

@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Lobes read model turned into what the atlas draws
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>): the canvas model and
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>): the canvas model and
 /// the index rows, which must name the same marks.
 /// </summary>
 public sealed class DevbookLobesAtlasTests
@@ -124,6 +124,51 @@ public sealed class DevbookLobesAtlasTests
     }
 
     [Fact]
+    public void The_index_in_all_leaves_out_the_regions_hidden_in_all()
+    {
+        var nodes = DevbookLobesAtlas.IndexNodes(Graph(), LobesAtlasModel.AllLayout, hiddenAllLobes: [new LobesAtlasRegionKey(Backlog, "frontal")]);
+
+        Assert.DoesNotContain(nodes, node => node.Id == "repo:backlog|arc42/adr.md");
+        Assert.Contains(nodes, node => node.Id == "repo:backlog|README.md");
+        // The same lobe of another scope stays listed.
+        Assert.Contains(nodes, node => node.Id == "brain|projects/plan.md");
+        Assert.Contains(nodes, node => node.Id == "ghost:stack|ghost:arc42/x.md");
+    }
+
+    [Fact]
+    public void The_regions_hidden_in_all_leave_a_scopes_own_layout_alone()
+    {
+        var hidden = new LobesAtlasRegionKey(Backlog, "frontal");
+
+        var nodes = DevbookLobesAtlas.IndexNodes(Graph(), Backlog, hiddenAllLobes: [hidden]);
+
+        Assert.Contains(nodes, node => node.Id == "repo:backlog|arc42/adr.md");
+    }
+
+    [Fact]
+    public void The_model_carries_the_regions_hidden_in_all()
+    {
+        var hidden = new LobesAtlasRegionKey(Backlog, LobesAtlasMark.Parietal);
+
+        var model = DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout, hiddenAllLobes: [hidden]);
+
+        Assert.Equal([hidden], model.HiddenAllLobes);
+        Assert.Empty(model.HiddenLobes);
+        Assert.Empty(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout).HiddenAllLobes!);
+    }
+
+    [Fact]
+    public void The_tech_regions_are_each_devbooks_parietal_ghosts_included_and_not_the_brains()
+    {
+        var regions = DevbookLobesAtlas.TechRegions(Graph());
+
+        Assert.Equal(
+            [new LobesAtlasRegionKey(Backlog, LobesAtlasMark.Parietal), new LobesAtlasRegionKey(Stack, LobesAtlasMark.Parietal)],
+            regions);
+        Assert.DoesNotContain(new LobesAtlasRegionKey(Brain, LobesAtlasMark.Parietal), regions);
+    }
+
+    [Fact]
     public void The_index_of_one_scope_lists_its_shown_regions_only()
     {
         var nodes = DevbookLobesAtlas.IndexNodes(Graph(), Backlog, hiddenLobes: [new LobesAtlasRegionKey(Backlog, "frontal")]);
@@ -182,6 +227,7 @@ public sealed class DevbookLobesAtlasTests
         foreach (var name in new[] { "key", "label", "kind", "count", "regions", "satelliteLabel", "status" }) Assert.True(scope.TryGetProperty(name, out _), name);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenScopes").ValueKind);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenLobes").ValueKind);
+        Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenAllLobes").ValueKind);
     }
 
     private static LobesAtlasMark Mark(LobesAtlasModel model, string id) => model.Marks.Single(mark => mark.Id == id);

@@ -23,7 +23,7 @@ internal sealed record BrainLobesNotes(
 
 /// <summary>
 /// Puts the Brain and the registered devbooks into one Lobes graph
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>). The Brain conforms to
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>). The Brain conforms to
 /// Devbook's Lobes read model (local ADR 0040 §2): its notes take their region from
 /// their PARA area and their <c>repo:</c> links reach into the devbooks, while each
 /// devbook's own chapters, ids and summaries are Devbook's
