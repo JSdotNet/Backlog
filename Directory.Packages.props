@@ -95,7 +95,7 @@
       of one assembly. Bump the two together or not at all.
     -->
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="bunit" Version="2.12.5" />
+    <PackageVersion Include="bunit" Version="2.13.3" />
     <!--
       Named explicitly so the lock files stop depending on which SDK restored them.
       A Microsoft.NET.Sdk.Web project with .razor content gets an implicit
@@ -190,7 +190,7 @@
          are installed separately, by the playwright.ps1 the build writes to bin. -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.2" />
     <!--
       The MCP server ADR 0012 decided. .Core is the transport-neutral half the tool
       classes are attributed with; .AspNetCore is the Streamable HTTP host, referenced

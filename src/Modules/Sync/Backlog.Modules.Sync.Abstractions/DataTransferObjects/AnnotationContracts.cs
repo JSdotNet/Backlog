@@ -47,6 +47,15 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// optional: a device running an older build sends no such member, and a
 /// payload without one deserializes to null and anchors by index alone, which
 /// is what every remark did before this existed.</param>
+/// <param name="Kind">What the remark is: one of devbook's closed set of note
+/// kinds — <c>comment</c>, <c>question</c>, <c>suggestion</c> or <c>flag</c>
+/// (<see cref="AnnotationRecordLimits.Kinds"/>). Optional and trailing for the
+/// reason <paramref name="BlockHash"/> is: a payload without it, from an older
+/// build or through a service deployed before it existed, reads as a
+/// <c>comment</c>.</param>
+/// <param name="Branch">The branch the chapter was read from when the remark was
+/// left, or null for the default branch — which is what a payload without the
+/// member, from an older build, means too.</param>
 public sealed record AnnotationPayload(
     string RepositoryAlias,
     string ChapterPath,
@@ -55,7 +64,9 @@ public sealed record AnnotationPayload(
     string Author,
     DateTimeOffset CreatedAt,
     bool Resolved,
-    string? BlockHash = null);
+    string? BlockHash = null,
+    string? Kind = null,
+    string? Branch = null);
 
 /// <summary>
 /// One remark's state at one moment, as a device pushes it or pulls it. The

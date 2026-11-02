@@ -460,7 +460,7 @@ the bottom, whose base is the repository's own branch, up to the one on top.
 ```meta
 type: term
 status: proposed
-aliases: [act, second act, PullRequestMerge, PullRequestMergeAct]
+aliases: [act, second act, PullRequestMerges]
 related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/domain/repository-management/features.md#re-run-failed, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 

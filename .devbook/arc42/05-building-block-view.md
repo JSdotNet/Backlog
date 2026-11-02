@@ -126,7 +126,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client, and the one channel that serves
@@ -160,10 +160,11 @@ graph TB
       Roadmap["Backlog.Modules.Roadmap"]
       Dashboard["Backlog.Modules.Dashboard"]
       Capture["Backlog.Modules.Capture"]
+      RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
     end
 
     subgraph "Background workers"
-      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker"]
+      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker, NotificationSyncWorker,\nDevbookSubjectSyncWorker"]
       BackupWorker["BackupWorker"]
       McpWorker["McpServerWorker"]
     end
@@ -200,6 +201,7 @@ graph TB
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
   SyncUI -->|pairing, sync loops| SyncClient
+  Shell -->|IPullRequests| RepoMgmt
 
   TasksUI --> Copilot & GitHubInfra
   RoadmapUI --> GitHubInfra
@@ -212,6 +214,8 @@ graph TB
   FileSystem -->|ITaskItems| Tasks
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Dashboard.Abstractions| Dashboard
+  GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
+  FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
 
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
@@ -243,7 +247,19 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI
 references `Backlog.Infrastructure.Devbook`, whose database lives in app storage
 (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and
-forbids it another module's implementation.
+forbids it another module's implementation. `PullRequestStateBoundaryTests` narrows
+that for pull requests: no module UI calls a pull-request member of the GitHub
+adapter (local ADR 0042 §8).
+
+**Repository Management** is `Backlog.Modules.RepositoryManagement` and its
+`.Abstractions`: the pull-request state of the registered repositories, with one
+status, one readiness verdict and one cache (local ADR 0042). It has no `.UI`
+project. The pull requests pane and the session card stay in the shell and read
+`IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports.
+`Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates
+its contract for Tasks (`ILinkedPullRequestStates`) and Progress
+(`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and
+settings only.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the builder that indexes
 a repository's devbook folders in C#, and the read-only reader over the result.
@@ -345,7 +361,7 @@ flowchart LR
 - **The Lobes atlas.** `DevbookAtlasService.ReadLobesAsync` reads the Brain's
   database and the devbook database of every repository alias it is handed, and
   nothing else. `DevbookLobesReader` gives each node a scope, a region and a kind,
-  by the mappings of [Lobes atlas](../domain/devbook/features.md#lobes-atlas). A
+  by the mappings of [Lobes atlas](../domain/brain/features.md#lobes-atlas). A
   `repo:` link resolves through `BrainRepoLinkResolver` to that devbook's own
   chapter node, both spellings folded. A link it cannot follow is a ghost chapter;
   an alias not handed in is a ghost scope. Each scope counts its nodes per region
@@ -764,7 +780,7 @@ for monitoring. Capture uses session context to create backlog and knowledge ite
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`),
@@ -809,7 +825,7 @@ shows.
 - `Backlog.Modules.Sync` holds the domain logic behind ports: device registration,
   pairing-code issuance and redemption, and device-token issuance. Its `Ports`
   declare `ITaskReplica`, `ISessionReplica`, `IAnnotationReplica`,
-  `INotificationReplica`, `IAttachmentStore`, `INotificationNudgeChannel` and
+  `IDevbookSubjectReplica`, `INotificationReplica`, `IAttachmentStore`, `INotificationNudgeChannel` and
   `INotificationPushChannel`. Its `Adapters` hold an in-memory stand-in for each
   store, for the endpoint tests and for a run with no Cosmos configured. The two
   channels get a no-op stand-in instead, `NoNotificationNudgeChannel` and
@@ -817,8 +833,8 @@ shows.
 - `Backlog.Modules.Sync.Api` wires the module to HTTP, JWT-bearer authentication,
   and the owner-scoping filter.
 - `Backlog.Infrastructure.Cosmos` implements the replica ports against the
-  `tasks`, `sessions`, `annotations`, `notifications` and `notificationReplies`
-  containers (local ADRs 0005, 0011 and 0039). It
+  `tasks`, `sessions`, `annotations`, `devbookSubjects`, `notifications` and
+  `notificationReplies` containers (local ADRs 0005, 0011, 0039 and 0044). It
   serves the device registry and pairing-code store from `devices` and
   `pairingCodes`, so a registration survives a restart of the service. It is the
   only project that references the Cosmos SDK, so the API head depends on a port
@@ -833,10 +849,12 @@ shows.
   phone and sends a data-only push to the owner's tag. It sends with the hub's
   `sync-send` rule and keeps installations with `sync-manage`.
 
-The API head serves sessions and annotations as one route each,
-`/api/sync/sessions` and `/api/sync/annotations`. A device pushes a batch with
-`POST` and pulls the owner's feed from a cursor with `GET`, as it does on
-`/api/sync/tasks`.
+The API head serves sessions, annotations and devbook subject state as one route
+each: `/api/sync/sessions`, `/api/sync/annotations` and `/api/sync/devbook-subjects`.
+A device pushes a batch with `POST` and pulls the owner's feed from a cursor with
+`GET`, as it does on `/api/sync/tasks`. A desktop that meets a bare 404 on
+`/api/sync/devbook-subjects` takes it for a service not yet deployed with the route,
+and asks again on its next cycle (local ADR 0044 §7).
 
 Captures have no container of their own. A capture is a document kind in the
 `tasks` container, and the module writes it through `ITaskReplica` (local ADR
@@ -855,9 +873,9 @@ addressed to it and deletes each once processed. A desktop asks
 hands its FCM token to `PUT /api/sync/notifications/push`, which answers whether
 the service registered it.
 
-The Cosmos database therefore holds seven containers. `tasks`, `sessions`,
-`annotations`, `notifications` and `notificationReplies` are partitioned on the
-owner, and `devices` and `pairingCodes` on their own id.
+The Cosmos database therefore holds eight containers. `tasks`, `sessions`,
+`annotations`, `devbookSubjects`, `notifications` and `notificationReplies` are
+partitioned on the owner, and `devices` and `pairingCodes` on their own id.
 
 The blob store stages an upload as uncommitted blocks. It commits them only once
 the handler has checked the size and digest, so a refused upload never becomes a
@@ -879,7 +897,7 @@ flowchart TB
       NotificationService["Notification Service\n(Web PubSub, Notification Hubs)"]
     end
     subgraph "Data Layer"
-      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\nnotifications, notificationReplies,\ndevices, pairingCodes"]
+      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\ndevbookSubjects, notifications,\nnotificationReplies, devices, pairingCodes"]
       Blobs["Attachment Store\n(capture files, 30-day backstop)"]
     end
   end
@@ -912,7 +930,7 @@ Cloud components:
 | Component | Responsibility |
 |---|---|
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
-| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
+| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation, devbook subject and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0039. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |

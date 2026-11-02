@@ -10,18 +10,19 @@ namespace Backlog.Modules.Progress.DomainModels;
 /// Its rules are <c>.devbook/domain/progress/domain.invariants.md#impediment</c>, each with
 /// a unit test in <c>Backlog.Modules.Progress.UnitTests</c>: a title, a start in New, moves
 /// forward only with Escalated the one state a move may skip, any open state to Resolved,
-/// Resolved for good, every move recorded with days that never go backwards, and each task
-/// held back once.
+/// Resolved for good, every move recorded with days that never go backwards, and each item
+/// held back once, linking and unlinking leaving the state and history alone.
 /// </para>
 /// <para>
-/// It names the tasks it holds back by id and nothing else (<see cref="HoldsBack"/>); the
-/// goal it holds back is read through the task, never stored here.
+/// It names the tasks, pull requests and plans it holds back by their identity and nothing
+/// else (<see cref="HoldsBack"/>); the goal it holds back is read through them, never
+/// stored here.
 /// </para>
 /// </summary>
 public sealed class Impediment
 {
     private readonly List<ImpedimentStateChange> _history;
-    private readonly List<Guid> _holdsBack;
+    private readonly List<HeldBackItem> _holdsBack;
 
     private Impediment(
         Guid id,
@@ -31,7 +32,7 @@ public sealed class Impediment
         DateOnly? checkAgain,
         string? note,
         List<ImpedimentStateChange> history,
-        List<Guid> holdsBack,
+        List<HeldBackItem> holdsBack,
         DateTimeOffset? createdAt)
     {
         Id = id;
@@ -66,8 +67,8 @@ public sealed class Impediment
     /// <summary>Every move in the order it happened; the first is always New.</summary>
     public IReadOnlyList<ImpedimentStateChange> History => _history;
 
-    /// <summary>The ids of the tasks it holds back, in the order they were linked.</summary>
-    public IReadOnlyList<Guid> HoldsBack => _holdsBack;
+    /// <summary>The tasks, pull requests and plans it holds back, in the order they were linked.</summary>
+    public IReadOnlyList<HeldBackItem> HoldsBack => _holdsBack;
 
     /// <summary>When it was raised, on the device that raised it; it orders the impediments
     /// alike on every device. Null for one restored without it.</summary>
@@ -107,7 +108,8 @@ public sealed class Impediment
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules
     /// held when it was written. A history without a step reads as New on
-    /// <paramref name="fallbackRaisedOn"/>, and a repeated task is kept once.</summary>
+    /// <paramref name="fallbackRaisedOn"/>, and a repeated item is kept once, where it was
+    /// first linked.</summary>
     public static Impediment Restore(
         Guid id,
         string title,
@@ -116,7 +118,7 @@ public sealed class Impediment
         DateOnly? checkAgain,
         string? note,
         IEnumerable<ImpedimentStateChange> history,
-        IEnumerable<Guid> holdsBack,
+        IEnumerable<HeldBackItem> holdsBack,
         DateTimeOffset? createdAt,
         DateOnly fallbackRaisedOn)
     {
@@ -131,7 +133,7 @@ public sealed class Impediment
             checkAgain,
             Clean(note),
             steps,
-            [.. holdsBack.Where(task => task != Guid.Empty).Distinct()],
+            [.. holdsBack.OfType<HeldBackItem>().Distinct()],
             createdAt);
     }
 
@@ -182,21 +184,26 @@ public sealed class Impediment
     /// <summary>Replaces the note, or clears it with null or blank text.</summary>
     public void EditNote(string? note) => Note = Clean(note);
 
-    /// <summary>Links a task it holds back; linking one it holds back already changes
-    /// nothing. Refused for the empty id (<c>progress.task_required</c>).</summary>
-    public Result HoldBack(Guid taskId)
+    /// <summary>Links an item it holds back; linking one it holds back already, by kind and
+    /// identity, changes nothing. Adds no step to the history.</summary>
+    public void HoldBack(HeldBackItem item)
     {
-        if (taskId == Guid.Empty) return Result.Failure(ProgressErrors.TaskRequired());
+        ArgumentNullException.ThrowIfNull(item);
 
-        if (!_holdsBack.Contains(taskId)) _holdsBack.Add(taskId);
-        return Result.Success();
+        if (!_holdsBack.Contains(item)) _holdsBack.Add(item);
     }
 
-    /// <summary>Unlinks a task, answering whether it held it back.</summary>
-    public bool Release(Guid taskId) => _holdsBack.Remove(taskId);
+    /// <summary>Unlinks an item, answering whether it held it back; one it does not hold
+    /// back changes nothing. Adds no step to the history.</summary>
+    public bool Release(HeldBackItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
 
-    /// <summary>Whether it holds back the task <paramref name="taskId"/>.</summary>
-    public bool Holds(Guid taskId) => _holdsBack.Contains(taskId);
+        return _holdsBack.Remove(item);
+    }
+
+    /// <summary>Whether it holds back <paramref name="item"/>.</summary>
+    public bool Holds(HeldBackItem item) => _holdsBack.Contains(item);
 
     private static Result<string> CleanTitle(string? title) =>
         string.IsNullOrWhiteSpace(title) ? ProgressErrors.ImpedimentWithoutTitle() : title.Trim();

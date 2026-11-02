@@ -1,5 +1,6 @@
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;

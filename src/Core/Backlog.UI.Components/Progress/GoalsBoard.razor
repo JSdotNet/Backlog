@@ -13,7 +13,7 @@
     "Attach to ‹goal›"; with none open it hands the work to OnPickGoal, and the host
     opens the shared GoalPicker for it. Every item is a GoalSubject, handed back as it
     came; the board never reads one. A search beside the No goal heading filters its rows
-    as it is typed, by the attach search's rule (GoalCard.IsMatch): title, number, a
+    as it is typed, by the attach search's rule (WorkItemSearch.IsMatch): title, number, a
     leading + or # tolerated. A query that hides every row says No matches; clearing it
     shows them all. The query is the board's own and never reaches the host.
 
@@ -35,7 +35,9 @@
     drawn, which is how a refused move puts the stored order back.
 
     Beside the goals sits the StandUpPanel aside, which falls under them in one column
-    once the board is narrower than 900 px. With no goals and nothing in progress
+    once the board is narrower than 900 px. Its Raise impediment, and each impediment's
+    Link… and Unlink, reach the host only when it listens (OnRaiseImpediment,
+    OnLinkImpediment, OnUnlinkImpediment); Link… searches the board's own Candidates. With no goals and nothing in progress
     outside one, the goals column is a real empty state with New goal as its action.
 *@
 @inject IJSRuntime Js
@@ -140,7 +142,7 @@
                         }
                         @foreach (var item in noGoalShown)
                         {
-                            <div class="goals-board__no-goal-row" data-kind="@GoalCard.KindLabel(item.Kind)">
+                            <div class="goals-board__no-goal-row" data-kind="@WorkItemSearch.KindLabel(item.Kind)">
                                 <span class="goals-board__no-goal-item">
                                     @if (item.Number is { } number)
                                     {
@@ -166,6 +168,12 @@
                       Busy="Busy"
                       OnMoveImpediment="request => OnMoveImpediment.InvokeAsync(request)"
                       OnEditImpedimentNote="@(OnEditImpedimentNote.HasDelegate ? EventCallback.Factory.Create<ImpedimentNoteRequest>(this, request => OnEditImpedimentNote.InvokeAsync(request)) : default)"
+                      OnRaiseImpediment="@(OnRaiseImpediment.HasDelegate ? EventCallback.Factory.Create(this, () => OnRaiseImpediment.InvokeAsync()) : default)"
+                      OnLinkImpediment="@(OnLinkImpediment.HasDelegate ? EventCallback.Factory.Create<ImpedimentLinkRequest>(this, request => OnLinkImpediment.InvokeAsync(request)) : default)"
+                      OnUnlinkImpediment="@(OnUnlinkImpediment.HasDelegate ? EventCallback.Factory.Create<ImpedimentUnlinkRequest>(this, request => OnUnlinkImpediment.InvokeAsync(request)) : default)"
+                      Candidates="Model.Candidates"
+                      Repositories="Model.Repositories"
+                      LinkError="@LinkError"
                       CssClass="goals-board__stand-up"
                       TestId="@Part("stand-up")" />
     </div>
@@ -241,6 +249,25 @@
     [Parameter]
     public EventCallback<ImpedimentNoteRequest> OnEditImpedimentNote { get; set; }
 
+    /// <summary>The stand-up's Raise impediment was pressed: the host opens
+    /// <see cref="ImpedimentRaiseDialog"/>. Without a listener there is no Raise impediment.</summary>
+    [Parameter]
+    public EventCallback OnRaiseImpediment { get; set; }
+
+    /// <summary>Work was picked in an impediment's Link…. Without a listener no impediment
+    /// offers Link….</summary>
+    [Parameter]
+    public EventCallback<ImpedimentLinkRequest> OnLinkImpediment { get; set; }
+
+    /// <summary>An impediment's Unlink was pressed. Without a listener no item has one.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentUnlinkRequest> OnUnlinkImpediment { get; set; }
+
+    /// <summary>Why the last link or unlink was refused, in the module's words; shown in the
+    /// impediment's row.</summary>
+    [Parameter]
+    public string? LinkError { get; set; }
+
     /// <summary>A field of the open goal changed. Without a listener no goal is editable.</summary>
     [Parameter]
     public EventCallback<GoalEditRequest> OnEditGoal { get; set; }
@@ -294,7 +321,7 @@
 
     /// <summary>The No goal rows the search keeps, by the attach search's rule; every row
     /// for a blank query.</summary>
-    private List<GoalsItem> NoGoalShown => [.. Model.NoGoal.Where(item => GoalCard.IsMatch(item, _noGoalQuery))];
+    private List<GoalsItem> NoGoalShown => [.. Model.NoGoal.Where(item => WorkItemSearch.IsMatch(item, _noGoalQuery))];
 
     private GoalCardModel? Selected => Model.Goals.FirstOrDefault(goal => goal.Id == _selected);
 

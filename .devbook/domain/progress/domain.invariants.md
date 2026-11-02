@@ -186,17 +186,122 @@ Each change of state adds one state change with its state and day, and the histo
 
 Enforced at: `MoveTo()`, `State Change`
 
-### Invariant: A task is held back once by one impediment
+### Invariant: An item is held back once by one impediment
 
 ```meta
 status: draft
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_task_is_held_back_once_and_released_by_id
+related: [.devbook/domain/progress/domain.md#holds-back]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_item_is_held_back_once_by_kind_and_identity, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_task_a_pull_request_and_a_plan_never_equal_one_another]
 ```
 
-An impediment holds back each task at most once; linking the same task again changes nothing.
+An impediment holds back each item at most once by its kind and identity; linking the same task, the same pull request or the same plan again changes nothing.
+A task id, a pull request and a plan tag never equal one another, whatever their values.
 
 Enforced at: `HoldBack()`
+
+### Invariant: A held-back item names its whole identity
+
+```meta
+status: draft
+type: invariant
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.invariants.md#invariant-a-pull-request-attachment-names-its-repository]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_pull_request_names_its_repository_and_a_positive_number, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_plan_names_a_non_blank_tag, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil]
+```
+
+A held-back task carries a task id, a held-back pull request a repository and a positive number, and a held-back plan a non-blank plan tag without its sigil (`progress.held_back_item_without_identity`).
+A bare pull request number names a different pull request in every repository.
+
+Enforced at: `Holds Back`
+
+### Invariant: Unlinking an item it does not hold back changes nothing
+
+```meta
+status: draft
+type: invariant
+related: [.devbook/domain/progress/domain.md#holds-back]
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Releasing_an_item_it_does_not_hold_back_changes_nothing
+```
+
+Releasing an item the impediment does not hold back leaves its held-back items and its history unchanged.
+
+Enforced at: `Release()`
+
+### Invariant: Linking and unlinking leave the state and history alone
+
+```meta
+status: draft
+type: invariant
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#state-change]
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Linking_and_unlinking_leave_the_state_and_history_alone
+```
+
+Holding back or releasing an item adds no state change and leaves the impediment's state as it was.
+What an impediment holds back is not a step in its history.
+
+Enforced at: `HoldBack()`, `Release()`
+
+## Stand-up Reading
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled]
+```
+
+> The rules the reading keeps when it says whether an impediment is [Ready to resolve](domain.md#ready-to-resolve).
+
+### Invariant: Ready to resolve needs every held-back item settled
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_open_impediment_whose_every_item_is_settled_is_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready]
+```
+
+An open impediment reads Ready to resolve only when every item it holds back is [settled](domain.md#settled).
+One item that is not settled, or that cannot be read, keeps it from reading Ready to resolve.
+
+Enforced at: `Stand-up Reading`
+
+### Invariant: An impediment that holds back nothing is never ready to resolve
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready
+```
+
+An impediment that holds back no item never reads Ready to resolve.
+With nothing linked, nothing can tell that it is out of the way.
+
+Enforced at: `Stand-up Reading`
+
+### Invariant: A resolved impediment is never ready to resolve
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_resolved_impediment_is_never_ready
+```
+
+Only an impediment that is not Resolved reads Ready to resolve.
+
+Enforced at: `Stand-up Reading`
+
+### Invariant: Reading Ready to resolve moves nothing
+
+```meta
+status: draft
+type: invariant
+related: [.devbook/domain/progress/domain.md#impediment-state]
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing
+```
+
+Reading an impediment as Ready to resolve leaves its state, its history and its held-back items as they were, and stores nothing.
+Only a person resolves an impediment.
+
+Enforced at: `Stand-up Reading`
 
 ## Iteration
 

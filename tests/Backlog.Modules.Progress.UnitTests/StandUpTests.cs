@@ -266,7 +266,7 @@ public sealed class StandUpTests : IDisposable
         var bank = MakeImpediment.Raised("Bank sample files missing", Oct(14));
         Assert.True(bank.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").IsSuccess);
         Assert.True(bank.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").IsSuccess);
-        Assert.True(bank.HoldBack(mapping.Id).IsSuccess);
+        bank.HoldBack(HeldBackItem.ForTask(mapping.Id).Value);
         var credit = MakeImpediment.Raised("Credit note numbering unclear", Oct(15));
         await _impediments.SaveAsync(resolved, Cancellation);
         await _impediments.SaveAsync(credit, Cancellation);
@@ -354,7 +354,7 @@ public sealed class StandUpTests : IDisposable
         var impediment = MakeImpediment.Raised();
         Assert.True(impediment.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").IsSuccess);
         Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").IsSuccess);
-        Assert.True(impediment.HoldBack(mapping.Id).IsSuccess);
+        impediment.HoldBack(HeldBackItem.ForTask(mapping.Id).Value);
         await _impediments.SaveAsync(impediment, Cancellation);
 
         var after = Assert.Single((await ReadAsync(Oct(17))).Goals);
@@ -370,7 +370,7 @@ public sealed class StandUpTests : IDisposable
         var open = Entry("Open", order: 1);
         await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
         var impediment = MakeImpediment.Raised();
-        Assert.True(impediment.HoldBack(open.Id).IsSuccess);
+        impediment.HoldBack(HeldBackItem.ForTask(open.Id).Value);
         Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).IsSuccess);
         await _impediments.SaveAsync(impediment, Cancellation);
 
@@ -378,6 +378,187 @@ public sealed class StandUpTests : IDisposable
 
         Assert.Equal(GoalStanding.OnTrack, line.Standing);
         Assert.Equal(Oct(30), line.LandsOn);
+    }
+
+    private async Task<Impediment> ImpedimentAsync(string title, params HeldBackItem[] holds)
+    {
+        var impediment = MakeImpediment.Raised(title, Oct(14));
+        foreach (var item in holds) impediment.HoldBack(item);
+        await _impediments.SaveAsync(impediment, Cancellation);
+        return impediment;
+    }
+
+    private static HeldBackItem HeldTask(ProgressTaskDto task) => HeldBackItem.ForTask(task.Id).Value;
+
+    private static HeldBackItem HeldPullRequest(string repository, int number) => HeldBackItem.ForPullRequest(repository, number).Value;
+
+    private static HeldBackItem HeldPlan(string tag) => HeldBackItem.ForPlan(tag).Value;
+
+    /// <summary>A goal that lands in time — two done in the four weeks read, one open — with
+    /// <paramref name="open"/> as its open entry: it lands on Friday 30 October.</summary>
+    private async Task<Goal> LandingInTimeAsync(ProgressTaskDto open)
+    {
+        Entry("Done earlier", ProgressTaskStatus.Done, completedOn: Oct(6));
+        Entry("Done", ProgressTaskStatus.Done, completedOn: Oct(13));
+        Add(open);
+        return await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
+    }
+
+    /// <summary>Scenario "An impediment on a pull request": it holds back
+    /// <c>acme/invoicing#1358</c> alone, which a task the goal counts links — the line names
+    /// that goal, and the goal reads At risk.</summary>
+    [Fact]
+    public async Task An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk()
+    {
+        var mapping = Make.Task("Bank import mapping", plan: Bank, pullRequests: new PullRequestRefDto("acme/invoicing", "1358")) with { Order = 1 };
+        var goal = await LandingInTimeAsync(mapping);
+        await GoalAsync("Devbook search ships");
+        await ImpedimentAsync("Bank sandbox down", HeldPullRequest("ACME/Invoicing", 1358));
+
+        var standUp = await ReadAsync(Oct(17));
+
+        Assert.Equal((goal.Id, "Customers get paid faster"), (standUp.Impediments[0].GoalId, standUp.Impediments[0].GoalTitle));
+        Assert.Equal(GoalStanding.AtRisk, standUp.Goals.Single(line => line.Id == goal.Id).Standing);
+    }
+
+    /// <summary>Scenario "An impediment on the goal's plan".</summary>
+    [Fact]
+    public async Task An_open_impediment_on_the_goals_plan_puts_it_at_risk()
+    {
+        var goal = await LandingInTimeAsync(Make.Task("Bank import mapping", plan: Bank) with { Order = 1 });
+        await ImpedimentAsync("Bank API contract unsigned", HeldPlan("+" + Bank));
+
+        var standUp = await ReadAsync(Oct(17));
+
+        var line = Assert.Single(standUp.Goals);
+        Assert.Equal((GoalStanding.AtRisk, (DateOnly?)Oct(30)), (line.Standing, line.LandsOn));
+        Assert.Equal(goal.Title, Assert.Single(standUp.Impediments).GoalTitle);
+    }
+
+    /// <summary>Scenario "An impediment ready to resolve": the goal stays At risk until the
+    /// person resolves it.</summary>
+    [Fact]
+    public async Task A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve()
+    {
+        var done = Make.Task("Bank sample import", ProgressTaskStatus.Done, plan: Bank, completedOn: Oct(14));
+        await LandingInTimeAsync(Make.Task("Bank import mapping", plan: Bank) with { Order = 1 });
+        Add(done);
+        await ImpedimentAsync("Bank sample files missing", HeldTask(done));
+
+        var standUp = await ReadAsync(Oct(17));
+
+        Assert.True(Assert.Single(standUp.Impediments).ReadyToResolve);
+        Assert.Equal(GoalStanding.AtRisk, Assert.Single(standUp.Goals).Standing);
+    }
+
+    /// <summary>A goal whose every item is done stays At risk while an open impediment —
+    /// here one that reads Ready to resolve — holds back one of its tasks, and reads On track
+    /// once the person resolves it.</summary>
+    [Fact]
+    public async Task A_finished_goal_stays_at_risk_until_the_impediment_holding_it_back_is_resolved()
+    {
+        var done = Add(Make.Task("Bank sample import", ProgressTaskStatus.Done, completedOn: Oct(14)));
+        var goal = await GoalAsync("Customers get paid faster", MakeGoal.Task(done.Id));
+        var impediment = await ImpedimentAsync("Bank sample files missing", HeldTask(done));
+
+        var held = (await ReadAsync(Oct(17))).Goals.Single(line => line.Id == goal.Id);
+        Assert.Equal((1, 1), (held.Progress.Done, held.Progress.Total));
+        Assert.Equal(GoalStanding.AtRisk, held.Standing);
+
+        Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).IsSuccess);
+        await _impediments.SaveAsync(impediment, Cancellation);
+
+        var resolved = (await ReadAsync(Oct(17))).Goals.Single(line => line.Id == goal.Id);
+        Assert.Equal((GoalStanding.OnTrack, (DateOnly?)null), (resolved.Standing, resolved.LandsOn));
+    }
+
+    /// <summary>When its items belong to several goals, the line names the goal of the first
+    /// item linked.</summary>
+    [Fact]
+    public async Task The_line_names_the_goal_of_the_first_item_linked()
+    {
+        var search = Add(Make.Task("Index the chapters", ProgressTaskStatus.InProgress));
+        var mapping = Add(Make.Task("Bank import mapping", ProgressTaskStatus.InProgress));
+        var unattached = Add(Make.Task("Tidy the readme", ProgressTaskStatus.InProgress));
+        await GoalAsync("Customers get paid faster", MakeGoal.Task(mapping.Id));
+        await GoalAsync("Devbook search ships", MakeGoal.Task(search.Id));
+        await ImpedimentAsync("Laptop in repair", HeldTask(unattached), HeldTask(search), HeldTask(mapping));
+
+        var line = Assert.Single((await ReadAsync()).Impediments);
+
+        Assert.Equal("Devbook search ships", line.GoalTitle);
+    }
+
+    /// <summary>Scenarios "A done task still marked blocked" and "Work that comes back":
+    /// Ready to resolve follows the work on every reading, and the reading stores nothing.</summary>
+    [Fact]
+    public async Task Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing()
+    {
+        var task = Add(Make.Task("Beschikbaarheid van reserveringen", ProgressTaskStatus.Done, blocked: true, completedOn: Oct(16)));
+        var impediment = await ImpedimentAsync("Beschikbaarheid van reserveringen", HeldTask(task));
+        var saves = _impediments.Saves;
+
+        var ready = Assert.Single((await ReadAsync()).Impediments);
+        Assert.Equal((ImpedimentState.New, true), (ready.State, ready.ReadyToResolve));
+
+        _tasks.Tasks[_tasks.Tasks.IndexOf(task)] = task with { Status = ProgressTaskStatus.InProgress, CompletedOn = null };
+        var back = Assert.Single((await ReadAsync()).Impediments);
+
+        Assert.Equal((ImpedimentState.New, false), (back.State, back.ReadyToResolve));
+        Assert.Equal(saves, _impediments.Saves);
+        Assert.Equal([new ImpedimentStateChange(ImpedimentState.New, Oct(14), null)], impediment.History);
+    }
+
+    /// <summary>Each held-back item is read with its kind, its words and whether it is
+    /// settled: a pull request from an archived repository never is, whatever it says.</summary>
+    [Fact]
+    public async Task The_line_lists_each_held_back_item_with_whether_it_is_settled()
+    {
+        var archived = Add(Make.Task("Old CSV import", ProgressTaskStatus.Archived));
+        var gone = Guid.NewGuid();
+        Add(Make.Task("Payment matching rules", ProgressTaskStatus.InProgress, plan: Bank));
+        _pulls.Known.Add(new GoalPullRequestDto("acme/invoicing", "1344", LinkedPullRequestState.Closed, null, null, null));
+        _pulls.Known.Add(new GoalPullRequestDto("acme/legacy-billing", "77", LinkedPullRequestState.Merged, null, null, null, InArchivedRepository: true));
+        await ImpedimentAsync(
+            "Bank sandbox down",
+            HeldTask(archived),
+            HeldBackItem.ForTask(gone).Value,
+            HeldPullRequest("acme/invoicing", 1344),
+            HeldPullRequest("acme/legacy-billing", 77),
+            HeldPlan(Bank));
+
+        var line = Assert.Single((await ReadAsync()).Impediments);
+
+        Assert.Equal(
+            [
+                (HeldBackKind.Task, (string?)"Old CSV import", true),
+                (HeldBackKind.Task, null, false),
+                (HeldBackKind.PullRequest, "acme/invoicing#1344", true),
+                (HeldBackKind.PullRequest, "acme/legacy-billing#77", false),
+                (HeldBackKind.Plan, "+" + Bank, false),
+            ],
+            line.HoldsBack.Select(item => (item.Item.Kind, item.Title, item.Settled)));
+        Assert.False(line.ReadyToResolve);
+    }
+
+    /// <summary>One read of Tasks and one of GitHub cover what the open impediments hold
+    /// back; a resolved one asks for nothing.</summary>
+    [Fact]
+    public async Task The_reading_asks_for_what_the_open_impediments_hold_back()
+    {
+        var task = Guid.NewGuid();
+        await ImpedimentAsync("Bank sandbox down", HeldBackItem.ForTask(task).Value, HeldPlan("+bank-statements"), HeldPullRequest("acme/invoicing", 1358));
+        var resolved = await ImpedimentAsync("Old blocker", HeldPullRequest("acme/invoicing", 9), HeldPlan("old-plan"));
+        Assert.True(resolved.MoveTo(ImpedimentState.Resolved, Oct(15)).IsSuccess);
+        await _impediments.SaveAsync(resolved, Cancellation);
+
+        await ReadAsync();
+
+        var query = _tasks.LastQuery!;
+        Assert.Contains(task, query.TaskIds);
+        Assert.Equal(["bank-statements"], query.PlanTags);
+        Assert.True(query.AnyRepository);
+        Assert.Equal([new PullRequestRefDto("acme/invoicing", "1358")], _pulls.Asked);
     }
 
     public void Dispose()

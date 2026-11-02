@@ -38,7 +38,7 @@ tabs, the capture sheet), one test in seven named steps, the phone at 390 × 844
 
 `BrainTests` — the Brain's core path on the desktop harness at 1440 × 900, one test per
 requirement group, each listed under its requirement's `tests:` in
-`.devbook/domain/devbook/requirements.md` and `.devbook/domain/inbox/requirements.md`:
+`.devbook/domain/brain/requirements.md` and `.devbook/domain/inbox/requirements.md`:
 
 | Test | Proves |
 | --- | --- |

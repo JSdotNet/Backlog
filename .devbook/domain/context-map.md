@@ -29,9 +29,9 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
-| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042, proposed). |
+| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042). |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
-| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
+| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by repository and number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
 | Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0039). |
 | Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
@@ -65,7 +65,7 @@ flowchart LR
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
     Inbox -->|OHS + Published Language<br/>ItemTriaged: To Brain| Brain
     Tasks <-->|Partnership<br/>Task links by id| Brain
-    Devbook -->|Customer/Supplier<br/>Reader, database builder, viewer, search, remarks| Brain
+    Devbook -->|"Customer/Supplier<br/>Reader, database builder, viewer, search, remarks<br/>Every registered devbook, read-only"| Brain
     Brain -.->|"One-way reference<br/>repo: link to a repository chapter"| Devbook
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Brain
     Tasks <-->|Partnership<br/>Optional cross-link by id| Roadmap
@@ -116,16 +116,16 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Progress
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
 
-    %% Pull request state. Not built yet: local ADR 0042. Repository Management
+    %% Pull request state, local ADR 0042. Repository Management
     %% publishes one contract; Tasks and Progress read it through adapters that
     %% answer their own ports. The shell is the composition root, not a context:
     %% it composes the cards and asks Tasks which task a session or a pull
     %% request belongs to, so Repository Management holds no edge to Tasks.
     Shell(["Desktop shell<br/>(composition root, not a context)"])
-    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
-    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status, IGoalPullRequestReader"| Progress
-    Repo -.->|"Customer/Supplier (not built)<br/>Verdict on the session card, through the shell"| Sessions
-    Tasks -.->|"OHS + Published Language (not built)<br/>Task by session, task by pull request"| Shell
+    Repo -->|"Customer/Supplier<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
+    Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Progress
+    Repo -->|"Customer/Supplier<br/>Verdict on the session card, through the shell"| Sessions
+    Tasks -->|"OHS + Published Language<br/>Task by session, task by pull request, ITaskLookup"| Shell
 
     %% Sync. It carries the documents of the contexts below and reads none of
     %% their payloads. Each downstream context reaches it through an adapter in
@@ -136,13 +136,13 @@ flowchart LR
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 
     %% Notifications. Local ADR 0039. It conforms to Sync's replica protocol and
-    %% offers INotifications to the contexts that publish. The Sessions edge is
+    %% offers INotifications to the contexts that publish. Every edge below is
     %% built: see .devbook/domain/notifications/context.md.
-    Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
+    Sync -->|Conformist<br/>Notification and reply replica| Notify
     Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sessions
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sync
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Devbook
-    Notify -.->|"OHS + Published Language (not built)<br/>Close by subject"| Tasks
+    Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sync
+    Notify -->|OHS + Published Language<br/>INotifications| Devbook
+    Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 ```
 
 ## Published languages and contracts
@@ -157,14 +157,15 @@ flowchart LR
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-item` | Tasks |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
+| Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas) |
 | Monitoring & Dashboard | `.devbook/domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
-| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache (not built; local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
-| Tasks | The lookup from a session id or a pull request to its task, in `Backlog.Modules.Tasks.Abstractions` (not built; local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
-| Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` (not built) | Sessions, Sync, Devbook, Tasks |
+| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Tasks | The lookup from a session id or a pull request to its task, `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
+| Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
@@ -202,7 +203,9 @@ flowchart LR
   a hook Devbook offers, and Devbook knows no PARA, area or capture. Its repo links
   run one way, into a repository chapter: no repository devbook links into a
   Brain, and its backlinks are read from the owner's Brain, never written into
-  the repository.
+  the repository. Its [Lobes atlas](brain/features.md#lobes-atlas) reads the
+  devbook of every repository in Repository Management's registry through
+  Devbook's reader, the same one way: a read, never a write.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
   registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
@@ -237,8 +240,8 @@ flowchart LR
   Sessions publishes no pull request contract either: the pull requests its
   sessions open are Repository Management's.
 - `Repository Management` is the single owner of pull request state
-  (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`,
-  proposed and not built). It owns each pull request's
+  (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`).
+  It owns each pull request's
   [status](repository-management/domain.md#pull-request-status), its
   [readiness verdict](repository-management/domain.md#readiness-verdict), its stack,
   the [merge commands](repository-management/domain.md#merge-command) and the one
@@ -264,13 +267,13 @@ flowchart LR
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
 - `Progress` names a task by its id, a plan by its
-  [plan tag](roadmap/domain.md#roadmap-tag), a session by its agent and session
-  id and a pull request by its repository and number, and reads each from its owner
-  on every reading. `Tasks` holds no knowledge of goals or impediments: no task
+  [plan tag](roadmap/domain.md#roadmap-tag), a pull request by its repository and
+  number and a session by its agent and session id, and reads each from its owner on
+  every reading. An impediment holds back tasks, pull requests and plans by the same
+  identities. `Tasks` holds no knowledge of goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
-  changes nothing on it. Marking a task blocked raises an impediment because
-  Progress reacts to the mark; Tasks does not call Progress and stores no
-  impediment id
+  changes nothing on it. A task's blocked mark is Tasks' alone and raises no
+  impediment; Tasks does not call Progress and stores no impediment id
   (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).

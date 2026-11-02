@@ -34,6 +34,44 @@ public class AnnotationDocumentTests
     }
 
     [Fact]
+    public void A_remarks_kind_and_branch_are_kept_with_the_rest_of_the_payload()
+    {
+        var change = Change() with
+        {
+            Annotation = Change().Annotation with { Kind = "flag", Branch = "feature/remark-kinds" }
+        };
+
+        var document = AnnotationDocumentFactory.From(Scope, change, new CosmosOptions());
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
+        var back = JsonSerializer.Deserialize<AnnotationDocument>(json.RootElement.GetRawText(), ReplicaDocumentSerialization.Options)!;
+
+        var annotation = json.RootElement.GetProperty("annotation");
+        Assert.Equal("flag", annotation.GetProperty("kind").GetString());
+        Assert.Equal("feature/remark-kinds", annotation.GetProperty("branch").GetString());
+        Assert.Equal(change.Annotation, AnnotationDocumentFactory.ToRecord(back)!.Change.Annotation);
+    }
+
+    [Fact]
+    public void A_document_written_before_kind_and_branch_reads_back_without_them()
+    {
+        // The same document an older build wrote: the members are absent rather
+        // than null.
+        var json = $$$"""
+            {"id":"{{{AnnotationId}}}","ownerId":"{{{Scope.OwnerId.Value}}}","deviceId":"{{{Scope.DeviceId.Value}}}",
+            "updatedAt":"2026-09-16T10:30:00+00:00",
+            "annotation":{"repositoryAlias":"JSdotNet/Backlog","chapterPath":".domain/devbook/features.md","blockIndex":2,
+            "body":"Say which team owns this.","author":"DEV-TOWER","createdAt":"2026-09-16T10:00:00+00:00","resolved":false}}
+            """;
+
+        var back = JsonSerializer.Deserialize<AnnotationDocument>(json, ReplicaDocumentSerialization.Options)!;
+
+        var annotation = AnnotationDocumentFactory.ToRecord(back)!.Change.Annotation;
+        Assert.Equal("Say which team owns this.", annotation.Body);
+        Assert.Null(annotation.Kind);
+        Assert.Null(annotation.Branch);
+    }
+
+    [Fact]
     public void The_document_serialises_with_the_names_the_container_is_partitioned_on()
     {
         var document = AnnotationDocumentFactory.From(Scope, Change(), new CosmosOptions());

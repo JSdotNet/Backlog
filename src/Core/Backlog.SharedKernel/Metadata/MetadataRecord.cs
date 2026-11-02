@@ -17,6 +17,22 @@ public sealed record MetadataRecord
     /// <c>DevbookStatus</c>.</summary>
     public string? Status { get; init; }
 
+    /// <summary>
+    /// Where a <c>tech/</c> or <c>ai/</c> entry stands: the <c>rating</c> field
+    /// when the block writes one, else <see cref="Status"/>.
+    ///
+    /// <para>Devbook contract 38 renames the rating field from <c>status</c> to
+    /// <c>rating</c>. A repository that has not migrated still writes
+    /// <c>status</c>, and a reader of a rating must not see "unrated" there, so
+    /// the getter falls back. Set it to state the <c>rating</c> field itself; a
+    /// record that never sets it answers with its status.</para>
+    /// </summary>
+    public string? Rating
+    {
+        get => field ?? Status;
+        init;
+    }
+
     /// <summary>References this chapter or file points at for context, without a
     /// hard dependency. Available in every folder.</summary>
     public IReadOnlyList<DevbookReference> Related { get; init; } = [];
@@ -248,7 +264,7 @@ public sealed record MetadataRecord
     /// <summary>Whether there is anything at all to show. A chapter with no
     /// metadata should not leave a gap where the strip would have been.</summary>
     public bool IsEmpty =>
-        string.IsNullOrWhiteSpace(Status)
+        string.IsNullOrWhiteSpace(Rating)
         && Related.Count == 0
         && DependsOn.Count == 0
         && Implements.Count == 0

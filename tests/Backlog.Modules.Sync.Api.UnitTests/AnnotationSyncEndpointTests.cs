@@ -191,6 +191,78 @@ public class AnnotationSyncEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task A_remarks_kind_and_branch_reach_the_other_device()
+    {
+        var (desktop, laptop) = await PairedDevices();
+
+        var id = Guid.CreateVersion7();
+        var pushed = await desktop.PushChanges(
+        [
+            new AnnotationChange(id, DateTimeOffset.UtcNow, null, Payload("Who owns this?") with { Kind = "question", Branch = "feature/remark-kinds" }),
+        ]);
+
+        Assert.Equal(HttpStatusCode.OK, pushed.StatusCode);
+        var arrived = Assert.Single((await laptop.PullAnnotations()).Annotations).Change.Annotation;
+        Assert.Equal("question", arrived.Kind);
+        Assert.Equal("feature/remark-kinds", arrived.Branch);
+    }
+
+    [Fact]
+    public async Task A_push_from_a_device_that_sends_neither_kind_nor_branch_is_stored()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        // Raw JSON, as an older build writes it: the members are absent, not null.
+        var response = await device.PostAsync(
+            SyncRoutes.Absolute(SyncRoutes.Annotations),
+            new StringContent(
+                $$$"""
+                {"annotations":[{"id":"{{{Guid.CreateVersion7()}}}","updatedAt":"{{{DateTimeOffset.UtcNow:O}}}","deletedAt":null,
+                "annotation":{"repositoryAlias":"{{{Repository}}}","chapterPath":"{{{Chapter}}}","blockIndex":2,"body":"Old build.",
+                "author":"DEV-TOWER","createdAt":"{{{DateTimeOffset.UtcNow:O}}}","resolved":false}}]}
+                """,
+                System.Text.Encoding.UTF8,
+                "application/json"),
+            Cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var arrived = Assert.Single((await device.PullAnnotations()).Annotations).Change.Annotation;
+        Assert.Null(arrived.Kind);
+        Assert.Null(arrived.Branch);
+    }
+
+    [Fact]
+    public async Task A_remark_of_an_unknown_kind_is_refused()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var response = await device.PushChanges(
+        [
+            new AnnotationChange(Guid.CreateVersion7(), DateTimeOffset.UtcNow, null, Payload("Nice.") with { Kind = "praise" }),
+        ]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(SyncErrorCodes.AnnotationInvalid, (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+        Assert.Empty((await device.PullAnnotations()).Annotations);
+    }
+
+    [Fact]
+    public async Task A_branch_past_the_bound_is_refused()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var response = await device.PushChanges(
+        [
+            new AnnotationChange(
+                Guid.CreateVersion7(), DateTimeOffset.UtcNow, null,
+                Payload("Far out.") with { Branch = new string('b', AnnotationRecordLimits.BranchLength + 1) }),
+        ]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(SyncErrorCodes.AnnotationInvalid, (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+    }
+
+    [Fact]
     public async Task An_unpaired_caller_is_refused()
     {
         var anonymous = _service.CreateClient();

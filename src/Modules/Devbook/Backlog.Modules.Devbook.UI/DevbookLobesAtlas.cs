@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// Turns the Lobes read model into what the atlas draws
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>): the
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>): the
 /// <see cref="LobesAtlasModel"/> the canvas renderer paints, and the
 /// <see cref="GraphAtlasNode"/> list <c>GraphAtlasIndex</c> lists — the same marks
 /// in both, so the picture and the keyboard control never disagree about what is
@@ -94,16 +94,36 @@ public static class DevbookLobesAtlas
     };
 
     /// <summary>
+    /// The Parietal region of every devbook, a ghost devbook's included — its
+    /// <c>tech/</c> chapters, which start hidden in that devbook's scope and in
+    /// All (<c>.devbook/domain/brain/features.md#lobes-atlas</c>). The Brain's
+    /// Parietal holds its Areas and Resources, so it is never among them.
+    /// </summary>
+    public static IReadOnlyList<LobesAtlasRegionKey> TechRegions(DevbookLobesGraph graph)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        return
+        [
+            .. graph.Scopes
+                .Where(scope => scope.Kind is DevbookLobesScopeKind.Devbook or DevbookLobesScopeKind.Ghost)
+                .Select(scope => new LobesAtlasRegionKey(scope.Key, LobesAtlasMark.Parietal))
+        ];
+    }
+
+    /// <summary>
     /// The drawing of <paramref name="graph"/> in <paramref name="layout"/> —
     /// <see cref="LobesAtlasModel.AllLayout"/> or a scope key — with the scopes and
-    /// regions the reader has hidden left undrawn.
+    /// regions the reader has hidden left undrawn: <paramref name="hiddenLobes"/>
+    /// in a scope's own layout, <paramref name="hiddenAllLobes"/> in All.
     /// </summary>
     public static LobesAtlasModel Model(
         DevbookLobesGraph graph,
         string layout,
         IReadOnlyCollection<string>? hiddenScopes = null,
         IReadOnlyCollection<LobesAtlasRegionKey>? hiddenLobes = null,
-        bool showLabels = true)
+        bool showLabels = true,
+        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenAllLobes = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
@@ -126,19 +146,22 @@ public static class DevbookLobesAtlas
             [.. hiddenScopes ?? []],
             [.. hiddenLobes ?? []],
             showLabels,
-            graph.Message ?? "The Lobes atlas has nothing to draw.");
+            graph.Message ?? "The Lobes atlas has nothing to draw.",
+            HiddenAllLobes: [.. hiddenAllLobes ?? []]);
     }
 
     /// <summary>
     /// The marks <see cref="Model"/> draws, as the index lists them: every mark of
-    /// every scope not hidden in <see cref="LobesAtlasModel.AllLayout"/>, or of the
-    /// one scope with its hidden regions left out.
+    /// every scope not hidden in <see cref="LobesAtlasModel.AllLayout"/>, less the
+    /// regions in <paramref name="hiddenAllLobes"/>, or of the one scope with its
+    /// hidden regions left out.
     /// </summary>
     public static IReadOnlyList<GraphAtlasNode> IndexNodes(
         DevbookLobesGraph graph,
         string layout,
         IReadOnlyCollection<string>? hiddenScopes = null,
-        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenLobes = null)
+        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenLobes = null,
+        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenAllLobes = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
@@ -146,10 +169,11 @@ public static class DevbookLobesAtlas
         var scopes = graph.Scopes.ToDictionary(scope => scope.Key, StringComparer.Ordinal);
         var hiddenScopeSet = new HashSet<string>(hiddenScopes ?? [], StringComparer.Ordinal);
         var hiddenLobeSet = new HashSet<LobesAtlasRegionKey>(hiddenLobes ?? []);
+        var hiddenAllLobeSet = new HashSet<LobesAtlasRegionKey>(hiddenAllLobes ?? []);
 
         var drawn = graph.Nodes
             .Where(node => all
-                ? !hiddenScopeSet.Contains(node.ScopeKey)
+                ? !hiddenScopeSet.Contains(node.ScopeKey) && !hiddenAllLobeSet.Contains(new LobesAtlasRegionKey(node.ScopeKey, LobeKey(node.Lobe)))
                 : node.ScopeKey == layout && !hiddenLobeSet.Contains(new LobesAtlasRegionKey(node.ScopeKey, LobeKey(node.Lobe))))
             .ToList();
 

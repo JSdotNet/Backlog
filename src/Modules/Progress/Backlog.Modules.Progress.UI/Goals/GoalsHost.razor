@@ -61,7 +61,14 @@
       so the last one stands. A refusal shows above the board and the picker goes back
       to the stored state;
     - a note written on an impediment's row, through IImpediments.EditNoteAsync, blank
-      clearing it. A refusal shows above the board and the row shows the stored note.
+      clearing it. A refusal shows above the board and the row shows the stored note;
+    - Raise impediment, through IImpediments.RaiseAsync with the title, the note and the
+      first items ImpedimentRaiseDialog picked, each a GoalSubject that GoalSubjects turns
+      into the module's held-back item. The module raises it New, dated today; a refusal
+      stays in the dialog, in the module's words;
+    - an item picked in an impediment's Link…, through IImpediments.HoldBackAsync, and an
+      item's Unlink, through IImpediments.ReleaseAsync. A refusal stays in that row and
+      nothing is read again, since nothing changed.
 *@
 @if (!Available)
 {
@@ -94,6 +101,10 @@ else
                 OnPickGoal="OpenPicker"
                 OnMoveImpediment="MoveAsync"
                 OnEditImpedimentNote="EditNoteAsync"
+                OnRaiseImpediment="@(_impediments is null ? default : EventCallback.Factory.Create(this, OpenRaise))"
+                OnLinkImpediment="@(_impediments is null ? default : EventCallback.Factory.Create<ImpedimentLinkRequest>(this, LinkAsync))"
+                OnUnlinkImpediment="@(_impediments is null ? default : EventCallback.Factory.Create<ImpedimentUnlinkRequest>(this, UnlinkAsync))"
+                LinkError="@_linkError"
                 OnEditGoal="EditGoalAsync"
                 OnDeleteGoal="DeleteGoalAsync"
                 OnDetach="DetachAsync"
@@ -110,6 +121,14 @@ else
                   Busy="_writing"
                   Error="@_createError"
                   OnSave="CreateAsync" />
+
+<ImpedimentRaiseDialog Open="_raising"
+                       OpenChanged="open => _raising = open"
+                       Candidates="@(_model?.Candidates ?? [])"
+                       Repositories="@(_model?.Repositories ?? [])"
+                       Busy="_writing"
+                       Error="@_raiseError"
+                       OnRaise="RaiseAsync" />
 
 <TwoWeekStartDialog Open="_askingStart"
                     OpenChanged="open => _askingStart = open"
@@ -172,6 +191,9 @@ else
     private bool _creating;
     private bool _askingStart;
     private string? _createError;
+    private bool _raising;
+    private string? _raiseError;
+    private string? _linkError;
     private string? _editError;
     private Picking? _picking;
     private string? _pickError;
@@ -643,6 +665,82 @@ else
                 var edited = await impediments.EditNoteAsync(id, request.Note);
                 if (edited.IsFailure) _writeError = edited.Error.Message;
                 return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private void OpenRaise()
+    {
+        _raiseError = null;
+        _raising = true;
+    }
+
+    /// <summary>Raise impediment: the dialog closes once the module has raised it, and keeps
+    /// the module's refusal otherwise.</summary>
+    private async Task RaiseAsync(ImpedimentRaiseRequest request)
+    {
+        // Not while a write is under way: raising is not idempotent.
+        if (_impediments is not { } impediments || _writing) return;
+
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var raised = await impediments.RaiseAsync(new RaiseImpedimentRequest(
+                    request.Title,
+                    [.. request.Items.Select(GoalSubjects.ToHeldBack)],
+                    request.Note));
+                if (raised.IsFailure)
+                {
+                    _raiseError = raised.Error.Message;
+                    return false;
+                }
+
+                _raiseError = null;
+                _raising = false;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private Task LinkAsync(ImpedimentLinkRequest request) =>
+        LinkWriteAsync(request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.HoldBackAsync(id, item));
+
+    private Task UnlinkAsync(ImpedimentUnlinkRequest request) =>
+        LinkWriteAsync(request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.ReleaseAsync(id, item));
+
+    /// <summary>A link or an unlink: read again once it lands, the refusal kept for the row
+    /// otherwise.</summary>
+    private async Task LinkWriteAsync(
+        string impedimentId,
+        GoalSubject subject,
+        Func<IImpediments, Guid, HeldBackItemDto, Task<Result<ImpedimentDto>>> write)
+    {
+        // Not while a write is under way: a second pick from another row's open search
+        // waits for the first, as a second Raise does.
+        if (_impediments is not { } impediments || _writing || !Guid.TryParse(impedimentId, out var id)) return;
+
+        var item = GoalSubjects.ToHeldBack(subject);
+        _linkError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var written = await write(impediments, id, item);
+                if (written.IsSuccess) return true;
+
+                _linkError = written.Error.Message;
+                return false;
             }
             finally
             {

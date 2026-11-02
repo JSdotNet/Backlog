@@ -1,7 +1,7 @@
 # Features
 
 ```meta
-status: proposed
+status: draft
 type: features
 ```
 
@@ -12,7 +12,7 @@ type: features
 ## Publishing a notification
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#publishing-a-notification]
 ```
@@ -87,7 +87,7 @@ whether a phone showed it.
 ## Asking from the contexts
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
@@ -160,7 +160,7 @@ spec-manager. One read in spec-manager closes here as "Read in spec-manager".
 ## Closing a notification
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#closing-a-notification]
 ```

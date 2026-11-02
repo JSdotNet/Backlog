@@ -105,7 +105,7 @@
     </Story>
 
     <Story Name="Impediment rows"
-           Description="One impediment per row: its title and state badge, then who it is with, how long it has been open, and the goal it holds back in the error ink. Each row is one link to the impediment's page."
+           Description="One impediment per row: its title and state badge, then who it is with, how long it has been open, and the goal it holds back in the error ink. Each row is one link to the impediment's page. Once everything it holds back is settled, a Ready to resolve badge in the settled tone follows the state: a reading, never a state, and the phone neither raises nor resolves from it."
            Code="@ImpedimentCode">
         <div class="sb-phone sb-stack">
             <StandupImpedimentCard Title="Bank sample files missing" State="StandupImpedimentState.Escalated"
@@ -115,6 +115,9 @@
                                    Meta="Platform team · 2 days · check Tue" Href="#impediment-rows" />
             <StandupImpedimentCard Title="Credit note numbering unclear" State="StandupImpedimentState.New"
                                    Meta="Not reported yet · 1 day" Goal="Customers get paid faster" Href="#impediment-rows" />
+            <StandupImpedimentCard Title="Waiting on the bank's test account" State="StandupImpedimentState.BeingHandled"
+                                   Meta="account manager · 6 days" Goal="Customers get paid faster"
+                                   ReadyToResolve="true" Href="#impediment-rows" TestId="story-impediment-ready" />
         </div>
     </Story>
 
@@ -188,6 +191,7 @@
     [
         new("color-scheme.md#goal-forecast-badges", "Which tone At risk and On track take, and why their edges differ."),
         new("color-scheme.md#impediment-state-tones", "How the five impediment states map onto the tone scale, and what a step's marker wears."),
+        new("color-scheme.md#badge-and-chip-tones", "Why Ready to resolve wears the settled tone beside the state badge."),
         new("color-scheme.md#chart-roles", "Why the bar and the spark carry their numbers in words as well as in shape."),
         new("accessibility.md#target-sizes-and-text", "How tall the switch's choices and the state list's rows have to be under a thumb.")
     ];
@@ -248,6 +252,9 @@
         <StandupImpedimentCard Title="Bank sample files missing" State="StandupImpedimentState.Escalated"
                                Meta="account manager · 3 days" Goal="Customers get paid faster"
                                Href="standup/impediments/{id}" />
+        <StandupImpedimentCard Title="Waiting on the bank's test account" State="StandupImpedimentState.BeingHandled"
+                               Meta="account manager · 6 days" Goal="Customers get paid faster"
+                               ReadyToResolve="@impediment.ReadyToResolve" Href="standup/impediments/{id}" />
         """;
 
     private const string BadgesCode = """

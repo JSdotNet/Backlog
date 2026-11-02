@@ -84,6 +84,43 @@ public sealed class SessionDevbookAnnotationStoreTests
 
     private static IDevbookFolderSource Arc42At(string path) => Configured((".arc42", path));
 
+    // ---- kind, branch and import: the file store's rules, held here too ---------
+
+    [Fact]
+    public void A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch()
+    {
+        var store = new SessionDevbookAnnotationStore(_time);
+        var onDefault = store.Add("JSdotNet/Backlog", Decision, 0, "DEV-TOWER");
+        var onBranch = store.Add("JSdotNet/Backlog", Decision, 0, "DEV-TOWER", kind: DevbookAnnotationKind.Suggestion, branch: "feature/x");
+
+        Assert.Equal(onDefault.Id, Assert.Single(store.List("JSdotNet/Backlog", Decision)).Id);
+        var listed = Assert.Single(store.List("JSdotNet/Backlog", Decision, "feature/x"));
+        Assert.Equal(onBranch.Id, listed.Id);
+        Assert.Equal(DevbookAnnotationKind.Suggestion, listed.Kind);
+        Assert.Equal(DevbookAnnotationKind.Comment, onDefault.Kind);
+    }
+
+    [Fact]
+    public void An_import_writes_only_what_is_absent_and_raises_changed_once()
+    {
+        var store = new SessionDevbookAnnotationStore(_time);
+        var authored = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        var deleted = new DevbookAnnotation(Guid.NewGuid(), "JSdotNet/Backlog", Decision, 1, "Struck.", "Job", authored, authored);
+        store.Apply(deleted);
+        store.Delete(deleted.Id);
+        var fresh = deleted with { Id = Guid.NewGuid(), Body = "Open note.", Kind = DevbookAnnotationKind.Flag };
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        Assert.Equal(1, store.ImportIfAbsent([deleted, fresh]));
+        Assert.Equal(1, changes);
+        Assert.Equal(fresh, Assert.Single(store.List("JSdotNet/Backlog", Decision)));
+        Assert.NotNull(store.Find(deleted.Id)!.DeletedAt);
+
+        Assert.Equal(0, store.ImportIfAbsent([deleted, fresh]));
+        Assert.Equal(1, changes);
+    }
+
     /// <summary>A machine with the named areas pointed somewhere other than their
     /// conventional folders.</summary>
     private static IDevbookFolderSource Configured(params (string Key, string Path)[] overrides) =>

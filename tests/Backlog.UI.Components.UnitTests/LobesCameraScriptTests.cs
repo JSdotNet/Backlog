@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// How the Lobes atlas's camera moves, run rather than read
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>).
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>).
 /// <para>
 /// The renderer eases the camera toward where it is heading, lets a fling slow
 /// down, ramps the idle turn in, and eases a new layout home on the motion

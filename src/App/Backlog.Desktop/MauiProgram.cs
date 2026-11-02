@@ -5,12 +5,13 @@ using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
-using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
@@ -289,6 +290,14 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And devbook subject state's loop, the annotations' sibling, on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+        // And the one-time devbook import, on the same terms: it reads each repository's
+        // default branch once into the two stores above, and a worker nobody resolves
+        // imports nothing.
+        _ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();
+
         // And the notification exchange's loop (local ADR 0039), on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
@@ -309,10 +318,7 @@ public static class MauiProgram
         // in as notifications; a singleton nobody resolves asks nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
-        // And the blocked-task watcher, on the same terms: it raises an impediment for a
-        // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
-        _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
-        // The question relay's escalation timer (local ADR 0041): it publishes a waiting
+        // And the question relay's escalation timer (local ADR 0041): it publishes a waiting
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 

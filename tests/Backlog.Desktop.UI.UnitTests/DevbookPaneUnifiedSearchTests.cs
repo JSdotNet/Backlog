@@ -162,7 +162,7 @@ public sealed class DevbookPaneUnifiedSearchTests
 
         if (brainDatabase)
         {
-            Assert.True(DevbookDatabaseBuilder.Build(harness.BrainFolder, DevbookDatabaseLocation.ForBrainFolder(harness.BrainFolder)!, DevbookCorpusKind.Brain, ct));
+            Assert.True(DevbookDatabaseBuilder.Build(harness.BrainFolder, BrainDatabaseLocation.ForBrainFolder(harness.BrainFolder)!, BrainCorpusProfile.Instance, ct));
         }
 
         SqliteConnection.ClearAllPools();

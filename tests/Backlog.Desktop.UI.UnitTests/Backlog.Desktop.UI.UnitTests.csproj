@@ -44,6 +44,14 @@
          had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Devbook.Abstractions. -->
     <Using Include="Backlog.Modules.Devbook.Abstractions" />
+    <!-- The Brain publishes its own ports (local ADR 0040), which the Brain mode
+         of the Devbook pane and the shell's Brain card still read. -->
+    <Using Include="Backlog.Modules.Brain.Abstractions" />
+    <!-- And its adapters, which the Brain harness composes for real. -->
+    <Using Include="Backlog.Infrastructure.Brain" />
+    <!-- And its screens on the Devbook pane, with the registration that adds them. -->
+    <Using Include="Backlog.Modules.Brain.UI" />
+    <Using Include="Backlog.Modules.Brain.UI.Extensions" />
     <!-- And the chapter resolver, reader and writers, which left the Devbook UI
          project for its adapter under issue #738 and say so in their namespace. -->
     <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
@@ -107,6 +115,9 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Brain\Backlog.Modules.Brain.UI\Backlog.Modules.Brain.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
     <!-- The phone's note view and outbox, for the tests that pair a phone with a
          desktop through one replica (NoteSyncBetweenPhoneAndDesktopTests). -->
@@ -146,6 +157,7 @@
     <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
     <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
+    <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
   </ItemGroup>

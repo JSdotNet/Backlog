@@ -39,10 +39,20 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Wed14.AddDays(2), "account manager").IsSuccess);
         impediment.SetCheckAgain(new DateOnly(2026, 10, 20));
         impediment.EditNote("Asked for the sample twice.\nNo answer yet.");
-        impediment.HoldBack(Guid.NewGuid());
-        impediment.HoldBack(Guid.NewGuid());
+        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        impediment.HoldBack(HeldBackItem.ForPullRequest("acme/payments", 412).Value);
+        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        impediment.HoldBack(HeldBackItem.ForPlan("goals-standup").Value);
         return impediment;
     }
+
+    /// <summary>An impediment as a version 1 build writes it: the tasks in <c>holdsBack</c>
+    /// and nothing else held back.</summary>
+    private static string Version1(Guid id, string title, string history, params Guid[] tasks) =>
+        $$"""{"version":1,"id":"{{id}}","title":"{{title}}","history":[{{history}}],"holdsBack":[{{string.Join(",", tasks.Select(task => $"\"{task}\""))}}]}""";
+
+    private static string Stored(Impediment impediment) =>
+        System.Text.Json.JsonSerializer.Serialize(ImpedimentDocument.From(impediment), ImpedimentDocument.JsonOptions);
 
     private static void AssertSame(Impediment expected, Impediment? actual)
     {
@@ -133,6 +143,120 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         Assert.Contains("\"state\":\"Escalated\"", document, StringComparison.Ordinal);
         Assert.Contains("\"on\":\"2026-10-16\"", document, StringComparison.Ordinal);
         Assert.Contains("\"checkAgain\":\"2026-10-20\"", document, StringComparison.Ordinal);
+    }
+
+    /// <summary>Version 2 (local ADR 0035 §9): every item in link order under
+    /// <c>heldBack</c>, and the task ids still under <c>holdsBack</c>, so a version 1 build —
+    /// which ignores a member it does not know — still reads the tasks.</summary>
+    [Fact]
+    public async Task The_stored_document_is_version_2_and_a_version_1_reader_still_gets_the_tasks()
+    {
+        var impediment = Escalated();
+        await _repository.SaveAsync(impediment, Cancellation);
+
+        var document = await ScalarAsync("SELECT document FROM progress_impediments;");
+        var asVersion1 = System.Text.Json.JsonSerializer.Deserialize<Version1Shape>(document, ImpedimentDocument.JsonOptions)!;
+
+        Assert.Equal(2, asVersion1.Version);
+        Assert.Equal(impediment.HoldsBack.Where(item => item.Kind == HeldBackKind.Task).Select(item => item.TaskId!.Value), asVersion1.HoldsBack);
+        Assert.Contains("\"heldBack\":[{\"kind\":\"Task\"", document, StringComparison.Ordinal);
+        Assert.Contains("{\"kind\":\"PullRequest\",\"repository\":\"acme/payments\",\"number\":412}", document, StringComparison.Ordinal);
+        Assert.Contains("{\"kind\":\"Plan\",\"plan\":\"goals-standup\"}", document, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_version_1_document_reads_its_tasks()
+    {
+        var id = Guid.NewGuid();
+        var task = Guid.NewGuid();
+        var copy = new ImpedimentReplicaCopyDto(id, "Bank", Version1(id, "Bank sample files missing", """{"state":"New","on":"2026-10-14"}""", task), DateTimeOffset.UtcNow);
+
+        Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
+
+        Assert.Equal([HeldBackItem.ForTask(task).Value], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
+    }
+
+    [Fact]
+    public async Task A_held_back_item_without_its_identity_or_of_an_unknown_kind_is_left_out_and_the_impediment_still_reads()
+    {
+        var id = Guid.NewGuid();
+        var content = $$"""
+            {"version":2,"id":"{{id}}","title":"Bank sample files missing","history":[{"state":"New","on":"2026-10-14"}],
+             "heldBack":[{"kind":"Session","sessionId":"abc"},{"kind":"PullRequest","number":412},{"kind":"Plan","plan":"+goals-standup"}]}
+            """;
+
+        Assert.True(await _repository.TryWriteAsync(new ImpedimentReplicaCopyDto(id, "Bank", content, DateTimeOffset.UtcNow), Cancellation));
+
+        Assert.Equal([HeldBackItem.ForPlan("goals-standup").Value], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
+    }
+
+    /// <summary>The carry-over rule (local ADR 0035 §9, Verification 11): a version 1 write
+    /// over a version 2 copy takes the inbound fields and tasks, and keeps the local pull
+    /// requests and plans where they were linked.</summary>
+    [Fact]
+    public void A_version_1_copy_over_a_version_2_one_keeps_the_local_pull_requests_and_plans()
+    {
+        var kept = Guid.NewGuid();
+        var dropped = Guid.NewGuid();
+        var added = Guid.NewGuid();
+        var local = Escalated();
+        foreach (var item in local.HoldsBack.Where(item => item.Kind == HeldBackKind.Task).ToList()) local.Release(item);
+        local.HoldBack(HeldBackItem.ForTask(dropped).Value);
+        local.HoldBack(HeldBackItem.ForTask(kept).Value);
+        var inbound = Version1(
+            local.Id,
+            "Bank sample files still missing",
+            """{"state":"New","on":"2026-10-14"},{"state":"Resolved","on":"2026-10-19"}""",
+            added,
+            kept);
+
+        var merged = ImpedimentDocument.CarryOver(Stored(local), inbound);
+        var read = System.Text.Json.JsonSerializer.Deserialize<ImpedimentDocument>(merged, ImpedimentDocument.JsonOptions)!.ToImpediment();
+
+        Assert.Equal("Bank sample files still missing", read.Title);
+        Assert.Equal(ImpedimentState.Resolved, read.State);
+        Assert.Equal(
+            [
+                HeldBackItem.ForPullRequest("acme/payments", 412).Value,
+                HeldBackItem.ForPlan("goals-standup").Value,
+                HeldBackItem.ForTask(kept).Value,
+                HeldBackItem.ForTask(added).Value,
+            ],
+            read.HoldsBack);
+    }
+
+    [Fact]
+    public void A_version_2_copy_or_one_over_nothing_but_tasks_is_taken_verbatim()
+    {
+        var local = Escalated();
+        var inbound = Stored(Escalated());
+        var tasksOnly = Impediment.Raise(local.Id, "Bank sample files missing", Wed14).Value;
+        tasksOnly.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        var version1 = Version1(local.Id, "Bank", """{"state":"New","on":"2026-10-14"}""", Guid.NewGuid());
+
+        Assert.Equal(inbound, ImpedimentDocument.CarryOver(Stored(local), inbound));
+        Assert.Equal(version1, ImpedimentDocument.CarryOver(Stored(tasksOnly), version1));
+        Assert.Equal(version1, ImpedimentDocument.CarryOver(null, version1));
+    }
+
+    [Fact]
+    public async Task A_version_1_copy_is_stored_with_the_carried_over_items_at_the_stamp_it_arrived_with()
+    {
+        var local = Escalated();
+        await _repository.SaveAsync(local, Cancellation);
+        var task = Guid.NewGuid();
+        var copy = new ImpedimentReplicaCopyDto(
+            local.Id,
+            local.Title,
+            Version1(local.Id, local.Title, """{"state":"New","on":"2026-10-14"}""", task),
+            DateTimeOffset.UtcNow.AddMinutes(5));
+
+        Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
+
+        Assert.Equal(copy.UpdatedAt, (await _repository.ReadAsync(local.Id, Cancellation))!.UpdatedAt);
+        Assert.Equal(
+            [HeldBackItem.ForPullRequest("acme/payments", 412).Value, HeldBackItem.ForPlan("goals-standup").Value, HeldBackItem.ForTask(task).Value],
+            (await _repository.GetAsync(local.Id, Cancellation))!.HoldsBack);
     }
 
     [Fact]
@@ -227,6 +351,9 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         Assert.Empty(await rooted.ListAsync(Cancellation));
         Assert.NotNull(await new SqliteImpedimentRepository(_dir).GetAsync(impediment.Id, Cancellation));
     }
+
+    /// <summary>What a version 1 build reads of an impediment document's held-back tasks.</summary>
+    private sealed record Version1Shape(int Version, List<Guid> HoldsBack);
 
     private async Task<long> CountRowsAsync() =>
         long.Parse(await ScalarAsync("SELECT COUNT(*) FROM progress_impediments;"), System.Globalization.CultureInfo.InvariantCulture);

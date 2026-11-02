@@ -341,7 +341,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 ## Motion and Reduced Motion
 
 ```meta
-related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion", ".devbook/domain/devbook/features.md#lobes-atlas"]
+related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion", ".devbook/domain/brain/features.md#lobes-atlas"]
 ```
 
 Motion serves purpose only — to communicate a state change, direct attention, or
@@ -373,7 +373,7 @@ decision — a bounce on every auto-save is a lot of movement for something that
 happens continuously and unprompted. The desktop declares this as
 `--ease-saved-flash` in `app.css`.
 
-**Recorded deviation:** the [Lobes atlas](../domain/devbook/features.md#lobes-atlas)
+**Recorded deviation:** the [Lobes atlas](../domain/brain/features.md#lobes-atlas)
 turns its brains slowly on their own after four seconds without input, about one
 turn in a hundred seconds. The turn ramps in over `transition-slow` on
 `ease-in-out`. It serves none of the three purposes the opening rule names. The
@@ -533,7 +533,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/devbook/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -556,7 +556,7 @@ as its kind:
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off of its own that gives the Devbook the whole screen in place of the main view; pressed again, it returns to that view, and Escape does too. See `#workspace-panes`. It is named for what the Devbook shows, open or closed: **Brain**, in the Brain's accent (`color-scheme.md#the-brains-accent`), while the Devbook reads or would open on the Brain — nothing pressed, the Brain as anchor, or the Brain side of its `Brain \| <repo>` switch — and **Devbook** otherwise. The word changes, the control does not. |
 | Work in progress group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight: the Progress context's [Goals view](../domain/progress/features.md#the-goals-view) and the Sessions context's two lists. Goals acts as a view option does; Sessions and Pull requests act as takeovers. Always renders, because Goals is always offered. |
-| Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag; **Atlas** under `atlas-lobes` ([Lobes atlas](../domain/devbook/features.md#lobes-atlas)). Renders while one of them is offered. **Notifications** opens the notification centre and wears the count of questions waiting for an answer, in the question's gold, and no count while none wait. |
+| Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag; **Atlas** under `atlas-lobes` ([Lobes atlas](../domain/brain/features.md#lobes-atlas)). Renders while one of them is offered. **Notifications** opens the notification centre and wears the count of questions waiting for an answer, in the question's gold, and no count while none wait. |
 
 | Rule | Requirement |
 |---|---|

@@ -40,6 +40,10 @@
          search beside it, and reads the entries' issue projections for its loop
          guard. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <!-- Repository Management's published surface, in the same direction again
+         (local ADR 0042): RepositoryManagement/ maps this adapter's pull request
+         records to the module's status and back. -->
+    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

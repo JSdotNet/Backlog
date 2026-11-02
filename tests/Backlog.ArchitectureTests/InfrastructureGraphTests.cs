@@ -29,34 +29,41 @@ public class InfrastructureGraphTests
     /// </summary>
     internal static readonly (string Project, int ModuleReferences, string Reason)[] WideAdapters =
     [
-        ("Backlog.Infrastructure.FileSystem", 9,
+        ("Backlog.Infrastructure.FileSystem", 10,
             "The workspace folder's stores — feature settings, device identity, transcript caches, devbook "
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
             + "Workspace/ by module is what brings it under the cap. The ninth is Progress's published "
             + "surface, for the cross-context join under Progress/ that reads the tasks goals name through "
-            + "Tasks' ITaskItems, beside the Roadmap and Inbox joins of the same kind."),
+            + "Tasks' ITaskItems, beside the Roadmap and Inbox joins of the same kind. The tenth is Repository "
+            + "Management's published surface, for the settled-fact store under Workspace/ that remembers "
+            + "its merged pull requests across a restart, the Progress adapter under Progress/ that reads "
+            + "goal pull requests through its contract, and the Tasks adapter under Tasks/ that answers the "
+            + "task row's pull-request port through the same contract (local ADR 0042)."),
         ("Backlog.Infrastructure.Sqlite", 6,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "
             + "port. The tables share a file, not a schema (inherited ADR 0014). The task store also closes the "
             + "notifications about a task that ends, through Notifications' published port it already sees."),
-        ("Backlog.Infrastructure.GitHub", 5,
+        ("Backlog.Infrastructure.GitHub", 6,
             "The repository registry and its GitHub client answer each context that asks about a "
             + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "
             + "Devbook folders a repository keeps, the Sessions repository resolver and the Sync replica "
-            + "of the settings. Splitting it by context would mean one registry per context."),
+            + "of the settings, and Repository Management's published surface: GitHubPullRequestSource and "
+            + "GitHubRegisteredRepositories answer its pull-request source and registry ports, mapping each "
+            + "record to the module's status (local ADR 0042). Splitting it by context would mean one "
+            + "registry per context."),
         ("Backlog.Infrastructure.Sync", 8,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
             + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
             + "context's published surface by design. Notifications' surface is also how the pairing client "
             + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends."),
-        ("Backlog.Infrastructure.Mcp", 6,
+        ("Backlog.Infrastructure.Mcp", 7,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
-            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039) and, for the "
-            + "impediment tools beside set_blocked, Progress (local ADR 0035). It references abstractions "
-            + "only, never a module's implementation.")
+            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
+            + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
+            + "for `#brain` and the capture tool. It references abstractions only, never a module's implementation.")
     ];
 
     /// <summary>

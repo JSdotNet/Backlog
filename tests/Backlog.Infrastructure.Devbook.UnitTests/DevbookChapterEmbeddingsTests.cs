@@ -160,7 +160,7 @@ public sealed class DevbookChapterEmbeddingsTests : IDisposable
         Write(Brain, "work/standup.md", "# Standup\n\nWhat moved yesterday.\n");
         var before = Directory.GetFiles(Brain, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray();
 
-        DevbookDatabaseLocation.RegisterBrainRoot(Brain);
+        BrainDatabaseLocation.RegisterBrainRoot(Brain);
         try
         {
             using var refresher = Refresher(new CountingEmbedder());
@@ -172,7 +172,7 @@ public sealed class DevbookChapterEmbeddingsTests : IDisposable
         }
         finally
         {
-            DevbookDatabaseLocation.RegisterBrainRoot(null);
+            BrainDatabaseLocation.RegisterBrainRoot(null);
         }
     }
 

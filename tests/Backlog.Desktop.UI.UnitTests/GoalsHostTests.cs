@@ -552,6 +552,136 @@ public sealed class GoalsHostTests : IDisposable
         Assert.Empty(host.FindAll($"[data-testid='{row}-note']"));
     }
 
+    // ---- What an impediment holds back, and raising one --------------------------------
+
+    private static readonly HeldBackItemDto Bank = HeldBackItemDto.ForPlan("bank-integration");
+
+    [Fact]
+    public void An_impediment_row_shows_what_it_holds_back_and_ready_to_resolve_from_the_reading()
+    {
+        _standUp.Reading = _standUp.Reading with
+        {
+            Impediments =
+            [
+                _standUp.Reading.Impediments[0] with
+                {
+                    ReadyToResolve = true,
+                    HoldsBack =
+                    [
+                        new StandUpHeldBackItemDto(HeldBackItemDto.ForTask(Vat), "VAT rate per line item", true),
+                        new StandUpHeldBackItemDto(HeldBackItemDto.ForPullRequest("JSdotNet/Backlog", 1357), "JSdotNet/Backlog#1357", true),
+                        new StandUpHeldBackItemDto(HeldBackItemDto.ForTask(Guid.Parse("00000000-0000-0000-0000-0000000000ff")), null, false),
+                        new StandUpHeldBackItemDto(Bank, "+bank-integration", true)
+                    ]
+                }
+            ]
+        };
+        var host = Render();
+        var row = $"goals-board-stand-up-impediment-{BankId}";
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal("Ready to resolve", host.Find($"[data-testid='{row}-ready']").TextContent.Trim());
+            Assert.Equal(
+                ["VAT rate per line item", "#1357 Payment status webhook", GoalsMapper.DeletedTask, "+bank-integration"],
+                host.FindAll($"[data-testid='{row}-items'] .impediment-row__item-title").Select(title => title.TextContent));
+            Assert.Equal(
+                ["Task", "PR", "Task", "Plan"],
+                host.FindAll($"[data-testid='{row}-items'] .impediment-row__item-kind").Select(kind => kind.TextContent));
+        });
+    }
+
+    [Fact]
+    public void Raise_impediment_raises_it_through_the_module_with_its_first_items_and_reads_again()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-stand-up-raise']"));
+        var before = _standUp.Reads;
+
+        host.Find("[data-testid='goals-board-stand-up-raise']").Click();
+        host.Find("[data-testid='impediment-raise-dialog-title'] input").Input(" Bank sample files missing ");
+        host.Find("[data-testid='impediment-raise-dialog-note'] textarea").Input("Asked the account manager");
+        host.Find("[data-testid='impediment-raise-dialog-search-search'] input").Input("webhook");
+        host.WaitForAssertion(() => host.Find("[data-testid='impediment-raise-dialog-search-match-pr:JSdotNet/Backlog#1357']"));
+        host.Find("[data-testid='impediment-raise-dialog-search-match-pr:JSdotNet/Backlog#1357']").Click();
+        host.Find("[data-testid='impediment-raise-dialog-search-search'] input").Input("VAT");
+        host.WaitForAssertion(() => host.Find($"[data-testid='impediment-raise-dialog-search-match-task:{Vat}']"));
+        host.Find($"[data-testid='impediment-raise-dialog-search-match-task:{Vat}']").Click();
+        host.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            var raised = Assert.Single(_impediments.Raises);
+            Assert.Equal("Bank sample files missing", raised.Title);
+            Assert.Equal("Asked the account manager", raised.Note);
+            Assert.Equal([HeldBackItemDto.ForPullRequest("JSdotNet/Backlog", 1357), HeldBackItemDto.ForTask(Vat)], raised.HoldsBack);
+            Assert.Equal(before + 1, _standUp.Reads);
+            Assert.Empty(host.FindAll("[data-testid='impediment-raise-dialog-raise']"));
+        });
+    }
+
+    [Fact]
+    public void A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing()
+    {
+        _impediments.Failure = Error.Validation("progress.impediment_title_required", "An impediment needs a title.");
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-stand-up-raise']"));
+        var before = _standUp.Reads;
+
+        host.Find("[data-testid='goals-board-stand-up-raise']").Click();
+        host.Find("[data-testid='impediment-raise-dialog-title'] input").Input("Bank sample files missing");
+        host.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+
+        host.WaitForAssertion(() =>
+            Assert.Equal("An impediment needs a title.", host.Find("[data-testid='impediment-raise-dialog-error']").TextContent.Trim()));
+        Assert.Equal(before, _standUp.Reads);
+        Assert.Single(_impediments.Raises);
+    }
+
+    [Fact]
+    public void Link_holds_back_the_picked_item_through_the_module_and_reads_again()
+    {
+        var host = Render();
+        var row = $"goals-board-stand-up-impediment-{BankId}";
+        host.WaitForAssertion(() => host.Find($"[data-testid='{row}-link']"));
+        var before = _standUp.Reads;
+
+        host.Find($"[data-testid='{row}-link']").Click();
+        host.Find($"[data-testid='{row}-link-search-box'] input").Input("+bank");
+        host.WaitForAssertion(() => host.Find($"[data-testid='{row}-link-search-match-plan:bank-integration']"));
+        host.Find($"[data-testid='{row}-link-search-match-plan:bank-integration']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal([(BankId, Bank)], _impediments.HoldBacks);
+            Assert.Equal(before + 1, _standUp.Reads);
+        });
+    }
+
+    [Fact]
+    public void A_refused_unlink_stays_in_the_row_and_reads_nothing()
+    {
+        _standUp.Reading = _standUp.Reading with
+        {
+            Impediments = [_standUp.Reading.Impediments[0] with { HoldsBack = [new StandUpHeldBackItemDto(Bank, "+bank-integration", false)] }]
+        };
+        _impediments.Failure = ProgressErrors.ImpedimentNotFound(BankId);
+        var host = Render();
+        var row = $"goals-board-stand-up-impediment-{BankId}";
+        host.WaitForAssertion(() => host.Find($"[data-testid='{row}-unlink-plan:bank-integration']"));
+        var before = _standUp.Reads;
+
+        host.Find($"[data-testid='{row}-unlink-plan:bank-integration']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal([(BankId, Bank)], _impediments.Releases);
+            Assert.Equal(ProgressErrors.ImpedimentNotFound(BankId).Message, host.Find($"[data-testid='{row}-link-error']").TextContent.Trim());
+        });
+        Assert.Equal(before, _standUp.Reads);
+        Assert.Empty(host.FindAll("[data-testid='goals-board-error']"));
+    }
+
     // ---- Doubles at the Progress module's boundary ------------------------------------
 
     private static string PaidField(string part) => $"[data-testid='goals-board-goal-{PaidId}-{part}'] input";
@@ -1029,7 +1159,17 @@ public sealed class GoalsHostTests : IDisposable
 
         public Task<Result<ImpedimentDto>> GetAsync(Guid impedimentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<Result<ImpedimentDto>> RaiseAsync(RaiseImpedimentRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<RaiseImpedimentRequest> Raises { get; } = [];
+
+        public Task<Result<ImpedimentDto>> RaiseAsync(RaiseImpedimentRequest request, CancellationToken cancellationToken = default)
+        {
+            Raises.Add(request);
+            return Task.FromResult(Failure is { } error
+                ? Result.Failure<ImpedimentDto>(error)
+                : Result.Success(new ImpedimentDto(
+                    OtherId, request.Title ?? string.Empty, ImpedimentState.New, null, null, null, request.Note,
+                    [new ImpedimentStateChangeDto(ImpedimentState.New, Oct(19), null)], request.HoldsBack ?? [])));
+        }
 
         public Task<Result<ImpedimentDto>> SetCheckAgainAsync(Guid impedimentId, DateOnly? checkAgain, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -1045,9 +1185,28 @@ public sealed class GoalsHostTests : IDisposable
                     [new ImpedimentStateChangeDto(ImpedimentState.Escalated, Oct(15), "Account manager")], [])));
         }
 
-        public Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<(Guid, HeldBackItemDto)> HoldBacks { get; } = [];
 
-        public Task<Result<ImpedimentDto>> ReleaseAsync(Guid impedimentId, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<(Guid, HeldBackItemDto)> Releases { get; } = [];
+
+        public Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, HeldBackItemDto item, CancellationToken cancellationToken = default)
+        {
+            HoldBacks.Add((impedimentId, item));
+            return Linked(impedimentId, [item]);
+        }
+
+        public Task<Result<ImpedimentDto>> ReleaseAsync(Guid impedimentId, HeldBackItemDto item, CancellationToken cancellationToken = default)
+        {
+            Releases.Add((impedimentId, item));
+            return Linked(impedimentId, []);
+        }
+
+        private Task<Result<ImpedimentDto>> Linked(Guid impedimentId, IReadOnlyList<HeldBackItemDto> items) =>
+            Task.FromResult(Failure is { } error
+                ? Result.Failure<ImpedimentDto>(error)
+                : Result.Success(new ImpedimentDto(
+                    impedimentId, "Bank sample files missing", ImpedimentState.Escalated, "Account manager", null, null, null,
+                    [new ImpedimentStateChangeDto(ImpedimentState.Escalated, Oct(15), "Account manager")], items)));
     }
 
     internal sealed class FakeIterationSettings : IIterationSettings
