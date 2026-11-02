@@ -115,7 +115,9 @@ public static class DevbookLobesAtlas
     /// The drawing of <paramref name="graph"/> in <paramref name="layout"/> —
     /// <see cref="LobesAtlasModel.AllLayout"/> or a scope key — with the scopes and
     /// regions the reader has hidden left undrawn: <paramref name="hiddenLobes"/>
-    /// in a scope's own layout, <paramref name="hiddenAllLobes"/> in All.
+    /// in a scope's own layout, <paramref name="hiddenAllLobes"/> in All — and
+    /// with the idle turn held while <paramref name="idleMotion"/> is false, as
+    /// the takeover's Pause sets it.
     /// </summary>
     public static LobesAtlasModel Model(
         DevbookLobesGraph graph,
@@ -123,7 +125,8 @@ public static class DevbookLobesAtlas
         IReadOnlyCollection<string>? hiddenScopes = null,
         IReadOnlyCollection<LobesAtlasRegionKey>? hiddenLobes = null,
         bool showLabels = true,
-        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenAllLobes = null)
+        IReadOnlyCollection<LobesAtlasRegionKey>? hiddenAllLobes = null,
+        bool idleMotion = true)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
@@ -147,6 +150,7 @@ public static class DevbookLobesAtlas
             [.. hiddenLobes ?? []],
             showLabels,
             graph.Message ?? "The Lobes atlas has nothing to draw.",
+            IdleMotion: idleMotion,
             HiddenAllLobes: [.. hiddenAllLobes ?? []]);
     }
 

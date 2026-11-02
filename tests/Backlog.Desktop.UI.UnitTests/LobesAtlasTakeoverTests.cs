@@ -447,7 +447,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(6, component.FindAll("[data-testid='lobes-atlas-chip']").Count));
 
         var tools = component.Find(".lobes-atlas__tools");
-        Assert.Equal(["Labels", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        Assert.Equal(["Labels", "Pause", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         // None is named by its own word; what it does is the title.
         Assert.Null(component.Find("[data-testid='lobes-atlas-show-none']").GetAttribute("aria-label"));
         Assert.Equal("Show every region", component.Find("[data-testid='lobes-atlas-show-all']").GetAttribute("title"));
@@ -647,6 +647,75 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         });
     }
 
+    /// <summary>WCAG 2.2.2: the brains turn on their own, so the reader can stop
+    /// them. Pause sits beside Labels in every layout, says it is pressed while
+    /// the turn is held, and hands the renderer a model with the idle turn off.</summary>
+    [Theory]
+    [InlineData(LobesAtlasModel.AllLayout)]
+    [InlineData("brain")]
+    [InlineData("repo:backlog")]
+    public void Pause_is_a_toggle_that_holds_the_idle_turn(string scope)
+    {
+        var component = Render(scope);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-motion']")));
+
+        var pause = component.Find("[data-testid='lobes-atlas-motion']");
+        AssertRealButton(pause);
+        Assert.Equal("Pause", pause.TextContent.Trim());
+        Assert.Equal("false", pause.GetAttribute("aria-pressed"));
+        Assert.Equal("Stop the brains turning on their own", pause.GetAttribute("title"));
+        // The same toggle as Labels, so the same 44px target and focus ring.
+        Assert.Contains("btn", pause.ClassList);
+        Assert.Contains("btn--toggle", pause.ClassList);
+        Assert.True(LastModel().IdleMotion);
+
+        pause.Click();
+        component.WaitForAssertion(() =>
+        {
+            var pressed = component.Find("[data-testid='lobes-atlas-motion']");
+            Assert.Equal("true", pressed.GetAttribute("aria-pressed"));
+            Assert.Equal("Let the brains turn on their own again", pressed.GetAttribute("title"));
+            Assert.False(LastModel().IdleMotion);
+        });
+
+        component.Find("[data-testid='lobes-atlas-motion']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-motion']").GetAttribute("aria-pressed"));
+            Assert.True(LastModel().IdleMotion);
+        });
+    }
+
+    /// <summary>Pause holds the turn and nothing else: the layout, what is
+    /// hidden and the labels hand over unchanged, so the renderer keeps the
+    /// camera where the reader left it.</summary>
+    [Fact]
+    public void Pausing_changes_nothing_but_the_idle_turn()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-motion']")));
+        var before = LastModel();
+
+        component.Find("[data-testid='lobes-atlas-motion']").Click();
+        component.WaitForAssertion(() => Assert.False(LastModel().IdleMotion));
+
+        var after = LastModel();
+        Assert.Equal(before.Layout, after.Layout);
+        Assert.Equal(before.HiddenScopes, after.HiddenScopes);
+        Assert.Equal(before.HiddenLobes, after.HiddenLobes);
+        Assert.Equal(before.HiddenAllLobes, after.HiddenAllLobes);
+        Assert.Equal(before.ShowLabels, after.ShowLabels);
+        Assert.Equal(before.Marks, after.Marks);
+
+        // And a later toggle keeps the turn held.
+        component.Find("[data-testid='lobes-atlas-labels']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.False(LastModel().ShowLabels);
+            Assert.False(LastModel().IdleMotion);
+        });
+    }
+
     // ----- Technology starts hidden ------------------------------------------------
 
     private const string Docker = "repo:backlog|.devbook/tech/docker.md";
@@ -729,7 +798,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var component = Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
 
-        Assert.Equal(["Labels", "Tech", "All", "None", "✕"],
+        Assert.Equal(["Labels", "Pause", "Tech", "All", "None", "✕"],
             component.Find(".lobes-atlas__tools").QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         var tech = component.Find("[data-testid='lobes-atlas-tech']");
         AssertRealButton(tech);

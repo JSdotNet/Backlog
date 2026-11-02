@@ -385,13 +385,15 @@ rest: the brains show their depth without anyone dragging them.
 - The turn never runs under `prefers-reduced-motion: reduce`, nor while the
   document is hidden. A page whose picture must be still turns it off. That is a
   page-level switch, not a reader control.
-- The turn does not meet WCAG 2.2.2 (Pause, Stop, Hide). No control pauses it
-  until the reader resumes it, and a keyboard-only reader cannot stop it at all.
-  The reduced-motion setting removes the turn, but it is not a pause control.
-- The follow-up is a pause control among the atlas's controls that a keyboard
-  and a pointer both reach. Until it lands, the atlas falls short of the target
-  in [`accessibility.md#target-and-scope`](accessibility.md#target-and-scope).
-  The atlas stays behind its `atlas-lobes` feature flag, which ships off.
+- The reader stops the turn with **Pause**, beside Labels among the atlas's
+  controls, to meet WCAG 2.2.2 (Pause, Stop, Hide). It is a toggle button that a
+  keyboard and a pointer both reach, and it reads as pressed while the turn is held.
+- Pause holds only the turn on its own. A fling still slows to rest, and a drag
+  and the zoom still move the map.
+- The pause lasts while the atlas is open. Reopening the atlas starts it turning again.
+- Pressing Pause again resumes the turn as after any input: it waits four
+  seconds, then ramps in over `transition-slow`.
+- Under reduced motion Pause stays enabled, and the brains still never turn.
 
 Rules:
 

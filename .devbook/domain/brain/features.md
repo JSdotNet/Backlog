@@ -345,6 +345,11 @@ off, keeps the camera where it was and moving as it was. Under reduced motion
 nothing moves on its own. A drag turns the brains only while it lasts, and a
 scroll and a scope switch land at once.
 
+**Pause** stops the turn on its own until the person presses it again. It reads
+as pressed while the turn is held, and it lasts while the atlas is open. A fling,
+a drag and the zoom still move the brains while paused. Pressing it again resumes
+the turn as after any input: four seconds, then it eases in.
+
 A repository alias the Brain links to that is not registered on this machine
 is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
 outline, and only the chapters the notes name, in the link's own words. The
@@ -382,8 +387,8 @@ with its count while it is hidden.
 
 Technology starts hidden in All too: no devbook's `tech/` chapters are drawn
 on the map or listed beside it there. All's chips act on scopes, not regions,
-so All carries one more toggle of its own, **Tech**, beside **Labels** at the
-top right. It starts off; turning it on draws every devbook's `tech/` chapters
+so All carries one more toggle of its own, **Tech**, after **Labels** and
+**Pause** at the top right. It starts off; turning it on draws every devbook's `tech/` chapters
 in their Parietal regions, and turning it off hides them again. It acts on All
 alone and leaves each devbook scope's own Parietal chip as the reader set it.
 
@@ -415,8 +420,8 @@ with what it holds and its count; a row shows or hides the region. The panel's
 heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
 **Devbook folders** for a devbook.
 
-**The top right.** **Labels**, **All** and **None** sit beside the close
-button, with **Tech** beside **Labels** in All, and under them one chip per region of the current scope, or one per
+**The top right.** **Labels**, **Pause**, **All** and **None** sit beside the
+close button, with **Tech** after **Pause** in All, and under them one chip per region of the current scope, or one per
 scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
 hides what it names, as the panel's row does. **All** and **None** act on the
 current scope only, so the regions hidden in another scope stay hidden. In a
