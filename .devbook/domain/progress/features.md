@@ -255,6 +255,7 @@ calls Progress.
 type: feature
 status: proposed
 related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
 
 Goal rows show the status Repository Management publishes. Every pull request row in
@@ -267,8 +268,8 @@ Progress defines neither mark. It names a pull request by its repository and num
 and Repository Management answers with its status. The marks used to be defined here
 (local ADR 0035 §7); local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)
-moves them to the context that reads pull requests. The rows draw as they did; only
-the owner of what they draw changes, and that move is not built yet.
+moved them to the context that reads pull requests. The rows draw as they did; only
+the owner of what they draw changed.
 
 ## Goals on the phone
 

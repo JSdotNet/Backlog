@@ -1464,16 +1464,18 @@ the section's heading, since the card that held it is gone.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Linked_pull_requests_are_read_with_their_state_merge_date_and_author, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Many_linked_pull_requests_are_read_in_slim_batches]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
 ```
 
 Every pull request a task links is known by its own state — open, draft, merged or
 closed — by who opened it, and by when it merged. The open read answers for one still
 open in a configured repository. The rest are read by number, once the open read has
-landed, so the open cards never wait on them. That read asks only for what a link
-records, in batches of fifty, and never for checks or branches.
+landed, so the open cards never wait on them. That read carries what a row of the
+open list carries, checks and branches included, and asks GitHub about at most
+twenty-five numbers a query.
 
-A merged pull request is read once and kept while the app runs. A closed or open one is
+A merged pull request is read once and kept on this device, so it still reads merged
+after a restart with GitHub out of reach. A closed or open one is
 read again with the next read of the open list, at most once a minute, because GitHub
 can reopen a closed one. A number GitHub cannot find is not asked about again. The side
 panel reads none of them on its own.

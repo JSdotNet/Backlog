@@ -29,7 +29,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
-| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042, proposed). |
+| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042). |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
@@ -116,16 +116,16 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Progress
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
 
-    %% Pull request state. Not built yet: local ADR 0042. Repository Management
+    %% Pull request state, local ADR 0042. Repository Management
     %% publishes one contract; Tasks and Progress read it through adapters that
     %% answer their own ports. The shell is the composition root, not a context:
     %% it composes the cards and asks Tasks which task a session or a pull
     %% request belongs to, so Repository Management holds no edge to Tasks.
     Shell(["Desktop shell<br/>(composition root, not a context)"])
-    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
-    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status, IGoalPullRequestReader"| Progress
-    Repo -.->|"Customer/Supplier (not built)<br/>Verdict on the session card, through the shell"| Sessions
-    Tasks -.->|"OHS + Published Language (not built)<br/>Task by session, task by pull request"| Shell
+    Repo -->|"Customer/Supplier<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
+    Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Progress
+    Repo -->|"Customer/Supplier<br/>Verdict on the session card, through the shell"| Sessions
+    Tasks -->|"OHS + Published Language<br/>Task by session, task by pull request, ITaskLookup"| Shell
 
     %% Sync. It carries the documents of the contexts below and reads none of
     %% their payloads. Each downstream context reaches it through an adapter in
@@ -162,8 +162,8 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
-| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache (not built; local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
-| Tasks | The lookup from a session id or a pull request to its task, in `Backlog.Modules.Tasks.Abstractions` (not built; local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
+| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Tasks | The lookup from a session id or a pull request to its task, `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` (not built) | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
@@ -237,8 +237,8 @@ flowchart LR
   Sessions publishes no pull request contract either: the pull requests its
   sessions open are Repository Management's.
 - `Repository Management` is the single owner of pull request state
-  (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`,
-  proposed and not built). It owns each pull request's
+  (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`).
+  It owns each pull request's
   [status](repository-management/domain.md#pull-request-status), its
   [readiness verdict](repository-management/domain.md#readiness-verdict), its stack,
   the [merge commands](repository-management/domain.md#merge-command) and the one
