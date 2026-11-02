@@ -24,8 +24,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// <b>The origin is the calling client.</b> What a person reads as where it came from is the MCP
-/// client's own name — "Claude Code" for <c>claude-code</c> — asked "MCP ask"
-/// (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
+/// client's own name — "Claude Code" for <c>claude-code</c> — via "MCP ask" for <c>ask</c> and
+/// "MCP notify" for <c>notify</c> (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
 /// falls back on where the stateless endpoint cannot name the client.
 /// </para>
 /// <para>
@@ -145,7 +145,7 @@ public sealed class NotificationTools(
             title,
             summary ?? string.Empty,
             body ?? string.Empty,
-            Origin: Origin(server?.ClientInfo, sessionId));
+            Origin: Origin(server?.ClientInfo, sessionId, NotificationOrigins.McpNotify));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -307,8 +307,8 @@ public sealed class NotificationTools(
 
     /// <summary>
     /// Where a <c>notify</c> or <c>ask</c> came from: the calling MCP client as it names itself —
-    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — asked
-    /// "MCP ask".
+    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — via
+    /// <paramref name="via"/>: "MCP ask" for <c>ask</c>, "MCP notify" for <c>notify</c>.
     /// <para>
     /// The endpoint is stateless, so a client on a revision with the <c>initialize</c> handshake
     /// is not named on a later <c>tools/call</c>: only the 2026-07-28 revision carries the
@@ -317,7 +317,7 @@ public sealed class NotificationTools(
     /// <see cref="UnnamedClient"/>.
     /// </para>
     /// </summary>
-    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null)
+    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null, string via = NotificationOrigins.McpAsk)
     {
         var title = client?.Title;
         var name = string.IsNullOrWhiteSpace(title) ? client?.Name : title;
@@ -325,7 +325,7 @@ public sealed class NotificationTools(
             ? string.IsNullOrWhiteSpace(sessionId) ? UnnamedClient : NotificationOrigins.ClaudeCode
             : KnownClients.TryGetValue(name.Trim(), out var known) ? known : name;
 
-        return NotificationOrigin.Fit(system, via: NotificationOrigins.McpAsk);
+        return NotificationOrigin.Fit(system, via: via);
     }
 
     /// <summary>The system an MCP client that sent no name is shown as.</summary>

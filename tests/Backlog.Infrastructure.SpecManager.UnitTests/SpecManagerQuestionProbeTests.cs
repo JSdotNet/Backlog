@@ -31,6 +31,39 @@ public sealed class SpecManagerQuestionProbeTests
     }
 
     [Fact]
+    public async Task A_question_answered_meanwhile_ends_with_who_answered_and_what()
+    {
+        using var scenario = new QuestionScenario();
+        INotificationSubjectProbe probe = Probe(scenario);
+
+        Assert.Equal("Answered in spec-manager by Kees de Vries: No", await probe.EndReasonAsync(Subject(QuestionScenario.AnsweredByKees), Token));
+    }
+
+    [Fact]
+    public async Task A_question_in_neither_list_names_no_reason_it_ended()
+    {
+        using var scenario = new QuestionScenario();
+        INotificationSubjectProbe probe = Probe(scenario);
+
+        Assert.Null(await probe.EndReasonAsync(Subject(Deleted), Token));
+    }
+
+    [Fact]
+    public async Task One_pass_reads_each_products_answered_questions_once_and_only_when_asked_why()
+    {
+        using var scenario = new QuestionScenario();
+        INotificationSubjectProbe probe = Probe(scenario);
+
+        await probe.IsLiveAsync(Subject(QuestionScenario.AnsweredByKees), Token);
+        Assert.DoesNotContain(scenario.Connector.Server.To(QuestionScenario.QuestionsPath), ForAnswered);
+
+        await probe.EndReasonAsync(Subject(QuestionScenario.AnsweredByKees), Token);
+        await probe.EndReasonAsync(Subject(Deleted), Token);
+
+        Assert.Single(scenario.Connector.Server.To(QuestionScenario.QuestionsPath), ForAnswered);
+    }
+
+    [Fact]
     public async Task One_pass_reads_each_products_open_questions_once()
     {
         using var scenario = new QuestionScenario();
@@ -64,4 +97,10 @@ public sealed class SpecManagerQuestionProbeTests
         new(scenario.Connector.Client, scenario.Connector.SignIn, scenario.Connector.Targets, scenario.Connector.Time);
 
     private static NotificationSubject Subject(string questionId) => new("spec-manager", "question", questionId);
+
+    /// <summary>A question spec-manager lists neither open nor answered: deleted there.</summary>
+    private const string Deleted = "40000000-0000-0000-0000-000000000099";
+
+    private static bool ForAnswered(RecordedRequest request) =>
+        request.Uri.Query.Contains("state=answered", StringComparison.Ordinal);
 }

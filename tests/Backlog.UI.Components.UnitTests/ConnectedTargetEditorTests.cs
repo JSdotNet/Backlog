@@ -166,6 +166,25 @@ public sealed class ConnectedTargetEditorTests
         Assert.Empty(none.FindAll("[data-testid='t-question-push-hint']"));
     }
 
+    /// <summary>The push hint is about that switch, so a screen reader on the
+    /// switch hears it, not only someone reading the card.</summary>
+    [Fact]
+    public void The_push_hint_describes_the_only_assigned_questions_switch()
+    {
+        using var context = new BunitContext();
+        var specManager = new ConnectedTargetOptions("spec-manager", "billing") { HasQuestions = true };
+
+        var card = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, specManager).Add(c => c.TestId, "t"));
+
+        var control = card.Find("[data-testid='t-only-assigned-questions'] button[role='switch']");
+        var hint = card.Find("[data-testid='t-question-push-hint']").TextContent;
+        var described = (control.GetAttribute("aria-describedby") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(id => card.Find($"#{id}").TextContent);
+
+        Assert.Contains(described, text => text.Contains(hint, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Switching_only_questions_assigned_to_me_on_reports_the_whole_record()
     {

@@ -158,7 +158,7 @@ public sealed class Notification
         }
 
         var title = draft.Title?.Trim() ?? string.Empty;
-        if (title.Length == 0 || title.Contains('\n', StringComparison.Ordinal) || title.Contains('\r', StringComparison.Ordinal))
+        if (title.Length == 0 || !NotificationText.IsOneLine(title))
             return NotificationsErrors.TitleRequired();
         if (title.Length > MaxTitleLength) return NotificationsErrors.ContentTooLong("title", MaxTitleLength, "characters");
 
@@ -212,7 +212,7 @@ public sealed class Notification
         foreach (var (field, text, limit) in parts)
         {
             var trimmed = text?.Trim() ?? string.Empty;
-            if (trimmed.Contains('\n', StringComparison.Ordinal) || trimmed.Contains('\r', StringComparison.Ordinal))
+            if (!NotificationText.IsOneLine(trimmed))
                 return NotificationsErrors.OriginInvalid($"The {field} is one line.");
             if (trimmed.Length > limit) return NotificationsErrors.ContentTooLong(field, limit, "characters");
         }

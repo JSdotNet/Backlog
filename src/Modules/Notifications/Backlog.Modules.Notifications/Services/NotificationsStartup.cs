@@ -12,7 +12,8 @@ namespace Backlog.Modules.Notifications.Services;
 /// <para>
 /// For each open notification this instance owns, the <see cref="INotificationSubjectProbe"/>
 /// registered for its subject's context is asked whether the subject still lives, and the
-/// notifications about a subject that does not are closed. A subject with no probe, or whose
+/// notifications about a subject that does not are closed — with the reason the probe names for
+/// its end, else <see cref="SubjectEndedReason"/>. A subject with no probe, or whose
 /// probe throws, is left open — Notifications never reads another context's data to decide for
 /// it.
 /// </para>
@@ -23,7 +24,8 @@ namespace Backlog.Modules.Notifications.Services;
 /// </summary>
 public sealed class NotificationsStartup
 {
-    /// <summary>The reason a notification whose subject a probe reports ended is closed with.</summary>
+    /// <summary>The reason a notification whose subject a probe reports ended is closed with,
+    /// when the probe names no reason of its own.</summary>
     public const string SubjectEndedReason = "Subject ended";
 
     private readonly INotificationRepository _repository;
@@ -107,10 +109,27 @@ public sealed class NotificationsStartup
 
             if (live) continue;
 
-            var result = await _notifications.CloseForSubjectAsync(subject, SubjectEndedReason, cancellationToken).ConfigureAwait(false);
+            var reason = await EndReasonAsync(probe, subject, cancellationToken).ConfigureAwait(false);
+            var result = await _notifications.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
             if (result.IsSuccess) closed += result.Value;
         }
 
         return closed;
+    }
+
+    /// <summary>The reason the probe names for a subject it reported ended; else, or when asking
+    /// fails, <see cref="SubjectEndedReason"/> — the probe already said the subject ended.</summary>
+    private async Task<string> EndReasonAsync(INotificationSubjectProbe probe, NotificationSubject subject, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var reason = await probe.EndReasonAsync(subject, cancellationToken).ConfigureAwait(false);
+            return string.IsNullOrWhiteSpace(reason) ? SubjectEndedReason : reason;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(exception, "The {Context} subject probe could not say why a subject ended; it closes as ended.", subject.Context);
+            return SubjectEndedReason;
+        }
     }
 }
