@@ -61,9 +61,11 @@ public class BacklogMcpToolsTests
                 "list_runs",
                 "get_run",
 
-                // Progress's impediments, beside set_blocked (local ADR 0035).
+                // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
+                "link_to_impediment",
+                "unlink_from_impediment",
 
                 // Progress's goals: read, set, edit, attach, detach, delete (local ADR 0035).
                 "list_goals",
@@ -270,6 +272,8 @@ public class BacklogMcpToolsTests
             SurfaceTools.FinishRun,
             ImpedimentTools.RaiseImpediment,
             ImpedimentTools.SetImpedimentState,
+            ImpedimentTools.LinkToImpediment,
+            ImpedimentTools.UnlinkFromImpediment,
             GoalTools.CreateGoal,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
@@ -309,7 +313,9 @@ public class BacklogMcpToolsTests
             SurfaceTools.FinishRun,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
-            GoalTools.DetachFromGoal
+            GoalTools.DetachFromGoal,
+            ImpedimentTools.LinkToImpediment,
+            ImpedimentTools.UnlinkFromImpediment
         ];
 
         var seen = new List<string>();

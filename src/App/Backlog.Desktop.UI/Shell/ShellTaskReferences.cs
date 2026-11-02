@@ -1,6 +1,5 @@
-using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
@@ -8,43 +7,40 @@ using Backlog.UI.Components.Feedback;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The Backlog entries the Sessions context's two lists name, answered from one
-/// window's own task list (local ADR 0043 §3, §5): the entry that linked a session,
-/// the entry a pull request belongs to, and opening an entry — a jump to the Tasks
-/// surface through the window's navigator, so it lands in the window it was pressed in.
+/// The Backlog entries the session list and the pull requests list name, answered for
+/// one window (local ADR 0043 §3, §5): the entry that linked a session, the entry a pull
+/// request belongs to, and opening an entry — a jump to the Tasks surface through the
+/// window's navigator, so it lands in the window it was pressed in.
 /// <para>
 /// Here rather than in either list because the records are on the entries, which
-/// belong to Tasks, and the sessions and pull requests are another context's. It
-/// moved out of <c>Home</c> when those lists became surfaces a window of their own can
-/// show. One per window, over that window's <see cref="TasksDesktopState"/>.
+/// belong to Tasks, and the sessions and pull requests are other contexts'. Which entry
+/// a session or a pull request belongs to is asked of Tasks (<see cref="ITaskLookup"/>,
+/// local ADR 0042 V8), over the same window's rows; opening one reads that window's
+/// <see cref="TasksDesktopState"/>. It moved out of <c>Home</c> when those lists became
+/// surfaces a window of their own can show. One per window.
 /// </para>
 /// </summary>
-public sealed class ShellTaskReferences : IDisposable
+public sealed class ShellTaskReferences
 {
     /// <summary>The test id of the toast for an entry this workspace does not hold.</summary>
     public const string PlanEntryMissingTestId = "sessions-plan-entry-missing";
 
     private readonly TasksDesktopState _state;
+    private readonly ITaskLookup? _lookup;
     private readonly ISurfaceNavigator _navigator;
     private readonly IToastChannel? _toasts;
 
-    /// <summary>The matcher last built, with the list it was built over. A reference,
-    /// written whole: the state announces changes from whichever thread made them,
-    /// and a reader drawing a cell must see either the old matcher or none.</summary>
-    private volatile MatcherOverRows? _pullRequestMatcher;
-
-    public ShellTaskReferences(TasksDesktopState state, ISurfaceNavigator navigator, IToastChannel? toasts)
+    /// <param name="lookup">Tasks' lookup over this window's rows, or null in a host that
+    /// composes none — then no session or pull request has a task.</param>
+    public ShellTaskReferences(TasksDesktopState state, ITaskLookup? lookup, ISurfaceNavigator navigator, IToastChannel? toasts)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(navigator);
 
         _state = state;
+        _lookup = lookup;
         _navigator = navigator;
         _toasts = toasts;
-
-        // A row's links, status or assignee can change in place, which the list's
-        // identity would not show, so any change rebuilds the pull request matcher.
-        _state.Changed += ForgetMatcher;
     }
 
     /// <summary>
@@ -95,68 +91,25 @@ public sealed class ShellTaskReferences : IDisposable
 
     /// <summary>
     /// The entry that linked a session: the entry's own record of the session it was
-    /// worked in, written by the Backlog server's <c>link_session</c>.
+    /// worked in, written by the Backlog server's <c>link_session</c>. Asked of Tasks
+    /// and answered by stored id, so opening it is the surest match
+    /// <see cref="OpenTaskAsync"/> makes.
     /// </summary>
-    public DeliveryRunReference? SessionTaskFor(string sessionId)
-    {
-        var row = _state.Rows.FirstOrDefault(candidate =>
-            candidate.Id is not null
-            && candidate.SessionLinks.Any(link => string.Equals(link.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)));
-
-        return TaskReference(row);
-    }
+    public DeliveryRunReference? SessionTaskFor(string sessionId) =>
+        TaskRunReference(_lookup?.TaskForSession(sessionId));
 
     /// <summary>
-    /// The entry a pull request belongs to, found by <see cref="PullRequestTaskMatcher"/>
-    /// in order of how sure each relation is: the entry's own <c>pull-request</c>
-    /// projection, a GitHub issue a linked task follows that the pull request closes, a
-    /// linked task's external key in its title or branch, and the entry that linked its
-    /// session. With <paramref name="mineOnly"/> only my tasks are asked.
+    /// The entry a pull request belongs to, asked of Tasks, which finds it in order of
+    /// how sure each relation is: the entry's own <c>pull-request</c> projection, a
+    /// GitHub issue a linked task follows that the pull request closes, a linked task's
+    /// external key in its title or branch, and the entry that linked its session.
+    /// Answered by stored id, so opening it is the surest match
+    /// <see cref="OpenTaskAsync"/> makes. With <paramref name="mineOnly"/> only my
+    /// tasks are asked — open ones — which is what the list's "Mine" adds to the pull
+    /// requests I opened myself.
     /// </summary>
-    public DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
-    {
-        var (matcher, rows, _) = PullRequestMatcher;
-        return matcher.Match(pull, mineOnly) is { } match && rows.TryGetValue(match.Candidate.EntryId, out var row)
-            ? TaskReference(row)
-            : null;
-    }
-
-    public void Dispose() => _state.Changed -= ForgetMatcher;
-
-    private void ForgetMatcher() => _pullRequestMatcher = null;
-
-    /// <summary>One matcher over every entry, built on first ask and again whenever
-    /// the task list changed — not per row the pane draws, which asks once per cell.</summary>
-    private MatcherOverRows PullRequestMatcher
-    {
-        get
-        {
-            var source = _state.Rows;
-            if (_pullRequestMatcher is { } built && ReferenceEquals(built.Source, source)) return built;
-
-            var rows = new Dictionary<Guid, EntryRow>();
-            var candidates = new List<PullRequestTaskCandidate>();
-            foreach (var row in source)
-            {
-                if (row.Id is not { } id || !rows.TryAdd(id, row)) continue;
-
-                var sourceRef = row.SourceRef;
-                candidates.Add(new PullRequestTaskCandidate(
-                    id,
-                    [.. row.PullRequestLinks.Select(link => new RecordedPullRequest(link.Repository, link.Number))],
-                    sourceRef is null ? null : PullRequestTaskMatcher.GitHubIssueOf(sourceRef.ConnectorId, sourceRef.Target, sourceRef.DisplayKey, sourceRef.Url),
-                    PullRequestTaskMatcher.ExternalKeysOf(sourceRef?.DisplayKey),
-                    [.. row.SessionLinks.Select(link => link.SessionId)],
-                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived)));
-            }
-
-            var matcher = new MatcherOverRows(new PullRequestTaskMatcher(candidates), rows, source);
-            _pullRequestMatcher = matcher;
-            return matcher;
-        }
-    }
-
-    private sealed record MatcherOverRows(PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows, List<EntryRow> Source);
+    public DeliveryRunReference? PullRequestTaskFor(PullRequestTaskQuestion pull, bool mineOnly) =>
+        TaskRunReference(_lookup?.TaskForPullRequest(pull, mineOnly));
 
     /// <summary>
     /// Whether an entry belongs to the plan a run names: the plan id Import stamps, or
@@ -173,16 +126,16 @@ public sealed class ShellTaskReferences : IDisposable
             || row.PreviewTags.Any(tag => string.Equals(tag.TrimStart('+'), wanted, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>An entry as a task reference another pane can hand back: its title, or
-    /// the first block of its id where it has none, and the id itself to open it by.</summary>
-    private static DeliveryRunReference? TaskReference(EntryRow? row) =>
-        row is { Id: { } id }
-            ? new DeliveryRunReference(
+    /// <summary>A task as a reference another pane can hand back: the title Tasks gave
+    /// it, and its id to open it by.</summary>
+    private static DeliveryRunReference? TaskRunReference(TaskReference? task) =>
+        task is null
+            ? null
+            : new DeliveryRunReference(
                 DeliveryRunReferenceKind.Task,
-                string.IsNullOrWhiteSpace(row.PreviewTitle) ? id.ToString()[..8] : row.PreviewTitle,
+                task.Title,
                 Title: null,
                 Url: null,
                 Repository: null,
-                EntryId: id)
-            : null;
+                EntryId: task.EntryId);
 }

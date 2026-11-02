@@ -49,6 +49,14 @@ public static class ProgressErrors
     public static Error ImpedimentEditNotApplied(Guid impedimentId) =>
         Error.Conflict("progress.impediment_edit_not_applied", $"Impediment {impedimentId} did not take the edit from the phone.");
 
+    /// <summary>A held-back item that does not name its whole identity: a task without its
+    /// id, a pull request without its repository or a number above zero, or a plan without a
+    /// tag (<c>.devbook/domain/progress/domain.invariants.md#invariant-a-held-back-item-names-its-whole-identity</c>).</summary>
+    public static Error HeldBackItemWithoutIdentity() =>
+        Error.Validation(
+            "progress.held_back_item_without_identity",
+            "Name a held-back task by its id, a pull request by its repository and number, and a plan by its tag.");
+
     public static Error ImpedimentWithoutTitle() =>
         Error.Validation("progress.impediment_without_title", "An impediment needs a title.");
 

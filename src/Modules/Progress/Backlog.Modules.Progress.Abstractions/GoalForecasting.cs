@@ -16,7 +16,8 @@ public sealed record GoalForecast(GoalStanding Standing, DateOnly? LandsOn, deci
 /// lands on the last day of the <c>n</c>-th. It is At risk when that day falls after the day
 /// it is due on (<see cref="DueOn"/>: its due date, or the last day of next without one), when
 /// it has open items and no landing date, or when an open impediment holds back one of its
-/// items; landing on that day is On track, and so is a goal with nothing open.
+/// items — whether anything is open or not; landing on that day is On track, and so is a
+/// goal with nothing open that no open impediment holds back.
 /// Pure, and in the published surface beside <see cref="Iterations"/>.
 /// </summary>
 public static class GoalForecasting
@@ -47,7 +48,9 @@ public static class GoalForecasting
         var done = doneOn.Count(day => history.Any(window => window.Contains(day)));
         var rate = (decimal)done / HistoryLength;
 
-        if (open <= 0) return new GoalForecast(GoalStanding.OnTrack, null, rate);
+        // Nothing open lands on no day; an open impediment still holds it At risk, since only
+        // the person's Resolve lifts that, even once every item is done.
+        if (open <= 0) return new GoalForecast(heldBack ? GoalStanding.AtRisk : GoalStanding.OnTrack, null, rate);
         if (done == 0) return new GoalForecast(GoalStanding.AtRisk, null, rate);
 
         // ceil(open / rate), in whole numbers so no rate is ever rounded.

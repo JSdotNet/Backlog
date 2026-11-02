@@ -208,7 +208,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_resolved_chapter_opens_its_devbook_and_a_dashed_one_says_why_it_cannot()
     {
-        BrainRepoLink? opened = null;
+        DevbookRepositoryChapter? opened = null;
         var component = Render(onOpenChapter: link => opened = link);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
         // The ghost's one chapter is technology, hidden in All until Tech shows it.
@@ -225,7 +225,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         Assert.NotNull(opened);
         Assert.Equal("backlog", opened.Alias);
-        Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", opened.Path);
+        Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", opened.Reference);
     }
 
     /// <summary>A chapter a note names in a devbook not indexed yet says that, as
@@ -233,8 +233,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_chapter_of_a_devbook_not_indexed_yet_says_so_on_its_chip_as_the_card_does()
     {
-        _lobes.Graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        _lobes.Graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
                 new Dictionary<string, string>(),
@@ -260,7 +260,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_devbook_chapter_no_note_links_to_still_opens_in_its_devbook()
     {
-        BrainRepoLink? opened = null;
+        DevbookRepositoryChapter? opened = null;
         var component = Render("repo:backlog", onOpenChapter: link => opened = link);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
 
@@ -269,7 +269,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         Assert.NotNull(opened);
         Assert.Equal("backlog", opened.Alias);
-        Assert.Equal(".devbook/arc42/01-introduction.md", opened.Path);
+        Assert.Equal(".devbook/arc42/01-introduction.md", opened.Reference);
     }
 
     [Fact]
@@ -295,7 +295,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_read_that_failed_is_said_in_words_with_a_way_back()
     {
-        _lobes.Graph = DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder);
+        _lobes.Graph = DevbookLobesGraph.Unavailable(BrainAtlas.NoBrainFolder);
         var closed = 0;
         var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => closed++));
 
@@ -314,7 +314,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var closed = 0;
         var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => closed++));
 
@@ -339,7 +339,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.OnBuild = () => _lobes.Graph = SampleGraph();
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -357,7 +357,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.BuildProblem = "The Brain's index could not be built: disk full";
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -378,7 +378,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_host_that_cannot_build_the_index_offers_only_the_way_back()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.CanBuildBrainIndex = false;
         var component = _context.Render<LobesAtlasTakeover>();
 
@@ -613,8 +613,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     public void The_empty_states_header_names_the_brain_beside_the_title(bool indexMissing)
     {
         _lobes.Graph = indexMissing
-            ? DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing)
-            : DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder);
+            ? DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing)
+            : DevbookLobesGraph.Unavailable(BrainAtlas.NoBrainFolder);
         var component = _context.Render<LobesAtlasTakeover>();
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-subject']")));
@@ -926,7 +926,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void Every_control_of_the_empty_state_is_a_real_button()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-empty']")));
 
@@ -938,7 +938,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var finish = new TaskCompletionSource<string?>();
         _lobes.Pending = finish.Task;
         var component = _context.Render<LobesAtlasTakeover>();
@@ -963,7 +963,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.OnBuild = () => _lobes.Graph = SampleGraph();
         var component = Render("repo:backlog");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -1209,11 +1209,11 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     private IRenderedComponent<LobesAtlasTakeover> Render(
         string? scope = null,
         Action<string>? onOpenNote = null,
-        Action<BrainRepoLink>? onOpenChapter = null) =>
+        Action<DevbookRepositoryChapter>? onOpenChapter = null) =>
         _context.Render<LobesAtlasTakeover>(parameters => parameters
             .Add(atlas => atlas.Scope, scope)
             .Add(atlas => atlas.OnOpenNote, (string path) => onOpenNote?.Invoke(path))
-            .Add(atlas => atlas.OnOpenRepositoryChapter, (BrainRepoLink link) => onOpenChapter?.Invoke(link)));
+            .Add(atlas => atlas.OnOpenRepositoryChapter, (DevbookRepositoryChapter link) => onOpenChapter?.Invoke(link)));
 
     /// <summary>A real, named button: the element, not a div made to act as one.</summary>
     private static void AssertRealButton(AngleSharp.Dom.IElement element)
@@ -1366,6 +1366,10 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             OnBuild?.Invoke();
             return Pending is { } pending ? await pending : BuildProblem;
         }
+
+        /// <summary>A raw link as the Brain's source reads it.</summary>
+        public DevbookRepositoryChapter? RepositoryChapterFor(string? raw) =>
+            BrainRepoLink.Parse(raw) is { } link ? new DevbookRepositoryChapter(link.Alias, link.Reference) : null;
 
         public void RaiseChanged() => Changed?.Invoke();
     }

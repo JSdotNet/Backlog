@@ -177,7 +177,7 @@ public sealed class DevbookPaneRerenderTests
 /// (<c>CONVENTIONS.md</c>) and the conflict walk (the whole folder). Registered
 /// over the harness's own, so the pane reads through it.
 /// </summary>
-internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<bool> onRenderer) : IBrainFolderSource
+internal sealed class CountingBrainFolderSource(BrainFolderSource inner, Func<bool> onRenderer) : IBrainFolderSource, IDevbookPersonalSource
 {
     private int _areas;
     private int _walks;
@@ -189,6 +189,7 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
     {
         var counting = new CountingBrainFolderSource(harness.Brain, () => harness.Context.Renderer.Dispatcher.CheckAccess());
         harness.Context.Services.AddSingleton<IBrainFolderSource>(counting);
+        harness.Context.Services.AddSingleton<IDevbookPersonalSource>(counting);
         return counting;
     }
 
@@ -221,7 +222,34 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
 
     public IReadOnlyList<BrainArea> HiddenAreas() => inner.HiddenAreas();
 
-    public IReadOnlyList<BrainConflictCopy> ConflictCopies()
+    public IReadOnlyList<BrainConflictCopy> ConflictCopies() => new ObservedAnswer<BrainConflictCopy>(Walk(), AnswerRead);
+
+    /// <summary>The inner source as Devbook's port, for the members the port
+    /// implements itself.</summary>
+    private IDevbookPersonalSource Personal => inner;
+
+    public string FolderKey => inner.FolderKey;
+
+    public string? Root => BrainRoot;
+
+    public bool RootPresent() => BrainFolderPresent();
+
+    // Devbook's port over the counting Brain members, so a read through either
+    // port is counted once.
+    public IReadOnlyList<DevbookTab> Tabs() => ToTabs(Areas());
+
+    public IReadOnlyList<DevbookTab> HiddenTabs() => ToTabs(HiddenAreas());
+
+    /// <summary>The walk's pairs, mapped on the pool as the adapter maps them, in
+    /// a list that still says when the pane reads it — on the dispatcher, as the
+    /// answer lands.</summary>
+    public IReadOnlyList<DevbookConflictPair> ConflictPairs() =>
+        new ObservedAnswer<DevbookConflictPair>([.. Walk().Select(copy => new DevbookConflictPair(copy.Original, copy.Copy))], AnswerRead);
+
+    private static DevbookTab[] ToTabs(IReadOnlyList<BrainArea> areas) =>
+        [.. areas.Select(area => new DevbookTab(area.Folder, area.Name, BrainConventions.IsDated(area)))];
+
+    private IReadOnlyList<BrainConflictCopy> Walk()
     {
         Interlocked.Increment(ref _walks);
         if (onRenderer()) Interlocked.Increment(ref _walksOnRenderer);
@@ -234,7 +262,7 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
         }
 
         Interlocked.Increment(ref _completedWalks);
-        return new ObservedAnswer(answer, AnswerRead);
+        return answer;
     }
 
     public event Action? Changed
@@ -248,21 +276,21 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) => inner.Resolve(key, repositoryAlias);
 
     public Task<DevbookFolderLocation> PrepareListingAsync(string key, string? repositoryAlias = null, CancellationToken cancellationToken = default) =>
-        inner.PrepareListingAsync(key, repositoryAlias, cancellationToken);
+        Personal.PrepareListingAsync(key, repositoryAlias, cancellationToken);
 
     public Task<DevbookFolderLocation> PrepareContentAsync(
         string key,
         string? repositoryAlias = null,
         IReadOnlyCollection<string>? relativePaths = null,
         CancellationToken cancellationToken = default) =>
-        inner.PrepareContentAsync(key, repositoryAlias, relativePaths, cancellationToken);
+        Personal.PrepareContentAsync(key, repositoryAlias, relativePaths, cancellationToken);
 
-    public IDevbookFileTree FileTree(DevbookFolderLocation location) => inner.FileTree(location);
+    public IDevbookFileTree FileTree(DevbookFolderLocation location) => Personal.FileTree(location);
 
     public void NotifyContentChanged() => inner.NotifyContentChanged();
 
     /// <summary>A walk's answer that says when it is read.</summary>
-    private sealed class ObservedAnswer(IReadOnlyList<BrainConflictCopy> answer, ManualResetEventSlim read) : IReadOnlyList<BrainConflictCopy>
+    private sealed class ObservedAnswer<T>(IReadOnlyList<T> answer, ManualResetEventSlim read) : IReadOnlyList<T>
     {
         public int Count
         {
@@ -273,7 +301,7 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
             }
         }
 
-        public BrainConflictCopy this[int index]
+        public T this[int index]
         {
             get
             {
@@ -282,7 +310,7 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
             }
         }
 
-        public IEnumerator<BrainConflictCopy> GetEnumerator()
+        public IEnumerator<T> GetEnumerator()
         {
             read.Set();
             return answer.GetEnumerator();

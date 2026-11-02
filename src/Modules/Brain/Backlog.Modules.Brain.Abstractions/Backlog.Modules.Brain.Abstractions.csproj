@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Brain module's public surface — everything a host, an adapter or this
+    context's own UI is allowed to see (local ADR 0040 §1, ADR 0005):
+      IBrainFolderSource    the port: where the person's Brain is, its areas and
+                              its conflict copies
+      BrainConventions      the Brain's own convention, CONVENTIONS.md: which
+                              areas it has and which folders it ignores
+      IBrainSettings,       the Brain folder setting, Show hidden, and the
+      IBrainShowHidden        folder picker a host supplies
+      IBrainNoteWriter      the one writer of a Brain note, behind Capture,
+                              To Brain and the assistant tools
+      IBrainBacklinks,      what the Brain's database answers about repository
+      IBrainTaskLinks         chapters and tasks its notes name
+
+    It references the shared kernel only. The Brain conforms to Devbook as its
+    supplier, but a module never references another module's .Abstractions here:
+    the joins - answering Devbook's personal source, building the Brain's
+    database through Devbook's corpus profile - live in the Brain's adapters.
+
+    There is no implementation project yet, for the same reason Devbook gives:
+    reading the Brain's folder and settings is an adapter's work.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Brain.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The kernel's devbook path rules (DevbookPaths), which BrainRepoLink
+         compares a repository chapter path with, the way Devbook does. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <!--
+    No InternalsVisibleTo: everything here is the published surface, so there is
+    nothing for a test to be let in to see.
+  -->
+
+</Project>

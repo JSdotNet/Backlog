@@ -7,7 +7,7 @@ namespace Backlog.EndToEndTests;
 /// The Brain's core path on the desktop harness, end to end: first use and Create
 /// conventions, Brain scope narrowing, the pane's areas, Capture, To Brain, a
 /// <c>repo:</c> link and back, and the scope surviving a restart. Each test proves
-/// the requirements under <c>.devbook/domain/devbook/requirements.md</c> and
+/// the requirements under <c>.devbook/domain/brain/requirements.md</c> and
 /// <c>.devbook/domain/inbox/requirements.md#route-to-brain</c> that list it.
 ///
 /// <para>Every test brings its own Brain folder under the temp folder, outside every

@@ -40,7 +40,7 @@
 
     /// <summary>A repository chapter followed out of the atlas: that repository's
     /// devbook, at it.</summary>
-    private void OpenRepositoryChapter(BrainRepoLink link) =>
+    private void OpenRepositoryChapter(DevbookRepositoryChapter link) =>
         ShowDevbook(DevbookSurfaceQuery.ScopeFor(link.Alias), link.Reference);
 
     /// <summary>The scope card's action: the Devbook on the Brain (an empty alias) or

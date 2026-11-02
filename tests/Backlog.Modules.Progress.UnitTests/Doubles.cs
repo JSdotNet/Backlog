@@ -34,15 +34,21 @@ internal sealed class FakePullRequests : IGoalPullRequestReader
 {
     public List<GoalPullRequestDto> Known { get; } = [];
 
+    /// <summary>Every pull request the last reading asked about.</summary>
+    public IReadOnlyList<PullRequestRefDto> Asked { get; private set; } = [];
+
     public Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(
         IReadOnlyList<PullRequestRefDto> pullRequests,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<GoalPullRequestDto>>(
+        CancellationToken cancellationToken = default)
+    {
+        Asked = [.. pullRequests];
+        return Task.FromResult<IReadOnlyList<GoalPullRequestDto>>(
         [
             .. pullRequests.Select(pull =>
                 Known.FirstOrDefault(known => known.Repository == pull.Repository && known.Number == pull.Number)
                 ?? GoalPullRequestDto.Unread(pull))
         ]);
+    }
 }
 
 /// <summary>Builds the tasks the scenarios use, in the repository <c>backlog</c> unless

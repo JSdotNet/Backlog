@@ -323,8 +323,8 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_pull_request_is_matched_by_its_number()
     {
-        Assert.Equal([Webhook], GoalCard.Match(Board.Candidates, "#135").Select(m => m.Subject));
-        Assert.Empty(GoalCard.Match(Board.Candidates, "  "));
+        Assert.Equal([Webhook], WorkItemSearch.Match(Board.Candidates, "#135").Select(m => m.Subject));
+        Assert.Empty(WorkItemSearch.Match(Board.Candidates, "  "));
     }
 
     private static readonly GoalSubject Schuld = GoalSubject.ForPlan("schuldregeling-financieel");
@@ -347,8 +347,8 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [InlineData("  +SCHULDREGELING-fin  ")]
     public void A_plan_is_matched_by_its_tag_with_or_without_its_sigil(string query)
     {
-        Assert.Equal([Schuld], GoalCard.Match(Sigils, query).Select(m => m.Subject));
-        Assert.Equal([Schuld], GoalCard.Match(Sigils, query, ["JSdotNet/Backlog"]).Select(m => m.Subject));
+        Assert.Equal([Schuld], WorkItemSearch.Match(Sigils, query).Select(m => m.Subject));
+        Assert.Equal([Schuld], WorkItemSearch.Match(Sigils, query, ["JSdotNet/Backlog"]).Select(m => m.Subject));
     }
 
     /// <summary>A title that really holds a sigil still matches as typed, and a number still
@@ -356,11 +356,11 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_title_holding_a_sigil_matches_as_typed_and_a_number_still_finds_its_pull_request()
     {
-        Assert.Equal([Terms], GoalCard.Match(Sigils, "+1 for").Select(m => m.Subject));
-        Assert.Equal([Widget], GoalCard.Match(Sigils, "#hashtag").Select(m => m.Subject));
-        Assert.Equal([Webhook], GoalCard.Match(Sigils, "#135").Select(m => m.Subject));
-        Assert.Equal([Webhook], GoalCard.Match(Sigils, "135").Select(m => m.Subject));
-        Assert.Equal([Webhook], GoalCard.Match(Sigils, "webhook").Select(m => m.Subject));
+        Assert.Equal([Terms], WorkItemSearch.Match(Sigils, "+1 for").Select(m => m.Subject));
+        Assert.Equal([Widget], WorkItemSearch.Match(Sigils, "#hashtag").Select(m => m.Subject));
+        Assert.Equal([Webhook], WorkItemSearch.Match(Sigils, "#135").Select(m => m.Subject));
+        Assert.Equal([Webhook], WorkItemSearch.Match(Sigils, "135").Select(m => m.Subject));
+        Assert.Equal([Webhook], WorkItemSearch.Match(Sigils, "webhook").Select(m => m.Subject));
     }
 
     /// <summary>A sigil alone holds nothing to match once dropped: it matches as typed only.</summary>
@@ -369,7 +369,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [InlineData("#")]
     public void A_sigil_alone_matches_only_the_titles_that_hold_it(string query)
     {
-        var matches = GoalCard.Match(Sigils, query).Select(m => m.Subject).ToList();
+        var matches = WorkItemSearch.Match(Sigils, query).Select(m => m.Subject).ToList();
 
         Assert.DoesNotContain(Schuld, matches);
         Assert.DoesNotContain(Webhook, matches);
@@ -486,7 +486,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_pull_request_number_no_candidate_holds_is_offered_in_each_repository_in_scope_first()
     {
-        var matches = GoalCard.Match(Board.Candidates, "#1477", ["JSdotNet/Backlog", "JSdotNet/Marketplace"]);
+        var matches = WorkItemSearch.Match(Board.Candidates, "#1477", ["JSdotNet/Backlog", "JSdotNet/Marketplace"]);
 
         Assert.Equal(
             [GoalSubject.ForPullRequest("JSdotNet/Backlog", 1477), GoalSubject.ForPullRequest("JSdotNet/Marketplace", 1477)],
@@ -497,9 +497,9 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_bare_pull_request_number_is_offered_in_every_registered_repository_past_the_match_limit()
     {
-        string[] repositories = [.. Enumerable.Range(1, GoalCard.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
+        string[] repositories = [.. Enumerable.Range(1, WorkItemSearch.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
 
-        var matches = GoalCard.Match(Board.Candidates, "#1477", repositories);
+        var matches = WorkItemSearch.Match(Board.Candidates, "#1477", repositories);
 
         Assert.Equal(
             repositories.Select(repository => GoalSubject.ForPullRequest(repository, 1477)),
@@ -509,16 +509,16 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void The_match_limit_caps_only_the_candidate_matches_after_the_named_pull_requests()
     {
-        string[] repositories = [.. Enumerable.Range(1, GoalCard.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
+        string[] repositories = [.. Enumerable.Range(1, WorkItemSearch.MatchLimit + 2).Select(n => $"JSdotNet/Repo{n}")];
         GoalsItem[] candidates =
         [
-            .. Enumerable.Range(0, GoalCard.MatchLimit + 3)
+            .. Enumerable.Range(0, WorkItemSearch.MatchLimit + 3)
                 .Select(n => new GoalsItem(GoalSubject.ForPullRequest("JSdotNet/Other", 50 + n), $"Change {n}")),
         ];
 
-        var matches = GoalCard.Match(candidates, "5", repositories);
+        var matches = WorkItemSearch.Match(candidates, "5", repositories);
 
-        Assert.Equal(repositories.Length + GoalCard.MatchLimit, matches.Count);
+        Assert.Equal(repositories.Length + WorkItemSearch.MatchLimit, matches.Count);
         Assert.All(matches.Take(repositories.Length), m => Assert.Equal(5, m.Subject.Number));
     }
 
@@ -529,7 +529,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [InlineData("https://github.com/JSdotNet/Backlog/pull/1357")]
     public void A_pull_request_a_candidate_holds_is_listed_once_as_the_candidate(string query)
     {
-        var match = Assert.Single(GoalCard.Match(Board.Candidates, query, ["JSdotNet/Backlog"]));
+        var match = Assert.Single(WorkItemSearch.Match(Board.Candidates, query, ["JSdotNet/Backlog"]));
 
         Assert.Equal(new GoalsItem(Webhook, "Payment status webhook"), match);
     }
@@ -537,8 +537,8 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_query_that_names_no_pull_request_matches_as_before()
     {
-        Assert.Equal(GoalCard.Match(Board.Candidates, "pay"), GoalCard.Match(Board.Candidates, "pay", ["JSdotNet/Backlog"]));
-        Assert.Equal(GoalCard.Match(Board.Candidates, "#135"), GoalCard.Match(Board.Candidates, "#135", []));
+        Assert.Equal(WorkItemSearch.Match(Board.Candidates, "pay"), WorkItemSearch.Match(Board.Candidates, "pay", ["JSdotNet/Backlog"]));
+        Assert.Equal(WorkItemSearch.Match(Board.Candidates, "#135"), WorkItemSearch.Match(Board.Candidates, "#135", []));
     }
 
     [Fact]
@@ -1322,6 +1322,383 @@ public sealed class GoalsBoardComponentsTests : IDisposable
             "Two-week iterations need a day to count from.",
             dialog.Find("[data-testid='two-week-start-dialog-error']").TextContent.Trim()));
         Assert.Equal(0, saves);
+    }
+
+    // --- What an impediment holds back (#linking-what-an-impediment-holds-back) ---------
+
+    private static readonly GoalSubject Statements = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1352);
+    private static readonly GoalSubject Provider = GoalSubject.ForPlan("pay");
+
+    private static readonly StandUpImpediment Holding = Bank with
+    {
+        HoldsBack =
+        [
+            new GoalsItem(Statements, "Bank statement import"),
+            new GoalsItem(Provider, "+pay"),
+            new GoalsItem(Vat, "VAT rate per line item")
+        ]
+    };
+
+    [Fact]
+    public void An_impediment_row_lists_what_it_holds_back_in_link_order_under_kind_labels()
+    {
+        var row = _context.Render<ImpedimentRow>(p => p.Add(c => c.Impediment, Holding).Add(c => c.TestId, "imp"));
+
+        var list = row.Find("[data-testid='imp-items']");
+        Assert.Equal("What Bank sample files missing holds back", list.GetAttribute("aria-label"));
+        var items = row.FindAll("[data-testid='imp-items'] .impediment-row__item");
+        Assert.Equal(["PR", "Plan", "Task"], items.Select(i => i.QuerySelector(".impediment-row__item-kind")!.TextContent));
+        Assert.Equal(
+            ["#1352 Bank statement import", "+pay", "VAT rate per line item"],
+            items.Select(i => i.QuerySelector(".impediment-row__item-title")!.TextContent));
+
+        // Without a host the list is text alone: no Unlink, no Link….
+        Assert.Empty(row.FindAll(".impediment-row__unlink"));
+        Assert.Empty(row.FindAll("[data-testid='imp-link']"));
+    }
+
+    [Fact]
+    public void An_impediment_holding_back_nothing_lists_nothing()
+    {
+        var row = _context.Render<ImpedimentRow>(p => p.Add(c => c.Impediment, Bank).Add(c => c.TestId, "imp"));
+
+        Assert.Empty(row.FindAll("[data-testid='imp-items']"));
+        Assert.Empty(row.FindAll("[data-testid='imp-ready']"));
+    }
+
+    /// <summary>Ready to resolve is a reading beside the picker, in the settled tone and in
+    /// words; the picker still holds the stored state, so resolving stays the person's.</summary>
+    [Fact]
+    public void Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state()
+    {
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Holding with { ReadyToResolve = true })
+            .Add(c => c.TestId, "imp"));
+
+        var mark = row.Find(".impediment-row__head [data-testid='imp-ready']");
+        Assert.Equal("Ready to resolve", mark.TextContent.Trim());
+        Assert.Contains("badge--tone-settled", mark.ClassList);
+        Assert.Equal(nameof(StandUpImpedimentState.Escalated), row.Find("[data-testid='imp-state'] select").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Unlink_hands_the_item_back_named_for_it_and_the_impediment()
+    {
+        var unlinked = new List<GoalSubject>();
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Holding)
+            .Add(c => c.OnUnlink, (GoalSubject subject) => unlinked.Add(subject))
+            .Add(c => c.TestId, "imp"));
+
+        var unlink = row.Find($"[data-testid='imp-unlink-{Statements.Key}']");
+        Assert.Equal("Unlink #1352 Bank statement import from Bank sample files missing", unlink.GetAttribute("aria-label"));
+        Assert.Equal("Unlink", unlink.GetAttribute("title"));
+        unlink.Click();
+
+        row.WaitForAssertion(() => Assert.Equal([Statements], unlinked));
+    }
+
+    /// <summary>Link… opens the work search over tasks, pull requests and plans, leaving out
+    /// what the row holds; a pick hands the item back and the search stays for the next.</summary>
+    [Fact]
+    public void Link_opens_the_work_search_without_what_the_row_holds_and_hands_the_pick_back()
+    {
+        var linked = new List<GoalSubject>();
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Holding)
+            .Add(c => c.Candidates, Board.Candidates)
+            .Add(c => c.Repositories, ["JSdotNet/Backlog"])
+            .Add(c => c.OnLink, (GoalSubject subject) => linked.Add(subject))
+            .Add(c => c.TestId, "imp"));
+
+        var link = row.Find("[data-testid='imp-link']");
+        Assert.Equal("Link…", link.TextContent.Trim());
+        Assert.Equal("false", link.GetAttribute("aria-expanded"));
+        Assert.Empty(row.FindAll("[data-testid='imp-link-search-box']"));
+
+        link.Click();
+
+        Assert.Equal("true", row.Find("[data-testid='imp-link']").GetAttribute("aria-expanded"));
+        var input = row.Find("[data-testid='imp-link-search-box'] input");
+        Assert.Equal("Link a task, pull request or plan to Bank sample files missing", input.GetAttribute("aria-label"));
+        input.Input("pay");
+
+        // The plan the row already holds is not offered again.
+        row.WaitForAssertion(() => Assert.Equal(
+            ["Task", "PR"],
+            row.FindAll("[data-testid='imp-link-search-matches'] .work-item-search__match-kind").Select(kind => kind.TextContent)));
+
+        row.Find($"[data-testid='imp-link-search-match-{Webhook.Key}']").Click();
+
+        row.WaitForAssertion(() =>
+        {
+            Assert.Equal([Webhook], linked);
+            Assert.NotNull(row.Find("[data-testid='imp-link-search-box']"));
+        });
+
+        // Nor is a pull request it holds, when the query names it by its number.
+        row.Find("[data-testid='imp-link-search-box'] input").Input("#1352");
+        row.WaitForAssertion(() =>
+        {
+            Assert.Empty(row.FindAll("[data-testid='imp-link-search-matches']"));
+            Assert.NotNull(row.Find("[data-testid='imp-link-search-box']"));
+        });
+    }
+
+    [Fact]
+    public void Escape_in_the_link_search_closes_it_and_the_focus_goes_back_to_Link()
+    {
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Holding)
+            .Add(c => c.Candidates, Board.Candidates)
+            .Add(c => c.OnLink, (GoalSubject _) => { })
+            .Add(c => c.TestId, "imp"));
+
+        row.Find("[data-testid='imp-link']").Click();
+        row.Find(".impediment-row__link").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        row.WaitForAssertion(() =>
+        {
+            Assert.Empty(row.FindAll("[data-testid='imp-link-search-box']"));
+            Assert.Equal([row.Find("[data-testid='imp-link']").Id!], Focused);
+        });
+    }
+
+    [Fact]
+    public void A_link_refusal_shows_in_the_row_that_asked_and_a_link_from_the_board_names_the_impediment()
+    {
+        ImpedimentLinkRequest? request = null;
+        var standUp = StandUp with { Impediments = [Holding, Runner] };
+        var board = RenderBoard(Board with { StandUp = standUp }, p => p
+            .Add(c => c.OnLinkImpediment, (ImpedimentLinkRequest r) => request = r)
+            .Add(c => c.OnUnlinkImpediment, (ImpedimentUnlinkRequest _) => { }));
+
+        board.Find("[data-testid='goals-board-stand-up-impediment-bank-link']").Click();
+        board.Find("[data-testid='goals-board-stand-up-impediment-bank-link-search-box'] input").Input("quick");
+        board.WaitForAssertion(() => board.Find($"[data-testid='goals-board-stand-up-impediment-bank-link-search-match-{Widget.Key}']"));
+        board.Find($"[data-testid='goals-board-stand-up-impediment-bank-link-search-match-{Widget.Key}']").Click();
+
+        board.WaitForAssertion(() => Assert.Equal(new ImpedimentLinkRequest("bank", Widget), request));
+
+        board.Render(p => p.Add(c => c.LinkError, "That work is gone."));
+
+        Assert.Equal("That work is gone.", board.Find("[data-testid='goals-board-stand-up-impediment-bank-link-error']").TextContent.Trim());
+        Assert.Empty(board.FindAll("[data-testid='goals-board-stand-up-impediment-runner-link-error']"));
+    }
+
+    [Fact]
+    public void An_unlink_from_the_board_names_the_impediment()
+    {
+        ImpedimentUnlinkRequest? request = null;
+        var board = RenderBoard(Board with { StandUp = StandUp with { Impediments = [Holding] } }, p => p
+            .Add(c => c.OnUnlinkImpediment, (ImpedimentUnlinkRequest r) => request = r));
+
+        board.Find($"[data-testid='goals-board-stand-up-impediment-bank-unlink-{Provider.Key}']").Click();
+
+        board.WaitForAssertion(() => Assert.Equal(new ImpedimentUnlinkRequest("bank", Provider), request));
+    }
+
+    [Fact]
+    public void Raise_impediment_sits_in_the_impediments_heading_only_with_a_host_listening()
+    {
+        var raised = 0;
+        var board = RenderBoard(more: p => p.Add(c => c.OnRaiseImpediment, () => raised++));
+        var bare = RenderBoard(more: p => p.Add(c => c.TestId, "bare"));
+
+        var raise = board.Find("[data-testid='goals-board-stand-up-impediments'] .stand-up-panel__block-head [data-testid='goals-board-stand-up-raise']");
+        Assert.Equal("Raise impediment", raise.TextContent.Trim());
+        raise.Click();
+
+        Assert.Equal(1, raised);
+        Assert.Empty(bare.FindAll("[data-testid='bare-stand-up-raise']"));
+        Assert.Empty(bare.FindAll("[data-testid='bare-stand-up-impediment-bank-link']"));
+    }
+
+    // --- The work search ----------------------------------------------------------
+
+    [Fact]
+    public void The_work_search_offers_only_the_kinds_it_is_given()
+    {
+        var search = _context.Render<WorkItemSearch>(p => p
+            .Add(c => c.Candidates, Board.Candidates)
+            .Add(c => c.Repositories, ["JSdotNet/Backlog"])
+            .Add(c => c.Kinds, [GoalSubjectKind.Task])
+            .Add(c => c.Label, "Find a task")
+            .Add(c => c.TestId, "ws"));
+
+        search.Find("[data-testid='ws-search'] input").Input("pay");
+        search.WaitForAssertion(() => Assert.Equal(
+            [$"ws-match-{Terms.Key}"],
+            search.FindAll(".work-item-search__match").Select(match => match.GetAttribute("data-testid"))));
+
+        // A pull request the query names is left out with its kind.
+        search.Find("[data-testid='ws-search'] input").Input("#1477");
+        search.WaitForAssertion(() => Assert.Empty(search.FindAll("[data-testid='ws-matches']")));
+    }
+
+    [Fact]
+    public void The_work_search_hands_back_the_pick_with_its_title_and_clears()
+    {
+        GoalsItem? picked = null;
+        var search = _context.Render<WorkItemSearch>(p => p
+            .Add(c => c.Candidates, Board.Candidates)
+            .Add(c => c.Label, "Find work")
+            .Add(c => c.OnPick, (GoalsItem item) => picked = item)
+            .Add(c => c.TestId, "ws"));
+
+        Assert.Equal("work-item-search", search.Find("[data-testid='ws']").ClassName);
+        search.Find("[data-testid='ws-search'] input").Input("widget");
+        search.WaitForAssertion(() => search.Find($"[data-testid='ws-match-{Widget.Key}']"));
+        search.Find($"[data-testid='ws-match-{Widget.Key}']").Click();
+
+        search.WaitForAssertion(() =>
+        {
+            Assert.Equal(new GoalsItem(Widget, "Quick-capture widget"), picked);
+            Assert.Empty(search.FindAll("[data-testid='ws-matches']"));
+            Assert.Single(_context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+        });
+    }
+
+    // --- Raise impediment (#raising-an-impediment) --------------------------------
+
+    private IRenderedComponent<ImpedimentRaiseDialog> RenderRaiseDialog(Action<ImpedimentRaiseRequest> onRaise, string? error = null) =>
+        _context.Render<ImpedimentRaiseDialog>(p => p
+            .Add(c => c.Open, true)
+            .Add(c => c.Candidates, Board.Candidates)
+            .Add(c => c.Repositories, ["JSdotNet/Backlog"])
+            .Add(c => c.Error, error)
+            .Add(c => c.OnRaise, onRaise));
+
+    [Fact]
+    public void The_raise_dialog_refuses_a_blank_title_on_the_field_and_hands_nothing_back()
+    {
+        var raised = new List<ImpedimentRaiseRequest>();
+        var dialog = RenderRaiseDialog(raised.Add);
+
+        dialog.Find("[data-testid='impediment-raise-dialog-title'] input").Input("   ");
+        dialog.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+
+        dialog.WaitForAssertion(() => Assert.Contains(
+            ImpedimentRaiseDialog.TitleRequired,
+            dialog.Find("[data-testid='impediment-raise-dialog-title']").TextContent));
+        Assert.Empty(raised);
+    }
+
+    /// <summary>The blank-title refusal goes as soon as a title is typed, not at the next Raise.</summary>
+    [Fact]
+    public void The_raise_dialogs_blank_title_message_clears_once_a_title_is_typed()
+    {
+        var dialog = RenderRaiseDialog(_ => { });
+        dialog.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+        dialog.WaitForAssertion(() => Assert.Contains(
+            ImpedimentRaiseDialog.TitleRequired,
+            dialog.Find("[data-testid='impediment-raise-dialog-title']").TextContent));
+
+        dialog.Find("[data-testid='impediment-raise-dialog-title'] input").Input("Sandbox down");
+
+        dialog.WaitForAssertion(() => Assert.DoesNotContain(
+            ImpedimentRaiseDialog.TitleRequired,
+            dialog.Find("[data-testid='impediment-raise-dialog-title']").TextContent));
+    }
+
+    [Fact]
+    public void The_raise_dialog_hands_back_the_title_the_note_and_the_items_in_the_order_picked()
+    {
+        ImpedimentRaiseRequest? raised = null;
+        var dialog = RenderRaiseDialog(request => raised = request);
+
+        dialog.Find("[data-testid='impediment-raise-dialog-title'] input").Input("  Payment provider sandbox down ");
+        dialog.Find("[data-testid='impediment-raise-dialog-note'] textarea").Input("   ");
+        var search = dialog.Find("[data-testid='impediment-raise-dialog-search-search'] input");
+        search.Input("#1357");
+        dialog.WaitForAssertion(() => dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Webhook.Key}']"));
+        dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Webhook.Key}']").Click();
+        dialog.Find("[data-testid='impediment-raise-dialog-search-search'] input").Input("+pay");
+        dialog.WaitForAssertion(() => dialog.Find("[data-testid='impediment-raise-dialog-search-match-plan:pay']"));
+        dialog.Find("[data-testid='impediment-raise-dialog-search-match-plan:pay']").Click();
+
+        dialog.WaitForAssertion(() => Assert.Equal(
+            ["#1357 Payment status webhook", "Payment provider switch"],
+            dialog.FindAll(".impediment-raise-dialog__item-title").Select(title => title.TextContent)));
+
+        // A picked item is not offered twice.
+        dialog.Find("[data-testid='impediment-raise-dialog-search-search'] input").Input("#1357");
+        dialog.WaitForAssertion(() => Assert.Empty(dialog.FindAll($"[data-testid='impediment-raise-dialog-search-match-{Webhook.Key}']")));
+
+        dialog.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+
+        dialog.WaitForAssertion(() =>
+        {
+            Assert.NotNull(raised);
+            Assert.Equal("Payment provider sandbox down", raised.Title);
+            Assert.Null(raised.Note);
+            Assert.Equal([Webhook, GoalSubject.ForPlan("pay")], raised.Items);
+        });
+    }
+
+    [Fact]
+    public void A_picked_item_is_removed_from_the_raise_with_its_remove()
+    {
+        ImpedimentRaiseRequest? raised = null;
+        var dialog = RenderRaiseDialog(request => raised = request);
+
+        dialog.Find("[data-testid='impediment-raise-dialog-title'] input").Input("Sandbox down");
+        dialog.Find("[data-testid='impediment-raise-dialog-search-search'] input").Input("widget");
+        dialog.WaitForAssertion(() => dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Widget.Key}']"));
+        dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Widget.Key}']").Click();
+
+        var remove = dialog.Find($"[data-testid='impediment-raise-dialog-remove-{Widget.Key}']");
+        Assert.Equal("Remove Quick-capture widget", remove.GetAttribute("aria-label"));
+        remove.Click();
+        dialog.Find("[data-testid='impediment-raise-dialog-note'] textarea").Input(" Provider status page says degraded ");
+        dialog.Find("[data-testid='impediment-raise-dialog-raise']").Click();
+
+        dialog.WaitForAssertion(() =>
+        {
+            Assert.NotNull(raised);
+            Assert.Equal("Sandbox down", raised.Title);
+            Assert.Equal("Provider status page says degraded", raised.Note);
+            Assert.Empty(raised.Items);
+        });
+    }
+
+    /// <summary>Remove takes its line, and the focused button with it, out of the dialog: the
+    /// focus moves to the next line's Remove, or to the search box once none is left, so it
+    /// never falls out of the modal and Escape still reaches it.</summary>
+    [Fact]
+    public void Remove_keeps_the_focus_in_the_raise_dialog()
+    {
+        var dialog = RenderRaiseDialog(_ => { });
+        var search = "[data-testid='impediment-raise-dialog-search-search'] input";
+
+        dialog.Find(search).Input("widget");
+        dialog.WaitForAssertion(() => dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Widget.Key}']"));
+        dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Widget.Key}']").Click();
+        dialog.Find(search).Input("terms");
+        dialog.WaitForAssertion(() => dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Terms.Key}']"));
+        dialog.Find($"[data-testid='impediment-raise-dialog-search-match-{Terms.Key}']").Click();
+        var boxFocused = _context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count;
+
+        dialog.Find($"[data-testid='impediment-raise-dialog-remove-{Widget.Key}']").Click();
+
+        var next = dialog.Find($"[data-testid='impediment-raise-dialog-remove-{Terms.Key}']");
+        dialog.WaitForAssertion(() => Assert.Equal([next.Id!], Focused));
+
+        next.Click();
+
+        dialog.WaitForAssertion(() =>
+        {
+            Assert.Empty(dialog.FindAll(".impediment-raise-dialog__item"));
+            Assert.Equal(boxFocused + 1, _context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count);
+        });
+    }
+
+    [Fact]
+    public void The_raise_dialog_shows_the_modules_refusal()
+    {
+        var dialog = RenderRaiseDialog(_ => { }, "The impediment could not be raised.");
+
+        Assert.Equal("The impediment could not be raised.", dialog.Find("[data-testid='impediment-raise-dialog-error']").TextContent.Trim());
     }
 
     private static string Normalise(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

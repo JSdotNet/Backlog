@@ -110,33 +110,6 @@ public interface IGitHubClient
         Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot read pinned pull requests."));
 
     /// <summary>
-    /// The named pull requests of one repository, whatever state each is in, with only
-    /// what a task's link records: the title, the state, the author and when it merged.
-    /// A number GitHub cannot find is left out. A default body for the reason
-    /// <see cref="ListOpenPullRequestsAsync"/> has one.
-    /// </summary>
-    Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
-        GitHubRepositoryRef repository,
-        IReadOnlyCollection<int> numbers,
-        CancellationToken cancellationToken = default) =>
-        Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException("This GitHub client cannot read linked pull requests."));
-
-    /// <summary>
-    /// <see cref="ReadLinkedPullRequestsAsync"/> with each pull request's status: the
-    /// head commit's check counts and failed checks
-    /// (<see cref="GitHubLinkedPullRequest.CheckCounts"/>,
-    /// <see cref="GitHubLinkedPullRequest.FailingChecks"/>), the reviews, and the
-    /// approvals the base branch requires (<see cref="GitHubReviewSummary.Required"/>).
-    /// What Progress reads a pull request's status by. A default body that falls back to
-    /// the slim read, so a client that cannot read the status still answers the link.
-    /// </summary>
-    Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
-        GitHubRepositoryRef repository,
-        IReadOnlyCollection<int> numbers,
-        CancellationToken cancellationToken = default) =>
-        ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken);
-
-    /// <summary>
     /// The approving reviews each named branch of one repository requires before a merge
     /// (<see cref="GitHubReviewSummary.Required"/>), keyed by branch name: a value of null
     /// is a branch whose rules were read and ask for none. A branch whose rules could not
@@ -489,6 +462,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             mergeCommitAllowed
             squashMergeAllowed
             rebaseMergeAllowed
+            defaultBranchRef { name }
             pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
               nodes {
                 {{ListedPullRequestFields}}
@@ -621,8 +595,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// The pinned read's query for <paramref name="numbers"/>: one aliased
     /// <c>pullRequest(number:)</c> per number, <c>p</c> and the number, each with the
     /// list's fields and the state and times only a pull request read by number can
-    /// have. The numbers are integers the caller holds, so writing them into the text
-    /// rather than as variables cannot inject anything.
+    /// have — and, once for the repository, its default branch. The numbers are integers
+    /// the caller holds, so writing them into the text rather than as variables cannot
+    /// inject anything.
     /// </summary>
     internal static string PinnedPullRequestsQuery(IEnumerable<int> numbers)
     {
@@ -643,6 +618,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 mergeCommitAllowed
                 squashMergeAllowed
                 rebaseMergeAllowed
+                defaultBranchRef { name }
             {{fields}}
               }
             }
@@ -1016,216 +992,12 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return await WithUnlistedFailuresAsync(repository, pinned, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>How many pull requests one linked read asks for in a single query. A
-    /// task list carries hundreds of links in a busy repository, and one query aliasing
-    /// all of them would be the kind GitHub refuses for its size — taking every link in
-    /// the repository down with it.</summary>
-    internal const int LinkedBatchSize = 50;
-
-    /// <summary>How many pull requests one status read asks for in a single query —
-    /// half <see cref="LinkedBatchSize"/>, because each one asks for up to
-    /// <see cref="HeadCheckLimit"/> checks and its base branch's rules beside the link's
-    /// own facts.</summary>
+    /// <summary>How many pull requests one read by number that asks for each one's
+    /// status sends in a single query: each one asks for up to
+    /// <see cref="HeadCheckLimit"/> checks beside its own facts, and one query aliasing
+    /// too many is the kind GitHub refuses for its size. Repository Management's source
+    /// batches the pinned read by it.</summary>
     internal const int LinkedStatusBatchSize = 25;
-
-    /// <summary>
-    /// The linked read: one aliased <c>pullRequest(number:)</c> per number, asking only
-    /// for the facts a link records, in batches of <see cref="LinkedBatchSize"/> sent one
-    /// after another through the repository's own GraphQL path. A number GitHub cannot
-    /// find is left out; a batch GitHub refuses fails the read, as the pinned read does.
-    /// </summary>
-    public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
-        GitHubRepositoryRef repository,
-        IReadOnlyCollection<int> numbers,
-        CancellationToken cancellationToken = default) =>
-        ReadLinkedAsync(repository, numbers, withStatus: false, cancellationToken);
-
-    /// <summary>
-    /// The linked read with each pull request's status: the facts a link records, the
-    /// head commit's check counts and failed checks, the reviews, and the approvals the
-    /// base branch requires (<see cref="ReadRequiredApprovals"/>), in batches of
-    /// <see cref="LinkedStatusBatchSize"/>. A number GitHub cannot find is left out; a
-    /// refusal of a status fact reads as that fact missing; any other refusal fails the
-    /// read.
-    /// </summary>
-    public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
-        GitHubRepositoryRef repository,
-        IReadOnlyCollection<int> numbers,
-        CancellationToken cancellationToken = default) =>
-        ReadLinkedAsync(repository, numbers, withStatus: true, cancellationToken);
-
-    private async Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedAsync(
-        GitHubRepositoryRef repository,
-        IReadOnlyCollection<int> numbers,
-        bool withStatus,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(repository);
-        ArgumentNullException.ThrowIfNull(numbers);
-
-        int[] wanted = [.. numbers.Where(number => number > 0).Distinct()];
-        var pulls = new List<GitHubLinkedPullRequest>(wanted.Length);
-
-        foreach (var batch in wanted.Chunk(withStatus ? LinkedStatusBatchSize : LinkedBatchSize))
-        {
-            var data = await GitHubGraphQl.SendAsync(
-                transport,
-                repository,
-                LinkedPullRequestsQuery(batch, withStatus),
-                new Dictionary<string, object?>
-                {
-                    ["owner"] = repository.Owner,
-                    ["name"] = repository.Name
-                },
-                cancellationToken,
-                tolerate: withStatus
-                    ? (errors, answer) => OnlyLinkedFactsOrMissingPinsWereRefused(errors, answer, batch)
-                    : (errors, answer) => OnlyMissingPinsWereRefused(errors, answer, batch)).ConfigureAwait(false);
-
-            pulls.AddRange(ReadLinkedPullRequests(data, repository.FullName, batch));
-        }
-
-        return pulls;
-    }
-
-    /// <summary>
-    /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
-    /// each asking for the number, title, url, state, draft flag, merge time, the time it
-    /// was opened, the branch it merges into and author — and, once for the repository,
-    /// its default branch, so a merge read here says whether it landed work
-    /// (<c>PullRequestLanding</c>) without a read of its own. With <paramref name="withStatus"/>, each also asks for the
-    /// head commit's check counts and its first <see cref="HeadCheckLimit"/> checks under
-    /// the list's <c>checkCounts</c> alias, the review decision and the latest opinionated
-    /// reviews, and the base branch's rules — its branch protection rule and the rules
-    /// rulesets apply to it — for the approvals it requires
-    /// (<see cref="ReadRequiredApprovals"/>). The numbers are integers the caller holds,
-    /// so writing them into the text cannot inject anything.
-    /// <para>
-    /// The base branch's rules are read per pull request rather than once per branch:
-    /// the read knows only numbers, so it cannot name a branch before it has read one,
-    /// and a second round trip would cost more than the few nodes each rule list is.
-    /// </para>
-    /// </summary>
-    internal static string LinkedPullRequestsQuery(IEnumerable<int> numbers, bool withStatus = false)
-    {
-        var status = withStatus ? LinkedStatusFields : string.Empty;
-        var fields = string.Join(
-            Environment.NewLine,
-            numbers.Select(number => $$"""
-                    {{PinnedAlias(number)}}: pullRequest(number: {{number.ToString(System.Globalization.CultureInfo.InvariantCulture)}}) {
-                      number
-                      title
-                      url
-                      state
-                      isDraft
-                      mergedAt
-                      createdAt
-                      baseRefName
-                      author { login }{{status}}
-                    }
-                """));
-
-        return $$"""
-            query($owner: String!, $name: String!) {
-              repository(owner: $owner, name: $name) {
-                defaultBranchRef { name }
-            {{fields}}
-              }
-            }
-            """;
-    }
-
-    /// <summary>What the status read asks of each pull request beyond the link's own
-    /// facts. See <see cref="LinkedPullRequestsQuery"/>.</summary>
-    private static readonly string LinkedStatusFields = $$"""
-
-                          reviewDecision
-                          latestOpinionatedReviews(first: 20, writersOnly: true) { nodes { state } }
-                          baseRef {
-                            branchProtectionRule { requiresApprovingReviews requiredApprovingReviewCount }
-                            rules(first: 50) { nodes { type parameters { ... on PullRequestParameters { requiredApprovingReviewCount } } } }
-                          }
-                          commits(last: 1) {
-                            nodes {
-                              commit {
-                                checkCounts: statusCheckRollup {
-                                  contexts(first: {{HeadCheckLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)}}) {
-                                    totalCount
-                                    checkRunCountsByState { state count }
-                                    statusContextCountsByState { state count }
-                                    nodes {
-                                      __typename
-                                      ... on CheckRun { name status conclusion }
-                                      ... on StatusContext { context state }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-        """;
-
-    /// <summary>The linked read's <c>data</c>, in the order asked. An alias that came
-    /// back null — a number GitHub cannot find — is left out; a missing repository is a
-    /// not-found, as for the pinned read.</summary>
-    internal static IReadOnlyList<GitHubLinkedPullRequest> ReadLinkedPullRequests(
-        JsonElement data,
-        string repositoryFullName,
-        IEnumerable<int> numbers)
-    {
-        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
-        {
-            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
-            {
-                Status = System.Net.HttpStatusCode.NotFound
-            };
-        }
-
-        var pulls = new List<GitHubLinkedPullRequest>();
-        var defaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
-            ? String(defaultRef, "name")
-            : null;
-
-        foreach (var asked in numbers)
-        {
-            if (!repository.TryGetProperty(PinnedAlias(asked), out var pull) || pull.ValueKind != JsonValueKind.Object) continue;
-
-            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : asked;
-            var state = String(pull, "state") switch
-            {
-                "MERGED" => GitHubItemState.Merged,
-                "CLOSED" => GitHubItemState.Closed,
-                _ => pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True
-                    ? GitHubItemState.Draft
-                    : GitHubItemState.Open
-            };
-
-            pulls.Add(new GitHubLinkedPullRequest(
-                number,
-                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
-                String(pull, "title") ?? string.Empty,
-                repositoryFullName,
-                state,
-                Login(pull, "author"),
-                state is GitHubItemState.Merged ? Timestamp(pull, "mergedAt") : null,
-                Timestamp(pull, "createdAt"))
-            {
-                CheckCounts = ReadCheckCounts(pull),
-                FailingChecks =
-                [
-                    .. ReadHeadChecks(pull)
-                        .Where(check => check.State == GitHubCheckState.Failing)
-                        .Select(check => check.Name)
-                        .Distinct(StringComparer.Ordinal)
-                ],
-                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) },
-                BaseRefName = String(pull, "baseRefName"),
-                DefaultBranch = defaultBranch
-            });
-        }
-
-        return pulls;
-    }
 
     /// <summary>
     /// Every page sent the way the open list is, through the repository's own GraphQL
@@ -1526,50 +1298,6 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         && data.TryGetProperty("repository", out var repository)
         && repository.ValueKind == JsonValueKind.Object;
 
-    /// <summary>The status read's tolerance: a number GitHub cannot find, and a refusal of
-    /// any fact beyond the link's own — the checks, the reviews, the base branch's rules —
-    /// each of which reads as that fact missing (no checks, no decision, no required
-    /// count), never as the pull request missing.</summary>
-    private static bool OnlyLinkedFactsOrMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
-        errors.All(error => IsARefusedExtraFact(error) || IsARefusedBaseRule(error) || IsAMissingPin(error, asked))
-        && data.TryGetProperty("repository", out var repository)
-        && repository.ValueKind == JsonValueKind.Object;
-
-    /// <summary>The fields the base branch's rules are read under. A token that may not
-    /// read a branch's protection is refused it there, and the count it would have given
-    /// is unknown, which is null.</summary>
-    private static readonly string[] RefusableBaseRules = ["baseRef", "branchProtectionRule", "rules"];
-
-    private static bool IsARefusedBaseRule(JsonElement error) =>
-        RefusableBaseRules.Any(field => GitHubGraphQl.PathPassesThrough(error, field));
-
-    /// <summary>
-    /// The approving reviews a pull request node's base branch requires: the larger of
-    /// its <c>branchProtectionRule</c>'s <c>requiredApprovingReviewCount</c>, where that
-    /// rule says <c>requiresApprovingReviews</c>, and every <c>PULL_REQUEST</c> rule's
-    /// <c>requiredApprovingReviewCount</c> in the branch's <c>rules</c>. Null where neither
-    /// asks for at least one approval — no rule, a rule requiring none, a branch that is
-    /// gone, or rules the token was refused: no rule means no required total.
-    /// </summary>
-    internal static int? ReadRequiredApprovals(JsonElement pull)
-    {
-        if (pull.ValueKind != JsonValueKind.Object
-            || !pull.TryGetProperty("baseRef", out var baseRef) || baseRef.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
-
-        return ReadRequiredApprovalsOfRef(baseRef);
-    }
-
-    /// <summary>Whether a pull request node carries its base branch's rules — the status
-    /// read's <c>baseRef</c> answered with its <c>rules</c> — so its
-    /// <see cref="GitHubReviewSummary.Required"/> is a reading rather than a gap.</summary>
-    internal static bool RequiredApprovalsWereRead(JsonElement pull) =>
-        pull.ValueKind == JsonValueKind.Object
-        && pull.TryGetProperty("baseRef", out var baseRef) && baseRef.ValueKind == JsonValueKind.Object
-        && baseRef.TryGetProperty("rules", out var rules) && rules.ValueKind == JsonValueKind.Object;
-
     /// <summary>
     /// The query <see cref="ReadRequiredApprovalsAsync"/> sends: one aliased
     /// <c>ref(qualifiedName:)</c> per branch, <c>r</c> and its place in the list, each
@@ -1674,9 +1402,15 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return read;
     }
 
-    /// <summary>The approvals one branch's rules require, as <see cref="ReadRequiredApprovals"/>
-    /// reads them off a pull request's <c>baseRef</c>.</summary>
-    private static int? ReadRequiredApprovalsOfRef(JsonElement baseRef)
+    /// <summary>
+    /// The approving reviews one branch's rules require: the larger of its
+    /// <c>branchProtectionRule</c>'s <c>requiredApprovingReviewCount</c>, where that rule
+    /// says <c>requiresApprovingReviews</c>, and every <c>PULL_REQUEST</c> rule's
+    /// <c>requiredApprovingReviewCount</c> in the branch's <c>rules</c>. Null where neither
+    /// asks for at least one approval — no rule, or a rule requiring none: no rule means
+    /// no required total.
+    /// </summary>
+    internal static int? ReadRequiredApprovalsOfRef(JsonElement baseRef)
     {
         var required = 0;
 
@@ -1705,13 +1439,6 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
         return required > 0 ? required : null;
     }
-
-    /// <summary>The slim linked read asks for no extra fact a server may lack, so the
-    /// only error it tolerates is a number GitHub cannot find.</summary>
-    private static bool OnlyMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
-        errors.All(error => IsAMissingPin(error, asked))
-        && data.TryGetProperty("repository", out var repository)
-        && repository.ValueKind == JsonValueKind.Object;
 
     private static bool IsAMissingPin(JsonElement error, IReadOnlyCollection<int> asked)
     {
@@ -1900,11 +1627,14 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         var method = PreferredMergeMethod(repository);
+        var defaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+            ? String(defaultRef, "name")
+            : null;
         var pulls = new List<GitHubOpenPullRequest>();
 
         foreach (var pull in nodes.EnumerateArray())
         {
-            if (ReadListedPullRequest(pull, repositoryFullName, method) is { } read) pulls.Add(read);
+            if (ReadListedPullRequest(pull, repositoryFullName, method) is { } read) pulls.Add(read with { DefaultBranch = defaultBranch });
         }
 
         return pulls;
@@ -1930,6 +1660,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         var method = PreferredMergeMethod(repository);
+        var defaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+            ? String(defaultRef, "name")
+            : null;
         var pulls = new List<GitHubOpenPullRequest>();
 
         foreach (var number in numbers)
@@ -1943,7 +1676,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 IsMerged = string.Equals(state, "MERGED", StringComparison.Ordinal),
                 IsClosed = string.Equals(state, "CLOSED", StringComparison.Ordinal),
                 MergedAt = Timestamp(pull, "mergedAt"),
-                ClosedAt = Timestamp(pull, "closedAt")
+                ClosedAt = Timestamp(pull, "closedAt"),
+                DefaultBranch = defaultBranch
             });
         }
 

@@ -99,6 +99,10 @@ public static class GoalsText
         return string.IsNullOrWhiteSpace(impediment.GoalTitle) ? meta : meta + Separator + impediment.GoalTitle;
     }
 
+    /// <summary>The mark an open impediment wears once everything it holds back is settled,
+    /// on the desktop and the phone alike.</summary>
+    public const string ReadyToResolve = "Ready to resolve";
+
     /// <summary>"check Tue".</summary>
     public static string CheckAgain(DateOnly day) => "check " + day.ToString("ddd", English);
 

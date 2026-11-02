@@ -157,6 +157,11 @@ public enum StandUpImpedimentState
 /// <param name="CheckAgain">The day to look at it again; null with none.</param>
 /// <param name="GoalTitle">The goal it holds back; null with none.</param>
 /// <param name="Note">The person's note on it; null with none.</param>
+/// <param name="ReadyToResolve">Whether everything it holds back is settled, so the person
+/// may resolve it (<c>.devbook/domain/progress/domain.md#ready-to-resolve</c>): a reading,
+/// never a state.</param>
+/// <param name="HoldsBack">The tasks, pull requests and plans it holds back, in the order
+/// linked, each handed back as it came on Unlink; empty when none.</param>
 public sealed record StandUpImpediment(
     string Id,
     string Title,
@@ -166,7 +171,13 @@ public sealed record StandUpImpediment(
     int DaysOpen,
     DateOnly? CheckAgain,
     string? GoalTitle,
-    string? Note = null);
+    string? Note = null,
+    bool ReadyToResolve = false,
+    IReadOnlyList<GoalsItem>? HoldsBack = null)
+{
+    /// <summary>The items it holds back, in the order linked.</summary>
+    public IReadOnlyList<GoalsItem> HoldsBack { get; init; } = HoldsBack ?? [];
+}
 
 /// <summary>
 /// The stand-up beside the goals (<c>.devbook/domain/progress/features.md#the-stand-up</c>).
@@ -246,6 +257,21 @@ public sealed record ImpedimentMoveRequest(string ImpedimentId, StandUpImpedimen
 /// <summary>Replace the note of the impediment <paramref name="ImpedimentId"/> with
 /// <paramref name="Note"/>, trimmed; null clears it.</summary>
 public sealed record ImpedimentNoteRequest(string ImpedimentId, string? Note);
+
+/// <summary>A new impediment as the Raise impediment dialog hands it back
+/// (<c>.devbook/domain/progress/features.md#raising-an-impediment</c>).</summary>
+/// <param name="Title">The title, trimmed; never blank, which the dialog refuses.</param>
+/// <param name="Note">The note, trimmed; null when left blank.</param>
+/// <param name="Items">The work it holds back from the start, in the order picked; empty for
+/// none.</param>
+public sealed record ImpedimentRaiseRequest(string Title, string? Note, IReadOnlyList<GoalSubject> Items);
+
+/// <summary>Link <paramref name="Subject"/> to the impediment <paramref name="ImpedimentId"/>
+/// as work it holds back (<c>.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back</c>).</summary>
+public sealed record ImpedimentLinkRequest(string ImpedimentId, GoalSubject Subject);
+
+/// <summary>Unlink <paramref name="Subject"/> from the impediment <paramref name="ImpedimentId"/>.</summary>
+public sealed record ImpedimentUnlinkRequest(string ImpedimentId, GoalSubject Subject);
 
 /// <summary>A new goal as the New goal dialog hands it back, trimmed.</summary>
 /// <param name="Outcome">The one-line outcome; null when left blank.</param>

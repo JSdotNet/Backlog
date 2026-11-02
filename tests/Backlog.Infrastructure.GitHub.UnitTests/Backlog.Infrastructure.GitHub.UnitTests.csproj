@@ -21,6 +21,7 @@
        interface only compiles in a project that references it. -->
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
   </ItemGroup>
 
 </Project>

@@ -21,8 +21,8 @@ namespace Backlog.Infrastructure.Devbook.Building;
 ///
 /// <para>The areas of the repository scope come in the layout's fixed folder
 /// order (<see cref="DevbookBuildLayout.Folders"/>), as the generator's
-/// discovered folders do — a Brain's in the order its <c>CONVENTIONS.md</c>
-/// declares them, with no folder convention applied below them.</para>
+/// discovered folders do — a corpus profile's in the order the profile names
+/// them, with no folder convention applied below them where it has none.</para>
 /// </summary>
 internal static class DevbookOutlineBuilder
 {
@@ -66,7 +66,7 @@ internal static class DevbookOutlineBuilder
         var files = new List<string>();
         var directories = new List<string>();
 
-        foreach (var (name, isDirectory) in DevbookBuildFiles.Entries(repositoryRoot, relativeDirectory, layout.IsBrain))
+        foreach (var (name, isDirectory) in DevbookBuildFiles.Entries(repositoryRoot, relativeDirectory, layout.Profile.ReadsCloudPlaceholders))
         {
             // `_`-prefixed folders hold tooling artifacts, not readable content.
             if (name.StartsWith('_') || name.StartsWith('.')) continue;

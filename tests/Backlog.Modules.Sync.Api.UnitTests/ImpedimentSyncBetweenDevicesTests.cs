@@ -26,16 +26,20 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Scenario "An impediment reaches the other desktop": raised on A with the
-    /// task it holds back and a note, it is on B after B's next pull, the same document at
-    /// the same stamp, and B's screens hear it without a Refresh.</summary>
+    private static readonly HeldBackItemDto PullRequest = HeldBackItemDto.ForPullRequest("acme/payments", 412);
+    private static readonly HeldBackItemDto Plan = HeldBackItemDto.ForPlan("goals-standup");
+
+    /// <summary>Scenarios "An impediment reaches the other desktop" and "holding back all
+    /// three kinds": raised on A with the task, pull request and plan it holds back and a
+    /// note, it is on B after B's next pull, the same document at the same stamp, and B's
+    /// screens hear it without a Refresh.</summary>
     [Fact]
     public async Task An_impediment_raised_on_one_desktop_appears_on_the_other()
     {
         var (a, b) = await _desktops.PairAsync();
         var task = Guid.NewGuid();
         var raised = await a.Impediments(impediments => impediments.RaiseAsync(
-            new RaiseImpedimentRequest("Bank sample files missing", [task], "Asked the bank on Friday"), Cancellation));
+            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(task), PullRequest, Plan], "Asked the bank on Friday"), Cancellation));
 
         Assert.True((await a.SyncAsync()).IsSuccess);
         var heard = 0;
@@ -48,10 +52,41 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         Assert.Equal("Bank sample files missing", there.Title);
         Assert.Equal(ImpedimentState.New, there.State);
         Assert.Equal("Asked the bank on Friday", there.Note);
-        Assert.Equal([task], there.HoldsBack);
+        Assert.Equal([HeldBackItemDto.ForTask(task), PullRequest, Plan], there.HoldsBack);
         Assert.Equal(raised.History, there.History);
         Assert.Equal(await a.ImpedimentCopyAsync(raised.Id), await b.ImpedimentCopyAsync(raised.Id));
         Assert.True(heard > 0);
+    }
+
+    /// <summary>Mixed versions (local ADR 0035 §9, Verification 11): a desktop still on
+    /// version 1 renames the impediment and writes it back with its tasks alone. B takes the
+    /// newer title and tasks and keeps the pull request and plan it held, at the stamp the
+    /// version 1 write carried, so B pushes no change of its own back.</summary>
+    [Fact]
+    public async Task A_version_1_write_keeps_the_pull_requests_and_plans_a_version_2_desktop_holds()
+    {
+        var (a, b) = await _desktops.PairAsync();
+        var task = Guid.NewGuid();
+        var raised = await a.Impediments(impediments => impediments.RaiseAsync(
+            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(task), PullRequest, Plan]), Cancellation));
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        var version1 = new ImpedimentReplicaCopyDto(
+            raised.Id,
+            "Bank sample files still missing",
+            $$"""{"version":1,"id":"{{raised.Id}}","title":"Bank sample files still missing","history":[{"state":"New","on":"2026-10-17"}],"holdsBack":["{{task}}"]}""",
+            DateTimeOffset.UtcNow.AddHours(1));
+        var pushed = await a.Http.PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.Tasks), new PushTasksRequest([Backlog.Infrastructure.Sync.ImpedimentReplicaDocuments.ToChange(version1)]), Cancellation);
+        pushed.EnsureSuccessStatusCode();
+
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        var there = await b.Impediments(impediments => impediments.GetAsync(raised.Id, Cancellation));
+        Assert.Equal("Bank sample files still missing", there.Title);
+        Assert.Equal([HeldBackItemDto.ForTask(task), PullRequest, Plan], there.HoldsBack);
+        Assert.Equal(version1.UpdatedAt, (await b.ImpedimentCopyAsync(raised.Id))!.UpdatedAt);
     }
 
     /// <summary>Both move one impediment before either syncs — A reports it, B resolves it

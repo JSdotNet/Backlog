@@ -26,6 +26,7 @@ public partial class SharedTestDoubleTests
         "RecordingTelemetry",
         "InMemorySessionRequestStore",
         "RecordingNotifications",
+        "InMemoryPullRequests",
     ];
 
     [Theory]

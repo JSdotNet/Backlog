@@ -1,5 +1,4 @@
 @implements IDisposable
-@inject IDevbookLobesSource Lobes
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
@@ -463,7 +462,14 @@
     /// <summary>A repository chapter followed — a resolved link out of the Brain,
     /// or a devbook's own chapter — to open that repository's devbook at it.</summary>
     [Parameter]
-    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+    public EventCallback<DevbookRepositoryChapter> OnOpenRepositoryChapter { get; set; }
+
+    /// <summary>Where the graph comes from: the source the personal devbook's
+    /// context registered (local ADR 0040 §2), or, in a host that composes none,
+    /// one with nothing to map.</summary>
+    private IDevbookLobesSource Lobes => _lobes ??= Services.GetService<IDevbookLobesSource>() ?? UnavailableLobesSource.Instance;
+
+    private IDevbookLobesSource? _lobes;
 
     /// <summary>The scope card's action: the Devbook opened on the Brain (an empty
     /// alias) or on that repository's devbook.</summary>
@@ -805,17 +811,40 @@
     private Task OnSheetOpenChanged(bool open) => open ? Task.CompletedTask : SelectAsync(null);
 
     private Task OpenRepositoryLinkAsync(string? raw) =>
-        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
+        Lobes.RepositoryChapterFor(raw) is { } chapter ? OnOpenRepositoryChapter.InvokeAsync(chapter) : Task.CompletedTask;
 
     /// <summary>A registered devbook's own chapter as a link into it: the alias
     /// and the chapter's id within its devbook, which is the reference the
     /// Devbook opens.</summary>
-    private BrainRepoLink? ChapterLink(DevbookLobesNode node)
+    private DevbookRepositoryChapter? ChapterLink(DevbookLobesNode node)
     {
         if (_graph?.Scope(node.ScopeKey) is not { Kind: DevbookLobesScopeKind.Devbook, Alias: { Length: > 0 } alias }) return null;
 
         var bar = node.Id.IndexOf('|', StringComparison.Ordinal);
-        return bar < 0 ? null : BrainRepoLink.Parse($"{BrainRepoLink.Scheme}{alias}/{node.Id[(bar + 1)..]}");
+        return bar < 0 ? null : ChapterReference(alias, node.Id[(bar + 1)..]);
+    }
+
+    /// <summary>A devbook chapter's id as the reference the Devbook opens: the path
+    /// with any leading <c>./</c> or <c>/</c> dropped, and its heading kept when
+    /// there is one.</summary>
+    internal static DevbookRepositoryChapter? ChapterReference(string alias, string id)
+    {
+        var target = id.Replace('\\', '/');
+        string? slug = null;
+        var hash = target.IndexOf('#', StringComparison.Ordinal);
+        if (hash >= 0)
+        {
+            var anchor = target[(hash + 1)..].Trim();
+            slug = anchor.Length == 0 ? null : anchor;
+            target = target[..hash];
+        }
+
+        var path = target.Trim();
+        while (path.StartsWith("./", StringComparison.Ordinal)) path = path[2..];
+        path = path.TrimStart('/');
+
+        var trimmedAlias = alias.Trim();
+        return trimmedAlias.Length == 0 || path.Length == 0 ? null : new DevbookRepositoryChapter(trimmedAlias, slug is null ? path : $"{path}#{slug}");
     }
 
     /// <summary>A ghost's key whose alias has been registered since — the graph

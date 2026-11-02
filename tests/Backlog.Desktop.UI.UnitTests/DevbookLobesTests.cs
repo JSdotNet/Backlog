@@ -101,8 +101,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void The_para_attribute_wins_over_the_folder_for_a_note_and_its_chapters()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [
                     new("resources/ref.md", "Ref", "resources", "file", string.Empty, "resources/ref.md", false),
                     new("resources/ref.md#detail", "Detail", "resources", "chapter", string.Empty, "resources/ref.md", false),
@@ -124,8 +124,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void A_para_area_in_a_folder_of_another_name_keeps_its_region()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [
                     new("work/plan.md", "Plan", "work", "file", string.Empty, "work/plan.md", false),
                     new("contacts/ann.md", "Ann", "contacts", "file", string.Empty, "contacts/ann.md", false)
@@ -231,8 +231,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void A_registered_devbook_without_an_index_holds_the_named_chapters_dashed()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
                 new Dictionary<string, string>(),
@@ -259,8 +259,8 @@ public sealed class DevbookLobesTests : IDisposable
     [InlineData(false)]
     public void A_chapter_of_a_devbook_not_indexed_yet_says_so_rather_than_that_it_is_no_chapter(bool resolves)
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
                 new Dictionary<string, string>(),
@@ -282,8 +282,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void A_chapter_an_indexed_devbook_does_not_hold_is_still_no_chapter_in_its_devbook()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/99-missing.md")],
                 new Dictionary<string, string>(),
@@ -311,8 +311,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void A_link_that_does_not_resolve_to_an_indexed_chapter_is_dashed_to_that_chapter()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
                 new Dictionary<string, string>(),
@@ -338,8 +338,8 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public void Two_cases_of_one_ghost_path_are_one_ghost_chapter()
     {
-        var graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        var graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [
                     new("related", "projects/plan.md", "repo:homelab/.arc42/X.md"),
@@ -390,15 +390,15 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public async Task With_no_brain_folder_or_no_brain_index_the_lobes_read_says_so()
     {
-        var service = new DevbookAtlasService(new Registered(Array.Empty<string>())) { BrainDatabaseFor = DatabaseFor };
+        var service = new BrainAtlas(new Registered(Array.Empty<string>())) { DatabaseFor = DatabaseFor };
 
         var unset = await service.ReadLobesAsync(new FixedBrain(null), [], TestContext.Current.CancellationToken);
         Assert.False(unset.Available);
-        Assert.Equal(DevbookAtlasService.NoBrainFolder, unset.Message);
+        Assert.Equal(BrainAtlas.NoBrainFolder, unset.Message);
 
         var unbuilt = await service.ReadLobesAsync(new FixedBrain(Path.Combine(_scratch, "never-built")), [], TestContext.Current.CancellationToken);
         Assert.False(unbuilt.Available);
-        Assert.Equal(DevbookAtlasService.BrainIndexMissing, unbuilt.Message);
+        Assert.Equal(BrainAtlas.BrainIndexMissing, unbuilt.Message);
 
         // Only the missing index is the absence the atlas offers to mend.
         Assert.True(unbuilt.BrainIndexMissing);
@@ -432,8 +432,8 @@ public sealed class DevbookLobesTests : IDisposable
             .AddSingleton<IBrainFolderSource>(new FixedBrain(brain))
             .AddSingleton(refresher)
             .BuildServiceProvider();
-        var atlas = new DevbookAtlasService(new Registered(Array.Empty<string>())) { BrainDatabaseFor = DatabaseFor };
-        var source = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), services);
+        var atlas = new BrainAtlas(new Registered(Array.Empty<string>())) { DatabaseFor = DatabaseFor };
+        var source = new BrainLobesSource(new DevbookAtlasService(new Registered(Array.Empty<string>())), atlas,new DevbookScope(null!, null!, null!), services);
 
         Assert.True(source.CanBuildBrainIndex);
         Assert.False(File.Exists(DatabaseFor(brain)));
@@ -448,20 +448,20 @@ public sealed class DevbookLobesTests : IDisposable
     [Fact]
     public async Task A_host_without_the_refresher_or_a_brain_cannot_build_and_says_why()
     {
-        var atlas = new DevbookAtlasService(new Registered(Array.Empty<string>())) { BrainDatabaseFor = DatabaseFor };
+        var atlas = new BrainAtlas(new Registered(Array.Empty<string>())) { DatabaseFor = DatabaseFor };
 
         using (var noRefresher = new ServiceCollection().AddSingleton<IBrainFolderSource>(new FixedBrain(WriteBrain())).BuildServiceProvider())
         {
-            var source = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), noRefresher);
+            var source = new BrainLobesSource(new DevbookAtlasService(new Registered(Array.Empty<string>())), atlas,new DevbookScope(null!, null!, null!), noRefresher);
             Assert.False(source.CanBuildBrainIndex);
-            Assert.Equal(DevbookLobesSource.BuildUnavailable, await source.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(BrainLobesSource.BuildUnavailable, await source.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
         }
 
         using var refresher = new DevbookDatabaseRefresher(() => Path.Combine(_scratch, "devbook-cache"), watchFolder: (_, _) => null);
         using var noBrain = new ServiceCollection().AddSingleton<IBrainFolderSource>(new FixedBrain(null)).AddSingleton(refresher).BuildServiceProvider();
-        var unset = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), noBrain);
+        var unset = new BrainLobesSource(new DevbookAtlasService(new Registered(Array.Empty<string>())), atlas,new DevbookScope(null!, null!, null!), noBrain);
         Assert.False(unset.CanBuildBrainIndex);
-        Assert.Equal(DevbookAtlasService.NoBrainFolder, await unset.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(BrainAtlas.NoBrainFolder, await unset.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
     }
 
     // ----- Fixtures ------------------------------------------------------------------
@@ -480,14 +480,14 @@ public sealed class DevbookLobesTests : IDisposable
         var brain = WriteBrain();
         var target = DatabaseFor(brain);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-        Assert.True(DevbookDatabaseBuilder.Build(brain, target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(brain, target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         var repository = WriteRepository();
         var repositoryDatabase = DevbookDatabaseLocation.ForRepositoryRoot(repository)!;
         Directory.CreateDirectory(Path.GetDirectoryName(repositoryDatabase)!);
         Assert.True(DevbookDatabaseBuilder.Build(repository, repositoryDatabase, TestContext.Current.CancellationToken));
 
-        var service = new DevbookAtlasService(new Registered(("backlog", repository))) { BrainDatabaseFor = DatabaseFor };
+        var service = new BrainAtlas(new Registered(("backlog", repository))) { DatabaseFor = DatabaseFor };
         var graph = await service.ReadLobesAsync(new FixedBrain(brain), ["backlog"], TestContext.Current.CancellationToken);
 
         Assert.True(graph.Available, graph.Message);

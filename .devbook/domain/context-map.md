@@ -31,7 +31,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042, proposed). |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
-| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
+| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by repository and number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
 | Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0039). |
 | Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
@@ -267,13 +267,13 @@ flowchart LR
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
 - `Progress` names a task by its id, a plan by its
-  [plan tag](roadmap/domain.md#roadmap-tag), a session by its agent and session
-  id and a pull request by its repository and number, and reads each from its owner
-  on every reading. `Tasks` holds no knowledge of goals or impediments: no task
+  [plan tag](roadmap/domain.md#roadmap-tag), a pull request by its repository and
+  number and a session by its agent and session id, and reads each from its owner on
+  every reading. An impediment holds back tasks, pull requests and plans by the same
+  identities. `Tasks` holds no knowledge of goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
-  changes nothing on it. Marking a task blocked raises an impediment because
-  Progress reacts to the mark; Tasks does not call Progress and stores no
-  impediment id
+  changes nothing on it. A task's blocked mark is Tasks' alone and raises no
+  impediment; Tasks does not call Progress and stores no impediment id
   (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
