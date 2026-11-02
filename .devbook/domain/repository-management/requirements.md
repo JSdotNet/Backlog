@@ -427,7 +427,7 @@ related: [.devbook/domain/repository-management/features.md#pull-request-status,
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failure_among_twelve_passed_reads_1_of_13_failing, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
 ```
 
 The system SHALL show on every open pull request row an icon and its checks as `passed/total`, in a running variant while a check runs and a failing variant once one fails.
@@ -446,9 +446,10 @@ The system SHALL show on every open pull request row an icon and its checks as `
 
 #### Scenario: A failing check
 
-- **Given** #1344 has 14 checks, 2 passed and one failed
+- **Given** #1344 has 14 checks, 2 passed, one failed and 11 still running
 - **When** its row is drawn
 - **Then** it shows the failing icon and `2/14`
+- **And** a screen reader hears "1 of 14 checks failing", the failed count over the total
 
 ### Requirement: A pull request row shows approvals over required
 
