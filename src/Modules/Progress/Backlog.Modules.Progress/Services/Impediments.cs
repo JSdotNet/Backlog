@@ -56,9 +56,9 @@ public sealed class Impediments(
     public Task<Result<ImpedimentDto>> EditNoteAsync(Guid impedimentId, string? note, CancellationToken cancellationToken = default) =>
         commands.Handle(new EditImpedimentNoteCommand(impedimentId, note), cancellationToken);
 
-    public Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, Guid taskId, CancellationToken cancellationToken = default) =>
-        commands.Handle(new HoldBackTaskCommand(impedimentId, taskId), cancellationToken);
+    public Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, HeldBackItemDto item, CancellationToken cancellationToken = default) =>
+        commands.Handle(new HoldBackItemCommand(impedimentId, item), cancellationToken);
 
-    public Task<Result<ImpedimentDto>> ReleaseAsync(Guid impedimentId, Guid taskId, CancellationToken cancellationToken = default) =>
-        commands.Handle(new ReleaseTaskCommand(impedimentId, taskId), cancellationToken);
+    public Task<Result<ImpedimentDto>> ReleaseAsync(Guid impedimentId, HeldBackItemDto item, CancellationToken cancellationToken = default) =>
+        commands.Handle(new ReleaseItemCommand(impedimentId, item), cancellationToken);
 }

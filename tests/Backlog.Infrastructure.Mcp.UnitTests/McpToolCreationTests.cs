@@ -155,6 +155,7 @@ public class McpToolCreationTests
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                ImpedimentTools.LinkToImpediment,
                 SessionRequestTools.MarkDelivery,
                 SessionRequestTools.MarkSessionRequest,
                 NotificationTools.Notify,
@@ -169,6 +170,7 @@ public class McpToolCreationTests
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
                 TrackerTools.Transition,
+                ImpedimentTools.UnlinkFromImpediment,
                 GoalTools.UpdateGoal,
                 SurfaceTools.UpdateStage
             ],
@@ -200,8 +202,12 @@ public class McpToolCreationTests
         Assert.Equal(["id"], schemas["read_item"]);
         Assert.Equal(["id", "status"], schemas["transition"]);
         Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
-        Assert.Equal(["title", "holdsBack", "note"], schemas["raise_impediment"]);
+        Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note"], schemas["raise_impediment"]);
         Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["link_to_impediment"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["unlink_from_impediment"]);
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "link_to_impediment")));
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "unlink_from_impediment")));
         Assert.Empty(schemas["list_goals"]);
         Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
         Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
@@ -377,7 +383,7 @@ public class McpToolCreationTests
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
-            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
+            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),

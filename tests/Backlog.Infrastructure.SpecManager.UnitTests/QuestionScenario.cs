@@ -52,14 +52,18 @@ internal sealed class QuestionScenario : IDisposable
 
     public Guid IdOf(string questionId) => SpecManagerQuestionIds.For(Root, questionId);
 
-    /// <summary>Answers the product's questions from fixtures, by the state asked for.</summary>
-    public void Questions(string open, string answered) =>
+    /// <summary>Answers the product's questions from fixtures, by the state asked for, each
+    /// answer after <paramref name="before"/> returns.</summary>
+    public void Questions(string open, string answered, Action? before = null) =>
         Connector.Server.Route(HttpMethod.Get, QuestionsPath, (request, _) =>
-            StubSpecManager.Respond(
+        {
+            before?.Invoke();
+            return StubSpecManager.Respond(
                 HttpStatusCode.OK,
                 request.RequestUri!.Query.Contains("state=answered", StringComparison.Ordinal)
                     ? (answered.StartsWith('[') ? answered : Fixtures.Read(answered))
-                    : (open.StartsWith('[') ? open : Fixtures.Read(open))));
+                    : (open.StartsWith('[') ? open : Fixtures.Read(open)));
+        });
 
     /// <summary>The product's only target, with "Only questions assigned to me" set as
     /// <paramref name="only"/>.</summary>

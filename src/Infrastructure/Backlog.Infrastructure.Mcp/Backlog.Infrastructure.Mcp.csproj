@@ -54,7 +54,8 @@
          IQuestionRelay, the question relay ask, get_answer and close reach
          for a session's own question (local ADR 0041). -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
-    <!-- IImpediments: the impediments raise_impediment and set_impediment_state write. -->
+    <!-- IImpediments: the impediments raise_impediment, set_impediment_state,
+         link_to_impediment and unlink_from_impediment write. -->
     <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
     <!-- INotifications and INotificationStatuses: what notify and ask publish, and
          what get_answer and close read (local ADR 0039). -->

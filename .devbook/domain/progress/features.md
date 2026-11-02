@@ -147,7 +147,7 @@ blocks, read over the [iteration](#choosing-the-iteration):
 | Goals | each goal's progress, `+n` done in the last window, due date and badge |
 | Finished | the items the goals count that were done in the last window, grouped by goal |
 | Planned | the [planned](domain.md#planned) items for the next window, grouped by goal, with the points tag |
-| Impediments | each open impediment with its state, then how many were resolved in the last window |
+| Impediments | each open impediment with its state, marked when it is [ready to resolve](domain.md#ready-to-resolve), then how many were resolved in the last window |
 
 Each block's heading carries its count. A goal without a due date reads as due at the
 end of the next window, such as "due 23 Oct (end of iteration)", here and in the copied
@@ -169,7 +169,10 @@ following the iteration. Without a pace the tag is the planned points alone, suc
 
 An impediment's line names who it is with, its age in working days and the goal it
 holds back, such as "Account manager · 3 days · Customers get paid faster". A New one
-reads "Not reported yet". A check-again date takes the age's place: "check Tue".
+reads "Not reported yet". A check-again date takes the age's place: "check Tue". The
+goal is the one that counts a [held-back item](domain.md#holds-back): a task, a pull
+request or an entry of a held-back plan. When its items belong to several goals, the
+line names the goal of the first item linked.
 
 Under that line the impediment's note shows as written, whichever device wrote it. On
 the desktop, **Add note** or **Edit note** opens it in place: leaving the box keeps
@@ -199,8 +202,9 @@ related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progres
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
 
-Keep track of what holds work back until it is out of the way. An impediment is raised
-with a title, and moves through its states as the person chases it:
+Keep track of what holds work back until it is out of the way. A person raises an
+impediment with a title, links the tasks, pull requests and plans it holds back, and
+moves it through its states as they chase it:
 
 ```mermaid
 flowchart LR
@@ -212,8 +216,8 @@ flowchart LR
 ```
 
 Escalated may be skipped, and any open state may move straight to Resolved. Each move
-records its day, and who the impediment is with at that step. The impediment's page
-shows that history as a stepper, its check-again date, its note and the tasks it
+records its day, and who the impediment is with at that step. The phone's impediment
+page shows that history as a stepper, its check-again date, its note and the items it
 holds back, and through them the goal. Each state has its own colour, so a row says
 its state at a glance; [the colour scheme](../../design/color-scheme.md) gives them.
 
@@ -223,31 +227,105 @@ with. A move the impediment may not make is refused with the reason, and the sta
 stays as it was.
 
 An open impediment that holds back a goal's item makes that goal
-[At risk](domain.md#goal-forecast).
+[At risk](domain.md#goal-forecast). It stays At risk until the person resolves the
+impediment, even while the impediment reads ready to resolve.
+
+### Raising an impediment
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+```
+
+Track a blocker the moment it shows up. The stand-up's Impediments block on the
+desktop offers **Raise impediment**. It asks for a title, an optional note and,
+optionally, the first items the impediment holds back, picked as
+[linking](#linking-what-an-impediment-holds-back) picks them. The impediment starts
+New, dated today, and is listed at once.
+
+Raising is a desktop and agent action. The phone raises nothing, and nothing raises an
+impediment on the person's behalf.
+
+### Linking what an impediment holds back
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+```
+
+Say what the impediment is in the way of. Each open impediment in the desktop
+stand-up offers **Link…**, which opens the same search the
+[Attach to goal](#attaching-work-to-a-goal) picker uses, limited to three kinds:
+
+- a **task**, by its id;
+- a **pull request**, by its repository and number, found by its number too, for work
+  no task covers;
+- a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which holds back
+  every entry filed under it, including entries filed later.
+
+A session is not offered. Each linked item shows under the impediment with its kind,
+and **Unlink** beside it removes the link. Linking an item the impediment already
+holds back changes nothing. Linking and unlinking change nothing on the task, the pull
+request or the plan, and add no step to the impediment's history. An item may be held
+back by several impediments, and may belong to a goal as well.
+
+### Seeing an impediment ready to resolve
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+```
+
+Notice when a blocker is out of the way without checking each item by hand. Once
+every item an open impediment holds back is [settled](domain.md#settled), its row
+reads **Ready to resolve** beside its state badge, in the stand-up on the desktop and
+on the phone.
+
+The mark is a cue for the person, not a move. The impediment keeps its state and its
+place in the list, and the person resolves it with the state picker as before. The
+mark goes again when an item comes back, such as a task reopened from Done. An
+impediment that holds back nothing never reads ready to resolve.
+
+### Impediments for agents
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+```
+
+Let an agent track a blocker it runs into. Behind the always-on Tasks key that
+`set_blocked` answers to, an agent works with impediments through MCP tools:
+
+- `raise_impediment` raises one with its title, a note and the tasks, pull requests and
+  plans it holds back;
+- one tool links a task, a pull request or a plan to an impediment, and another
+  unlinks one;
+- `set_impediment_state` moves one to reported, escalated, being-handled or resolved,
+  with who it is with at that step.
+
+An agent names a pull request by its repository and number, and a plan by its tag.
+`set_blocked` marks a task only, and raises no impediment.
 
 ### Raising an impediment from a blocked task
 
 ```meta
 type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+status: deprecated
+related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
-Marking a task blocked raises an impediment for it, so nothing blocked goes untracked.
-A task is [marked blocked](../tasks/features.md#marking-a-task-blocked) by its
-`blocked:` token or a `set_blocked` call. When it is marked and no open impediment
-holds it back already, Progress raises a New impediment titled with the task's title
-that holds the task back. When one already does, nothing is raised, and nor is one
-when the person resolved the impediment this block raised while the task is still
-marked. Unblocking the task leaves the impediment as it is: the person resolves it.
+Retired. Marking a task blocked used to raise a New impediment for it. Those
+impediments were never resolved for the person, so the stand-up kept listing
+blockers whose tasks were long done. A task's
+[blocked mark](../tasks/features.md#marking-a-task-blocked) now raises nothing, and a
+person [raises an impediment](#raising-an-impediment) themselves.
 
-An agent works with impediments through two MCP tools beside `set_blocked`, behind
-the always-on Tasks key `set_blocked` answers to: `raise_impediment` raises one with its title, the tasks it
-holds back and a note, and `set_impediment_state` moves one to reported, escalated,
-being-handled or resolved, with who it is with at that step.
-
-The task gains no impediment field. Progress reacts to the mark, and Tasks never
-calls Progress.
+The impediments it raised stay as they are. Each holds back its one task, so it reads
+ready to resolve once that task is settled.
 
 ## Pull request status
 
@@ -283,20 +361,22 @@ with the iteration switch. A goal opens on its own page: its badge, due and land
 date, `done/total` with how many items are doing, blocked and to do, and its items
 under Plan, Tasks, Pull requests and Sessions. A goal without a due date reads "due 23 Oct
 (end of iteration)" on its stand-up card and on its page. An impediment opens on its own page: its age, the
-goal it holds back, its history, its check-again date, its note and the tasks it
-holds back.
+goal it holds back, its history, its check-again date, its note and the tasks, pull
+requests and plans it holds back. An impediment whose items are all settled reads
+ready to resolve there too.
 
 The phone reads goals, the stand-up and impediments. The one thing it changes is an
 impediment: its state, its check-again date and its note. Those changes go through the
 device outbox, as the phone's task edits do. The state list offers only the moves the
 impediment may make from where it stands. Until a desktop has applied a change, the
 impediment's page shows what was asked, with Waiting beside it while the change is
-still on the phone. Setting a goal, attaching work and copying the stand-up are desktop
-actions.
+still on the phone. Setting a goal, attaching work, raising an impediment, linking
+what it holds back and copying the stand-up are desktop actions.
 
 The stand-up on the phone is the desktop's stand-up of the same work. Pull request
-checks and approvals, and each attached session's title and state, show as a desktop
-last read them, so the phone never needs GitHub or the session records. A change made on the phone shows there once a desktop has applied it. When a
+checks and approvals, each attached session's title and state, and the state of each
+pull request an open impediment holds back show as a desktop last read them, so the
+phone never needs GitHub or the session records. A change made on the phone shows there once a desktop has applied it. When a
 desktop changed the same field after the phone last synced, the desktop's change
 stands and the phone's is dropped. So does a change a desktop did not apply: once a
 newer copy of the impediment reaches the phone without it, the phone shows that copy.
@@ -322,6 +402,11 @@ and the older one is lost. Two goals are two documents, so a change to one never
 displaces a change to the other. A deleted goal is deleted on every device, and the
 newer-change rule decides the deletion like any other change. An impediment is never
 deleted: it is resolved.
+
+An impediment travels with every item it holds back, of all three kinds. What a
+device still on a build from before pull requests and plans could be held back does
+with such an impediment, and what that costs, is local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
 
 One that arrives from another
 device shows at once on every screen that draws it, without the person pressing

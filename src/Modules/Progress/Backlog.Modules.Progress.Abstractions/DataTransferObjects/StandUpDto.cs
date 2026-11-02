@@ -76,9 +76,15 @@ public sealed record StandUpItemDto(
 /// <param name="With">Who it is with: who handles it, else who it was reported to; null
 /// while it is New and nobody was told ("Not reported yet").</param>
 /// <param name="DaysOpen">Its age: the worked days from the day it was raised through today, both included.</param>
-/// <param name="GoalId">The first goal, in goal order, that counts a task it holds back; null for none.</param>
+/// <param name="GoalId">The goal it holds back: of the first item linked that a goal
+/// counts, the first such goal in goal order; null for none.</param>
 /// <param name="GoalTitle">That goal's title, or null.</param>
 /// <param name="Note">The impediment's note as stored, or null with none.</param>
+/// <param name="ReadyToResolve">Whether it reads Ready to resolve
+/// (<c>.devbook/domain/progress/domain.md#ready-to-resolve</c>): it holds back at least one
+/// item and every one is settled. A reading only — never stored, and it moves nothing.</param>
+/// <param name="HoldsBack">Each item it holds back, in the order linked; empty when none
+/// is given.</param>
 public sealed record StandUpImpedimentDto(
     Guid Id,
     string Title,
@@ -88,4 +94,19 @@ public sealed record StandUpImpedimentDto(
     DateOnly? CheckAgain,
     Guid? GoalId,
     string? GoalTitle,
-    string? Note = null);
+    string? Note = null,
+    bool ReadyToResolve = false,
+    IReadOnlyList<StandUpHeldBackItemDto>? HoldsBack = null)
+{
+    /// <summary>Each item it holds back, in the order linked.</summary>
+    public IReadOnlyList<StandUpHeldBackItemDto> HoldsBack { get; init; } = HoldsBack ?? [];
+}
+
+/// <summary>One item an open impediment holds back, as the stand-up reads it.</summary>
+/// <param name="Item">Its kind and identity.</param>
+/// <param name="Title">Its words: the task's title — null for a task the reading does not
+/// have, such as a deleted one — <c>owner/name#number</c> for a pull request, or
+/// <c>+tag</c> for a plan.</param>
+/// <param name="Settled">Whether the work it names is over
+/// (<c>.devbook/domain/progress/domain.md#settled</c>).</param>
+public sealed record StandUpHeldBackItemDto(HeldBackItemDto Item, string? Title, bool Settled);

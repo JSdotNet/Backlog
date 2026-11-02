@@ -485,6 +485,7 @@
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
@@ -498,6 +499,7 @@
         "dependencies": {
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
@@ -593,6 +595,12 @@
         }
       },
       "backlog.modules.progress.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.repositorymanagement.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
