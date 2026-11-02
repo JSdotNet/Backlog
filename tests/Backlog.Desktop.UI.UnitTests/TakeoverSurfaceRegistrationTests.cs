@@ -9,6 +9,7 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.UI;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,7 @@ public sealed class TakeoverSurfaceRegistrationTests
     {
         { "inbox", "Inbox", InboxFeatures.Pane, [] },
         { "sessions", "Sessions", SessionFeatures.Sessions, ["session"] },
-        { "pull-requests", "Pull requests", SessionFeatures.PullRequests, ["pullRequest"] },
+        { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
         { "dashboard", "Dashboard", DashboardFeatures.Dashboard, [] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },

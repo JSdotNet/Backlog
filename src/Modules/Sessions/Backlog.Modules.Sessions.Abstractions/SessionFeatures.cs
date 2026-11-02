@@ -18,6 +18,12 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// place nothing below the Shell may read. It sits with the context it is a feature
 /// of instead.
 /// </para>
+/// <para>
+/// The pull requests list's key, <c>"pull-requests"</c>, sat here while that list was
+/// this context's second surface. It moved, string unchanged, to
+/// <c>RepositoryManagementFeatures</c> when Repository Management took over pull-request
+/// state (local ADR 0042).
+/// </para>
 /// </summary>
 public static class SessionFeatures
 {
@@ -31,18 +37,6 @@ public static class SessionFeatures
     /// twice.
     /// </para></summary>
     public const string Sessions = "sessions";
-
-    /// <summary>List the open pull requests of every registered repository, and update,
-    /// ready or merge them from that list.
-    /// <para>
-    /// This context's and not the Tasks context's, though a task's row can merge a
-    /// pull request too: the list is what the sessions shipped, read across every
-    /// repository at once, and each row leads back to the session that opened it. Its
-    /// own key rather than <see cref="Sessions"/>, because the two are different
-    /// screens with different costs — this one asks GitHub on every opening — and
-    /// somebody can want the list of sessions without it.
-    /// </para></summary>
-    public const string PullRequests = "pull-requests";
 
     /// <summary>Queue a session request from an entry or a plan for a dispatcher to
     /// start, serve it to dispatchers on the MCP listener, and link it when its session

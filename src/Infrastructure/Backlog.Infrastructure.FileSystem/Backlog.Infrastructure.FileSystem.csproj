@@ -59,6 +59,10 @@
          workspace store carries along when the root moves. The published
          surface only, and only that one constant. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <!-- The settled-fact store under Workspace/ answers Repository Management's
+         ISettledPullRequestStore: merged pull requests remembered across a restart,
+         in app storage (local ADR 0042). The published surface only. -->
+    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Devbook's

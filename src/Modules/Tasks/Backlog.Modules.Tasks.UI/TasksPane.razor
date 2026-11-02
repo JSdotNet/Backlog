@@ -1841,42 +1841,58 @@
     /// badge's accessible name too, so a reader who cannot see the inks hears the
     /// same sentence.
     /// </para>
+    /// <para>
+    /// The sentence leads with the verdict Repository Management gives the pull request
+    /// — the label the Pull requests pane and the session card draw for it, such as
+    /// "1 failing" or "Ready to merge" (local ADR 0042) — and the badge wears its tone
+    /// (<see cref="WorkLinkClass"/>), so one pull request reads the same wherever it is
+    /// drawn. The verdict stands in for the state word, and the checks or review words it
+    /// is about are not said again; the marks stay. A status that was not read has no
+    /// verdict and says its state as before.
+    /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr)
     {
         var read = row.PullRequestStates.TryGetValue(pr, out var state);
 
-        var status = IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured
-            && row.PullRequestStatuses.TryGetValue(pr, out var known)
-            && known.State is GitHubItemState.Open or GitHubItemState.Draft
-                ? known
-                : null;
+        var status = OpenStatusOf(row, pr);
 
         var checks = status?.Checks switch
         {
-            GitHubCheckState.Pending => IntegrationCheckState.Pending,
-            GitHubCheckState.Passing => IntegrationCheckState.Passing,
-            GitHubCheckState.Failing => IntegrationCheckState.Failing,
+            LinkedPullRequestChecks.Pending => IntegrationCheckState.Pending,
+            LinkedPullRequestChecks.Passing => IntegrationCheckState.Passing,
+            LinkedPullRequestChecks.Failing => IntegrationCheckState.Failing,
             _ => IntegrationCheckState.None
         };
-        var autoMerge = status?.AutoMergeEnabled == true;
-        var review = status?.ReviewState switch
+        var autoMerge = status?.AutoMerge == true;
+        var review = status?.Review switch
         {
-            GitHubReviewState.ReviewRequired => IntegrationReviewState.ReviewRequired,
-            GitHubReviewState.Approved => IntegrationReviewState.Approved,
-            GitHubReviewState.ChangesRequested => IntegrationReviewState.ChangesRequested,
+            LinkedPullRequestReview.ReviewRequired => IntegrationReviewState.ReviewRequired,
+            LinkedPullRequestReview.Approved => IntegrationReviewState.Approved,
+            LinkedPullRequestReview.ChangesRequested => IntegrationReviewState.ChangesRequested,
             _ => IntegrationReviewState.None
         };
 
+        // With a verdict, the words after it say only what it does not: the verdict
+        // already says the pull request is open or a draft, and which of its checks or
+        // its review it is about.
+        var kind = status?.VerdictLabel is null ? null : status.VerdictKind;
         var words = new List<string>();
-        if (read) words.Add(GitHubStateLabel(state));
-        if (review is not IntegrationReviewState.None) words.Add(review switch
+        if (status?.VerdictLabel is { } verdict) words.Add(verdict);
+        else if (read) words.Add(GitHubStateLabel(state));
+        var reviewWords = kind is LinkedPullRequestVerdictKind.ReviewRequired or LinkedPullRequestVerdictKind.ChangesRequested
+            ? IntegrationReviewState.None
+            : review;
+        if (reviewWords is not IntegrationReviewState.None) words.Add(reviewWords switch
         {
             IntegrationReviewState.Approved => "approved",
             IntegrationReviewState.ChangesRequested => "changes requested",
             _ => "review required"
         });
-        if (checks is not IntegrationCheckState.None) words.Add($"checks {checks.ToString().ToLowerInvariant()}");
+        if (checks is not IntegrationCheckState.None && kind is not (LinkedPullRequestVerdictKind.FailingChecks or LinkedPullRequestVerdictKind.ChecksRunning))
+        {
+            words.Add($"checks {checks.ToString().ToLowerInvariant()}");
+        }
         if (autoMerge) words.Add("auto-merge on");
 
         return new(
@@ -1901,11 +1917,33 @@
     /// <c>.devbook/design/color-scheme.md</c> — and closed the disabled ink; open and
     /// draft keep the ordinary link colour. The word is in the tooltip, so colour
     /// is never the only carrier.
+    /// <para>
+    /// An open or draft one that has a verdict also wears the verdict's tone — quiet,
+    /// live, alert, fault or settled — the same tone the Pull requests pane gives it, as
+    /// a modifier on the same badge (local ADR 0042). The verdict's words lead the
+    /// tooltip (<see cref="Link(EntryRow, EntryPullRequestLink)"/>), so the tone is never
+    /// the only carrier either.
+    /// </para>
     /// </summary>
-    private static string WorkLinkClass(EntryRow row, EntryPullRequestLink pr) =>
-        row.PullRequestStates.TryGetValue(pr, out var state)
-            ? $"entry-doc__work-link entry-doc__work-link--{GitHubStateClass(state)}"
-            : "entry-doc__work-link";
+    private string WorkLinkClass(EntryRow row, EntryPullRequestLink pr)
+    {
+        if (!row.PullRequestStates.TryGetValue(pr, out var state)) return "entry-doc__work-link";
+
+        var classes = $"entry-doc__work-link entry-doc__work-link--{GitHubStateClass(state)}";
+        return OpenStatusOf(row, pr)?.VerdictTone is { } tone
+            ? $"{classes} entry-doc__work-link--toned entry-doc__work-link--tone-{tone.ToString().ToLowerInvariant()}"
+            : classes;
+    }
+
+    /// <summary>The status the last read found for an open or draft pull request, behind
+    /// the gate every GitHub control shares; null for any other state, for one not read,
+    /// or with GitHub off.</summary>
+    private LinkedPullRequest? OpenStatusOf(EntryRow row, EntryPullRequestLink pr) =>
+        IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured
+        && row.PullRequestStatuses.TryGetValue(pr, out var known)
+        && known.State is LinkedPullRequestState.Open or LinkedPullRequestState.Draft
+            ? known
+            : null;
 
     /// <summary>
     /// The short id alone, beside the Claude mark; the words are in the tooltip,
@@ -3249,7 +3287,7 @@
             items.Add(new(
                 RowMenuMergePullRequest,
                 offer.Label,
-                offer.Act is PullRequestMergeAct.CancelAutoMerge ? "✕" : "⤵",
+                offer.Act is LinkedPullRequestMerge.CancelAutoMerge ? "✕" : "⤵",
                 Disabled: row.GitHubBusy));
         }
 
@@ -3287,10 +3325,10 @@
 
         switch (offer.Act)
         {
-            case PullRequestMergeAct.MergeNow:
+            case LinkedPullRequestMerge.MergeNow:
                 await State.MergeNowAsync(row, offer.PullRequest);
                 break;
-            case PullRequestMergeAct.CancelAutoMerge:
+            case LinkedPullRequestMerge.CancelAutoMerge:
                 await State.SetAutoMergeAsync(row, offer.PullRequest, enable: false);
                 break;
             default:
@@ -5498,6 +5536,22 @@
 
     private static string GitHubStateClass(GitHubItemState? state) =>
         state?.ToString().ToLowerInvariant() ?? "unknown";
+
+    /// <summary>A linked pull request's state in the words the issue's badge uses for
+    /// the same state, so the two never word one state two ways.</summary>
+    private static string GitHubStateLabel(LinkedPullRequestState state) => GitHubStateLabel(GitHubStateOf(state));
+
+    /// <summary>A linked pull request's state as the ink class the issue's badge uses for
+    /// the same state.</summary>
+    private static string GitHubStateClass(LinkedPullRequestState state) => GitHubStateClass(GitHubStateOf(state));
+
+    private static GitHubItemState GitHubStateOf(LinkedPullRequestState state) => state switch
+    {
+        LinkedPullRequestState.Draft => GitHubItemState.Draft,
+        LinkedPullRequestState.Merged => GitHubItemState.Merged,
+        LinkedPullRequestState.Closed => GitHubItemState.Closed,
+        _ => GitHubItemState.Open
+    };
 
     // --- Undo -------------------------------------------------------------
     //
