@@ -322,15 +322,16 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>
     /// The building block view sets the folder's sync direction on its own block,
     /// which states nothing until then — so its header draws the headline anyway,
-    /// and a pick writes the field. Any other arc42 chapter takes no direction and
-    /// draws no control.
+    /// and a pick states it in the direction map, never in the file. Any other
+    /// arc42 chapter takes no direction and draws no control.
     /// </summary>
     [Fact]
     public async Task The_building_block_view_offers_the_folders_sync_direction_even_with_an_empty_block()
     {
-        await using var harness = CreateHarness(withArc42Folder: true, withIndex: false);
+        await using var harness = CreateHarness(withArc42Folder: true, withIndex: false, withSubjects: true);
         var viewPath = Path.Combine(harness.Root, ".arc42", "05-building-block-view.md");
         File.WriteAllText(viewPath, "# Building Block View\n\n```meta\n```\n\nThe blocks.\n");
+        var before = File.ReadAllBytes(viewPath);
 
         var component = harness.Render(".arc42/05-building-block-view.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header [role='group'][aria-label='Sync direction']")));
@@ -338,9 +339,11 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         // The pad's left key states pull.
         component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--left").Click();
 
+        IDevbookSyncDirectionStore directions = harness.Subjects!;
         component.WaitForAssertion(
-            () => Assert.Contains("```meta\nsync: pull\n```", File.ReadAllText(viewPath), StringComparison.Ordinal),
+            () => Assert.Equal("pull", directions.Get(harness.RepositoryAlias, "arc42/05-building-block-view.md")),
             TimeSpan.FromSeconds(5));
+        Assert.Equal(before, File.ReadAllBytes(viewPath));
 
         var introduction = harness.Render(".arc42/01-introduction.md");
         introduction.WaitForAssertion(() => Assert.Contains("Goals.", introduction.Markup, StringComparison.Ordinal));

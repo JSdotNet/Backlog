@@ -94,7 +94,7 @@ public abstract class DocumentDevbookProvider : IDisposable
         }
 
         files = OrderFiles(files);
-        return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
+        return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit, location.RepositoryArchived);
     }
 
     /// <summary>
@@ -124,47 +124,27 @@ public abstract class DocumentDevbookProvider : IDisposable
     }
 
     /// <summary>
-    /// The <c>sync</c> state of every block in one document: where each
-    /// sits and the direction in force there, read with the blocks above it. Read
-    /// from whatever the folder resolves to, branch snapshot included — a direction
-    /// is part of what the chapter says, and only writing it needs a local folder.
+    /// The <c>sync</c> state of every block in one document: where each sits, read
+    /// from the Markdown with the blocks above it, and the direction in force
+    /// there, read from <paramref name="stated"/> — the repository's direction map.
+    /// Read from whatever the folder resolves to, branch snapshot included. There is
+    /// no write beside it: a direction is the map's, set through
+    /// <c>IDevbookSyncDirectionStore</c>, and nothing writes <c>sync</c> into a
+    /// file.
     /// </summary>
-    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
+    public Task<DevbookSyncReading> ReadSyncAsync(
+        string? repositoryAlias,
+        string documentPath,
+        Func<string, string?> stated,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(stated);
+
         var location = _source.Resolve(Folder.Key, repositoryAlias);
         if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
 
         var folderPath = location.FullPath;
-        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolders.FromPath(Folder.PathPrefix), documentPath), cancellationToken);
-    }
-
-    /// <summary>Set the item's <c>sync</c> direction, through the same address and
-    /// the same guard as its status. A block that may not state one is
-    /// refused.</summary>
-    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
-
-        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, Folder.PathPrefix, direction);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
-    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
-    /// for the reason the status has one.</summary>
-    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-
-        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, Folder.PathPrefix);
-        return Task.CompletedTask;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Folder.Folder, documentPath, stated), cancellationToken);
     }
 
     /// <summary>
@@ -512,20 +492,25 @@ public static class DocumentDevbookParser
     private readonly record struct ParsedHeading(int Level, string Text);
 }
 
+/// <param name="RepositoryArchived">Whether the repository the folder belongs to
+/// is archived (local ADR 0029 §4) — which refuses a sync direction, a write to
+/// Backlog's own map that a read-only branch snapshot still takes.</param>
 public sealed record DocumentDevbookModel(
     bool IsAvailable,
     string? RepositoryName,
     string? FolderPath,
     IReadOnlyList<DocumentDevbookFile> Files,
     string Message,
-    bool CanEdit = true)
+    bool CanEdit = true,
+    bool RepositoryArchived = false)
 {
     public static DocumentDevbookModel Available(
         string repositoryName,
         string folderPath,
         IReadOnlyList<DocumentDevbookFile> files,
-        bool canEdit = true) =>
-        new(true, repositoryName, folderPath, files, string.Empty, canEdit);
+        bool canEdit = true,
+        bool repositoryArchived = false) =>
+        new(true, repositoryName, folderPath, files, string.Empty, canEdit, repositoryArchived);
 
     public static DocumentDevbookModel Unavailable(string message) =>
         new(false, null, null, [], message);

@@ -385,6 +385,11 @@
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
 
+        // The same arrangement for a sync direction: the host's direction map, or a
+        // session one where the host composed none.
+        _directions = Services.GetService<IDevbookSyncDirectionStore>() ?? new SessionDevbookSubjectStateStore();
+        _directions.Changed += OnDirectionsChanged;
+
         // Optional, like the annotation store: a host that keeps no sync verdicts
         // draws the chapters without them.
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
@@ -626,10 +631,10 @@
             : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit, reader: _chapterReader);
         var sync = document is null
             ? DevbookSyncReading.None
-            : await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path);
+            : await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path, Stated(RepositoryAlias));
         if (read != _chapterRead) return;
 
-        _syncScope = document is null ? null : sync.Scope(document.Path, CanEdit ? (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction) : null);
+        _syncScope = document is null ? null : SyncScope(document, sync);
 
         _chapterPath = document?.Path;
         _chapterRoot = root;
@@ -945,38 +950,87 @@
         RefreshChapterComments();
     }
 
+    /// <summary>Where a unit's sync direction is kept: Backlog's map, not the
+    /// chapter (devbook's branch-true decision).</summary>
+    private IDevbookSyncDirectionStore _directions = null!;
+
+    /// <summary>The direction map's lookup for one repository, captured so a read
+    /// that lands after a scope switch still asks the scope it was made for.</summary>
+    private Func<string, string?> Stated(string? alias) => address => _directions.Get(alias, address);
+
+    /// <summary>The scope cascaded over <paramref name="document"/>: a direction
+    /// may be set wherever the repository is not archived — on a branch snapshot
+    /// too, since it is the map's and no file changes (local ADR 0029 §4).</summary>
+    private DevbookSyncScope SyncScope(DomainDevbookDocument document, DevbookSyncReading sync) =>
+        sync.Scope(document.Path, RepositoryArchived ? null : (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction));
+
     /// <summary>
-    /// A sync direction picked in the open chapter, written to the block the scope
-    /// addressed. A failure lands where a failed status write does, on the
-    /// document.
+    /// A sync direction picked in the open chapter, stated in the repository's
+    /// direction map at the block the scope addressed — no file is written, so an
+    /// open editor is left as it is. The map's own event rebuilds the scope
+    /// (<see cref="OnDirectionsChanged"/>), as it does for any other writer; a
+    /// refusal lands where a failed status write does, on the document.
     /// </summary>
-    private async Task ChangeSyncAsync(DomainDevbookDocument document, string itemPath, string? direction)
+    private Task ChangeSyncAsync(DomainDevbookDocument document, string itemPath, string? direction)
     {
-        _statusErrors.Remove(document.Path);
+        var hadError = _statusErrors.Remove(document.Path);
+        if (RepositoryArchived) return Task.CompletedTask;
+
         try
         {
-            await FlushEditorAsync();
-
-            if (direction is null)
-            {
-                await DomainDevbook.ClearSyncAsync(RepositoryAlias, itemPath);
-            }
-            else
-            {
-                await DomainDevbook.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
-            }
-
-            await ReloadAsync();
+            _directions.Set(RepositoryAlias, DevbookSync.Address(DevbookFolder.Domain, itemPath), direction, DevbookLocalAuthor.Name);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (ArgumentException ex)
         {
             _statusErrors[document.Path] = ex.Message;
+            hadError = true;
         }
 
         // The pick arrives through the record's own callback, which re-renders the
-        // record and not this pane — so the rebuilt scope would never be cascaded,
-        // and every other block on the page would keep the direction it had.
-        StateHasChanged();
+        // record and not this pane — so an alert raised or cleared would never be
+        // drawn.
+        if (hadError) StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Reads the open chapter's sync state again, from the map as it is
+    /// now, and rebuilds the scope — unless another chapter has started loading
+    /// meanwhile, whose own read has the answer.</summary>
+    private async Task RebuildSyncScopeAsync(DomainDevbookDocument document)
+    {
+        if (!ReferenceEquals(_chapterDocument, document)) return;
+
+        var read = _chapterRead;
+        DevbookSyncReading sync;
+        try
+        {
+            sync = await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path, Stated(RepositoryAlias));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        if (read != _chapterRead || !ReferenceEquals(_chapterDocument, document)) return;
+
+        _syncScope = SyncScope(document, sync);
+    }
+
+    /// <summary>The direction map changed under the panel — a tool call over MCP,
+    /// another pane, or the first read importing the Markdown's directions. It
+    /// arrives on whichever thread wrote, so the rebuild is marshalled.</summary>
+    private void OnDirectionsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed || _chapterDocument is not { } document) return;
+
+            await RebuildSyncScopeAsync(document);
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     /// <summary>
@@ -1632,6 +1686,7 @@
         DomainDevbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        _directions.Changed -= OnDirectionsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
         _switches?.Dispose();

@@ -477,16 +477,20 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
     /// <summary>
     /// A direction picked on a page's own block reaches every unit on that page at
-    /// once: the scope is rebuilt from the file after the write, and each unit's
-    /// pad centre names the level it now inherits from.
+    /// once: the direction map takes it, the scope is rebuilt from the map, and
+    /// each unit's pad centre names the level it now inherits from. The file is
+    /// not touched — a direction is Backlog's, not the chapter's.
     /// </summary>
     [Fact]
     public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
     {
         await using var harness = CreateHarness();
+        var directions = new SessionDevbookSubjectStateStore();
+        harness.Context.Services.AddSingleton<IDevbookSyncDirectionStore>(directions);
         var contextPath = Path.Combine(harness.Root, ".domain", "inbox", "context.md");
         Directory.CreateDirectory(Path.GetDirectoryName(contextPath)!);
         File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
+        var before = File.ReadAllBytes(contextPath);
 
         var component = harness.Render(".domain/inbox/context.md");
         component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitPadValue(component), StringComparison.Ordinal));
@@ -496,8 +500,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The pad's right key states push.
         component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right").Click();
 
-        component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Equal("push", ((IDevbookSyncDirectionStore)directions).Get(harness.RepositoryAlias, "domain/inbox/context.md")));
         component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitPadValue(component)));
+        Assert.Equal(before, File.ReadAllBytes(contextPath));
     }
 
     private static string UnitPadValue(IRenderedComponent<DomainDevbookPanel> component) =>

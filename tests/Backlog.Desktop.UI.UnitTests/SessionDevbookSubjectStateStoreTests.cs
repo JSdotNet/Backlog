@@ -108,4 +108,31 @@ public sealed class SessionDevbookSubjectStateStoreTests
         Assert.False(accepted.IsRefused);
         Assert.Equal("accepted", Assert.Single(store.List("JSDOTNET/BACKLOG")).State);
     }
+
+    /// <summary>The direction map beside the subjects: a direction set is read
+    /// back under any layout's address, and each port announces only its own
+    /// writes, so a pane rebuilding its sync scope is not woken by a subject.</summary>
+    [Fact]
+    public void A_direction_reads_back_and_each_port_announces_only_its_own_writes()
+    {
+        var store = new SessionDevbookSubjectStateStore(_time);
+        IDevbookSyncDirectionStore directions = store;
+        var subjectEvents = 0;
+        var directionEvents = 0;
+        store.Changed += () => subjectEvents++;
+        directions.Changed += () => directionEvents++;
+
+        store.SetState(Repository, Debt, "planned", Host);
+        directions.Set(Repository, ".devbook/domain/inbox/context.md", "Pull", Host);
+
+        Assert.Equal("pull", directions.Get("jsdotnet/backlog", ".domain/inbox/context.md"));
+        Assert.Equal((1, 1), (subjectEvents, directionEvents));
+
+        directions.Import(Repository, [("domain/inbox/context.md", "push"), ("domain/sessions/context.md", "push")]);
+        directions.Import(Repository, [("domain/tasks/domain.md#task", "push")]);
+
+        Assert.Equal(["pull", "push"], directions.List(Repository).Select(statement => statement.Direction));
+        Assert.True(directions.IsImported(Repository));
+        Assert.Equal((1, 2), (subjectEvents, directionEvents));
+    }
 }

@@ -153,6 +153,137 @@ public static class DevbookSync
         return new DevbookSyncDirection(DefaultDirection, null);
     }
 
+    /// <summary>
+    /// A block's address in Backlog's direction map: <c>&lt;folder&gt;/&lt;path below
+    /// the folder&gt;</c>, with the chapter's <c>#slug</c> when it has one —
+    /// <c>domain/tasks/domain.md#task</c>, <c>arc42/building-blocks/sync.md</c>.
+    /// <para>
+    /// Folder-qualified and free of the repository's layout, so a direction set
+    /// on a clone under <c>.devbook/</c> names the same block on a branch still
+    /// read from the legacy <c>.domain/</c>. The folder is lower-cased; the path
+    /// and the slug are kept as given, slugs being lower-case already.
+    /// </para>
+    /// </summary>
+    /// <param name="folder">The devbook folder the block is in.</param>
+    /// <param name="path"><c>.devbook/domain/…</c>, <c>.domain/…</c>,
+    /// <c>domain/…</c> or a path below the folder, with or without
+    /// <c>#slug</c>.</param>
+    public static string Address(DevbookFolder folder, string path)
+    {
+        var normalised = Normalise(path);
+        var anchor = normalised.IndexOf('#', StringComparison.Ordinal);
+        var slug = anchor < 0 ? null : normalised[(anchor + 1)..].Trim();
+        var relative = FolderRelative(folder, anchor < 0 ? normalised : normalised[..anchor]);
+        var name = folder.ToString().ToLowerInvariant();
+
+        return string.IsNullOrEmpty(slug) ? $"{name}/{relative}" : $"{name}/{relative}#{slug}";
+    }
+
+    /// <summary>
+    /// The address of a unit id as <c>units.mjs</c> prints it —
+    /// <c>.devbook/domain/inbox/domain.md#inbox-item</c>, the legacy
+    /// <c>.domain/…</c>, or an address already — and the folder it names. False
+    /// for a path in no devbook folder.
+    /// </summary>
+    public static bool TryAddress(string? repositoryPath, out DevbookFolder folder, out string address)
+    {
+        folder = DevbookFolder.Unknown;
+        address = string.Empty;
+        if (string.IsNullOrWhiteSpace(repositoryPath)) return false;
+
+        var normalised = Normalise(repositoryPath);
+        folder = DevbookFolders.FromPath(normalised);
+
+        // An address names its folder without the dot the repository layout gives it.
+        if (folder == DevbookFolder.Unknown) folder = DevbookFolders.FromPath("." + normalised);
+        if (folder == DevbookFolder.Unknown) return false;
+
+        address = Address(folder, normalised);
+        return true;
+    }
+
+    /// <summary>
+    /// The blocks a unit's direction is read from, nearest first — the mirror of
+    /// <c>syncSources</c> in the vendored <c>metadata.mjs</c>, levelled as
+    /// <c>units.mjs</c>'s <c>levelOf</c> levels them: the unit itself; in
+    /// <c>domain/</c> its page (the context, when the page is <c>context.md</c>)
+    /// and its <c>context.md</c>; then the folder overview. A block met twice is
+    /// listed once. A <c>shared-types</c> unit (<c>domain/&lt;ctx&gt;#shared-types</c>,
+    /// no file) is not a block itself: <c>units.mjs</c> skips its root and reads the
+    /// root's page, its context, then its folder. The id does not name the root —
+    /// the lowest-id shared chapter — so its page is taken to be the context's
+    /// <c>domain.md</c>, where shared chapters sit. A
+    /// folder with no overview — <c>tech/</c>, <c>ai/</c> — lists the unit alone,
+    /// and so does an id that names no devbook folder.
+    /// </summary>
+    public static IReadOnlyList<(DevbookSyncLevel Level, string Address)> Sources(string address)
+    {
+        if (!TryAddress(address, out var folder, out var unit)) return [(DevbookSyncLevel.Unit, Normalise(address))];
+
+        var name = folder.ToString().ToLowerInvariant();
+        var file = unit.Split('#', 2)[0];
+        var sources = new List<(DevbookSyncLevel, string)>();
+
+        if (FolderOverview(folder) is not { } overview) return [(DevbookSyncLevel.Unit, unit)];
+
+        if (folder == DevbookFolder.Domain && !file.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+        {
+            // shared-types: the id names a context directory, not a block. units.mjs
+            // reads the unit's root's page — the lowest-id shared chapter, which sits
+            // on the context's domain.md — and the id does not name the root, so the
+            // page is taken to be domain.md.
+            sources.Add((DevbookSyncLevel.Page, $"{file}/domain.md"));
+            sources.Add((DevbookSyncLevel.Context, $"{file}/context.md"));
+        }
+        else
+        {
+            sources.Add((DevbookSyncLevel.Unit, unit));
+
+            if (folder == DevbookFolder.Domain)
+            {
+                var directory = file[..file.LastIndexOf('/')];
+                var isContext = file.EndsWith("/context.md", StringComparison.OrdinalIgnoreCase);
+                sources.Add((isContext ? DevbookSyncLevel.Context : DevbookSyncLevel.Page, file));
+                sources.Add((DevbookSyncLevel.Context, $"{directory}/context.md"));
+            }
+        }
+
+        sources.Add((DevbookSyncLevel.Folder, $"{name}/{overview}"));
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        return [.. sources.Where(source => seen.Add(source.Item2))];
+    }
+
+    /// <summary>
+    /// A unit's direction out of a map of stated ones, nearest wins through
+    /// <see cref="Sources"/>, with the address that stated it; <see cref="DefaultDirection"/>
+    /// from no level and no source when none does. A value outside
+    /// <see cref="Directions"/> is skipped, as <see cref="Resolve"/> skips it.
+    /// </summary>
+    /// <param name="address">The unit, in any form <see cref="TryAddress"/>
+    /// takes.</param>
+    /// <param name="stated">The direction stated at an address, or null.</param>
+    public static DevbookSyncDirection ResolveUnit(string address, Func<string, string?> stated)
+    {
+        ArgumentNullException.ThrowIfNull(stated);
+
+        foreach (var (level, source) in Sources(address))
+        {
+            var value = stated(source);
+            if (IsDirection(value)) return new DevbookSyncDirection(value!.Trim().ToLowerInvariant(), level, source);
+        }
+
+        return new DevbookSyncDirection(DefaultDirection, null);
+    }
+
+    /// <summary>Forward slashes, no leading <c>./</c> or <c>/</c>, trimmed.</summary>
+    private static string Normalise(string? path)
+    {
+        var normalised = (path ?? string.Empty).Trim().Replace('\\', '/');
+        if (normalised.StartsWith("./", StringComparison.Ordinal)) normalised = normalised[2..];
+        return normalised.TrimStart('/');
+    }
+
     /// <summary>The file's path below the folder's own root, with forward
     /// slashes: <c>.devbook/domain/tasks/domain.md</c> and <c>tasks/domain.md</c>
     /// both give <c>tasks/domain.md</c>.</summary>
@@ -216,8 +347,10 @@ public readonly record struct DevbookSyncPlace(DevbookSyncLevel? Level, DevbookS
 }
 
 /// <summary>A resolved direction and the level it was read from — null when no
-/// level states one and the default applies.</summary>
-public sealed record DevbookSyncDirection(string Direction, DevbookSyncLevel? From)
+/// level states one and the default applies. <paramref name="Source"/> is the
+/// address that stated it, when the resolution was over addresses
+/// (<see cref="DevbookSync.ResolveUnit"/>).</summary>
+public sealed record DevbookSyncDirection(string Direction, DevbookSyncLevel? From, string? Source = null)
 {
     /// <summary>Whether no level stated a direction.</summary>
     public bool IsDefault => From is null;

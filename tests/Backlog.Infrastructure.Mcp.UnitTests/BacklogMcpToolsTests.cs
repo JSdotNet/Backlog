@@ -53,6 +53,9 @@ public class BacklogMcpToolsTests
                 "devbook_approve",
                 "devbook_accept",
 
+                // The sync direction map the sweeps read, behind the same key.
+                "list_sync_directions",
+
                 "list_sessions",
 
                 // The delivery surface's eight, in the order the engine's
@@ -117,6 +120,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(RoadmapFeatures.Roadmap, BacklogMcpTools.Roadmap.FeatureKey);
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(DevbookFeatures.RepositoryDevbook, DecisionTools.Group.FeatureKey);
+        Assert.Equal(DevbookFeatures.RepositoryDevbook, SyncDirectionTools.Group.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
@@ -150,10 +154,11 @@ public class BacklogMcpToolsTests
     /// does not stop at the reads.
     /// </para>
     /// <para>
-    /// The devbook key is the third, on the same argument: reading a chapter and
+    /// The devbook key is the third, on the same argument: reading a chapter,
     /// keeping the workflow state of the records in it (<c>devbook.decision@1</c>)
-    /// are one area. Somebody switching the devbook off has switched off the
-    /// records these set as much as the chapters the other group reads.
+    /// and reading which way its sync units are levelled are one area. Somebody
+    /// switching the devbook off has switched off the records and the units these
+    /// are about as much as the chapters the first group reads.
     /// </para>
     /// <para>
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
@@ -187,8 +192,11 @@ public class BacklogMcpToolsTests
             [BacklogMcpTools.Sessions, BacklogMcpTools.Surface],
             byKey[SessionFeatures.Sessions]);
 
+        // The devbook's three: the chapters and notes, the subjects' workflow
+        // state, and the sync direction map — one area switched off together,
+        // three ports and so three classes.
         Assert.Equal(
-            [BacklogMcpTools.Devbook, DecisionTools.Group],
+            [BacklogMcpTools.Devbook, DecisionTools.Group, SyncDirectionTools.Group],
             byKey[DevbookFeatures.RepositoryDevbook]);
 
         // Every other key is one group's. Named as the sets above rather than
