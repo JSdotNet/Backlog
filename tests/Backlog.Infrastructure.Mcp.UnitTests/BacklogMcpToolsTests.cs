@@ -335,6 +335,7 @@ public class BacklogMcpToolsTests
             SessionRequestTools.MarkDelivery,
             NotificationTools.Notify,
             NotificationTools.Ask,
+            NotificationTools.GetAnswer,
             NotificationTools.Close,
             WindowTools.OpenWindow
         ];
@@ -349,7 +350,9 @@ public class BacklogMcpToolsTests
         // not: record_prompt appends, and update_stage counts every transition to
         // done — a stage re-run after requested changes has to read as a second
         // pass rather than a retry of the first. delete_goal is not either: a
-        // second delete is refused as progress.goal_not_found.
+        // second delete is refused as progress.goal_not_found. get_answer writes too —
+        // it records that the asking hook is still waiting — and a repeated poll records
+        // the same fact again, so it is safe to repeat.
         string[] repeatable =
         [
             DevbookTools.ResolveAnnotation,
@@ -367,7 +370,8 @@ public class BacklogMcpToolsTests
             GoalTools.AttachToGoal,
             GoalTools.DetachFromGoal,
             ImpedimentTools.LinkToImpediment,
-            ImpedimentTools.UnlinkFromImpediment
+            ImpedimentTools.UnlinkFromImpediment,
+            NotificationTools.GetAnswer
         ];
 
         var seen = new List<string>();

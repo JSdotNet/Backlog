@@ -108,6 +108,37 @@ public sealed class WaitingQuestionsTests
         Assert.False(notified.IsDueAt(Noon.AddDays(1)));
     }
 
+    /// <summary>
+    /// The publish claim: a due question is claimed by moving its escalate at to the end
+    /// of the lease, so a second publisher reading it in the same breath finds it not due;
+    /// a question not yet due, or no longer InSession, is refused. Once the lease runs out
+    /// the question is due again, so a publisher that crashed holding it does not strand it.
+    /// </summary>
+    [Fact]
+    public void A_due_question_is_claimed_for_publishing_until_the_lease_ends()
+    {
+        var question = Dialog(away: true);
+        var leaseEnds = Noon + WaitingQuestions.PublishLease;
+
+        var claimed = WaitingQuestions.ClaimPublish(question, Noon, leaseEnds);
+
+        Assert.True(claimed.Succeeded);
+        Assert.Equal(WaitingQuestionState.InSession, claimed.Question!.State);
+        Assert.Equal(leaseEnds, claimed.Question.EscalateAt);
+        Assert.False(claimed.Question.IsDueAt(Noon));
+        Assert.False(WaitingQuestions.ClaimPublish(claimed.Question, Noon, leaseEnds).Succeeded);
+        Assert.True(WaitingQuestions.ClaimPublish(claimed.Question, leaseEnds, leaseEnds + WaitingQuestions.PublishLease).Succeeded);
+    }
+
+    [Fact]
+    public void A_question_not_due_or_already_published_is_not_claimed()
+    {
+        var held = Dialog(away: false);
+
+        Assert.False(WaitingQuestions.ClaimPublish(held, Noon, Noon + WaitingQuestions.PublishLease).Succeeded);
+        Assert.False(WaitingQuestions.ClaimPublish(Notified(Dialog(away: true)), Noon, Noon + WaitingQuestions.PublishLease).Succeeded);
+    }
+
     [Fact]
     public void A_dialog_is_answered_only_once_every_one_of_its_notifications_is()
     {

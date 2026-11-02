@@ -75,6 +75,7 @@ public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedS
     {
         AgentSessionState.Stalled => LinkedSessionState.Stalled,
         AgentSessionState.Finished => LinkedSessionState.Finished,
+        AgentSessionState.Waiting => LinkedSessionState.Waiting,
         _ => LinkedSessionState.Running
     };
 }

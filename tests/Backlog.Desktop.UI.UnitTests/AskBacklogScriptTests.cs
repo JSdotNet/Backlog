@@ -108,6 +108,45 @@ public sealed class AskBacklogScriptTests : IDisposable
         Assert.True(JsonNode.DeepEquals(answers, output["updatedInput"]!["answers"]));
     }
 
+    /// <summary>
+    /// A multi-select answered in Backlog reaches the dialog as an array of its labels — from
+    /// the payload's <c>selections</c> — so a label holding a comma stays one label; a single
+    /// choice stays the string <c>answers</c> holds.
+    /// </summary>
+    [Fact]
+    public void Pre_hands_the_dialog_a_multi_select_as_an_array_of_its_labels()
+    {
+        var input = PreInput();
+        input["tool_input"] = new JsonObject { ["questions"] = WithColours() };
+        var answered = Status("answered", new JsonObject { [Question] = "SQLite", [Colours] = "Red, dark, Blue" });
+        answered["result"]!["selections"] = new JsonObject { [Colours] = new JsonArray("Red, dark", "Blue") };
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "backlog")]), ("get_answer", [answered])),
+            Step("pre", input));
+
+        var answers = JsonNode.Parse(run.Output(0))!["hookSpecificOutput"]!["updatedInput"]!["answers"]!;
+        Assert.True(
+            JsonNode.DeepEquals(new JsonObject { [Question] = "SQLite", [Colours] = new JsonArray("Red, dark", "Blue") }, answers),
+            answers.ToJsonString());
+    }
+
+    /// <summary>An app that sends no <c>selections</c> — one older than the script — still
+    /// gets its comma-joined answers through as they are.</summary>
+    [Fact]
+    public void Pre_falls_back_to_the_joined_answers_without_selections()
+    {
+        var input = PreInput();
+        input["tool_input"] = new JsonObject { ["questions"] = WithColours() };
+        var joined = new JsonObject { [Question] = "SQLite", [Colours] = "Blue" };
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "backlog")]), ("get_answer", [Status("answered", joined)])),
+            Step("pre", input));
+
+        Assert.True(JsonNode.DeepEquals(joined, JsonNode.Parse(run.Output(0))!["hookSpecificOutput"]!["updatedInput"]!["answers"]));
+    }
+
     /// <summary>Closed elsewhere while it waited: nothing printed and nothing closed again.</summary>
     [Fact]
     public void Pre_stops_waiting_when_the_question_was_closed_elsewhere()
@@ -263,6 +302,24 @@ public sealed class AskBacklogScriptTests : IDisposable
         Assert.Empty(StateFiles());
     }
 
+    /// <summary>A multi-select the dialog answered as an array of labels is forwarded as that
+    /// array, never joined, so a label holding a comma reaches Backlog whole.</summary>
+    [Fact]
+    public void Post_forwards_a_multi_select_answered_as_an_array_unchanged()
+    {
+        var post = PreInput();
+        post["tool_response"] = new JsonObject { ["answers"] = new JsonObject { [Colours] = new JsonArray("Red, dark", "Blue") } };
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "session")]), ("close", [Status("closed")])),
+            Step("pre", PreInput()),
+            Step("post", post));
+
+        var close = run.Calls[^1];
+        Assert.Equal("close", close.Name);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("Red, dark", "Blue"), close.Arguments["answers"]![Colours]));
+    }
+
     /// <summary>A dialog this script never registered — Backlog was down at PreToolUse — has
     /// nothing to close.</summary>
     [Fact]
@@ -379,7 +436,57 @@ public sealed class AskBacklogScriptTests : IDisposable
         Assert.Empty(StateFiles());
     }
 
+    /// <summary>
+    /// The session ends: besides its own file, it sweeps what other sessions left behind — a
+    /// state file untouched for longer than seven days, from a session that crashed or was
+    /// killed before its own end ran, and a temporary file whose write was cut off — and leaves
+    /// a younger state file, a write still in flight, and anything that is not its own alone.
+    /// </summary>
+    [Fact]
+    public void End_sweeps_stale_state_files_and_orphaned_temporary_files()
+    {
+        var folder = Path.Combine(_root, "state");
+        Directory.CreateDirectory(folder);
+        var now = DateTime.UtcNow;
+        string Seed(string name, TimeSpan age)
+        {
+            var path = Path.Combine(folder, name);
+            File.WriteAllText(path, """{"questions":[]}""");
+            File.SetLastWriteTimeUtc(path, now - age);
+            return path;
+        }
+
+        var own = Seed($"{SessionId}.json", TimeSpan.Zero);
+        var stale = Seed("crashed-session.json", TimeSpan.FromDays(8));
+        var young = Seed("other-session.json", TimeSpan.FromDays(6));
+        var orphan = Seed("other-session.json.4242.tmp", TimeSpan.FromHours(1));
+        var writing = Seed("other-session.json.4343.tmp", TimeSpan.Zero);
+        var foreign = Seed("notes.txt", TimeSpan.FromDays(30));
+
+        var run = Run(Replies(), Step("end", new JsonObject { ["session_id"] = SessionId, ["hook_event_name"] = "SessionEnd" }));
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal(string.Empty, run.Output(0));
+        Assert.Equal(new[] { foreign, young, writing }.Order(), StateFiles().Order());
+        Assert.False(File.Exists(own));
+        Assert.False(File.Exists(stale));
+        Assert.False(File.Exists(orphan));
+    }
+
     // ---- harness ----------------------------------------------------------------------
+
+    private const string Colours = "Which colours?";
+
+    /// <summary><see cref="Questions"/> plus a multi-select whose first label holds a comma.</summary>
+    private static JsonArray WithColours()
+    {
+        var questions = Questions();
+        questions.Add(JsonNode.Parse("""
+            { "question": "Which colours?", "header": "Colours", "multiSelect": true,
+              "options": [{ "label": "Red, dark", "description": "Deep" }, { "label": "Blue", "description": "Calm" }] }
+            """));
+        return questions;
+    }
 
     private JsonObject StopInput(string transcript) => new()
     {

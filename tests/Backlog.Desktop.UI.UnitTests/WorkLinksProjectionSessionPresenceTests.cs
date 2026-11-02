@@ -46,6 +46,22 @@ public sealed class WorkLinksProjectionSessionPresenceTests
         Assert.Equal(expected, card.Presence);
     }
 
+    /// <summary>
+    /// A linked session the task list last read as waiting on an answer draws as
+    /// Waiting on its card, not as Finished: the open question is the reason the card
+    /// asks for the person (local ADR 0041).
+    /// </summary>
+    [Fact]
+    public void A_waiting_linked_session_draws_as_waiting()
+    {
+        var row = Row("asking");
+        var projection = Projection(row, [], _ => new LinkedSession(LinkedSessionState.Waiting, Archived: false));
+
+        var card = Assert.Single(projection.SessionsOf(row));
+
+        Assert.Equal(IntegrationSessionState.Waiting, card.State);
+    }
+
     private static EntryRow Row(string sessionId) => new()
     {
         Id = Guid.NewGuid(),

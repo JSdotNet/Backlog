@@ -1988,6 +1988,7 @@
         LinkedSessionState.Running => IntegrationSessionState.Running,
         LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
         LinkedSessionState.Finished => IntegrationSessionState.Finished,
+        LinkedSessionState.Waiting => IntegrationSessionState.Waiting,
         _ => null
     };
 
@@ -2011,6 +2012,7 @@
         {
             LinkedSessionState.Stalled => "Quiet 30 min",
             LinkedSessionState.Finished => "finished",
+            LinkedSessionState.Waiting => "waiting",
             _ => "running"
         };
 

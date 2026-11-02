@@ -71,8 +71,10 @@ commit and never pushes.
 `dispatch-sessions` is user-invoked and changes no file: started once as
 `/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session, it turns each
 session request the app queues into a new session whose whole prompt is the app's fixed
-`run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry. It
-is no flow and adds no execution path beside the gate.
+`run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry (local
+ADR 0038). It also hands each answer the app accepted for a waiting session back to that session
+as a message (local ADR 0041), which runs nothing new. It is no flow and adds no execution path
+beside the gate.
 `tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
 repository, by the rules that folder carries, plus the Backlog `task` entries it files for the
 follow-ups the person routes there — so it is no flow and never meets the gate.
@@ -192,7 +194,8 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
   pull request merged into the default branch or a `plan/` branch to Done.
 - `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
-  dispatches the app's session requests (local ADR 0038); user-invoked only, no flow.
+  dispatches the app's session requests (local ADR 0038) and delivers the answers the app
+  accepted to the sessions waiting on them (local ADR 0041); user-invoked only, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
 - `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs
