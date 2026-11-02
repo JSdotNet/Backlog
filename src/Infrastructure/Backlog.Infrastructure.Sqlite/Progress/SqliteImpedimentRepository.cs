@@ -116,9 +116,12 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
             : null;
     }
 
-    /// <summary>Stores another device's impediment verbatim, at the stamp it arrived with.
-    /// Refused, with nothing written, when the text is not an impediment this build can
-    /// read or names another one than the copy claims.</summary>
+    /// <summary>Stores another device's impediment verbatim, at the stamp it arrived with —
+    /// except that a version 1 copy over a local one holding back pull requests or plans
+    /// keeps them (<see cref="ImpedimentDocument.CarryOver"/>, local ADR 0035 §9), still at
+    /// the inbound stamp, so the merge is never pushed back as a change of its own. Refused,
+    /// with nothing written, when the text is not an impediment this build can read or names
+    /// another one than the copy claims.</summary>
     public async Task<bool> TryWriteAsync(ImpedimentReplicaCopyDto copy, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(copy);
@@ -126,9 +129,21 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
         if (ParseDocument(copy.Content) is not { } document || document.Id != copy.Id) return false;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await UpsertAsync(connection, copy.Id, copy.Content, copy.UpdatedAt, document.CreatedAt ?? copy.UpdatedAt, cancellationToken).ConfigureAwait(false);
+        var local = await StoredDocumentAsync(connection, copy.Id, cancellationToken).ConfigureAwait(false);
+        var content = ImpedimentDocument.CarryOver(local, copy.Content);
+
+        await UpsertAsync(connection, copy.Id, content, copy.UpdatedAt, document.CreatedAt ?? copy.UpdatedAt, cancellationToken).ConfigureAwait(false);
 
         return true;
+    }
+
+    private static async Task<string?> StoredDocumentAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT document FROM progress_impediments WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", Key(id));
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
     }
 
     private static async Task UpsertAsync(

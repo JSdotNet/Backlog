@@ -25,11 +25,29 @@
     button; left by Tab or a click, it stays where the person took it. The box has no
     visible label, so a click on one cannot blur it shut. Without a host the note is
     text alone, never an inert control.
+
+    Once everything the impediment holds back is settled, a "Ready to resolve" badge in the
+    settled tone sits beside the picker (.devbook/domain/progress/features.md
+    #seeing-an-impediment-ready-to-resolve): a reading the person acts on, never a state,
+    so the picker still holds the stored one and resolving stays the person's.
+
+    Under the note the row lists what it holds back, in the order linked, each under its
+    kind label — Task, PR, Plan — and, with a host listening on OnUnlink, an icon-only
+    Unlink named for the item (#linking-what-an-impediment-holds-back). Unlinking changes
+    nothing on the work, so it does not ask. With a host listening on OnLink, "Link…" opens
+    the work search (WorkItemSearch) under it, limited to tasks, pull requests and plans
+    and leaving out what the row already holds; a pick hands the item back and the search
+    stays open for the next, and Link… or Escape closes it, the focus back on Link…. A
+    refusal shows under the search in the module's words (LinkError).
 *@
 @inject IJSRuntime Js
 <div class="@ClassValue" data-testid="@TestId" data-state="@Slug(Impediment.State)">
     <div class="impediment-row__head">
         <span class="impediment-row__title">@Impediment.Title</span>
+        @if (Impediment.ReadyToResolve)
+        {
+            <Badge Kind="tone" Slug="settled" CssClass="impediment-row__ready" TestId="@Part("ready")">@GoalsText.ReadyToResolve</Badge>
+        }
         <BadgeSelect Id="@_pickerId"
                      CurrentValue="@Shown.ToString()"
                      Options="Options"
@@ -82,6 +100,58 @@
             }
         </div>
     }
+    @if (Impediment.HoldsBack.Count > 0)
+    {
+        <ul class="impediment-row__items" aria-label="@($"What {Impediment.Title} holds back")" data-testid="@Part("items")">
+            @foreach (var item in Impediment.HoldsBack)
+            {
+                <li class="impediment-row__item" data-kind="@WorkItemSearch.KindLabel(item.Kind)" data-testid="@Part($"item-{item.Subject.Key}")">
+                    <span class="impediment-row__item-kind">@WorkItemSearch.KindLabel(item.Kind)</span>
+                    <span class="impediment-row__item-title">@WorkItemSearch.Line(item)</span>
+                    @if (CanUnlink)
+                    {
+                        <IconButton AriaLabel="@($"Unlink {WorkItemSearch.Line(item)} from {Impediment.Title}")"
+                                    Title="Unlink"
+                                    Disabled="Disabled"
+                                    CssClass="impediment-row__unlink"
+                                    OnClick="() => UnlinkAsync(item.Subject)"
+                                    TestId="@Part($"unlink-{item.Subject.Key}")">
+                            <XIcon Size="14" />
+                        </IconButton>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    @if (CanLink)
+    {
+        <div class="impediment-row__link" @onkeydown="LinkKey" @onkeydown:stopPropagation="_linking">
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       Disabled="Disabled"
+                       CssClass="impediment-row__link-toggle"
+                       OnClick="ToggleLink"
+                       TestId="@Part("link")"
+                       id="@_linkButtonId"
+                       aria-expanded="@(_linking ? "true" : "false")"
+                       aria-label="@($"Link work to {Impediment.Title}")">Link…</AppButton>
+            @if (_linking)
+            {
+                <WorkItemSearch @ref="_search"
+                                Kinds="WorkItemSearch.ImpedimentKinds"
+                                Candidates="Candidates"
+                                Excluding="@([.. Impediment.HoldsBack.Select(item => item.Subject)])"
+                                Repositories="Repositories"
+                                Label="@LinkLabel"
+                                AriaLabel="@($"{LinkLabel} to {Impediment.Title}")"
+                                OnPick="match => LinkAsync(match.Subject)"
+                                CssClass="impediment-row__search"
+                                TestId="@Part("link-search")"
+                                SearchTestId="@Part("link-search-box")" />
+            }
+            <Alert Message="@LinkError" TestId="@Part("link-error")" />
+        </div>
+    }
 </div>
 
 @code {
@@ -94,6 +164,13 @@
     private string _draft = string.Empty;
     private string? _sent;
     private string? _focus;
+    private readonly string _linkButtonId = "impediment-link-" + Guid.NewGuid().ToString("N");
+    private bool _linking;
+    private bool _focusSearch;
+    private WorkItemSearch? _search;
+
+    /// <summary>The Link… search's placeholder.</summary>
+    public const string LinkLabel = "Link a task, pull request or plan";
 
     [Parameter, EditorRequired]
     public StandUpImpediment Impediment { get; set; } = default!;
@@ -106,6 +183,28 @@
     /// clears it. Without a listener the note is shown and cannot be edited.</summary>
     [Parameter]
     public EventCallback<string?> OnEditNote { get; set; }
+
+    /// <summary>A task, pull request or plan was picked in the Link… search; the host links
+    /// it and reads the view again. Without a listener there is no Link….</summary>
+    [Parameter]
+    public EventCallback<GoalSubject> OnLink { get; set; }
+
+    /// <summary>An item's Unlink was pressed; the host unlinks it and reads the view again.
+    /// Without a listener no item has one.</summary>
+    [Parameter]
+    public EventCallback<GoalSubject> OnUnlink { get; set; }
+
+    /// <summary>What the Link… search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number in the Link… search is read in.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>Why the last link or unlink was refused, in the module's words.</summary>
+    [Parameter]
+    public string? LinkError { get; set; }
 
     /// <summary>While a move is being saved.</summary>
     [Parameter]
@@ -126,6 +225,39 @@
     private StandUpImpedimentState Shown => _picked ?? Impediment.State;
 
     private bool CanEdit => OnEditNote.HasDelegate;
+
+    private bool CanLink => OnLink.HasDelegate;
+
+    private bool CanUnlink => OnUnlink.HasDelegate;
+
+    private void ToggleLink()
+    {
+        _linking = !_linking;
+        if (_linking) _focusSearch = true;
+        else _focus = _linkButtonId;
+    }
+
+    /// <summary>Escape closes the search and stops there, the focus back on Link….</summary>
+    private void LinkKey(KeyboardEventArgs key)
+    {
+        if (!_linking || key.Key != "Escape") return;
+
+        _linking = false;
+        _focus = _linkButtonId;
+    }
+
+    private Task LinkAsync(GoalSubject subject) => OnLink.InvokeAsync(subject);
+
+    /// <summary>Hands the item back. Its line goes with the reading, so the focus waits on
+    /// Link… when there is one; a refused unlink leaves the line and the focus on its
+    /// Unlink.</summary>
+    private async Task UnlinkAsync(GoalSubject subject)
+    {
+        await OnUnlink.InvokeAsync(subject);
+        await Task.Yield();
+
+        if (CanLink && Impediment.HoldsBack.All(item => item.Subject != subject)) _focus = _linkButtonId;
+    }
 
     /// <summary>The note handed back while it is being saved, the stored one otherwise.</summary>
     private string? ShownNote => _saving ? _sent : Clean(Impediment.Note);
@@ -225,6 +357,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusSearch && _search is not null)
+        {
+            // Link… opened the search: the focus goes into its box.
+            _focusSearch = false;
+            await _search.FocusAsync();
+        }
+
         if (_focus is not { } id) return;
 
         _focus = null;

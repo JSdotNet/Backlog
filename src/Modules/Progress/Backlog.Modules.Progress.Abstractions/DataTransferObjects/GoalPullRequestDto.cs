@@ -15,13 +15,17 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="Approvals">How many approvals it has and how many its base branch
 /// requires; null only for a pull request nothing read
 /// (<see cref="LinkedPullRequestState.Unknown"/>).</param>
+/// <param name="InArchivedRepository">Whether its repository is archived, so the answer is
+/// whatever was last kept rather than read now (local ADR 0029). A held-back pull request
+/// there is never settled; the goals' counting ignores it. Last and defaulted.</param>
 public sealed record GoalPullRequestDto(
     string Repository,
     string Number,
     LinkedPullRequestState State,
     DateOnly? MergedOn,
     GoalPullRequestChecksDto? Checks,
-    GoalPullRequestApprovalsDto? Approvals)
+    GoalPullRequestApprovalsDto? Approvals,
+    bool InArchivedRepository = false)
 {
     /// <summary>A pull request nothing has read: unknown, with no checks and no approvals.</summary>
     public static GoalPullRequestDto Unread(PullRequestRefDto pullRequest)

@@ -1,12 +1,13 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Ten skills: one for each direction of a plan,
+general-purpose or devbook tooling. Eleven skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, and one that levels a devbook and its code in the
-direction Backlog keeps — and a pane that follows a running plan.
+queues, one that tends a person's Brain, one that reports what the week's runs cost, and one
+that levels a devbook and its code in the direction Backlog keeps — and a pane that follows a
+running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -195,6 +196,16 @@ direction Backlog keeps — and a pane that follows a running plan.
   reject it; neither comes back. It never edits the rule files, and writes no state file, index
   or log into the folder. Model-invoked as well — "tend my second brain" runs one tick — and no
   flow.
+- **`weekly-cost-analysis`** — reports what the delivery runs on this machine cost in tokens
+  over a window — 7 days, or an ISO range — across every repository, grouped by repository
+  first, with the changes that would save the most. It reads the `backlog` server's
+  `list_run_usage`, which answers each run's measured totals and uncached totals, per stage,
+  per sub-agent and per model, and never `get_run`, which leaves those figures out on purpose.
+  It ranks on the uncached figure, never estimates a number, and ends on one message in the
+  shape of `skills/weekly-cost-analysis/assets/cost-analysis-shape.md`, `summary` or `full`,
+  with the top tips. Copied from `delivery-schedule`'s `schedule-weekly-cost-analysis`, which
+  reads one delivery surface's runs and leaves that plugin in a later devbook release.
+  Model-invoked; it writes nothing.
 - **`devbook-sweep`** — levels a repository's devbook chapters and its code in the direction
   Backlog keeps for each sync unit: `pull` carries code into chapters, `push` builds agreed
   chapters. Copied from `delivery-schedule`'s `schedule-devbook-sweep` when devbook's branch-true

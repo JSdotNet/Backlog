@@ -403,8 +403,10 @@
 
             @* The work in progress: the goals, and what the assistants are running
                and what they shipped. Goals leads, always offered (local ADR 0035
-               §10); then two takeovers of the Sessions context, each under its own
-               flag, fused because they are one context's two lists. Each list is a
+               §10); then two takeovers, each under its own flag: the Sessions
+               context's session list, and the pull requests — Repository
+               Management's screen (local ADR 0042) — fused beside it because they
+               are what the sessions shipped. Each list is a
                takeover, so pressing the pressed one, Escape, or the surface's own
                close button returns to the workspace. *@
             <ButtonGroup CssClass="header-group header-group--work"
@@ -457,8 +459,8 @@
                                   PressedChanged="TogglePullRequests">
                         <GitPullRequestIcon />
                         <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
-                                            Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(RepositoryManagementFeatures.PullRequests)"
+                                            Title="@FeatureStatusTitle(RepositoryManagementFeatures.PullRequests)"
                                             TestId="pull-requests-feature-status" />
                     </ToggleButton>)
                 }

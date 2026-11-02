@@ -178,7 +178,7 @@ public sealed class LinkedWorkSectionTests
         var clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new(host.GitHub, new StubSessionSource(sessions), clock);
+        return new(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(sessions), clock);
     }
 
     private static AgentSession Session(string id, AgentSessionState state, DateTimeOffset lastActivity, string? resolved = null) =>

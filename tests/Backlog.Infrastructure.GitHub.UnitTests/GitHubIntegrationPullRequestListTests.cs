@@ -62,6 +62,21 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.Empty(listing.Failures);
     }
 
+    /// <summary>The open list names the repository's default branch, once, and every row
+    /// carries it — so a listed pull request based on it is known to wait on nothing even
+    /// where the list stopped at its cap (local ADR 0042).</summary>
+    [Fact]
+    public async Task Every_listed_pull_request_carries_its_repositorys_default_branch()
+    {
+        var transport = new RoutingTransport().Returns("graphql#JSdotNet/Backlog", ListWithDefault("trunk", Node(1, "2026-10-01T08:00:00Z"), Node(2, "2026-10-01T09:00:00Z")));
+
+        var listing = await Integration(transport).ListOpenPullRequestsAsync([Backlog], TestContext.Current.CancellationToken);
+
+        var query = transport.Bodies.Single(body => body!.Contains("pullRequests(states: OPEN", StringComparison.Ordinal))!;
+        Assert.Equal(1, query.Split("defaultBranchRef { name }").Length - 1);
+        Assert.Equal(["trunk", "trunk"], listing.PullRequests.Select(pull => pull.DefaultBranch));
+    }
+
     /// <summary>One repository the account cannot read is that repository's failure,
     /// in GitHub's words, and nothing else's: the others are listed as if it were not
     /// there.</summary>
@@ -415,6 +430,13 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
 
     // --- Helpers --------------------------------------------------------------
 
+    private static string ListWithDefault(string defaultBranch, params string[] nodes) => $$"""
+        { "data": { "repository": {
+            "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,
+            "defaultBranchRef": { "name": "{{defaultBranch}}" },
+            "pullRequests": { "nodes": [ {{string.Join(",", nodes)}} ] } } } }
+        """;
+
     private static string List(params string[] nodes) => $$"""
         { "data": { "repository": {
             "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,
@@ -450,6 +472,28 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.Empty(listing.Failures);
     }
 
+    /// <summary>
+    /// The read by number asks for the repository's default branch, once for the
+    /// repository, and every pull request it answers carries it — open or merged — so a
+    /// merge's landing is judged without a read of its own, and an open one based on the
+    /// default branch is known to wait on no other pull request (local ADR 0042).
+    /// </summary>
+    [Fact]
+    public async Task Every_pull_request_read_by_number_carries_its_repositorys_default_branch()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", PinnedWithDefault("trunk", ("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z")), ("p3", PinnedNode(3, "MERGED", "2026-10-01T11:00:00Z"))));
+
+        var listing = await Integration(transport).ListPinnedPullRequestsAsync(
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("JSdotNet/Backlog", 3)],
+            TestContext.Current.CancellationToken);
+
+        var query = transport.Bodies.Single(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal))!;
+        Assert.Equal(1, query.Split("defaultBranchRef { name }").Length - 1);
+        Assert.All(listing.PullRequests, pull => Assert.Equal("trunk", pull.DefaultBranch));
+        Assert.Equal(2, listing.PullRequests.Count);
+    }
+
     [Fact]
     public async Task A_repository_whose_pins_cannot_be_read_is_reported_and_the_others_still_come_back()
     {
@@ -475,111 +519,6 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
 
         Assert.Empty(listing.PullRequests);
         Assert.Empty(transport.Paths);
-    }
-
-    // --- Linked ---------------------------------------------------------------
-
-    /// <summary>The pull requests an entry links are read by number, whatever state
-    /// each is in, with when it merged and who opened it — one query per repository,
-    /// the way pins are read.</summary>
-    [Fact]
-    public async Task Linked_pull_requests_are_read_with_their_state_merge_date_and_author()
-    {
-        var transport = new RoutingTransport()
-            .Returns("graphql#JSdotNet/Backlog", Pinned(
-                ("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z", mergedAt: "2026-10-01T07:30:00Z", author: "JSdotNet")),
-                ("p4", PinnedNode(4, "OPEN", "2026-10-01T09:00:00Z", author: "someone", isDraft: true, createdAt: "2026-09-30T09:00:00Z"))))
-            .Returns("graphql#JSdotNet/Archify", Pinned(("p2", PinnedNode(2, "CLOSED", "2026-10-01T10:00:00Z", author: "octocat"))));
-
-        var listing = await Integration(transport).ListLinkedPullRequestsAsync(
-            [new GitHubPullRequestReference("JSdotNet/Backlog", 1), new GitHubPullRequestReference("JSdotNet/Archify", 2), new GitHubPullRequestReference("jsdotnet/backlog", 4)],
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(2, transport.Bodies.Count(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal)));
-        Assert.Empty(listing.Failures);
-
-        var merged = Assert.Single(listing.PullRequests, pull => pull.Number == 1);
-        Assert.Equal(GitHubItemState.Merged, merged.State);
-        Assert.Equal(new DateTimeOffset(2026, 10, 1, 7, 30, 0, TimeSpan.Zero), merged.MergedAt);
-        Assert.Equal("JSdotNet", merged.AuthorLogin);
-
-        var closed = Assert.Single(listing.PullRequests, pull => pull.Number == 2);
-        Assert.Equal(GitHubItemState.Closed, closed.State);
-        Assert.Null(closed.MergedAt);
-        Assert.Equal("octocat", closed.AuthorLogin);
-
-        var draft = Assert.Single(listing.PullRequests, pull => pull.Number == 4);
-        Assert.Equal(GitHubItemState.Draft, draft.State);
-        Assert.Equal("someone", draft.AuthorLogin);
-        Assert.Equal(new DateTimeOffset(2026, 9, 30, 9, 0, 0, TimeSpan.Zero), draft.CreatedAt);
-        Assert.All(transport.Bodies.Where(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal)), body => Assert.Contains("createdAt", body!, StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task A_repository_whose_linked_pull_requests_cannot_be_read_is_reported_and_the_others_still_come_back()
-    {
-        var transport = new RoutingTransport()
-            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z"))))
-            .Refuses("graphql#octo/broken", "gh: Could not resolve to a Repository with the name 'octo/broken'.");
-
-        var listing = await Integration(transport).ListLinkedPullRequestsAsync(
-            [new GitHubPullRequestReference("JSdotNet/Backlog", 1), new GitHubPullRequestReference("octo/broken", 9)],
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
-        Assert.Equal("octo/broken", Assert.Single(listing.Failures).RepositoryFullName);
-    }
-
-    [Fact]
-    public async Task No_linked_pull_requests_read_nothing()
-    {
-        var transport = new RoutingTransport();
-
-        var listing = await Integration(transport).ListLinkedPullRequestsAsync([], TestContext.Current.CancellationToken);
-
-        Assert.Empty(listing.PullRequests);
-        Assert.Empty(transport.Paths);
-    }
-
-    /// <summary>A number GitHub cannot resolve is left out, and the rest of the
-    /// repository's answer still comes back rather than failing with it.</summary>
-    [Fact]
-    public async Task A_linked_number_github_cannot_find_is_left_out_and_the_rest_come_back()
-    {
-        var transport = new RoutingTransport().Returns("graphql#JSdotNet/Backlog", """
-            { "data": { "repository": { "p1": { "number": 1, "title": "#1", "url": "https://github.com/x/y/pull/1", "state": "OPEN", "isDraft": false, "mergedAt": null, "author": { "login": "someone" } }, "p9": null } },
-              "errors": [ { "type": "NOT_FOUND", "path": ["repository", "p9"], "message": "Could not resolve to a PullRequest with the number of 9." } ] }
-            """);
-
-        var listing = await Integration(transport).ListLinkedPullRequestsAsync(
-            [new GitHubPullRequestReference("JSdotNet/Backlog", 1), new GitHubPullRequestReference("JSdotNet/Backlog", 9)],
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
-        Assert.Empty(listing.Failures);
-    }
-
-    /// <summary>A repository with many links is asked in batches, each asking only for
-    /// what a link records — never the checks, the commits or the branch comparison the
-    /// open list and the pins read, which are what makes a large query too costly.</summary>
-    [Fact]
-    public async Task Many_linked_pull_requests_are_read_in_slim_batches()
-    {
-        var transport = new RoutingTransport()
-            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z", mergedAt: "2026-10-01T07:30:00Z"))));
-
-        var links = Enumerable.Range(1, GitHubClient.LinkedBatchSize + 1).Select(number => new GitHubPullRequestReference("JSdotNet/Backlog", number));
-        var listing = await Integration(transport).ListLinkedPullRequestsAsync(links, TestContext.Current.CancellationToken);
-
-        Assert.Equal(2, transport.CallsTo("graphql"));
-        Assert.All(transport.Bodies, body =>
-        {
-            Assert.DoesNotContain("statusCheckRollup", body!, StringComparison.Ordinal);
-            Assert.DoesNotContain("commits", body!, StringComparison.Ordinal);
-            Assert.Contains("mergedAt", body!, StringComparison.Ordinal);
-        });
-        Assert.DoesNotContain(transport.Paths, path => path.Contains("compare", StringComparison.Ordinal));
-        Assert.Equal(GitHubItemState.Merged, listing.PullRequests[0].State);
     }
 
     // --- Archived (local ADR 0029) ----------------------------------------------
@@ -632,22 +571,6 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
-    public async Task A_link_into_an_archived_repository_is_not_read_and_is_no_failure()
-    {
-        var transport = new RoutingTransport()
-            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z"))))
-            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
-
-        var listing = await ArchivingIntegration(transport).ListLinkedPullRequestsAsync(
-            [new GitHubPullRequestReference("JSdotNet/Backlog", 1), new GitHubPullRequestReference("JSdotNet/Archify", 2)],
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
-        Assert.Empty(listing.Failures);
-        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.OrdinalIgnoreCase));
-    }
-
     /// <summary>The integration answers which repositories it reads: the configured ones
     /// that are not archived, in their configured order.</summary>
     [Fact]
@@ -667,6 +590,13 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.Null(integration.Settings.SetRepositoryArchived("archify", archived: true));
         return integration;
     }
+
+    private static string PinnedWithDefault(string defaultBranch, params (string Alias, string Node)[] pulls) => $$"""
+        { "data": { "repository": {
+            "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,
+            "defaultBranchRef": { "name": "{{defaultBranch}}" },
+            {{string.Join(",", pulls.Select(pull => $"\"{pull.Alias}\": {pull.Node}"))}} } } }
+        """;
 
     private static string Pinned(params (string Alias, string Node)[] pulls) => $$"""
         { "data": { "repository": {

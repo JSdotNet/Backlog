@@ -17,9 +17,9 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// (<see cref="SpecManagerNotificationSync"/>), whenever there may be news. Each of the two
 /// pulls fails on its own: one that throws is logged and the other still runs.
 /// <list type="bullet">
-/// <item>A pull on every <c>changed</c> event, a whole pull each time the stream (re)opens,
-/// and one every <see cref="BackupInterval"/> while it is open, in case an event was
-/// lost.</item>
+/// <item>A pull on every <c>changed</c> event, a whole pull each time the stream (re)opens
+/// unless one came within <see cref="WholePullFreshFor"/>, and one every
+/// <see cref="BackupInterval"/> while it is open, in case an event was lost.</item>
 /// <item>While the stream cannot be opened, or has dropped, a pull every
 /// <see cref="FallbackInterval"/>.</item>
 /// <item>The stream is opened again after <see cref="FirstRetryDelay"/>, the wait doubling
@@ -81,7 +81,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
     private readonly TimeProvider _time;
     private readonly ILogger _log;
 
-    private Channel<bool> _pulls = NewPulls();
+    private Channel<Wake> _pulls = NewPulls();
     private string _settings = string.Empty;
     private long _lastWholeTicks = long.MinValue;
     private CancellationTokenSource? _running;
@@ -152,6 +152,16 @@ public sealed class SpecManagerQuestionSource : IDisposable
     /// injected clock; replaced by a test that decides when each ends.</summary>
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; }
 
+    /// <summary>True while a wake waits for the pull loop to take it — the loop may already be
+    /// waiting on its interval, which it gives up once it sees the wake.</summary>
+    internal bool WakePending
+    {
+        get
+        {
+            lock (_gate) return _pulls.Reader.Count > 0;
+        }
+    }
+
     /// <summary>The running loops, so a test can wait for them to stop.</summary>
     internal Task Loops
     {
@@ -171,13 +181,17 @@ public sealed class SpecManagerQuestionSource : IDisposable
         ApplyGates();
     }
 
-    /// <summary>Asks for a pull now — what a <c>changed</c> event, and the stream opening,
+    /// <summary>Asks for a pull now — what a <c>changed</c> event, and the stream dropping,
     /// ask for. Several asked before the pull starts are one pull.</summary>
     internal void RequestPull(bool whole = false)
     {
-        if (whole) Interlocked.Exchange(ref _whole, 1);
+        lock (_gate) RequestPullLocked(whole);
+    }
 
-        lock (_gate) _pulls.Writer.TryWrite(true);
+    private void RequestPullLocked(bool whole)
+    {
+        if (whole) Interlocked.Exchange(ref _whole, 1);
+        _pulls.Writer.TryWrite(Wake.Pull);
     }
 
     public void Dispose()
@@ -219,11 +233,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
             {
                 // A product added, or its "Only questions assigned to me" flipped: a
                 // changed-since pull would not show the questions that now fall in or out.
-                if (settingsChanged)
-                {
-                    Interlocked.Exchange(ref _whole, 1);
-                    _pulls.Writer.TryWrite(true);
-                }
+                if (settingsChanged) RequestPullLocked(whole: true);
 
                 return;
             }
@@ -233,8 +243,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
             var token = _running.Token;
 
             // The first pull is whole, and it hands over any answer that waited on the sign-in.
-            Interlocked.Exchange(ref _whole, 1);
-            _pulls.Writer.TryWrite(true);
+            RequestPullLocked(whole: true);
 
             _loops = Task.WhenAll(
                 Task.Run(() => PullLoopAsync(token), CancellationToken.None),
@@ -262,22 +271,24 @@ public sealed class SpecManagerQuestionSource : IDisposable
             .Select(target => target.Target.Trim().ToUpperInvariant() + (target.OnlyQuestionsAssignedToMe ? ":mine" : ":all"))
             .Order(StringComparer.Ordinal));
 
-    private static Channel<bool> NewPulls() =>
-        Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
+    /// <summary>One run's wakes, so a stopped run's loop never takes the next run's; the loop
+    /// takes all that wait at once.</summary>
+    private static Channel<Wake> NewPulls() => Channel.CreateUnbounded<Wake>();
 
     /// <summary>Pulls when asked, or when the interval runs out: the backup's while the
-    /// stream is open, the fallback's while it is not.</summary>
+    /// stream is open, the fallback's while it is not. The stream opening wakes it to choose
+    /// the wait again, whatever it was waiting on.</summary>
     private async Task PullLoopAsync(CancellationToken cancellationToken)
     {
-        ChannelReader<bool> pulls;
+        ChannelReader<Wake> pulls;
         lock (_gate) pulls = _pulls.Reader;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await WaitForPullAsync(pulls, IsOpen ? BackupInterval : FallbackInterval, cancellationToken).ConfigureAwait(false);
-                await PullOnceAsync(cancellationToken).ConfigureAwait(false);
+                var woken = await WaitForPullAsync(pulls, IsOpen ? BackupInterval : FallbackInterval, cancellationToken).ConfigureAwait(false);
+                if (ShouldPull(woken)) await PullOnceAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -295,7 +306,9 @@ public sealed class SpecManagerQuestionSource : IDisposable
         }
     }
 
-    private async Task WaitForPullAsync(ChannelReader<bool> pulls, TimeSpan interval, CancellationToken cancellationToken)
+    /// <summary>Waits to be woken or for the interval to run out; answers why it stopped
+    /// waiting.</summary>
+    private async Task<Woken> WaitForPullAsync(ChannelReader<Wake> pulls, TimeSpan interval, CancellationToken cancellationToken)
     {
         using var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
@@ -307,13 +320,34 @@ public sealed class SpecManagerQuestionSource : IDisposable
 
         if (asked.IsCompletedSuccessfully && !asked.Result) throw new ChannelClosedException();
 
+        var ranOut = due.IsCompletedSuccessfully;
+
         await waiting.CancelAsync().ConfigureAwait(false);
         await Quietly(asked).ConfigureAwait(false);
         await Quietly(due).ConfigureAwait(false);
 
-        while (pulls.TryRead(out _))
+        var woken = new Woken(ranOut, Asked: false, Opened: false);
+        while (pulls.TryRead(out var wake))
         {
+            woken = wake == Wake.Pull ? woken with { Asked = true } : woken with { Opened = true };
         }
+
+        return woken;
+    }
+
+    /// <summary>Whether the loop, woken, pulls: when asked, when the interval ran out, or
+    /// when the stream opened with no whole pull fresh — then whole. Decided here, after any
+    /// pull that was under way, so the stream opening during the first pull asks for no
+    /// second; a wake for the stream opening alone only chooses the wait again.</summary>
+    private bool ShouldPull(Woken woken)
+    {
+        if (woken.Opened && !WholePullIsFresh())
+        {
+            Interlocked.Exchange(ref _whole, 1);
+            return true;
+        }
+
+        return woken.Asked || woken.Due;
     }
 
     private async Task PullOnceAsync(CancellationToken cancellationToken)
@@ -362,8 +396,9 @@ public sealed class SpecManagerQuestionSource : IDisposable
         }
     }
 
-    /// <summary>Holds the stream, asking for a pull on each event and each time it opens,
-    /// and opens it again on the growing wait while it keeps failing.</summary>
+    /// <summary>Holds the stream, asking for a pull on each event and waking the pull loop
+    /// each time it opens, and opens it again on the growing wait while it keeps
+    /// failing.</summary>
     private async Task StreamLoopAsync(CancellationToken cancellationToken)
     {
         var retry = FirstRetryDelay;
@@ -431,7 +466,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
         await using (stream.ConfigureAwait(false))
         {
             SetOpen(true);
-            if (!WholePullIsFresh()) RequestPull(whole: true);
+            lock (_gate) _pulls.Writer.TryWrite(Wake.StreamOpened);
 
             try
             {
@@ -480,4 +515,15 @@ public sealed class SpecManagerQuestionSource : IDisposable
         {
         }
     }
+
+    /// <summary>What wakes the pull loop: a pull asked for, or the stream opening.</summary>
+    private enum Wake
+    {
+        Pull,
+        StreamOpened,
+    }
+
+    /// <summary>Why the pull loop stopped waiting: the interval ran out, a pull was asked
+    /// for, the stream opened — any of them together.</summary>
+    private readonly record struct Woken(bool Due, bool Asked, bool Opened);
 }

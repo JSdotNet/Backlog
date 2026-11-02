@@ -66,8 +66,8 @@ related: [".devbook/domain/sessions/features.md#turn-the-area-off"]
 Turning it on shows the Sessions segment and its list in the Home shell. Switching it
 off withdraws the area everywhere else too:
 
-- the `list_sessions` tool and the eight delivery-surface operations leave the MCP
-  endpoint;
+- the `list_sessions` and `list_run_usage` tools and the eight delivery-surface operations
+  leave the MCP endpoint;
 - the dashboard's hours worked and the roadmap's actual hours stop reading agent
   activity.
 

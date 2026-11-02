@@ -102,6 +102,30 @@ public sealed class PhoneStandupTests
         Assert.Equal(state is StandupImpedimentState.New or StandupImpedimentState.Escalated ? 1 : 0, root.Children.Length);
     }
 
+    /// <summary>Ready to resolve is a reading the card shows in words, in the settled tone,
+    /// after the state badge; a card that is not ready shows none.</summary>
+    [Fact]
+    public void An_impediment_card_ready_to_resolve_says_so_after_its_state()
+    {
+        using var context = new BunitContext();
+
+        var ready = context.Render<StandupImpedimentCard>(parameters => parameters
+            .Add(p => p.Title, "Waiting on the bank's test account")
+            .Add(p => p.State, StandupImpedimentState.BeingHandled)
+            .Add(p => p.ReadyToResolve, true)
+            .Add(p => p.TestId, "card"));
+        var waiting = context.Render<StandupImpedimentCard>(parameters => parameters
+            .Add(p => p.Title, "Bank sample files missing")
+            .Add(p => p.State, StandupImpedimentState.Escalated)
+            .Add(p => p.TestId, "other"));
+
+        var mark = ready.Find("[data-testid='card-ready']");
+        Assert.Equal("Ready to resolve", mark.TextContent.Trim());
+        Assert.Contains("badge--tone-settled", mark.ClassList);
+        Assert.Equal(["card-state", "card-ready"], ready.FindAll(".standup-impediment__head .badge").Select(badge => badge.GetAttribute("data-testid")));
+        Assert.Empty(waiting.FindAll("[data-testid='other-ready']"));
+    }
+
     [Fact]
     public void The_work_list_groups_by_goal_skips_empty_groups_and_puts_detail_where_asked()
     {

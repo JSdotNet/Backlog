@@ -18,8 +18,9 @@ Inside the boundary:
   plans, tasks, pull requests and sessions attached to it;
 - how far a goal has come, counted per item, and whether it is
   [At risk or On track](domain.md#goal-forecast);
-- each [Impediment](domain.md#impediment), its state and history, and the tasks it
-  holds back;
+- each [Impediment](domain.md#impediment), its state and history, the tasks, pull
+  requests and plans it holds back, and whether it is
+  [ready to resolve](domain.md#ready-to-resolve);
 - the [Iteration](domain.md#iteration) a person reads their work in, and the
   [stand-up](domain.md#stand-up) that reads goals, finished work, planned work and
   impediments over it.
@@ -29,9 +30,10 @@ due date, effort, the mark that it is blocked and its linked pull requests, and 
 no knowledge of goals or impediments. Progress names a task by its id, a plan by its
 [plan tag](../roadmap/domain.md#roadmap-tag), a pull request by its repository and
 number and a session by its agent and session id, and reads each from its owner on
-every reading. A session is [Sessions](../sessions/context.md)'s, and attaching one
-writes nothing there. Marking a task blocked
-raises an impediment, because Progress reacts to the mark; Tasks does not call
+every reading. An impediment names the work it holds back the same way, sessions
+excepted. A session is [Sessions](../sessions/context.md)'s, and attaching one
+writes nothing there. A task's blocked mark is Tasks' alone and raises nothing in
+Progress: a person raises an impediment and links the task. Tasks does not call
 Progress and stores no impediment id. The pace a stand-up plans against is
 [Roadmap Planning](../roadmap/context.md#story-points-a-week)'s. Why goals and
 impediments sit here is local

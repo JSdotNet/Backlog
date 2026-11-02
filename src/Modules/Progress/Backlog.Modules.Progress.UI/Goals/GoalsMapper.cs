@@ -101,6 +101,21 @@ public static class GoalsMapper
                 goal.DueIsIterationEnd);
         }
 
+        // A held-back item under the words the reading gives it; a pull request the shell
+        // lists takes its own title, since the row draws its number before the title.
+        GoalsItem HeldBack(StandUpHeldBackItemDto held)
+        {
+            var subject = GoalSubjects.FromHeldBack(held.Item);
+            if (subject.Kind == GoalSubjectKind.PullRequest)
+            {
+                var identity = GoalSubjects.PullRequestIdentity(subject.Repository!, subject.Number!.Value);
+                var listed = candidates.PullRequests.FirstOrDefault(pull => GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number) == identity);
+                return new GoalsItem(subject, listed?.Title ?? subject.Repository!);
+            }
+
+            return new GoalsItem(subject, held.Title ?? DeletedTask);
+        }
+
         StandUpGroup Group(StandUpGroupDto group) => new(
             group.GoalTitle,
             [.. group.Items.Select(item => new StandUpEntry(
@@ -124,7 +139,9 @@ public static class GoalsMapper
                 impediment.DaysOpen,
                 impediment.CheckAgain,
                 impediment.GoalTitle,
-                impediment.Note))],
+                impediment.Note,
+                impediment.ReadyToResolve,
+                [.. impediment.HoldsBack.Select(HeldBack)]))],
             standUp.ResolvedInLast);
 
         return new GoalsBoardModel(
@@ -139,6 +156,9 @@ public static class GoalsMapper
             Repositories = candidates.Repositories
         };
     }
+
+    /// <summary>The words a held-back task the reading does not have — deleted — reads under.</summary>
+    public const string DeletedTask = "A task no longer in the backlog";
 
     /// <summary>Every pull request the board shows, each once, in the order it shows them:
     /// each goal's own and those its tasks link, then the stand-up's.</summary>

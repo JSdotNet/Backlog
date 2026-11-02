@@ -1,12 +1,13 @@
 using Backlog.Desktop.UI.InProgress;
-using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Tests;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Integrations;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -17,6 +18,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// merge date and author — after the open read lands rather than as part of it, and a
 /// merged one read once and kept, so a visit to the Goals view does not sweep
 /// GitHub for work that has already landed.
+/// <para>
+/// Through Repository Management's contract composed over the test's GitHub client
+/// (<see cref="RepositoryManagementChain"/>, local ADR 0042): what is kept, and for how
+/// long, is the contract's one cache, so these count the pinned reads GitHub was sent.
+/// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class WorkInProgressReaderTests
@@ -40,11 +46,11 @@ public sealed class WorkInProgressReaderTests
         await ReadAsync(reader);
 
         // The open read already answered for 700; only 655 is asked for by number.
-        Assert.Equal([$"{Repository} 655"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 655"], host.Client.PinnedReadByNumber);
 
         var merged = Assert.Single(reader.LinkedPullRequests);
         Assert.Equal(655, merged.Number);
-        Assert.Equal(GitHubItemState.Merged, merged.State);
+        Assert.Equal(PullRequestState.Merged, merged.State);
         Assert.Equal(Noon.AddHours(-2), merged.MergedAt);
         Assert.Equal("octocat", merged.AuthorLogin);
     }
@@ -70,7 +76,7 @@ public sealed class WorkInProgressReaderTests
 
         Assert.Equal(
             [$"{Repository} 655,656", $"{Repository} 656", $"{Elsewhere} 657", $"{Elsewhere} 657"],
-            host.Client.ReadByNumber.Order(StringComparer.Ordinal));
+            host.Client.PinnedReadByNumber.Order(StringComparer.Ordinal));
         Assert.Equal([655, 656, 657], reader.LinkedPullRequests.Select(pull => pull.Number).Order());
     }
 
@@ -85,7 +91,7 @@ public sealed class WorkInProgressReaderTests
         await ReadAsync(reader);
         await ReadAsync(reader);
 
-        Assert.Equal([$"{Repository} 999"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 999"], host.Client.PinnedReadByNumber);
         Assert.Empty(reader.LinkedPullRequests);
     }
 
@@ -101,13 +107,13 @@ public sealed class WorkInProgressReaderTests
         Assert.Null(host.GitHub.Settings.SetRepositoryArchived(Elsewhere, archived: true));
 
         await ReadAsync(reader);
-        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(host.Client.PinnedReadByNumber);
         Assert.Empty(reader.LinkedPullRequests);
 
         Assert.Null(host.GitHub.Settings.SetRepositoryArchived(Elsewhere, archived: false));
         await ReadAsync(reader);
 
-        Assert.Equal([$"{Elsewhere} 5"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Elsewhere} 5"], host.Client.PinnedReadByNumber);
         Assert.Equal(5, Assert.Single(reader.LinkedPullRequests).Number);
     }
 
@@ -119,19 +125,43 @@ public sealed class WorkInProgressReaderTests
         var reader = Reader(host, out var clock, Link(657, Elsewhere));
 
         await reader.EnsureSessionsAsync();
-        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(host.Client.PinnedReadByNumber);
 
         await reader.EnsureAllAsync();
         await reader.LinkedRead;
         clock.Advance(TimeSpan.FromSeconds(30));
         await reader.EnsureAllAsync();
         await reader.LinkedRead;
-        Assert.Single(host.Client.ReadByNumber);
+        Assert.Single(host.Client.PinnedReadByNumber);
 
         clock.Advance(WorkInProgressReader.FreshFor);
         await reader.EnsureAllAsync();
         await reader.LinkedRead;
-        Assert.Equal(2, host.Client.ReadByNumber.Count);
+        Assert.Equal(2, host.Client.PinnedReadByNumber.Count);
+    }
+
+    /// <summary>Refresh — and the first opening, and the link picker's own read — asks
+    /// GitHub for the open list again, whatever another reader listed inside the minute;
+    /// an <c>Ensure</c> takes the list the contract kept, as any other reader would.</summary>
+    [Fact]
+    public async Task A_refresh_inside_the_minute_lists_again_and_an_ensure_takes_the_kept_list()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        host.Client.OpenPullRequests.Add(Open(700));
+        var clock = new FakeTimeProvider(Noon);
+        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var reader = new WorkInProgressReader(contract, new NoSessions(), clock);
+
+        // The pull requests pane lists at noon; a pull request opens on GitHub after.
+        await contract.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
+        host.Client.OpenPullRequests.Add(Open(701));
+        clock.Advance(TimeSpan.FromSeconds(30));
+
+        await reader.EnsureAllAsync();
+        Assert.Equal([700], reader.PullRequests.Select(pull => pull.Number));
+
+        await reader.ReadAsync();
+        Assert.Equal([700, 701], reader.PullRequests.Select(pull => pull.Number).Order());
     }
 
     /// <summary>The open list is what the view draws, so it lands — and the read a
@@ -195,7 +225,7 @@ public sealed class WorkInProgressReaderTests
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
         host.Client.PullRequestsByNumber.Add(Linked(655, GitHubItemState.Merged, mergedAt: Noon));
-        var links = new List<GitHubPullRequestReference> { new(Repository, 655) };
+        var links = new List<PullRequestReference> { new(Repository, 655) };
         var reader = Reader(host, out _, () => [.. links]);
 
         await ReadAsync(reader);
@@ -216,19 +246,40 @@ public sealed class WorkInProgressReaderTests
 
         await ReadAsync(reader);
 
-        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(host.Client.PinnedReadByNumber);
         Assert.Empty(reader.LinkedPullRequests);
     }
 
+    /// <summary>The reader the shell builds over what the host composed asks Tasks which
+    /// pull requests the tasks link (local ADR 0042, V8), at the start of every read —
+    /// and with no lookup composed, reads none by number.</summary>
     [Fact]
-    public void The_links_are_every_entrys_pull_requests_each_once_whatever_the_case_of_the_repository()
+    public async Task The_reader_the_shell_builds_reads_the_pull_requests_tasks_link_through_the_tasks_lookup()
     {
-        var first = new EntryRow { PullRequestLinks = [new EntryPullRequestLink(Repository, 655), new EntryPullRequestLink(Repository, 700)] };
-        var second = new EntryRow { PullRequestLinks = [new EntryPullRequestLink("jsdotnet/backlog", 655)] };
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        host.Client.PullRequestsByNumber.Add(Linked(655, GitHubItemState.Merged, "octocat", Noon.AddHours(-2)));
+        var clock = new FakeTimeProvider(Noon);
+        var lookup = new LinkingLookup([new TaskPullRequestLink(Repository, 655)]);
 
-        var links = WorkInProgressReader.LinksOf([first, second]).ToList();
+        var services = new ServiceCollection()
+            .AddSingleton(RepositoryManagementChain.For(host.GitHub, clock))
+            .AddSingleton<IAgentSessionSource>(new NoSessions())
+            .AddSingleton<TimeProvider>(clock);
+        using (var withLookup = services.AddSingleton<ITaskLookup>(lookup).BuildServiceProvider())
+        {
+            var reader = WorkInProgressReader.From(withLookup);
+            await ReadAsync(reader);
 
-        Assert.Equal([655, 700], links.Select(link => link.Number));
+            Assert.Equal([$"{Repository} 655"], host.Client.PinnedReadByNumber);
+            Assert.Equal(655, Assert.Single(reader.LinkedPullRequests).Number);
+        }
+
+        services.RemoveAll<ITaskLookup>();
+        using var withoutLookup = services.BuildServiceProvider();
+        var unlinked = WorkInProgressReader.From(withoutLookup);
+        await ReadAsync(unlinked);
+
+        Assert.Empty(unlinked.LinkedPullRequests);
     }
 
     /// <summary>The work-link record carries the read — state, author, merge date — and
@@ -242,7 +293,7 @@ public sealed class WorkInProgressReaderTests
         row.PullRequestLinks = [new EntryPullRequestLink(Repository, 655), new EntryPullRequestLink(Repository, 700)];
         host.Client.OpenPullRequests.Add(Open(700, author: "JSdotNet"));
         host.Client.PullRequestsByNumber.Add(Linked(655, GitHubItemState.Merged, "octocat", Noon.AddHours(-2)));
-        var reader = Reader(host, out _, () => WorkInProgressReader.LinksOf(host.State.Rows));
+        var reader = Reader(host, out _, Link(655), Link(700));
         await ReadAsync(reader);
 
         var projection = new WorkLinksProjection(
@@ -274,42 +325,6 @@ public sealed class WorkInProgressReaderTests
         });
     }
 
-    /// <summary>Progress reads each pull request's status — checks and approvals — through
-    /// a cache of its own, so the reader's slim read by number never stands in
-    /// for it, and the slim read keeps asking only for what a link records. Each read is
-    /// still asked once while fresh.</summary>
-    [Fact]
-    public async Task The_goals_reader_reads_the_status_through_its_own_cache_beside_the_in_progress_view()
-    {
-        using var host = await TasksPaneHost.CreateAsync(Repository);
-        host.Client.PullRequestsByNumber.Add(Linked(656, GitHubItemState.Closed, "octocat"));
-        var (reader, goals, clock) = SharedReaders(host, Link(656));
-
-        await ReadAsync(reader);
-        clock.Advance(TimeSpan.FromSeconds(30));
-        var answer = Assert.Single(await goals.ReadAsync([new(Repository, "656")], TestContext.Current.CancellationToken));
-        await goals.ReadAsync([new(Repository, "656")], TestContext.Current.CancellationToken);
-
-        Assert.Equal([$"{Repository} 656"], host.Client.ReadByNumber);
-        Assert.Equal([$"{Repository} 656"], host.Client.StatusReadByNumber);
-        Assert.Equal(LinkedPullRequestState.Closed, answer.State);
-    }
-
-    /// <summary>The In progress reader and the goals reader over one GitHub adapter, as the
-    /// desktop composes them, on one clock.</summary>
-    private static (WorkInProgressReader Reader, GitHubGoalPullRequests Goals, FakeTimeProvider Clock) SharedReaders(
-        TasksPaneHost host,
-        params Func<IEnumerable<GitHubPullRequestReference>>[] links)
-    {
-        var clock = new FakeTimeProvider(Noon);
-        var gitHub = new GitHubIntegration(host.GitHub.Settings, host.Client, new StubProbe(new GitHubConnection(true, "Connected.")), time: clock);
-
-        return (
-            new WorkInProgressReader(gitHub, new NoSessions(), clock, () => links.SelectMany(link => link())),
-            new GitHubGoalPullRequests(() => gitHub),
-            clock);
-    }
-
     /// <summary>A full read, and the read by number it set off.</summary>
     private static async Task ReadAsync(WorkInProgressReader reader)
     {
@@ -317,18 +332,18 @@ public sealed class WorkInProgressReaderTests
         await reader.LinkedRead;
     }
 
-    private static Func<IEnumerable<GitHubPullRequestReference>> Link(int number, string repository = Repository) =>
-        () => [new GitHubPullRequestReference(repository, number)];
+    private static Func<IEnumerable<PullRequestReference>> Link(int number, string repository = Repository) =>
+        () => [new PullRequestReference(repository, number)];
 
-    private static WorkInProgressReader Reader(TasksPaneHost host, out FakeTimeProvider clock, params Func<IEnumerable<GitHubPullRequestReference>>[] links)
+    private static WorkInProgressReader Reader(TasksPaneHost host, out FakeTimeProvider clock, params Func<IEnumerable<PullRequestReference>>[] links)
     {
         clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new WorkInProgressReader(host.GitHub, new NoSessions(), clock, () => links.SelectMany(link => link()));
+        return new WorkInProgressReader(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock, () => links.SelectMany(link => link()));
     }
 
-    private static GitHubLinkedPullRequest Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>
+    private static PullRequestByNumber Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>
         new(number, $"https://github.com/{repository}/pull/{number}", $"Pull request {number}", repository, state, author, mergedAt);
 
     private static GitHubOpenPullRequest Open(int number, string author = "someone-else") =>
@@ -360,5 +375,16 @@ public sealed class WorkInProgressReaderTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog([], [], 0));
+    }
+
+    /// <summary>A Tasks lookup whose tasks link the given pull requests and own no
+    /// session or pull request.</summary>
+    private sealed class LinkingLookup(IReadOnlyList<TaskPullRequestLink> linked) : ITaskLookup
+    {
+        public TaskReference? TaskForSession(string sessionId) => null;
+
+        public TaskReference? TaskForPullRequest(PullRequestTaskQuestion pullRequest, bool mineOnly = false) => null;
+
+        public IReadOnlyList<TaskPullRequestLink> LinkedPullRequests() => linked;
     }
 }
