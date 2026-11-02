@@ -23743,7 +23743,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .goals-board__number,
-.goal-card__number {
+.goal-card__number,
+.work-item-search__number {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
@@ -23907,7 +23908,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 /* A row's Detach: a quiet glyph at the row's end; the button keeps its full target. */
-.goal-card__detach {
+.goal-card__detach,
+.impediment-row__unlink,
+.impediment-raise-dialog__remove {
     flex: 0 0 auto;
     color: var(--color-text-secondary);
 }
@@ -23990,13 +23993,17 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-secondary);
 }
 
-.goal-card__attach {
+/* The work search: GoalCard draws it in its own classes, an impediment's Link… and the
+   Raise impediment dialog in the search's own; both read the same. */
+.goal-card__attach,
+.work-item-search {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
 }
 
-.goal-card__matches {
+.goal-card__matches,
+.work-item-search__matches {
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -24007,7 +24014,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     border-radius: var(--border-radius-md);
 }
 
-.goal-card__match {
+.goal-card__match,
+.work-item-search__match {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -24023,35 +24031,41 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     cursor: pointer;
 }
 
-.goal-card__match:hover {
+.goal-card__match:hover,
+.work-item-search__match:hover {
     background: var(--color-background-alt);
 }
 
-.goal-card__match:focus-visible {
+.goal-card__match:focus-visible,
+.work-item-search__match:focus-visible {
     background: var(--color-background-alt);
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.goal-card__match:disabled {
+.goal-card__match:disabled,
+.work-item-search__match:disabled {
     cursor: default;
     opacity: 0.6;
 }
 
 /* The "New task" row closes the list, set off from the matches above it. */
-.goal-card__match-row:has(.goal-card__match--new):not(:first-child) {
+.goal-card__match-row:has(.goal-card__match--new):not(:first-child),
+.work-item-search__match-row:has(.work-item-search__match--new):not(:first-child) {
     margin-top: var(--spacing-xs);
     padding-top: var(--spacing-xs);
     border-top: var(--border-width) solid var(--color-border);
 }
 
-.goal-card__match-kind {
+.goal-card__match-kind,
+.work-item-search__match-kind {
     flex: 0 0 3rem;
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
-.goal-card__match-title {
+.goal-card__match-title,
+.work-item-search__match-title {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -24222,8 +24236,77 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-sm);
 }
 
-.goal-create-dialog .field + .field {
+.goal-create-dialog .field + .field,
+.impediment-raise-dialog .field + .field {
     margin-top: var(--spacing-sm);
+}
+
+/* Raise impediment sits at the end of the Impediments heading, after the count. */
+.stand-up-panel__raise {
+    flex: none;
+}
+
+/* Ready to resolve: the settled tone badge beside the state picker, never in its place. */
+.impediment-row__ready {
+    flex: none;
+}
+
+/* What an impediment holds back: one line per item, its kind label in the match list's
+   column, and the quiet Unlink at its end. */
+.impediment-row__items,
+.impediment-raise-dialog__picked {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.impediment-row__item,
+.impediment-raise-dialog__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 1.75rem;
+    font-size: var(--font-size-sm);
+}
+
+.impediment-row__item-kind,
+.impediment-raise-dialog__item-kind {
+    flex: 0 0 3rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.impediment-row__item-title,
+.impediment-raise-dialog__item-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.impediment-row__link {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.impediment-row__search {
+    align-self: stretch;
+}
+
+.impediment-raise-dialog__items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+}
+
+.impediment-raise-dialog__items-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
 }
 
 .two-week-start-dialog__text {

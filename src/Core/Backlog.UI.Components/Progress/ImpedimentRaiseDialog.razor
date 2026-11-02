@@ -1,0 +1,189 @@
+@*
+    The stand-up's Raise impediment (.devbook/domain/progress/features.md#raising-an-impediment),
+    a creation dialog like New goal: a title, an optional note, and optionally the first work
+    it holds back, picked in the work search (WorkItemSearch) limited to tasks, pull requests
+    and plans. Each pick is listed under the search with its kind label and a Remove named
+    for it, and leaves the search; a picked item is not offered twice.
+
+    Raise hands the request back — the title and the note trimmed, a blank note as null, the
+    items in the order picked — and the host raises it through the module, closing the
+    dialog, or keeps it open with the module's refusal in Error. A blank title is refused
+    here, on the field, since there is nothing to raise; typing a title takes the refusal
+    away. The dialog starts empty at each opening.
+
+    Remove takes its line, and the focused button with it: the focus moves to the Remove of
+    the line that took its place — the last one when it was the last — or into the search
+    box once none is left, so it never leaves the dialog and Escape still reaches the Modal.
+*@
+@inject IJSRuntime Js
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="Raise impediment"
+       CssClass="impediment-raise-dialog"
+       TestId="@TestId">
+    <ChildContent>
+        <TextField Label="Title"
+                   Value="@_title"
+                   ValueChanged="TitleChanged"
+                   Placeholder="What is in the way"
+                   ErrorMessage="@_titleError"
+                   TestId="@Part("title")" />
+        <TextArea Label="Note (optional)"
+                  Value="@_note"
+                  ValueChanged="value => _note = value"
+                  Placeholder="Who it is with, what was tried"
+                  Rows="2"
+                  TestId="@Part("note")" />
+        <div class="impediment-raise-dialog__items" data-testid="@Part("items")">
+            <span class="impediment-raise-dialog__items-title">Holds back (optional)</span>
+            @if (_items.Count > 0)
+            {
+                <ul class="impediment-raise-dialog__picked" aria-label="Holds back" data-testid="@Part("picked")">
+                    @for (var index = 0; index < _items.Count; index++)
+                    {
+                        var item = _items[index];
+                        var at = index;
+                        <li class="impediment-raise-dialog__item" data-testid="@Part($"picked-{item.Subject.Key}")">
+                            <span class="impediment-raise-dialog__item-kind">@WorkItemSearch.KindLabel(item.Kind)</span>
+                            <span class="impediment-raise-dialog__item-title">@WorkItemSearch.Line(item)</span>
+                            <IconButton AriaLabel="@($"Remove {WorkItemSearch.Line(item)}")"
+                                        Title="Remove"
+                                        CssClass="impediment-raise-dialog__remove"
+                                        OnClick="() => Remove(at)"
+                                        id="@RemoveId(at)"
+                                        TestId="@Part($"remove-{item.Subject.Key}")">
+                                <XIcon Size="14" />
+                            </IconButton>
+                        </li>
+                    }
+                </ul>
+            }
+            <WorkItemSearch @ref="_search"
+                            Kinds="WorkItemSearch.ImpedimentKinds"
+                            Candidates="Candidates"
+                            Excluding="@([.. _items.Select(item => item.Subject)])"
+                            Repositories="Repositories"
+                            Label="Add a task, pull request or plan"
+                            OnPick="Add"
+                            TestId="@Part("search")" />
+        </div>
+        <Alert Message="@Error" TestId="@Part("error")" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OpenChanged.InvokeAsync(false)" TestId="@Part("cancel")">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Busy="Busy" BusyLabel="Raising" OnClick="RaiseAsync" TestId="@Part("raise")">Raise</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    /// <summary>The words a blank title is refused with.</summary>
+    public const string TitleRequired = "An impediment needs a title.";
+
+    private readonly List<GoalsItem> _items = [];
+    private readonly string _id = "impediment-raise-" + Guid.NewGuid().ToString("N");
+    private WorkItemSearch? _search;
+    private bool _focusAfterRemove;
+    private int _focusIndex;
+    private string? _title;
+    private string? _note;
+    private string? _titleError;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>Raise was pressed with a title.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentRaiseRequest> OnRaise { get; set; }
+
+    /// <summary>What the work search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number is read in.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the raise was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Lands on the dialog; its parts take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; } = "impediment-raise-dialog";
+
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen)
+        {
+            _title = null;
+            _note = null;
+            _titleError = null;
+            _items.Clear();
+        }
+
+        _wasOpen = Open;
+    }
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private string RemoveId(int index) => $"{_id}-remove-{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+    private void Remove(int index)
+    {
+        if (index < 0 || index >= _items.Count) return;
+
+        _items.RemoveAt(index);
+        _focusAfterRemove = true;
+        _focusIndex = Math.Min(index, _items.Count - 1);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusAfterRemove) return;
+
+        _focusAfterRemove = false;
+        if (_focusIndex >= 0)
+        {
+            await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, RemoveId(_focusIndex), select: false);
+        }
+        else if (_search is not null)
+        {
+            await _search.FocusAsync();
+        }
+    }
+
+    /// <summary>Keeps the title as typed; a title that is no longer blank takes the blank-title
+    /// refusal away at once, rather than at the next Raise.</summary>
+    private void TitleChanged(string? value)
+    {
+        _title = value;
+        if (!string.IsNullOrWhiteSpace(value)) _titleError = null;
+    }
+
+    private void Add(GoalsItem item)
+    {
+        if (_items.Any(picked => string.Equals(picked.Subject.Key, item.Subject.Key, StringComparison.OrdinalIgnoreCase))) return;
+
+        _items.Add(item);
+    }
+
+    private Task RaiseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _titleError = TitleRequired;
+            return Task.CompletedTask;
+        }
+
+        _titleError = null;
+        var note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim();
+        return OnRaise.InvokeAsync(new ImpedimentRaiseRequest(_title.Trim(), note, [.. _items.Select(item => item.Subject)]));
+    }
+}

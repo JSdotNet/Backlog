@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -336,7 +337,7 @@ public sealed class TasksPaneContextMenuTests
         await ChooseAsync(pane, "merge-pr");
 
         Assert.Equal(["merge 710"], host.Client.MergeCalls);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
         Assert.Contains("entry-doc__work-link--merged", pane.Find("[data-testid='row-pull-request']").ClassList);
     }
 
@@ -398,7 +399,7 @@ public sealed class TasksPaneContextMenuTests
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
         WithPullRequest(host, row, 710, draft: draft);
-        if (unread) row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>();
+        if (unread) row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, LinkedPullRequest>();
         var pane = host.Render();
 
         await OpenMenuAsync(pane, row);
@@ -406,8 +407,37 @@ public sealed class TasksPaneContextMenuTests
         Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-merge-pr']"));
     }
 
-    /// <summary>A row with one recorded pull request, read, and the same status on
-    /// the fake so the re-read after an act answers.</summary>
+    /// <summary>
+    /// A row like no other in this file, read through the list's own port: a pull
+    /// request in conflict with its base gets no merge item, as it gets no merge act in
+    /// the Pull requests pane — the one rule both follow, Repository Management's
+    /// <c>PullRequestMerges.For</c>, so the row never offers a merge the pane's verdict
+    /// would not (local ADR 0042, V2). The row
+    /// still shows the pull request, wearing its verdict.
+    /// </summary>
+    [Fact]
+    public async Task No_merge_is_offered_for_a_pull_request_in_conflict_as_in_the_pull_requests_pane()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        host.Client.PullRequestStatuses[710] = new GitHubPullRequestStatus(
+            710, pr.Repository, "PR_710", GitHubItemState.Open, GitHubCheckState.Passing,
+            AutoMergeEnabled: false, MergeReady: false, GitHubMergeMethod.Merge);
+        host.Client.ConflictingPullRequests.Add(710);
+        row.PullRequestLinks = [pr];
+        await host.State.SyncGitHubAsync();
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, host.State.Rows.Single(r => r.Id == row.Id));
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-merge-pr']"));
+        Assert.Equal("Conflicts", host.State.Rows.Single(r => r.Id == row.Id).PullRequestStatuses[pr].VerdictLabel);
+    }
+
+    /// <summary>A row with one recorded pull request, read — the status the list's port
+    /// answers for an open one with checks pending, offering the merge the module's rule
+    /// gives it — and the same status on the fake so the re-read after an act answers.</summary>
     private static EntryPullRequestLink WithPullRequest(
         TasksPaneHost host,
         EntryRow row,
@@ -416,15 +446,21 @@ public sealed class TasksPaneContextMenuTests
         bool draft = false)
     {
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
-        var state = draft ? GitHubItemState.Draft : GitHubItemState.Open;
-        var status = new GitHubPullRequestStatus(
-            number, pr.Repository, $"PR_{number}", state, GitHubCheckState.Pending,
+        var state = draft ? LinkedPullRequestState.Draft : LinkedPullRequestState.Open;
+        host.Client.PullRequestStatuses[number] = new GitHubPullRequestStatus(
+            number, pr.Repository, $"PR_{number}", draft ? GitHubItemState.Draft : GitHubItemState.Open, GitHubCheckState.Pending,
             AutoMergeEnabled: false, MergeReady: mergeReady, GitHubMergeMethod.Merge);
 
-        host.Client.PullRequestStatuses[number] = status;
         row.PullRequestLinks = [pr];
-        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = state };
-        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus> { [pr] = status };
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, LinkedPullRequestState> { [pr] = state };
+        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, LinkedPullRequest>
+        {
+            [pr] = new(state)
+            {
+                Checks = LinkedPullRequestChecks.Pending,
+                MergeOffer = draft ? null : mergeReady ? LinkedPullRequestMerge.MergeNow : LinkedPullRequestMerge.MergeWhenReady
+            }
+        };
         return pr;
     }
 

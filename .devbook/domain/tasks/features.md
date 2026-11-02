@@ -493,7 +493,7 @@ and [dependency loops are named rather than broken](domain.invariants.md#invaria
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/progress/features.md#raising-an-impediment, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Mark a task blocked by hand when something outside the backlog holds it up. This is
@@ -501,10 +501,10 @@ a different fact from Readiness, which reads blocked from `depends_on`. The mark
 `blocked:` token on the task's metadata line, with the day it was set, and an agent
 sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
 
-Marking a task blocked
-[raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
-unless an open impediment already holds it back. Progress reacts to the mark. The task
-stores no impediment id, and Tasks never calls Progress.
+The mark is the task's alone and raises no impediment. A person who wants the block
+tracked [raises an impediment](../progress/features.md#raising-an-impediment) and
+[links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
+The task stores no impediment id, and Tasks never calls Progress.
 
 ### Filing a follow-up after an entry
 

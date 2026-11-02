@@ -353,6 +353,60 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Every reader of a pull request goes through Repository Management's one contract
+    /// (local ADR 0042): the harness composes the module, one instance for the process,
+    /// with GitHub behind it rather than the module's not-configured fallbacks, and the
+    /// settled-fact memory on disk rather than in memory.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_reads_pull_requests_through_repository_managements_one_contract()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>();
+
+        Assert.Equal("Backlog.Modules.RepositoryManagement", pullRequests.GetType().Assembly.GetName().Name);
+        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequestSource>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubRegisteredRepositories>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IRegisteredRepositories>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.ISettledPullRequestStore>());
+        // Progress reads pull requests through the same contract (V6).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoryManagementGoalPullRequests>(
+            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
+        // And so does the task row, through Tasks' own port (V5, V10); which entries a
+        // merge's finish is settled for stays Tasks' fact, in the folder it always had.
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates>(
+            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ILinkedPullRequestStates>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.PullRequestFinishMemory>(
+            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IPullRequestFinishMemory>());
+    }
+
+    /// <summary>
+    /// Which task a session or a pull request belongs to is Tasks' answer over the
+    /// circuit's own Tasks state (local ADR 0042, V8): one lookup per circuit, over the
+    /// state that circuit draws, so two visitors never match over each other's rows.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_asks_tasks_for_a_task_over_each_circuits_own_rows()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Tasks.TasksDesktopState>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+
+        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>();
+        Assert.Equal("Backlog.Modules.Tasks", lookup.GetType().Assembly.GetName().Name);
+        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+    }
+
+    /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools, the Settings page's test question
     /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question

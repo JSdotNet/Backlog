@@ -1,0 +1,55 @@
+@using global::Backlog.Desktop.UI.Devbook
+
+@*
+    What the Devbook pane shows in Brain mode while there is no tab to show: the
+    tabs still being read, no folder chosen yet, or a folder that is set and
+    cannot be read. No folder set is the first use, and asks for one through the
+    Settings card that owns the setting (BrainSetup.SettingsHref); a folder that
+    is set and cannot be read says what is wrong in the source's own words.
+*@
+
+@switch (Status)
+{
+    case DevbookPaneModeStatus.Reading:
+        <Spinner Label="Reading your Brain" TestId="devbook-brain-reading" />
+        break;
+
+    case DevbookPaneModeStatus.NotSetUp:
+        <EmptyState BaseClass="devbook-empty"
+                    Title="@BrainSetup.SetUpLabel"
+                    TitleCssClass="devbook-empty__title"
+                    DescriptionCssClass="@(null)"
+                    TestId="devbook-brain-first-use"
+                    role="status">
+            <DescriptionContent>
+                Your Brain is a folder of your own notes outside every repository. Pick it once in Settings › Storage and its areas show here.
+            </DescriptionContent>
+            <Action>
+                <AppButton Href="@BrainSetup.SettingsHref"
+                           External="false"
+                           Variant="ButtonVariant.Primary"
+                           TestId="devbook-brain-set-up">
+                    @BrainSetup.SetUpLabel
+                </AppButton>
+            </Action>
+        </EmptyState>
+        break;
+
+    default:
+        <Alert Message="@(Message ?? "The Brain folder cannot be read.")"
+               BaseClass="devbook-empty"
+               Role="status"
+               TestId="devbook-brain-unavailable" />
+        break;
+}
+
+@code {
+    /// <summary>Why there is no tab to show.</summary>
+    [Parameter]
+    public DevbookPaneModeStatus Status { get; set; }
+
+    /// <summary>Why the folder cannot be read, in the source's words; null for
+    /// the general sentence.</summary>
+    [Parameter]
+    public string? Message { get; set; }
+}

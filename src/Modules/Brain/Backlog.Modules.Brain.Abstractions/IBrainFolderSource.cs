@@ -1,0 +1,56 @@
+namespace Backlog.Modules.Brain.Abstractions;
+
+/// <summary>
+/// The Brain as the Devbook pane reads it (local ADR 0026): one local folder,
+/// resolved under <see cref="BrainConventions.FolderKey"/> for the unscoped
+/// question, with the areas its <c>CONVENTIONS.md</c> declares and the top folders
+/// that hold a note (<see cref="BrainConventions"/>).
+///
+/// <para>The Brain's own port, apart from Devbook's (local ADR 0040): the adapter
+/// that answers it also answers the devbook source Devbook publishes for one
+/// devbook beside the repositories' (<c>IDevbookPersonalSource</c>), which is
+/// where resolving a folder and listing it for the pane live. This port keeps
+/// what only the Brain knows: its root, its areas and its conflict copies.</para>
+///
+/// <para><see cref="Changed"/> is raised when the Brain setting moves and after
+/// the Brain's database was rebuilt, so an open pane reloads without a
+/// restart.</para>
+/// </summary>
+public interface IBrainFolderSource
+{
+    /// <summary>The Brain's absolute folder, or null while none is set or the
+    /// setting is not a usable path. Set does not mean present: the folder may
+    /// be missing, which resolving it through Devbook's source says in
+    /// words.</summary>
+    string? BrainRoot { get; }
+
+    /// <summary>Whether <see cref="BrainRoot"/> is set and the folder is there now:
+    /// one look at the disk, no read of a note — the cheap question a screen asks
+    /// to notice a folder that went away without raising
+    /// <see cref="Changed"/>.</summary>
+    bool BrainFolderPresent();
+
+    /// <summary>The areas the Brain shows, in order: what its
+    /// <c>CONVENTIONS.md</c> declares, or the PARA set, then every other top
+    /// folder holding a note, minus the ignored ones
+    /// (<see cref="BrainConventions.Read"/>). Walks the folder's names, so a
+    /// screen asks it off its render thread.</summary>
+    IReadOnlyList<BrainArea> Areas();
+
+    /// <summary>The folders <b>Show hidden</b> brings back as tabs, after every
+    /// area: the ones <c>CONVENTIONS.md</c> lists under <c>Ignore</c> and the
+    /// dot-folders, there now, by folder name
+    /// (<see cref="BrainConventions.Hidden(string?)"/>). Never areas: search and
+    /// the database leave them out. Empty while no folder is set or the folder is
+    /// missing.</summary>
+    IReadOnlyList<BrainArea> HiddenAreas();
+
+    /// <summary>The OneDrive conflict pairs in the Brain
+    /// (<see cref="BrainConflictCopies"/>), read only — neither file is ever
+    /// changed. Empty while no folder is set or the folder is missing.</summary>
+    IReadOnlyList<BrainConflictCopy> ConflictCopies();
+
+    /// <summary>Raised when the Brain setting moves or the Brain's database was
+    /// rebuilt; a reader asks again.</summary>
+    event Action? Changed;
+}

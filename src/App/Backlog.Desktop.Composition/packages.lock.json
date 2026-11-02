@@ -392,11 +392,13 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Infrastructure.AzureFoundry": "[1.0.0, )",
+          "Backlog.Infrastructure.Brain": "[1.0.0, )",
           "Backlog.Infrastructure.Claude": "[1.0.0, )",
           "Backlog.Infrastructure.FileSystem": "[1.0.0, )",
           "Backlog.Infrastructure.GitHub": "[1.0.0, )",
           "Backlog.Infrastructure.Mcp": "[1.0.0, )",
           "Backlog.Infrastructure.Sync": "[1.0.0, )",
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Capture.UI": "[1.0.0, )",
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
@@ -410,6 +412,7 @@
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.UI": "[1.0.0, )",
           "Backlog.Modules.Progress.UI": "[1.0.0, )",
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.UI": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.UI": "[1.0.0, )",
@@ -434,6 +437,19 @@
           "Microsoft.Extensions.Http": "[10.0.13, )",
           "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
+        }
+      },
+      "backlog.infrastructure.brain": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Infrastructure.Devbook": "[1.0.0, )",
+          "Backlog.Infrastructure.FileSystem": "[1.0.0, )",
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
       "backlog.infrastructure.capture": {
@@ -485,6 +501,7 @@
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
@@ -498,6 +515,7 @@
         "dependencies": {
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
@@ -511,6 +529,7 @@
       "backlog.infrastructure.mcp": {
         "type": "Project",
         "dependencies": {
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
@@ -582,6 +601,27 @@
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
+      "backlog.modules.brain.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.brain.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Infrastructure.Brain": "[1.0.0, )",
+          "Backlog.Infrastructure.Devbook": "[1.0.0, )",
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Devbook.UI": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Backlog.UI.Components": "[1.0.0, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "backlog.modules.capture": {
         "type": "Project",
         "dependencies": {
@@ -630,7 +670,10 @@
         }
       },
       "backlog.modules.devbook.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.devbook.ui": {
         "type": "Project",
@@ -731,6 +774,21 @@
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+        }
+      },
+      "backlog.modules.repositorymanagement": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
+      "backlog.modules.repositorymanagement.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
       "backlog.modules.roadmap": {

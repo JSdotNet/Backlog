@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -19,6 +20,37 @@ public sealed class AppFeatureSettingsStoreTests
     public void The_tasks_feature_key_keeps_the_value_it_was_stored_under()
     {
         Assert.Equal("backlog", TasksFeatures.Tasks);
+    }
+
+    /// <summary>
+    /// A choice stored under <c>"pull-requests"</c> before the key moved from Sessions to
+    /// Repository Management (local ADR 0042) still decides the pull requests pane after
+    /// it: the string is the persisted value, and the move kept it.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_pull_requests_choice_stored_before_the_key_moved_still_applies(bool enabled)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                disabledFeatures = enabled ? Array.Empty<string>() : ["pull-requests"],
+                enabledFeatures = enabled ? new[] { "pull-requests" } : []
+            }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.Equal(enabled, store.IsEnabled(RepositoryManagementFeatures.PullRequests));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
     }
 
     [Fact]
@@ -92,7 +124,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.Status,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
-                SessionFeatures.PullRequests,
+                RepositoryManagementFeatures.PullRequests,
                 SessionFeatures.SessionRequests,
                 DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,

@@ -112,8 +112,10 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton<IDevbookFolderSource>(repositoryFolders);
         context.Services.AddSingleton<IBrainFolderSource>(brain);
+        context.Services.AddSingleton<IDevbookPersonalSource>(brain);
         context.Services.AddSingleton<IBrainSettings>(settings);
         if (noteWriter) context.Services.AddSingleton<IBrainNoteWriter>(new BrainNoteWriter(brain));
+        context.Services.AddBrainPane();
         var git = new ScriptedGitRepositoryService();
         context.Services.AddSingleton<ILocalGitRepositoryService>(git);
         context.Services.AddSingleton<InstructionSourceDiscovery>();
