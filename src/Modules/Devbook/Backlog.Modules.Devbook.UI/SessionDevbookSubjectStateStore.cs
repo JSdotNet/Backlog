@@ -94,6 +94,27 @@ public sealed class SessionDevbookSubjectStateStore : IDevbookSubjectStateStore,
         return true;
     }
 
+    /// <summary>Writes each imported state the store holds none for, as given,
+    /// and announces the batch once.</summary>
+    public int ImportIfAbsent(IReadOnlyList<DevbookSubjectState> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+
+        var written = 0;
+
+        foreach (var state in imported)
+        {
+            if (state is null || _states.ContainsKey(state.Id)) continue;
+
+            _states[state.Id] = state with { RepositoryAlias = DevbookSubject.AliasKey(state.RepositoryAlias) };
+            written++;
+        }
+
+        if (written > 0) Changed?.Invoke();
+
+        return written;
+    }
+
     public IReadOnlyList<DevbookSubjectState> ListChangedSince(DateTimeOffset watermark) =>
     [
         .. _states.Values

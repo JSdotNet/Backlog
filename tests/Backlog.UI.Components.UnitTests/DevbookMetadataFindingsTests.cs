@@ -65,6 +65,16 @@ public sealed class DevbookMetadataFindingsTests
         Assert.Equal(DevbookFindingSeverity.Error, Only(For(folder, block), "status").Severity);
     }
 
+    /// <summary>Devbook contract 38 renames the rating field <c>rating</c>: a
+    /// migrated entry is rated, not missing its required status.</summary>
+    [Theory]
+    [InlineData(DevbookFolder.Tech, "type: library\nrating: adopted")]
+    [InlineData(DevbookFolder.Ai, "type: practice\nrating: trial")]
+    public void A_rating_written_as_rating_satisfies_the_folder_that_requires_one(DevbookFolder folder, string block)
+    {
+        Assert.DoesNotContain(For(folder, block), finding => finding.Field == "status");
+    }
+
     [Theory]
     [InlineData(DevbookFolder.Arc42)]
     [InlineData(DevbookFolder.Domain)]

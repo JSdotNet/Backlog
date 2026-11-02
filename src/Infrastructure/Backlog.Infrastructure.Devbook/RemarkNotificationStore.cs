@@ -57,13 +57,20 @@ public sealed class RemarkNotificationStore(
         remove => _inner.Changed -= value;
     }
 
-    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath) =>
-        _inner.List(repositoryAlias, chapterPath);
+    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null) =>
+        _inner.List(repositoryAlias, chapterPath, branch);
 
     public DevbookAnnotation? Find(Guid id) => _inner.Find(id);
 
-    public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author, string? blockHash = null) =>
-        _inner.Add(repositoryAlias, chapterPath, blockIndex, author, blockHash);
+    public DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null) =>
+        _inner.Add(repositoryAlias, chapterPath, blockIndex, author, blockHash, kind, branch);
 
     public void Edit(Guid id, string body) => _inner.Edit(id, body);
 
@@ -89,6 +96,13 @@ public sealed class RemarkNotificationStore(
             LastAlert = AlertAsync(arrived);
         }
     }
+
+    /// <summary>Straight through, and silent: an imported remark was read out of the
+    /// repository's own chapter on this device, not left on another one, so it raises
+    /// no alert however recent its fence's date. Nothing it writes was open here
+    /// before, so nothing closes either.</summary>
+    public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported) =>
+        _inner.ImportIfAbsent(imported);
 
     public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark) =>
         _inner.ListChangedSince(watermark);

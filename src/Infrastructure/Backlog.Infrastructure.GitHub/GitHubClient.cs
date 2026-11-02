@@ -202,6 +202,27 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException<GitHubRepositoryState>(new GitHubException("This GitHub client cannot read a repository."));
 
+    /// <summary>
+    /// The commit that added <paramref name="path"/> to the repository's default
+    /// branch — the oldest one GitHub lists for the path — and the pull request it
+    /// belongs to. What the devbook import keys a decision record by, because the
+    /// record's Markdown does not say which pull request it was decided in.
+    /// <para>
+    /// A result, never a throw: <see cref="GitHubPathAdditionRead.Addition"/> is
+    /// null when the default branch has no history for the path or one the lookup
+    /// cannot settle (<see cref="GitHubPathAdditionRead.Unanswered"/> says which), and
+    /// <see cref="GitHubPathAddition.PullRequest"/> null when the commit belongs to
+    /// no pull request; anything GitHub or the network refused is
+    /// <see cref="GitHubPathAdditionRead.Failure"/>. A default body that answers
+    /// "not read", for the reason <see cref="GetPullRequestAsync"/> has one.
+    /// </para>
+    /// </summary>
+    Task<GitHubPathAdditionRead> FindPathAdditionAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(GitHubPathAdditionRead.Failed("This GitHub client cannot read a path's history."));
+
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
     /// <see cref="ListOpenPullRequestsAsync"/>.</param>
@@ -276,7 +297,7 @@ public interface IGitHubClient
 /// resource paths are identical either way, so the choice of transport never
 /// leaks past this class.
 /// </summary>
-public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
+public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubClient
 {
     public async Task<GitHubIssue> CreateIssueAsync(
         GitHubRepositoryRef repository,

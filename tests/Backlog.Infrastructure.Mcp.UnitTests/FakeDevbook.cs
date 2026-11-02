@@ -18,6 +18,12 @@ internal sealed class FakeDevbookFolderSource(string rootPath, params DevbookFol
     /// says a chapter read named the one file rather than fetching the area.</summary>
     public List<(string Key, string? Path)> Prepared { get; } = [];
 
+    /// <summary>The named branch the repository is read from, or null for the
+    /// default branch — what <see cref="RemarkBranch"/> answers.</summary>
+    public string? Branch { get; init; }
+
+    public string? RemarkBranch(string? repositoryAlias) => repositoryAlias is null ? null : Branch;
+
     public event Action? Changed
     {
         add { }
@@ -86,8 +92,9 @@ internal sealed class FakeDevbookFolderSource(string rootPath, params DevbookFol
 /// <para>
 /// <c>SetResolved</c> works, because <c>resolve_annotation</c> is a real write and
 /// the tests about it need to see what it did — <see cref="Resolved"/> records
-/// every call. Every other write is refused: no tool here may add, edit, delete
-/// or apply a note.
+/// every call. <c>Add</c> and <c>Edit</c> work only when <see cref="WritesAt"/>
+/// is set, for the <c>devbook.decision@1</c> note tools; every other write is
+/// refused: no tool here may delete, apply or import a note.
 /// </para>
 /// </summary>
 internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] annotations) : IDevbookAnnotationStore
@@ -113,7 +120,7 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
         remove { }
     }
 
-    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath)
+    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null)
     {
         Listed.Add((repositoryAlias, chapterPath));
 
@@ -126,6 +133,7 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
         [
             .. _annotations
                 .Where(annotation => annotation.IsLive)
+                .Where(annotation => annotation.Branch == DevbookAnnotation.BranchKey(branch))
                 .Where(annotation => string.Equals(annotation.RepositoryAlias, repositoryAlias ?? string.Empty, StringComparison.OrdinalIgnoreCase))
                 .Where(annotation => string.Equals(DevbookChapterKey.Canonical(annotation.ChapterPath, Folders), chapter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(annotation => annotation.CreatedAt)
@@ -134,15 +142,53 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
 
     public DevbookAnnotation? Find(Guid id) => _annotations.FirstOrDefault(annotation => annotation.Id == id);
 
+    /// <summary>
+    /// The clock <c>Add</c> and <c>Edit</c> stamp with, or null for a store no
+    /// tool may add to or edit — the read-only devbook tools'. Set for the
+    /// <c>devbook.decision@1</c> note tools, which post a note and fold a reply
+    /// into one.
+    /// </summary>
+    public DateTimeOffset? WritesAt { get; init; }
+
+    /// <summary>Every remark held, tombstones and drafts included — what a test
+    /// reads the store's state back from.</summary>
+    public IReadOnlyList<DevbookAnnotation> All => _annotations;
+
     public DevbookAnnotation Add(
         string? repositoryAlias,
         string chapterPath,
         int blockIndex,
         string author,
-        string? blockHash = null) =>
-        throw Written(nameof(Add));
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null)
+    {
+        if (WritesAt is not { } at) throw Written(nameof(Add));
 
-    public void Edit(Guid id, string body) => throw Written(nameof(Edit));
+        var added = new DevbookAnnotation(
+            Guid.NewGuid(),
+            DevbookSubject.AliasKey(repositoryAlias),
+            chapterPath,
+            blockIndex,
+            string.Empty,
+            author,
+            at,
+            at,
+            BlockHash: blockHash,
+            Kind: kind,
+            Branch: DevbookAnnotation.BranchKey(branch));
+
+        _annotations.Add(added);
+        return added;
+    }
+
+    public void Edit(Guid id, string body)
+    {
+        if (WritesAt is not { } at) throw Written(nameof(Edit));
+
+        var index = _annotations.FindIndex(annotation => annotation.Id == id);
+        if (index >= 0) _annotations[index] = _annotations[index] with { Body = body, UpdatedAt = at };
+    }
 
     public void SetResolved(Guid id, bool resolved)
     {
@@ -156,8 +202,18 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
 
     public void Apply(DevbookAnnotation replicated) => throw Written(nameof(Apply));
 
+    public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported) => throw Written(nameof(ImportIfAbsent));
+
+    /// <summary>The store's own contract: everything changed after the watermark,
+    /// tombstones included and drafts left out. The open-question check reads the
+    /// whole store through it.</summary>
     public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark) =>
-        throw Written(nameof(ListChangedSince));
+    [
+        .. _annotations
+            .Where(annotation => annotation.UpdatedAt > watermark)
+            .Where(annotation => !annotation.IsDraft)
+            .OrderBy(annotation => annotation.UpdatedAt)
+    ];
 
     private static InvalidOperationException Written(string member) =>
         new($"A read-only MCP tool called IDevbookAnnotationStore.{member}.");

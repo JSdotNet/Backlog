@@ -47,8 +47,9 @@ public sealed record DevbookSubjectState(
 public enum DevbookSubjectRefusal
 {
     /// <summary>An open question on the change blocks its approval. Wire code
-    /// <c>open-question</c>. Backlog keeps no note kinds yet, so it never raises
-    /// this; it is here because the contract's refusals are a closed set.</summary>
+    /// <c>open-question</c>, from <see cref="DevbookSubjectRules.OpenQuestion"/>:
+    /// a live, unresolved <c>question</c> remark under the change's
+    /// folder.</summary>
     OpenQuestion,
 
     /// <summary>Accept with no approval to stand on. Wire code

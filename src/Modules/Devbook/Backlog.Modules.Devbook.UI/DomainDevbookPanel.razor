@@ -163,7 +163,10 @@
     // The folder's own vocabulary, not a list kept here, so the badge judges an
     // authored status by the same words the convention defines.
     private static MetadataStatusVocabulary DevbookVocabulary => DevbookStatus.Vocabulary(DevbookFolder.Domain);
-    private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "devbook-issue", "github-issue", "issue" };
+    // The keys never drawn as a row: the status, which the header carries, and the
+    // planning fields — `issue`, `effort`, `roadmap` — plus `change`, which the
+    // chapter view no longer draws anywhere. The plan lives in Backlog's own entries.
+    private static readonly HashSet<string> UndrawnMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "devbook-issue", "github-issue", "issue", "effort", "roadmap", "change" };
     private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
 
     /// <summary>The chapter as it was when it was opened, and the chapter as it
@@ -233,6 +236,11 @@
     /// readable and nothing more (local ADR 0029 §4) — see
     /// <see cref="DevbookRemarkControls"/>.</summary>
     private bool RepositoryArchived => _view is { RepositoryArchived: true };
+
+    /// <summary>The branch the view was read from, which is what its remarks are
+    /// kept under: null for a clone or the default branch, the name for a
+    /// named-branch snapshot.</summary>
+    private string? RemarkBranch => _view?.Branch;
 
     /// <summary>The remark controls the read view is bound to: none while
     /// archived.</summary>
@@ -877,7 +885,7 @@
     /// blocks and mean nothing against another file's.</summary>
     private void RefreshChapterComments() =>
         _chapterComments = _chapterDocument is { } document
-            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path)), RepositoryArchived)
+            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path, RemarkBranch)), RepositoryArchived)
             : [];
 
     /// <summary>The store changed under the panel — replication applied what
@@ -913,7 +921,8 @@
             document.Path,
             blockIndex,
             DevbookAnnotationComments.LocalAuthor,
-            _chapterView?.BlockDigestAt(blockIndex));
+            _chapterView?.BlockDigestAt(blockIndex),
+            branch: RemarkBranch);
 
         RefreshChapterComments();
     }
@@ -1464,22 +1473,6 @@
             <span class="domain-devbook__decision" data-testid="devbook-decision-state">@string.Join("; ", decisionState)</span>
         }
 
-        @if (DevbookActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
-        {
-            @* Unknown rather than open: the link carries a repo, a number and a
-               label, and nothing on this path fetches the issue's state, so the
-               badge must not claim one. The visible word already says "linked". *@
-            <a class="badge badge--gh badge--gh-unknown"
-               data-testid="devbook-issue-badge"
-               href="@issue.Url"
-               target="_blank"
-               rel="noopener"
-               title="Devbook Issue @issue.Label in @issue.RepoFullName">
-                Devbook Issue @issue.Label
-                <span class="badge__state">linked</span>
-            </a>
-        }
-
         @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli))
         {
             <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
@@ -1618,9 +1611,9 @@
         VisibleMetadata(metadata).Any() || links.Count > 0;
 
     /// <summary>
-    /// The fields drawn as rows: everything but what the header already carries,
-    /// the <c>type</c> the heading draws as a mark, and the nine decision and review
-    /// state fields.
+    /// The fields drawn as rows: everything but the status the header carries, the
+    /// planning fields the chapter view no longer draws, the <c>type</c> the heading
+    /// draws as a mark, and the nine decision and review state fields.
     /// <para>
     /// The nine are not chapter content — contract 16 says a view draws them beside
     /// the status and never as rows in the body — so they come off the strip here
@@ -1632,7 +1625,7 @@
     /// </para>
     /// </summary>
     private static IEnumerable<KeyValuePair<string, string>> VisibleMetadata(IReadOnlyDictionary<string, string> metadata) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair) && !DevbookSchema.IsStateField(pair.Key));
+        metadata.Where(pair => !UndrawnMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair) && !DevbookSchema.IsStateField(pair.Key));
 
     private static string MetadataItemClass(string key) =>
         DevbookSchema.IsExtensionKey(key) ? "domain-metadata__item domain-metadata__item--extension" : "domain-metadata__item";
@@ -1656,7 +1649,7 @@
         [.. value.Trim().Trim('[', ']').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => v.Trim().Trim('"', '\'', '[', ']')).Where(v => v.Length > 0)];
 
     private static bool MetadataContainsLink(IReadOnlyDictionary<string, string> metadata, string link) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key)).SelectMany(pair => MetadataValues(pair.Value)).Any(value => string.Equals(value, link, StringComparison.OrdinalIgnoreCase));
+        metadata.Where(pair => !UndrawnMetadataKeys.Contains(pair.Key)).SelectMany(pair => MetadataValues(pair.Value)).Any(value => string.Equals(value, link, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsDevbookLink(string value) => value.StartsWith(".", StringComparison.Ordinal) && value.Contains('/');
 

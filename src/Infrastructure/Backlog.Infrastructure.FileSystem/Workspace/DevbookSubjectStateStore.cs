@@ -188,6 +188,38 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         return true;
     }
 
+    public int ImportIfAbsent(IReadOnlyList<DevbookSubjectState> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+
+        var touched = new HashSet<RepositoryFile>();
+        var written = 0;
+
+        lock (_gate)
+        {
+            Load();
+
+            foreach (var state in imported)
+            {
+                if (state is null || FindLoaded(state.Id) is not null) continue;
+
+                touched.Add(Place(state));
+                written++;
+            }
+
+            // One rewrite per file touched rather than one per state: a repository's
+            // import is a batch, and its file is whole either way.
+            foreach (var file in touched)
+            {
+                Save(file);
+            }
+        }
+
+        if (written > 0) Changed?.Invoke();
+
+        return written;
+    }
+
     public IReadOnlyList<DevbookSubjectState> ListChangedSince(DateTimeOffset watermark)
     {
         lock (_gate)
@@ -422,13 +454,20 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
 
     /// <summary>One document into its repository's file, on disk and in memory.
     /// Must be called under the lock, after <see cref="Load"/>.</summary>
-    private void Put(DevbookSubjectState state)
+    private void Put(DevbookSubjectState state) => Save(Place(state));
+
+    /// <summary>One document into its repository's file in memory, under the
+    /// alias as every lookup folds it; the file it went into comes back for the
+    /// caller to save. Must be called under the lock, after
+    /// <see cref="Load"/>.</summary>
+    private RepositoryFile Place(DevbookSubjectState state)
     {
         var key = DevbookSubject.AliasKey(state.RepositoryAlias);
         var file = FileFor(key);
 
         file.States[state.Id] = state with { RepositoryAlias = key };
-        Save(file);
+
+        return file;
     }
 
     /// <summary>The repository's file, created in memory when it has none yet.

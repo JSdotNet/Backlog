@@ -327,6 +327,66 @@ public class DevbookFolderSourceBranchTests : IDisposable
         Assert.Equal("JSdotNet/Backlog (release/2.0)", location.ScopeLabel);
     }
 
+    /// <summary>A remark is kept under the branch the chapter was read from: the
+    /// name for a named branch's snapshot, null for the default branch's and for a
+    /// clone — the default branch, as the annotation store reads null.</summary>
+    [Fact]
+    public void A_named_branchs_snapshot_carries_the_branch_its_remarks_are_kept_under()
+    {
+        var settings = Settings();
+        Assert.Null(settings.SetDevbookSource("backlog", "release/2.0", useLocalFolder: false));
+
+        var location = Source(settings, new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: true, ".domain/context-map.md"))
+            .Resolve(".domain", "backlog");
+
+        Assert.Equal("release/2.0", location.Branch);
+    }
+
+    /// <summary>The same key, asked without resolving a folder — what a closed-world
+    /// caller (the <c>list_annotations</c> tool) keys a repository's remarks by. It
+    /// reads the registry and nothing else, so no fetch is started.</summary>
+    [Fact]
+    public void The_remark_branch_is_read_from_the_registry_without_resolving_anything()
+    {
+        var settings = Settings();
+        Assert.Null(settings.SetDevbookSource("backlog", "release/2.0", useLocalFolder: false));
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: false, ".domain/context-map.md");
+        var source = Source(settings, cache);
+
+        var named = source.RemarkBranch("backlog");
+
+        var clone = Path.Combine(_root, "clone");
+        Directory.CreateDirectory(Path.Combine(clone, ".domain"));
+        Assert.Null(settings.SetCloneDirectory("backlog", clone));
+        Assert.Null(settings.SetDevbookSource("backlog", "release/2.0", useLocalFolder: true));
+
+        Assert.Equal("release/2.0", named);
+        Assert.Null(source.RemarkBranch("backlog"));
+        Assert.Null(source.RemarkBranch("unknown"));
+        Assert.Equal(0, cache.Fetches);
+        Assert.Null(source.PendingFetch(settings.Current.Find("backlog")!));
+    }
+
+    [Fact]
+    public void The_default_branchs_snapshot_and_a_clone_carry_no_branch()
+    {
+        var settings = Settings();
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: true, ".domain/context-map.md");
+
+        var snapshot = Source(settings, cache).Resolve(".domain", "backlog");
+
+        var clone = Path.Combine(_root, "clone");
+        Directory.CreateDirectory(Path.Combine(clone, ".domain"));
+        Assert.Null(settings.SetCloneDirectory("backlog", clone));
+        Assert.Null(settings.SetDevbookSource("backlog", "release/2.0", useLocalFolder: true));
+        var local = Source(settings, cache).Resolve(".domain", "backlog");
+
+        Assert.Equal(DevbookSourceKind.Branch, snapshot.Source);
+        Assert.Null(snapshot.Branch);
+        Assert.Equal(DevbookSourceKind.LocalFolder, local.Source);
+        Assert.Null(local.Branch);
+    }
+
     /// <summary>The folder is not missing from somebody's disk, it is missing
     /// from the commit — so telling them to check their clone would send them
     /// looking somewhere that has nothing to do with it.</summary>

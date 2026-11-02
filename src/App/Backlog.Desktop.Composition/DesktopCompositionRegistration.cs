@@ -659,5 +659,30 @@ public static class DesktopCompositionRegistration
                 folders: sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookSubjectStateStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
         services.AddSingleton<IDevbookSyncDirectionStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
+
+        // The one-time import of what a repository's default branch still writes
+        // into its Markdown — a subject's status, an open annotation fence — into
+        // the two stores above, through their import write alone. Once per
+        // repository: the ledger beside them, under the storage folder, records
+        // which ones finished. Each head resolves the worker after Build(), as it
+        // does the sync loops; a singleton nobody resolves never runs.
+        services.AddSingleton<IDevbookImportLedger>(sp =>
+            new DevbookImportLedger(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<GitHubSettingsStore>();
+
+            return new Backlog.Desktop.UI.Devbook.DevbookImportWorker(
+                () => settings.Current.Repositories,
+                sp.GetRequiredService<IDevbookFolderSource>(),
+                sp.GetRequiredService<IDevbookSnapshotCache>(),
+                sp.GetRequiredService<IGitHubClient>(),
+                sp.GetRequiredService<IDevbookImportLedger>(),
+                sp.GetRequiredService<IDevbookSubjectStateStore>(),
+                sp.GetRequiredService<IDevbookAnnotationStore>(),
+                sp.GetRequiredService<IAppFeatureSettings>(),
+                sp.GetService<TimeProvider>() ?? TimeProvider.System,
+                sp.GetService<ILogger<Backlog.Desktop.UI.Devbook.DevbookImportWorker>>());
+        });
     }
 }

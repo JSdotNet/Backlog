@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Markdown;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
@@ -10,18 +12,25 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The four state operations of <c>devbook.decision@1</c> — read a subject's
-/// workflow state, set it, approve a proposal, accept one — answered over
-/// Backlog's own subject store.
+/// The seven operations of <c>devbook.decision@1</c>: the four on state — read a
+/// subject's workflow state, set it, approve a proposal, accept one — answered
+/// over Backlog's own subject store, and the three on review notes — list them at
+/// an address, post one, resolve one — answered over its remark store.
 /// <para>
 /// <b>Why the state is here and not in the chapter.</b> Under devbook's
 /// branch-true decision a branch states what is true of its code, and "approved",
 /// "planned" or "decided" is a fact about the work around a chapter rather than
 /// about the chapter, so the host that runs the workflow keeps it
 /// (<see cref="IDevbookSubjectStateStore"/>). A caller resolves this group from
-/// the live tool list by the <c>devbook_*</c> prefix and binds when all of the
-/// contract's operations are listed; the three note operations wait for the
-/// annotation kind, so this host answers the state half only.
+/// the live tool list by the <c>devbook_*</c> prefix and binds when all seven
+/// are listed.
+/// </para>
+/// <para>
+/// <b>A note is a remark.</b> The contract's note is Backlog's
+/// <see cref="DevbookAnnotation"/>, the same record the chapter view draws and
+/// <c>list_annotations</c> reads, kept on the default branch because the contract
+/// carries none. An open <c>question</c> under a change's folder makes approve and
+/// accept refuse <c>open-question</c> (<see cref="DevbookSubjectRules.OpenQuestion"/>).
 /// </para>
 /// <para>
 /// <b>The names, arguments and answers are the contract's</b>, matched by callers
@@ -53,16 +62,25 @@ namespace Backlog.Infrastructure.Mcp;
 public sealed class DecisionTools(
     IDevbookSubjectStateStore subjects,
     IRepositoryDirectory repositories,
-    IDevbookFolderSource folders)
+    IDevbookFolderSource folders,
+    IDevbookAnnotationStore annotations,
+    TimeProvider? clock = null)
 {
     /// <summary>The architecture folder's key, as the arc42 panel resolves
     /// it.</summary>
     private const string Arc42Key = ".arc42";
 
+    /// <summary>The instructions folder's key: its root is the repository
+    /// itself, which is where a change's files are read from.</summary>
+    private const string InstructionsKey = "instructions";
+
     internal const string GetState = "devbook_get_state";
     internal const string SetState = "devbook_set_state";
     internal const string Approve = "devbook_approve";
     internal const string Accept = "devbook_accept";
+    internal const string ListNotes = "devbook_list_notes";
+    internal const string PostNote = "devbook_post_note";
+    internal const string ResolveNote = "devbook_resolve_note";
 
     /// <summary>The code the refusal of the Brain carries.</summary>
     internal const string BrainCode = "brain.no_workflow_state";
@@ -75,9 +93,9 @@ public sealed class DecisionTools(
     /// per group, each behind its area's key, and these are the Devbook's: somebody
     /// switching the devbook off has switched off the records whose state these
     /// set as much as the chapters the other group reads. A group of its own
-    /// rather than four more tools on <see cref="DevbookTools"/> because they are
-    /// another port and another contract — that class reads chapters and notes,
-    /// these keep the workflow state <c>devbook.decision@1</c> defines.
+    /// rather than seven more tools on <see cref="DevbookTools"/> because they are
+    /// another contract — that class reads chapters and a reader's notes, these
+    /// answer <c>devbook.decision@1</c>, whose names and shapes are devbook's.
     /// </para>
     /// <para>
     /// Declared here rather than beside the other groups so that adding it to
@@ -88,7 +106,7 @@ public sealed class DecisionTools(
     internal static BacklogMcpTools.McpToolGroup Group { get; } = new(
         DevbookFeatures.RepositoryDevbook,
         typeof(DecisionTools),
-        [GetState, SetState, Approve, Accept]);
+        [GetState, SetState, Approve, Accept, ListNotes, PostNote, ResolveNote]);
 
     private const string RepositoryDescription =
         "The repository in owner/name form, e.g. JSdotNet/Backlog. The Brain (" + BrainMcpScope.Value
@@ -171,8 +189,9 @@ public sealed class DecisionTools(
         "Records a person's approval of a change proposal at the change's fingerprint (devbook.decision@1): state "
         + "approved, approval { by, at, fingerprint }, any acceptance withdrawn. Call only on that person's explicit "
         + "word in this session — never on a reviewer's verdict or an unattended run's. A proposal alone; anything else "
-        + "answers { refused: bad-state, message }, and a refusal writes nothing. Who and when are recorded by "
-        + "Backlog. Refused for an archived repository.")]
+        + "answers { refused: bad-state, message }. An open question note under openspec/changes/<name>/ answers "
+        + "{ refused: open-question, message }. A refusal writes nothing. Who and when are recorded by Backlog. Refused "
+        + "for an archived repository.")]
     public DevbookStatePayload ApproveProposal(
         [Description(RepositoryDescription)]
         string repository,
@@ -183,9 +202,11 @@ public sealed class DecisionTools(
     {
         var scope = Scope(repository, writes: true);
 
-        return TryName(scope, subject, out var named, out var refused)
-            ? DevbookStatePayload.Of(named, subjects.Approve(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name))
-            : refused;
+        if (!TryName(scope, subject, out var named, out var refused)) return refused;
+
+        return OpenQuestionOn(scope, named) is { } blocked
+            ? DevbookStatePayload.Of(named, blocked)
+            : DevbookStatePayload.Of(named, subjects.Approve(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name));
     }
 
     // Not idempotent, for approve's reason: an acceptance is a decision recorded
@@ -201,9 +222,10 @@ public sealed class DecisionTools(
         "Records a person's acceptance of an approved change proposal (devbook.decision@1): state accepted, acceptance "
         + "{ by, at, fingerprint }. It stands on an approval at the same fingerprint: with none it answers "
         + "{ refused: not-approved, message }, with one at another { refused: fingerprint-mismatch, message } — the "
-        + "change moved since it was approved, so ask the person to approve it again. Call only on that person's "
-        + "explicit word in this session. A proposal alone; a refusal writes nothing. Who and when are recorded by "
-        + "Backlog. Refused for an archived repository.")]
+        + "change moved since it was approved, so ask the person to approve it again. An open question note under "
+        + "openspec/changes/<name>/ answers { refused: open-question, message }. Call only on that person's explicit "
+        + "word in this session. A proposal alone; a refusal writes nothing. Who and when are recorded by Backlog. "
+        + "Refused for an archived repository.")]
     public DevbookStatePayload AcceptProposal(
         [Description(RepositoryDescription)]
         string repository,
@@ -214,9 +236,271 @@ public sealed class DecisionTools(
     {
         var scope = Scope(repository, writes: true);
 
-        return TryName(scope, subject, out var named, out var refused)
-            ? DevbookStatePayload.Of(named, subjects.Accept(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name))
-            : refused;
+        if (!TryName(scope, subject, out var named, out var refused)) return refused;
+
+        return OpenQuestionOn(scope, named) is { } blocked
+            ? DevbookStatePayload.Of(named, blocked)
+            : DevbookStatePayload.Of(named, subjects.Accept(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name));
+    }
+
+    private const string AddressDescription =
+        "A chapter address: <path>, or <path>#<slug> for a section, the path repository-relative — in a change, "
+        + "openspec/changes/<name>/proposal.md or a delta's path.";
+
+    /// <summary>The block a note on a chapter as a whole is anchored to: the
+    /// first, where the one-time import anchors a fence with nothing above it, and
+    /// where the chapter view draws it at the top rather than as adrift.</summary>
+    private const int ChapterBlock = 0;
+
+    // Closed: the notes are Backlog's own store, and the chapter is read only from
+    // what this machine already holds.
+    [McpServerTool(Name = ListNotes, Title = "List the review notes at a devbook address", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "The review notes Backlog keeps at one chapter address on the default branch (devbook.decision@1): { notes }, "
+        + "each { id, address, kind, status, body, by, at, replies }. A <path> answers every note on the chapter, a "
+        + "<path>#<slug> the notes in that section. kind is comment, question, suggestion or flag; status open or "
+        + "resolved; at ISO 8601 UTC. Each reply is { by, at, body } in replies, oldest first. Deleted notes and notes "
+        + "nobody has typed into are left out. Read-only.")]
+    public DevbookNotesPayload ListNotesOn(
+        [Description(RepositoryDescription)]
+        string repository,
+        [Description(AddressDescription)]
+        string address)
+    {
+        var scope = Scope(repository, writes: false);
+        var (path, slug) = Address(address);
+        var chapter = Chapter(scope.Alias, path);
+        var section = slug is null ? null : $"{chapter.Path}#{slug}";
+
+        return new DevbookNotesPayload(
+        [
+            .. ChapterReading.Notes(annotations, scope.Alias, path, branch: null)
+                .Select(note => DevbookNotePayload.Of(note, chapter.AddressOf(note.BlockIndex)))
+                .Where(note => section is null || string.Equals(note.Address, section, StringComparison.OrdinalIgnoreCase))
+        ]);
+    }
+
+    // Not idempotent: each call is a note of its own, or one more reply line in
+    // one. Not destructive: nothing that was there is changed but by appending.
+    [McpServerTool(
+        Name = PostNote,
+        Title = "Post a review note at a devbook address",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false)]
+    [Description(
+        "Posts a review note at a chapter address on the default branch (devbook.decision@1) and answers it: "
+        + "{ id, address, kind, status, body, by, at, replies }. Give kind (comment by default, question, suggestion or "
+        + "flag) for a new note, or replyTo with a note's id to reply to it — the note is answered, the reply the last "
+        + "of its replies, each { by, at, body }. A reply to a note this repository does not keep answers "
+        + "{ refused: unknown-note, message } and writes nothing. An open question under openspec/changes/<name>/ "
+        + "blocks devbook_approve and devbook_accept on that change until it is resolved. Who and when are recorded "
+        + "by Backlog. Refused for an archived repository.")]
+    public DevbookNoteAnswer PostNoteOn(
+        [Description(RepositoryDescription)]
+        string repository,
+        [Description(AddressDescription)]
+        string address,
+        [Description("The note, or the reply, in Markdown.")]
+        string body,
+        [Description("comment (the default), question, suggestion or flag. A new note only; not with replyTo.")]
+        string? kind = null,
+        [Description("The id of the note this replies to, as devbook_list_notes reports it. Not with kind.")]
+        string? replyTo = null)
+    {
+        var scope = Scope(repository, writes: true);
+        var (path, slug) = Address(address);
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            throw RepositoryScope.Failure(Error.Validation("note.body_required", "A note has a body."));
+        }
+
+        var said = body.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
+
+        if (replyTo is not null)
+        {
+            if (kind is not null)
+            {
+                throw RepositoryScope.Failure(Error.Validation(
+                    "note.reply_has_kind",
+                    "A reply takes its note's kind: send kind for a new note or replyTo for a reply, not both."));
+            }
+
+            return Reply(scope, path, replyTo, said);
+        }
+
+        var noteKind = DevbookAnnotationKind.Comment;
+
+        if (kind is not null && !DevbookAnnotationKinds.TryParse(kind, out noteKind))
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "note.bad_kind",
+                $"'{kind}' is no note kind; a note is one of {string.Join(", ", DevbookAnnotationKinds.Names)}."));
+        }
+
+        var chapter = Chapter(scope.Alias, path);
+        var block = slug is null ? ChapterBlock : chapter.IndexOf(slug) ?? ChapterBlock;
+
+        // No block hash: the digest the panels anchor by is the component
+        // library's, which this assembly does not reference, so a note posted here
+        // is anchored by index alone — what a host without the parsed chapter
+        // already gets (IDevbookAnnotationStore.Add).
+        var added = annotations.Add(scope.Alias, chapter.Path, block, DevbookLocalAuthor.Name, blockHash: null, noteKind, branch: null);
+        annotations.Edit(added.Id, said);
+
+        return Answer(scope, annotations.Find(added.Id) ?? added with { Body = said });
+    }
+
+    // Idempotent, as resolve_annotation is: resolving a resolved note is the state
+    // it is already in. Not destructive: a resolved note stays and can be reopened
+    // in the app.
+    [McpServerTool(
+        Name = ResolveNote,
+        Title = "Resolve a review note",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false)]
+    [Description(
+        "Marks a review note resolved (devbook.decision@1) and answers it with status resolved. A note this "
+        + "repository does not keep on the default branch answers { refused: unknown-note, message } and writes "
+        + "nothing. Resolving a resolved note changes nothing. Refused for an archived repository.")]
+    public DevbookNoteAnswer ResolveNoteFor(
+        [Description(RepositoryDescription)]
+        string repository,
+        [Description("The note's id, as devbook_list_notes or devbook_post_note reports it.")]
+        string id)
+    {
+        var scope = Scope(repository, writes: true);
+
+        if (Held(scope, id) is not { } note) return DevbookNoteAnswer.Unknown(id);
+
+        if (!note.Resolved) annotations.SetResolved(note.Id, resolved: true);
+
+        return Answer(scope, annotations.Find(note.Id) ?? note with { Resolved = true });
+    }
+
+    /// <summary>
+    /// Folds a reply into the note it answers (<see cref="DevbookNoteReplies.Fold"/>,
+    /// the shape the one-time import folds a fence's replies in) and answers the
+    /// note, the reply among its <c>replies</c>.
+    /// <para>
+    /// Backlog's remark has no thread, and a record per reply would be a note of
+    /// its own in every panel. A note at another chapter than the address names is
+    /// not the one the caller meant, and is <c>unknown-note</c> there.
+    /// </para>
+    /// </summary>
+    private DevbookNoteAnswer Reply(TasksRepositoryRef scope, string path, string replyTo, string said)
+    {
+        if (Held(scope, replyTo) is not { } note) return DevbookNoteAnswer.Unknown(replyTo);
+
+        var configured = folders.Folders(scope.Alias);
+
+        if (!string.Equals(
+                DevbookChapterKey.Canonical(note.ChapterPath, configured),
+                DevbookChapterKey.Canonical(path, configured),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return DevbookNoteAnswer.Unknown(replyTo);
+        }
+
+        var at = DevbookDecisionPayload.Utc((clock ?? TimeProvider.System).GetUtcNow());
+        var folded = DevbookNoteReplies.Fold(note.Body, DevbookLocalAuthor.Name, at, said);
+
+        annotations.Edit(note.Id, folded);
+
+        return Answer(scope, annotations.Find(note.Id) ?? note with { Body = folded });
+    }
+
+    /// <summary>A note as the contract answers it, at the address its block
+    /// lies in.</summary>
+    private DevbookNoteAnswer Answer(TasksRepositoryRef scope, DevbookAnnotation note) =>
+        DevbookNoteAnswer.Of(DevbookNotePayload.Of(note, Chapter(scope.Alias, note.ChapterPath).AddressOf(note.BlockIndex)));
+
+    /// <summary>
+    /// A note this repository keeps on the default branch, by the id a caller
+    /// sent, or null: not an id, no such note, deleted, a draft nobody has typed
+    /// into, another repository's, or one left on a named branch — every one of
+    /// them the contract's <c>unknown-note</c>.
+    /// </summary>
+    private DevbookAnnotation? Held(TasksRepositoryRef scope, string? id) =>
+        Guid.TryParse(id, out var guid)
+        && annotations.Find(guid) is { IsLive: true, IsDraft: false } note
+        && DevbookAnnotation.BranchKey(note.Branch) is null
+        && string.Equals(DevbookSubject.AliasKey(note.RepositoryAlias), DevbookSubject.AliasKey(scope.Alias), StringComparison.Ordinal)
+            ? note
+            : null;
+
+    /// <summary>The <c>open-question</c> refusal for a proposal whose change has
+    /// an open question, read from every remark the store keeps, or
+    /// null.</summary>
+    private DevbookSubjectOutcome? OpenQuestionOn(TasksRepositoryRef scope, DevbookSubject subject) =>
+        subject.Kind == DevbookSubjectKind.Proposal
+            ? DevbookSubjectRules.OpenQuestion(scope.Alias, subject, annotations.ListChangedSince(DateTimeOffset.MinValue))
+            : null;
+
+    /// <summary>An address's chapter path and section slug — lower case, the
+    /// way a heading's anchor is — or the failure of an address that names no
+    /// chapter.</summary>
+    private static (string Path, string? Slug) Address(string? address)
+    {
+        var text = (address ?? string.Empty).Trim();
+        var path = ChapterPaths.Normalize(text);
+
+        if (path.Length == 0)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "note.address_required",
+                "A note's address is a chapter path, repository-relative, with an optional #slug — e.g. "
+                + "openspec/changes/add-decision-tools/proposal.md."));
+        }
+
+        var hash = text.IndexOf('#', StringComparison.Ordinal);
+        var slug = hash < 0 ? string.Empty : text[(hash + 1)..].Trim();
+
+        return (path, slug.Length == 0 ? null : slug.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// A chapter as the note tools address it: its path as the repository spells
+    /// it, and its headings when this machine holds the file.
+    /// <para>
+    /// A chapter in a devbook folder is found where the folder resolves — the
+    /// panels' spelling, whatever layout or case the caller sent — and one in no
+    /// folder, a change's proposal or delta, under the repository's root. Nothing
+    /// is fetched: a chapter not on disk has no headings, and a note on one of its
+    /// sections is anchored to the chapter as a whole.
+    /// </para>
+    /// </summary>
+    private NoteChapter Chapter(string alias, string path)
+    {
+        var configured = folders.Folders(alias);
+        var key = DevbookChapterKey.Canonical(path, configured);
+
+        foreach (var folder in DevbookFolderSetting.Normalize(configured))
+        {
+            if (folder.LegacyRelativePath.Length == 0 || !DevbookChapterKey.StartsWithSegment(key, folder.LegacyRelativePath)) continue;
+
+            var location = folders.Resolve(folder.Key, alias);
+            if (!location.Available || string.IsNullOrWhiteSpace(location.FullPath)) return new NoteChapter(path, null);
+
+            var within = key[(folder.LegacyRelativePath.Length + 1)..];
+            var spelled = RepositoryFolder(location.FullPath, location.RootPath);
+
+            return new NoteChapter(
+                spelled.Length == 0 ? within : $"{spelled}/{within}",
+                NoteChapter.Headings(ChapterPaths.ResolveWithin(location.FullPath, within)));
+        }
+
+        var root = folders.Resolve(InstructionsKey, alias);
+
+        return new NoteChapter(
+            key,
+            root.Available && !string.IsNullOrWhiteSpace(root.FullPath)
+                ? NoteChapter.Headings(ChapterPaths.ResolveWithin(root.FullPath, key))
+                : null);
     }
 
     /// <summary>
@@ -434,4 +718,94 @@ public sealed class DecisionTools(
 
         return Path.GetFileName(folder);
     }
+
+    /// <summary>
+    /// A chapter's path as the note tools answer it, and its headings — each the
+    /// block index the parse gives it, its level and its anchor — or null when
+    /// this machine holds no file to read them from.
+    /// </summary>
+    private sealed record NoteChapter(string Path, IReadOnlyList<NoteHeading>? Sections)
+    {
+        /// <summary>
+        /// The address a note on one block has: <c>&lt;path&gt;#&lt;slug&gt;</c> of
+        /// the nearest heading at or above it, or the chapter's path when that is
+        /// its title — a level-1 heading is the chapter, not a section of it — when
+        /// no heading is above it, or when the chapter could not be read.
+        /// </summary>
+        public string AddressOf(int blockIndex) =>
+            Sections?.LastOrDefault(heading => heading.Index <= blockIndex) is { Level: > 1 } section
+                ? $"{Path}#{section.Slug}"
+                : Path;
+
+        /// <summary>The block of the first heading with this anchor, or null when
+        /// the chapter has none or could not be read.</summary>
+        public int? IndexOf(string slug) =>
+            Sections?.FirstOrDefault(heading => string.Equals(heading.Slug, slug, StringComparison.Ordinal))?.Index;
+
+        /// <summary>
+        /// The headings of a chapter file, numbered as every reader here numbers
+        /// blocks (<see cref="MarkdownPreview.ParseDocument"/> over the whole
+        /// file), or null when there is no such Markdown file or it cannot be
+        /// read.
+        /// </summary>
+        public static IReadOnlyList<NoteHeading>? Headings(string? fullPath)
+        {
+            if (fullPath is null
+                || !fullPath.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(fullPath))
+            {
+                return null;
+            }
+
+            string text;
+
+            try
+            {
+                text = File.ReadAllText(fullPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+
+            var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+            var blocks = MarkdownPreview.ParseDocument(text);
+            var headings = new List<NoteHeading>();
+
+            for (var index = 0; index < blocks.Count; index++)
+            {
+                if (blocks[index] is not MdHeading { Source.IsKnown: true } heading) continue;
+                if (heading.Source.StartLine >= lines.Length) continue;
+
+                headings.Add(new NoteHeading(index, heading.Level, Slug(lines[heading.Source.StartLine])));
+            }
+
+            return headings;
+        }
+
+        /// <summary>
+        /// A heading line's anchor, by the devbook checker's rule — GitHub's:
+        /// the text after the hashes, lower case and trimmed, with everything but
+        /// letters, numbers, underscores, whitespace and hyphens dropped and each
+        /// whitespace character turned into a hyphen. Taken from the line as
+        /// written, as the checker takes it, rather than from the parse.
+        /// </summary>
+        private static string Slug(string headingLine)
+        {
+            var text = headingLine.TrimStart().TrimStart('#').ToLowerInvariant().Trim();
+            var slug = new StringBuilder(text.Length);
+
+            foreach (var character in text)
+            {
+                if (char.IsWhiteSpace(character)) slug.Append('-');
+                else if (char.IsLetter(character) || char.IsNumber(character) || character is '_' or '-') slug.Append(character);
+            }
+
+            return slug.ToString();
+        }
+    }
+
+    /// <summary>One heading of a chapter: its block index, level and
+    /// anchor.</summary>
+    private sealed record NoteHeading(int Index, int Level, string Slug);
 }

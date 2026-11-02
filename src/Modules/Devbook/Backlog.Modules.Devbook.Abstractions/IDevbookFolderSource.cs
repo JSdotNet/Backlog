@@ -89,6 +89,20 @@ public interface IDevbookFolderSource
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Resolve(key, repositoryAlias));
 
+    /// <summary>
+    /// The branch a repository's remarks are kept under — the one
+    /// <see cref="DevbookFolderLocation.Branch"/> carries — answered without
+    /// resolving any folder: the named branch when the repository is read from that
+    /// branch's snapshot, null for a clone or the default branch.
+    /// <para>
+    /// For a caller that wants a repository's remarks and nothing on disk or on the
+    /// network, which <see cref="Resolve"/> cannot promise: resolving a branch starts
+    /// its fetch. A default rather than abstract, because null — the default branch —
+    /// is what every fake predating branch keys should keep answering.
+    /// </para>
+    /// </summary>
+    string? RemarkBranch(string? repositoryAlias) => null;
+
     /// <summary>What a resolved folder contains, from whoever knows — the disk
     /// for a local folder, the branch's index for a snapshot, which lists every
     /// file whether or not it has been fetched.</summary>
@@ -118,6 +132,12 @@ public interface IDevbookFolderSource
 /// new remark — so a caller that refuses a remark asks this rather than
 /// <see cref="CanEdit"/>, which a branch snapshot also answers false.
 /// </para>
+/// <para>
+/// <see cref="Branch"/> is the branch a remark on this folder is keyed by: the
+/// name when the repository is read from a named branch's snapshot, and null for a
+/// clone or the default branch's snapshot. Null is the default branch for the
+/// annotation store, so every fake predating it keeps meaning what it meant.
+/// </para>
 /// </summary>
 public sealed record DevbookFolderLocation(
     string Key,
@@ -131,7 +151,8 @@ public sealed record DevbookFolderLocation(
     string? RepositoryAlias = null,
     DevbookSourceKind Source = DevbookSourceKind.LocalFolder,
     bool Pending = false,
-    bool RepositoryArchived = false)
+    bool RepositoryArchived = false,
+    string? Branch = null)
 {
     /// <summary>
     /// Whether a caller may write to what it just resolved.

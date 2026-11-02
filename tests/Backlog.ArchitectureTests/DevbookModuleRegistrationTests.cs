@@ -63,7 +63,10 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookAnnotationStore",
         "IDevbookSubjectStateStore",
         "DevbookSubjectStateStore",
-        "IDevbookSyncDirectionStore"
+        "IDevbookSyncDirectionStore",
+        "IDevbookImportLedger",
+        "DevbookImportLedger",
+        "DevbookImportWorker"
     ];
 
     [Fact]

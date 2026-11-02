@@ -46,12 +46,15 @@ public class BacklogMcpToolsTests
                 "resolve_annotation",
                 "capture_note",
 
-                // devbook.decision@1's state operations, beside the devbook tools
-                // and behind the same key.
+                // devbook.decision@1's seven operations — four on state, three on
+                // notes — beside the devbook tools and behind the same key.
                 "devbook_get_state",
                 "devbook_set_state",
                 "devbook_approve",
                 "devbook_accept",
+                "devbook_list_notes",
+                "devbook_post_note",
+                "devbook_resolve_note",
 
                 // The sync direction map the sweeps read, behind the same key.
                 "list_sync_directions",
@@ -302,6 +305,8 @@ public class BacklogMcpToolsTests
             DecisionTools.SetState,
             DecisionTools.Approve,
             DecisionTools.Accept,
+            DecisionTools.PostNote,
+            DecisionTools.ResolveNote,
             TrackerTools.Transition,
             TrackerTools.SetBlocked,
             TrackerTools.Comment,
@@ -349,6 +354,7 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             DecisionTools.SetState,
+            DecisionTools.ResolveNote,
             TrackerTools.Transition,
             TrackerTools.SetBlocked,
             TrackerTools.LinkSession,

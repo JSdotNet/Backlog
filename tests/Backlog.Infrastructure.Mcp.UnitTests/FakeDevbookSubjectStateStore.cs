@@ -72,6 +72,9 @@ internal sealed class FakeDevbookSubjectStateStore(TimeProvider time) : IDevbook
     public bool Apply(DevbookSubjectState replicated) =>
         throw new InvalidOperationException("An MCP tool called IDevbookSubjectStateStore.Apply, which is replication's.");
 
+    public int ImportIfAbsent(IReadOnlyList<DevbookSubjectState> imported) =>
+        throw new InvalidOperationException("An MCP tool called IDevbookSubjectStateStore.ImportIfAbsent, which is the import's.");
+
     public IReadOnlyList<DevbookSubjectState> ListChangedSince(DateTimeOffset watermark) =>
         throw new InvalidOperationException("An MCP tool called IDevbookSubjectStateStore.ListChangedSince, which is replication's.");
 

@@ -80,6 +80,9 @@ internal sealed class InMemoryDevbookSubjectStateStore : IDevbookSubjectStateSto
         return true;
     }
 
+    public int ImportIfAbsent(IReadOnlyList<DevbookSubjectState> imported) =>
+        throw new NotSupportedException("Replication never imports.");
+
     public IReadOnlyList<DevbookSubjectState> ListChangedSince(DateTimeOffset watermark) =>
     [
         .. _states.Values

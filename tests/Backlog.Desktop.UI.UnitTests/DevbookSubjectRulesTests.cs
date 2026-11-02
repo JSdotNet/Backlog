@@ -166,4 +166,70 @@ public sealed class DevbookSubjectRulesTests
         Assert.Equal(string.Empty, state.RepositoryAlias);
         Assert.Equal(DevbookSubject.IdFor(null, Debt), state.Id);
     }
+
+    /// <summary>An open <c>question</c> at any address under the change's folder —
+    /// its proposal or one of its deltas — blocks approve and accept on that
+    /// change.</summary>
+    [Theory]
+    [InlineData("openspec/changes/pay-by-card/proposal.md")]
+    [InlineData("openspec/changes/pay-by-card/specs/payments/spec.md")]
+    public void An_open_question_under_the_change_is_refused_open_question(string chapterPath)
+    {
+        var outcome = DevbookSubjectRules.OpenQuestion(
+            Repository,
+            Change,
+            [Remark(chapterPath, DevbookAnnotationKind.Question)]);
+
+        Assert.NotNull(outcome);
+        Assert.Equal(DevbookSubjectRefusal.OpenQuestion, outcome.Refused);
+        Assert.Null(outcome.State);
+        Assert.Contains(chapterPath, outcome.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Only an open question of this change, in this repository, on the
+    /// default branch blocks: a comment, suggestion or flag never does, nor a
+    /// resolved, deleted or empty one, nor one on another change, another
+    /// repository or a named branch.</summary>
+    [Fact]
+    public void Nothing_but_an_open_question_of_this_change_blocks()
+    {
+        const string Proposal = "openspec/changes/pay-by-card/proposal.md";
+
+        DevbookAnnotation[] remarks =
+        [
+            Remark(Proposal, DevbookAnnotationKind.Comment),
+            Remark(Proposal, DevbookAnnotationKind.Suggestion),
+            Remark(Proposal, DevbookAnnotationKind.Flag),
+            Remark(Proposal, DevbookAnnotationKind.Question) with { Resolved = true },
+            Remark(Proposal, DevbookAnnotationKind.Question) with { DeletedAt = Tuesday },
+            Remark(Proposal, DevbookAnnotationKind.Question) with { Body = string.Empty },
+            Remark(Proposal, DevbookAnnotationKind.Question) with { Branch = "feature/cards" },
+            Remark(Proposal, DevbookAnnotationKind.Question) with { RepositoryAlias = "other" },
+            Remark("openspec/changes/pay-by-card-v2/proposal.md", DevbookAnnotationKind.Question),
+            Remark(".devbook/arc42/05-building-block-view.md", DevbookAnnotationKind.Question)
+        ];
+
+        Assert.Null(DevbookSubjectRules.OpenQuestion(Repository, Change, remarks));
+    }
+
+    /// <summary>A decision or debt record has no change folder; approve and
+    /// accept refuse it <c>bad-state</c> on their own, so the open-question rule
+    /// has nothing to say about it.</summary>
+    [Fact]
+    public void A_record_is_never_refused_open_question() =>
+        Assert.Null(DevbookSubjectRules.OpenQuestion(
+            Repository,
+            Debt,
+            [Remark("openspec/changes/pay-by-card/proposal.md", DevbookAnnotationKind.Question)]));
+
+    private static DevbookAnnotation Remark(string chapterPath, DevbookAnnotationKind kind) => new(
+        Guid.NewGuid(),
+        DevbookSubject.AliasKey(Repository),
+        chapterPath,
+        BlockIndex: 0,
+        Body: "Is the card fee ours?",
+        Author: Host,
+        Monday,
+        Monday,
+        Kind: kind);
 }

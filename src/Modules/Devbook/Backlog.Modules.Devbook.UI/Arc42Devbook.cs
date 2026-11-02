@@ -62,7 +62,7 @@ public sealed class Arc42DevbookStore : IDisposable
         var rootPath = location.RootPath;
         var catalog = await Task.Run(() => Arc42DevbookReader.LoadFolder(folderPath, rootPath, _documents)).ConfigureAwait(false);
 
-        return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived };
+        return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived, Branch = location.Branch };
     }
 
     /// <summary>
@@ -313,7 +313,10 @@ public static class Arc42DevbookReader
 /// belong to is archived (local ADR 0029 §4). The panel then takes no new
 /// remark, which <paramref name="CanEdit"/> alone does not decide: a branch
 /// snapshot of an active repository still takes remarks.</param>
-public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true, bool RepositoryArchived = false)
+/// <param name="Branch">The branch these documents were read from, as the remark
+/// store keys it: the name for a named-branch snapshot, null for a clone or the
+/// default branch (<see cref="DevbookFolderLocation.Branch"/>).</param>
+public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true, bool RepositoryArchived = false, string? Branch = null)
 {
     public static Arc42DevbookCatalog Missing(string rootDirectory) => new(rootDirectory, false, []);
 

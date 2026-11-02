@@ -56,7 +56,7 @@ public sealed record DevbookDecisionPayload(string By, string At, string Fingerp
     /// contract says UTC, so the answer says it the one way nobody misreads.
     /// </para>
     /// </summary>
-    private static string Utc(DateTimeOffset at) =>
+    internal static string Utc(DateTimeOffset at) =>
         at.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'", CultureInfo.InvariantCulture);
 }
 
@@ -192,6 +192,130 @@ internal sealed class DevbookStatePayloadConverter : JsonConverter<DevbookStateP
         writer.WriteString("by", decision.By);
         writer.WriteString("at", decision.At);
         writer.WriteString("fingerprint", decision.Fingerprint);
+        writer.WriteEndObject();
+    }
+}
+
+/// <summary>
+/// One reply under a note, as <c>devbook.decision@1</c> spells it:
+/// <c>{ by, at, body }</c>.
+/// <para>
+/// Backlog's remark has no thread, so a reply is kept folded into its note's
+/// body (<see cref="DevbookNoteReplies"/>) — by <see cref="DecisionTools.PostNoteOn"/>
+/// and by the one-time import alike — and read back out into these when the note
+/// is answered.
+/// </para>
+/// </summary>
+public sealed record DevbookNoteReplyPayload(
+    [property: JsonPropertyName("by")] string By,
+    [property: JsonPropertyName("at")] string At,
+    [property: JsonPropertyName("body")] string Body);
+
+/// <summary>
+/// One note as <c>devbook.decision@1</c> answers it:
+/// <c>{ id, address, kind, status, body, by, at, replies }</c>.
+/// <para>
+/// The names are pinned with <see cref="JsonPropertyNameAttribute"/> rather than
+/// left to the options' naming policy, for the reason
+/// <see cref="DevbookStatePayloadConverter"/> gives: they are the contract's,
+/// matched by callers this repository does not ship.
+/// </para>
+/// </summary>
+/// <param name="Id">The remark's id.</param>
+/// <param name="Address">Where the note is: <c>&lt;path&gt;</c>, or
+/// <c>&lt;path&gt;#&lt;slug&gt;</c> for a note inside a section.</param>
+/// <param name="Kind"><c>comment</c>, <c>question</c>, <c>suggestion</c> or
+/// <c>flag</c>.</param>
+/// <param name="Status"><c>open</c> or <c>resolved</c>.</param>
+/// <param name="At">When it was posted, ISO 8601 UTC.</param>
+public sealed record DevbookNotePayload(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("address")] string Address,
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("body")] string Body,
+    [property: JsonPropertyName("by")] string By,
+    [property: JsonPropertyName("at")] string At,
+    [property: JsonPropertyName("replies")] IReadOnlyList<DevbookNoteReplyPayload> Replies)
+{
+    internal const string Open = "open";
+    internal const string Resolved = "resolved";
+
+    /// <summary>A remark as the contract answers it, at the address it is at:
+    /// the stored body split into the note's own text and the replies folded
+    /// below it.</summary>
+    internal static DevbookNotePayload Of(DevbookAnnotation remark, string address)
+    {
+        var (body, replies) = DevbookNoteReplies.Split(remark.Body);
+
+        return new(
+            remark.Id.ToString(),
+            address,
+            DevbookAnnotationKinds.Name(remark.Kind),
+            remark.Resolved ? Resolved : Open,
+            body,
+            remark.Author,
+            DevbookDecisionPayload.Utc(remark.CreatedAt),
+            [.. replies.Select(reply => new DevbookNoteReplyPayload(reply.By, reply.At, reply.Body))]);
+    }
+}
+
+/// <summary><c>devbook_list_notes</c>' answer: <c>{ notes }</c>.</summary>
+public sealed record DevbookNotesPayload(
+    [property: JsonPropertyName("notes")] IReadOnlyList<DevbookNotePayload> Notes);
+
+/// <summary>
+/// What <c>devbook_post_note</c> and <c>devbook_resolve_note</c> answer: the note,
+/// or <c>{ refused, message }</c>.
+/// <para>
+/// One type with a converter, as <see cref="DevbookStatePayload"/> is, because
+/// which keys appear is part of the answer: a note is its eight keys and nothing
+/// else, a refusal its two.
+/// </para>
+/// </summary>
+[JsonConverter(typeof(DevbookNoteAnswerConverter))]
+public sealed record DevbookNoteAnswer
+{
+    /// <summary>The refusal a note id this host does not keep — in this
+    /// repository, on the default branch — is answered with.</summary>
+    internal const string UnknownNote = "unknown-note";
+
+    public DevbookNotePayload? Note { get; init; }
+
+    /// <summary>The contract's refusal code, or null for an answer.</summary>
+    public string? Refused { get; init; }
+
+    public string? Message { get; init; }
+
+    public bool IsRefused => Refused is not null;
+
+    internal static DevbookNoteAnswer Of(DevbookNotePayload note) => new() { Note = note };
+
+    internal static DevbookNoteAnswer Unknown(string? id) => new()
+    {
+        Refused = UnknownNote,
+        Message = $"No note with id '{id}' in this repository. Ask devbook_list_notes for the address's notes and use an id from there."
+    };
+}
+
+/// <summary>Writes a <see cref="DevbookNoteAnswer"/> as the note itself or as
+/// <c>{ refused, message }</c>. An answer only — nothing reads one back.</summary>
+internal sealed class DevbookNoteAnswerConverter : JsonConverter<DevbookNoteAnswer>
+{
+    public override DevbookNoteAnswer Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        throw new NotSupportedException("A devbook note answer is written, never read back.");
+
+    public override void Write(Utf8JsonWriter writer, DevbookNoteAnswer value, JsonSerializerOptions options)
+    {
+        if (value.Note is { } note && !value.IsRefused)
+        {
+            JsonSerializer.Serialize(writer, note, options);
+            return;
+        }
+
+        writer.WriteStartObject();
+        writer.WriteString("refused", value.Refused);
+        writer.WriteString("message", value.Message);
         writer.WriteEndObject();
     }
 }

@@ -337,7 +337,11 @@
         if (Equals(_seeded, Metadata)) return;
 
         _seeded = Metadata;
-        _status = Metadata.Status;
+
+        // The rating, which is the status everywhere but a `tech/` or `ai/` block
+        // migrated to devbook contract 38 — there the same headline value is
+        // written `rating`, and only that folder pair writes it.
+        _status = Metadata.Rating;
     }
 
     /// <summary>

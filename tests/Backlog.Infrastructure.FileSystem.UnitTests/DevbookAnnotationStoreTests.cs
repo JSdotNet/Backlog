@@ -603,6 +603,157 @@ public class DevbookAnnotationStoreTests : IDisposable
         Assert.Empty(store.ListChangedSince(tombstone.UpdatedAt));
     }
 
+    // ---- kind and branch (criterion 6) ------------------------------------------
+
+    private const string FeatureBranch = "feature/remark-kinds";
+
+    [Fact]
+    public void A_remark_keeps_its_kind_and_branch_across_a_new_store()
+    {
+        var first = Store();
+        var remark = first.Add(Repository, Chapter, 2, "DEV-TOWER", kind: DevbookAnnotationKind.Question, branch: FeatureBranch);
+        first.Edit(remark.Id, "Who owns this?");
+
+        var listed = Assert.Single(Store().List(Repository, Chapter, FeatureBranch));
+
+        Assert.Equal(DevbookAnnotationKind.Question, listed.Kind);
+        Assert.Equal(FeatureBranch, listed.Branch);
+    }
+
+    [Fact]
+    public void A_file_written_before_kind_and_branch_reads_as_a_comment_on_the_default_branch()
+    {
+        var id = Guid.NewGuid();
+        var folder = Path.Combine(_root, DevbookAnnotationStore.FolderName);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "legacy.json"), $$"""
+            {
+              "repositoryAlias": "{{Repository}}",
+              "annotations": [
+                {
+                  "id": "{{id}}",
+                  "chapterPath": "{{Chapter}}",
+                  "blockIndex": 2,
+                  "body": "Written before kinds.",
+                  "author": "DEV-TOWER",
+                  "createdAt": "2026-09-01T09:00:00+00:00",
+                  "updatedAt": "2026-09-01T09:00:00+00:00",
+                  "resolved": false
+                }
+              ]
+            }
+            """);
+
+        var listed = Assert.Single(Store().List(Repository, Chapter));
+
+        Assert.Equal(id, listed.Id);
+        Assert.Equal(DevbookAnnotationKind.Comment, listed.Kind);
+        Assert.Null(listed.Branch);
+    }
+
+    [Fact]
+    public void List_answers_only_the_remarks_for_the_branch_asked()
+    {
+        var store = Store();
+        var onDefault = store.Add(Repository, Chapter, 0, "DEV-TOWER");
+        var onFeature = store.Add(Repository, Chapter, 0, "DEV-TOWER", branch: FeatureBranch);
+
+        Assert.Equal(onDefault.Id, Assert.Single(store.List(Repository, Chapter)).Id);
+        Assert.Equal(onDefault.Id, Assert.Single(store.List(Repository, Chapter, branch: null)).Id);
+        Assert.Equal(onFeature.Id, Assert.Single(store.List(Repository, Chapter, FeatureBranch)).Id);
+        Assert.Empty(store.List(Repository, Chapter, "release/2026"));
+    }
+
+    [Fact]
+    public void A_blank_branch_is_the_default_branch()
+    {
+        var store = Store();
+
+        var remark = store.Add(Repository, Chapter, 0, "DEV-TOWER", branch: "   ");
+
+        Assert.Null(remark.Branch);
+        Assert.Single(store.List(Repository, Chapter));
+    }
+
+    // ---- import (criteria 3 and 5) ----------------------------------------------
+
+    private static DevbookAnnotation Imported(Guid id, string body = "An open note.", DateTimeOffset? at = null)
+    {
+        var authored = at ?? new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+
+        return new DevbookAnnotation(
+            id, Repository, Chapter, 4, body, "Job", authored, authored,
+            BlockHash: "1f2e3d4c", Kind: DevbookAnnotationKind.Flag);
+    }
+
+    [Fact]
+    public void An_import_writes_a_remark_the_store_does_not_hold_with_its_authored_stamps()
+    {
+        var store = Store();
+        var note = Imported(Guid.NewGuid());
+
+        var written = store.ImportIfAbsent([note]);
+
+        Assert.Equal(1, written);
+        var listed = Assert.Single(Store().List(Repository, Chapter));
+        Assert.Equal(note, listed);
+    }
+
+    [Fact]
+    public void An_import_never_overwrites_a_remark_the_store_holds()
+    {
+        var store = Store();
+        var id = Guid.NewGuid();
+        store.Apply(Imported(id, "Edited by the person since.", _time.GetUtcNow()));
+
+        var written = store.ImportIfAbsent([Imported(id)]);
+
+        Assert.Equal(0, written);
+        Assert.Equal("Edited by the person since.", store.Find(id)!.Body);
+    }
+
+    [Fact]
+    public void An_import_never_brings_back_a_remark_the_person_deleted()
+    {
+        var store = Store();
+        var id = Guid.NewGuid();
+        store.Apply(Imported(id));
+        store.Delete(id);
+
+        var written = store.ImportIfAbsent([Imported(id)]);
+
+        Assert.Equal(0, written);
+        Assert.Empty(store.List(Repository, Chapter));
+        Assert.NotNull(store.Find(id)!.DeletedAt);
+    }
+
+    [Fact]
+    public void An_import_raises_changed_once_and_a_second_run_raises_none()
+    {
+        var store = Store();
+        var notes = new[] { Imported(Guid.NewGuid()), Imported(Guid.NewGuid()) };
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        Assert.Equal(2, store.ImportIfAbsent(notes));
+        Assert.Equal(1, changes);
+
+        Assert.Equal(0, store.ImportIfAbsent(notes));
+        Assert.Equal(1, changes);
+    }
+
+    [Fact]
+    public void An_imported_remark_stamped_in_the_past_is_not_pushed_as_a_new_change()
+    {
+        // Stamped with the authored time, so it sits behind the push watermark of
+        // a device that has pushed since: each device imports for itself.
+        var store = Store();
+
+        store.ImportIfAbsent([Imported(Guid.NewGuid())]);
+
+        Assert.Empty(store.ListChangedSince(_time.GetUtcNow().AddDays(-1)));
+    }
+
     public void Dispose()
     {
         try

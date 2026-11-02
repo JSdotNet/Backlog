@@ -870,7 +870,9 @@ internal static class TechnologyMarkdownParser
         }
 
         return new DevbookMetadata(
-            ReadString(values, "status"),
+            // The rating: `rating` once the repository has migrated to devbook
+            // contract 38, `status` until then.
+            ReadString(values, "rating") ?? ReadString(values, "status"),
             // `type` is the field; `kind` is how `.tech` spelled it before, and
             // the convention still parses it. Read in that order — the corpus
             // writes `type`, and reading only `kind` left every node a generic

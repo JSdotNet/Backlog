@@ -281,6 +281,8 @@ public sealed record AiModelSupport(AiModelUsage From, AiModelUsage? To, Devbook
 
 /// <summary>One AI usage: a chapter of a usage file, with every field the views
 /// read from it.</summary>
+/// <param name="Status">Its rating: the <c>rating</c> field, or <c>status</c> in a
+/// repository that has not migrated to devbook contract 38.</param>
 /// <param name="Evidence">Its <c>evidence</c>: recorded, partial, fired or none.</param>
 /// <param name="MovesUpWhen">The text of its <b>Moves up when</b> bullet.</param>
 /// <param name="Stages">The stages its <c>stage</c> lists, on the vocabulary.</param>
@@ -333,7 +335,7 @@ public sealed record AiModelUsage(
             section.Heading,
             file.FileName,
             section.Meta.Type,
-            section.Meta.Status,
+            section.Meta.Rating,
             section.Meta.Extra.TryGetValue("evidence", out var evidence) && evidence.Count > 0 ? evidence[0].Trim().ToLowerInvariant() : null,
             MovesUpWhenOf(section),
             stages,
