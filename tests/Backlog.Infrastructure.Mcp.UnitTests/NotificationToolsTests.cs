@@ -119,15 +119,33 @@ public sealed class NotificationToolsTests
     // --- origin ---------------------------------------------------------------------------
 
     [Fact]
-    public async Task Ask_and_notify_name_their_origin_as_an_mcp_ask()
+    public async Task Ask_names_its_origin_as_an_mcp_ask()
     {
         var port = new FakeNotifications();
 
         await Tools(port).AskAsync("Pick a name", ["Signals", "Pulse"], cancellationToken: Cancellation);
+
+        Assert.Equal(new NotificationOrigin(NotificationTools.UnnamedClient, Via: "MCP ask"), Assert.Single(port.Published).Draft.Origin);
+    }
+
+    [Fact]
+    public async Task Notify_names_its_origin_as_an_mcp_notify()
+    {
+        var port = new FakeNotifications();
+
         await Tools(port).NotifyAsync("Heads up", cancellationToken: Cancellation);
 
-        Assert.All(port.Published, published =>
-            Assert.Equal(new NotificationOrigin(NotificationTools.UnnamedClient, Via: "MCP ask"), published.Draft.Origin));
+        Assert.Equal(new NotificationOrigin(NotificationTools.UnnamedClient, Via: "MCP notify"), Assert.Single(port.Published).Draft.Origin);
+    }
+
+    [Fact]
+    public async Task Notify_about_a_session_names_claude_code_as_its_origin_via_mcp_notify()
+    {
+        var port = new FakeNotifications();
+
+        await Tools(port).NotifyAsync("Migration done", sessionId: Session, cancellationToken: Cancellation);
+
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "MCP notify"), Assert.Single(port.Published).Draft.Origin);
     }
 
     [Theory]

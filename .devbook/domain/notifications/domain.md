@@ -85,7 +85,7 @@ notification without one is drawn by its source, as before.
 | System | The system that raised it: "Claude Code", "Backlog", "spec-manager". Required. | 40 characters |
 | Place | Where in that system: a repository and run title, a product and item, a chapter. | 120 characters |
 | Asked by | The person who asked, when known. | 80 characters |
-| Via | How it was asked: "Agent session", "MCP ask". | 40 characters |
+| Via | How it was asked: "Agent session", "MCP ask", "MCP notify". | 40 characters |
 | Open link | An `http` or `https` link that opens it at its origin, or none. | |
 
 Every part is one line of plain text. The origin holds no content, so it
@@ -103,7 +103,7 @@ The sources inside Backlog fill it:
 | A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
-| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask |
+| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |
 | A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", with the session's title when the item's linked task names exactly one session, or "typed in spec-manager"; the asker as asked by |
 | Another spec-manager notification | spec-manager, with the host as above | The product, when the notification is about one | The category in words: "Mention", "Reply", "Change proposal", "Input", "Review work", "Administration" |
 
@@ -138,9 +138,11 @@ A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
-about each subject at startup for the ends it missed. An end made on another
-device reaches the owner instance as that context's own change, and closes there
-the same way.
+about each subject at startup for the ends it missed. The probe may also name
+why a subject ended, and its notifications close with that reason, the same one
+the table gives; without one they close as "Subject ended". An end made on
+another device reaches the owner instance as that context's own change, and
+closes there the same way.
 
 ### Answer Spec
 

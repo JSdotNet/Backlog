@@ -9887,6 +9887,13 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
+/* The extra content's wrapper is there for its id, which the control's
+   aria-describedby names; it takes no box, so the content stays a direct item
+   of the text block's grid as it was before the wrapper. */
+.toggle__content {
+    display: contents;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .toggle__track,
     .toggle__thumb {

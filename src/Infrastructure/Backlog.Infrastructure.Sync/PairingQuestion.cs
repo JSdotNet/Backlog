@@ -52,9 +52,8 @@ internal static class PairingQuestion
         const int Frame = 6; // "Pair " and "?"
         var room = MaxTitleLength - Frame;
 
-        return $"Pair {(name.Length <= room ? name : name[..(room - 1)] + "…")}?";
+        return $"Pair {NotificationText.Cut(name, room)}?";
     }
 
-    private static string OneLine(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    private static string OneLine(string? text) => NotificationText.OneLine(text);
 }

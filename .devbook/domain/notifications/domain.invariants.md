@@ -111,8 +111,9 @@ tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTe
 
 An [origin](domain.md#origin) names its system. Its system holds at most 40
 characters, its place 120, who asked 80 and how 40, each one line of plain text
-(`notification.content_too_long`, `notification.origin_invalid`). Its link is an
-absolute `http` or `https` address.
+(`notification.content_too_long`, `notification.origin_invalid`): no line feed,
+carriage return, next line (U+0085), line separator (U+2028) or paragraph
+separator (U+2029). Its link is an absolute `http` or `https` address.
 
 Enforced at: constructor
 
