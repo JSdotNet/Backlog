@@ -11,4 +11,8 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
+  </ItemGroup>
+
 </Project>

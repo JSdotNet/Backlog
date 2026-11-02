@@ -1,10 +1,11 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.UI;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,7 @@ public static class ShellSurfaceWiring
             typeof(ShellTaskReferences),
             sp => new ShellTaskReferences(
                 sp.GetRequiredService<TasksDesktopState>(),
+                sp.GetService<ITaskLookup>(),
                 sp.GetRequiredService<ISurfaceNavigator>(),
                 sp.GetService<IToastChannel>()),
             windowStateLifetime));
@@ -52,12 +54,13 @@ public static class ShellSurfaceWiring
                     OpenTask = references.OpenTaskAsync,
                     SessionTask = references.SessionTaskFor,
                     // How a pull request a session leads to stands, as its readiness
-                    // verdict: read from GitHub by number and judged the way the pull
-                    // requests list judges it, so one pull request wears one chip on
-                    // both screens. A pull request it finds merged or closed closes the
-                    // notifications about it.
+                    // verdict: read by number through Repository Management's contract
+                    // (local ADR 0042) and judged the way the pull requests list judges
+                    // it, so one pull request wears one chip on both screens. Null
+                    // without the contract or a registered repository. A pull request it
+                    // finds merged or closed closes the notifications about it.
                     PullRequestStatus = pull => SessionPullRequestStatuses.ReadAsync(
-                        sp.GetService<GitHubIntegration>(),
+                        sp.GetService<IPullRequests>(),
                         pull,
                         sp.GetService<PullRequestSubjects>()),
                 };

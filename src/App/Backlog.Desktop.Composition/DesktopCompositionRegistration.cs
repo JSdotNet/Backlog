@@ -15,6 +15,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub.RepositoryManagement;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -35,6 +36,8 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -160,6 +163,11 @@ public static class DesktopCompositionRegistration
         // (§10).
         services.AddProgressModule();
 
+        // Repository Management (local ADR 0042): the one contract and cache every
+        // reader of a pull request goes through. GitHub and the settled-fact memory are
+        // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
+        services.AddRepositoryManagementModule();
+
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
         // its handler with AddNotificationAnswerHandler<T>(). The heads start
@@ -175,7 +183,7 @@ public static class DesktopCompositionRegistration
         services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
         services.AddNotificationSubjectProbe<PairingSubjectProbe>();
         services.AddSingleton(sp => new PullRequestSubjects(
-            sp.GetService<GitHubIntegration>(),
+            () => sp.GetService<IPullRequests>(),
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
@@ -237,6 +245,7 @@ public static class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
+        services.AddRepositoryManagementGitHubAdapters();
         services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);
@@ -383,6 +392,11 @@ public static class DesktopCompositionRegistration
         // modules' scoped services; see WindowStateLifetime for why that makes it
         // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
+        // Which task a session or a pull request belongs to, asked of Tasks over this
+        // window's rows (local ADR 0042, V8): the window's state answers the candidates,
+        // and the lookup lives as long as it does.
+        services.Add(new ServiceDescriptor(typeof(ITaskLookupCandidates), provider => provider.GetRequiredService<TasksDesktopState>(), options.WindowStateLifetime));
+        services.AddTaskLookup(options.WindowStateLifetime);
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
         services.AddInboxAiContentSource();

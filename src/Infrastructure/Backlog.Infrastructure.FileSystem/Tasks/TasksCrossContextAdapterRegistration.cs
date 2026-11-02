@@ -1,7 +1,10 @@
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
@@ -9,7 +12,12 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <summary>
 /// What the backlog asks of the contexts beside it, answered by adapters that may see
 /// both sides: the state of the agent sessions a task links to
-/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record, and the queue icons that queue an entry session or a plan session (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its request queue.
+/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record; the state
+/// of the pull requests a task links to and the row's merge acts
+/// (<see cref="ILinkedPullRequestStates"/>), through Repository Management's contract
+/// (local ADR 0042 §4); and the queue icons that queue an entry session or a plan session
+/// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its
+/// request queue.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -27,6 +35,15 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<IAgentSessionSource>() is { } sessions
                 ? new LinkedSessionStates(sessions)
                 : NoLinkedSessionStates.Instance);
+
+        // The pull requests a task links to, through Repository Management's one
+        // contract, so the task row shares its cache with the Pull requests pane,
+        // Progress and the side panel. A host that composed no contract answers with
+        // nothing, the way the session states above do.
+        services.AddSingleton<ILinkedPullRequestStates>(sp =>
+            sp.GetService<IPullRequests>() is { } pullRequests
+                ? new LinkedPullRequestStates(pullRequests)
+                : NoLinkedPullRequestStates.Instance);
 
         // The queue icons that queue an entry session and queue a plan session, over
         // the Sessions context's request queue (local ADR 0038). Only when the host composed
@@ -52,5 +69,34 @@ public static class TasksCrossContextAdapterRegistration
             IReadOnlyCollection<string> sessionIds,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<string, LinkedSession>>(new Dictionary<string, LinkedSession>());
+    }
+
+    /// <summary>No contract composed: nothing read, nothing kept, and an act names why.</summary>
+    private sealed class NoLinkedPullRequestStates : ILinkedPullRequestStates
+    {
+        public static readonly NoLinkedPullRequestStates Instance = new();
+
+        public event Action<IReadOnlyCollection<LinkedPullRequestKey>>? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public IReadOnlyDictionary<LinkedPullRequestKey, LinkedPullRequest> Kept(IReadOnlyCollection<LinkedPullRequestKey> pullRequests) =>
+            new Dictionary<LinkedPullRequestKey, LinkedPullRequest>();
+
+        public Task<LinkedPullRequestRead> StatesOfAsync(
+            IReadOnlyCollection<LinkedPullRequestKey> pullRequests,
+            bool fresh = false,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LinkedPullRequestRead(
+                new Dictionary<LinkedPullRequestKey, LinkedPullRequest>(),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+
+        public Task<Result> MergeNowAsync(LinkedPullRequestKey pullRequest, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Failure(PullRequestErrors.NotConfigured));
+
+        public Task<Result> SetAutoMergeAsync(LinkedPullRequestKey pullRequest, bool enable, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Failure(PullRequestErrors.NotConfigured));
     }
 }
