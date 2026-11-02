@@ -82,6 +82,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
     private readonly ILogger _log;
 
     private Channel<bool> _pulls = NewPulls();
+    private TaskCompletionSource _openChanged = NewSignal();
     private string _settings = string.Empty;
     private long _lastWholeTicks = long.MinValue;
     private CancellationTokenSource? _running;
@@ -175,9 +176,11 @@ public sealed class SpecManagerQuestionSource : IDisposable
     /// ask for. Several asked before the pull starts are one pull.</summary>
     internal void RequestPull(bool whole = false)
     {
-        if (whole) Interlocked.Exchange(ref _whole, 1);
-
-        lock (_gate) _pulls.Writer.TryWrite(true);
+        lock (_gate)
+        {
+            if (whole) Interlocked.Exchange(ref _whole, 1);
+            _pulls.Writer.TryWrite(true);
+        }
     }
 
     public void Dispose()
@@ -265,8 +268,13 @@ public sealed class SpecManagerQuestionSource : IDisposable
     private static Channel<bool> NewPulls() =>
         Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
 
+    private static TaskCompletionSource NewSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>Pulls when asked, or when the interval runs out: the backup's while the
-    /// stream is open, the fallback's while it is not.</summary>
+    /// stream is open, the fallback's while it is not. The stream opening or closing ends
+    /// the wait without a pull, so the next one runs on the interval its new state calls
+    /// for.</summary>
     private async Task PullLoopAsync(CancellationToken cancellationToken)
     {
         ChannelReader<bool> pulls;
@@ -276,8 +284,13 @@ public sealed class SpecManagerQuestionSource : IDisposable
         {
             try
             {
-                await WaitForPullAsync(pulls, IsOpen ? BackupInterval : FallbackInterval, cancellationToken).ConfigureAwait(false);
-                await PullOnceAsync(cancellationToken).ConfigureAwait(false);
+                // Taken before the state is read, so a change after the read ends the wait.
+                var openChanged = Volatile.Read(ref _openChanged).Task;
+                var interval = IsOpen ? BackupInterval : FallbackInterval;
+
+                if (!await WaitForPullAsync(pulls, interval, openChanged, cancellationToken).ConfigureAwait(false)) continue;
+
+                await PullOnceAsync(pulls, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -295,14 +308,19 @@ public sealed class SpecManagerQuestionSource : IDisposable
         }
     }
 
-    private async Task WaitForPullAsync(ChannelReader<bool> pulls, TimeSpan interval, CancellationToken cancellationToken)
+    /// <summary>Waits for a pull to be asked for, the interval to run out, or the stream's
+    /// state to change; answers whether to pull. A pull already asked for starts no wait.</summary>
+    private async Task<bool> WaitForPullAsync(ChannelReader<bool> pulls, TimeSpan interval, Task openChanged, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (pulls.TryPeek(out _)) return true;
+
         using var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         var asked = pulls.WaitToReadAsync(waiting.Token).AsTask();
         var due = Delay(interval, waiting.Token);
 
-        await Task.WhenAny(asked, due).ConfigureAwait(false);
+        await Task.WhenAny(asked, due, openChanged).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (asked.IsCompletedSuccessfully && !asked.Result) throw new ChannelClosedException();
@@ -311,14 +329,23 @@ public sealed class SpecManagerQuestionSource : IDisposable
         await Quietly(asked).ConfigureAwait(false);
         await Quietly(due).ConfigureAwait(false);
 
-        while (pulls.TryRead(out _))
-        {
-        }
+        return pulls.TryPeek(out _) || due.IsCompletedSuccessfully;
     }
 
-    private async Task PullOnceAsync(CancellationToken cancellationToken)
+    private async Task PullOnceAsync(ChannelReader<bool> pulls, CancellationToken cancellationToken)
     {
-        var whole = Interlocked.Exchange(ref _whole, 0) == 1;
+        bool whole;
+
+        // Every pull asked for until now is this one, a whole one among them included.
+        lock (_gate)
+        {
+            while (pulls.TryRead(out _))
+            {
+            }
+
+            whole = Interlocked.Exchange(ref _whole, 0) == 1;
+        }
+
         var pulled = false;
 
         try
@@ -430,8 +457,10 @@ public sealed class SpecManagerQuestionSource : IDisposable
 
         await using (stream.ConfigureAwait(false))
         {
-            SetOpen(true);
+            // The pull a change of state asks for is asked before the state shows, here and
+            // below, so the pull loop never waits on the new state's interval with it owed.
             if (!WholePullIsFresh()) RequestPull(whole: true);
+            SetOpen(true);
 
             try
             {
@@ -449,8 +478,8 @@ public sealed class SpecManagerQuestionSource : IDisposable
                 // A stopped run leaves the flag to the run after it.
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    SetOpen(false);
                     RequestPull();
+                    SetOpen(false);
                 }
             }
         }
@@ -467,6 +496,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
     private void SetOpen(bool open)
     {
         Volatile.Write(ref _open, open ? 1 : 0);
+        Interlocked.Exchange(ref _openChanged, NewSignal()).TrySetResult();
         Changed?.Invoke();
     }
 

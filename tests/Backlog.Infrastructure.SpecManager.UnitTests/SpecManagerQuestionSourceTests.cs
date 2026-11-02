@@ -120,6 +120,24 @@ public sealed class SpecManagerQuestionSourceTests
         Assert.False(source.IsOpen);
     }
 
+    /// <summary>The poll that started while the stream was down gives way to the backup's
+    /// wait once it opens, even when the opening owes no pull.</summary>
+    [Fact]
+    public async Task A_stream_that_opens_after_a_fresh_pull_moves_the_poll_to_the_backup_wait()
+    {
+        using var scenario = new QuestionScenario();
+        var connector = new FakeStreams();
+        using var source = Start(scenario, connector, out var delays);
+        await Idle(source, delays, open: false);
+        var pulled = Queries(scenario).Count;
+
+        connector.Open();
+        delays.End(SpecManagerQuestionSource.FirstRetryDelay);
+
+        await Idle(source, delays, open: true);
+        Assert.Equal(pulled, Queries(scenario).Count);
+    }
+
     /// <summary>A stream a proxy closes as soon as it opens is not reopened every five
     /// seconds: only one that stayed open a while resets the wait.</summary>
     [Fact]
