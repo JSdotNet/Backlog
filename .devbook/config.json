@@ -426,7 +426,6 @@
       "enabled": [
         "issue-sweep",
         "merge-review",
-        "morning-brief",
         "devbook-validate",
         "instruction-review",
         "devbook-verify",
