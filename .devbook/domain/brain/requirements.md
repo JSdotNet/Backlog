@@ -845,7 +845,7 @@ The system SHALL offer the scopes All, Brain and one per devbook, drawing the Br
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.A_ghost_scope_makes_no_dust_and_its_outline_is_stroked_dashed_in_the_ghost_ink, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.At_any_angle_the_outline_hugs_the_turned_shell]
 ```
 
 The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words.
@@ -944,7 +944,7 @@ The system SHALL place each devbook chapter in a region by its folder: `arc42` i
 
 - **Given** registered devbooks with chapters under `tech/`
 - **When** the reader opens the All scope
-- **Then** no devbook's `tech/` chapter is drawn on the map or listed beside it, and the Tech toggle beside Labels reads not pressed
+- **Then** no devbook's `tech/` chapter is drawn on the map or listed beside it, and the Tech toggle after Labels and Pause reads not pressed
 
 #### Scenario: The reader shows technology in All
 
@@ -1009,10 +1009,10 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed]
 ```
 
-The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, All, None and one chip per region (per scope in All) at the top right, apply the chips, Labels, All and None to the current scope only, hide a scope's Archive dust with its regions on None and show it again on All, and name the top right's All apart from the scope switch's All with a name that starts with "All".
+The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, Pause, All, None and one chip per region (per scope in All) at the top right, apply the chips, Labels, All and None to the current scope only, hide a scope's Archive dust with its regions on None and show it again on All, and name the top right's All apart from the scope switch's All with a name that starts with "All".
 
 #### Scenario: None in one scope
 
@@ -1308,10 +1308,10 @@ The system SHALL keep the camera's view and its motion when the reader shows or 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_waits_its_delay_then_ramps_in_over_transition_slow, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_waits_its_delay_then_ramps_in_over_transition_slow, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Resuming_after_a_pause_waits_the_delay_from_the_resume_then_eases_in, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Any_other_hand_over_keeps_the_last_input_it_remembers, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Pause_is_a_toggle_that_holds_the_idle_turn, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Pausing_changes_nothing_but_the_idle_turn, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.The_idle_turn_is_on_unless_paused_and_passes_through]
 ```
 
-The system SHALL turn the brains slowly on their own only after four seconds without input, and stop the turn at once when the reader presses, scrolls or rests the pointer on a mark.
+The system SHALL turn the brains slowly on their own only after four seconds without input, stop the turn at once when the reader presses, scrolls or rests the pointer on a mark, and offer a Pause toggle that holds the turn while the atlas is open until the reader presses it again.
 
 #### Scenario: Left alone
 
@@ -1324,6 +1324,18 @@ The system SHALL turn the brains slowly on their own only after four seconds wit
 - **Given** the brains are turning on their own
 - **When** the reader presses or scrolls on the map, or rests the pointer on a mark
 - **Then** the turn stops at once, and starts again only after four more seconds without input
+
+#### Scenario: Pausing
+
+- **Given** the brains are turning on their own
+- **When** the reader presses Pause
+- **Then** the brains stop, Pause reads pressed, and they stay still until Pause is pressed again
+
+#### Scenario: Resuming
+
+- **Given** the reader has paused the brains
+- **When** the reader presses Pause again
+- **Then** the brains wait four seconds without input, then ease into the turn
 
 ### Requirement: Reduced motion holds the atlas still
 
