@@ -4,7 +4,6 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
 
@@ -185,52 +184,20 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
         return new GoalDeletedPayload(id);
     }
 
-    /// <summary>
-    /// The one item the selectors name, or the refusal saying why there is not exactly one —
-    /// the rule and the codes <c>find_item</c> uses, so a session learns one.
-    /// <para>
-    /// A pull request's repository is resolved through the registry, and the registered
-    /// <c>owner/name</c> is what the goal stores, so <c>jsdotnet/backlog</c> and
-    /// <c>JSdotNet/Backlog</c> name one pull request. An attach refuses a repository the
-    /// registry does not know, before anything is stored. A detach does not
-    /// (<paramref name="registeredOnly"/> false): a goal may hold a pull request in a
-    /// repository since removed from the registry, and refusing would leave it there for
-    /// good. Such a name is passed on as given, and detaching what the goal does not hold
-    /// changes nothing.
-    /// </para>
-    /// </summary>
-    private GoalItemDto Item(string? planTag, Guid? taskId, string? repository, int? number, bool registeredOnly)
-    {
-        var byPlan = !string.IsNullOrWhiteSpace(planTag);
-        var byTask = taskId is not null;
-        var byPullRequest = !string.IsNullOrWhiteSpace(repository) || number is not null;
-
-        if (new[] { byPlan, byTask, byPullRequest }.Count(given => given) != 1)
-        {
-            throw RepositoryScope.Failure(Error.Validation(
-                "selector.required",
-                "Name exactly one item: planTag, or taskId, or repository and number together."));
-        }
-
-        if (byPlan) return GoalItemDto.ForPlan(planTag!.Trim());
-
-        if (byTask) return GoalItemDto.ForTask(taskId!.Value);
-
-        if (string.IsNullOrWhiteSpace(repository) || number is null)
-        {
-            throw RepositoryScope.Failure(Error.Validation(
-                "selector.incomplete",
-                "repository and number are one selector and have to be given together."));
-        }
-
-        var resolved = RepositoryScope.Resolve(repositories, repository);
-
-        var identity = resolved.IsSuccess ? resolved.Value.Id
-            : registeredOnly ? throw RepositoryScope.Failure(resolved.Error)
-            : repository.Trim();
-
-        return GoalItemDto.ForPullRequest(identity, number.Value);
-    }
+    /// <summary>The one item the selectors name (<see cref="ItemSelector"/>): an attach
+    /// refuses a repository the registry does not know, a detach
+    /// (<paramref name="registeredOnly"/> false) passes it on as given.</summary>
+    private GoalItemDto Item(string? planTag, Guid? taskId, string? repository, int? number, bool registeredOnly) =>
+        ItemSelector.One(
+            repositories,
+            planTag,
+            taskId,
+            repository,
+            number,
+            registeredOnly,
+            GoalItemDto.ForPlan,
+            GoalItemDto.ForTask,
+            GoalItemDto.ForPullRequest);
 
     internal static string ToWire(GoalAttachmentKind kind) => kind switch
     {

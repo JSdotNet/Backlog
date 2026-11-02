@@ -88,6 +88,22 @@ internal static class StandupFixture
             """);
     }
 
+    public static readonly Guid ReadyId = Guid.Parse("9d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f2a");
+
+    /// <summary>A version 2 impediment holding back one of each kind, every one settled — VAT
+    /// rate per line item done, #1338 merged, the devbook-search plan's one entry done — so
+    /// the reading marks it Ready to resolve. Appended only by the tests that read it.</summary>
+    public static TaskChange ReadyImpediment() =>
+        Whole(ReadyId, "impediment", "Waiting on the bank's test account", Now.AddDays(-2), $$"""
+            {"version":2,"id":"{{ReadyId}}","title":"Waiting on the bank's test account",
+             "history":[{"state":"New","on":"2026-10-15"},{"state":"BeingHandled","on":"2026-10-16","with":"account manager"}],
+             "holdsBack":["{{VatId}}"],
+             "heldBack":[{"kind":"Task","taskId":"{{VatId}}"},
+                         {"kind":"PullRequest","repository":"{{Repository}}","number":1338},
+                         {"kind":"Plan","plan":"devbook-search"}],
+             "createdAt":"2026-10-15T09:00:00+00:00"}
+            """);
+
     public static TaskChange Context(IterationLength length = IterationLength.Week) =>
         Whole(ProgressViewProjection.StandUpContextId, "stand-up-context", "Stand-up context", Now.AddHours(-1), ProgressDocuments.WriteContext(new StandUpContextDto(
             Now.AddHours(-1),

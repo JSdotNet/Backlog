@@ -429,7 +429,7 @@ public static class DesktopCompositionRegistration
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer
-        // is resolved by the head at startup, like BlockedTaskWatcher.
+        // is resolved by the head at startup, like SpecManagerQuestionSource.
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<WorkspaceSettingsStore>();

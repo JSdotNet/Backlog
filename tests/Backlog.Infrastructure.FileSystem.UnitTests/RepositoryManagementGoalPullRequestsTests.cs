@@ -3,6 +3,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Tests;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -80,6 +81,26 @@ public sealed class RepositoryManagementGoalPullRequestsTests
 
         Assert.Equal(LinkedPullRequestState.Merged, answer[0].State);
         Assert.Equal(GoalPullRequestDto.Unread(new("JSdotNet/Backlogg", "12")), answer[1]);
+    }
+
+    /// <summary>A pull request in an archived repository answers what was kept for it,
+    /// flagged so a held-back pull request there is never settled; one in an active
+    /// repository, or with no registry composed, is not flagged.</summary>
+    [Fact]
+    public async Task An_archived_repositorys_pull_request_is_flagged_whatever_was_kept()
+    {
+        var contract = new InMemoryPullRequests()
+            .Holds(Pull(7, PullRequestState.Merged) with { MergedAt = Noon })
+            .Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Archify" });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/archify"));
+
+        var answer = await reader.ReadAsync([new(Backlog, "7"), new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [(LinkedPullRequestState.Merged, false), (LinkedPullRequestState.Open, true)],
+            answer.Select(pull => (pull.State, pull.InArchivedRepository)));
+        Assert.False(Assert.Single(await new RepositoryManagementGoalPullRequests(() => contract)
+            .ReadAsync([new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken)).InArchivedRepository);
     }
 
     /// <summary>A repository that answers, but holds no pull request with the number —
@@ -180,4 +201,14 @@ public sealed class RepositoryManagementGoalPullRequestsTests
 
     private static PullRequestStatus Pull(int number, PullRequestState state = PullRequestState.Open) =>
         new(Backlog, number, $"https://github.com/{Backlog}/pull/{number}", $"Pull request {number}", state, $"feature-{number}", "main", "octo", false, Noon);
+
+    private sealed class ArchivedRepositories(params string[] archived) : IRegisteredRepositories
+    {
+        public bool IsConfigured => true;
+
+        public IReadOnlyList<string> Active => [Backlog];
+
+        public bool IsArchived(string repositoryFullName) =>
+            archived.Contains(repositoryFullName, StringComparer.OrdinalIgnoreCase);
+    }
 }

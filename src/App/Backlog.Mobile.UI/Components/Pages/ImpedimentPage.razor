@@ -11,9 +11,13 @@
 
 @*
     One impediment, opened from the stand-up (.devbook/domain/progress/features.md#goals-on-the-phone):
-    how long it has been open and the goal it holds back, its state as a list
-    that is also the control, its check-again day, its note, and the tasks it
-    holds back.
+    how long it has been open and the goal it holds back, Ready to resolve once
+    everything it holds back is settled, its state as a list that is also the
+    control, its check-again day, its note, and the tasks, pull requests and plans
+    it holds back, each under its kind and marked settled or open
+    (#seeing-an-impediment-ready-to-resolve). The phone lists them and nothing more:
+    it raises no impediment and links or unlinks nothing — a desktop's Stand-up panel
+    does.
 
     The one thing the phone changes in Progress is here: the state, the
     check-again day and the note, each queued through the device outbox as an
@@ -79,6 +83,10 @@ else if (Impediment is { } impediment)
                     @($"Resolved {StandupWords.Day(resolvedOn)}")
                 }
             </span>
+            @if (open?.ReadyToResolve == true)
+            {
+                <Badge Kind="tone" Slug="settled" TestId="impediment-ready">@(global::Backlog.UI.Components.Progress.GoalsText.ReadyToResolve)</Badge>
+            }
         </div>
 
         @if (_editError is not null)
@@ -128,12 +136,13 @@ else if (Impediment is { } impediment)
             <section class="standup__block" aria-labelledby="impediment-holds-title" data-testid="impediment-holds">
                 <h2 class="standup__block-title" id="impediment-holds-title">Holds back</h2>
                 <ul class="standup-detail__list">
-                    @foreach (var task in held)
+                    @foreach (var line in held)
                     {
-                        <li class="standup-detail__row" data-testid="impediment-held">
-                            <StatusDot Tone="Tone(task)" />
-                            <span class="sr-only">@StateWord(task):</span>
-                            <span class="standup-detail__item-title">@task.Title</span>
+                        <li class="standup-detail__row" data-testid="impediment-held" data-kind="@line.Kind">
+                            <StatusDot Tone="@Tone(line)" />
+                            <span class="sr-only">@StateWord(line):</span>
+                            <span class="standup-detail__item-kind">@line.Kind</span>
+                            <span class="standup-detail__item-title">@line.Title</span>
                         </li>
                     }
                 </ul>
@@ -354,20 +363,14 @@ else if (_looked)
     private static bool SameNote(string? left, string? right) =>
         string.Equals(string.IsNullOrWhiteSpace(left) ? null : left.Trim(), string.IsNullOrWhiteSpace(right) ? null : right.Trim(), StringComparison.Ordinal);
 
-    /// <summary>The tasks it holds back that the phone holds, in the order they were linked.</summary>
-    private List<ProgressTaskDto> HeldBack(ImpedimentDto impediment)
-    {
-        var work = PhoneStandUp.Work(Tasks.Live()).ToDictionary(task => task.Id);
-        return [.. impediment.HoldsBack.Select(id => work.GetValueOrDefault(id)).OfType<ProgressTaskDto>()];
-    }
+    /// <summary>The tasks, pull requests and plans it holds back, in the order they were
+    /// linked, each settled or not by the stand-up reading's rule.</summary>
+    private IReadOnlyList<HeldBackLine> HeldBack(ImpedimentDto impediment) =>
+        StandupText.HeldBack(impediment, PhoneStandUp.Work(Tasks.Live()), Progress.Context());
 
-    private static FlowStepTone Tone(ProgressTaskDto task) =>
-        task.Status == ProgressTaskStatus.Done || task.CompletedOn is not null ? FlowStepTone.Done
-        : task.IsBlocked ? FlowStepTone.Blocked
-        : FlowStepTone.Pending;
+    private static FlowStepTone Tone(HeldBackLine line) =>
+        line.Settled ? FlowStepTone.Done : line.Blocked ? FlowStepTone.Blocked : FlowStepTone.Pending;
 
-    private static string StateWord(ProgressTaskDto task) =>
-        task.Status == ProgressTaskStatus.Done || task.CompletedOn is not null ? "Done"
-        : task.IsBlocked ? "Blocked"
-        : "Open";
+    private static string StateWord(HeldBackLine line) =>
+        line.Settled ? "Settled" : line.Blocked ? "Blocked" : "Open";
 }

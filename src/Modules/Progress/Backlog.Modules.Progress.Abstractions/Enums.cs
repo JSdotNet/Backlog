@@ -37,6 +37,21 @@ public enum GoalAttachmentKind
     PullRequest
 }
 
+/// <summary>The three kinds of work an impediment holds back
+/// (<c>.devbook/domain/progress/domain.md#holds-back</c>), named as a goal's attachments are.
+/// Stored by name, so the names are persisted values and never renamed.</summary>
+public enum HeldBackKind
+{
+    /// <summary>A task, by its id.</summary>
+    Task,
+
+    /// <summary>A pull request, by its repository and number.</summary>
+    PullRequest,
+
+    /// <summary>A plan, by its plan tag: every entry filed under the tag.</summary>
+    Plan
+}
+
 /// <summary>Where an impediment stands
 /// (<c>.devbook/domain/progress/domain.md#impediment-state</c>). It moves forward only —
 /// New, Reported, Escalated, Being handled — and any open state may move to Resolved.
