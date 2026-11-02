@@ -3,7 +3,7 @@
 <PageTitle>Chapter and file metadata — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Chapter and file"
-           Summary="A subpage of Devbook: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. The last two stories are what a whole record adds beyond its fields: the decision and review state drawn beside the status, and the findings a host gets by naming the folder. Every story shows the `meta` fence its record was parsed from."
+           Summary="A subpage of Devbook: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. The last three stories are what a whole record adds beyond its fields: the decision and review state drawn beside the status, a decision or debt record's state from the subject store, and the findings a host gets by naming the folder. Every story shows the `meta` fence its record was parsed from."
            Guidelines="@Rules">
 
     <Story Name="One record, both shapes"
@@ -202,6 +202,47 @@ Each example is a `.domain` chapter with its folder named, so the findings run t
         </div>
     </Story>
 
+    <Story Name="A record's state, from the subject store"
+           Description="Where a decision or debt record stands. Under devbook's branch-true decision that state is the tool's, not the file's: it is never in the `meta` fence, so a host reads it from the subject store and hands it to the file's record as `Subject`, already in words. `MetadataView` draws it beside the block's own status, as a status badge on the same tone scale: identified is quiet, planned and in progress are live, resolved and decided are settled, and a declined decision is out of force. `MetadataStateLine` adds who set it and on which day, and does not repeat the word.
+
+A debt record's state can be set where it is drawn. The subject offers its states, and the host listens through `OnSubjectStateChanged`, so the badge becomes a select. It is offered by those two things and never by `CanEditStatus`: setting it writes no file, so a branch snapshot, which takes the status select away, keeps this one. A record nobody has set a state on reads “No state” until one is picked, and picking that entry writes nothing.
+
+A decision record's state is shown read-only. Its key needs the pull request it was decided in, which the panel does not know, so it is set over MCP. The badge is the same one the select wears, because a status that can be changed must not look like a different kind of status from one that cannot.
+
+Pick a state in either debt record to see the badge take its tone and the line name who set it."
+           Code="@SubjectCode">
+        <div class="sb-stack" data-testid="devbook-shapes-subject">
+            <p class="sb-label">A debt record's state, set here: the select, and who set it and when</p>
+            <MetadataFileView Metadata="@MetadataRecord.Empty"
+                              Subject="@_debt"
+                              OnSubjectStateChanged="@(state => _debt = Picked(_debt, state))"
+                              AriaLabel="0007-session-store.md metadata"
+                              CssClass="file-view__record"
+                              TestId="devbook-shapes-subject-debt"
+                              Heading="@DebtHeading"
+                              HeadingAlone="@DebtIdentity" />
+
+            <p class="sb-label">A debt record nobody has set a state on: “No state”, in the quiet tone</p>
+            <MetadataFileView Metadata="@MetadataRecord.Empty"
+                              Subject="@_unsetDebt"
+                              OnSubjectStateChanged="@(state => _unsetDebt = Picked(_unsetDebt, state))"
+                              AriaLabel="0008-retry-budget.md metadata"
+                              CssClass="file-view__record"
+                              TestId="devbook-shapes-subject-unset"
+                              Heading="@UnsetDebtHeading"
+                              HeadingAlone="@UnsetDebtIdentity" />
+
+            <p class="sb-label">A decision record's state: read-only, the same badge</p>
+            <MetadataFileView Metadata="@MetadataRecord.Empty"
+                              Subject="@DecisionSubject"
+                              AriaLabel="0012-subject-store.md metadata"
+                              CssClass="file-view__record"
+                              TestId="devbook-shapes-subject-decision"
+                              Heading="@DecisionHeading"
+                              HeadingAlone="@DecisionIdentity" />
+        </div>
+    </Story>
+
     <Story Name="Findings"
            Description="What a block states that the devbook convention reports, listed between the headline and the fields when the host names the folder the block came from. `DevbookMetadataFindings` judges one block against its folder and level; `MetadataFindingList` draws the result — the severity as a word on its tone, the field it is about in the value face, and one sentence.
 
@@ -239,7 +280,8 @@ The examples are the reports an author meets most: the resting value written out
         new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),
         new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes."),
         new("design-principles.md#low-chrome-content-first", "How much of a pane a file's own record may take."),
-        new("README.md#status-vocabulary", "The status words either block may carry.")
+        new("README.md#status-vocabulary", "The status words either block may carry."),
+        new("color-scheme.md#badge-and-chip-tones", "Which tone a record's state takes, and why its select and its badge are one badge.")
     ];
 
     /// <summary>
@@ -413,6 +455,64 @@ The examples are the reports an author meets most: the resting value written out
             """, "devbook-shapes-state-cleared")
     ];
 
+    /// <summary>A debt record's states, in workflow order — what the subject
+    /// offers, as the panel hands them down from the subject's kind.</summary>
+    private static readonly IReadOnlyList<string> DebtStates = ["identified", "planned", "in-progress", "resolved"];
+
+    /// <summary>
+    /// The two debt records' states, held on the page because the select is
+    /// one-way: it shows the state it is handed and reports a pick, and the host
+    /// writes it and hands the new state back. Here the page is the host, and a
+    /// pick is signed by "You" on a fixed day so the story reads the same every
+    /// time.
+    /// </summary>
+    private MetadataSubjectState _debt = new("debt", "planned", "ana", "2026-10-28") { Options = DebtStates };
+
+    private MetadataSubjectState _unsetDebt = new("debt", null) { Options = DebtStates };
+
+    private static MetadataSubjectState Picked(MetadataSubjectState subject, string state) =>
+        subject with { State = state, By = "You", At = "2026-10-30" };
+
+    /// <summary>A decision record's state: no options, so it is shown and not
+    /// offered.</summary>
+    private static readonly MetadataSubjectState DecisionSubject = new("decision", "decided", "ana", "2026-10-28");
+
+    private readonly RenderFragment DebtHeading =
+        @<div class="file-view__headline">
+            <h3 class="file-view__name">0007-session-store.md</h3>
+            <p class="file-view__meta">.arc42 · Technical debt record</p>
+        </div>;
+
+    private readonly RenderFragment DebtIdentity =
+        @<text>
+            <h3 class="file-view__name">0007-session-store.md</h3>
+            <p class="file-view__meta">.arc42 · Technical debt record</p>
+        </text>;
+
+    private readonly RenderFragment UnsetDebtHeading =
+        @<div class="file-view__headline">
+            <h3 class="file-view__name">0008-retry-budget.md</h3>
+            <p class="file-view__meta">.arc42 · Technical debt record</p>
+        </div>;
+
+    private readonly RenderFragment UnsetDebtIdentity =
+        @<text>
+            <h3 class="file-view__name">0008-retry-budget.md</h3>
+            <p class="file-view__meta">.arc42 · Technical debt record</p>
+        </text>;
+
+    private readonly RenderFragment DecisionHeading =
+        @<div class="file-view__headline">
+            <h3 class="file-view__name">0012-subject-store.md</h3>
+            <p class="file-view__meta">.arc42 · Architecture decision record</p>
+        </div>;
+
+    private readonly RenderFragment DecisionIdentity =
+        @<text>
+            <h3 class="file-view__name">0012-subject-store.md</h3>
+            <p class="file-view__meta">.arc42 · Architecture decision record</p>
+        </text>;
+
     private static readonly (string Label, DevbookFolder Folder, string Block, string TestId)[] FindingExamples =
     [
         ("arc42/ — the resting value written out", DevbookFolder.Arc42, "status: active", "devbook-shapes-findings-resting"),
@@ -450,6 +550,32 @@ The examples are the reports an author meets most: the resting value written out
 
         @* One outlined badge per record that has anything in it. *@
         <Badge Kind="decision" Slug="approval" Title="approved-hash: …">approved by ana on 2026-09-01</Badge>
+        """;
+
+    private const string SubjectCode = """
+        @* The host reads the subject store and hands the state down in words —
+           FileView.DevbookSubject, threaded through FileHeader to the record. *@
+        <FileView ... DevbookSubject="@subject" OnDevbookSubjectStateChanged="SetDebtState" />
+
+        @* A debt record's: states to offer and a host listening, so a select. *@
+        <MetadataFileView Metadata="@record"
+                          Subject="@(new MetadataSubjectState("debt", state, "ana", "2026-10-28")
+                                     { Options = ["identified", "planned", "in-progress", "resolved"] })"
+                          OnSubjectStateChanged="SetDebtState"
+                          Heading="@heading"
+                          HeadingAlone="@identity" />
+
+        @* A decision record's: no options, so the same badge, read-only. *@
+        <MetadataFileView Metadata="@record"
+                          Subject="@(new MetadataSubjectState("decision", "decided", "ana", "2026-10-28"))"
+                          Heading="@heading"
+                          HeadingAlone="@identity" />
+
+        @* Inside the headline: the state as a status badge on the tone scale,
+           select or not, then who set it and when. *@
+        <StatusSelector CurrentValue="planned" Slug="@DevbookStatus.SubjectSlug("debt", "planned")" ... />
+        <Badge Kind="status" Slug="@DevbookStatus.SubjectSlug("decision", "decided")">decided</Badge>
+        <Badge Kind="decision" Slug="subject">decision state set by ana on 2026-10-28</Badge>
         """;
 
     private const string FindingsCode = """

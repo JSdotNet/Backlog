@@ -89,8 +89,9 @@ status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```
 
-> The requirements of how a chapter's metadata is shown and written: the decision
-> state a domain chapter carries, and the state another tool keeps on it.
+> The requirements of how a chapter's metadata and workflow state are shown: the
+> decision state a domain chapter carries, the state the app keeps for a decision
+> or debt record and a proposal, and the state another tool keeps on a chapter.
 
 ### Requirement: Decision state is shown beside the status
 
@@ -114,27 +115,57 @@ While [Devbook status](context.md#devbook-status) is on, the system SHALL show a
 - **When** the reader opens it in the domain panel
 - **Then** neither its status nor the decision line is drawn, and the approval and acceptance fields are still not listed with its metadata
 
+### Requirement: A record's state is shown from the app's store
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_decision_records_state_is_drawn_read_only_from_the_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_state_that_arrives_while_the_record_is_open_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.The_authored_status_reads_as_a_badge_and_nothing_writes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_arc42_panel_sets_a_debt_records_state_on_a_branch_and_writes_no_file, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.The_line_states_the_kind_who_and_when, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_options_is_offered_where_the_status_cannot_be_edited, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_no_options_is_shown_and_not_offered, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.With_the_status_hidden_the_subject_state_is_not_drawn]
+```
+
+While [Devbook status](context.md#devbook-status) is on, the system SHALL show a decision or debt record's state from the app's own store beside the record's name, saying who set it and when.
+
+#### Scenario: A debt record on a branch
+
+- **Given** Devbook status is on, and a debt record under `arc42/tdr/` read from a branch snapshot
+- **When** the reader picks `planned` as its state
+- **Then** the record shows `planned` and *debt state set by You* on that day, and no file of the snapshot changes
+
+#### Scenario: A decision record
+
+- **Given** Devbook status is on, and an assistant set a decision record to `proposed` in one pull request and to `decided` in a later one
+- **When** the reader opens the record
+- **Then** it shows `decided` with who set it and when, and offers no state to pick
+
+#### Scenario: Status switched off
+
+- **Given** Devbook status is off, and a debt record whose state is `planned`
+- **When** the reader opens it
+- **Then** no state is drawn beside its name, and the store still keeps `planned`
+
 ### Requirement: Leaving a decision step takes its record with it
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Moving_from_accepted_to_approved_deletes_the_acceptance_record_and_keeps_the_approval, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_an_ordinary_status_deletes_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_the_resting_value_deletes_the_status_and_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Removing_the_status_of_an_approved_chapter_deletes_the_approval_record_with_it]
+related: [.devbook/domain/devbook/domain.invariants.md#invariant-leaving-a-decision-step-withdraws-the-decisions-above-it]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Setting_a_proposal_back_to_draft_withdraws_approval_and_acceptance, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approving_again_withdraws_an_acceptance_at_the_old_fingerprint]
 ```
 
-The system SHALL delete a domain chapter's approval or acceptance record in the same write that moves the chapter off that step.
+The system SHALL withdraw a proposal's approval and acceptance when it is set back to draft, and its acceptance when it is approved again.
 
-#### Scenario: Back from accepted to approved
+#### Scenario: Approved again
 
-- **Given** a domain chapter that is accepted, with its approval and acceptance records
-- **When** the reader sets its status to approved
-- **Then** the chapter keeps its approval record and no longer carries an acceptance record
+- **Given** a proposal that is accepted, with its approval and acceptance, in the app's store
+- **When** an assistant approves it again at the change's new fingerprint
+- **Then** the proposal is approved at that fingerprint and no longer carries an acceptance
 
 #### Scenario: Back to draft
 
-- **Given** a domain chapter that is accepted, with its approval and acceptance records
-- **When** the reader sets its status to draft
-- **Then** the chapter carries neither record
+- **Given** a proposal that is accepted, with its approval and acceptance, in the app's store
+- **When** an assistant sets its state to `draft`
+- **Then** the proposal carries neither its approval nor its acceptance
 
 ### Requirement: Another tool's state is carried as written
 

@@ -40,41 +40,56 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
         Assert.True(view.CanEdit);
     }
 
+    // --- A subject's state is not the file's ------------------------------------
+
+    /// <summary>
+    /// The one write a branch snapshot takes. A debt record's state lives in the
+    /// subject store, not in the chapter, so nothing a fetch would discard is
+    /// written: the store holds the state, by this host, and the file is the bytes
+    /// it was. The status writer's refusal this replaces existed only because that
+    /// write went into the file.
+    /// </summary>
     [Fact]
-    public async Task Setting_a_domain_status_on_a_branch_is_refused()
+    public void A_debt_records_state_is_set_on_a_branch_and_no_file_changes()
     {
-        var store = new DomainDevbookStore(BranchSource(WithDomain()));
+        var root = WithDebtRecord();
+        var record = Path.Combine(root, ".arc42", "tdr", "0001-sync-lag.md");
+        var before = File.ReadAllBytes(record);
+        var subjects = new SessionDevbookSubjectStateStore();
+        var debt = DevbookSubject.Debt(".arc42/tdr/0001-sync-lag.md");
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            store.UpdateStatusAsync("backlog", ".domain/inbox/domain.md", "agreed", TestContext.Current.CancellationToken));
+        var outcome = new Arc42DevbookStore(BranchSource(root)).SetSubjectState(subjects, "backlog", debt, "planned");
 
-        Assert.Contains("read-only", failure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("branch snapshot", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(outcome.IsRefused);
+        var stored = subjects.Get("backlog", debt);
+        Assert.NotNull(stored);
+        Assert.Equal("planned", stored.State);
+        Assert.Equal(DevbookLocalAuthor.Name, stored.By);
+        Assert.Equal(before, File.ReadAllBytes(record));
     }
 
-    [Fact]
-    public async Task Clearing_a_domain_status_on_a_branch_is_refused()
+    /// <summary>An archived repository is read-only all the way through (local
+    /// ADR 0029 §4), the subject store included: refused before the store is
+    /// asked, so nothing is kept to replicate. Refused as an outcome, the host's
+    /// own and none of the contract's codes, so a caller that branches on
+    /// <c>IsRefused</c> alone reports it rather than crashing.</summary>
+    [Theory]
+    [InlineData(DevbookSourceKind.LocalFolder)]
+    [InlineData(DevbookSourceKind.Branch)]
+    public void A_subject_state_on_an_archived_repository_is_refused_and_nothing_is_kept(DevbookSourceKind source)
     {
-        var store = new DomainDevbookStore(BranchSource(WithDomain()));
+        var root = WithDebtRecord();
+        var subjects = new SessionDevbookSubjectStateStore();
+        var store = new Arc42DevbookStore(new StubFolderSource(root, source, archived: true));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            store.ClearStatusAsync("backlog", ".domain/inbox/domain.md", TestContext.Current.CancellationToken));
-    }
+        var outcome = store.SetSubjectState(subjects, "backlog", DevbookSubject.Debt(".arc42/tdr/0001-sync-lag.md"), "planned");
 
-    /// <summary>The refusal must come before the file is touched, not after.</summary>
-    [Fact]
-    public async Task A_refused_status_change_leaves_the_file_alone()
-    {
-        var root = WithDomain();
-        var chapter = Path.Combine(root, ".domain", "inbox", "domain.md");
-        var before = File.ReadAllText(chapter);
-
-        var store = new DomainDevbookStore(BranchSource(root));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            store.UpdateStatusAsync("backlog", ".domain/inbox/domain.md", "agreed", TestContext.Current.CancellationToken));
-
-        Assert.Equal(before, File.ReadAllText(chapter));
+        Assert.True(outcome.IsRefused);
+        Assert.True(outcome.RepositoryArchived);
+        Assert.Null(outcome.Refused);
+        Assert.Null(outcome.State);
+        Assert.Contains("archived", outcome.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(subjects.List("backlog"));
     }
 
     // --- The chapter resolver and writer --------------------------------------
@@ -196,6 +211,19 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
         return root;
     }
 
+    /// <summary>An architecture folder holding one debt record, in the root
+    /// layout the stub resolves.</summary>
+    private string WithDebtRecord()
+    {
+        var root = TempDir();
+        var tdr = Path.Combine(root, ".arc42", "tdr");
+        Directory.CreateDirectory(tdr);
+
+        File.WriteAllText(Path.Combine(tdr, "0001-sync-lag.md"), "# TDR 0001: Sync lag\n\nThe deployed service lags.\n");
+
+        return root;
+    }
+
     private string TempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), "devbook-read-only-tests-" + Guid.NewGuid().ToString("N"));
@@ -227,7 +255,7 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
     /// put the resolution under test in every assertion about the writer.
     /// </para>
     /// </summary>
-    private sealed class StubFolderSource(string root, DevbookSourceKind source) : IDevbookFolderSource
+    private sealed class StubFolderSource(string root, DevbookSourceKind source, bool archived = false) : IDevbookFolderSource
     {
         public event Action? Changed
         {
@@ -254,7 +282,7 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
             var full = Path.Combine(root, folder.EffectivePath);
 
             return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", source)
+                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", source, RepositoryArchived: archived)
                 : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: source);
         }
     }

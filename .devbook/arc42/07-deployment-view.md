@@ -9,7 +9,7 @@ There are two deployment domains: the **user's local machines** (canonical) and 
 ## Local Deployment (Desktop)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 The desktop app is installed on Windows machines and is the canonical deployment. Everything needed for core workflows runs here.
@@ -42,6 +42,7 @@ The storage root defaults to `%LOCALAPPDATA%\Backlog` and holds:
   config/repos.json        # the repository registry
   .tools/                  # the tools catalog, when kept here
   devbook-annotations/     # remarks on devbook chapters, one JSON file per repository
+  devbook-subjects/        # workflow state of proposals, decision and debt records, one JSON file per repository
   devbook-cache/           # branch snapshots and the generated devbook databases
 ```
 
@@ -227,7 +228,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
@@ -242,7 +243,7 @@ flowchart TB
             AppService["Azure Container Apps\n(consumption, scale-to-zero)"]
         end
         subgraph "Data"
-            CosmosDB["Azure Cosmos DB (serverless)\ntasks, sessions, annotations,\ndevices, pairingCodes containers,\nchange feed per replica container"]
+            CosmosDB["Azure Cosmos DB (serverless)\ntasks, sessions, annotations,\ndevbookSubjects, notifications,\nnotificationReplies, devices,\npairingCodes containers,\nchange feed per replica container"]
             KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
             Storage["Azure Storage (Standard LRS)\nprivate container attachments,\n30-day lifecycle rule"]
         end
@@ -289,7 +290,9 @@ Deployment considerations:
 - **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs and no
   scheduled job can fail silently. Local ADR 0005 fixes the retentions: task and
   annotation tombstones at 180 days, and session records at 12 months. Webhook
-  events (24h) are not built.
+  events (24h) are not built. The `devbookSubjects` container has no TTL: a
+  devbook subject's state is set and never deleted, so it leaves no tombstone to
+  expire (local ADR 0044).
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the
   service stores and forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens go there when they

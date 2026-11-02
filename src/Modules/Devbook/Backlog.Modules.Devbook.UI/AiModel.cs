@@ -385,7 +385,7 @@ public sealed record AiModelUsage(
     };
 
     /// <summary>The heading slug a chapter is addressed by — the same rule the
-    /// status writer and the reference resolver use.</summary>
+    /// rating writer and the reference resolver use.</summary>
     private static string Slug(string heading)
     {
         var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();

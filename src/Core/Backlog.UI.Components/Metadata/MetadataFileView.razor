@@ -40,7 +40,7 @@
     record gets that answer, rather than each of them remembering to check.
 *@
 
-@if (Metadata is { IsEmpty: false } || TakesDirection)
+@if (Metadata is { IsEmpty: false } || TakesDirection || MetadataView.DrawsSubjectState(Subject, ShowStatus, OnSubjectStateChanged.HasDelegate))
 {
     @* A file whose block is a sync level gets its headline even when the block
        states nothing — the folder overview, a context, a page, a building block —
@@ -53,6 +53,8 @@
                   CanEditStatus="@(CanEditStatus && Metadata is { IsEmpty: false })"
                   ShowStatus="@ShowStatus"
                   OnStatusChanged="@OnStatusChanged"
+                  Subject="@Subject"
+                  OnSubjectStateChanged="@OnSubjectStateChanged"
                   OnNavigate="@OnNavigate"
                   HrefFor="@HrefFor"
                   Folder="@Folder"
@@ -108,6 +110,18 @@ else
     /// the title.</summary>
     [Parameter]
     public EventCallback<string?> OnStatusChanged { get; set; }
+
+    /// <summary>The file's subject state — a decision or debt record's, from the
+    /// subject store. A record with one gets its headline even when its block
+    /// states nothing, since the state is drawn there and nowhere else. See
+    /// <see cref="MetadataView.Subject"/>.</summary>
+    [Parameter]
+    public MetadataSubjectState? Subject { get; set; }
+
+    /// <summary>Raised with the subject state a reader picked. Forwarded
+    /// verbatim to <see cref="MetadataView.OnSubjectStateChanged"/>.</summary>
+    [Parameter]
+    public EventCallback<string> OnSubjectStateChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]

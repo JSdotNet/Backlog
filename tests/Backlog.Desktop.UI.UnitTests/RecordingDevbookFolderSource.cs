@@ -1,33 +1,19 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Records what a chapter file said at the moment a knowledge store went looking
-/// for its folder — which is the moment before it writes a status into it.
+/// A folder source that can make one chapter file go away at an exact point in a
+/// reload — the moment between the catalog read and the chapter read — by acting
+/// on the resolve each of them makes.
 /// <para>
-/// The three panels that put a status selector beside an open editing surface owe
-/// the editor a flush before that write, and the settled file cannot answer
-/// whether they paid it: the writer's status merge repairs either ordering, so both
-/// orders can leave the same bytes behind. What does answer it is the file as the
-/// status write found it. A body that had already been typed means the flush went
-/// first, and every store resolves its folder immediately before it writes, so that
-/// call is the observation point.
-/// </para>
-/// <para>
-/// Armed rather than always recording, because the same folder is resolved to load
-/// with as well. Arming happens right before the gesture under test, so the first
-/// snapshot after it is the one that belongs to that gesture.
+/// It used to record the chapter as a status write found it, too, so a panel's
+/// flush-before-status ordering could be proved. The product writes no status into
+/// an arc42, domain or design file any more — a chapter's workflow state is the
+/// tool's under devbook's branch-true decision — so that half went with the write.
 /// </para>
 /// </summary>
 internal sealed class RecordingDevbookFolderSource(IDevbookFolderSource inner, string chapterPath) : IDevbookFolderSource
 {
-    private bool _armed;
     private int _breakChapterCountdown = -1;
-
-    /// <summary>The chapter as it was when the first resolve after arming happened,
-    /// or null when nothing resolved at all.</summary>
-    internal string? ChapterWhenStatusWasWritten { get; private set; }
-
-    internal void ArmStatusWriteSnapshot() => _armed = true;
 
     /// <summary>
     /// Arms the momentary-unreadable window the read-only fallback exists for: a
@@ -54,11 +40,6 @@ internal sealed class RecordingDevbookFolderSource(IDevbookFolderSource inner, s
 
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
     {
-        if (_armed && ChapterWhenStatusWasWritten is null && File.Exists(chapterPath))
-        {
-            ChapterWhenStatusWasWritten = File.ReadAllText(chapterPath);
-        }
-
         if (_breakChapterCountdown >= 0)
         {
             // The catalog's resolve is the first one after arming and is let by; the

@@ -251,6 +251,9 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        // Devbook subject state's progress sits beside the annotation progress, in its
+        // own file: the folder is the per-installation one, the feed is separate.
+        services.AddDevbookSubjectSyncStore(options.AnnotationSyncFolder);
         services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
@@ -499,6 +502,9 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+        // And devbook subject state, the annotations' sibling: the states the panels and
+        // the MCP tools set travel to this person's other desktops on the same switch.
+        services.AddDevbookSubjectSyncClient(SyncServiceAddress);
 
         // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two
@@ -623,5 +629,13 @@ public static class DesktopCompositionRegistration
                     folders: sp.GetRequiredService<IDevbookFolderSource>()),
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RemarkNotificationStore>>()));
+
+        // The workflow state of a repository's devbook subjects — proposals,
+        // decision records, debt records — kept out of the chapters under devbook's
+        // branch-true decision: one JSON file per repository under the storage
+        // folder, following the root as the remarks above do. The panels fall back
+        // to a session store when it is absent, as they do for remarks.
+        services.AddSingleton<IDevbookSubjectStateStore>(sp =>
+            new DevbookSubjectStateStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
     }
 }

@@ -70,6 +70,15 @@
     and never as a row in the list. The record keeps it apart for the same reason
     (MetadataRecord.State), so there is no row to suppress.
 
+    A subject's state — a decision or debt record's — is drawn there too. It is
+    not in the block: the tool keeps it, so a host hands it in as Subject. The
+    state itself is a status badge beside the block's, toned on the same scale
+    (DevbookStatus.SubjectSlug), and the same badge whether it is a select or not;
+    MetadataStateLine adds who set it and when, and never repeats the word. Its
+    select is offered by the subject's own options and a listening host, not by
+    CanEditStatus, because setting it writes no file — a branch snapshot, which
+    takes the status select away, keeps this one.
+
     Findings are the one addition a caller has to ask for. Given the folder the
     block came from, the record lists what the convention would report about it —
     an explicit resting status, a rung outside domain/, `kind` where `type` is
@@ -98,15 +107,38 @@
             {
                 <MetadataStatusBadge Status="@_status" Vocabulary="@Vocabulary" />
             }
+            @* The subject's state is a status badge beside the block's, on the same
+               tone scale, and the same badge whether or not it can be changed here:
+               the select where a host listens and the subject offers states, the
+               badge otherwise. Its value is drawn here once; the state line below
+               says only who set it and when. *@
+            @if (SubjectIsSelectable)
+            {
+                <StatusSelector CurrentValue="@(Subject!.State ?? string.Empty)"
+                                Options="@SubjectOptions"
+                                Slug="@SubjectSlug"
+                                Label="@($"Change the {Subject.Kind} state")"
+                                IncludeEmptyOption="@(!Subject.HasState)"
+                                EmptyLabel="No state"
+                                TestId="devbook-subject-state-select"
+                                OnChanged="SelectSubjectState" />
+            }
+            else if (DrawsSubject && Subject!.HasState)
+            {
+                <Badge Kind="status"
+                       Slug="@SubjectSlug"
+                       Title="@($"{Subject.Kind} state")"
+                       TestId="devbook-subject-state">@Subject.State!.Trim()</Badge>
+            }
             @* Decision and review state goes beside the status and nowhere else:
                it says who signed that status off, or who owes the next move
                towards it, and none of it is chapter content. In a code block so a
                record with no state renders the headline it always did. It goes
                with the status when a host hides that: a sign-off with no status
                beside it says who approved nothing on screen. *@
-            @if (ShowStatus && !Metadata.State.IsEmpty)
+            @if (ShowStatus && (!Metadata.State.IsEmpty || Subject is { HasState: true }))
             {
-                <MetadataStateLine State="@Metadata.State" />
+                <MetadataStateLine State="@Metadata.State" Subject="@Subject" />
             }
             @* The sync direction goes beside the status too: it is how the sweeps
                treat the unit, read at a glance with its state. Drawn from the pane's
@@ -224,6 +256,21 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    /// <summary>
+    /// The subject's state, when the record is a decision or debt record and its
+    /// host keeps one — read from the subject store, never from the block. Drawn
+    /// with the status, so <see cref="ShowStatus"/> off takes it away too.
+    /// </summary>
+    [Parameter]
+    public MetadataSubjectState? Subject { get; set; }
+
+    /// <summary>Raised with the state a reader picked for <see cref="Subject"/>,
+    /// when it offers any. The host writes it to the subject store and hands the
+    /// new state back down; a pick of the "No state" entry is no write and is not
+    /// raised.</summary>
+    [Parameter]
+    public EventCallback<string> OnSubjectStateChanged { get; set; }
+
     /// <summary>The heading's own text, for a chapter's record: the address a
     /// <see cref="DevbookSyncScope"/> is asked by, the same one a status change
     /// reports. Ignored on a file's block, which its level already names.</summary>
@@ -339,6 +386,45 @@
 
     private bool StatusIsSelectable => ShowStatus && CanEditStatus && Vocabulary.Selectable(_status);
 
+    /// <summary>Whether the subject's state has anything to draw here.</summary>
+    private bool DrawsSubject => DrawsSubjectState(Subject, ShowStatus, OnSubjectStateChanged.HasDelegate);
+
+    /// <summary>
+    /// Whether a subject's state has anything to draw: a state that was set, or a
+    /// select to set one with — and a select needs states to offer <em>and</em> a
+    /// host listening to write the pick.
+    /// <para>
+    /// Options with nobody listening is no control, and with no state either it is
+    /// nothing at all; counted as something, it would hold up the bordered,
+    /// labelled group around an empty line that <see cref="RendersAnything"/>
+    /// exists to stand down. Shared with <see cref="MetadataFileView"/>, which asks
+    /// the same question before it hands an empty block down.
+    /// </para>
+    /// </summary>
+    internal static bool DrawsSubjectState(MetadataSubjectState? subject, bool showStatus, bool listening) =>
+        showStatus && subject is not null && (subject.HasState || (subject.IsSelectable && listening));
+
+    /// <summary>Whether the subject's state is a select: it offers states and a
+    /// host is listening to write the pick.</summary>
+    private bool SubjectIsSelectable => DrawsSubject && Subject!.IsSelectable && OnSubjectStateChanged.HasDelegate;
+
+    /// <summary>The status modifier the subject's state wears, on the tone scale
+    /// the block's own status is drawn on — the same answer for the select and
+    /// the badge.</summary>
+    private string SubjectSlug => DevbookStatus.SubjectSlug(Subject?.Kind, Subject?.State);
+
+    private IReadOnlyList<SelectorOption> SubjectOptions =>
+        Subject is null ? [] : [.. Subject.Options.Select(state => new SelectorOption(state, state))];
+
+    /// <summary>A reader picked a subject state. The empty entry is the "No
+    /// state" a subject nobody has set shows; picking it changes nothing.</summary>
+    private async Task SelectSubjectState(string state)
+    {
+        if (string.IsNullOrWhiteSpace(state)) return;
+
+        await OnSubjectStateChanged.InvokeAsync(state);
+    }
+
     /// <summary>The options the vocabulary offers, in the order it lists them —
     /// its words, led by an explicit "no status" entry on a surface that allows
     /// one. The value is authored and the label is the same word, because a status
@@ -399,6 +485,7 @@
     /// and the host handed the heading here rather than drawing it itself.</para>
     private bool RendersAnything =>
         StatusIsSelectable
+        || DrawsSubject
         || (!ShowStatus && Heading is not null)
         || _sync is not null
         || _findings.Count > 0
