@@ -110,6 +110,34 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
     }
 
+    /// <summary>A remark is about the chapter as the branch it was read from has it:
+    /// on a named branch's snapshot the panel lists that branch's remarks and none
+    /// of the default branch's, and a new one is kept under the branch.</summary>
+    [Fact]
+    public async Task The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch()
+    {
+        using var harness = DomainHarness(DevbookSourceKind.Branch);
+        harness.Folders.Branch = "feature/remark-kinds";
+        var store = new SessionDevbookAnnotationStore();
+        var onDefault = store.Add("backlog", ".domain/context-map.md", 0, "someone");
+        store.Edit(onDefault.Id, "Left on the default branch.");
+        var onBranch = store.Add("backlog", ".domain/context-map.md", 0, "someone", branch: "feature/remark-kinds");
+        store.Edit(onBranch.Id, "Left on the feature branch.");
+        harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+
+        component.WaitForAssertion(() => Assert.Contains("Left on the feature branch.", component.Markup, StringComparison.Ordinal));
+        Assert.DoesNotContain("Left on the default branch.", component.Markup, StringComparison.Ordinal);
+
+        await component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-0']").ClickAsync(new()));
+
+        component.WaitForAssertion(() => Assert.Equal(2, store.List("backlog", ".domain/context-map.md", "feature/remark-kinds").Count));
+        Assert.Single(store.List("backlog", ".domain/context-map.md"));
+    }
+
     // --- A debt record's state (the subject store) --------------------------------
 
     /// <summary>
@@ -434,6 +462,11 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         /// the way the real source stamps it.</summary>
         public bool Archived { get; set; }
 
+        /// <summary>The named branch a snapshot was read from, stamped on every
+        /// location the way the real source stamps it; null for the default
+        /// branch.</summary>
+        public string? Branch { get; set; }
+
         public event Action? Changed;
 
         public void RaiseChanged() => Changed?.Invoke();
@@ -455,8 +488,8 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
             var full = Path.Combine(root, folder.EffectivePath);
 
             return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", Source, RepositoryArchived: Archived)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: Source, repositoryArchived: Archived);
+                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", Source, RepositoryArchived: Archived, Branch: Branch)
+                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: Source, repositoryArchived: Archived) with { Branch = Branch };
         }
     }
 }

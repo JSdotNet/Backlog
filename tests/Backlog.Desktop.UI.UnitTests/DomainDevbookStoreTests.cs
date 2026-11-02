@@ -51,10 +51,7 @@ public sealed class DomainDevbookStoreTests : IDisposable
 
         var features = context.Documents.Single(d => d.Kind == DomainDevbookDocumentKind.Features);
         Assert.Equal("planned", DevbookActionMetadata.Status(features.Metadata));
-        var issue = DevbookActionMetadata.Issue(features.Metadata, view.RepositoryLabel);
-        Assert.NotNull(issue);
-        Assert.Equal("#77", issue.Label);
-        Assert.Equal("https://github.com/JSdotNet/Backlog/issues/77", issue.Url);
+        Assert.Equal("77", features.Metadata["devbook-issue"]);
     }
 
     /// <summary>A demo rides on the page its name pairs it with rather than

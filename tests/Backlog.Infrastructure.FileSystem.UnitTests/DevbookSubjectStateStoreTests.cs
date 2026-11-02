@@ -246,6 +246,81 @@ public sealed class DevbookSubjectStateStoreTests : IDisposable
             changed.Select(state => (state.RepositoryAlias, state.State)));
     }
 
+    /// <summary>The one-time import of a repository's authored state: written as
+    /// given, the authored who and when included, and still there for a new store
+    /// over the same folder.</summary>
+    [Fact]
+    public void An_import_writes_a_state_the_store_does_not_hold_with_its_authored_stamps()
+    {
+        var authored = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        var approval = new DevbookSubjectDecision("Job Schepers", authored, Fingerprint);
+        var acceptance = new DevbookSubjectDecision("Job Schepers", authored.AddDays(2), Fingerprint);
+        var imported = new DevbookSubjectState(
+            DevbookSubject.IdFor(Repository, Change), Repository, Change, "accepted", "Job Schepers", authored.AddDays(2), approval, acceptance, authored.AddDays(2));
+
+        var written = Store().ImportIfAbsent([imported]);
+
+        Assert.Equal(1, written);
+        Assert.Equal(imported with { RepositoryAlias = DevbookSubject.AliasKey(Repository) }, Store().Get(Repository, Change));
+    }
+
+    /// <summary>A state a person set — or one that arrived from another device —
+    /// is never replaced by the import, however its stamps compare.</summary>
+    [Fact]
+    public void An_import_never_overwrites_a_state_the_store_holds()
+    {
+        var store = Store();
+        store.SetState(Repository, Debt, "resolved", Host);
+        var held = store.Get(Repository, Debt)!;
+        var later = held.UpdatedAt.AddDays(1);
+
+        var written = store.ImportIfAbsent(
+        [
+            new DevbookSubjectState(held.Id, Repository, Debt, "planned", "Job Schepers", later, null, null, later),
+        ]);
+
+        Assert.Equal(0, written);
+        Assert.Equal("resolved", Store().Get(Repository, Debt)!.State);
+    }
+
+    [Fact]
+    public void An_import_raises_changed_once_and_a_second_run_raises_none()
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+        var authored = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<DevbookSubjectState> batch =
+        [
+            new(DevbookSubject.IdFor(Repository, Debt), Repository, Debt, "planned", Host, authored, null, null, authored),
+            new(DevbookSubject.IdFor(Repository, Change), Repository, Change, "draft", Host, authored, null, null, authored),
+        ];
+
+        Assert.Equal(2, store.ImportIfAbsent(batch));
+        Assert.Equal(1, raised);
+
+        Assert.Equal(0, store.ImportIfAbsent(batch));
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>Stamped with when it was authored, an imported state sits behind a
+    /// push watermark the device has already passed: each device imports for
+    /// itself, and the derived id is what makes their copies one.</summary>
+    [Fact]
+    public void An_imported_state_stamped_in_the_past_is_not_pushed_as_a_new_change()
+    {
+        var store = Store();
+        var watermark = _time.GetUtcNow().AddDays(-1);
+        var authored = watermark.AddDays(-30);
+
+        store.ImportIfAbsent(
+        [
+            new DevbookSubjectState(DevbookSubject.IdFor(Repository, Debt), Repository, Debt, "planned", Host, authored, null, null, authored),
+        ]);
+
+        Assert.Empty(store.ListChangedSince(watermark));
+    }
+
     [Fact]
     public void A_moved_backlog_takes_the_subject_states_along() =>
         Assert.Contains(DevbookSubjectStateStore.FolderName, WorkspaceSettingsStore.OwnedRootFolders);

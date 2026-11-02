@@ -135,8 +135,18 @@ public sealed record DevbookSnapshotResult(
     bool Behind,
     string? Message)
 {
+    /// <summary>
+    /// Whether the call failed — GitHub or the disk refused it — rather than
+    /// answered. <see cref="Message"/> cannot say so on its own: a fetch that found
+    /// the branch current says "Up to date" there too. Nor can a null
+    /// <see cref="Snapshot"/>, because a failed refresh still carries the snapshot
+    /// that was already on disk. A caller that must not read an old snapshot as the
+    /// branch's current one — the one-time devbook import — asks this.
+    /// </summary>
+    public bool IsFailure { get; private init; }
+
     public static DevbookSnapshotResult Failed(DevbookSnapshot? snapshot, string message) =>
-        new(snapshot, false, false, message);
+        new(snapshot, false, false, message) { IsFailure = true };
 }
 
 /// <summary>
@@ -151,6 +161,12 @@ public static class DevbookSnapshotSelection
     public const string AnyDepthPrefix = "**/";
 
     public const char ExcludePrefix = '!';
+
+    /// <summary>The folder of rendered diagram artifacts beside a chapter. Hundreds
+    /// of kilobytes each and read only when a rendered diagram is shown, so every
+    /// reader that fetches a folder whole excludes it — the area stores and the
+    /// one-time devbook import alike.</summary>
+    public const string RenderedArtifactsFolder = "_archify";
 
     /// <summary>Repository-relative, <c>/</c>-separated, no leading <c>./</c>
     /// or <c>/</c> — the spelling the index uses, whatever the caller typed.</summary>

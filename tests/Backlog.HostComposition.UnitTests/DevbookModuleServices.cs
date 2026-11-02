@@ -49,6 +49,8 @@ internal static class DevbookModuleServices
         typeof(IDevbookAnnotationStore),
         typeof(IDevbookSubjectStateStore),
         typeof(IDevbookSyncDirectionStore),
+        typeof(IDevbookImportLedger),
+        typeof(DevbookImportWorker),
         typeof(DevbookOpenChapter)
     ];
 }

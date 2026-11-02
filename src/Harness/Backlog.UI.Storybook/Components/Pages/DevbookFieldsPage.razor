@@ -3,7 +3,7 @@
 <PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Fields"
-           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eighteen stories share ten shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, the extension namespace, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own — and so is the decision and review state beside it, which is never a row at all; Chapter and file draws it. Combinations are the parent page's job."
+           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: sixteen stories share eight shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, the extension namespace, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and two fields draw no visible label because their value already says which field it is. `issue`, `effort` and `roadmap` have no story: the reader still parses them for the task parser and the generated graph, and the chapter view draws none of them, because the plan lives in Backlog's own entries. `status` is not here: it is the same question as state, and it has a subpage of its own — and so is the decision and review state beside it, which is never a row at all; Chapter and file draws it. Combinations are the parent page's job."
            Guidelines="@Rules">
 
     <Story Name="kind"
@@ -26,52 +26,6 @@ Nothing here compares versions or knows what a newer one would be. The pinned ve
            Code="@VersionCode">
         @Field("version", "version: \"10.0\"", ".tech entries.", "MetadataScalar",
             @<MetadataScalar Value="10.0" Prefix="v" Title="version: 10.0" />, showLabel: false)
-    </Story>
-
-    <Story Name="effort"
-           Description="A story-point count, drawn as a badge rather than as a value. It reads at a glance the way a status does — it is the number somebody scans a list of items for — so it wears the application's badge, in its own tone because an estimate is not a state.
-
-The unit is spelled out, and that is also why this row needs no visible label: “5 pts” names its own field and “5” never could. The one thing a reader must not do with a story-point count is read it as days.
-
-Zero is an estimate and draws its badge; absent draws nothing. Nobody has sized this and sized and found to be nothing are different answers.
-
-**This field is not defined by the devbook plugin's schema, and no file in this repository writes it.** It is this repository's own extension to the schema, not plugin convention."
-           Code="@EffortCode">
-        @Field("effort", "effort: 5", "This repository's own addition. No folder writes it today.", "MetadataEffortBadge",
-            @<MetadataEffortBadge Effort="5" />, showLabel: false)
-        <div class="sb-stack" data-testid="devbook-fields-effort-zero">
-            <p class="sb-label">An estimate of zero, which is not the same as no estimate</p>
-            <dl class="devbook-fields">
-                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="0" TestId="devbook-fields-effort-zero-badge" /></MetadataField>
-            </dl>
-        </div>
-    </Story>
-
-    <Story Name="issue"
-           Description="A GitHub issue, drawn through the family the product already draws GitHub references with. `MetadataIssueLink` renders nothing of its own: it maps the two forms a knowledge file writes onto an `IntegrationLinkRef` and hands it to `IntegrationLink`, which is where the provider mark, the label and the repository beside it come from.
-
-Only one of the two forms can be followed. A URL is an address a browser can be handed; the `owner/repo#number` shorthand needs a remote this library knows nothing about, and guessing one would produce a link to somewhere the issue is not. So the shorthand arrives with no URL and gets the inert span `IntegrationLink`'s tri-state already has for that case — not link-coloured and not reachable by tab, because a reference nobody can follow should not invite a click or take a tab stop to refuse one.
-
-No state chip. A `meta` fence says *which* issue, never whether it is open, and `IntegrationArtifactState.Unknown` is deliberately not used: that member means “we looked and could not tell”, and nobody looked. Inventing it would put a dashed “Not checked” chip on every chapter in the repository.
-
-Only `http` and `https` become links. Any other scheme in a knowledge file is either a mistake or an attack, and neither is something to offer a reader a click on."
-           Code="@IssueCode">
-        @Field("issue", "issue: JSdotNet/Backlog#118", ".backlog items, .arc42 decisions.", "MetadataIssueLink",
-            @<MetadataIssueLink Issue="JSdotNet/Backlog#118" />)
-        <div class="sb-stack" data-testid="devbook-fields-issue-url">
-            <p class="sb-label">The same issue as a URL — the same label, and now followable</p>
-            <CodeView Source="issue: https://github.com/JSdotNet/Backlog/issues/118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-issue-url-source" />
-            <dl class="devbook-fields">
-                <MetadataField Label="issue"><MetadataIssueLink Issue="https://github.com/JSdotNet/Backlog/issues/118" TestId="devbook-fields-issue-url-link" /></MetadataField>
-            </dl>
-        </div>
-        <div class="sb-stack" data-testid="devbook-fields-issue-malformed">
-            <p class="sb-label">A value neither form parses is drawn whole — a malformed issue is a typo, and a typo is only useful once it is visible</p>
-            <CodeView Source="issue: backlog-118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-issue-malformed-source" />
-            <dl class="devbook-fields">
-                <MetadataField Label="issue"><MetadataIssueLink Issue="backlog-118" TestId="devbook-fields-issue-malformed-link" /></MetadataField>
-            </dl>
-        </div>
     </Story>
 
     <Story Name="related"
@@ -252,7 +206,7 @@ The key keeps the author's casing, the value is exactly what follows the colon, 
 
 It is also where a `related` entry that will not parse as an address lands, under the relation it was written on — the second row below.
 
-A key the reader recognises and deliberately drops never arrives here. `order` is the one of those: it is read, recognised and dropped, because a directory's reading order is not metadata about the chapter whose fence it happens to share. Leaving it out of the reader's known-field set would not remove it, it would move it into this list."
+A key the reader recognises and deliberately drops never arrives here. `order` and `change` are the two of those: each is read, recognised and dropped — a directory's reading order is not metadata about the chapter whose fence it happens to share, and neither is the change proposal a chapter belongs to. Leaving it out of the reader's known-field set would not remove it, it would move it into this list."
            Code="@ExtraCode">
         <div class="sb-stack" data-testid="devbook-fields-extra">
             <p class="sb-label">The lines an author writes</p>
@@ -273,7 +227,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
     [
         new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar these fields are written in."),
         new("typography-and-layout.md#metadata-lines", "How a field and its value sit above the prose they describe."),
-        new("color-scheme.md#badge-and-chip-tones", "The tone a classification, an estimate, an alias and a flag key are drawn in.")
+        new("color-scheme.md#badge-and-chip-tones", "The tone a classification, an alias and a flag key are drawn in.")
     ];
 
     /// <summary>
@@ -418,8 +372,8 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
 
     private const string ScalarCode = """
         @* One authored value in the value face. The row keeps its label: unlike a
-           version or an estimate, a bare `9`, `root` or `module` does not say which
-           field it came from. *@
+           version, a bare `9`, `root` or `module` does not say which field it
+           came from. *@
         <MetadataField Label="deployment"><MetadataScalar Value="@Metadata.Deployment" /></MetadataField>
         """;
 
@@ -448,33 +402,6 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
         @* The prefix is drawn inside the value, so it travels with the string a
            reader copies. Blank in, nothing out — a prefix alone is not a value. *@
         <MetadataScalar Value="@metadata.Version" Prefix="v" Title="version" />
-        """;
-
-    private const string EffortCode = """
-        @* Null draws nothing; 0 draws its badge. The row's own presence is the
-           record's question, because it is the row that must not appear. *@
-        <MetadataEffortBadge Effort="@metadata.Effort" />
-
-        @* The unit is the component's, not the caller's: "5" on its own does not
-           say what it counts — which is also why the row needs no label. *@
-        <Badge Kind="effort" Title="effort: 5 story points">@effort pts</Badge>
-        """;
-
-    private const string IssueCode = """
-        @* No markup of its own. The two authored forms become the reference
-           record the integrations family takes, and IntegrationLink draws it. *@
-        <MetadataIssueLink Issue="@metadata.Issue" />
-
-        @* Inside: no Url means IntegrationLink's inert span, which is exactly
-           what the shorthand is. No state either — a fence says which issue,
-           never whether it is open. *@
-        new IntegrationLinkRef(
-            Id: raw,
-            Provider: IntegrationProvider.GitHub,
-            Kind: IntegrationLinkKind.Issue,
-            Label: $"#{number}",
-            Url: IsFollowable(raw) ? raw : null,
-            Repository: new IntegrationRepositoryRef(repository, repository));
         """;
 
     private const string ReferenceCode = """

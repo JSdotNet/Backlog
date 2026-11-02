@@ -39,9 +39,18 @@ public sealed class DecisionToolsTests
     private static DecisionTools Tools(
         out FakeDevbookSubjectStateStore store,
         TasksRepositoryRef? repository = null,
-        IDevbookFolderSource? folders = null)
+        IDevbookFolderSource? folders = null) =>
+        Tools(out store, out _, repository, folders);
+
+    private static DecisionTools Tools(
+        out FakeDevbookSubjectStateStore store,
+        out FakeDevbookAnnotationStore notes,
+        TasksRepositoryRef? repository = null,
+        IDevbookFolderSource? folders = null,
+        params DevbookAnnotation[] seeded)
     {
         store = new FakeDevbookSubjectStateStore(new FakeTimeProvider(Now));
+        notes = new FakeDevbookAnnotationStore(seeded) { WritesAt = Now };
 
         // No folder configured and none on disk: the conventional reading, keyed
         // by the path as sent, which is what a host that cannot resolve the folder
@@ -49,7 +58,9 @@ public sealed class DecisionToolsTests
         return new DecisionTools(
             store,
             new FakeRepositoryDirectory([repository ?? Backlog]),
-            folders ?? new FakeDevbookFolderSource(Path.GetTempPath()));
+            folders ?? new FakeDevbookFolderSource(Path.GetTempPath()),
+            notes,
+            new FakeTimeProvider(Now));
     }
 
     private static DevbookSubjectArgument Proposal(string name = "add-decision-tools") => new("proposal", Name: name);
@@ -430,8 +441,355 @@ public sealed class DecisionToolsTests
         Assert.Empty(store.Written);
     }
 
+    private const string ChangeProposal = "openspec/changes/add-decision-tools/proposal.md";
+
+    [Fact]
+    public void Posting_a_note_answers_it_in_the_contracts_shape_by_this_host_on_the_default_branch()
+    {
+        var tools = Tools(out _, out var notes);
+
+        var answer = tools.PostNoteOn(Repository, ChangeProposal, "Is the fee ours to keep?", kind: "question");
+
+        Assert.False(answer.IsRefused);
+        var note = answer.Note!;
+        Assert.Equal(ChangeProposal, note.Address);
+        Assert.Equal("question", note.Kind);
+        Assert.Equal("open", note.Status);
+        Assert.Equal("Is the fee ours to keep?", note.Body);
+        Assert.Equal(Environment.MachineName, note.By);
+        Assert.Equal("2026-10-30T09:15:00Z", note.At);
+        Assert.Empty(note.Replies);
+
+        var kept = Assert.Single(notes.All);
+        Assert.Equal(Guid.Parse(note.Id), kept.Id);
+        Assert.Equal("backlog", kept.RepositoryAlias);
+        Assert.Equal(DevbookAnnotationKind.Question, kept.Kind);
+        Assert.Null(kept.Branch);
+        Assert.False(kept.IsDraft);
+
+        using var document = JsonDocument.Parse(Wire(answer));
+        Assert.Equal(
+            ["address", "at", "body", "by", "id", "kind", "replies", "status"],
+            [.. document.RootElement.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)]);
+    }
+
+    [Fact]
+    public void A_note_posted_without_a_kind_is_a_comment() =>
+        Assert.Equal("comment", Tools(out _, out _).PostNoteOn(Repository, ChangeProposal, "Reads well.").Note!.Kind);
+
+    /// <summary>A <c>#slug</c> address lands on that heading's block when the
+    /// chapter can be read, and the note answers that address back; listing the
+    /// chapter or that section finds it, another section does not.</summary>
+    [Fact]
+    public void A_note_posted_at_a_section_is_anchored_to_its_heading()
+    {
+        var root = Directory.CreateTempSubdirectory("decision-notes-").FullName;
+        try
+        {
+            const string Chapter = ".devbook/arc42/06-runtime-view.md";
+            Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42"));
+            File.WriteAllText(
+                Path.Combine(root, ".devbook", "arc42", "06-runtime-view.md"),
+                "# Runtime view\n\nIntro.\n\n## Import on start\n\nThe worker runs once.\n\n## Sync\n\nLater.\n");
+            var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
+            var tools = Tools(out _, out var notes, folders: folders);
+
+            var note = tools.PostNoteOn(Repository, Chapter + "#import-on-start", "Once per device?").Note!;
+
+            Assert.Equal(Chapter + "#import-on-start", note.Address);
+            Assert.Equal(2, Assert.Single(notes.All).BlockIndex);
+
+            Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter).Notes.Select(listed => listed.Id));
+            Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter + "#import-on-start").Notes.Select(listed => listed.Id));
+            Assert.Empty(tools.ListNotesOn(Repository, Chapter + "#sync").Notes);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>A chapter this host cannot read has no headings to find, so the
+    /// note is anchored to the chapter as a whole and says so in its
+    /// address.</summary>
+    [Fact]
+    public void A_note_on_a_section_of_a_chapter_that_cannot_be_read_is_anchored_to_the_chapter()
+    {
+        var tools = Tools(out _, out var notes);
+
+        var note = tools.PostNoteOn(Repository, ChangeProposal + "#why", "Why now?").Note!;
+
+        Assert.Equal(ChangeProposal, note.Address);
+        Assert.Equal(0, Assert.Single(notes.All).BlockIndex);
+    }
+
+    /// <summary>
+    /// A reply is answered as one of the note's <c>replies</c>, <c>{ by, at,
+    /// body }</c>, by this host and at its clock, and the note's own <c>body</c> is
+    /// unchanged. The store keeps no thread: the reply is folded into the stored
+    /// body, and read back out of it when the note is answered.
+    /// </summary>
+    [Fact]
+    public void A_reply_is_answered_as_one_of_the_notes_replies_and_its_body_is_unchanged()
+    {
+        var tools = Tools(out _, out var notes);
+        var asked = tools.PostNoteOn(Repository, ChangeProposal, "Is the fee ours to keep?", kind: "question").Note!;
+
+        var answer = tools.PostNoteOn(Repository, ChangeProposal, "Yes, per the card contract of 3 December, 2026-12-01: the fee.", replyTo: asked.Id);
+        var again = tools.PostNoteOn(Repository, ChangeProposal, "Confirmed.\nBy finance.", replyTo: asked.Id).Note!;
+
+        var note = answer.Note!;
+        Assert.Equal(asked.Id, note.Id);
+        Assert.Equal("question", note.Kind);
+        Assert.Equal("Is the fee ours to keep?", note.Body);
+        Assert.Equal(
+            [new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee.")],
+            note.Replies);
+
+        Assert.Equal("Is the fee ours to keep?", again.Body);
+        Assert.Equal(
+            [
+                new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee."),
+                new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Confirmed.\nBy finance.")
+            ],
+            again.Replies);
+        Assert.Equal(again.Replies, Assert.Single(tools.ListNotesOn(Repository, ChangeProposal).Notes).Replies);
+        Assert.Single(notes.All);
+
+        using var document = JsonDocument.Parse(Wire(answer));
+        var reply = Assert.Single(document.RootElement.GetProperty("replies").EnumerateArray());
+        Assert.Equal(["at", "body", "by"], [.. reply.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>A note the one-time import brought in carries its fence's replies
+    /// folded the same way, so it answers them as replies too — the fence's author
+    /// and date as written, or <c>unknown</c> on the note's date where the fence
+    /// named neither. An attribution the author ended a note with stays in its
+    /// body.</summary>
+    [Fact]
+    public void An_imported_notes_folded_replies_are_answered_as_replies()
+    {
+        var imported = Notes.Note(
+            "backlog",
+            ChangeProposal,
+            0,
+            body: "Is the hour measured from payment\nor from placing the order?\n\n— claude/flow-spec, 2026-09-04: From payment.\n— unknown, 2026-09-03: Agreed.");
+        var quoted = Notes.Note(
+            "backlog",
+            ChangeProposal,
+            1,
+            body: "Make it work, make it right, make it fast.\n\n— Kent Beck");
+        var tools = Tools(out _, out _, seeded: [imported, quoted]);
+
+        var notes = tools.ListNotesOn(Repository, ChangeProposal).Notes;
+
+        var note = notes[0];
+        Assert.Equal("Is the hour measured from payment\nor from placing the order?", note.Body);
+        Assert.Equal(
+            [
+                new DevbookNoteReplyPayload("claude/flow-spec", "2026-09-04", "From payment."),
+                new DevbookNoteReplyPayload("unknown", "2026-09-03", "Agreed.")
+            ],
+            note.Replies);
+
+        Assert.Equal("Make it work, make it right, make it fast.\n\n— Kent Beck", notes[1].Body);
+        Assert.Empty(notes[1].Replies);
+    }
+
+    /// <summary>A reply names its note by id and its address by path; a note at
+    /// another chapter is not the one the caller meant, and is unknown
+    /// there.</summary>
+    [Fact]
+    public void A_reply_to_a_note_on_another_chapter_is_refused_unknown_note()
+    {
+        var tools = Tools(out _, out var notes);
+        var asked = tools.PostNoteOn(Repository, ChangeProposal, "Why now?", kind: "question").Note!;
+
+        var answer = tools.PostNoteOn(Repository, ".devbook/arc42/06-runtime-view.md", "Because.", replyTo: asked.Id);
+
+        Assert.Equal("unknown-note", answer.Refused);
+        Assert.Equal("Why now?", Assert.Single(notes.All).Body);
+    }
+
+    [Theory]
+    [InlineData("8d3f1e2a-0000-4000-8000-000000000001")]
+    [InlineData("not-a-note")]
+    public void A_reply_to_no_note_is_refused_unknown_note_and_writes_nothing(string replyTo)
+    {
+        var tools = Tools(out _, out var notes);
+
+        var answer = tools.PostNoteOn(Repository, ChangeProposal, "Yes.", replyTo: replyTo);
+
+        Assert.Equal("unknown-note", answer.Refused);
+        Assert.False(string.IsNullOrWhiteSpace(answer.Message));
+        Assert.Empty(notes.All);
+
+        using var document = JsonDocument.Parse(Wire(answer));
+        Assert.Equal(
+            ["message", "refused"],
+            [.. document.RootElement.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>Open and resolved notes are listed; a draft, a deleted note, one on
+    /// a named branch and another repository's are not.</summary>
+    [Fact]
+    public void Listing_answers_the_default_branchs_notes_at_the_address()
+    {
+        var open = Notes.Note("backlog", ChangeProposal, 0, body: "Open.");
+        var resolved = Notes.Note("backlog", ChangeProposal, 0, body: "Done.", resolved: true, createdAt: Now.AddMinutes(1));
+        var tools = Tools(
+            out _,
+            out _,
+            seeded:
+            [
+                open,
+                resolved,
+                Notes.Note("backlog", ChangeProposal, 0, body: string.Empty),
+                Notes.Note("backlog", ChangeProposal, 0, deletedAt: Now),
+                Notes.Note("backlog", ChangeProposal, 0) with { Branch = "feature/cards" },
+                Notes.Note("other", ChangeProposal, 0)
+            ]);
+
+        var answer = tools.ListNotesOn(Repository, ChangeProposal);
+
+        Assert.Equal([open.Id.ToString(), resolved.Id.ToString()], answer.Notes.Select(note => note.Id));
+        Assert.Equal(["open", "resolved"], answer.Notes.Select(note => note.Status));
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(answer, McpJsonUtilities.DefaultOptions));
+        Assert.Equal(["notes"], [.. document.RootElement.EnumerateObject().Select(property => property.Name)]);
+    }
+
+    [Fact]
+    public void Resolving_a_note_answers_it_resolved()
+    {
+        var tools = Tools(out _, out var notes);
+        var posted = tools.PostNoteOn(Repository, ChangeProposal, "Why now?", kind: "question").Note!;
+
+        var answer = tools.ResolveNoteFor(Repository, posted.Id);
+
+        Assert.Equal("resolved", answer.Note!.Status);
+        Assert.Equal(posted.Id, answer.Note.Id);
+        Assert.True(Assert.Single(notes.All).Resolved);
+    }
+
+    [Theory]
+    [InlineData("8d3f1e2a-0000-4000-8000-000000000001")]
+    [InlineData("not-a-note")]
+    public void Resolving_no_note_is_refused_unknown_note(string id)
+    {
+        var tools = Tools(out _, out var notes);
+
+        Assert.Equal("unknown-note", tools.ResolveNoteFor(Repository, id).Refused);
+        Assert.Empty(notes.Resolved);
+    }
+
+    [Fact]
+    public void Another_repositorys_note_is_unknown_here()
+    {
+        var elsewhere = Notes.Note("other", ChangeProposal, 0);
+        var tools = Tools(out _, out var notes, seeded: [elsewhere]);
+
+        Assert.Equal("unknown-note", tools.ResolveNoteFor(Repository, elsewhere.Id.ToString()).Refused);
+        Assert.Equal("unknown-note", tools.PostNoteOn(Repository, ChangeProposal, "Yes.", replyTo: elsewhere.Id.ToString()).Refused);
+        Assert.Empty(notes.Resolved);
+    }
+
+    /// <summary>What is not the contract's question — no body, a kind outside the
+    /// four, a kind and a reply at once, no address — is thrown, as a subject
+    /// this host never reached is.</summary>
+    [Fact]
+    public void A_note_the_caller_has_not_said_is_thrown_and_writes_nothing()
+    {
+        var tools = Tools(out _, out var notes);
+
+        Assert.Throws<McpException>(() => tools.PostNoteOn(Repository, ChangeProposal, "  "));
+        Assert.Throws<McpException>(() => tools.PostNoteOn(Repository, ChangeProposal, "Hm.", kind: "remark"));
+        Assert.Throws<McpException>(() => tools.PostNoteOn(Repository, ChangeProposal, "Hm.", kind: "question", replyTo: Guid.NewGuid().ToString()));
+        Assert.Throws<McpException>(() => tools.PostNoteOn(Repository, "  ", "Hm."));
+        Assert.Throws<McpException>(() => tools.ListNotesOn(Repository, "#slug-only"));
+
+        Assert.Empty(notes.All);
+    }
+
+    /// <summary>An open question anywhere in the change blocks approve and accept
+    /// on it; resolved, it no longer does.</summary>
+    [Fact]
+    public void An_open_question_on_the_change_refuses_approve_and_accept_until_it_is_resolved()
+    {
+        var tools = Tools(out var store, out _);
+        var question = tools.PostNoteOn(Repository, ChangeProposal, "Is the fee ours to keep?", kind: "question").Note!;
+
+        var refused = tools.ApproveProposal(Repository, Proposal(), Fingerprint);
+
+        Assert.Equal("open-question", refused.Refused);
+        Assert.Contains(ChangeProposal, refused.Message, StringComparison.Ordinal);
+        Assert.Empty(store.Written);
+
+        tools.ResolveNoteFor(Repository, question.Id);
+
+        Assert.Equal("approved", tools.ApproveProposal(Repository, Proposal(), Fingerprint).State);
+
+        tools.PostNoteOn(Repository, "openspec/changes/add-decision-tools/specs/tools/spec.md#notes", "And the reply shape?", kind: "question");
+
+        Assert.Equal("open-question", tools.AcceptProposal(Repository, Proposal(), Fingerprint).Refused);
+        Assert.Equal("approved", tools.GetStateOf(Repository, Proposal()).State);
+    }
+
+    [Fact]
+    public void A_comment_on_the_change_never_blocks_approval()
+    {
+        var tools = Tools(out _, out _);
+        tools.PostNoteOn(Repository, ChangeProposal, "Nice framing.");
+        tools.PostNoteOn(Repository, ChangeProposal, "Typo in the title.", kind: "flag");
+
+        Assert.Equal("approved", tools.ApproveProposal(Repository, Proposal(), Fingerprint).State);
+    }
+
+    [Fact]
+    public void An_archived_repositorys_notes_are_listed_and_never_written()
+    {
+        var held = Notes.Note("backlog", ChangeProposal, 0);
+        var tools = Tools(out _, out var notes, Backlog with { IsArchived = true }, seeded: [held]);
+
+        Assert.Single(tools.ListNotesOn(Repository, ChangeProposal).Notes);
+
+        Assert.All(
+            new Action[]
+            {
+                () => tools.PostNoteOn(Repository, ChangeProposal, "Still?"),
+                () => tools.PostNoteOn(Repository, ChangeProposal, "Yes.", replyTo: held.Id.ToString()),
+                () => tools.ResolveNoteFor(Repository, held.Id.ToString())
+            },
+            write => Assert.Contains(
+                DevbookTools.ArchivedCode,
+                Assert.Throws<McpException>(write).Message,
+                StringComparison.Ordinal));
+
+        Assert.Single(notes.All);
+        Assert.Empty(notes.Resolved);
+    }
+
+    [Fact]
+    public void The_brain_keeps_no_review_notes_and_is_refused()
+    {
+        var tools = Tools(out _, out var notes);
+
+        var failures = new[]
+        {
+            Assert.Throws<McpException>(() => tools.ListNotesOn("#brain", "projects/plan.md")),
+            Assert.Throws<McpException>(() => tools.PostNoteOn("#brain", "projects/plan.md", "Hm.")),
+            Assert.Throws<McpException>(() => tools.ResolveNoteFor("#brain", Guid.NewGuid().ToString()))
+        };
+
+        Assert.All(failures, failure => Assert.Contains(DecisionTools.BrainCode, failure.Message, StringComparison.Ordinal));
+        Assert.Empty(notes.All);
+    }
+
     /// <summary>The answer as the SDK puts it on the wire: its own serializer
     /// options, which is what the converter on the payload has to hold under.</summary>
     private static string Wire(DevbookStatePayload answer) =>
+        JsonSerializer.Serialize(answer, McpJsonUtilities.DefaultOptions);
+
+    private static string Wire(DevbookNoteAnswer answer) =>
         JsonSerializer.Serialize(answer, McpJsonUtilities.DefaultOptions);
 }

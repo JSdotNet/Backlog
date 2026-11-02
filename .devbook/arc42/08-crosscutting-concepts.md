@@ -51,13 +51,22 @@ Optional cloud sync carries this state between a person's devices:
 - **A [remark](../domain/devbook/domain.md#remark) is Devbook's own record.** It is
   kept as one JSON file per repository in `devbook-annotations/` under the storage
   folder, and moves with the backlog. It is never in the generated devbook
-  database and never a table in `backlog.db`.
+  database and never a table in `backlog.db`. A remark carries the branch it was
+  left on, none for the default branch, and a kind: `comment`, `question`,
+  `suggestion` or `flag`. Both travel as optional members of its payload.
 - **A devbook subject's workflow state is Devbook's own record too.** The state of
   a change proposal, a decision record or a debt record is kept as one JSON file
   per repository in `devbook-subjects/` under the storage folder, on a remark's
   terms. It is never written into the chapter, so setting it commits nothing and
   works on a branch snapshot. See
   `.devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md`.
+- **A repository's devbook is imported once per device.** The states and open
+  `annotation` fences its default branch still holds arrive as subject states and
+  remarks, and never over one the store holds. `devbook-imports/` under the
+  storage folder records which repositories are done. Each device imports for
+  itself, and every device derives the same ids, so two imports are one document.
+  An imported state or remark keeps its authored time, which sits behind the push
+  watermark of a device that has synced. See local ADR 0044 §8.
 - **The pace is a second document.** The pace is `planning-velocity.json`: the
   typed pace, the chosen source and the per-repository pairs. It travels apart
   from the plan, so a pace change and a plan edit never overwrite each other. Placement
@@ -76,6 +85,7 @@ This state deliberately stays on the machine:
 | Agent transcripts | They are the [sanitization boundary](12-glossary.md#terms) that lets session records travel at all | the agents' own folders on this machine |
 | Workspace settings | They describe one machine's disk | per-device JSON files |
 | Feature flags | Per-device by design: an experiment on one machine is not a change on both | per-device JSON files |
+| Devbook import ledger | Each device imports a repository's devbook for itself; the ledger moves with the storage folder | `devbook-imports/` under the storage folder |
 | Inbox lists and groups | The lists and groups the Inbox organises items into are this machine's | `backlog.db` |
 | Derived knowledge layer | Regenerated on the second machine, not shipped to it | app storage ([Devbook Database](#devbook-database)) |
 | Branch snapshot cache | The index of a named commit plus the files read so far; refetched, and safe to delete | the devbook cache folder |

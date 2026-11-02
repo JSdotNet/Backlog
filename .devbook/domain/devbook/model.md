@@ -15,15 +15,18 @@ status: draft
 A devbook chapter is a file this context reads and never owns (see
 [Repository devbook areas](features.md#repository-devbook-areas)); a Brain note is
 one too, and the [Brain](../brain/model.md#model-diagram) models what it adds.
-What the panels read off a chapter is modelled here because it is what they show,
-and because three of its parts are easy to confuse. `effort` and `roadmap` are the
-[planning fields](domain.md#shared-value-objects) Devbook registers.
+What the panels read off a chapter is modelled here because it is mostly what they
+show, and because three of its parts are easy to confuse. `effort` and `roadmap`
+are the [planning fields](domain.md#shared-value-objects) Devbook registers. They
+and `issue` are read for tasks and the knowledge graph, and the chapter view
+[draws none of them](requirements.md#requirement-planning-fields-are-not-drawn).
 
 ```mermaid
 classDiagram
     class ChapterMetadata {
         <<value object>>
         +String status
+        +String rating
         +String type
         +References related
         +String issue
@@ -66,6 +69,8 @@ classDiagram
     }
     class Remark {
         <<aggregate root>>
+        +NoteKind kind
+        +String branch
     }
     class SubjectState {
         <<aggregate root>>
@@ -98,14 +103,17 @@ classDiagram
     ReviewState --> ReviewStep
     ReviewNote --> NoteKind
     ReviewNote --> NoteStatus
+    Remark --> NoteKind
 ```
 
 - **`status` is folder-relative, and absent is a value.** In the architecture,
   domain and design areas an absent status *is* `active`, the resting state. The
-  panels show a status a chapter there states and never write one. In the
-  technology and AI areas it is a rating and always present, and it is the one
-  `status` the panels write. The domain area alone adds two decision steps above
-  the ladder, `approved` and `accepted`.
+  panels show a status a chapter there states and never write one. The domain
+  area alone adds two decision steps above the ladder, `approved` and `accepted`.
+- **`rating` replaces `status` in the technology and AI areas.** A rating is
+  always present there, and it is the one value the panels write. The panels read
+  it from `rating`, and from `status` until the repository migrates. They write it
+  into whichever of the two the block carries.
 - **`DecisionState` and `ReviewState` are state, not content.** They sit in the
   chapter's `meta` block but describe the road to a decision. The panels read them
   and never write them. Where the panels show them is in
@@ -127,6 +135,9 @@ classDiagram
 - **`ReviewNote` and `Remark` are two things on purpose.** A
   [Review Note](domain.md#review-note) is an `annotation` fence in the chapter
   file, read-only here. A [Remark](domain.md#remark) is the person's own note on a
-  block, owned and replicated by this context. Local ADR 0011
+  block, owned and replicated by this context. Both draw their kind from
+  `NoteKind`. A remark also keeps the branch it was left on, and none for the
+  default branch. The default branch's open review notes are imported into
+  remarks once, and a remark never becomes a review note. Local ADR 0011
   (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)
-  records why the two are kept apart and why neither is converted into the other.
+  records why the two are kept apart and when one becomes the other.

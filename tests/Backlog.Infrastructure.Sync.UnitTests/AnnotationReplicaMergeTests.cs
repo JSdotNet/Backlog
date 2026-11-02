@@ -1,4 +1,6 @@
 using Backlog.Infrastructure.Sync.Annotations;
+using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -170,6 +172,54 @@ public class AnnotationReplicaMergeTests
 
         Assert.Equal("1f2e3d4c", change.Annotation.BlockHash);
         Assert.Equal("1f2e3d4c", AnnotationReplicaMerge.ToAnnotation(change).BlockHash);
+    }
+
+    [Fact]
+    public void The_kind_and_branch_cross_the_wire()
+    {
+        var local = Annotations.Local("Who owns this?", Noon) with
+        {
+            Kind = DevbookAnnotationKind.Question,
+            Branch = "feature/remark-kinds"
+        };
+
+        var change = AnnotationReplicaMerge.ToChange(local);
+
+        Assert.Equal("question", change.Annotation.Kind);
+        Assert.Equal("feature/remark-kinds", change.Annotation.Branch);
+        Assert.Equal(local, AnnotationReplicaMerge.ToAnnotation(change));
+    }
+
+    [Fact]
+    public void A_payload_from_a_device_that_sends_neither_kind_nor_branch_is_a_comment_on_the_default_branch()
+    {
+        // An older build's push, or a round trip through a service deployed before
+        // the members existed, which strips them.
+        var change = Annotations.Change(Guid.NewGuid(), "From an older build.", Noon);
+
+        var annotation = AnnotationReplicaMerge.ToAnnotation(change);
+
+        Assert.Equal(DevbookAnnotationKind.Comment, annotation.Kind);
+        Assert.Null(annotation.Branch);
+    }
+
+    /// <summary>The wire writes the closed set down for itself, since it may not
+    /// reference the Devbook module; this is where the two copies meet.</summary>
+    [Fact]
+    public void The_wire_and_the_module_agree_on_the_kinds()
+    {
+        Assert.Equal(DevbookAnnotationKinds.Names, AnnotationRecordLimits.Kinds);
+        Assert.All(Enum.GetValues<DevbookAnnotationKind>(), kind =>
+            Assert.Contains(DevbookAnnotationKinds.Name(kind), AnnotationRecordLimits.Kinds));
+    }
+
+    [Fact]
+    public void A_payload_with_a_blank_branch_is_on_the_default_branch()
+    {
+        var change = Annotations.Change(Guid.NewGuid(), "Blank branch.", Noon);
+        change = change with { Annotation = change.Annotation with { Branch = "  " } };
+
+        Assert.Null(AnnotationReplicaMerge.ToAnnotation(change).Branch);
     }
 
     [Fact]

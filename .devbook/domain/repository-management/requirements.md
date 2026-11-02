@@ -341,10 +341,10 @@ The system SHALL fetch no devbook snapshot of an archived repository on its own.
 type: requirement
 status: draft
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ResolveAnnotationTests.A_note_on_an_archived_repository_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.Annotations_of_an_archived_repository_still_list_and_say_it_is_archived]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ResolveAnnotationTests.A_note_on_an_archived_repository_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.Annotations_of_an_archived_repository_still_list_and_say_it_is_archived, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_repositorys_notes_are_listed_and_never_written, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.Archived_repositories_and_the_brain_are_never_read]
 ```
 
-The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository, and the MCP `resolve_annotation` tool SHALL refuse to resolve a remark on it.
+The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository. The MCP `resolve_annotation`, `devbook_post_note` and `devbook_resolve_note` tools SHALL refuse to write or resolve a remark on it, and the devbook import SHALL add no remark or state for it.
 
 #### Scenario: A remark waits on an archived devbook
 
@@ -358,6 +358,19 @@ The handle-remarks skill SHALL refuse to write an annotation into the devbook of
 - **When** an agent calls `resolve_annotation` for that remark
 - **Then** the call is refused with `repository.archived`, and the remark stays unresolved
 - **And** `list_annotations` still lists the remark and says the repository is archived
+
+#### Scenario: An agent posts a note over MCP
+
+- **Given** `budgetbeheer` is archived and a remark on one of its change proposals is open
+- **When** an agent calls `devbook_post_note` to reply to it, or `devbook_resolve_note` to resolve it
+- **Then** each call is refused with `repository.archived`, and the remark stays as it was
+- **And** `devbook_list_notes` still lists the remark
+
+#### Scenario: The app imports the devbooks
+
+- **Given** `budgetbeheer` is archived, and its default branch holds an open review note and a `planned` debt record
+- **When** the app imports the devbooks of the registered repositories
+- **Then** the devbook of `budgetbeheer` is not read, and no remark or state is added for it
 
 ### Requirement: Subject state is not set on an archived devbook
 

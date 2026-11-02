@@ -159,7 +159,7 @@ public sealed class MetadataFieldTests
                 status: adopted
                 related: [".tech/shared.md"]
                 kind: framework
-                effort: 5
+                version: "10.0"
                 feature-flag: [inbox-pane]
                 owner: platform
                 """))
@@ -168,9 +168,9 @@ public sealed class MetadataFieldTests
         // Every row is the same three elements, so the description list stays
         // paired however many fields the schema grows. The status is not among
         // them: it is drawn in the headline and nowhere else — and a hidden label is
-        // still one of these, which is why `kind` and `effort` are in this list.
+        // still one of these, which is why `kind` and `version` are in this list.
         Assert.Equal(
-            ["related", "kind", "effort", "feature-flag", "owner"],
+            ["related", "kind", "version", "feature-flag", "owner"],
             record.FindAll("dl.devbook-fields > div.devbook-fields__row > dt").Select(label => label.TextContent));
 
         Assert.Equal(

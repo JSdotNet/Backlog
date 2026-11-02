@@ -72,6 +72,37 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > TTL. `DevbookSubjectSyncWorker` is one more copy of this record's loop, so the
 > extraction deferred under **Consequences** now faces five copies. It is still
 > deferred. Nothing about remarks changed.
+>
+> **Amended, 2026-11-02 — a remark carries its kind and its branch, and a
+> repository's open fences arrive as remarks once.** devbook's branch-true decision
+> (`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#branch-true-devbook`) makes
+> the tool's store, not the fence, the place an open note lives. Plan entry 6
+> follows it:
+>
+> - **A remark is keyed by repository alias, branch and chapter path.** The branch
+>   is null for the default branch, which covers a clone, a default-branch snapshot
+>   and every remark stored before the field existed. A remark left on a
+>   named-branch snapshot carries that branch's name, and shows on that branch
+>   alone.
+> - **A remark carries a `kind`** from devbook's closed set: `comment`, the
+>   default, `question`, `suggestion` or `flag`.
+> - **The wire gains two optional trailing members.** `AnnotationPayload` adds
+>   `Kind` and `Branch` on `BlockHash`'s precedent, so a payload without them, from
+>   an older build or service, reads as a `comment` on the default branch.
+>   `AnnotationRecordLimits.WhyRefused` refuses an unknown kind and a branch longer
+>   than 255 characters, at the endpoint and in the desktop push alike.
+> - **The port gains a third kind of write.** Beside the panel verbs and `Apply`,
+>   `IDevbookAnnotationStore.ImportIfAbsent` writes a remark only when the store
+>   holds no document under its id, a tombstone included. Local ADR 0044 §8 runs it
+>   once per repository: each open `annotation` fence on the default branch becomes
+>   a remark of its kind, and a resolved one is skipped. The remark keeps the
+>   fence's author, its date or else the time of the commit that added the file,
+>   and its replies folded into the body. The import raises no remark
+>   notification, because nobody left the note on another device.
+>
+> The 2026-09-25 note under **What does not change** said a fence is never
+> converted into or out of a remark. That is reversed in one direction only: an
+> open fence becomes a remark once, and Backlog still never writes a fence.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -243,6 +274,10 @@ remark into.
 > `DevbookAnnotationFence` reads the fence; `DevbookAnnotation` remains the
 > remark. Nothing in C# writes a fence — the convention's `annotations.mjs` is
 > its only writer — so this record's boundary holds unchanged.
+>
+> *Amended 2026-11-02:* the default branch's open fences are now imported once
+> into remarks (see the amendment of that date under **Status**). A remark is
+> still never turned into a fence.
 
 ## Consequences
 

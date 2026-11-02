@@ -73,6 +73,29 @@ public interface IDevbookSubjectStateStore
     /// </summary>
     bool Apply(DevbookSubjectState replicated);
 
+    /// <summary>
+    /// Writes each of <paramref name="imported"/> whose id the store holds no state
+    /// for, exactly as given — who, when and the stamps included — and answers how
+    /// many it wrote.
+    /// <para>
+    /// The third kind of write: the one-time import of the state a repository's
+    /// default branch still writes into its <c>meta</c> blocks. It never
+    /// overwrites, whatever the stamps say, so a state a person set — or one that
+    /// arrived from another device — stays as it is, and running the import again
+    /// writes nothing. It applies no <see cref="DevbookSubjectRules"/> and reads no
+    /// clock: the state is the one the repository authored, with the author and
+    /// time it carries, which is the one place who and when do not come from the
+    /// host. Stamped in the past, an imported state sits behind a push watermark
+    /// the device has passed; every device imports for itself and the derived ids
+    /// make the copies one.
+    /// </para>
+    /// <para>
+    /// <see cref="Changed"/> is raised once when anything was written and not at
+    /// all when nothing was.
+    /// </para>
+    /// </summary>
+    int ImportIfAbsent(IReadOnlyList<DevbookSubjectState> imported);
+
     /// <summary>Every state this machine holds that changed strictly after
     /// <paramref name="watermark"/>, ordered by <c>UpdatedAt</c> — what a push
     /// selects. Across every repository, because the watermark is the

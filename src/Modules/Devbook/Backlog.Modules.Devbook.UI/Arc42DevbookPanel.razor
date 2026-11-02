@@ -292,6 +292,11 @@
     /// <see cref="DevbookRemarkControls"/>.</summary>
     private bool RepositoryArchived => _catalog is { RepositoryArchived: true };
 
+    /// <summary>The branch the open chapters were read from, which is what their
+    /// remarks are kept under: null for a clone or the default branch, the name for
+    /// a named-branch snapshot.</summary>
+    private string? RemarkBranch => _catalog?.Branch;
+
     /// <summary>The remark controls the read view is bound to: none while
     /// archived.</summary>
     private DevbookRemarkCallbacks Remarks => DevbookRemarkControls.For(
@@ -892,7 +897,7 @@
     /// blocks and mean nothing against another file's.</summary>
     private void RefreshChapterComments() =>
         _chapterComments = _chapterDocument is { } document
-            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path)), RepositoryArchived)
+            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path, RemarkBranch)), RepositoryArchived)
             : [];
 
     /// <summary>The store changed under the panel — replication applied what
@@ -926,7 +931,8 @@
             document.Path,
             blockIndex,
             DevbookAnnotationComments.LocalAuthor,
-            _chapterView?.BlockDigestAt(blockIndex));
+            _chapterView?.BlockDigestAt(blockIndex),
+            branch: RemarkBranch);
 
         RefreshChapterComments();
     }

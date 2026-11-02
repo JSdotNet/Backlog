@@ -39,7 +39,9 @@ dated note in the section that changes:
 - ADR 0012: a new tool group, behind the devbook group's flag (§6).
 - ADR 0029: a subject's state is read-only on an archived repository (§5).
 
-ADR 0011 is amended as well. Its sync loop now has five copies.
+ADR 0011 is amended as well. Its sync loop now has five copies. On 2026-11-02,
+entry 6 amended ADR 0011 again for the imported remark, its kind and its branch,
+and ADR 0012 for the seven decision tools.
 
 ## Context
 
@@ -168,6 +170,11 @@ asks the person again.
 rating and refuses every other folder. The rating keeps the field name `status`
 until devbook's contract 38 renames it `rating`.
 
+*Amended 2026-11-02, entry 6.* The app reads a rating from `rating` and falls back
+to `status` for a repository that has not migrated. The writer updates whichever
+of the two the fence carries, and a fence with neither gets `status` until the
+contract lands.
+
 An authored `status` in `arc42/`, `domain/` or `design/` still renders, as a
 read-only badge.
 
@@ -207,11 +214,22 @@ contract's codes.
 - On an archived repository, `get_state` reads and the three writes refuse with
   `repository.archived`.
 
-**The group binds only when the three note tools land.** devbook's contract binds a
-server that lists all seven `devbook_*` operations, and one listing some binds
-nothing. `devbook_list_notes`, `devbook_post_note` and `devbook_resolve_note` wait
-for the remark to carry a note `kind`, which a sibling entry of the plan adds. Until
-then a devbook skill finds no host and writes nothing.
+**Amended 2026-11-02, entry 6: the three note tools landed, and the group binds.**
+This section first said the group bound nothing until the remark carried a note
+`kind`. `DecisionTools.Group` now lists all seven operations, adding
+`devbook_list_notes`, `devbook_post_note` and `devbook_resolve_note`. devbook's
+contract binds a server that lists all seven, so a devbook skill now finds Backlog
+as its host.
+
+- **A note is a remark** (ADR 0011), kept on the default branch because the
+  contract carries no branch. `devbook_post_note` writes a remark, never a fence.
+- **A reply is folded into the remark's body** by `DevbookNoteReplies`, and the
+  tools answer each reply as `{ by, at, body }`.
+- **An open question blocks a decision.** An open `question` note under
+  `openspec/changes/<name>/` makes approve and accept on that change refuse
+  `open-question`, through `DevbookSubjectRules.OpenQuestion`.
+- **An archived repository's notes are read-only.** `devbook_list_notes` reads, and
+  `devbook_post_note` and `devbook_resolve_note` refuse with `repository.archived`.
 
 ### 7. The state replicates through its own container
 
@@ -237,6 +255,59 @@ The exchange copies ADR 0011's pipeline for remarks, with three differences:
   app does, behind the other four loops.
 - **An older service.** A bare 404 from a service that predates the route is
   `NotYetServed`. The loop shows no error and keeps asking.
+
+### 8. The default branch's states are imported once
+
+```meta
+```
+
+*Added 2026-11-02, entry 6.* It settles the "No import" item under
+**Consequences**.
+
+```mermaid
+flowchart TD
+    A[Repository not in the ledger] --> B{Default branch read at its head?}
+    B -- no --> W[Write nothing, mark nothing]
+    B -- yes --> C[Plan states and open notes from the Markdown]
+    C --> D[Look up the commit and pull request that added each file]
+    D --> E[ImportIfAbsent into the subject and remark stores]
+    E --> F{Every lookup answered?}
+    F -- yes --> M[Mark the repository in devbook-imports/]
+    F -- no --> R[Leave it unmarked for the next run]
+```
+
+`DevbookImportWorker` reads each registered repository's default branch once, and
+writes what its Markdown still holds into Backlog's own stores. It writes through
+`IDevbookSubjectStateStore.ImportIfAbsent` and never through `SetState`, `Approve`
+or `Accept`. `ImportIfAbsent` is the port's third kind of write, beside the host's
+writes and replication's `Apply`. It writes a state only where the store holds none
+under that id, so a state a person set, or another device sent, stays as it is.
+
+| Read from the default branch | Becomes |
+| --- | --- |
+| A proposal's `status`, with its approval and acceptance records | the proposal's state, approval and acceptance |
+| A decision record at `proposed` | a `proposed` state, keyed by the pull request that added the file |
+| A debt record's `status` | the record's state |
+| An open `annotation` fence | a remark of the fence's kind, per ADR 0011's 2026-11-02 amendment |
+
+- **Who and when are the authored ones.** An approval or acceptance record keeps
+  its `by`, `at` and fingerprint verbatim. A state with no record is set by
+  `devbook import`, at the time of the commit that added its file. This is the one
+  write whose who and when do not come from the host (§1).
+- **A decision record that no pull request added is passed over** and reported,
+  because there is nothing to key it by.
+- **Once per repository.** `DevbookImportLedger` marks a repository in
+  `devbook-imports/` under the storage folder once its import ran to the end. A
+  default branch that cannot be read marks nothing, and neither does a lookup
+  GitHub refused, so the next run tries again. A decision record passed over does
+  not hold the mark back.
+- **Not every repository.** The Brain and an archived repository are skipped.
+  Nothing is written into any repository.
+
+The ledger is per workspace and does not replicate, so each device imports for
+itself. Every device derives the same ids (§7), so two devices' imports are one
+document. Stamped at its authored time, an imported state sits behind a push
+watermark the device has already passed.
 
 ## Consequences
 
@@ -271,10 +342,12 @@ Negative, and accepted:
 
 Not decided here, and left to later entries of the plan:
 
-- **No import.** The state an existing chapter holds in its `status` is not read
-  into the store. The store starts empty.
-- **No `open-question` refusal yet.** `DevbookSubjectRefusal.OpenQuestion` maps to
-  its wire code, and nothing produces it until a note carries a kind.
+- **~~No import.~~** *Resolved 2026-11-02 by entry 6, §8.* This read: the state an
+  existing chapter holds in its `status` is not read into the store, which starts
+  empty.
+- **~~No `open-question` refusal yet.~~** *Resolved 2026-11-02 by entry 6, §6.* This
+  read: `DevbookSubjectRefusal.OpenQuestion` maps to its wire code, and nothing
+  produces it until a note carries a kind.
 
 ## Rejected
 
@@ -329,6 +402,11 @@ Built, and held by these tests:
 8. **The display.** `MetadataSubjectStateTests` and `Arc42DevbookPanelTests`.
 9. **The tools.** `DecisionToolsTests`, `BacklogMcpToolsTests` and
    `McpToolCreationTests`.
+10. **The import (§8).** `DevbookMarkdownImportTests`, `DevbookImportWorkerTests` and
+    `DevbookImportLedgerTests`, and the `ImportIfAbsent` cases of
+    `DevbookSubjectStateStoreTests` and `DevbookAnnotationStoreTests`.
+11. **The notes (§6).** `DevbookNoteRepliesTests`, and the `OpenQuestion` cases of
+    `DevbookSubjectRulesTests`.
 
 ## History
 
@@ -337,5 +415,6 @@ Built, and held by these tests:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-02 | Amended by entry 6: the default branch's states are imported once per repository through `ImportIfAbsent`, keeping the authored who, when and fingerprint, and marked in a `devbook-imports/` ledger (§8). The three note tools landed, so the decision group lists all seven operations and binds, and an open `question` under a change refuses approve and accept (§6). A rating reads `rating`, falling back to `status` (§4). | devbook's branch-true decision moved the state out of the Markdown, and a repository's existing states and notes had to arrive in Backlog's stores. |
 | 2026-11-02 | Amended by entry 7 (`backlog-sync-ownership`): the same repository file keeps a direction map. Each entry is a block address (`domain/inbox/context.md`, `domain/tasks/domain.md#task`) with a direction, who set it and when. A unit resolves nearest wins over itself, its page, its context and its folder, and `report` when none states one. The map is imported once from a clone's Markdown `sync` values, never from a branch snapshot, and set in the devbook view, also on a branch snapshot and never on an archived repository. `list_sync_directions` answers it over MCP for the `backlog-tools` devbook sweep, behind the same `repository-devbook` key as the four decision tools. `DevbookMarkdownSyncWriter` is retired. The map does not replicate: the sweep that reads it runs on the machine that keeps it. | devbook's branch-true decision gave Backlog the direction and moved the sweeps into `backlog-tools`. |
 | 2026-10-30 | Proposed: a subject's workflow state lives in a Devbook store outside git, keyed by repository and subject and by fingerprint for a proposal's decisions, replicated through `devbookSubjects`, answered over MCP; the status writer is retired. | devbook's branch-true decision took workflow state out of the chapter, and Backlog had no store to keep it. |

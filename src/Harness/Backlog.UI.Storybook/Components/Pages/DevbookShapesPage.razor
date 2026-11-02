@@ -295,16 +295,14 @@ The examples are the reports an author meets most: the resting value written out
     /// fields is a shape nobody has actually seen. It is the one block on these
     /// pages that no folder would write — the schema is folder-specific and half of
     /// these fields are meaningless together — and the values are taken from the
-    /// real blocks they belong to rather than invented. <c>roadmap</c> is the one
-    /// field left out, and left out on purpose: it is not drawn in this
-    /// storybook.</para>
+    /// real blocks they belong to rather than invented. <c>issue</c>,
+    /// <c>effort</c> and <c>roadmap</c> are left out on purpose: the record parses
+    /// them and the chapter view draws none of them.</para>
     /// </summary>
     private const string SharedBlock = """
         status: adopted
         kind: runtime
         version: "10.0"
-        effort: 5
-        issue: JSdotNet/Backlog#118
         depends-on: [".devbook/tech/shared.md#c-language"]
         related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]

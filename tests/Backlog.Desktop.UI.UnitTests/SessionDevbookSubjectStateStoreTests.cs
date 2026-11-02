@@ -135,4 +135,29 @@ public sealed class SessionDevbookSubjectStateStoreTests
         Assert.True(directions.IsImported(Repository));
         Assert.Equal((1, 2), (subjectEvents, directionEvents));
     }
+
+    /// <summary>The import's write: only what the store does not hold, as given,
+    /// announced once — and a second run writes and announces nothing.</summary>
+    [Fact]
+    public void An_import_writes_only_what_is_absent_and_raises_changed_once()
+    {
+        var store = new SessionDevbookSubjectStateStore(_time);
+        store.SetState(Repository, Debt, "resolved", Host);
+        var raised = 0;
+        store.Changed += () => raised++;
+        var authored = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<DevbookSubjectState> batch =
+        [
+            new(DevbookSubject.IdFor(Repository, Debt), Repository, Debt, "planned", "Job Schepers", authored, null, null, authored),
+            new(DevbookSubject.IdFor(Repository, Change), Repository, Change, "draft", "Job Schepers", authored, null, null, authored),
+        ];
+
+        Assert.Equal(1, store.ImportIfAbsent(batch));
+        Assert.Equal(1, raised);
+        Assert.Equal("resolved", store.Get(Repository, Debt)!.State);
+        Assert.Equal(authored, store.Get(Repository, Change)!.UpdatedAt);
+
+        Assert.Equal(0, store.ImportIfAbsent(batch));
+        Assert.Equal(1, raised);
+    }
 }

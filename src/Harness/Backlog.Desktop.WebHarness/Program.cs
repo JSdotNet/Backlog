@@ -261,6 +261,10 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
 
+// And the one-time devbook import, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();
+
 // And the notification exchange's loop (local ADR 0039), on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 

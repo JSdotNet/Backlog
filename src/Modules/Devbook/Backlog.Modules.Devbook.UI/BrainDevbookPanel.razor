@@ -367,10 +367,11 @@
     };
 
     /// <summary>The open note's remarks, read back from the store under the
-    /// Brain's alias. Another note's remarks stay with that note.</summary>
+    /// Brain's alias. Another note's remarks stay with that note. The Brain is a
+    /// folder, never a branch, so its remarks are on the default branch.</summary>
     private void RefreshNoteComments() =>
         _noteComments = NotePath is { } path
-            ? DevbookAnnotationComments.Comments(_annotations.List(BrainScope.Value, path))
+            ? DevbookAnnotationComments.Comments(_annotations.List(BrainScope.Value, path, branch: null))
             : [];
 
     /// <summary>The open note's path from the Brain's root — the chapter path the
@@ -404,7 +405,8 @@
             path,
             blockIndex,
             DevbookAnnotationComments.LocalAuthor,
-            MdBlockDigest.Of(_blocks, blockIndex));
+            MdBlockDigest.Of(_blocks, blockIndex),
+            branch: null);
 
         RefreshNoteComments();
     }

@@ -965,46 +965,34 @@ public sealed class DomainDevbookPanelTests : IDisposable
     }
 
     /// <summary>
-    /// The badge used to be born open: <c>badge--gh-open</c> was a literal, so a
-    /// closed issue was still drawn as an open one. Nothing on this path knows the
-    /// state - <see cref="DevbookIssueLink"/> carries a repo, a number and a
-    /// label and no more - so the fix is not to derive the state but to stop
-    /// claiming it. Asserted as the absence of every state class rather than the
-    /// presence of one, because that is the property that matters: whichever
-    /// treatment the unknown case wears, the badge must not assert a state.
+    /// The planning fields leave the chapter view: the plan lives in Backlog's own
+    /// entries. A chapter naming an issue draws no issue badge, and <c>issue</c>,
+    /// <c>effort</c>, <c>roadmap</c> and <c>change</c> draw no row in the strip,
+    /// while an ordinary field beside them still does.
     /// </summary>
     [Fact]
-    public async Task A_linked_issue_is_not_drawn_as_an_open_one()
+    public async Task A_chapter_naming_an_issue_draws_no_issue_badge_and_no_planning_rows()
     {
         await using var harness = CreateHarness();
 
-        var component = harness.RenderView(IssueLinkedView(), ContextMapPath);
+        var component = harness.RenderView(PlanningFieldsView(), ContextMapPath);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-issue-badge']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-metadata")));
 
-        Assert.All(
-            component.FindAll("[data-testid='devbook-issue-badge']"),
-            badge =>
-            {
-                var classes = badge.GetAttribute("class") ?? string.Empty;
-                Assert.Contains("badge--gh", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-open", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-closed", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-merged", classes, StringComparison.Ordinal);
-
-                // The visible word was always honest about this - it says the issue
-                // is linked, not that it is open - and it stays that way.
-                Assert.Equal("linked", badge.QuerySelector(".badge__state")!.TextContent.Trim());
-            });
+        Assert.Empty(component.FindAll("[data-testid='devbook-issue-badge']"));
+        var strip = component.Find(".domain-metadata").TextContent;
+        Assert.Contains("platform-team", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("effort", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("add-remark-kind", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("42", strip, StringComparison.Ordinal);
     }
 
-    /// <summary>A context map whose metadata links a GitHub issue. The link is what
-    /// the badge is drawn from, and this is the only fixture that carries one, so a
-    /// test about the badge does not have to reach through a folder on disk to get
-    /// a fence written.</summary>
-    private static DomainDevbookView IssueLinkedView()
+    /// <summary>A context map whose block states every planning field the chapter
+    /// view no longer draws, and one ordinary field it still does.</summary>
+    private static DomainDevbookView PlanningFieldsView()
     {
-        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-issue", Guid.NewGuid().ToString("N"));
+        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-planning", Guid.NewGuid().ToString("N"));
 
         return new DomainDevbookView(
             "JSdotNet/Backlog",
@@ -1018,7 +1006,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
                 "draft",
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["issue"] = "42"
+                    ["issue"] = "42",
+                    ["effort"] = "5",
+                    ["roadmap"] = "[sync-service]",
+                    ["change"] = "add-remark-kind",
+                    ["owner"] = "platform-team"
                 },
                 "A summary nobody can edit.",
                 [],

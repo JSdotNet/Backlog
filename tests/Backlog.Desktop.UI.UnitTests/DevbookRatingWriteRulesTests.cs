@@ -46,6 +46,31 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
         Assert.Contains("status: active", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
+    /// <summary>A repository that has migrated under contract 38 writes
+    /// <c>rating</c>; the writer updates the field the fence already carries
+    /// rather than adding a second one.</summary>
+    [Theory]
+    [InlineData(".tech/", "tech", "shared.md")]
+    [InlineData(".ai/", "ai", "adoption-map.md")]
+    public void A_fence_that_carries_rating_has_its_rating_updated(string prefix, string area, string file)
+    {
+        var (root, path) = Write(area, file, "# Title\n\n```meta\ntype: library\nrating: trial\n```\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, prefix + file, prefix, "adopt");
+
+        Assert.Equal(["type: library", "rating: adopt"], Fence(File.ReadAllText(path), "# Title"));
+    }
+
+    [Fact]
+    public void A_fence_with_neither_field_keeps_status_until_contract_38()
+    {
+        var (root, path) = Write("tech", "shared.md", "# Title\n\n```meta\ntype: library\n```\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md", ".tech/", "adopt");
+
+        Assert.Equal(["status: adopt", "type: library"], Fence(File.ReadAllText(path), "# Title"));
+    }
+
     [Fact]
     public void A_heading_with_no_fence_gets_one()
     {

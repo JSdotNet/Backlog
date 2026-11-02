@@ -129,7 +129,7 @@ public sealed class DomainDevbookStore : IDisposable
                 ? ReadContexts(root)
                 : ReadContextsFromIndex(index, root);
             contexts = [.. contexts.Select(context => context with { MapChapter = MapChapterFor(contextMap, context.Slug) })];
-            return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit, location.RepositoryArchived);
+            return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit, location.RepositoryArchived, location.Branch);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -638,7 +638,10 @@ public sealed class DomainDevbookStore : IDisposable
 /// is archived (local ADR 0029 §4). The panel then takes no new remark, which
 /// <paramref name="CanEdit"/> alone does not decide: a branch snapshot of an
 /// active repository still takes remarks.</param>
-public sealed record DomainDevbookView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainDevbookDocument ContextMap, IReadOnlyList<DomainDevbookContext> Contexts, bool CanEdit = true, bool RepositoryArchived = false)
+/// <param name="Branch">The branch this view was read from, as the remark store
+/// keys it: the name for a named-branch snapshot, null for a clone or the default
+/// branch (<see cref="DevbookFolderLocation.Branch"/>).</param>
+public sealed record DomainDevbookView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainDevbookDocument ContextMap, IReadOnlyList<DomainDevbookContext> Contexts, bool CanEdit = true, bool RepositoryArchived = false, string? Branch = null)
 {
     public bool IsReady => Error is null;
     public static DomainDevbookView Unavailable(string error) => new(string.Empty, string.Empty, string.Empty, error, DomainDevbookDocument.Empty, []);

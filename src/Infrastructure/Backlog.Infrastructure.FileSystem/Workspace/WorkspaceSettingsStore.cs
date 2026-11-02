@@ -438,6 +438,7 @@ public sealed class WorkspaceSettingsStore
         DevToolConfigurationPaths.ToolFolderName,
         DevbookAnnotationStore.FolderName,
         DevbookSubjectStateStore.FolderName,
+        DevbookImportLedger.FolderName,
     ];
 
     /// <summary>Makes a chosen root usable: the folder itself, and the inbox

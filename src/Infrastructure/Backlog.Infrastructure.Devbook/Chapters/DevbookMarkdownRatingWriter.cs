@@ -14,8 +14,10 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 /// authored one there still reads, as a badge. In <c>tech/</c> and <c>ai/</c>
 /// the same field is a rating — where a technology stands on the adoption ladder,
 /// how a team uses a practice — which is what the chapter says rather than where
-/// it is in a workflow, so it stays in the Markdown. The field keeps its name,
-/// <c>status</c>, until devbook contract 38 renames it <c>rating</c>.</para>
+/// it is in a workflow, so it stays in the Markdown. Devbook contract 38 renames
+/// the field <c>rating</c>; the writer updates whichever of the two the fence
+/// already carries, and a fence that carries neither gets <c>status</c> until
+/// the contract lands.</para>
 ///
 /// <para>Refused before the file is opened, so a refused write leaves no trace:
 /// any folder but those two, and a decision rung, which is in neither folder's
@@ -54,35 +56,53 @@ internal static class DevbookMarkdownRatingWriter
         document.Save();
     }
 
+    /// <summary>The field a fence states its rating in once its repository has
+    /// migrated to contract 38.</summary>
+    private const string RatingField = "rating";
+
+    /// <summary>The field a rating is still written in everywhere else, and the
+    /// one a new fence gets until contract 38 lands.</summary>
+    private const string StatusField = "status";
+
     private static void Upsert(List<string> lines, int headingIndex, string rating)
     {
         var fenceIndex = DevbookHeadingDocument.FindFence(lines, headingIndex);
         if (fenceIndex < 0)
         {
-            lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"status: {rating}", "```"]);
+            lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"{StatusField}: {rating}", "```"]);
             return;
         }
 
-        var line = FindRatingLine(lines, fenceIndex);
+        // Whichever field the fence already carries: a migrated fence keeps
+        // `rating`, an unmigrated one keeps `status`, and neither gains the other.
+        var line = FindFieldLine(lines, fenceIndex, RatingField);
+        var field = RatingField;
         if (line < 0)
         {
-            lines.Insert(fenceIndex + 1, $"status: {rating}");
+            line = FindFieldLine(lines, fenceIndex, StatusField);
+            field = StatusField;
+        }
+
+        if (line < 0)
+        {
+            lines.Insert(fenceIndex + 1, $"{StatusField}: {rating}");
             return;
         }
 
         var indent = lines[line][..(lines[line].Length - lines[line].TrimStart().Length)];
-        lines[line] = $"{indent}status: {rating}";
+        lines[line] = $"{indent}{field}: {rating}";
     }
 
-    /// <summary>The index of the <c>status</c> line inside the fence opened at
-    /// <paramref name="fenceIndex"/>, or -1 when the fence states none. The scan
-    /// stops at the closing fence so a <c>status:</c> further down the document is
-    /// never mistaken for this heading's.</summary>
-    private static int FindRatingLine(IReadOnlyList<string> lines, int fenceIndex)
+    /// <summary>The index of the <paramref name="field"/> line inside the fence
+    /// opened at <paramref name="fenceIndex"/>, or -1 when the fence states none.
+    /// The scan stops at the closing fence so the same field further down the
+    /// document is never mistaken for this heading's.</summary>
+    private static int FindFieldLine(IReadOnlyList<string> lines, int fenceIndex, string field)
     {
+        var prefix = field + ":";
         for (var i = fenceIndex + 1; i < lines.Count && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal); i++)
         {
-            if (lines[i].TrimStart().StartsWith("status:", StringComparison.OrdinalIgnoreCase)) return i;
+            if (lines[i].TrimStart().StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return i;
         }
 
         return -1;

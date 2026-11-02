@@ -22,6 +22,9 @@ public static partial class DevbookSubjectRules
     private const string Approved = "approved";
     private const string Accepted = "accepted";
 
+    /// <summary>Where a proposal's change folder sits, repository-relative.</summary>
+    private const string ChangesFolder = "openspec/changes";
+
     /// <summary>
     /// Sets a subject's state to one in its kind's row.
     /// <para>
@@ -148,6 +151,53 @@ public static partial class DevbookSubjectRules
         ArgumentNullException.ThrowIfNull(arriving);
 
         return held is null || arriving.UpdatedAt > held.UpdatedAt;
+    }
+
+    /// <summary>
+    /// The <c>open-question</c> refusal approve and accept give a proposal while a
+    /// question on its change is open, or null when nothing blocks.
+    /// <para>
+    /// Open means a live remark of kind <see cref="DevbookAnnotationKind.Question"/>,
+    /// typed into and not resolved, in this repository, on the default branch —
+    /// the contract carries no branch — at any address under the change's folder,
+    /// <c>openspec/changes/&lt;name&gt;/</c>: its proposal or one of its deltas. A
+    /// comment, a suggestion or a flag never blocks. A record is never refused
+    /// here: approve and accept refuse it <c>bad-state</c> on their own.
+    /// </para>
+    /// <para>
+    /// Separate from <see cref="Approve"/> and <see cref="Accept"/> because the
+    /// remarks are another store's: the caller hands them over, and the rule
+    /// stays pure.
+    /// </para>
+    /// </summary>
+    public static DevbookSubjectOutcome? OpenQuestion(
+        string? repositoryAlias,
+        DevbookSubject subject,
+        IEnumerable<DevbookAnnotation> remarks)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(remarks);
+
+        if (subject.Kind != DevbookSubjectKind.Proposal) return null;
+
+        var alias = DevbookSubject.AliasKey(repositoryAlias);
+        var folder = $"{ChangesFolder}/{subject.Key}/";
+
+        var open = remarks
+            .Where(remark => remark is { IsLive: true, IsDraft: false, Resolved: false, Kind: DevbookAnnotationKind.Question })
+            .Where(remark => DevbookAnnotation.BranchKey(remark.Branch) is null)
+            .Where(remark => string.Equals(DevbookSubject.AliasKey(remark.RepositoryAlias), alias, StringComparison.Ordinal))
+            .Select(remark => DevbookChapterKey.Normalize(remark.ChapterPath))
+            .Where(path => path.StartsWith(folder, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        return open.Count == 0
+            ? null
+            : DevbookSubjectOutcome.Refuse(
+                DevbookSubjectRefusal.OpenQuestion,
+                $"'{subject.Key}' has an open question at {string.Join(", ", open)}. Answer and resolve it first.");
     }
 
     /// <summary>Whether a value is a <c>devbook.chapter.fingerprint@1</c>:

@@ -43,6 +43,7 @@ The storage root defaults to `%LOCALAPPDATA%\Backlog` and holds:
   .tools/                  # the tools catalog, when kept here
   devbook-annotations/     # remarks on devbook chapters, one JSON file per repository
   devbook-subjects/        # workflow state of proposals, decision and debt records, one JSON file per repository
+  devbook-imports/         # which repositories' devbook import has run, one JSON file
   devbook-cache/           # branch snapshots and the generated devbook databases
 ```
 
