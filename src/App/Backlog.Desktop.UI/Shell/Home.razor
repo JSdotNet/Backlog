@@ -793,7 +793,7 @@
                          OpenSearchResultElsewhere="OpenDevbookSearchResult"
                          OpenReference="@_devbookOpenRequest"
                          OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
-                         OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
+                         OnOpenRepositoryChapter="OpenRepositoryChapterFromDevbookAsync"
                          TaskTitleFor="TaskTitleFor"
                          OnOpenTask="OpenTaskFromBrainAsync" />
         </main>
@@ -1737,7 +1737,7 @@
     /// reference takes, so the header scope stays as the reader left it and the
     /// pane's switch, or the scope, brings the Brain back.
     /// </summary>
-    private Task OpenBrainRepoLinkAsync(BrainRepoLink link) => OpenRepositoryChapterAsync(link.Alias, link.Reference);
+    private Task OpenRepositoryChapterFromDevbookAsync(DevbookRepositoryChapter chapter) => OpenRepositoryChapterAsync(chapter.Alias, chapter.Reference);
 
     /// <summary>
     /// A search result from a devbook the pane is not showing: the pane reads that

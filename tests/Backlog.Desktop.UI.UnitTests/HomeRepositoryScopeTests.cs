@@ -1879,7 +1879,10 @@ public sealed class HomeRepositoryScopeTests
         // before the pane read a Brain sees the shell it was written against.
         if (composeBrain)
         {
-            context.Services.AddSingleton<IBrainFolderSource>(new BrainFolderSource(() => brain?.BrainFolder));
+            var brainSource = new BrainFolderSource(() => brain?.BrainFolder);
+            context.Services.AddSingleton<IBrainFolderSource>(brainSource);
+            context.Services.AddSingleton<IDevbookPersonalSource>(brainSource);
+            context.Services.AddBrainPane();
         }
 
         context.Services.AddSingleton(store);

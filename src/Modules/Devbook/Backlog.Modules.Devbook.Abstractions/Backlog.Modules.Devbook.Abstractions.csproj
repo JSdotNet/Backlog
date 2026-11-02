@@ -29,6 +29,14 @@
     <RootNamespace>Backlog.Modules.Devbook.Abstractions</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The kernel's devbook path rules (DevbookPaths), which DevbookLayout and
+         DevbookPath delegate to so that a context beside Devbook - the Brain,
+         local ADR 0040 - compares a path the same way without referencing this
+         project. The kernel is not a module, so the boundary rules allow it. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
   <!--
     No InternalsVisibleTo: everything here is the published surface, so there is
     nothing for a test to be let in to see.

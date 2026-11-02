@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using Backlog.Infrastructure.Devbook.Building;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -24,13 +26,14 @@ namespace Backlog.Infrastructure.Devbook;
 /// never checked. Disposing cancels a build in flight; the half-built temporary
 /// file is removed and the old database, if any, stays.</para>
 ///
-/// <para>The Brain is also watched (<see cref="WatchBrain"/>): its notes change
-/// from outside the app — the folder's own sync brings another machine's edits —
-/// so a change in the folder is itself an ask. Changes inside the quiet interval
-/// collapse into one check at its end rather than being dropped, so the last
-/// edit of a burst is always built. A folder recorded as a Brain
-/// (<see cref="DevbookDatabaseLocation.ForBrainFolder"/>) is built under the
-/// Brain's convention.</para>
+/// <para>A folder outside every repository, such as the Brain, can also be
+/// watched (<see cref="Watch"/>): its files change from outside the app — the
+/// folder's own sync brings another machine's edits — so a change in the folder
+/// is itself an ask. Changes inside the quiet interval collapse into one check at
+/// its end rather than being dropped, so the last edit of a burst is always
+/// built. A folder registered under a corpus profile
+/// (<see cref="DevbookDatabaseLocation.RegisterCorpus"/>) is built under that
+/// profile.</para>
 ///
 /// <para>Each check then fills the semantic tier: the chapters the database has no
 /// vector for are embedded through the <see cref="IDevbookChapterEmbedder"/> the
@@ -46,7 +49,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
 
-    /// <summary>The normalized roots <see cref="WatchBrain"/> is watching.</summary>
+    /// <summary>The normalized roots <see cref="Watch"/> is watching.</summary>
     private readonly ConcurrentDictionary<string, byte> _watched = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stopping = new();
     private readonly Func<string?> _devbookCacheDirectory;
@@ -169,25 +172,27 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     }
 
     /// <summary>
-    /// Watches the Brain folder at <paramref name="brainRoot"/>: records it as a
-    /// Brain, checks it now, and checks it again whenever a file or folder in it
-    /// is added, removed, renamed, written, or has its attributes changed — which
-    /// is how a OneDrive placeholder announces it was hydrated — at most once per
+    /// Watches the folder at <paramref name="root"/>: registers it under
+    /// <paramref name="profile"/> (<see cref="DevbookDatabaseLocation.RegisterCorpus"/>),
+    /// checks it now, and checks it again whenever a file or folder in it is
+    /// added, removed, renamed, written, or has its attributes changed — which is
+    /// how a OneDrive placeholder announces it was hydrated — at most once per
     /// <see cref="QuietInterval"/>. Dispose the result to stop watching; a folder
     /// that does not exist is not watched.
     /// </summary>
-    public IDisposable WatchBrain(string brainRoot)
+    public IDisposable Watch(string root, DevbookCorpusProfile profile)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(brainRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(root);
+        ArgumentNullException.ThrowIfNull(profile);
 
-        DevbookDatabaseLocation.RegisterBrainRoot(brainRoot);
-        var key = DevbookDatabaseLocation.NormalizedRoot(brainRoot);
+        DevbookDatabaseLocation.RegisterCorpus(profile, root);
+        var key = DevbookDatabaseLocation.NormalizedRoot(root);
         if (key is not null) _watched.TryAdd(key, 0);
 
-        var watcher = _watch(brainRoot);
-        NotifyChanged(brainRoot);
+        var watcher = _watch(root);
+        NotifyChanged(root);
 
-        return new Watch(watcher, () =>
+        return new Watching(watcher, () =>
         {
             if (key is not null) _watched.TryRemove(key, out _);
         });
@@ -290,10 +295,10 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     {
         if (_devbookCacheDirectory() is not { Length: > 0 } cache) return false;
         if (DevbookDatabaseLocation.PathFor(Path.Combine(cache, DevbookDatabaseLocation.DatabasesFolderName), repositoryRoot) is not { } target) return false;
-        var kind = DevbookDatabaseLocation.KindFor(repositoryRoot);
-        if (!Directory.Exists(repositoryRoot) || !DevbookDatabaseBuilder.HasDevbook(repositoryRoot, kind)) return false;
+        var profile = DevbookDatabaseLocation.ProfileFor(repositoryRoot);
+        if (!Directory.Exists(repositoryRoot) || !DevbookDatabaseBuilder.HasDevbook(repositoryRoot, profile)) return false;
 
-        var built = !DevbookDatabaseBuilder.IsCurrent(repositoryRoot, target, kind) && Build(repositoryRoot, target, kind, cancellationToken);
+        var built = !DevbookDatabaseBuilder.IsCurrent(repositoryRoot, target, profile) && Build(repositoryRoot, target, profile, cancellationToken);
 
         // Raised before the vectors: a panel waiting on "unavailable" has its
         // database now, and search by meaning is asked per question anyway.
@@ -303,10 +308,10 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         return built;
     }
 
-    private bool Build(string repositoryRoot, string target, DevbookCorpusKind kind, CancellationToken cancellationToken)
+    private bool Build(string repositoryRoot, string target, DevbookCorpusProfile profile, CancellationToken cancellationToken)
     {
         var started = _time.GetTimestamp();
-        if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, kind, cancellationToken)) return false;
+        if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, profile, cancellationToken)) return false;
 
         _logger.LogInformation(
             "Built the devbook database for {RepositoryRoot} at {DatabasePath} in {ElapsedMilliseconds} ms.",
@@ -381,7 +386,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         public ITimer? Deferred { get; set; }
     }
 
-    private sealed class Watch(IDisposable? watcher, Action stopped) : IDisposable
+    private sealed class Watching(IDisposable? watcher, Action stopped) : IDisposable
     {
         public void Dispose()
         {

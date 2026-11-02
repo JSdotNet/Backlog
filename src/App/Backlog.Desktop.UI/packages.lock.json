@@ -412,6 +412,19 @@
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
+      "backlog.infrastructure.brain": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Infrastructure.Devbook": "[1.0.0, )",
+          "Backlog.Infrastructure.FileSystem": "[1.0.0, )",
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "backlog.infrastructure.claude": {
         "type": "Project",
         "dependencies": {
@@ -477,6 +490,7 @@
       "backlog.infrastructure.mcp": {
         "type": "Project",
         "dependencies": {
+          "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
@@ -520,6 +534,12 @@
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
+      "backlog.modules.brain.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.capture.abstractions": {
         "type": "Project",
         "dependencies": {
@@ -552,7 +572,10 @@
         }
       },
       "backlog.modules.devbook.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.devbook.ui": {
         "type": "Project",

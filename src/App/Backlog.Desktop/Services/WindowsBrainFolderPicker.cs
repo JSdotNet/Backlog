@@ -1,4 +1,4 @@
-using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Brain.Abstractions;
 
 #if WINDOWS
 using Microsoft.Maui.ApplicationModel;

@@ -23,6 +23,7 @@ using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -312,6 +313,13 @@ public static class DesktopCompositionRegistration
         // module says which port it starts through; the domain store lives as long
         // as one window's state does.
         AddDevbookAdapters(services);
+        // The Brain (local ADR 0026, ADR 0040), through its one registration: its
+        // settings file, its folder source beside the repository source, the note
+        // writer, the readers over its database, Show hidden, the Inbox's To Brain
+        // target, the watch that ties the setting to the devbook refresher just
+        // registered, and the mode it adds to the Devbook pane. Each head starts
+        // the watch after Build().
+        services.AddBrainModule(options.BrainSettings);
         services.AddDevbookModule(options.CopilotCliLauncher, options.WindowStateLifetime);
         // The open-chapter mirror the Devbook pane writes and the Ask AI source that
         // pins from it, over the search and folder ports registered just above.
@@ -359,14 +367,6 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton(options.FolderEditorLauncher);
 
-        // The Brain folder (local ADR 0026): where it is, kept per user and never in
-        // the folder, and the file-system work of setting one up that the Settings
-        // card does. The folder picker behind its Browse is the desktop head's
-        // alone; a host that registers none types the folder instead.
-        services.AddSingleton(options.BrainSettings);
-        services.AddSingleton<IBrainSettings>(sp => sp.GetRequiredService<BrainSettingsStore>());
-        services.AddSingleton(_ => new BrainFolderSetup());
-
         services.AddSingleton(options.AppUpdateService);
         // How a page asks the footer's update window to open — the Devices page,
         // when the sync service is newer than this app. One per window, like the
@@ -389,11 +389,6 @@ public static class DesktopCompositionRegistration
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
             new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
-        // Show hidden (local ADR 0026 §2): whether the Brain's ignored folders and
-        // dot-folders show as tabs, kept per device in the same file — never in the
-        // Brain folder, never on the Brain setting whose change reloads the Brain.
-        services.AddSingleton<IBrainShowHidden>(sp =>
-            new BrainShowHidden(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
@@ -467,33 +462,6 @@ public static class DesktopCompositionRegistration
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<IDevbookSnapshotCache>()));
-
-        // The Brain (local ADR 0026): its folder asked of the person's setting on
-        // every resolve, under a port of its own — registering it as a second
-        // IDevbookFolderSource would replace the repository source every search,
-        // reference and annotation reader resolves. The watch ties the setting to
-        // the refresher above; each head starts it after Build().
-        services.AddSingleton(sp =>
-        {
-            var settings = sp.GetRequiredService<IBrainSettings>();
-            return new BrainFolderSource(() => settings.BrainFolder);
-        });
-        services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
-
-        // The one writer of a new note into the Brain's inbox area: the pane's
-        // Capture, triage's To Brain and the capture tool all go through it.
-        services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
-
-        // The Brain notes that link to a repository chapter, read in reverse from
-        // the Brain's own database (local ADR 0027 §6) — so the repository's
-        // devbook shows its owner "From your Brain" and nothing is written there.
-        services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
-        services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
-        services.AddSingleton(sp => new BrainFolderWatch(
-            sp.GetRequiredService<IBrainSettings>(),
-            sp.GetRequiredService<IBrainFolderSource>(),
-            sp.GetRequiredService<DevbookDatabaseRefresher>(),
-            sp.GetService<ILogger<BrainFolderWatch>>()));
 
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
