@@ -82,6 +82,79 @@ public sealed class BrainAtlas(IDevbookFolderSource repositories)
         }
     }
 
+    /// <summary>
+    /// The Lobes atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>):
+    /// the Brain and the devbook of every registered repository in one graph,
+    /// read from the Brain's database and each repository's devbook database and
+    /// nothing else. Each node carries its scope, its region and its kind; each
+    /// <c>repo:</c> link is resolved as the Brain atlas resolves it
+    /// (<see cref="BrainRepoLinkResolver"/>) and drawn to that repository's
+    /// chapter node, or into a ghost devbook when its alias is not registered.
+    /// <para>
+    /// No Brain folder, or no Brain index yet, says so rather than drawing a map
+    /// without the Brain. A registered repository with no index yet is still a
+    /// scope, unavailable, holding only the chapters the notes name.
+    /// </para>
+    /// </summary>
+    /// <param name="brain">The Brain, asked for its folder on every read.</param>
+    /// <param name="repositoryAliases">The registered repositories that have a
+    /// devbook, in the order their scopes are offered.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    public Task<DevbookLobesGraph> ReadLobesAsync(IBrainFolderSource brain, IReadOnlyList<string> repositoryAliases, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(brain);
+        ArgumentNullException.ThrowIfNull(repositoryAliases);
+
+        if (brain.BrainRoot is not { Length: > 0 } root)
+        {
+            return Task.FromResult(DevbookLobesGraph.Unavailable(NoBrainFolder));
+        }
+
+        return Task.Run(() => ReadLobes(root, brain.Areas(), repositoryAliases, DatabaseFor, cancellationToken), cancellationToken);
+    }
+
+    private DevbookLobesGraph ReadLobes(string root, IReadOnlyList<BrainArea> declared, IReadOnlyList<string> repositoryAliases, Func<string, string?> databaseFor, CancellationToken cancellationToken)
+    {
+        try
+        {
+            BrainLobesNotes brain;
+            using (var database = DevbookDatabase.TryOpen(databaseFor(root)))
+            {
+                if (database is null) return DevbookLobesGraph.MissingBrainIndex(BrainIndexMissing);
+
+                var para = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var values in database.Attributes("para"))
+                {
+                    if (values.FirstOrDefault() is { Length: > 0 } value) para[values.Key] = value;
+                }
+
+                brain = new BrainLobesNotes(
+                    DevbookAtlasService.SourceNodes(database.Nodes()),
+                    DevbookAtlasService.SourceEdges(database.Edges()),
+                    para,
+                    [.. database.Outline(DevbookDatabaseSchema.RepositoryScope)
+                        .Where(row => row.Type == "area")
+                        .Select(row => row.Path)],
+                    declared,
+                    DevbookAtlasService.IndexedAt(database));
+            }
+
+            var devbookAtlas = new DevbookAtlasService(repositories);
+            var devbooks = new List<DevbookLobesDevbookSource>();
+            foreach (var alias in repositoryAliases.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                devbooks.Add(devbookAtlas.ReadLobesDevbook(alias));
+            }
+
+            return BrainLobesReader.Read(brain, devbooks, new BrainRepoLinkResolver(repositories).Resolve);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return DevbookLobesGraph.Unavailable($"The Lobes atlas could not be read: {ex.Message}");
+        }
+    }
+
     /// <summary>What the Brain atlas says while no Brain folder is set.</summary>
     internal const string NoBrainFolder = "No Brain folder is set, so there is no Brain to map.";
 

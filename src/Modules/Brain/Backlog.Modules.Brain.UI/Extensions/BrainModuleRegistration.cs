@@ -34,6 +34,13 @@ public static class BrainModuleRegistration
 
         services.TryAddSingleton(sp => new BrainAtlas(sp.GetRequiredService<IDevbookFolderSource>()));
         services.TryAddSingleton<IDevbookPaneMode>(sp => new BrainPaneMode(sp, sp.GetRequiredService<IDevbookPersonalSource>()));
+        // The Lobes atlas over the Brain and every registered devbook; without it
+        // the atlas says there is nothing to map.
+        services.TryAddSingleton<IDevbookLobesSource>(sp => new BrainLobesSource(
+            sp.GetRequiredService<DevbookAtlasService>(),
+            sp.GetRequiredService<BrainAtlas>(),
+            sp.GetRequiredService<DevbookScope>(),
+            sp));
         return services;
     }
 }

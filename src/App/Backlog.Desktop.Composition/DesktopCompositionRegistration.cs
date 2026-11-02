@@ -378,7 +378,7 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
         // The titles a Brain note's Tasks section draws, from the window's own task list.
         services.Add(new ServiceDescriptor(
-            typeof(IBrainTaskTitles),
+            typeof(IDevbookTaskTitles),
             sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
         // The window's repository scope, for a Devbook opened with no scope of its own (§6).
