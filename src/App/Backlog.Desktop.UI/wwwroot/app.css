@@ -1703,6 +1703,48 @@ h1, h2, h3 {
     color: var(--integration-ink-quiet);
 }
 
+/* An open or draft pull request wears the tone of its verdict — the one the Pull
+   requests pane gives it (local ADR 0042). The bodies copy the values of the library's
+   tone family (components.css .badge--tone-*, .devbook/design/color-scheme.md#badge-and-chip-tones)
+   — the same surfaces, edges and inks — and are kept in step with it by hand: a change
+   to a tone there is made here too, until IntegrationLink takes a tone hook of its own
+   (a library change, out of this change's scope). A soft pill rather than a chip, and
+   the verdict's words lead the tooltip, so the tone is never the only carrier. Each
+   tone doubles the link class so it outranks the link's own primary ink. */
+.entry-doc__work-link--toned {
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+}
+
+.entry-doc__work-link.entry-doc__work-link--tone-quiet {
+    background: var(--integration-surface);
+    color: var(--integration-ink-quiet);
+}
+
+.entry-doc__work-link.entry-doc__work-link--tone-live {
+    color: var(--integration-live);
+    border-color: var(--integration-live-edge);
+}
+
+.entry-doc__work-link.entry-doc__work-link--tone-alert {
+    background: var(--integration-alert-surface);
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink);
+}
+
+.entry-doc__work-link.entry-doc__work-link--tone-fault {
+    background: var(--integration-fault-surface);
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink);
+}
+
+.entry-doc__work-link.entry-doc__work-link--tone-settled {
+    background: var(--integration-settled-surface);
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink);
+}
+
 /* The panel's: in the footer beside the creation date, small like it, wrapping
    onto a second line of the footer rather than pushing delete and close apart. */
 .entry-doc__work {

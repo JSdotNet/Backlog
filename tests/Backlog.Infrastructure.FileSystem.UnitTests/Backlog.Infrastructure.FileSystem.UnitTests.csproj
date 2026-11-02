@@ -19,4 +19,8 @@
     <Using Include="Backlog.Infrastructure.Brain" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
+  </ItemGroup>
+
 </Project>
