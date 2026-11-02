@@ -126,7 +126,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client, and the one channel that serves
@@ -160,6 +160,7 @@ graph TB
       Roadmap["Backlog.Modules.Roadmap"]
       Dashboard["Backlog.Modules.Dashboard"]
       Capture["Backlog.Modules.Capture"]
+      RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
     end
 
     subgraph "Background workers"
@@ -200,6 +201,7 @@ graph TB
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
   SyncUI -->|pairing, sync loops| SyncClient
+  Shell -->|IPullRequests| RepoMgmt
 
   TasksUI --> Copilot & GitHubInfra
   RoadmapUI --> GitHubInfra
@@ -212,6 +214,8 @@ graph TB
   FileSystem -->|ITaskItems| Tasks
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Dashboard.Abstractions| Dashboard
+  GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
+  FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
 
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
@@ -243,7 +247,19 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI
 references `Backlog.Infrastructure.Devbook`, whose database lives in app storage
 (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and
-forbids it another module's implementation.
+forbids it another module's implementation. `PullRequestStateBoundaryTests` narrows
+that for pull requests: no module UI calls a pull-request member of the GitHub
+adapter (local ADR 0042 §8).
+
+**Repository Management** is `Backlog.Modules.RepositoryManagement` and its
+`.Abstractions`: the pull-request state of the registered repositories, with one
+status, one readiness verdict and one cache (local ADR 0042). It has no `.UI`
+project. The pull requests pane and the session card stay in the shell and read
+`IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports.
+`Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates
+its contract for Tasks (`ILinkedPullRequestStates`) and Progress
+(`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and
+settings only.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the builder that indexes
 a repository's devbook folders in C#, and the read-only reader over the result.

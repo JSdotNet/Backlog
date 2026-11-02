@@ -50,8 +50,8 @@ the session produced, the
 context publishes. The desktop shell composes that card, so this context holds only
 the pull request's number and references nothing of Repository Management. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
-decides it, and it is proposed. Until it is built, the pane lives in the desktop
-shell and its flag is still declared on `SessionFeatures`.
+decides it. The shell composes the pane, which reads Repository Management's
+contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests`.
 
 ## Sessions area
 

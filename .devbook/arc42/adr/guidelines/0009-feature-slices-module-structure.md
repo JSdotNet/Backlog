@@ -1,7 +1,7 @@
 # ADR 0009: Feature slices inside a module
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/09-architecture-decisions.md"]
 ```
 
 Inherited from the organization's ADR 0009 (decided 2026-04-07,
@@ -41,6 +41,13 @@ The intended reflex: to find the code for a feature, open
   the `IBacklogRepository` port at the module root, `Services/`, `Extensions/`.
 - `Backlog.Modules.Tasks.Abstractions` publishes the vocabulary enums, the
   DTOs, the `ITaskItems` service port, and `EntryTextParser`.
+- `Backlog.Modules.RepositoryManagement` follows the layout since PR #1617
+  (2026-11-02, local ADR 0042 §1): `Features/` holds one slice per query and command, from
+  `ListOpenPullRequests` through `RerunFailed`, then `Services/` and `Extensions/`,
+  whose one registration extension is `AddRepositoryManagementModule`. Its published
+  surface is `Backlog.Modules.RepositoryManagement.Abstractions`: the DTOs and the
+  ports `IPullRequests`, `IPullRequestSource`, `IRegisteredRepositories` and
+  `ISettledPullRequestStore`.
 - `tests/Backlog.ArchitectureTests/ModuleSurfaceTests.cs` keeps the published
   surface from quietly growing.
 
@@ -53,6 +60,13 @@ The intended reflex: to find the code for a feature, open
   all. Read
   `.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md` before
   treating it as an inconsistency.
+- **Repository Management's pull-request rules sit in Abstractions** as pure
+  statics, in the same shape as `EntryTextParser`: `PullRequestVerdict.Of`,
+  `PullRequestStacks.Of`, `OfPlaced` and `PlaceAmong`, `PullRequestMerges.For`, and
+  `PullRequestLabelFilter.Passes`. The pull requests pane, the session card and the
+  Tasks adapter all call the same rule without referencing the implementation
+  project, so the three cannot drift apart. Local ADR 0042 §2 and §6 take that
+  position.
 - `Backlog.Modules.Inbox` follows the same layout since 2026-09-15 —
   `DomainModels/`, `Features/` (one slice per command, `ReceiveCapture` through
   `EnsureDefaultOrganizer`), the `IInboxItemRepository` and

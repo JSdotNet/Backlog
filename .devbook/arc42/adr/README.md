@@ -68,7 +68,7 @@ between inherited ADRs 0005 and 0009.
 - **[0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md)** *(proposed, built and declared in Bicep, not deployed; extends 0005, follows 0011; MCP `ask`, `get_answer` and `close` amended by 0041)*
 - **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part)*
 - **[0041 — Agent questions reach Backlog by presence and come back through the hook or the Manager](0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)** *(proposed, not yet built; amends 0038 and 0039)*
-- **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(proposed, not yet built; amends 0035 §7's GitHub edge)*
+- **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(accepted, built in PR #1617; amends 0035 §7's GitHub edge)*
 - **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
 - **[0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](0044-devbook-subject-state-lives-in-backlogs-own-store.md)** *(proposed, built; amends 0004, 0008, 0011, 0012 and 0029)*
 

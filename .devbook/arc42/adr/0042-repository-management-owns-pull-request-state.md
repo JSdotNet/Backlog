@@ -1,9 +1,8 @@
 # ADR 0042: Repository Management owns pull-request state, and every reader goes through its one contract
 
 ```meta
-date: 2026-10-29
-status: proposed
-related: [".devbook/domain/repository-management/context.md", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/repository-management/features.md#one-verdict-per-pull-request", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/context-map.md", ".devbook/domain/sessions/context.md", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/progress/dependencies.md", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md", ".devbook/arc42/adr/guidelines/0009-feature-slices-module-structure.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/12-glossary.md#terms"]
+date: 2026-11-02
+related: [".devbook/domain/repository-management/context.md", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/repository-management/features.md#one-verdict-per-pull-request", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/context-map.md", ".devbook/domain/sessions/context.md", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/progress/dependencies.md", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md", ".devbook/arc42/adr/guidelines/0009-feature-slices-module-structure.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/12-glossary.md#terms", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md"]
 ```
 
 Repository Management owns the state of every pull request Backlog reads. It owns
@@ -18,10 +17,9 @@ publishes the reverse lookup from a session or a pull request to its task.
 ```meta
 ```
 
-Proposed, 2026-10-29, by the flow-spec run `run-mvsplf7t-pr55za` that drafted it. It
-awaits acceptance at the Personal Validation gate of that run's pull request. Not
-yet built: a later flow-code run builds the module, the ports and the adapters, and
-moves the code named below.
+Accepted, 2026-11-02, at the code gate of PR #1617, which merged that day. Proposed
+2026-10-29 by the flow-spec run `run-mvsplf7t-pr55za` that drafted it. Built in PR
+#1617: §1 to §9, in five slices, as the History records.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It adds a boundary and supersedes nothing. It amends one edge
@@ -83,17 +81,24 @@ flowchart LR
     Progress["Progress<br/>IGoalPullRequestReader"]
     Shell["Desktop shell<br/>pull requests pane, session card,<br/>side panel"]
 
-    GitHub -.->|"pull requests, checks, reviews"| Repo
-    Repo -.->|"status and verdict, through an adapter"| Tasks
-    Repo -.->|"status, through an adapter"| Progress
-    Repo -.->|"status, verdict, commands"| Shell
-    Tasks -.->|"task by session, task by pull request"| Shell
+    GitHub -->|"pull requests, checks, reviews"| Repo
+    Repo -->|"status and verdict, through an adapter"| Tasks
+    Repo -->|"status, through an adapter"| Progress
+    Repo -->|"status, verdict, commands"| Shell
+    Tasks -->|"task by session, task by pull request"| Shell
 ```
 
-Every edge is dashed because none is built yet. Tasks and Progress never reference
-Repository Management's surface themselves: an adapter under
-`src/Infrastructure/` answers each module's own port, as `ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface`
+Tasks and Progress never reference Repository Management's surface themselves: an
+adapter under `src/Infrastructure/` answers each module's own port, as `ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface`
 requires.
+
+| Edge | Built as |
+| --- | --- |
+| GitHub to Repository Management | `GitHubPullRequestSource` in `Backlog.Infrastructure.GitHub/RepositoryManagement/`, registered by `AddRepositoryManagementGitHubAdapters` |
+| Repository Management to Tasks | `LinkedPullRequestStates` in `Backlog.Infrastructure.FileSystem/Tasks/`, answering `ILinkedPullRequestStates` |
+| Repository Management to Progress | `RepositoryManagementGoalPullRequests` in `Backlog.Infrastructure.FileSystem/Progress/`, answering `IGoalPullRequestReader` |
+| Repository Management to the shell | `PullRequestsPane.razor` and `SessionPullRequestStatuses`, reading `IPullRequests` |
+| Tasks to the shell | `ShellTaskReferences` and `WorkInProgressReader`, asking `ITaskLookup` |
 
 ### 1. Repository Management owns pull-request state
 
@@ -116,10 +121,24 @@ Three things make it the owner rather than a context of its own:
 - The pane's features move here from Sessions, under
   [Pull request readiness](../../domain/repository-management/features.md#pull-request-readiness).
 
-Repository Management has no module in `src/` today. This record introduces one,
-laid out by feature slices (guidelines ADR 0009): a published surface the other
-contexts' adapters read, and an implementation that holds the rules. The project and
-type names are the building run's.
+The module is laid out by feature slices (guidelines ADR 0009), in two projects
+under `src/Modules/RepositoryManagement/`:
+
+- **`Backlog.Modules.RepositoryManagement.Abstractions`** is the published surface the
+  other contexts' adapters read. `Services/` holds the ports `IPullRequests`,
+  `IPullRequestSource`, `IRegisteredRepositories` and `ISettledPullRequestStore`.
+  `DataTransferObjects/` holds the shapes. Four pure rules sit at its root:
+  `PullRequestVerdict`, `PullRequestStacks`, `PullRequestMerges` and
+  `PullRequestLabelFilter`.
+- **`Backlog.Modules.RepositoryManagement`** is the implementation. `Features/` holds
+  one slice per query and command: `ListOpenPullRequests`, `ListMergedPullRequests`,
+  `ReadPullRequests`, `Merge`, `SetAutoMerge`, `UpdateBranch`, `MarkReady` and
+  `RerunFailed`. `Services/PullRequests.cs` answers `IPullRequests` over
+  `Services/PullRequestCache.cs`. `AddRepositoryManagementModule`
+  (`Extensions/RepositoryManagementModuleRegistration.cs`) registers it, and
+  `DesktopCompositionRegistration` composes it.
+
+The module has no `.UI` project; §6 says where its screens stayed.
 
 ### 2. One published contract for status and verdict
 
@@ -157,14 +176,15 @@ auto-merge off, update branch, mark ready for review and re-run failed. Each com
 reads its repository again once it returns, so every reader sees the new state. No
 other code sends these to GitHub.
 
-**One cache** replaces the two `GitHubLinkedPullRequestCache` instances and Tasks'
-`IPullRequestStateMemory`. It keeps the freshness rules those already follow:
+**One cache**, `PullRequestCache`, replaces the two linked-pull-request caches the side
+panel and Progress each kept, and Tasks' memory of merged and closed outcomes. It
+keeps the freshness rules those already followed:
 
 - A merged pull request cannot change again. It is read once and kept, and it is
   remembered across a restart in app storage, as a
   [settled-fact cache](../12-glossary.md#terms).
 - A number GitHub answers without is not asked about again.
-- Any other answer is reused for one minute, the `FreshFor` both readers use today.
+- Any other answer is reused for one minute, `PullRequestReadOptions.FreshFor`.
   A read still out within that minute is waited on rather than sent twice.
 - A closed pull request is asked about again, because GitHub can reopen it.
 - A refused read is kept nowhere, so the next read asks again.
@@ -173,6 +193,15 @@ Only the end state is remembered across a restart. Checks, reviews and the
 auto-merge request are never persisted, because a stale one would offer a merge that
 GitHub no longer allows. Which of a task's entries a merge has already finished is
 Tasks' own fact. It stays with Tasks and does not move into this cache.
+
+**Where the remembered facts live.** The cache hands each merged pull request to
+`ISettledPullRequestStore`. `SettledPullRequestStore` answers it in the app storage
+folder `settled-pull-requests` (`Backlog.Infrastructure.FileSystem/Workspace/`). A
+pull request read back from there carries its state, merge day, branches, closing
+issues and labels, and no checks or approvals. Its `StatusRead` is false, so no reader
+takes those empty fields for GitHub's word. Tasks' own fact is
+`IPullRequestFinishMemory` in `Backlog.Modules.Tasks.Abstractions`, stored by
+`PullRequestFinishMemory` in the same adapter folder.
 
 ### 4. Tasks reads pull requests through its own port
 
@@ -187,7 +216,8 @@ An adapter under `src/Infrastructure/Backlog.Infrastructure.FileSystem/Tasks/`,
 beside `LinkedSessionStates.cs`, translates from Repository Management's contract.
 
 The row's badge, the merge offer and the prompt entry's auto-Done read through this
-port. `PullRequestMergeAct` and the row's own badge mapping retire. A host that
+port. The row's own merge act and badge mapping retired: the merge offer is the
+port's `LinkedPullRequestMerge`, and the badge wears the verdict's label and tone. A host that
 composes no Repository Management answers nothing, and a badge with no state draws
 as it did before it had one.
 
@@ -197,8 +227,8 @@ as it did before it had one.
 ```
 
 Progress keeps `IGoalPullRequestReader`. Its adapter,
-`Infrastructure.FileSystem/Progress/GitHubGoalPullRequests.cs`, stops calling
-`GitHubIntegration` and reads Repository Management's contract instead. That amends
+`Infrastructure.FileSystem/Progress/RepositoryManagementGoalPullRequests.cs`, calls no
+`GitHubIntegration` member and reads Repository Management's contract instead. That amends
 ADR 0035 §7's edge from GitHub to Progress: GitHub now reaches Progress through this
 context. The goal rows, the stand-up and the `stand-up-context` document of ADR 0035
 §8 read the same status they read today.
@@ -208,20 +238,25 @@ context. The goal rows, the stand-up and the `stand-up-context` document of ADR 
 ```meta
 ```
 
-The pane becomes Repository Management's screen. Its rules move into the module: the
-verdict, the stacks, the merge commands, the status lines, the subjects and the
-label filter. Whether its markup lives in the module's own screen project or stays in
-the shell is the building run's call. It keeps its place in the shell's work in
-progress group (ADR 0022).
+The pane becomes Repository Management's screen, and it reads only the contract. Four
+of its rules moved into `Backlog.Modules.RepositoryManagement.Abstractions` as pure
+rules: the verdict, the stacks, the merge choice and the label filter. The commands
+are `IPullRequests` members. The rest stayed in the shell, under
+`src/App/Backlog.Desktop.UI/PullRequests/`, and reads the contract: the markup of
+`PullRequestsPane.razor`, the status lines (`PullRequestStatusLines`) and the subjects
+(`PullRequestSubjects`). Repository Management has no screen project of its own. The
+pane keeps its place in the shell's work in progress group (ADR 0022).
 
 The session list's pull request card asks the contract for its verdict, through the
-shell, which composes the card. The task card and the session card inside a pull
+shell, which composes the card. `SessionPullRequestStatuses` stays in the shell and
+builds the card from the verdict and the stacks. The task card and the session card inside a pull
 request's detail panel are composed by the shell too. So no module screen references
 another context's screen, and Sessions and Repository Management form no cycle.
 Sessions still owns no work item and publishes no pull-request contract.
 
 A task's side panel reads its linked pull requests through the same cache, so the
-side panel and Progress share one read per pull request.
+side panel and Progress share one read per pull request. Its reader,
+`WorkInProgressReader`, takes `IPullRequests`.
 
 ### 7. The flag `pull-requests` moves owner and keeps its key
 
@@ -254,11 +289,23 @@ now, because it also reads issues and the GitHub settings through it (ADR 0020, 
 ```meta
 ```
 
-This is the reverse edge of the same boundary. Tasks gains a lookup port in
-`Backlog.Modules.Tasks.Abstractions` that answers the task a session id names and the
-task a pull request names. `PullRequestTaskMatcher`'s matching moves behind it.
-`Home.razor` and `WorkInProgressReader` ask the port and stop reading
-`TasksDesktopState.Rows`.
+This is the reverse edge of the same boundary. Tasks publishes `ITaskLookup` in
+`Backlog.Modules.Tasks.Abstractions`. It answers the task a session id names, the task
+a pull request names, and every pull request the tasks link. `TaskLookup` in
+`Backlog.Modules.Tasks` answers it over the candidates `ITaskLookupCandidates` hands
+it, which `TasksDesktopState` supplies from the window's task list. The matching moved
+out of the shell into `PullRequestTaskMatching`, beside `TaskLookup`.
+
+The shell asks the port in two places, and neither reads `TasksDesktopState.Rows`:
+
+- `ShellTaskReferences.SessionTaskFor` and `PullRequestTaskFor` find the task of a
+  session card or a pull request row. ADR 0043 moved them out of `Home.razor`.
+- `WorkInProgressReader.From` lists the linked pull requests through
+  `ITaskLookup.LinkedPullRequests`.
+
+Opening or titling a task by its id still reads the Tasks rows, in
+`ShellTaskReferences.OpenTaskAsync` and `ShellBrainTaskTitles`. That is no lookup from
+a session or a pull request, so this section leaves it alone.
 
 ## Consequences
 
@@ -280,21 +327,22 @@ Negative:
 - **Repository Management's subject widens.** Its record now covers both the health
   of repositories and the readiness of their pull requests. If the two pull apart,
   the second becomes its own context, the first option under [Rejected](#rejected).
-- **A new module and a code move.** Repository Management needs projects in `src/`,
-  and the files under `src/App/Backlog.Desktop.UI/PullRequests/` move into it.
-- **Two code comments go stale until the build.** `PullRequestsPane.razor:20` and
-  `PullRequestVerdict.cs:115` cite `sessions/features.md#one-verdict-per-pull-request`,
-  which moves to Repository Management. The building run updates them.
-- **`05-building-block-view.md` and `workspace.dsl` describe the code as built.**
-  They gain the module once it exists.
+- **A new module and a code move.** Repository Management gained two projects under
+  `src/Modules/RepositoryManagement/` (§1). Four rules moved into them from
+  `src/App/Backlog.Desktop.UI/PullRequests/`, and the rest of that folder stayed in
+  the shell (§6).
+- **The building-block view gained a module.** The
+  [Desktop App](../05-building-block-view.md#desktop-app) section of chapter 05 and
+  `workspace.dsl` draw Repository Management and its edges.
 
 Follow-up, not decided here:
 
 - **The side panel reads sessions outside `ILinkedSessionStates`.** The shell's
   `WorkInProgressReader` reads `IAgentSessionSource` directly, while the task row's
   badge reads `ILinkedSessionStates`. The shell is the composition root, so the
-  boundary tests allow it. It is still two readings of one session state. A technical
-  debt record should capture it and say whether the side panel moves onto the port.
+  boundary tests allow it. It is still two readings of one session state.
+  [TDR 0004](../tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md)
+  records it with the options for paying it, and none is chosen yet.
 
 ## Rejected
 
@@ -332,34 +380,52 @@ Out of scope, and left as they are:
 ```meta
 ```
 
-Not yet built. Each behaviour below is one a test can check once it is:
+Built in PR #1617. Each behaviour below names the tests that check it.
 
 1. **No module screen reads a pull request from the adapter.** No `.UI` project under
    `src/Modules/` calls a pull-request member of `Backlog.Infrastructure.GitHub`:
-   listing, reading, reading the status, merging or switching auto-merge. An
-   architecture test in `tests/Backlog.ArchitectureTests/` states this tightened rule
-   beside `ModuleBoundaryTests`.
+   listing, reading, reading the status, merging or switching auto-merge.
+   `PullRequestStateBoundaryTests.No_module_screen_calls_a_pull_request_member_of_the_GitHub_adapter`
+   states this tightened rule beside `ModuleBoundaryTests`.
 2. **One verdict.** One status handed to the pane, the session card and the task row
-   gives one verdict, with the same label and tone, in all three.
+   gives one verdict, with the same label and tone, in all three. All three call the
+   shared `PullRequestVerdict.Of`.
+   `SessionPullRequestStatusesTests.The_card_and_the_task_row_give_a_pull_request_one_verdict`
+   compares the card with the task row. `PullRequestsPaneTests.The_row_wears_the_label_and_tone_of_the_modules_verdict`
+   and `LinkedPullRequestStatesTests.A_pull_request_wears_the_label_and_tone_of_the_modules_verdict`
+   hold the pane and the task row to that function.
 3. **One cache.** A pull request the side panel read is not read again by Progress
    within the minute, and the GitHub transport sees one request for it.
+   `PullRequestOneCacheTests.A_pull_request_the_side_panel_read_is_not_read_again_by_progress_within_the_minute`.
 4. **Merged survives a restart, checks do not.** A merged pull request reads as merged
    after a restart with GitHub unreachable. No check, review or auto-merge state is
    written to app storage.
+   `SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach`
+   and `SettledPullRequestStoreTests.The_file_holds_no_check_review_auto_merge_mergeable_or_behind_state`.
 5. **Tasks asks its own port.** The task row's badge and merge offer read through
    `ILinkedPullRequestStates`. A host without Repository Management answers nothing,
-   and the badge draws as it did before.
+   and the badge draws as it did before. `TasksPullRequestContractTests`, and
+   `LinkedPullRequestStatesTests.Without_the_contract_the_port_answers_nothing`.
 6. **Progress asks the contract.** `IGoalPullRequestReader`'s adapter calls no
    `GitHubIntegration` member.
+   `PullRequestStateBoundaryTests.Progress_reads_pull_requests_through_the_contract`.
 7. **The key is kept.** The flag's key is `pull-requests`, and a stored choice under
    it still turns the pane on after the move.
-8. **The shell asks Tasks.** `Home.razor` and `WorkInProgressReader` find a task by
-   session id and by pull request through the lookup port, and read no
+   `RepositoryManagementFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under`.
+8. **The shell asks Tasks.** `ShellTaskReferences` and `WorkInProgressReader` find a
+   task by session id and by pull request through `ITaskLookup`, and read no
    `TasksDesktopState.Rows`.
+   `PullRequestStateBoundaryTests.The_shell_asks_Tasks_for_a_session_or_pull_requests_task`
+   and `.The_side_panels_reader_lists_the_linked_pull_requests_through_Tasks`.
 9. **Archived is skipped once.** The contract reads no pull request of an archived
-   repository, whichever reader asks.
+   repository, whichever reader asks. The three tests of `ArchivedRepositoryTests`.
 10. **A command refreshes every reader.** After a merge from the task row, the pane
     and Progress read the pull request as merged without a second GitHub call.
+    `TasksPullRequestContractTests.A_merge_from_the_task_row_is_what_the_pane_and_progress_read_next`.
+
+The test classes sit in `Backlog.ArchitectureTests`, `Backlog.Desktop.UI.UnitTests`,
+`Backlog.Infrastructure.FileSystem.UnitTests` and
+`Backlog.Modules.RepositoryManagement.UnitTests`.
 
 ## History
 
@@ -368,4 +434,9 @@ Not yet built. Each behaviour below is one a test can check once it is:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-02 | Accepted at the code gate of PR #1617, which merged that day. Status, Decision, §1, §3, §4, §5, §9, Consequences and Verification now describe the built code, and Verification names the tests behind each item. Two Consequences bullets are done and removed: the stale code comments, and chapter 05 and `workspace.dsl` gaining the module. The follow-up links TDR 0004. | The devbook still called the record proposed and not built after PR #1617 merged, and named the types the build retired. |
+| 2026-11-02 | §3 notes that a merged pull request read back from the settled store, `settled-pull-requests`, carries no checks or approvals. `PullRequestStatus.Settled` sets none of them and marks `StatusRead` false; `SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach` asserts it. | §3 persists only the end state, and a reader has to know that a settled pull request's empty checks are not GitHub's word. |
+| 2026-11-02 | §6 records the building run's call: the pane's markup, `PullRequestStatusLines`, `PullRequestSubjects` and `SessionPullRequestStatuses` stayed in the shell and read the contract. Only the verdict, the stacks, the merge choice and the label filter moved, into the Abstractions project. | §6 had left the markup to the building run, and the run kept every screen-side part in the shell. |
+| 2026-10-30 | Reconciled with ADR 0043 in commit `82fcfe3b4`. The boundary test behind V8 reads `ShellTaskReferences`, where ADR 0043 moved `SessionTaskFor` and `PullRequestTaskFor` out of `Home.razor`, and the pane's flag is read from `RepositoryManagementFeatures`. §9 and V8 now name `ShellTaskReferences`. | The pop-out windows merge moved the shell's task lookups while this build was in flight. |
+| 2026-10-30 | Built in five slices on the branch PR #1617 merged: the status and verdict (`3c2304e7d`); the cache and its commands (`72a041c03`); Progress and the side panel on the contract (`58f23944d`); Tasks through `ILinkedPullRequestStates` (`bb121bcf5`); the shell through `ITaskLookup` (`57708ee0e`). `GitHubGoalPullRequests` became `RepositoryManagementGoalPullRequests`, and `PullRequestTaskMatcher` became `PullRequestTaskMatching` in Tasks. `GitHubLinkedPullRequestCache`, `IPullRequestStateMemory` and `PullRequestMergeAct` retired. | §1 to §9 left the project and type names to the building run. |
 | 2026-10-29 | Proposed: Repository Management owns pull-request state and publishes one contract; Tasks reads it through its own port, Progress through its reader, and Tasks publishes the lookup back. | One pull request was read five ways and could show two verdicts, and the shell held domain rules no context owned. |
