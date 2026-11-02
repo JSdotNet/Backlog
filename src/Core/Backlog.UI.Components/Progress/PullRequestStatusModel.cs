@@ -124,12 +124,13 @@ public sealed record PullRequestStatusModel(
     public string ChecksCount =>
         ChecksVariant is PullRequestChecksVariant.None ? string.Empty : $"{Checks!.Passed}/{Checks.Total}";
 
-    /// <summary>What a screen reader hears for the checks mark, "9 of 14 checks running".</summary>
+    /// <summary>What a screen reader hears for the checks mark, "9 of 14 checks running";
+    /// a failing mark counts the failures, "1 of 13 checks failing".</summary>
     public string ChecksSpoken => ChecksVariant switch
     {
         PullRequestChecksVariant.Passed => $"{Checks!.Passed} of {Checks.Total} checks passed",
         PullRequestChecksVariant.Running => $"{Checks!.Passed} of {Checks.Total} checks running",
-        PullRequestChecksVariant.Failing => $"{Checks!.Passed} of {Checks.Total} checks failing",
+        PullRequestChecksVariant.Failing => $"{Checks!.Failed} of {Checks.Total} checks failing",
         _ => string.Empty
     };
 
