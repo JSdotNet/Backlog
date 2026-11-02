@@ -56,6 +56,7 @@ public class McpToolCreationTests
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
+        UsageTools.ListRunUsage,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries,
@@ -383,6 +384,10 @@ public class McpToolCreationTests
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
+            [typeof(UsageTools)] = new UsageTools(
+                new FakeDeliveryRunSource(DeliveryRunCatalog.Empty),
+                new FakeAgentSessionSource(AgentSessionCatalog.Empty),
+                new FakeClaudeApiRequestStore()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
