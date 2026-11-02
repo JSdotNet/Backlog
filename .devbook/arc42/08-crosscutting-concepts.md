@@ -423,7 +423,6 @@ flowchart TB
 ## Notifications
 
 ```meta
-status: proposed
 related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
