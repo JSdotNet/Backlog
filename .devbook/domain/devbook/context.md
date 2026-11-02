@@ -25,6 +25,9 @@ Outside it:
 - a repository's folders themselves, which the repository owns and edits elsewhere;
 - the Brain's notes, areas, conventions, capture and links, which the
   [Brain](../brain/context.md) owns and reads through this context's machinery;
+- the [Lobes atlas](../brain/features.md#lobes-atlas), which the Brain owns and
+  the pane's **Atlas** button opens while its `atlas-lobes` flag is on: it reads
+  every registered repository's devbook database through this context's reader;
 - the header scope that picks between the Brain and the repositories, which the
   desktop shell owns and this context only follows;
 - the work items a chapter links to, which [Tasks](../tasks/domain.md#task) answers;
@@ -137,29 +140,6 @@ display, and it is retired when that is decided. It has its own key rather than
 sharing one with [Devbook editing](#devbook-editing): a status is read, not
 written, wherever the reader cannot change it, so it can stay or go apart from
 Edit. Each panel follows a change live, with no restart.
-
-## Lobes atlas
-
-```meta
-status: draft
-type: feature-flag
-key: atlas-lobes
-default: off
-related: [".devbook/domain/devbook/features.md#lobes-atlas", ".devbook/domain/devbook/requirements.md#lobes-atlas"]
-```
-
-Turning it on makes the Devbook pane's **Atlas** button open the
-[Lobes atlas](features.md#lobes-atlas) at the pane's scope, the Brain or that
-repository, and offers the atlas from the shell header. Off, the button opens
-today's atlas, and the header offers none. The Technology section keeps its own
-views either way.
-
-It ships off, marked in development, while the Lobes atlas is finished. The key
-is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the
-settings screen lists it with the other switches, and a person's choice is kept
-in `features.json` like the pane's. It means nothing with Devbook off: the
-context's scope service answers both the header and the pane from the two
-switches together.
 
 ## Instruction optimization
 
