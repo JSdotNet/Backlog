@@ -49,6 +49,28 @@ public static class TechnologyTypeFamilies
         TechnologyTypeFamily.Protocol => "Protocol",
         _ => "Other",
     };
+
+    /// <summary>The family's name in a class: the slug app.css declares its hue
+    /// under, <c>--tech-family-&lt;slug&gt;</c>, and its mark, <c>.tech-family--&lt;slug&gt;</c>.</summary>
+    public static string Slug(TechnologyTypeFamily family) => family switch
+    {
+        TechnologyTypeFamily.Framework => "framework",
+        TechnologyTypeFamily.Platform => "platform",
+        TechnologyTypeFamily.Runtime => "runtime",
+        TechnologyTypeFamily.LanguageAndPackage => "language-package",
+        TechnologyTypeFamily.LibraryToolAndPlugin => "library-tool-plugin",
+        TechnologyTypeFamily.Skill => "skill",
+        TechnologyTypeFamily.AgentServiceAndFormat => "agent-service-format",
+        TechnologyTypeFamily.Protocol => "protocol",
+        _ => "other",
+    };
+
+    /// <summary>The class that gives an element its family's hue as <c>--tech-family</c>,
+    /// which every Technology view colours a technology from.</summary>
+    public static string Mark(TechnologyTypeFamily family) => "tech-family--" + Slug(family);
+
+    /// <summary>The mark of the family a chapter's <c>type</c> belongs to.</summary>
+    public static string MarkFor(string? type) => Mark(Of(type));
 }
 
 public enum TechnologyComplexityBand

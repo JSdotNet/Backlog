@@ -2646,6 +2646,82 @@
         event.preventDefault();
     });
 
+    // A roving group of buttons: an element marked `data-roving-buttons` whose
+    // direct-child buttons are one tab stop, the keys moving it among them. The
+    // contract, for any host:
+    //   - the host renders the group's starting stop (tabindex="0" on one button,
+    //     "-1" on the rest) and keeps writing the same values on every render, so a
+    //     re-render never takes back a stop moved here;
+    //   - the arrows step and wrap, Home and End go to either end, a disabled button
+    //     is skipped, and the button reached becomes the only tabindex="0" and takes
+    //     the focus — here, synchronously, because a server handler sees each key
+    //     with the stop as it was when the key left and drops quick presses;
+    //   - each key's default is refused, so the arrows do not scroll the page and
+    //     Home and End do not throw it to an end; Enter and Space are left to the
+    //     button's own click; a key held with a modifier is not the group's;
+    //   - a group left with no enabled stop — its stop button removed or disabled by
+    //     a re-render — gets its first enabled button back as the stop, and one left
+    //     with two keeps the focused one, else the first.
+    // The Technology Clusters map is one host: each cluster is a group of its
+    // open-layer button and its dots.
+    const ROVING_BUTTONS_GROUP = '[data-roving-buttons]';
+    const ROVING_BUTTONS_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+    const rovingButtons = group => Array.from(group.children)
+        .filter(child => child.matches('button') && !child.disabled);
+
+    const restoreRovingStop = group => {
+        const buttons = rovingButtons(group);
+        const stops = buttons.filter(button => button.tabIndex === 0);
+        if (buttons.length === 0 || stops.length === 1) return;
+
+        const keep = stops.find(button => button === document.activeElement) ?? stops[0] ?? buttons[0];
+        buttons.forEach(button => { button.tabIndex = button === keep ? 0 : -1; });
+    };
+
+    // Checked at most once a frame after the page changes — one query, which finds
+    // nothing on a page without a group — so a re-render that removed or disabled a
+    // group's stop is caught before the reader can Tab past a group that has none.
+    let rovingCheckPending = false;
+    const restoreRovingStops = () => {
+        rovingCheckPending = false;
+        document.querySelectorAll(ROVING_BUTTONS_GROUP).forEach(restoreRovingStop);
+    };
+    const rovingObserver = new MutationObserver(() => {
+        if (rovingCheckPending) return;
+        rovingCheckPending = true;
+        requestAnimationFrame(restoreRovingStops);
+    });
+    rovingObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['disabled'],
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (!ROVING_BUTTONS_KEYS.has(event.key)) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches(`${ROVING_BUTTONS_GROUP} > button`)) return;
+
+        event.preventDefault();
+
+        const buttons = rovingButtons(target.parentElement);
+        const from = buttons.indexOf(target);
+        if (from < 0) return;
+
+        const count = buttons.length;
+        const to = event.key === 'Home' ? 0
+            : event.key === 'End' ? count - 1
+            : event.key === 'ArrowRight' || event.key === 'ArrowDown' ? (from + 1) % count
+            : (from - 1 + count) % count;
+
+        buttons.forEach((button, index) => { button.tabIndex = index === to ? 0 : -1; });
+        buttons[to].focus();
+    });
+
     // A tab that takes the focus is shown whole in a strip that scrolls. The
     // browser's own reveal on focus leaves a tab that is already partly in view
     // where it is, which at phone width cut the last tab off by most of its width.
