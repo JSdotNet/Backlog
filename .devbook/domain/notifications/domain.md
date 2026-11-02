@@ -128,7 +128,7 @@ The subjects a notification can be about, and when each ends:
 | --- | --- | --- | --- |
 | `sessions` / `session` / session id | Sessions | archived or deleted in the Claude desktop app | "Session archived" |
 | `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, or no run file holds it any more | "Run finished" |
-| `sessions` / `pull-request` / `owner/name#number` | Sessions | merged or closed | "Pull request merged" |
+| `sessions` / `pull-request` / `owner/name#number` | Sessions | merged, or closed without merging | "Pull request merged", or "Pull request closed" |
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
