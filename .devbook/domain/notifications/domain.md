@@ -1,7 +1,7 @@
 # Domain
 
 ```meta
-status: proposed
+status: draft
 type: domain
 ```
 
@@ -57,7 +57,7 @@ The rules it holds are `### Invariant:` chapters in
 ### Source
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationSource]
 ```
@@ -71,7 +71,7 @@ The source routes; it is never shown. What a person reads is the
 ### Origin
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationOrigin]
 related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin-stays-within-its-bounds]
@@ -110,7 +110,7 @@ The sources inside Backlog fill it:
 ### Subject
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationSubject]
 ```
@@ -145,7 +145,7 @@ the same way.
 ### Answer Spec
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [AnswerSpec, AnswerChoice, OpenAnswer]
 ```
@@ -183,7 +183,7 @@ questions included.
 ### Notification Kind
 
 ```meta
-status: proposed
+status: draft
 type: enum
 aliases: [NotificationKind]
 ```
@@ -194,7 +194,7 @@ aliases: [NotificationKind]
 ### Severity
 
 ```meta
-status: proposed
+status: draft
 type: enum
 aliases: [NotificationSeverity]
 ```
@@ -206,7 +206,7 @@ informational. Severity never limits who may answer.
 ### Notification State
 
 ```meta
-status: proposed
+status: draft
 type: enum
 related: [.devbook/arc42/08-crosscutting-concepts.md#notifications]
 ```
@@ -237,7 +237,7 @@ spec-manager, and the publisher closes one read there.
 ## Reply
 
 ```meta
-status: proposed
+status: draft
 type: aggregate
 related: [.devbook/domain/notifications/domain.invariants.md#reply, .devbook/arc42/06-runtime-view.md#notification-reply]
 aliases: [ReplyOutboxKind]
@@ -262,7 +262,7 @@ words of a choice that takes text; the note stays apart from them.
 ## Answer
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationAnswer]
 ```
@@ -275,7 +275,7 @@ once and treats a second delivery for the same notification as the same answer.
 ## Ubiquitous Language
 
 ```meta
-status: proposed
+status: draft
 type: ubiquitous-language
 ```
 
