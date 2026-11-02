@@ -1,7 +1,7 @@
 # ADR 0044: A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container
 
 ```meta
-date: 2026-10-30
+date: 2026-11-02
 status: proposed
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/devbook/domain.md#remark", ".devbook/domain/devbook/context.md#devbook-status", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-leaving-a-decision-step-takes-its-record-with-it", ".devbook/domain/repository-management/requirements.md#requirement-remarks-are-not-written-into-an-archived-devbook", ".devbook/domain/sync/context.md"]
 ```
@@ -265,14 +265,14 @@ Negative, and accepted:
   `devbook-subjects/` files travel by a move and by replication.
 - **The deployed service lags.** Until the service with the route is deployed,
   states stay on the device that set them, and the loop reads the 404 as not yet.
+- **The store also keeps the `sync` direction map.** Added by entry 7
+  (`backlog-sync-ownership`), see History. `DevbookMarkdownSyncWriter` is retired,
+  the map does not replicate, and only a clone's Markdown is imported into it.
 
 Not decided here, and left to later entries of the plan:
 
 - **No import.** The state an existing chapter holds in its `status` is not read
   into the store. The store starts empty.
-- **The `sync` direction is still written into the Markdown.**
-  `DevbookMarkdownSyncWriter` stays until Backlog keeps a direction map per
-  repository.
 - **No `open-question` refusal yet.** `DevbookSubjectRefusal.OpenQuestion` maps to
   its wire code, and nothing produces it until a note carries a kind.
 
@@ -337,4 +337,5 @@ Built, and held by these tests:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-02 | Amended by entry 7 (`backlog-sync-ownership`): the same repository file keeps a direction map. Each entry is a block address (`domain/inbox/context.md`, `domain/tasks/domain.md#task`) with a direction, who set it and when. A unit resolves nearest wins over itself, its page, its context and its folder, and `report` when none states one. The map is imported once from a clone's Markdown `sync` values, never from a branch snapshot, and set in the devbook view, also on a branch snapshot and never on an archived repository. `list_sync_directions` answers it over MCP for the `backlog-tools` devbook sweep, behind the same `repository-devbook` key as the four decision tools. `DevbookMarkdownSyncWriter` is retired. The map does not replicate: the sweep that reads it runs on the machine that keeps it. | devbook's branch-true decision gave Backlog the direction and moved the sweeps into `backlog-tools`. |
 | 2026-10-30 | Proposed: a subject's workflow state lives in a Devbook store outside git, keyed by repository and subject and by fingerprint for a proposal's decisions, replicated through `devbookSubjects`, answered over MCP; the status writer is retired. | devbook's branch-true decision took workflow state out of the chapter, and Backlog had no store to keep it. |
