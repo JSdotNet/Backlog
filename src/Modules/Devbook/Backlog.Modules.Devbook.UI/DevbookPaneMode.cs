@@ -45,6 +45,18 @@ public interface IDevbookPaneMode
     /// null draws none.</summary>
     RenderFragment? BelowRepositoryChapter(string repositoryAlias, string chapterPath, EventCallback<string> onOpenNote);
 
+    /// <summary>Every link this devbook's notes hold into the repository
+    /// <paramref name="repositoryAlias"/>, one per note, chapter file and heading —
+    /// what the Domain view reads once to show each unit, feature and term the
+    /// notes linking to it (local ADR 0045). None by default.</summary>
+    Task<IReadOnlyList<DevbookChapterNote>> ChapterNotesAsync(string repositoryAlias, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DevbookChapterNote>>([]);
+
+    /// <summary>The box listing <paramref name="notes"/>, already read through
+    /// <see cref="ChapterNotesAsync"/>, under a Domain view page; null draws none,
+    /// as it does by default.</summary>
+    RenderFragment? NotesBox(string repositoryAlias, IReadOnlyList<DevbookNote> notes, EventCallback<string> onOpenNote) => null;
+
     /// <summary>The atlas over this devbook.</summary>
     Task<DevbookAtlasGraph> ReadAtlasAsync(CancellationToken cancellationToken = default);
 
@@ -52,6 +64,21 @@ public interface IDevbookPaneMode
     /// or null.</summary>
     DevbookRepositoryChapter? RepositoryChapterFor(string raw);
 }
+
+/// <summary>One link from a note of the mode's devbook into a repository chapter
+/// (<see cref="IDevbookPaneMode.ChapterNotesAsync"/>).</summary>
+/// <param name="ChapterPath">The chapter file, repository-relative, as the note
+/// writes it, in either devbook layout's spelling.</param>
+/// <param name="Slug">The heading linked to; null for the whole file.</param>
+/// <param name="Note">The note that links.</param>
+public sealed record DevbookChapterNote(string ChapterPath, string? Slug, DevbookNote Note);
+
+/// <summary>A note of the mode's devbook as a Domain view page lists it.</summary>
+/// <param name="NotePath">Its path from the devbook's root.</param>
+/// <param name="Title">Its title.</param>
+/// <param name="Heading">The note heading the link sits under; null for the note
+/// as a whole.</param>
+public sealed record DevbookNote(string NotePath, string Title, string? Heading);
 
 /// <summary>What the pane hands <see cref="IDevbookPaneMode.StripAction"/>.</summary>
 /// <param name="Readable">Whether the pane can read the source now.</param>

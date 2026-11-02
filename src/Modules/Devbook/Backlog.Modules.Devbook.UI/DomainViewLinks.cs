@@ -25,9 +25,9 @@ public static class DomainViewLinks
     /// each note once per heading in the order the links came. A link to a whole
     /// file names no unit, feature or term, and is left to the box under the page.
     /// </summary>
-    public static IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> NotesByChapter(IEnumerable<BrainChapterBacklink> links)
+    public static IReadOnlyDictionary<string, IReadOnlyList<DevbookNote>> NotesByChapter(IEnumerable<DevbookChapterNote> links)
     {
-        var byChapter = new Dictionary<string, List<BrainBacklink>>(StringComparer.Ordinal);
+        var byChapter = new Dictionary<string, List<DevbookNote>>(StringComparer.Ordinal);
         foreach (var link in links)
         {
             if (link.Slug is not { Length: > 0 } slug) continue;
@@ -40,7 +40,7 @@ public static class DomainViewLinks
             else if (notes[known].Heading is not null && link.Note.Heading is null) notes[known] = link.Note;
         }
 
-        return byChapter.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<BrainBacklink>)pair.Value, StringComparer.Ordinal);
+        return byChapter.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DevbookNote>)pair.Value, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public static class DomainViewLinks
     }
 
     /// <summary>The notes as a badge lists them: path and title.</summary>
-    public static IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> NoteLinks(IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> notes) =>
+    public static IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> NoteLinks(IReadOnlyDictionary<string, IReadOnlyList<DevbookNote>> notes) =>
         notes.ToDictionary(
             pair => pair.Key,
             pair => (IReadOnlyList<BrainNoteLink>)[.. pair.Value.Select(note => new BrainNoteLink(note.NotePath, note.Title))],
@@ -81,7 +81,7 @@ public static class DomainViewLinks
 
     /// <summary>The notes linking to any of <paramref name="references"/>, each once,
     /// in the order the chapters are given — what one From your Brain box lists.</summary>
-    public static IReadOnlyList<BrainBacklink> NotesOn(IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> notes, IEnumerable<string> references) =>
+    public static IReadOnlyList<DevbookNote> NotesOn(IReadOnlyDictionary<string, IReadOnlyList<DevbookNote>> notes, IEnumerable<string> references) =>
         [.. references
             .SelectMany(reference => notes.TryGetValue(DomainChapterLinks.Key(reference), out var linked) ? linked : [])
             .DistinctBy(note => note.NotePath, StringComparer.OrdinalIgnoreCase)];

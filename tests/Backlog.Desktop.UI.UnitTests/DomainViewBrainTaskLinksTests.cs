@@ -294,7 +294,7 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
     [Fact]
     public void Links_to_a_whole_file_name_no_chapter_and_a_note_is_listed_once_per_chapter()
     {
-        var notes = DomainViewLinks.NotesByChapter(BrainLinks);
+        var notes = DomainViewLinks.NotesByChapter(BrainLinks.Select(link => new DevbookChapterNote(link.ChapterPath, link.Slug, new DevbookNote(link.Note.NotePath, link.Note.Title, link.Note.Heading))));
 
         Assert.Equal(["tasks/domain.md#task", "tasks/domain.md#sub-item", "tasks/domain.md#inbox", "tasks/features.md#capture"], notes.Keys);
         Assert.Equal(["work/steps.md", "work/plan.md"], notes["tasks/domain.md#sub-item"].Select(note => note.NotePath));
@@ -337,6 +337,9 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<IBrainBacklinks>(new FixedChapterLinks(repository.Alias, BrainLinks));
+        // The notes reach the Domain view through the Brain's pane mode (local ADR 0040 §2).
+        context.Services.AddSingleton<IDevbookPersonalSource>(new BrainFolderSource(() => null));
+        context.Services.AddBrainPane();
 
         return new Harness(context, repository.Alias);
     }

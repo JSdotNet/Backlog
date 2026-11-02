@@ -121,10 +121,9 @@
 
     private DomainViewPage Page => DomainViewUnit.PageFor(SelectedPath);
 
-    private IBrainBacklinks? _backlinks;
-    private IBrainFolderSource? _brain;
-    private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> NoNotes = new Dictionary<string, IReadOnlyList<BrainBacklink>>();
-    private IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> _notes = NoNotes;
+    private IDevbookPaneMode? _mode;
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<DevbookNote>> NoNotes = new Dictionary<string, IReadOnlyList<DevbookNote>>();
+    private IReadOnlyDictionary<string, IReadOnlyList<DevbookNote>> _notes = NoNotes;
     private IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> _noteLinks = DomainChapterLinks.None.Notes;
     private CancellationTokenSource? _reading;
     private string? _notesFor;
@@ -132,15 +131,14 @@
     private int _notesRead;
     private bool _disposed;
     private DomainChapterLinks Links { get; set; } = DomainChapterLinks.None;
+    private static readonly RenderFragment NoBox = _ => { };
 
     protected override void OnInitialized()
     {
-        _backlinks = Services.GetService<IBrainBacklinks>();
-
-        // A rebuilt Brain database is announced on the Brain's own source, as the
-        // From your Brain box under the page hears it.
-        _brain = Services.GetService<IBrainFolderSource>();
-        if (_brain is not null) _brain.Changed += OnBrainChanged;
+        // The notes are the pane mode's (local ADR 0040 §2): the Brain supplies
+        // them, and a rebuilt Brain is announced on the mode's own source.
+        _mode = Services.GetService<IDevbookPaneMode>();
+        if (_mode is not null) _mode.Source.Changed += OnBrainChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -168,13 +166,13 @@
         _reading?.Dispose();
         _reading = null;
 
-        IReadOnlyList<BrainChapterBacklink> links = [];
-        if (_backlinks is not null && !string.IsNullOrWhiteSpace(alias))
+        IReadOnlyList<DevbookChapterNote> links = [];
+        if (_mode is not null && !string.IsNullOrWhiteSpace(alias))
         {
             var reading = _reading = new CancellationTokenSource();
             try
             {
-                links = await _backlinks.ChapterLinksAsync(alias, reading.Token);
+                links = await _mode.ChapterNotesAsync(alias, reading.Token);
             }
             catch (OperationCanceledException)
             {
@@ -199,14 +197,16 @@
             ? DomainViewLinks.TasksByChapter(references(alias), TaskTitleFor)
             : null;
         var notes = _notes;
+        var mode = _mode;
+        var repository = RepositoryAlias;
 
         return new DomainChapterLinks
         {
             Notes = _noteLinks,
             Tasks = tasks ?? DomainChapterLinks.None.Tasks,
-            NotesBox = covered => @<BrainBacklinksBox RepositoryAlias="@RepositoryAlias"
-                                                     Links="@DomainViewLinks.NotesOn(notes, covered)"
-                                                     OnOpenNote="OnOpenNote" />,
+            NotesBox = mode is not null && repository is { Length: > 0 }
+                ? covered => mode.NotesBox(repository, DomainViewLinks.NotesOn(notes, covered), OnOpenNote) ?? NoBox
+                : null,
             OnOpenNote = OnOpenNote.HasDelegate
                 ? EventCallback.Factory.Create<BrainNoteLink>(this, note => OnOpenNote.InvokeAsync(note.Path))
                 : default,
@@ -241,7 +241,7 @@
         _reading?.Cancel();
         _reading?.Dispose();
         _reading = null;
-        if (_brain is not null) _brain.Changed -= OnBrainChanged;
+        if (_mode is not null) _mode.Source.Changed -= OnBrainChanged;
     }
 
     /// <summary>

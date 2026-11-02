@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Brain.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 
 using Microsoft.Data.Sqlite;
 
