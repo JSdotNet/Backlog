@@ -53,6 +53,7 @@ public class McpToolCreationTests
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
         DecisionTools.GetState,
+        SyncDirectionTools.ListSyncDirections,
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
@@ -259,6 +260,10 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
         Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_approve"]);
         Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_accept"]);
+
+        // The units are optional: without them the tool answers the stated entries.
+        Assert.Equal(["repository", "units"], schemas["list_sync_directions"]);
+        Assert.Equal(["repository"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_sync_directions")));
         Assert.All(
             [DecisionTools.GetState, DecisionTools.SetState, DecisionTools.Approve, DecisionTools.Accept],
             name =>
@@ -380,6 +385,7 @@ public class McpToolCreationTests
                 new FakeDevbookSubjectStateStore(TimeProvider.System),
                 new FakeRepositoryDirectory(),
                 new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42"))),
+            [typeof(SyncDirectionTools)] = new SyncDirectionTools(new FakeDevbookSyncDirectionStore(), new FakeRepositoryDirectory()),
             [typeof(SessionTools)] = new SessionTools(
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),

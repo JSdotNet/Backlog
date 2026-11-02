@@ -1,6 +1,8 @@
 using System.Text.Json;
 
+using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -31,9 +33,36 @@ namespace Backlog.Infrastructure.FileSystem;
 /// answer. A refusal comes back with no state, so nothing is written, nothing is
 /// raised, and the file is byte-for-byte what it was.
 /// </para>
+/// <para>
+/// The same file keeps the repository's direction map
+/// (<see cref="IDevbookSyncDirectionStore"/>) — <c>directions</c> and
+/// <c>directionsImportedAt</c> beside <c>subjects</c> — because a direction left
+/// the chapter for the same reason a state did, and one file per repository is
+/// one place to look. A write of either kind rewrites the file with both; each
+/// port has its own <c>Changed</c>, raised only by its own writes. The map is not
+/// replicated:
+/// <see cref="ListChangedSince"/> and <see cref="Apply"/> are about subjects only,
+/// and the sweeps that read the map run on this machine.
+/// </para>
+/// <para>
+/// With a folder source composed, the first read of a repository's map copies in
+/// what its <c>domain/</c>, <c>arc42/</c> and <c>design/</c> Markdown still states
+/// (<see cref="DevbookSyncMarkdownImport"/>), once, from a clone's working copy
+/// only — a repository none of whose folders resolves, or that this machine reads
+/// from a branch snapshot, is left unmarked, so it imports when a clone does.
+/// </para>
 /// </summary>
-public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
+public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore
 {
+    /// <summary>The folders whose Markdown the import reads, by the key the
+    /// panels resolve them with.</summary>
+    private static readonly (string Key, DevbookFolder Folder)[] ImportedFolders =
+    [
+        (".domain", DevbookFolder.Domain),
+        (".arc42", DevbookFolder.Arc42),
+        (".design", DevbookFolder.Design),
+    ];
+
     /// <summary>The folder under the storage root the files go in.</summary>
     public const string FolderName = "devbook-subjects";
 
@@ -45,6 +74,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
 
     private readonly Func<string> _rootDirectory;
     private readonly TimeProvider _time;
+    private readonly IDevbookFolderSource? _folders;
     private readonly Lock _gate = new();
 
     /// <summary>The root the files below were read from. A different answer from
@@ -60,23 +90,40 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
     /// on every call, so a backlog moved from Settings takes its states along.</param>
     /// <param name="time">Stamps the operations. Replication's writes carry their
     /// own stamps and never touch it.</param>
-    public DevbookSubjectStateStore(Func<string> rootDirectory, TimeProvider? time = null)
+    /// <param name="folders">Where this machine has each devbook folder, for the
+    /// one-time import of the directions the Markdown states. None composed, none
+    /// imported: the map holds what is set.</param>
+    public DevbookSubjectStateStore(Func<string> rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
     {
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
         _rootDirectory = rootDirectory;
         _time = time ?? TimeProvider.System;
+        _folders = folders;
     }
 
     /// <summary>A store over one fixed folder — what a test or a harness that
     /// scopes its state to a content root composes.</summary>
-    public DevbookSubjectStateStore(string rootDirectory, TimeProvider? time = null)
-        : this(() => rootDirectory, time)
+    public DevbookSubjectStateStore(string rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
+        : this(() => rootDirectory, time, folders)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
     }
 
+    /// <summary>Raised after a subject write — an operation or a replicated
+    /// <see cref="Apply"/> — never for a direction.</summary>
     public event Action? Changed;
+
+    /// <summary>The direction port's own event, raised by a direction write and
+    /// by the import, never by a subject write — so a pane rebuilding its sync
+    /// scope is not woken by every replicated subject.</summary>
+    event Action? IDevbookSyncDirectionStore.Changed
+    {
+        add => DirectionsChanged += value;
+        remove => DirectionsChanged -= value;
+    }
+
+    private event Action? DirectionsChanged;
 
     public DevbookSubjectState? Get(string? repositoryAlias, DevbookSubject subject)
     {
@@ -158,6 +205,179 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
         }
     }
 
+    /// <summary>Every direction stated for the repository, by address, after the
+    /// one-time import. Explicit because <see cref="IDevbookSubjectStateStore.List"/>
+    /// takes the same argument.</summary>
+    IReadOnlyList<DevbookSyncStatement> IDevbookSyncDirectionStore.List(string? repositoryAlias)
+    {
+        ImportOnce(repositoryAlias);
+
+        lock (_gate)
+        {
+            Load();
+
+            return _files.TryGetValue(DevbookSubject.AliasKey(repositoryAlias), out var file)
+                ? [.. file.Directions.Values.OrderBy(statement => statement.Address, StringComparer.Ordinal)]
+                : [];
+        }
+    }
+
+    public string? Get(string? repositoryAlias, string address)
+    {
+        if (!DevbookSync.TryAddress(address, out _, out var normalised)) return null;
+
+        ImportOnce(repositoryAlias);
+
+        lock (_gate)
+        {
+            Load();
+
+            return _files.TryGetValue(DevbookSubject.AliasKey(repositoryAlias), out var file)
+                ? file.Directions.GetValueOrDefault(normalised)?.Direction
+                : null;
+        }
+    }
+
+    public DevbookSyncStatement? Set(string? repositoryAlias, string address, string? direction, string by)
+    {
+        if (!DevbookSync.TryAddress(address, out _, out var normalised))
+        {
+            throw new ArgumentException($"'{address}' names no devbook folder.", nameof(address));
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction) && !DevbookSync.IsDirection(direction))
+        {
+            throw new ArgumentException(
+                $"'{direction}' is not a sync direction: {string.Join(", ", DevbookSync.Directions)}.", nameof(direction));
+        }
+
+        // Before the write, as a read does: a direction cleared before the first
+        // read would otherwise be put back by the import that read then runs.
+        ImportOnce(repositoryAlias);
+
+        DevbookSyncStatement? statement = null;
+
+        lock (_gate)
+        {
+            Load();
+
+            var file = FileFor(DevbookSubject.AliasKey(repositoryAlias));
+
+            if (string.IsNullOrWhiteSpace(direction))
+            {
+                if (!file.Directions.Remove(normalised)) return null;
+            }
+            else
+            {
+                statement = new DevbookSyncStatement(normalised, direction.Trim().ToLowerInvariant(), by ?? string.Empty, _time.GetUtcNow());
+                file.Directions[normalised] = statement;
+            }
+
+            Save(file);
+        }
+
+        DirectionsChanged?.Invoke();
+
+        return statement;
+    }
+
+    public bool IsImported(string? repositoryAlias)
+    {
+        lock (_gate)
+        {
+            Load();
+
+            return _files.TryGetValue(DevbookSubject.AliasKey(repositoryAlias), out var file) && file.DirectionsImportedAt is not null;
+        }
+    }
+
+    public void Import(string? repositoryAlias, IEnumerable<(string Address, string Direction)> stated)
+    {
+        ArgumentNullException.ThrowIfNull(stated);
+
+        lock (_gate)
+        {
+            Load();
+
+            var file = FileFor(DevbookSubject.AliasKey(repositoryAlias));
+            if (file.DirectionsImportedAt is not null) return;
+
+            var at = _time.GetUtcNow();
+            foreach (var (address, direction) in stated)
+            {
+                if (!DevbookSync.IsDirection(direction) || !DevbookSync.TryAddress(address, out _, out var normalised)) continue;
+
+                file.Directions.TryAdd(normalised, new DevbookSyncStatement(normalised, direction.Trim().ToLowerInvariant(), DevbookSyncStatement.ImportedBy, at));
+            }
+
+            file.DirectionsImportedAt = at;
+            Save(file);
+        }
+
+        DirectionsChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// The import the first read of a repository's map runs, when a folder source
+    /// is composed and the repository is not marked yet. The Markdown is scanned
+    /// outside the lock — a whole <c>domain/</c> folder is not something every
+    /// other caller should wait behind — and <see cref="Import"/> checks the mark
+    /// again under it, so two first reads at once import once.
+    /// </summary>
+    private void ImportOnce(string? repositoryAlias)
+    {
+        if (_folders is null || IsImported(repositoryAlias)) return;
+
+        if (ReadMarkdown(repositoryAlias) is { } stated) Import(repositoryAlias, stated);
+    }
+
+    /// <summary>
+    /// What the repository's folders state, or null — the repository then stays
+    /// unmarked and is asked again on the next read — when none of them resolves
+    /// to a folder on disk, one could not be read, or the answer would be partial.
+    /// <para>
+    /// Only a clone's working copy is imported. A branch snapshot holds the files
+    /// somebody has opened, not the folder, so a scan of it would mark the
+    /// repository done with values missing — and one still being fetched holds
+    /// less. All three folders are resolved before any is scanned: if one is
+    /// pending or is a snapshot, nothing is read. A repository this machine reads
+    /// only from a branch is therefore not imported; its map holds what is set.
+    /// </para>
+    /// </summary>
+    private List<(string Address, string Direction)>? ReadMarkdown(string? repositoryAlias)
+    {
+        var locations = ImportedFolders
+            .Select(entry => (Location: _folders!.Resolve(entry.Key, repositoryAlias), entry.Folder))
+            .ToList();
+
+        if (locations.Any(entry => entry.Location.Pending
+            || (entry.Location.Available && entry.Location.Source is not DevbookSourceKind.LocalFolder)))
+        {
+            return null;
+        }
+
+        var readable = locations
+            .Where(entry => entry.Location.Available && !string.IsNullOrWhiteSpace(entry.Location.FullPath))
+            .ToList();
+        if (readable.Count == 0) return null;
+
+        var stated = new List<(string, string)>();
+
+        try
+        {
+            foreach (var (location, folder) in readable)
+            {
+                stated.AddRange(DevbookSyncMarkdownImport.Read(location.FullPath!, folder));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return stated;
+    }
+
     /// <summary>One operation under the lock: the current state read, the rules
     /// asked, and only an answer that is not a refusal written and raised.</summary>
     private DevbookSubjectOutcome Operate(
@@ -205,15 +425,23 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
     private void Put(DevbookSubjectState state)
     {
         var key = DevbookSubject.AliasKey(state.RepositoryAlias);
+        var file = FileFor(key);
 
+        file.States[state.Id] = state with { RepositoryAlias = key };
+        Save(file);
+    }
+
+    /// <summary>The repository's file, created in memory when it has none yet.
+    /// Must be called under the lock, after <see cref="Load"/>.</summary>
+    private RepositoryFile FileFor(string key)
+    {
         if (!_files.TryGetValue(key, out var file))
         {
             file = new RepositoryFile(key, PathFor(key));
             _files[key] = file;
         }
 
-        file.States[state.Id] = state with { RepositoryAlias = key };
-        Save(file);
+        return file;
     }
 
     /// <summary>Must be called under the lock, after <see cref="Load"/>.</summary>
@@ -283,6 +511,17 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
                     entry.UpdatedAt);
             }
 
+            // A direction is skipped the same way: no address this version can
+            // place, or a value outside the five, is nothing a reading could use.
+            foreach (var entry in dto.Directions ?? [])
+            {
+                if (entry is null || !DevbookSync.IsDirection(entry.Direction) || !DevbookSync.TryAddress(entry.Address, out _, out var address)) continue;
+
+                file.Directions[address] = new DevbookSyncStatement(address, entry.Direction!.Trim().ToLowerInvariant(), entry.By ?? string.Empty, entry.At);
+            }
+
+            file.DirectionsImportedAt = dto.DirectionsImportedAt;
+
             return file;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -340,6 +579,19 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
                             UpdatedAt = state.UpdatedAt,
                         }),
                 ],
+                Directions =
+                [
+                    .. file.Directions.Values
+                        .OrderBy(statement => statement.Address, StringComparer.Ordinal)
+                        .Select(statement => new DirectionDto
+                        {
+                            Address = statement.Address,
+                            Direction = statement.Direction,
+                            By = statement.By,
+                            At = statement.At,
+                        }),
+                ],
+                DirectionsImportedAt = file.DirectionsImportedAt,
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -356,6 +608,13 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
         public string Path { get; } = path;
 
         public Dictionary<Guid, DevbookSubjectState> States { get; } = [];
+
+        /// <summary>By normalised address, compared ordinally.</summary>
+        public Dictionary<string, DevbookSyncStatement> Directions { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>When the Markdown's directions were copied in; null until
+        /// then.</summary>
+        public DateTimeOffset? DirectionsImportedAt { get; set; }
     }
 
     private sealed class RepositoryFileDto
@@ -365,6 +624,24 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore
         /// <summary>Nullable, entries too, because that is what a file on disk can
         /// hold; <see cref="Read"/> takes either as nothing.</summary>
         public List<SubjectStateDto?>? Subjects { get; init; } = [];
+
+        /// <summary>Nullable for the same reason, and absent from every file
+        /// written before the map existed.</summary>
+        public List<DirectionDto?>? Directions { get; init; } = [];
+
+        public DateTimeOffset? DirectionsImportedAt { get; init; }
+    }
+
+    private sealed class DirectionDto
+    {
+        /// <summary>The block's folder-qualified address.</summary>
+        public string? Address { get; init; }
+
+        public string? Direction { get; init; }
+
+        public string? By { get; init; }
+
+        public DateTimeOffset At { get; init; }
     }
 
     private sealed class SubjectStateDto

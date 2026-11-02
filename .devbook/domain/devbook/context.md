@@ -108,8 +108,9 @@ for a decision or debt record ([Subject State](domain.md#subject-state)), with w
 set it and when. Off, no status, decision state or record state is drawn there,
 and neither are the findings about them. A record's state is still kept, and an
 assistant can still read and set it over MCP. A chapter's other fields, such
-as `related` and `sync`, are still drawn, and a heading over an otherwise empty
-`meta` fence still renders.
+as `related`, are still drawn, and so is a unit's sync direction, which the app
+keeps in its direction map. A heading over an otherwise empty `meta` fence still
+renders.
 
 It switches the file and chapter surfaces only. The AI loop's usage pills and the
 atlas badges read a chapter's status as a summary shown somewhere else, and are

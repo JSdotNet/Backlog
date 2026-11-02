@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its ten skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its eleven skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -78,6 +78,10 @@ repository, by the rules that folder carries, plus the Backlog `task` entries it
 follow-ups the person routes there — so it is no flow and never meets the gate.
 `weekly-cost-analysis` is model-invoked and changes nothing: it reads the `backlog` server's
 `list_run_usage` and ends on a report of what the window's runs cost, so it is no flow.
+`devbook-sweep` is the target of a repository's local devbook sweep routine, unattended by
+design: it reads each sync unit's direction from the `backlog` MCP server and lands every change
+as a draft pull request a person validates, the way `delivery-schedule`'s scheduled skills do —
+so it is no flow and adds no execution path beside the gate.
 
 `.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
@@ -193,3 +197,6 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
 - `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs
   on this machine cost in tokens, across every repository, from `list_run_usage`; no flow.
+- `plugins/backlog-tools/skills/devbook-sweep/SKILL.md` — levels a devbook and its code in the
+  direction Backlog keeps per sync unit, as draft pull requests; the per-repository routine's
+  target, no flow.

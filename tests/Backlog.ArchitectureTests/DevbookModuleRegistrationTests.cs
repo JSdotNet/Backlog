@@ -62,7 +62,8 @@ public sealed partial class DevbookModuleRegistrationTests
         "IDevbookAnnotationStore",
         "DevbookAnnotationStore",
         "IDevbookSubjectStateStore",
-        "DevbookSubjectStateStore"
+        "DevbookSubjectStateStore",
+        "IDevbookSyncDirectionStore"
     ];
 
     [Fact]
@@ -206,16 +207,18 @@ public sealed partial class DevbookModuleRegistrationTests
     /// <summary>
     /// The fourth slice: the document-shaped folders, <c>design/</c> and <c>ai/</c>.
     /// Their provider and parser, and the folder descriptor they are built on, sit in
-    /// the adapter's <c>Documents/</c> folder; the <c>sync</c> field's writer and the
-    /// reading the provider hands a pane went with them into <c>Chapters/</c>, beside
-    /// the heading helpers they are built on, and so did the guard every store's write
-    /// checks the folder with first. The screen keeps the one member that built a UI
-    /// type, <c>DevbookSyncReading.Scope</c>, as an extension of its own.
+    /// the adapter's <c>Documents/</c> folder; the <c>sync</c> reading the provider
+    /// hands a pane went with them into <c>Chapters/</c>, beside the heading helpers
+    /// it is built on, and so did the guard every store's write checks the folder
+    /// with first. The screen keeps the one member that built a UI type,
+    /// <c>DevbookSyncReading.Scope</c>, as an extension of its own. The reading's
+    /// writer is gone: a direction is Backlog's map's now, and nothing writes
+    /// <c>sync</c> into a file.
     /// </summary>
     [Theory]
     [InlineData("Documents", "DocumentDevbook.cs")]
     [InlineData("Documents", "DocumentDevbookFolder.cs")]
-    [InlineData("Chapters", "DevbookMarkdownSyncWriter.cs")]
+    [InlineData("Chapters", "DevbookSyncReading.cs")]
     [InlineData("Chapters", "DevbookWriteGuard.cs")]
     public void The_document_folder_provider_and_the_sync_reader_live_in_the_adapter(string folder, string moved)
     {

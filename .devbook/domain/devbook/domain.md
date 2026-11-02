@@ -429,9 +429,12 @@ What one sync direction governs, and what a sweep checks and acts on as a whole.
 The devbook convention defines it: an aggregate with everything it owns, a domain
 service, a feature with its sub-features and requirements, one switch or setting,
 one actor, one building-block file, or one component chapter. Each unit's
-direction is `push`, `pull`, `sync`, `report` or `off`. It is set on the unit's
-root chapter or inherited from its page, its context or its folder, and `report`
-applies when none of them states one.
+direction is `push`, `pull`, `sync`, `report` or `off`. Backlog keeps it in a
+direction map per repository, set in the devbook view on the unit's root chapter,
+its page, its context or its folder. The nearest one wins, and `report` applies
+when none of them states one. The chapter carries no direction of its own: the
+values a clone's Markdown still states are copied into the map once, the first
+time the map is read. A repository read only from a branch is not imported.
 
 ### Review Note
 

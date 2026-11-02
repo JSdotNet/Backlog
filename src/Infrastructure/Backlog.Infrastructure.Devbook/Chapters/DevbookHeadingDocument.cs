@@ -11,12 +11,12 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 ///
 /// <para>Every writer that addresses a heading is built on them —
 /// <see cref="DevbookMarkdownRatingWriter"/> for a rating in <c>tech/</c> and
-/// <c>ai/</c>, <see cref="DevbookMarkdownSyncWriter"/> for a <c>sync</c>
-/// direction — and <see cref="DevbookChapterStatusText"/> asks them for the
-/// decision-record rule its merge applies. One set of helpers means every writer
-/// finds a heading the same way and names it with the same slug. None of them
-/// writes a chapter's workflow state: under devbook's branch-true decision that
-/// state is the tool's, not the file's.</para>
+/// <c>ai/</c> — <see cref="DevbookSyncReading"/> names a block's direction
+/// address with the same slug, and <see cref="DevbookChapterStatusText"/> asks
+/// them for the decision-record rule its merge applies. One set of helpers means
+/// every writer finds a heading the same way and names it with the same slug. None
+/// of them writes a chapter's workflow state or its <c>sync</c> direction: under
+/// devbook's branch-true decision both are the tool's, not the file's.</para>
 /// </summary>
 internal static class DevbookHeadingDocument
 {

@@ -649,7 +649,15 @@ public static class DesktopCompositionRegistration
         // branch-true decision: one JSON file per repository under the storage
         // folder, following the root as the remarks above do. The panels fall back
         // to a session store when it is absent, as they do for remarks.
-        services.AddSingleton<IDevbookSubjectStateStore>(sp =>
-            new DevbookSubjectStateStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        // The same instance keeps the repository's sync direction map, in the same
+        // file, so it is registered once and answered for both ports. The folder
+        // source is what lets the first read of a repository's map copy in what its
+        // Markdown still states.
+        services.AddSingleton(sp =>
+            new DevbookSubjectStateStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+        services.AddSingleton<IDevbookSubjectStateStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
+        services.AddSingleton<IDevbookSyncDirectionStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
     }
 }

@@ -466,6 +466,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.NotSame(
             first.ServiceProvider.GetRequiredService<DomainDevbookStore>(),
             second.ServiceProvider.GetRequiredService<DomainDevbookStore>());
+
+        // One file per repository keeps both, so one instance answers both ports:
+        // two would each rewrite the file without the other's half.
+        Assert.Same(
+            provider.GetRequiredService<IDevbookSubjectStateStore>(),
+            provider.GetRequiredService<IDevbookSyncDirectionStore>());
         Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
     }

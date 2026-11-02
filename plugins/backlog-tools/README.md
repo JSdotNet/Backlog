@@ -1,12 +1,13 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Ten skills: one for each direction of a plan,
+general-purpose or devbook tooling. Eleven skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, and one that reports what the week's runs cost — and a
-pane that follows a running plan.
+queues, one that tends a person's Brain, one that reports what the week's runs cost, and one
+that levels a devbook and its code in the direction Backlog keeps — and a pane that follows a
+running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -205,6 +206,58 @@ pane that follows a running plan.
   with the top tips. Copied from `delivery-schedule`'s `schedule-weekly-cost-analysis`, which
   reads one delivery surface's runs and leaves that plugin in a later devbook release.
   Model-invoked; it writes nothing.
+- **`devbook-sweep`** — levels a repository's devbook chapters and its code in the direction
+  Backlog keeps for each sync unit: `pull` carries code into chapters, `push` builds agreed
+  chapters. Copied from `delivery-schedule`'s `schedule-devbook-sweep` when devbook's branch-true
+  decision took the `sync` field out of the chapter (`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#schedules-and-sync`),
+  with its three workflow scripts, its `report.md`, and `devbook-sweep-contract.md` beside it.
+  The direction is Backlog's direction map, set in the devbook view and read through the
+  `backlog` MCP server's `list_sync_directions`; `units.mjs` still groups the chapters, and
+  `assets/select-groups.mjs` joins the two deterministically, so the pickup never rests on a
+  model's reading. `devbook:verify-change` still gives the verdicts, and `delivery-schedule`
+  still supplies the report frame, the draft-pull-request contract, and the push direction's
+  resolver. Every pull request it opens is a draft; it never sets a direction. Its test runs
+  under `node --test plugins/backlog-tools/tests/devbook-sweep-select.test.mjs`. Not a flow:
+  it is the target of the routine below, and run by hand the same way.
+
+### The devbook sweep routine
+
+Run the two sweeps as **one local routine per repository**, the way `delivery-schedule`
+creates its routines (its `resources/schedule-catalog-contract.md`): a session the desktop
+app's scheduler starts on this machine, in the repository's main checkout, with the plugins
+installed here — never a cloud routine, which starts on a fresh clone without them. Nothing in
+this plugin creates it; make it once per repository from Claude Code's Routines page, or by
+asking a session in that checkout to call `create_scheduled_task` with:
+
+| Field | Value |
+| --- | --- |
+| Name | `<owner>/<repo> · Devbook sweep` |
+| Working folder | the repository's main checkout, never a worktree — a worktree goes with its session |
+| Schedule | weekly, e.g. `0 4 * * 1` UTC, converted to this machine's timezone |
+| Worktree option | on, so each run gets a worktree of its own |
+| Tools to approve on the first run, fired by hand | `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `Skill`, `Workflow`, and the `backlog` MCP server |
+
+The prompt is `delivery-schedule`'s `resources/schedule-preamble.md` with its placeholders
+filled — `{{name}}` `devbook-sweep`, `{{title}}` `Devbook sweep`, `{{repo}}`, `{{base}}`, and
+`{{checkout}}` the checkout's absolute path with forward slashes — a blank line, and:
+
+```text
+Run /backlog-tools:devbook-sweep with direction: pull for the repository {{repo}} on {{base}},
+with maxResolve 3. Then run it again with direction: push and maxResolve 1, after the pull
+sweep's pull requests are open, so a sync group that also reads code-ahead waits for them.
+Every pull request is a draft, on its own branch under schedule/devbook-pull-sweep/<YYYY-MM-DD>/
+or schedule/devbook-push-sweep/<YYYY-MM-DD>/. The report is both briefs, pull first, each
+closed by its devbook-sync-report block.
+```
+
+The Backlog app must be running for the `backlog` MCP server to answer; a run that cannot
+reach it stops in Phase 1 and says so, and levels nothing. Retire the catalog's
+`devbook-pull-sweep` and `devbook-push-sweep` routines for that repository —
+`delivery-schedule:update` with both left out of the selection — so a unit is never levelled
+twice. `delivery-schedule`'s `devbook-verify` stays where it is and still reports drift on the
+units `units.mjs` resolves to `report`; it does not read Backlog's map yet, so once a
+repository's chapters state no `sync` it reports on every unit, the swept ones included. Read
+its report beside the sweep's rather than as a second verdict.
 
 The plan-item marker exists because a plan is written before the app has given its entries
 an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The

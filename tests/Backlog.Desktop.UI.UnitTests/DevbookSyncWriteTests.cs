@@ -1,277 +1,190 @@
-using Backlog.SharedKernel.Devbook;
+using Backlog.Desktop.UI.Devbook;
+using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Devbook.Abstractions;
+using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The <c>sync</c> field of devbook contract 25, from the file's side: the writer
-/// puts a direction only where the rule allows one and takes it off anywhere, and
-/// the reading resolves a unit's direction nearest-wins through its page, its
-/// <c>context.md</c> and the context map — reporting the level it came from.
+/// The sync selector, from the panes' side, now that a direction is Backlog's and
+/// not the chapter's (devbook's branch-true decision): a pick lands in the
+/// repository's direction map by the block's address and no file changes, so it
+/// is offered on a read-only branch snapshot too — and refused on an archived
+/// repository (local ADR 0029 §4), which shows the direction and offers nothing.
+/// Another writer — a tool call over MCP — moving the map redraws the pane.
 /// </summary>
 public sealed class DevbookSyncWriteTests : IDisposable
 {
-    private const string DomainText = """
-        # Orders
-
-        ```meta
-        type: domain
-        ```
-
-        ## Order
-
-        ```meta
-        type: aggregate
-        status: draft
-        ```
-
-        Order text.
-
-        ### Order Line
-
-        ```meta
-        type: entity
-        ```
-
-        ## Order Placed
-
-        ```meta
-        type: domain-event
-        related: [.devbook/domain/orders/domain.md#order]
-        ```
-        """;
-
-    /// <summary>The page with LF newlines whatever the checkout did to this file.</summary>
-    private static readonly string Domain = DomainText.Replace("\r\n", "\n", StringComparison.Ordinal);
+    private const string Alias = "backlog";
+    private const string ContextMap = "domain/context-map.md";
+    private const string Pad = ".file-view__header [role='group'][aria-label='Sync direction']";
 
     private readonly List<string> _roots = [];
 
-    [Fact]
-    public void Writing_a_direction_on_a_unit_adds_the_field_at_the_end_of_its_fence_and_touches_nothing_else()
-    {
-        var (root, path) = Folder(("orders/domain.md", Domain));
-
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".devbook/domain/orders/domain.md#order", ".domain/", "Push");
-
-        Assert.Equal(Domain.Replace("type: aggregate\nstatus: draft\n", "type: aggregate\nstatus: draft\nsync: push\n", StringComparison.Ordinal), Read(path("orders/domain.md")));
-    }
-
-    [Fact]
-    public void Writing_again_replaces_the_line_rather_than_adding_a_second()
-    {
-        var (root, path) = Folder(("orders/domain.md", Domain));
-
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/domain.md#order", ".domain/", "push");
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/domain.md#order", ".domain/", "off");
-
-        var text = Read(path("orders/domain.md"));
-        Assert.Contains("status: draft\nsync: off\n", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("sync: push", text, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void A_page_takes_a_direction_on_its_file_block()
-    {
-        var (root, path) = Folder(("orders/domain.md", Domain));
-
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/domain.md", ".domain/", "pull");
-
-        Assert.StartsWith("# Orders\n\n```meta\ntype: domain\nsync: pull\n```", Read(path("orders/domain.md")), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void A_heading_with_no_fence_gets_one_holding_only_the_direction()
-    {
-        var (root, path) = Folder(("05-building-block-view.md", "# Building Block View\n\nText.\n"));
-
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".arc42/05-building-block-view.md", ".arc42/", "pull");
-
-        Assert.Equal("# Building Block View\n\n```meta\nsync: pull\n```\n\nText.\n", Read(path("05-building-block-view.md")));
-    }
-
     [Theory]
-    [InlineData(".domain/orders/domain.md#order-line")]
-    [InlineData(".domain/orders/domain.md#order-placed")]
-    public void A_chapter_a_unit_owns_is_refused_and_the_file_left_alone(string itemPath)
+    [InlineData(DevbookSourceKind.LocalFolder)]
+    [InlineData(DevbookSourceKind.Branch)]
+    public void A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
     {
-        var (root, path) = Folder(("orders/domain.md", Domain));
+        using var harness = DomainHarness(source, out var directions, out var file);
+        var before = File.ReadAllBytes(file);
 
-        Assert.Throws<InvalidOperationException>(() => DevbookMarkdownSyncWriter.UpdateSync(root, itemPath, ".domain/", "push"));
+        var component = Render(harness);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
 
-        Assert.Equal(Domain, Read(path("orders/domain.md")));
+        // The pad's left key states pull.
+        component.Find($"{Pad} .sync-pad__key--left").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var statement = Assert.Single(directions.List(Alias));
+            Assert.Equal(new DevbookSyncStatement(ContextMap, "pull", DevbookLocalAuthor.Name, statement.At), statement);
+        });
+        component.WaitForAssertion(() => Assert.Contains("badge--sync-pull", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
+        Assert.Equal(before, File.ReadAllBytes(file));
     }
 
     [Fact]
-    public void A_page_that_only_holds_owned_chapters_is_refused()
+    public void Inheriting_again_clears_the_entry()
     {
-        const string requirements = "# Requirements\n\n```meta\ntype: requirements\n```\n";
-        var (root, _) = Folder(("orders/requirements.md", requirements));
+        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, out var directions, out _);
+        directions.Set(Alias, ContextMap, "push", "someone");
 
-        Assert.Throws<InvalidOperationException>(() => DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/requirements.md", ".domain/", "push"));
-    }
+        var component = Render(harness);
+        component.WaitForAssertion(() => Assert.Contains("badge--sync-push", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
 
-    [Theory]
-    [InlineData(".tech/", "shared.md")]
-    [InlineData(".ai/", "adoption-map.md")]
-    public void A_folder_that_takes_no_direction_is_refused(string prefix, string file)
-    {
-        var (root, _) = Folder((file, "# Title\n\n```meta\nstatus: trial\n```\n"));
+        // The pad's down key states nothing, so the block inherits.
+        component.Find($"{Pad} .sync-pad__key--down").Click();
 
-        Assert.Throws<InvalidOperationException>(() => DevbookMarkdownSyncWriter.UpdateSync(root, prefix + file, prefix, "push"));
+        component.WaitForAssertion(() => Assert.Empty(directions.List(Alias)));
     }
 
     [Fact]
-    public void A_value_outside_the_five_is_refused_before_the_file_is_opened()
+    public void An_archived_repository_shows_the_direction_and_offers_no_pick()
     {
-        var (root, path) = Folder(("orders/domain.md", Domain));
+        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, out var directions, out _, archived: true);
+        directions.Set(Alias, ContextMap, "push", "someone");
 
-        Assert.Throws<ArgumentException>(() => DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/domain.md#order", ".domain/", "both"));
+        var component = Render(harness);
 
-        Assert.Equal(Domain, Read(path("orders/domain.md")));
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".file-view__header [data-testid='devbook-sync']")));
+        Assert.Empty(component.FindAll(Pad));
+        Assert.Contains("push", component.Find(".file-view__header [data-testid='devbook-sync']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Removing_takes_the_line_off_even_where_it_was_misplaced_and_keeps_the_fence()
+    public void Another_writer_moving_the_map_redraws_the_open_chapter()
     {
-        var misplaced = Domain.Replace("type: entity\n", "type: entity\nsync: push\n", StringComparison.Ordinal);
-        var (root, path) = Folder(("orders/domain.md", misplaced));
+        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, out var directions, out _);
 
-        DevbookMarkdownSyncWriter.RemoveSync(root, ".domain/orders/domain.md#order-line", ".domain/");
+        var component = Render(harness);
+        component.WaitForAssertion(() => Assert.Contains("badge--sync-report", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
 
-        Assert.Equal(Domain, Read(path("orders/domain.md")));
+        // What a tool call over MCP, or another pane, does: write the store directly.
+        directions.Set(Alias, ".devbook/domain/context-map.md", "off", "someone");
+
+        component.WaitForAssertion(() => Assert.Contains("badge--sync-off", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Removing_where_nothing_states_a_direction_leaves_the_file_untouched()
+    public void A_pick_in_the_design_view_states_the_direction_in_the_map_on_a_branch_and_writes_no_file()
     {
-        var (root, path) = Folder(("orders/domain.md", Domain));
-        var before = File.GetLastWriteTimeUtc(path("orders/domain.md"));
+        var root = TempDir();
+        var design = Path.Combine(root, ".design");
+        Directory.CreateDirectory(design);
+        var file = Path.Combine(design, "component-libraries.md");
+        File.WriteAllText(file, "# Component Libraries\n\n```meta\nstatus: draft\n```\n\nThe libraries.\n");
+        var before = File.ReadAllBytes(file);
 
-        DevbookMarkdownSyncWriter.RemoveSync(root, ".domain/orders/domain.md#order", ".domain/");
+        var (context, _) = Context(root, DevbookSourceKind.Branch);
+        var directions = new SessionDevbookSubjectStateStore();
+        context.Services.AddSingleton<IDevbookSyncDirectionStore>(directions);
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
+        using var harness = new Harness(context);
 
-        Assert.Equal(before, File.GetLastWriteTimeUtc(path("orders/domain.md")));
+        var component = context.Render<DesignDevbookView>(parameters => parameters
+            .Add(view => view.RepositoryAlias, Alias)
+            .Add(view => view.SelectedPath, "component-libraries.md"));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
+
+        // The pad's right key states push.
+        component.Find($"{Pad} .sync-pad__key--right").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("push", directions.Get(Alias, "design/component-libraries.md")));
+        Assert.Equal(before, File.ReadAllBytes(file));
     }
 
-    [Fact]
-    public void A_crlf_file_keeps_its_newlines()
+    // --- Fixtures --------------------------------------------------------------
+
+    private static IRenderedComponent<DomainDevbookPanel> Render(Harness harness) =>
+        harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, Alias)
+            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+
+    /// <summary>A domain folder holding the context map, whose own block is the
+    /// folder's sync level, with a session direction map the panel finds.</summary>
+    private Harness DomainHarness(DevbookSourceKind source, out IDevbookSyncDirectionStore directions, out string file, bool archived = false)
     {
-        var (root, path) = Folder(("orders/domain.md", Domain.Replace("\n", "\r\n", StringComparison.Ordinal)));
+        var root = TempDir();
+        var domain = Path.Combine(root, ".domain");
+        Directory.CreateDirectory(domain);
+        file = Path.Combine(domain, "context-map.md");
+        File.WriteAllText(file, "# Context Map\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n");
 
-        DevbookMarkdownSyncWriter.UpdateSync(root, ".domain/orders/domain.md#order", ".domain/", "push");
+        var (context, folders) = Context(root, source);
+        folders.Archived = archived;
 
-        var text = File.ReadAllText(path("orders/domain.md"));
-        Assert.Contains("status: draft\r\nsync: push\r\n", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("\r\r", text, StringComparison.Ordinal);
+        var store = new SessionDevbookSubjectStateStore();
+        directions = store;
+        context.Services.AddSingleton<IDevbookSyncDirectionStore>(store);
+        context.Services.AddSingleton<IAppFeatureSettings>(
+            new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json")));
+        context.Services.AddSingleton(new DomainDevbookStore(folders));
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
+
+        return new Harness(context);
     }
 
-    [Fact]
-    public void A_unit_resolves_nearest_wins_and_says_which_level_answered()
+    /// <summary>The services every pane here asks for, over one root resolved as
+    /// the clone or as a branch snapshot.</summary>
+    private static (BunitContext Context, StubFolderSource Folders) Context(string root, DevbookSourceKind source)
     {
-        var (root, _) = Folder(
-            ("context-map.md", "# Context Map\n\n```meta\nsync: report\n```\n"),
-            ("orders/context.md", "# Orders\n\n```meta\ntype: context\nsync: push\n```\n"),
-            ("orders/domain.md", Domain));
+        var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
 
-        var reading = DevbookSyncReading.Read(root, DevbookFolder.Domain, ".devbook/domain/orders/domain.md");
+        var branch = source is DevbookSourceKind.Branch;
+        var repository = Assert.Single(repositories) with
+        {
+            CloneDirectory = branch ? null : root,
+            UseLocalDevbookFolder = !branch,
+            DevbookFolders = DevbookFolderSetting.Defaults()
+        };
+        Assert.Null(gitHub.SetRepositories([repository]));
 
-        // Nothing on the unit or its page: the context answers.
-        var unit = reading.Describe(DevbookMetadataLevel.Chapter, "Order");
-        Assert.NotNull(unit);
-        Assert.Equal(DevbookSyncLevel.Unit, unit.Level);
-        Assert.Null(unit.Stated);
-        Assert.Equal(new DevbookSyncDirection("push", DevbookSyncLevel.Context), unit.Effective);
+        var folders = new StubFolderSource(root, source);
 
-        // The page is a level of its own, handing the same direction down.
-        var page = reading.Describe(DevbookMetadataLevel.File, null);
-        Assert.Equal(DevbookSyncLevel.Page, page!.Level);
-        Assert.Equal("push", page.Effective.Direction);
+        var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(new WorkspaceSettingsStore(Path.Combine(root, "store")));
+        context.Services.AddSingleton(gitHub);
+        context.Services.AddSingleton<IDevbookFolderSource>(folders);
+        context.Services.AddSingleton<DevbookChapterWriter>();
 
-        // An owned chapter is no level, and offers nothing.
-        Assert.Null(reading.Describe(DevbookMetadataLevel.Chapter, "Order Line"));
-        Assert.Null(reading.Describe(DevbookMetadataLevel.Chapter, "Order Placed"));
+        return (context, folders);
     }
 
-    [Fact]
-    public void The_page_beats_the_context_and_the_unit_beats_the_page()
+    private string TempDir()
     {
-        var page = Domain
-            .Replace("type: domain\n", "type: domain\nsync: off\n", StringComparison.Ordinal);
-        var (root, _) = Folder(
-            ("orders/context.md", "# Orders\n\n```meta\nsync: push\n```\n"),
-            ("orders/domain.md", page));
-
-        var fromPage = DevbookSyncReading.Read(root, DevbookFolder.Domain, "orders/domain.md").Describe(DevbookMetadataLevel.Chapter, "Order");
-        Assert.Equal(new DevbookSyncDirection("off", DevbookSyncLevel.Page), fromPage!.Effective);
-
-        var (root2, _) = Folder(
-            ("orders/context.md", "# Orders\n\n```meta\nsync: push\n```\n"),
-            ("orders/domain.md", page.Replace("status: draft\n", "status: draft\nsync: pull\n", StringComparison.Ordinal)));
-
-        var fromUnit = DevbookSyncReading.Read(root2, DevbookFolder.Domain, "orders/domain.md").Describe(DevbookMetadataLevel.Chapter, "Order");
-        Assert.Equal("pull", fromUnit!.Stated);
-        Assert.Equal(new DevbookSyncDirection("pull", DevbookSyncLevel.Unit), fromUnit.Effective);
-    }
-
-    [Fact]
-    public void Nothing_stated_anywhere_is_report_from_no_level_and_a_typo_is_skipped()
-    {
-        var (root, _) = Folder(
-            ("orders/context.md", "# Orders\n\n```meta\nsync: pushh\n```\n"),
-            ("orders/domain.md", Domain));
-
-        var unit = DevbookSyncReading.Read(root, DevbookFolder.Domain, "orders/domain.md").Describe(DevbookMetadataLevel.Chapter, "Order");
-
-        Assert.Equal(new DevbookSyncDirection("report", null), unit!.Effective);
-        Assert.True(unit.Effective.IsDefault);
-    }
-
-    [Fact]
-    public void A_building_block_inherits_from_the_building_block_view()
-    {
-        var (root, _) = Folder(
-            ("05-building-block-view.md", "# Building Block View\n\n```meta\nsync: pull\n```\n"),
-            ("building-blocks/sync.md", "# Sync\n\nText.\n"),
-            ("building-blocks/README.md", "# Building Blocks\n\n```meta\nindex: root\n```\n"));
-
-        var block = DevbookSyncReading.Read(root, DevbookFolder.Arc42, ".devbook/arc42/building-blocks/sync.md")
-            .Describe(DevbookMetadataLevel.File, null);
-        Assert.Equal(DevbookSyncLevel.Unit, block!.Level);
-        Assert.Equal(new DevbookSyncDirection("pull", DevbookSyncLevel.Folder), block.Effective);
-
-        // The file view reports a file's title as a chapter heading; it is still
-        // the file's own block.
-        Assert.Equal(block, DevbookSyncReading.Read(root, DevbookFolder.Arc42, "building-blocks/sync.md").Describe(DevbookMetadataLevel.Chapter, "Sync"));
-
-        // The directory's entry point is no building block.
-        Assert.Null(DevbookSyncReading.Read(root, DevbookFolder.Arc42, "building-blocks/README.md").Describe(DevbookMetadataLevel.File, null));
-    }
-
-    [Fact]
-    public void A_scope_addresses_a_chapter_by_slug_and_the_title_by_the_bare_path()
-    {
-        var (root, _) = Folder(("orders/domain.md", Domain));
-        var writes = new List<(string Path, string? Direction)>();
-
-        var scope = DevbookSyncReading.Read(root, DevbookFolder.Domain, ".devbook/domain/orders/domain.md")
-            .Scope(".devbook/domain/orders/domain.md", (path, direction) => { writes.Add((path, direction)); return Task.CompletedTask; });
-
-        scope.ChangeAsync(DevbookMetadataLevel.Chapter, "Order", "push");
-        scope.ChangeAsync(DevbookMetadataLevel.Chapter, "Orders", null);
-
-        Assert.True(scope.CanChange);
-        Assert.Equal(
-            new List<(string, string?)> { (".devbook/domain/orders/domain.md#order", "push"), (".devbook/domain/orders/domain.md", null) },
-            writes);
-    }
-
-    [Fact]
-    public void A_scope_with_no_writer_cannot_change_anything()
-    {
-        var (root, _) = Folder(("orders/domain.md", Domain));
-
-        var scope = DevbookSyncReading.Read(root, DevbookFolder.Domain, "orders/domain.md").Scope("orders/domain.md", null);
-
-        Assert.False(scope.CanChange);
-        Assert.NotNull(scope.Describe(DevbookMetadataLevel.Chapter, "Order"));
+        var path = Path.Combine(Path.GetTempPath(), "devbook-sync-write-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        _roots.Add(path);
+        return path;
     }
 
     public void Dispose()
@@ -282,23 +195,35 @@ public sealed class DevbookSyncWriteTests : IDisposable
         }
     }
 
-    private static string Read(string path) => File.ReadAllText(path);
-
-    /// <summary>A folder root holding the given files exactly as given, and a way
-    /// to name a file under it.</summary>
-    private (string Root, Func<string, string> Path) Folder(params (string File, string Content)[] files)
+    private sealed record Harness(BunitContext Context) : IDisposable
     {
-        var parent = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "devbook-sync-tests", Guid.NewGuid().ToString("N"));
-        var root = System.IO.Path.Combine(parent, "folder");
-        _roots.Add(parent);
+        public void Dispose() => Context.Dispose();
+    }
 
-        foreach (var (file, content) in files)
+    /// <summary>Resolves every area against one root in the legacy layout and
+    /// stamps the source and the archive flag on it, as
+    /// <see cref="DevbookPanelsReadOnlyBranchTests"/>' stub does.</summary>
+    private sealed class StubFolderSource(string root, DevbookSourceKind source) : IDevbookFolderSource
+    {
+        public bool Archived { get; set; }
+
+        public event Action? Changed;
+
+        public void NotifyContentChanged() => Changed?.Invoke();
+
+        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
+
+        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
         {
-            var path = System.IO.Path.Combine(root, file.Replace('/', System.IO.Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, content);
-        }
+            var folder = DevbookFolderSetting.Defaults()
+                .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
+            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
 
-        return (root, file => System.IO.Path.Combine(root, file.Replace('/', System.IO.Path.DirectorySeparatorChar)));
+            var full = Path.Combine(root, folder.EffectivePath);
+
+            return Directory.Exists(full)
+                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", Alias, source, RepositoryArchived: Archived)
+                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: source, repositoryArchived: Archived);
+        }
     }
 }
