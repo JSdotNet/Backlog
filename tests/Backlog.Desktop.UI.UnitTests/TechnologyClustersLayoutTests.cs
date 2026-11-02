@@ -126,6 +126,52 @@ public sealed class TechnologyClustersLayoutTests
         Assert.Equal(4, map.Pills.Select(pill => pill.X).Distinct().Count());
     }
 
+    /// <summary>An open layer draws one group per family present, in the families'
+    /// order, each a heading over its own rows of pills, the groups stacked inside
+    /// the halo without one running into the next.</summary>
+    [Fact]
+    public void An_open_layer_groups_its_pills_by_family_under_a_heading_each()
+    {
+        TechnologyGraphNode[] technologies =
+        [
+            .. Enumerable.Range(0, 5).Select(index => Node($"f{index}", "Mixed", "mixed.md") with { Family = TechnologyTypeFamily.Framework }),
+            Node("r0", "Mixed", "mixed.md") with { Family = TechnologyTypeFamily.Runtime },
+            .. Enumerable.Range(0, 2).Select(index => Node($"t{index}", "Mixed", "mixed.md") with { Family = TechnologyTypeFamily.LibraryToolAndPlugin }),
+        ];
+        var layers = new List<ClustersLayer> { new("mixed.md", "Mixed", technologies), new("other.md", "Other", []) };
+
+        var map = TechnologyClustersLayout.Layer(layers, layers[0], null, _ => null);
+
+        Assert.Equal(
+            [TechnologyTypeFamily.Framework, TechnologyTypeFamily.Runtime, TechnologyTypeFamily.LibraryToolAndPlugin],
+            map.Families.Select(group => group.Family).ToArray());
+        Assert.Equal([5, 1, 2], map.Families.Select(group => group.Pills.Count).ToArray());
+
+        // The flat list the lines are drawn from is the groups' pills, in order.
+        Assert.Equal(map.Families.SelectMany(group => group.Pills), map.Pills);
+
+        ClustersFamilyGroup? previous = null;
+        foreach (var group in map.Families)
+        {
+            // The heading sits above its pills, inside the halo.
+            Assert.All(group.Pills, pill => Assert.True(pill.Y >= group.Y + TechnologyClustersLayout.FamilyHeadingHeight));
+            Assert.InRange(group.Y, map.Halo.Y, map.Halo.Y + map.Halo.Height);
+            Assert.All(group.Pills, pill => Assert.InRange(pill.Y + TechnologyClustersLayout.PillHeight, map.Halo.Y, map.Halo.Y + map.Halo.Height));
+
+            // A group opens below the last row of the group before it.
+            if (previous is not null)
+            {
+                Assert.True(group.Y > previous.Pills.Max(pill => pill.Y) + TechnologyClustersLayout.PillHeight, $"{group.Family} runs into {previous.Family}");
+            }
+
+            previous = group;
+        }
+
+        // Five frameworks wrap at four columns into two rows; the runtime starts a row of its own.
+        Assert.Equal(2, map.Families[0].Pills.Select(pill => pill.Y).Distinct().Count());
+        Assert.Equal(map.Families[0].Pills[0].X, map.Families[1].Pills[0].X);
+    }
+
     [Fact]
     public void Positions_are_written_for_css_whatever_the_culture()
     {
