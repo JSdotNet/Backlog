@@ -96,7 +96,7 @@ The system SHALL show a goal without a due date as At risk when its landing date
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_open_impediment_on_the_goals_plan_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_with_no_open_item_held_back_by_an_open_impediment_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_finished_goal_stays_at_risk_until_the_impediment_holding_it_back_is_resolved]
 ```
 
 The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, or a plan one of whose entries it counts, whatever its landing date.
@@ -587,7 +587,7 @@ The system SHALL tag Planned with the planned items' `effort:` added up, then th
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_names_the_goal_of_the_first_item_linked]
 ```
 
 The system SHALL list under Impediments every impediment that is not Resolved, with its state, who it is with, its age in working days and the goal it holds back, followed by how many were resolved in the last window.
@@ -697,6 +697,7 @@ The system SHALL record with each move the day it was made and who the impedimen
 type: requirement
 status: draft
 related: [.devbook/domain/progress/features.md#raising-an-impediment]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Raise_impediment_raises_it_through_the_module_with_its_first_items_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialog_refuses_a_blank_title_on_the_field_and_hands_nothing_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialogs_blank_title_message_clears_once_a_title_is_typed, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Raising_stores_a_New_impediment_dated_today_with_its_items_and_note]
 ```
 
 The system SHALL let a person raise an impediment from the desktop stand-up's Impediments block with a title, an optional note and optional first items it holds back.
@@ -725,6 +726,7 @@ The system SHALL let a person raise an impediment from the desktop stand-up's Im
 type: requirement
 status: draft
 related: [.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Link_holds_back_the_picked_item_through_the_module_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_unlink_stays_in_the_row_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Link_opens_the_work_search_without_what_the_row_holds_and_hands_the_pick_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Unlink_hands_the_item_back_named_for_it_and_the_impediment, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_work_search_offers_only_the_kinds_it_is_given, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Pull_requests_and_plans_are_linked_once_and_unlinked_leaving_the_history_alone]
 ```
 
 The system SHALL let a person, on the desktop stand-up, link a task, a pull request or a plan to an open impediment and unlink one, changing nothing on the work it names.
@@ -765,6 +767,7 @@ The system SHALL let a person, on the desktop stand-up, link a task, a pull requ
 type: requirement
 status: draft
 related: [.devbook/domain/progress/features.md#impediments-for-agents]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Raise_takes_tasks_pull_requests_and_plan_tags, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_hands_the_one_item_its_selector_names_to_the_port, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_and_unlink_take_exactly_one_whole_selector]
 ```
 
 The system SHALL let an agent, through MCP, raise an impediment holding back tasks, pull requests and plans, and link or unlink a task, a pull request or a plan on an existing one.
@@ -793,6 +796,7 @@ The system SHALL let an agent, through MCP, raise an impediment holding back tas
 type: requirement
 status: draft
 related: [.devbook/domain/progress/domain.md#settled]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_is_settled_when_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_the_reading_does_not_have_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_is_settled_when_merged_or_closed_and_read_from_a_repository_that_is_not_archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_with_no_answer_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_is_settled_when_every_entry_it_gathers_is_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_with_an_open_entry_or_no_entry_is_not_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_lists_each_held_back_item_with_whether_it_is_settled]
 ```
 
 The system SHALL count a held-back task as settled when its status is Done or Archived, a pull request when it is merged or closed, and a plan when it gathers at least one entry and every entry is Done or Archived.
@@ -839,6 +843,7 @@ The system SHALL count a held-back task as settled when its status is Done or Ar
 type: requirement
 status: draft
 related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state]
 ```
 
 The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and every item it holds back is settled, leaving its state and history unchanged.
@@ -879,6 +884,7 @@ The system SHALL mark an open impediment Ready to resolve, on the desktop and on
 type: requirement
 status: draft
 related: [.devbook/domain/tasks/features.md#marking-a-task-blocked]
+tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Set_blocked_raises_no_impediment, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Removing_the_blocked_token_leaves_the_impediment_that_holds_the_task_back_alone]
 ```
 
 The system SHALL raise, move and change no impediment when a task is marked blocked or its mark is removed.
@@ -900,7 +906,6 @@ The system SHALL raise, move and change no impediment when a task is marked bloc
 ```meta
 type: requirement
 status: deprecated
-tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.Set_blocked_raises_one_New_impediment_and_unblocking_leaves_it, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.A_blocked_token_in_the_entry_text_raises_one_too]
 ```
 
 When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, the system SHALL raise a New impediment titled with the task's title that holds the task back, unless an impediment already holds it back that is not Resolved, or that was raised on or after the day the task was marked blocked.
@@ -978,6 +983,7 @@ related: [.devbook/domain/progress/features.md#goals-on-the-phone]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_page_lists_the_tasks_pull_requests_and_plans_it_holds_back_and_reads_ready_to_resolve, unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_stand_up_card_of_an_impediment_ready_to_resolve_says_so, unit:dotnet:Backlog.Modules.Progress.UnitTests.PhoneProgressTests.The_context_carries_the_pull_requests_open_impediments_hold_back_even_with_no_goal]
 ```
 
 The system SHALL show on the phone the goals, the four stand-up blocks and the impediments that the paired desktop has synced.
@@ -999,6 +1005,7 @@ The system SHALL show on the phone the goals, the four stand-up blocks and the i
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_phone_offers_no_raise_link_or_unlink
 ```
 
 The system SHALL let the phone change an impediment's state, check-again date and note, through the device outbox, and nothing else in Progress.
@@ -1052,7 +1059,7 @@ related: [.devbook/domain/progress/features.md#syncing-goals-and-impediments]
 ```meta
 type: requirement
 status: draft
-tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment]
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_version_1_write_keeps_the_pull_requests_and_plans_a_version_2_desktop_holds]
 ```
 
 The system SHALL carry each goal as one `goal` document and each impediment as one `impediment` document on the task feed, under its own id, while sync is on and the device is paired.

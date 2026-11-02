@@ -336,7 +336,8 @@ A desktop never takes either as a task.
 
 **The `impediment` document moves from version 1 to version 2.** Version 1 holds
 back task ids only. Version 2 keeps the task ids where version 1 keeps them, and
-adds the pull requests and the plans beside them, each with its kind and identity.
+adds every held-back item beside them as one list in link order, tasks included,
+each with its kind and identity, so the line can name the goal of the first item linked.
 The same document is the JSON each `progress_impediments` row of `backlog.db`
 holds, so no column changes.
 

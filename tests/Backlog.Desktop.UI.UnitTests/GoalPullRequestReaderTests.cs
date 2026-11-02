@@ -112,7 +112,8 @@ public sealed class GoalPullRequestReaderTests
             var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe(), time: clock);
             var reader = new GitHubGoalPullRequests(() => gitHub);
 
-            Assert.Equal(LinkedPullRequestState.Open, Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "5")], TestContext.Current.CancellationToken)).State);
+            var active = Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "5")], TestContext.Current.CancellationToken));
+            Assert.Equal((LinkedPullRequestState.Open, false), (active.State, active.InArchivedRepository));
 
             Assert.Null(settings.SetRepositoryArchived("archify", archived: true));
             clock.Advance(GitHubGoalPullRequests.FreshFor + TimeSpan.FromMinutes(1));
@@ -122,6 +123,8 @@ public sealed class GoalPullRequestReaderTests
 
             Assert.Empty(client.StatusReadByNumber);
             Assert.Equal([LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], answer.Select(pull => pull.State));
+            // Flagged, so a held-back pull request there is never settled, whatever was kept.
+            Assert.Equal([true, true], answer.Select(pull => pull.InArchivedRepository));
         }
         finally
         {

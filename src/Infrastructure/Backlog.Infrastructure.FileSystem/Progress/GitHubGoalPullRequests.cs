@@ -26,7 +26,8 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// no approvals and no author, the module's own answer, so a task is then done by its
 /// status alone. A pull request in an archived repository (local ADR 0029) is not asked
 /// about: it answers whatever that cache last kept for it, stale or not, and unread
-/// otherwise. It never throws for GitHub's sake.
+/// otherwise, flagged <see cref="GoalPullRequestDto.InArchivedRepository"/> so a held-back
+/// pull request there is never settled. It never throws for GitHub's sake.
 /// </para>
 /// </summary>
 /// <param name="gitHub">The GitHub adapter, resolved per call; null reads nothing.</param>
@@ -50,6 +51,7 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
             .ToList();
 
         var answers = new Dictionary<string, GoalPullRequestDto>(StringComparer.OrdinalIgnoreCase);
+        var archivedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (wanted.Count > 0 && configured is not null)
         {
             // An archived repository is not read from GitHub (local ADR 0029). Left out of
@@ -59,6 +61,7 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
             var archived = wanted
                 .Where(reference => configured.ResolveRepository(reference.RepositoryFullName) is { Archived: true })
                 .ToList();
+            archivedKeys.UnionWith(archived.Select(Key));
             var active = wanted.Except(archived).ToList();
 
             if (archived.Count > 0)
@@ -82,10 +85,11 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
         }
 
         // The task's own spelling of the repository and number, so a caller matching its
-        // answers back to its links finds them.
-        return [.. pullRequests.Select(pull => answers.TryGetValue(Key(pull), out var answer)
+        // answers back to its links finds them; one from an archived repository says so,
+        // since its answer was kept, not read.
+        return [.. pullRequests.Select(pull => (answers.TryGetValue(Key(pull), out var answer)
             ? answer with { Repository = pull.Repository, Number = pull.Number }
-            : GoalPullRequestDto.Unread(pull))];
+            : GoalPullRequestDto.Unread(pull)) with { InArchivedRepository = archivedKeys.Contains(Key(pull)) })];
     }
 
     /// <summary>Puts <paramref name="listing"/>'s answer to each of <paramref name="asked"/>

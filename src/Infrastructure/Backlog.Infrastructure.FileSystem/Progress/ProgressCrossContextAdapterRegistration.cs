@@ -42,15 +42,6 @@ public static class ProgressCrossContextAdapterRegistration
         services.Replace(ServiceDescriptor.Scoped<IStandUpPace>(sp =>
             new PlanningVelocityStandUpPace(() => sp.GetService<IPlanningVelocity>())));
 
-        // The blocked tasks the impediment policy reads, and the watcher that runs it on
-        // every local task write (local ADR 0035 §5–6). The head resolves the watcher once.
-        services.AddScoped<IBlockedTaskSource>(sp =>
-            new BlockedTaskSource(() => sp.GetRequiredService<ITaskItems>()));
-        services.TryAddSingleton(sp => new BlockedTaskWatcher(
-            sp.GetRequiredService<IServiceScopeFactory>(),
-            sp.GetService<ITaskChangeSignal>(),
-            sp.GetService<Microsoft.Extensions.Logging.ILogger<BlockedTaskWatcher>>()));
-
         return services;
     }
 }

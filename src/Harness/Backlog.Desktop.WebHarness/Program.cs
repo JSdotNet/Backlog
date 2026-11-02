@@ -277,10 +277,7 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
-// And the blocked-task watcher, on the same terms and for the same reason the desktop
-// head resolves it.
-_ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
-// The question relay's escalation timer (local ADR 0041), as the desktop head starts it.
+// And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop

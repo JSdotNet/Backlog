@@ -140,7 +140,7 @@ without one, after the last day of [next](#iteration). It is also At risk when a
 [Impediment](#impediment) [holds it back](#holds-back), even one that reads
 [Ready to resolve](#ready-to-resolve): only the person's Resolve lifts it. Otherwise
 it is **On track**.
-A goal with no open item is On track. A goal that did no item in the last four
+A goal with no open item is On track unless an open impediment holds it back. A goal that did no item in the last four
 iterations has no landing date, and is At risk while it has open items.
 
 ## Goal Assignment
