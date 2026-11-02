@@ -1241,40 +1241,47 @@
     private C4Catalog? _inspectorCatalog;
     private Arc42DevbookCatalog? _inspectorChapters;
     private C4WorkspaceEntry? _inspectorWorkspace;
+    private C4RecordStates? _inspectorStates;
 
     /// <summary>What the zoom tab's inspector is told about an element. One delegate
     /// while the model, the chapters and the workspace stay the same, so the explorer
     /// asks again only when one of them changed rather than on every render.</summary>
     private Func<string, C4ElementRecords> InspectorRecords(C4WorkspaceEntry workspace)
     {
+        var states = RecordStates;
         if (_inspectorRecords is null
             || !ReferenceEquals(_inspectorCatalog, _c4)
             || !ReferenceEquals(_inspectorChapters, _catalog)
-            || !ReferenceEquals(_inspectorWorkspace, workspace))
+            || !ReferenceEquals(_inspectorWorkspace, workspace)
+            || !ReferenceEquals(_inspectorStates, states))
         {
             var c4 = _c4;
             var chapters = _catalog?.Documents ?? [];
             _inspectorCatalog = _c4;
             _inspectorChapters = _catalog;
             _inspectorWorkspace = workspace;
-            _inspectorRecords = elementId => C4ElementInspection.For(c4, workspace, chapters, elementId);
+            _inspectorStates = states;
+            _inspectorRecords = elementId => C4ElementInspection.For(c4, workspace, chapters, elementId, states);
         }
 
         return _inspectorRecords;
     }
 
     private IReadOnlyList<C4InspectorRecord> _crossCuttingDebt = [];
-    private (C4Catalog? C4, Arc42DevbookCatalog? Chapters) _crossCuttingDebtFor;
+    private (C4Catalog? C4, Arc42DevbookCatalog? Chapters, C4RecordStates? States) _crossCuttingDebtFor;
 
     /// <summary>The debt records that name no element, for the zoom tab's Debt overlay
     /// tray. Read again only when the model or the chapters changed, so the explorer
     /// is handed the same list on every other render.</summary>
     private IReadOnlyList<C4InspectorRecord> CrossCuttingDebt()
     {
-        if (!ReferenceEquals(_crossCuttingDebtFor.C4, _c4) || !ReferenceEquals(_crossCuttingDebtFor.Chapters, _catalog))
+        var states = RecordStates;
+        if (!ReferenceEquals(_crossCuttingDebtFor.C4, _c4)
+            || !ReferenceEquals(_crossCuttingDebtFor.Chapters, _catalog)
+            || !ReferenceEquals(_crossCuttingDebtFor.States, states))
         {
-            _crossCuttingDebtFor = (_c4, _catalog);
-            _crossCuttingDebt = C4ElementInspection.CrossCuttingDebt(_c4, _catalog?.Documents ?? []);
+            _crossCuttingDebtFor = (_c4, _catalog, states);
+            _crossCuttingDebt = C4ElementInspection.CrossCuttingDebt(_c4, states.Apply(_catalog?.Documents ?? []));
         }
 
         return _crossCuttingDebt;
@@ -1288,7 +1295,7 @@
     // ---- where a decision or debt record lands on the model ----------------
 
     private C4RecordPlacement? _recordPlacement;
-    private (Arc42DevbookCatalog? Catalog, C4Catalog C4, DevbookDocument? Record) _recordPlacementFor;
+    private (Arc42DevbookCatalog? Catalog, C4Catalog C4, DevbookDocument? Record, C4RecordStates? States) _recordPlacementFor;
 
     /// <summary>
     /// The open record's placement on the model, while <c>c4-zoom</c> is on and the
@@ -1299,12 +1306,14 @@
     {
         if (_c4Store is not { ZoomEnabled: true } || _catalog is null || _selected is null) return null;
 
+        var states = RecordStates;
         if (!ReferenceEquals(_recordPlacementFor.Catalog, _catalog)
             || !ReferenceEquals(_recordPlacementFor.C4, _c4)
-            || !ReferenceEquals(_recordPlacementFor.Record, _selected))
+            || !ReferenceEquals(_recordPlacementFor.Record, _selected)
+            || !ReferenceEquals(_recordPlacementFor.States, states))
         {
-            _recordPlacement = C4RecordPlacement.For(_catalog, _c4, _selected);
-            _recordPlacementFor = (_catalog, _c4, _selected);
+            _recordPlacement = C4RecordPlacement.For(states.Apply(_catalog), _c4, states.Apply(_selected));
+            _recordPlacementFor = (_catalog, _c4, _selected, states);
         }
 
         return _recordPlacement;
@@ -1433,7 +1442,7 @@
     }
 
     private SurfaceListsRead _surfaceLists = SurfaceListsRead.Empty;
-    private (Arc42DevbookCatalog? Catalog, C4Catalog? C4) _surfaceListsFor;
+    private (Arc42DevbookCatalog? Catalog, C4Catalog? C4, C4RecordStates? States) _surfaceListsFor;
 
     private sealed record SurfaceListsRead(
         IReadOnlyList<Arc42SurfaceChapter> Chapters,
@@ -1444,17 +1453,21 @@
     }
 
     /// <summary>The chapter list, the decision log and the debt, read again only when
-    /// the folder or the model changed.</summary>
+    /// the folder, the model or a record's stored state changed.</summary>
     private SurfaceListsRead SurfaceLists
     {
         get
         {
             if (_catalog is null) return SurfaceListsRead.Empty;
 
-            if (!ReferenceEquals(_surfaceListsFor.Catalog, _catalog) || !ReferenceEquals(_surfaceListsFor.C4, _c4))
+            var states = RecordStates;
+            if (!ReferenceEquals(_surfaceListsFor.Catalog, _catalog)
+                || !ReferenceEquals(_surfaceListsFor.C4, _c4)
+                || !ReferenceEquals(_surfaceListsFor.States, states))
             {
-                _surfaceListsFor = (_catalog, _c4);
-                _surfaceLists = new SurfaceListsRead(Arc42Surface.Chapters(_catalog, _c4), Arc42Surface.Decisions(_catalog), Arc42Surface.Debt(_catalog));
+                _surfaceListsFor = (_catalog, _c4, states);
+                var stated = StatedCatalog!;
+                _surfaceLists = new SurfaceListsRead(Arc42Surface.Chapters(stated, _c4), Arc42Surface.Decisions(stated), Arc42Surface.Debt(stated));
             }
 
             return _surfaceLists;
@@ -1484,10 +1497,31 @@
 
     private Func<string, IReadOnlyList<Arc42FindHit>>? _find;
 
+    private Arc42DevbookCatalog? _statedCatalog;
+    private (Arc42DevbookCatalog? Catalog, C4RecordStates? States) _statedCatalogFor;
+
+    /// <summary>The folder with each record's stored state laid over it, as the left
+    /// navigation and the find field read it; null with no folder loaded. Built again
+    /// only when the folder or the states changed.</summary>
+    private Arc42DevbookCatalog? StatedCatalog
+    {
+        get
+        {
+            var states = RecordStates;
+            if (!ReferenceEquals(_statedCatalogFor.Catalog, _catalog) || !ReferenceEquals(_statedCatalogFor.States, states))
+            {
+                _statedCatalogFor = (_catalog, states);
+                _statedCatalog = _catalog is null ? null : states.Apply(_catalog);
+            }
+
+            return _statedCatalog;
+        }
+    }
+
     /// <summary>The find field's suggestions, over the folder and the model as they
     /// are when the reader types.</summary>
     private Func<string, IReadOnlyList<Arc42FindHit>> FindInSurface =>
-        _find ??= text => _catalog is null ? [] : Arc42Surface.Find(_catalog, Workspace?.Workspace, text);
+        _find ??= text => StatedCatalog is { } stated ? Arc42Surface.Find(stated, Workspace?.Workspace, text) : [];
 
     private async Task OpenFoundAsync(Arc42FindHit hit)
     {
@@ -1662,10 +1696,48 @@
     {
         if (_disposed) return;
 
+        // The C4 surface's records read the same store (C4RecordStates), so the
+        // overlay is read again on the next render, whichever thread wrote.
+        _recordStatesStale = true;
+
         _ = InvokeAsync(() =>
         {
             if (!_disposed) StateHasChanged();
         });
+    }
+
+    // ---- a record's state on the C4 surface ---------------------------------
+
+    private C4RecordStates _recordStates = C4RecordStates.None;
+    private (string? Alias, bool Shown) _recordStatesFor;
+    private volatile bool _recordStatesStale = true;
+
+    /// <summary>
+    /// The decision and debt states the subject store holds for this repository, laid
+    /// over the records the C4 surface lists (local ADR 0045, after local ADR 0044 §5):
+    /// a stored state wins and the file's <c>status</c> is the fallback. None while the
+    /// status display is switched off, which draws nothing of a subject's state, so the
+    /// surface reads the files as it did. A new instance only when what it says
+    /// changed — the surface's reads below key on it.
+    /// </summary>
+    private C4RecordStates RecordStates
+    {
+        get
+        {
+            var shown = StatusShown;
+            if (_recordStatesStale || _recordStatesFor != (RepositoryAlias, shown))
+            {
+                _recordStatesStale = false;
+                _recordStatesFor = (RepositoryAlias, shown);
+                var read = shown ? C4RecordStates.From(_subjects.List(RepositoryAlias)) : C4RecordStates.None;
+
+                // Kept when it says the same: every read below keys on this instance,
+                // and the zoom tab recounts its overlays for a new one.
+                if (!read.SameAs(_recordStates)) _recordStates = read;
+            }
+
+            return _recordStates;
+        }
     }
 
     // ---- the C4 model beside the chapters ----------------------------------

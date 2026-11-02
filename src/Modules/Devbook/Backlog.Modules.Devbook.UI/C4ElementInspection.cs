@@ -24,12 +24,15 @@ public static partial class C4ElementInspection
     /// <summary>The inspector's records for <paramref name="elementId"/> in
     /// <paramref name="workspace"/>. <paramref name="chapters"/> are the arc42 folder's
     /// documents, read for a chapter's title and the heading a reference names; a
-    /// chapter missing from them is listed by its file name.</summary>
+    /// chapter missing from them is listed by its file name. <paramref name="states"/>
+    /// are the records' stored workflow states, which stand in for what a record's
+    /// file says (<see cref="C4RecordStates"/>); none when omitted.</summary>
     public static C4ElementRecords For(
         C4Catalog catalog,
         C4WorkspaceEntry workspace,
         IReadOnlyList<DevbookDocument> chapters,
-        string elementId)
+        string elementId,
+        C4RecordStates? states = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(workspace);
@@ -39,8 +42,8 @@ public static partial class C4ElementInspection
 
         return new C4ElementRecords(
             DocumentedIn(workspace, chapters, elementId),
-            Records(catalog, elementId, C4RecordKind.Decision, C4InspectorRecordKind.Decision),
-            Records(catalog, elementId, C4RecordKind.Debt, C4InspectorRecordKind.Debt));
+            Records(catalog, elementId, C4RecordKind.Decision, C4InspectorRecordKind.Decision, states ?? C4RecordStates.None),
+            Records(catalog, elementId, C4RecordKind.Debt, C4InspectorRecordKind.Debt, states ?? C4RecordStates.None));
     }
 
     /// <summary>
@@ -122,7 +125,7 @@ public static partial class C4ElementInspection
     /// <summary>One kind of record that names the element, each record once: a record
     /// that is about the element is listed as such even where another of its blocks
     /// only touches it.</summary>
-    private static List<C4InspectorRecord> Records(C4Catalog catalog, string elementId, C4RecordKind kind, C4InspectorRecordKind shown)
+    private static List<C4InspectorRecord> Records(C4Catalog catalog, string elementId, C4RecordKind kind, C4InspectorRecordKind shown, C4RecordStates states)
     {
         var links = catalog.RecordsOf(elementId).Where(link => link.Record.Kind == kind).ToList();
 
@@ -132,7 +135,7 @@ public static partial class C4ElementInspection
                 .GroupBy(link => C4ViewEntry.FileOf(link.Record.Path), StringComparer.OrdinalIgnoreCase)
                 .Select(group =>
                 {
-                    var record = group.First().Record;
+                    var record = states.Apply(group.First().Record);
                     var touches = group.All(link => link.Kind == C4LinkKind.Touches);
                     return new C4InspectorRecord(
                         record.Path,

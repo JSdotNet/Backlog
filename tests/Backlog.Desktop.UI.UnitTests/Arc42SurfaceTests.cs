@@ -370,6 +370,126 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal(["Chapters", "C4"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
     }
 
+    // ---- a record's state, from the subject store (local ADRs 0044 §5 and 0045) ----
+
+    private const string DebtPath = ".arc42/tdr/0001-debt.md";
+
+    [Fact]
+    public async Task A_stored_state_wins_over_the_record_file_and_the_file_stands_where_nothing_is_stored()
+    {
+        var subjects = new SessionDevbookSubjectStateStore();
+        await using var harness = CreateHarness(subjects: subjects);
+        var catalog = await harness.Context.Services.GetRequiredService<Arc42DevbookStore>().LoadAsync(harness.RepositoryAlias);
+        var c4 = await harness.Context.Services.GetRequiredService<C4DevbookStore>().LoadAsync(harness.RepositoryAlias);
+
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Debt(DebtPath), "resolved", "test").IsRefused);
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Decision(".arc42/adr/0006-schema.md", 12), "decided", "test").IsRefused);
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Decision(".arc42/adr/0003-store.md", 7), "proposed", "test").IsRefused);
+
+        var states = C4RecordStates.From(subjects.List(harness.RepositoryAlias));
+        var stated = states.Apply(catalog);
+
+        // The debt record: the store's rung, beside the file's severity.
+        Assert.Equal("High · resolved", Assert.Single(Arc42Surface.Debt(stated)).Note);
+
+        // The decisions: 0006's file says proposed and the store says decided; 0003's
+        // file says nothing and the store says proposed; 0005 has nothing stored.
+        var decisions = Arc42Surface.Decisions(stated);
+        Assert.False(decisions.Single(record => record.Number == "0006").Proposed);
+        Assert.True(decisions.Single(record => record.Number == "0003").Proposed);
+        Assert.False(decisions.Single(record => record.Number == "0005").Proposed);
+
+        // The record panel and the inspector read the same.
+        var placement = C4RecordPlacement.For(stated, c4, states.Apply(stated.Documents.Single(document => document.Path.EndsWith("0001-debt.md", StringComparison.Ordinal))));
+        Assert.Equal(DevbookDebtLifecycle.Resolved, placement!.Lifecycle);
+
+        var debt = Assert.Single(C4ElementInspection.For(c4, c4.Workspaces[0], catalog.Documents, "backlog.mobile", states).Debt);
+        Assert.Equal("resolved", debt.Lifecycle);
+        Assert.False(debt.OpenDebt);
+
+        // Nothing stored: the files stand.
+        Assert.Equal("High · planned", Assert.Single(Arc42Surface.Debt(C4RecordStates.None.Apply(catalog))).Note);
+        Assert.True(Arc42Surface.Decisions(C4RecordStates.None.Apply(catalog)).Single(record => record.Number == "0006").Proposed);
+        Assert.Equal("planned", Assert.Single(C4ElementInspection.For(c4, c4.Workspaces[0], catalog.Documents, "backlog.mobile").Debt).Lifecycle);
+    }
+
+    [Fact]
+    public async Task A_state_set_in_the_store_redraws_the_surface_without_a_reload()
+    {
+        var subjects = new SessionDevbookSubjectStateStore();
+        await using var harness = CreateHarness(subjects: subjects, status: true);
+        var component = harness.Render(DebtPath);
+        Settle(component);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("Planned", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
+            Assert.Equal("High · planned", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+        });
+
+        // Set the way the header's pick, a tool call over MCP or replication sets it:
+        // through the store, which tells the panel it changed.
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Debt(DebtPath), "in-progress", "test").IsRefused);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("In progress", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
+            Assert.Equal("High · in progress", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+        });
+    }
+
+    /// <summary>The inspector and the decision log read the store too, and redraw when
+    /// it changes: the selected element's debt rung, and a decision the store says is
+    /// proposed counted as proposed.</summary>
+    [Fact]
+    public async Task The_inspector_and_the_decision_log_redraw_from_the_store()
+    {
+        var subjects = new SessionDevbookSubjectStateStore();
+        await using var harness = CreateHarness(subjects: subjects, status: true);
+        var component = harness.Render(null);
+        Settle(component);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-surface-decisions-count']")));
+
+        // Found and typed into in one dispatch: the surface is still settling, and a
+        // render between the two would leave the handler stale.
+        await component.InvokeAsync(() => component.Find("[data-testid='arc42-surface-find'] input").InputAsync(new ChangeEventArgs { Value = "Mobile" }));
+        await component.InvokeAsync(() => component.FindAll("[role='option']").First(candidate => candidate.TextContent.Contains("Mobile App", StringComparison.Ordinal)).ClickAsync(new()));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("High · planned", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
+        });
+
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Debt(DebtPath), "resolved", "test").IsRefused);
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Decision(".arc42/adr/0005-replica.md", 3), "proposed", "test").IsRefused);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("High · resolved", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            Assert.Equal("3 · 2 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>With the status display off nothing of a subject's state is drawn
+    /// (local ADR 0044 §5), so the surface reads the record files as it did.</summary>
+    [Fact]
+    public async Task With_the_status_display_off_the_surface_reads_the_record_files()
+    {
+        var subjects = new SessionDevbookSubjectStateStore();
+        await using var harness = CreateHarness(subjects: subjects, status: false);
+        Assert.False(subjects.SetState(harness.RepositoryAlias, DevbookSubject.Debt(DebtPath), "resolved", "test").IsRefused);
+
+        var component = harness.Render(DebtPath);
+        Settle(component);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("Planned", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
+            Assert.Equal("High · planned", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+        });
+    }
+
     // ---- the harness ------------------------------------------------------------
 
     /// <summary>The left navigation's open line — a view, a chapter or a record — as
@@ -426,7 +546,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));
     }
 
-    private Harness CreateHarness(bool zoom = true, string references = References, bool embed = false)
+    private Harness CreateHarness(bool zoom = true, string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-surface-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -460,6 +580,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
         if (zoom) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
+        if (status is { } shown) Assert.Null(features.SetEnabled(DevbookFeatures.Status, shown));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -489,6 +610,11 @@ public sealed class Arc42SurfaceTests : IDisposable
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<DevbookChapterWriter>();
         context.Services.AddSingleton<C4DevbookStore>();
+        if (subjects is not null) context.Services.AddSingleton(subjects);
+
+        // The status display is a Devbook switch; a host that composes no scope shows
+        // it, so a test that turns it either way composes one.
+        if (status is not null) context.Services.AddSingleton<DevbookScope>();
 
         return new Harness(context, repository.Alias);
     }

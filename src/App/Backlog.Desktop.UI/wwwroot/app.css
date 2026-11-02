@@ -11780,6 +11780,20 @@ a.pull-request-detail-checks__name:hover {
     font-weight: normal;
 }
 
+/* A record's note — "proposed", or a debt's severity and rung — sits on a line
+   of its own under the title, in the title's column, rather than beside it: beside
+   it, the note took the width the title needed and the title wrapped a few letters
+   a line. A grid, so the note lines up with the title whatever the number is. */
+.arc42-surface-nav__item--record {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--spacing-sm);
+}
+
+.arc42-surface-nav__detail--note {
+    grid-column: 2;
+}
+
 .arc42-surface-nav__detail--debt {
     color: var(--color-error-text);
 }

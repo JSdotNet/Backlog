@@ -279,7 +279,7 @@
             var open = Same(record.Path, OpenPath);
             <AppButton @key="record.Path"
                        BaseClass="arc42-surface-nav__item"
-                       CssClass="@ItemClass(open)"
+                       CssClass="@ItemClass(open, "arc42-surface-nav__item--record")"
                        Variant="ButtonVariant.None"
                        aria-current="@(open ? "page" : null)"
                        title="@($"{kind} {record.Number}")"
@@ -289,7 +289,7 @@
                 <span class="arc42-surface-nav__label">@record.Title</span>
                 @if (record.Note is not null)
                 {
-                    <span class="arc42-surface-nav__detail" data-testid="arc42-surface-record-note">@record.Note</span>
+                    <span class="arc42-surface-nav__detail arc42-surface-nav__detail--note" data-testid="arc42-surface-record-note">@record.Note</span>
                 }
             </AppButton>
         }

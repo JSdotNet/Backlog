@@ -238,14 +238,17 @@ public sealed class C4DynamicPlaybackTests : IDisposable
     [Fact]
     public void Two_quick_play_presses_are_a_play_and_a_pause()
     {
-        var explorer = RenderOnDynamic(TimeSpan.FromMilliseconds(20));
+        // 200 ms a step: at 20 ms a loaded machine walked to the last step between the
+        // two presses, so the second press played again rather than pausing. The wait
+        // below spans three steps, which a walk left playing would have taken.
+        var explorer = RenderOnDynamic(TimeSpan.FromMilliseconds(200));
 
         Press(explorer, "c4-dynamic-play");
         Press(explorer, "c4-dynamic-play");
         var stoppedOn = explorer.Instance.CurrentStep;
 
         Assert.False(explorer.Instance.Playing);
-        Thread.Sleep(150);
+        Thread.Sleep(600);
         Assert.Equal(stoppedOn, explorer.Instance.CurrentStep);
     }
 

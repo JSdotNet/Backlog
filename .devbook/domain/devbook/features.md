@@ -579,9 +579,12 @@ documents. Where the chapter's own mermaid fence and the model disagree, it flag
 the elements in the model but missing from the fence, and the reverse. The chapter
 stays the text that is read; the model is what is drawn.
 
-Which element a record names, a TDR's severity and lifecycle, which ADR supersedes
-which, and which code a component maps to are read from the chapters' own devbook
-metadata, never from a file kept beside the model (local ADR 0045).
+Which element a record names, a TDR's severity, which ADR supersedes which, and
+which code a component maps to are read from the chapters' own devbook metadata,
+never from a file kept beside the model (local ADR 0045). A TDR's rung and an ADR's
+proposed mark are the record's state in Backlog's subject store, as the file header
+shows it, and the record's own `status` only where nothing is stored (local ADR
+0044).
 
 ## Technology view
 
