@@ -1,10 +1,9 @@
 @implements IDisposable
-@inject IDevbookLobesSource Lobes
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
 @*
-    The Lobes atlas, full-window (.devbook/domain/devbook/features.md#lobes-atlas):
+    The Lobes atlas, full-window (.devbook/domain/brain/features.md#lobes-atlas):
     the Brain and every registered devbook drawn as brains, one scope at a time or
     all of them at once.
 
@@ -94,6 +93,20 @@
                                   OnClick="ToggleLabels">
                         Labels
                     </ToggleButton>
+                    @* All's chips act on scopes, not regions, so every devbook's
+                       technology — hidden in All to start with — has a toggle of
+                       its own here. It acts on All alone: each devbook scope's
+                       Parietal chip keeps what the reader set. *@
+                    @if (IsAll)
+                    {
+                        <ToggleButton BaseClass="btn btn--toggle"
+                                      Pressed="_showTech"
+                                      TestId="lobes-atlas-tech"
+                                      Title="@(_showTech ? "Hide every devbook's technology chapters" : "Show every devbook's technology chapters")"
+                                      OnClick="ToggleTech">
+                            Tech
+                        </ToggleButton>
+                    }
                     @* Named apart from the scope switch's All, and starting with
                        the word it shows, so a speech user can still say it
                        (WCAG 2.5.3). *@
@@ -408,6 +421,12 @@
 
     private readonly HashSet<string> _hiddenScopes = new(StringComparer.Ordinal);
     private readonly HashSet<LobesAtlasRegionKey> _hiddenLobes = [];
+    // The devbook and ghost scopes whose Parietal has had its hidden start:
+    // once per scope key, so a reread never hides again what the reader turned
+    // on, and a devbook registered since — a ghost's included, under its new
+    // repo: key — still starts with its technology hidden.
+    private readonly HashSet<string> _seededScopes = new(StringComparer.Ordinal);
+    private bool _showTech;
     private DevbookLobesGraph? _graph;
     private LobesAtlasModel? _model;
     private IReadOnlyList<GraphAtlasNode> _nodes = [];
@@ -443,7 +462,14 @@
     /// <summary>A repository chapter followed — a resolved link out of the Brain,
     /// or a devbook's own chapter — to open that repository's devbook at it.</summary>
     [Parameter]
-    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+    public EventCallback<DevbookRepositoryChapter> OnOpenRepositoryChapter { get; set; }
+
+    /// <summary>Where the graph comes from: the source the personal devbook's
+    /// context registered (local ADR 0040 §2), or, in a host that composes none,
+    /// one with nothing to map.</summary>
+    private IDevbookLobesSource Lobes => _lobes ??= Services.GetService<IDevbookLobesSource>() ?? UnavailableLobesSource.Instance;
+
+    private IDevbookLobesSource? _lobes;
 
     /// <summary>The scope card's action: the Devbook opened on the Brain (an empty
     /// alias) or on that repository's devbook.</summary>
@@ -621,6 +647,7 @@
     {
         var wasAvailable = _graph is { Available: true };
         _graph = await Lobes.ReadAsync();
+        SeedHiddenTechnology();
 
         // An atlas that opened on the empty state and has its index now opens
         // where the host asked, not on All.
@@ -657,6 +684,27 @@
     private void ToggleLabels()
     {
         _showLabels = !_showLabels;
+        Project();
+    }
+
+    /// <summary>Each devbook's Parietal — its <c>tech/</c> chapters, a ghost
+    /// devbook's included — starts hidden in that scope, the first time the
+    /// atlas reads it.</summary>
+    private void SeedHiddenTechnology()
+    {
+        if (_graph is null) return;
+
+        foreach (var region in DevbookLobesAtlas.TechRegions(_graph))
+        {
+            if (_seededScopes.Add(region.Scope)) _hiddenLobes.Add(region);
+        }
+    }
+
+    /// <summary>All's Tech toggle: every devbook's technology drawn and listed
+    /// in All, or hidden again. It never touches a scope's own regions.</summary>
+    private void ToggleTech()
+    {
+        _showTech = !_showTech;
         Project();
     }
 
@@ -706,8 +754,9 @@
             return;
         }
 
-        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels);
-        _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes);
+        IReadOnlyList<LobesAtlasRegionKey> hiddenAll = _showTech ? [] : DevbookLobesAtlas.TechRegions(_graph);
+        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels, hiddenAll);
+        _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes, hiddenAll);
         if (_selectedId is not null && _nodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal))) _selectedId = null;
     }
 
@@ -762,17 +811,40 @@
     private Task OnSheetOpenChanged(bool open) => open ? Task.CompletedTask : SelectAsync(null);
 
     private Task OpenRepositoryLinkAsync(string? raw) =>
-        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
+        Lobes.RepositoryChapterFor(raw) is { } chapter ? OnOpenRepositoryChapter.InvokeAsync(chapter) : Task.CompletedTask;
 
     /// <summary>A registered devbook's own chapter as a link into it: the alias
     /// and the chapter's id within its devbook, which is the reference the
     /// Devbook opens.</summary>
-    private BrainRepoLink? ChapterLink(DevbookLobesNode node)
+    private DevbookRepositoryChapter? ChapterLink(DevbookLobesNode node)
     {
         if (_graph?.Scope(node.ScopeKey) is not { Kind: DevbookLobesScopeKind.Devbook, Alias: { Length: > 0 } alias }) return null;
 
         var bar = node.Id.IndexOf('|', StringComparison.Ordinal);
-        return bar < 0 ? null : BrainRepoLink.Parse($"{BrainRepoLink.Scheme}{alias}/{node.Id[(bar + 1)..]}");
+        return bar < 0 ? null : ChapterReference(alias, node.Id[(bar + 1)..]);
+    }
+
+    /// <summary>A devbook chapter's id as the reference the Devbook opens: the path
+    /// with any leading <c>./</c> or <c>/</c> dropped, and its heading kept when
+    /// there is one.</summary>
+    internal static DevbookRepositoryChapter? ChapterReference(string alias, string id)
+    {
+        var target = id.Replace('\\', '/');
+        string? slug = null;
+        var hash = target.IndexOf('#', StringComparison.Ordinal);
+        if (hash >= 0)
+        {
+            var anchor = target[(hash + 1)..].Trim();
+            slug = anchor.Length == 0 ? null : anchor;
+            target = target[..hash];
+        }
+
+        var path = target.Trim();
+        while (path.StartsWith("./", StringComparison.Ordinal)) path = path[2..];
+        path = path.TrimStart('/');
+
+        var trimmedAlias = alias.Trim();
+        return trimmedAlias.Length == 0 || path.Length == 0 ? null : new DevbookRepositoryChapter(trimmedAlias, slug is null ? path : $"{path}#{slug}");
     }
 
     /// <summary>A ghost's key whose alias has been registered since — the graph

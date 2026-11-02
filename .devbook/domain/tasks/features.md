@@ -493,7 +493,7 @@ and [dependency loops are named rather than broken](domain.invariants.md#invaria
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/progress/features.md#raising-an-impediment, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Mark a task blocked by hand when something outside the backlog holds it up. This is
@@ -501,10 +501,10 @@ a different fact from Readiness, which reads blocked from `depends_on`. The mark
 `blocked:` token on the task's metadata line, with the day it was set, and an agent
 sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
 
-Marking a task blocked
-[raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
-unless an open impediment already holds it back. Progress reacts to the mark. The task
-stores no impediment id, and Tasks never calls Progress.
+The mark is the task's alone and raises no impediment. A person who wants the block
+tracked [raises an impediment](../progress/features.md#raising-an-impediment) and
+[links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
+The task stores no impediment id, and Tasks never calls Progress.
 
 ### Filing a follow-up after an entry
 
@@ -590,7 +590,7 @@ policy, and what it will promise is in
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/tasks/context.md#github-integration
-related: [.devbook/domain/repository-management/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress]
+related: [.devbook/domain/repository-management/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
 ```
 
 Push a task to its target repository as an issue carrying the task's title,
@@ -600,18 +600,21 @@ re-read that issue's current state, and the pull request that references it.
 Downstream progress is then visible from the backlog.
 
 The pull requests a task records are also checked in the background, so a
-merge turns its link green without the person asking. The check reads each
-repository once rather than each pull request in list order, and puts every
-merged and closed answer on screen before the open pull requests are read one
-by one for their checks and merge offer. A pull request still open, or one
-that could not be read, is asked about again after two minutes.
+merge turns its link green without the person asking. Every pull request due a
+check is asked about in one read, through the cache the pull requests pane,
+Progress and the side panel share. The merged and closed answers land on screen
+before the open ones. A pull request still open, or one that could not be read,
+is asked about again after two minutes.
 
-A merged or closed state is remembered on this device, beside the other
-activity caches (`IPullRequestStateMemory`), so the backlog still opens
-instantly and offline and draws a finished link from the first frame. It is
-never written to the task: the task keeps only the link, and losing the
-memory costs one read per pull request. An open pull request's status is never
-remembered, because a stale one would offer a merge GitHub no longer allows.
+A merge is remembered on this device. Repository Management keeps it as a
+settled fact in app storage, so the backlog still opens instantly and offline
+and draws a merged link from the first frame. Tasks keeps only which of its
+entries each merge has finished (`IPullRequestFinishMemory`), so a restart
+neither moves an entry to Done twice nor forgets a move still owed. A pull
+request closed without merging is not remembered. Neither fact is written to the
+task: the task keeps only the link, and losing the memory costs one read per
+pull request. An open pull request's status is never remembered, because a
+stale one would offer a merge GitHub no longer allows.
 
 A prompt entry moves to Done when its pull request merges into the
 repository's default branch or a `plan/` branch — once per entry and merge,

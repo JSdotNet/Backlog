@@ -67,6 +67,49 @@ public sealed class SpecManagerQuestionSourceTests
         await Eventually(() => Queries(scenario).Count >= before + 2);
     }
 
+    /// <summary>A stream that opens once the first pull is done, the loop already waiting the
+    /// two minutes for a stream that is down, moves it onto the five-minute backup — without
+    /// pulling again, the whole pull it just made being fresh.</summary>
+    [Fact]
+    public async Task A_stream_that_opens_after_the_first_pull_moves_the_poll_onto_the_backup()
+    {
+        using var scenario = new QuestionScenario();
+        var connector = new FakeStreams();
+        connector.Open();
+        var connecting = connector.Hold();
+        using var source = Start(scenario, connector, out var delays);
+        await Idle(source, delays, open: false);
+        var pulled = Queries(scenario).Count;
+
+        connecting.SetResult();
+
+        await Idle(source, delays, open: true);
+        Assert.Equal(pulled, Queries(scenario).Count);
+    }
+
+    /// <summary>A stream that opens while the first whole pull is under way asks for no
+    /// second one: that pull is fresh by the time the loop looks.</summary>
+    [Fact]
+    public async Task A_stream_that_opens_during_the_first_pull_asks_for_no_second()
+    {
+        using var scenario = new QuestionScenario();
+        using var opened = new ManualResetEventSlim();
+        scenario.Questions("questions-open.json", "questions-answered.json", before: () => opened.Wait(Patience));
+        var connector = new FakeStreams();
+        connector.Open();
+        var connecting = connector.Hold();
+        using var source = Start(scenario, connector, out var delays);
+        await Eventually(() => Queries(scenario).Count >= 1);
+
+        connecting.SetResult();
+        await Eventually(() => source.IsOpen && source.WakePending);
+        opened.Set();
+
+        await Idle(source, delays, open: true);
+        Assert.Equal(2, Queries(scenario).Count);
+        Assert.All(Queries(scenario), query => Assert.DoesNotContain("changedSince", query, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_dropped_stream_pulls_at_once_polls_every_two_minutes_and_opens_again_after_five_seconds()
     {
@@ -326,11 +369,13 @@ public sealed class SpecManagerQuestionSourceTests
     }
 
     /// <summary>Waits until the pull loop waits on the interval the stream's state calls
-    /// for — nothing is pulling — and the stream is as asked.</summary>
+    /// for — nothing is pulling — and the stream is as asked. No wake may be pending: the
+    /// loop starts its wait before it sees one, and gives that wait up for a pull. The wake
+    /// is read first, since the loop takes it only after giving the wait up.</summary>
     private static async Task Idle(SpecManagerQuestionSource source, Delays delays, bool open)
     {
         await Eventually(() => source.IsOpen == open);
-        await Eventually(() => delays.Waiting(open ? SpecManagerQuestionSource.BackupInterval : SpecManagerQuestionSource.FallbackInterval));
+        await Eventually(() => !source.WakePending && delays.Waiting(open ? SpecManagerQuestionSource.BackupInterval : SpecManagerQuestionSource.FallbackInterval));
     }
 
     private static List<string> Queries(QuestionScenario scenario) =>
@@ -372,6 +417,7 @@ public sealed class SpecManagerQuestionSourceTests
     private sealed class FakeStreams : ISpecManagerEventStreamConnector
     {
         private readonly ConcurrentQueue<FakeStream> _queued = new();
+        private TaskCompletionSource? _held;
         private int _attempts;
 
         public int Attempts => Volatile.Read(ref _attempts);
@@ -383,12 +429,17 @@ public sealed class SpecManagerQuestionSourceTests
             return stream;
         }
 
-        public Task<ISpecManagerEventStream> ConnectAsync(CancellationToken cancellationToken)
+        /// <summary>Keeps every connect waiting until the test ends the hold.</summary>
+        public TaskCompletionSource Hold() => _held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<ISpecManagerEventStream> ConnectAsync(CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _attempts);
+            if (_held is { } held) await held.Task.WaitAsync(cancellationToken);
+
             return _queued.TryDequeue(out var stream)
-                ? Task.FromResult<ISpecManagerEventStream>(stream)
-                : Task.FromException<ISpecManagerEventStream>(new HttpRequestException("spec-manager could not be reached."));
+                ? stream
+                : throw new HttpRequestException("spec-manager could not be reached.");
         }
     }
 

@@ -35,6 +35,13 @@ public static class MetadataReader
     /// it as an unrecognised field, which states the field more loudly than
     /// modelling it ever did. So it is recognised and dropped.</para>
     ///
+    /// <para><c>change</c> is recognised and dropped for the same reason. It names
+    /// the change proposal a chapter belongs to, which is the proposal's own
+    /// business and no fact about the chapter a reader would want drawn as an
+    /// unrecognised row.</para>
+    ///
+    /// <para><c>rating</c> is modelled, as <see cref="MetadataRecord.Rating"/>.</para>
+    ///
     /// <para>The nine decision and review state fields are in it too, and are
     /// modelled apart — see <see cref="MetadataRecord.State"/>. <c>ext.*</c> keys
     /// are not in it and do not need to be: they are recognised by their prefix and
@@ -46,7 +53,7 @@ public static class MetadataReader
             "status", "related", "depends-on", "implements", "issue",
             "order", "aliases", "alternatives", "type", "kind", "version",
             "effort", "roadmap", "feature-flag", "tests", "number", "index",
-            "date", "deployment", "sync",
+            "date", "deployment", "sync", "rating", "change",
             .. DevbookSchema.StateFields
         ],
         StringComparer.Ordinal);
@@ -117,6 +124,7 @@ public static class MetadataReader
         return new MetadataRecord
         {
             Status = Scalar(fields, "status"),
+            Rating = Scalar(fields, "rating"),
             Type = type ?? kind,
             TypeReadFromKind = type is null && kind is not null,
             Related = references.GetValueOrDefault("related", []),

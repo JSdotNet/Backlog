@@ -91,6 +91,19 @@ public class DesktopDomainBoundaryTests
     private static readonly Dictionary<string, string> AreaNamespaces =
         new(ContextNamespaces.Append(new("Shell", ShellNamespace)), StringComparer.Ordinal);
 
+    /// <summary>
+    /// The one context that names another in its source, with the relationship
+    /// that lets it: the Brain's screens render on the Devbook pane, so Brain.UI
+    /// implements the pane's mode extension point and draws its notes with
+    /// Devbook's viewer. The reverse pair stays forbidden, and the Brain's own
+    /// <c>_Imports.razor</c> still names no Devbook namespace — each file that
+    /// takes the edge says so itself.
+    /// </summary>
+    private static readonly (string Context, string Named, string Relationship)[] AllowedNaming =
+    [
+        ("Brain", "Devbook", "Customer/Supplier: the Brain's screens render on the Devbook pane through its mode extension point (local ADR 0040 §2; .devbook/domain/context-map.md)"),
+    ];
+
     /// <summary>Every ordered pair of two different contexts.</summary>
     public static TheoryData<string, string> ContextPairs()
     {
@@ -129,7 +142,7 @@ public class DesktopDomainBoundaryTests
     [Fact]
     public void The_contexts_are_read_from_the_module_folders()
     {
-        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions" })
+        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain" })
         {
             Assert.True(
                 ContextProjects.ContainsKey(context),
@@ -139,6 +152,7 @@ public class DesktopDomainBoundaryTests
         Assert.Equal("Backlog.Desktop.UI.Tasks", ContextNamespaces["Tasks"]);
         Assert.Equal("Backlog.Modules.Inbox.UI", ContextNamespaces["Inbox"]);
         Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
+        Assert.Equal("Backlog.Modules.Brain.UI", ContextNamespaces["Brain"]);
     }
 
     /// <summary>
@@ -257,12 +271,30 @@ public class DesktopDomainBoundaryTests
     [MemberData(nameof(ContextPairs))]
     public void A_context_never_names_another_context(string context, string forbidden)
     {
+        if (AllowedNaming.Any(allowed => allowed.Context == context && allowed.Named == forbidden)) return;
+
         var offenders = FilesNaming(context, AreaNamespaces[forbidden]);
 
         Assert.True(
             offenders.Count == 0,
             $"{context} must not depend on {forbidden} — see .devbook/domain/context-map.md for the relationships that do exist. "
             + string.Join(", ", offenders));
+    }
+
+    /// <summary>An exception that has stopped being one reads as a considered
+    /// decision while permitting nothing: each allowed naming is still made.</summary>
+    [Fact]
+    public void Every_allowed_naming_is_still_named()
+    {
+        var stale = AllowedNaming
+            .Where(allowed => FilesNaming(allowed.Context, AreaNamespaces[allowed.Named]).Count == 0)
+            .Select(allowed => $"{allowed.Context} -> {allowed.Named}")
+            .ToList();
+
+        Assert.True(
+            stale.Count == 0,
+            "These allowed namings no longer describe a file that names the other context and should be deleted: "
+            + string.Join(", ", stale));
     }
 
     /// <summary>The shell composes the contexts, so it may see all of them. The

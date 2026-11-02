@@ -69,7 +69,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         Assert.Equal("Hide atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim());
     }
 
-    // ----- The Lobes atlas (.devbook/domain/devbook/context.md#lobes-atlas) ------------
+    // ----- The Lobes atlas (.devbook/domain/brain/context.md#lobes-atlas) ------------
 
     /// <summary>With the atlas-lobes flag on, the Atlas button asks the host for the
     /// Lobes atlas at this repository's scope, and the pane opens no atlas of its

@@ -104,6 +104,43 @@ public sealed class PhoneProgressTests : IDisposable
         Assert.Null(await Context.ReadAsync(Cancellation));
     }
 
+    /// <summary>Scenario "ready to resolve on the phone": the context carries the pull
+    /// requests an open impediment holds back, goals or none, with whether their repository
+    /// is archived, so the phone reads Ready to resolve by the desktop's rule. A resolved
+    /// impediment's pull requests are not read.</summary>
+    [Fact]
+    public async Task The_context_carries_the_pull_requests_open_impediments_hold_back_even_with_no_goal()
+    {
+        var open = MakeImpediment.Raised("Bank sandbox down");
+        open.HoldBack(HeldBackItem.ForPullRequest("acme/invoicing", 1344).Value);
+        open.HoldBack(HeldBackItem.ForPullRequest("acme/legacy-billing", 77).Value);
+        var resolved = MakeImpediment.Raised("Old blocker");
+        resolved.HoldBack(HeldBackItem.ForPullRequest("acme/invoicing", 9).Value);
+        Assert.True(resolved.MoveTo(ImpedimentState.Resolved, MakeImpediment.Thu15).IsSuccess);
+        await _impediments.SaveAsync(open, Cancellation);
+        await _impediments.SaveAsync(resolved, Cancellation);
+        _pulls.Known.Add(new GoalPullRequestDto("acme/invoicing", "1344", LinkedPullRequestState.Closed, null, null, new GoalPullRequestApprovalsDto(0, null)));
+        _pulls.Known.Add(new GoalPullRequestDto("acme/legacy-billing", "77", LinkedPullRequestState.Merged, null, null, null, InArchivedRepository: true));
+
+        var copy = await Context.ReadAsync(Cancellation);
+
+        Assert.NotNull(copy);
+        var context = ProgressDocuments.ReadContext(copy.Content)!;
+        Assert.Equal(
+            [("acme/invoicing", "1344", LinkedPullRequestState.Closed, false), ("acme/legacy-billing", "77", LinkedPullRequestState.Merged, true)],
+            context.PullRequests.Select(pull => (pull.Repository, pull.Number, pull.State, pull.InArchivedRepository)));
+    }
+
+    [Fact]
+    public async Task There_is_no_context_to_send_with_no_goal_and_no_impediment_holding_back_a_pull_request()
+    {
+        var tasksOnly = MakeImpediment.Raised();
+        tasksOnly.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        await _impediments.SaveAsync(tasksOnly, Cancellation);
+
+        Assert.Null(await Context.ReadAsync(Cancellation));
+    }
+
     [Fact]
     public async Task A_state_change_from_the_phone_moves_the_impediment_through_its_features()
     {
@@ -288,8 +325,32 @@ public sealed class ProgressDocumentsTests
         Assert.Equal(ImpedimentState.Reported, impediment.State);
         Assert.Equal(new DateOnly(2026, 10, 14), impediment.RaisedOn);
         Assert.Equal(new DateOnly(2026, 10, 21), impediment.CheckAgain);
-        Assert.Equal([TaskId], impediment.HoldsBack);
+        Assert.Equal([HeldBackItemDto.ForTask(TaskId)], impediment.HoldsBack);
         Assert.Null(ProgressDocuments.ReadImpediment($$"""{"id":"{{GoalId}}","title":"No history"}"""));
+    }
+
+    [Fact]
+    public void A_version_2_impediment_document_reads_its_tasks_pull_requests_and_plans_in_link_order()
+    {
+        var read = ProgressDocuments.ReadImpediment($$"""
+            {"version":2,"id":"{{GoalId}}","title":"Bank sample files missing",
+             "history":[{"state":"New","on":"2026-10-14"}],
+             "holdsBack":["{{TaskId}}"],
+             "heldBack":[
+               {"kind":"PullRequest","repository":"acme/payments","number":412},
+               {"kind":"Session","sessionId":"abc"},
+               {"kind":"Task","taskId":"{{TaskId}}"},
+               {"kind":"PullRequest","number":7},
+               {"kind":"Plan","plan":"+goals-standup"},
+               {"kind":"PullRequest","repository":"ACME/payments","number":412}
+             ]}
+            """);
+
+        Assert.NotNull(read);
+        Assert.Equal(
+            [HeldBackItemDto.ForPullRequest("acme/payments", 412), HeldBackItemDto.ForTask(TaskId), HeldBackItemDto.ForPlan("goals-standup")],
+            read.Impediment.HoldsBack);
+        Assert.Equal([TaskId], read.Impediment.HeldBackTasks);
     }
 
     [Fact]

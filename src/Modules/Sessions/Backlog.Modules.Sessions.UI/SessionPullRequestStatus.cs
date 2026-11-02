@@ -8,9 +8,10 @@ namespace Backlog.Modules.Sessions.UI;
 /// one-sentence reason behind the verdict.
 /// <para>
 /// Handed in by the host rather than read here, for the reason the task opener is:
-/// asking GitHub is the pull requests pane's business, and the verdict is derived
-/// there (<c>PullRequestVerdict</c>), so a pull request reads the same on both
-/// screens. This pane only draws what it is given.
+/// asking GitHub is Repository Management's business, and the verdict is that
+/// context's one rule (<c>PullRequestVerdict</c>, local ADR 0042), so a pull request
+/// reads the same on this screen as on the pull requests pane and a task's row. This
+/// pane only draws what it is given.
 /// </para>
 /// </summary>
 /// <param name="Label">The verdict chip's text, such as "Checks running".</param>

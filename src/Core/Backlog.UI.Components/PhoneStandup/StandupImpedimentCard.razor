@@ -7,12 +7,20 @@
 
     The host composes the meta line's words; the goal is a parameter of its own
     only so it can wear its tone.
+
+    Once everything it holds back is settled, a "Ready to resolve" badge in the settled
+    tone follows the state badge (.devbook/domain/progress/features.md
+    #seeing-an-impediment-ready-to-resolve): the words carry it, the tone only echoes them.
 *@
 
 <a class="@ClassValue" href="@Href" data-testid="@TestId" @attributes="AdditionalAttributes">
     <span class="standup-impediment__head">
         <span class="standup-impediment__title" data-testid="@PartTestId("title")">@Title</span>
         <StandupImpedimentBadge State="State" TestId="@PartTestId("state")" />
+        @if (ReadyToResolve)
+        {
+            <Badge Kind="tone" Slug="settled" TestId="@PartTestId("ready")">@(global::Backlog.UI.Components.Progress.GoalsText.ReadyToResolve)</Badge>
+        }
     </span>
     @if (!string.IsNullOrWhiteSpace(Meta) || !string.IsNullOrWhiteSpace(Goal))
     {
@@ -42,6 +50,10 @@
     [Parameter]
     public string? Goal { get; set; }
 
+    /// <summary>Whether everything it holds back is settled: the Ready to resolve badge.</summary>
+    [Parameter]
+    public bool ReadyToResolve { get; set; }
+
     /// <summary>The impediment's own page.</summary>
     [Parameter]
     public string? Href { get; set; }
@@ -49,7 +61,7 @@
     [Parameter]
     public string? CssClass { get; set; }
 
-    /// <summary>The row's test id; its parts get <c>{TestId}-title</c>, <c>-state</c> and <c>-meta</c>.</summary>
+    /// <summary>The row's test id; its parts get <c>{TestId}-title</c>, <c>-state</c>, <c>-ready</c> and <c>-meta</c>.</summary>
     [Parameter]
     public string? TestId { get; set; }
 

@@ -24,8 +24,15 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc
 A person's own note on one block of a chapter, kept by the app rather than by the
 repository. It holds the repository's alias and the chapter's path inside the
 repository, the block it is anchored to, its body, its author, and whether it is
-resolved. The alias is the name a repository already has on every device, so one
-remark names the same chapter on all of them.
+resolved. It also holds its kind and the branch it was left on. The alias is the
+name a repository already has on every device, so one remark names the same
+chapter on all of them.
+
+A remark's kind is one of a review note's four: comment, question, suggestion or
+flag. A remark that states none is a comment. A remark left on a named branch's
+snapshot keeps that branch's name and shows only on that branch. A remark left on
+the default branch keeps no branch name, whether the chapter was read from a clone
+or from a snapshot. So does a remark stored before remarks had a branch.
 
 A remark is anchored by two things: the block's index and a digest of what the
 block said. The index says where to look. The digest says whether the block found
@@ -47,7 +54,136 @@ stays local, and where a remark is stored are
 
 A remark lives with the app rather than in the repository, so a reader can remark
 on a branch snapshot nobody can write to. It is not a
-[Review Note](#review-note), and neither is converted into the other.
+[Review Note](#review-note), but a review note can become one. The app imports
+the open review notes on each registered repository's default branch once, as
+remarks of the same kind on the default branch (local ADR 0011). An imported
+remark keeps the note's author and date, and the note's replies are added to its
+body. The import never overwrites a remark the store holds, and a remark is never
+turned into a review note.
+
+## Subject State
+
+```meta
+type: aggregate
+status: draft
+aliases: [DevbookSubjectState, IDevbookSubjectStateStore, subject state]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
+```
+
+The workflow state of one [Devbook Subject](#devbook-subject) in one repository,
+kept by the app rather than by the chapter. It holds the repository's alias, the
+subject, the state the subject is in, who set that state and when, and, for a
+proposal, the [approval and acceptance](#subject-decision) it stands on.
+
+It exists because devbook's branch-true decision took workflow state out of the
+chapter's `meta` block
+(`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#branch-true-devbook`). A
+branch states what is true of its code. Whether a debt record is planned, or a
+proposal approved, is a fact about the work around the chapter. So the host that
+runs the workflow keeps it, under the names the `devbook.decision@1` contract
+gives a subject. Backlog keeps it in its own store, one file per repository under
+the storage folder, and never in a repository or in the devbook database (local
+ADR 0044).
+
+It is an aggregate because each subject's state changes as one. Setting a state,
+approving and accepting move the state and its decisions together, and a refusal
+changes nothing. No other record changes with it. One set of rules,
+`DevbookSubjectRules`, decides all four operations for every store. The app
+always says who acted and when: the host's own name, the one a remark's author
+carries, and the store's clock. A caller never passes either. The one exception
+is the import below, which keeps who and when the repository wrote down.
+
+A state has a second source: what a repository's default branch still states in
+its Markdown. Before the branch-true decision, a chapter's `meta` block stated a
+debt record's status, a proposed decision record's status, and a proposal's status
+with its approval and acceptance. The app imports these once for each registered
+repository, and never over a state the store holds. The import reads no archived
+repository and no Brain.
+
+An imported state keeps the who, when and fingerprint the repository authored. A
+state with no such record is set by `devbook import`, at the time of the commit
+that added its file. A decision record is keyed by the pull request that added it,
+and is skipped when no pull request did.
+
+It replicates as a whole document through a replica container of its own (local
+ADR 0044). Its id is derived from the repository and the subject, so two devices
+that set a state on the same subject before either has synced land on one
+document. A state is set and never deleted, so it leaves no tombstone. How each
+change is stamped, which version wins, which state stays on this device, and
+where a state is stored are [the Subject State invariants](domain.invariants.md#subject-state).
+
+A state lives with the app rather than in the repository, so a reader can set a
+debt record's state on a branch snapshot nobody can write to. An archived
+repository's states are read and never set, as
+[Repository Management requires](../repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook).
+Where the panels show a state is in
+[the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
+A subject state holds no text of the chapter, and it is not a [Remark](#remark).
+
+### Devbook Subject
+
+```meta
+type: value-object
+status: draft
+aliases: [DevbookSubject, subject]
+```
+
+One thing in a devbook that has workflow state, named the way
+`devbook.decision@1` names it: a [kind](#subject-kind) and a key. Equality is by
+value.
+
+- A **proposal** is keyed by its change's folder name under `openspec/changes/`.
+- A **decision record** is keyed by its repository path and the pull request it
+  is decided in. A record decided again in a later pull request is another
+  subject, so one review's verdict never stands in for the next.
+- A **debt record** is keyed by its repository path.
+
+A decision record is a Markdown file directly in the arc42 folder's `adr/`, and a
+debt record one directly in its `tdr/`. The folder's README or index and the
+coding guidelines under `adr/guidelines/` are no records. Every other chapter is
+no subject: merged, it is in force, and its state is the branch it is on.
+
+A record path is spelled one way: forward slashes, no anchor, and no leading `./`
+or `/`. A subject the contract could not name is refused when it is made: a blank
+key, a decision record with no pull request, a pull request on another kind, or a
+proposal name that is no folder name.
+
+### Subject Kind
+
+```meta
+type: enum
+status: draft
+aliases: [DevbookSubjectKind]
+```
+
+Which of the contract's three subjects a subject is, and the states its kind can
+be in, in workflow order.
+
+| Kind | States |
+| --- | --- |
+| `proposal` | `draft`, `approved`, `accepted` |
+| `decision` | `proposed`, `decided`, `declined` |
+| `debt` | `identified`, `planned`, `in-progress`, `resolved` |
+
+The rows are closed within `devbook.decision@1`. A state outside its kind's row is
+refused and never stored.
+
+### Subject Decision
+
+```meta
+type: value-object
+status: draft
+aliases: [DevbookSubjectDecision, approval, acceptance]
+```
+
+A person's approval or acceptance of a proposal: who gave it, when, and the
+fingerprint of the change it was given at. Only a proposal has them. The
+fingerprint is the change's `devbook.chapter.fingerprint@1`, which is `sha256:`
+and eight lowercase hex characters, and the caller passes the one it read.
+
+An acceptance stands on an approval at the same fingerprint. A change that moved
+after it was approved therefore has to be approved again before anyone can accept
+it.
 
 ## Instruction Review
 
@@ -318,9 +454,12 @@ What one sync direction governs, and what a sweep checks and acts on as a whole.
 The devbook convention defines it: an aggregate with everything it owns, a domain
 service, a feature with its sub-features and requirements, one switch or setting,
 one actor, one building-block file, or one component chapter. Each unit's
-direction is `push`, `pull`, `sync`, `report` or `off`. It is set on the unit's
-root chapter or inherited from its page, its context or its folder, and `report`
-applies when none of them states one.
+direction is `push`, `pull`, `sync`, `report` or `off`. Backlog keeps it in a
+direction map per repository, set in the devbook view on the unit's root chapter,
+its page, its context or its folder. The nearest one wins, and `report` applies
+when none of them states one. The chapter carries no direction of its own: the
+values a clone's Markdown still states are copied into the map once, the first
+time the map is read. A repository read only from a branch is not imported.
 
 ### Review Note
 
@@ -336,5 +475,6 @@ beside the passage it is about. It has a kind (comment, question, suggestion or
 flag), a status (open or resolved), an author, a date, an optional quote, and its
 replies. It is the repository's shared review state: the convention's own tooling
 writes it, and Devbook only reads it. A review note is not chapter content
-([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)),
-and it is never a [Remark](#remark).
+([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)).
+The app imports each open review note on a repository's default branch once, as
+a [Remark](#remark) of the same kind. A resolved review note is not imported.

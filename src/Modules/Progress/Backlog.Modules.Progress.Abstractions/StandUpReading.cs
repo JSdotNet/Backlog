@@ -19,8 +19,9 @@ namespace Backlog.Modules.Progress.Abstractions;
 /// <param name="Impediments">Every impediment, open and resolved, in the order they were raised.</param>
 /// <param name="Tasks">The tasks the reading has: at least those
 /// <see cref="StandUpReading.TaskQuery"/> asks for. More are harmless.</param>
-/// <param name="PullRequests">What the pull requests the goals count said about themselves;
-/// one with no answer reads as not merged.</param>
+/// <param name="PullRequests">What the pull requests the goals count, and those the open
+/// impediments hold back (<see cref="StandUpReading.PullRequestsHeldBack"/>), said about
+/// themselves; one with no answer reads as not merged and is never settled.</param>
 /// <param name="PointsPerWeek">The person's pace, or null when none is known.</param>
 public sealed record StandUpInputs(
     DateOnly Today,
@@ -47,9 +48,12 @@ public sealed record StandUpInputs(
 /// open, not in progress, not blocked, not archived and waits on no open work; then under No
 /// goal the open tasks no goal counts that are due inside next. Each item once.</item>
 /// <item><b>Impediments</b>: the open ones in the order raised, each with its age in worked
-/// days and the first goal counting a task it holds back, and how many were resolved
+/// days, the goal of the first item linked that a goal counts, each item it holds back with
+/// whether it is settled, and whether it reads Ready to resolve; and how many were resolved
 /// inside last.</item>
 /// </list>
+/// A goal is At risk while an open impediment holds back a task it counts, a pull request it
+/// counts, or a plan one of whose entries it counts — Ready to resolve or not.
 /// A group with no item is left out. Pure, and in the module's published surface beside
 /// <see cref="Iterations"/> and <see cref="GoalForecasting"/>, so the desktop and the phone
 /// read the same stand-up from the same work.
@@ -63,22 +67,57 @@ public static class StandUpReading
         return (Iterations.Previous(next, week), next);
     }
 
-    /// <summary>What a reading has to ask Tasks for: the goals' own work, the tasks
-    /// completed inside the four windows the forecast reads, and those due inside next.</summary>
-    public static ProgressTaskQuery TaskQuery(IReadOnlyList<GoalDto> goals, DateOnly today, IterationLength length, DateOnly? twoWeekStart, WorkingHours week)
+    /// <summary>What a reading has to ask Tasks for: the goals' own work, the tasks and the
+    /// plans' entries the open impediments hold back in any repository, the tasks completed
+    /// inside the four windows the forecast reads, and those due inside next.</summary>
+    public static ProgressTaskQuery TaskQuery(
+        IReadOnlyList<GoalDto> goals,
+        IReadOnlyList<ImpedimentDto> impediments,
+        DateOnly today,
+        IterationLength length,
+        DateOnly? twoWeekStart,
+        WorkingHours week)
     {
         ArgumentNullException.ThrowIfNull(goals);
+        ArgumentNullException.ThrowIfNull(impediments);
 
         var (last, next) = Windows(today, length, twoWeekStart, week);
         var history = Iterations.History(last, GoalForecasting.HistoryLength, week);
+        var goalsWork = GoalItems.TaskQuery(goals);
+        var held = impediments.Where(impediment => impediment.IsOpen).SelectMany(impediment => impediment.HoldsBack).ToList();
 
-        return GoalItems.TaskQuery(goals) with
+        return goalsWork with
         {
+            TaskIds = [.. goalsWork.TaskIds.Concat(held.Where(item => item.Kind == HeldBackKind.Task && item.TaskId is not null).Select(item => item.TaskId!.Value)).Distinct()],
+            PlanTags =
+            [
+                .. goalsWork.PlanTags
+                    .Concat(held.Where(item => item.Kind == HeldBackKind.Plan).Select(item => GoalItems.Bare(item.PlanTag)))
+                    .Where(tag => tag.Length > 0)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+            ],
             CompletedFrom = history[0].First,
             CompletedThrough = last.Last,
             DueFrom = next.First,
             DueThrough = next.Last
         };
+    }
+
+    /// <summary>The pull requests the open <paramref name="impediments"/> hold back, each once
+    /// whatever its spelling — what a reading asks GitHub about beside the goals' own.</summary>
+    public static IReadOnlyList<PullRequestRefDto> PullRequestsHeldBack(IEnumerable<ImpedimentDto> impediments)
+    {
+        ArgumentNullException.ThrowIfNull(impediments);
+
+        return
+        [
+            .. impediments
+                .Where(impediment => impediment.IsOpen)
+                .SelectMany(impediment => impediment.HoldsBack)
+                .Where(item => item.Kind == HeldBackKind.PullRequest && item.Repository is not null && item.Number is not null)
+                .Select(HeldBackItems.PullRequestRef)
+                .DistinctBy(GoalItems.KeyOf, StringComparer.OrdinalIgnoreCase)
+        ];
     }
 
     /// <summary>The stand-up <paramref name="inputs"/> read.</summary>
@@ -92,31 +131,34 @@ public static class StandUpReading
         var read = inputs.Tasks;
 
         var counted = all.ToDictionary(goal => goal.Id, goal => GoalItems.TasksOf(goal, all, read));
+        var pulls = all.ToDictionary(goal => goal.Id, goal => GoalItems.PullRequestsOf(goal, counted[goal.Id]));
         var items = all.ToDictionary(goal => goal.Id, goal => GoalItems.Items(goal, all, read, inputs.PullRequests));
         var open = inputs.Impediments.Where(impediment => impediment.IsOpen).ToList();
-        var heldBack = open.SelectMany(impediment => impediment.HoldsBack).ToHashSet();
+        var heldBack = open.SelectMany(impediment => impediment.HoldsBack).ToList();
         var noGoal = NoGoalTasks(read, counted);
         var planned = Planned(all, items, noGoal, next);
+
+        GoalDto? GoalOfItem(HeldBackItemDto item) =>
+            all.FirstOrDefault(goal => HeldBackItems.HoldsBackGoal(item, counted[goal.Id], pulls[goal.Id]));
 
         return new StandUpDto(
             IterationWindowDto.From(last),
             IterationWindowDto.From(next),
-            [.. all.Select(goal => GoalOf(goal, items[goal.Id], counted[goal.Id], heldBack, last, next, week))],
+            [.. all.Select(goal => GoalOf(goal, items[goal.Id], heldBack.Any(item => HeldBackItems.HoldsBackGoal(item, counted[goal.Id], pulls[goal.Id])), last, next, week))],
             Finished(all, items, last),
             planned,
             planned.SelectMany(group => group.Items).Sum(item => item.Effort ?? 0),
             inputs.PointsPerWeek is { } points ? Iterations.Capacity(points, next, week) : null,
             [.. open
                 .OrderBy(impediment => impediment.RaisedOn)
-                .Select(impediment => ImpedimentOf(impediment, all, counted, inputs.Today, week))],
+                .Select(impediment => ImpedimentOf(impediment, GoalOfItem, inputs, week))],
             inputs.Impediments.Count(impediment => impediment.ResolvedOn is { } on && last.Contains(on)));
     }
 
     private static StandUpGoalDto GoalOf(
         GoalDto goal,
         IReadOnlyList<GoalItem> items,
-        IReadOnlyList<ProgressTaskDto> counted,
-        HashSet<Guid> heldBack,
+        bool heldBack,
         IterationWindow last,
         IterationWindow next,
         WorkingHours week)
@@ -127,7 +169,7 @@ public static class StandUpReading
             items.Where(item => item.State == GoalItemState.Done && item.DoneOn is not null).Select(item => item.DoneOn!.Value),
             next,
             goal.DueDate,
-            counted.Any(task => heldBack.Contains(task.Id)),
+            heldBack,
             week);
 
         return new StandUpGoalDto(
@@ -216,13 +258,12 @@ public static class StandUpReading
 
     private static StandUpImpedimentDto ImpedimentOf(
         ImpedimentDto impediment,
-        IReadOnlyList<GoalDto> all,
-        Dictionary<Guid, IReadOnlyList<ProgressTaskDto>> counted,
-        DateOnly today,
+        Func<HeldBackItemDto, GoalDto?> goalOf,
+        StandUpInputs inputs,
         WorkingHours week)
     {
-        var goal = all.FirstOrDefault(goal => counted[goal.Id].Any(task => impediment.HoldsBack.Contains(task.Id)));
-        var age = Iterations.WorkedDays(impediment.RaisedOn, today, week);
+        var goal = impediment.HoldsBack.Select(goalOf).FirstOrDefault(goal => goal is not null);
+        var age = Iterations.WorkedDays(impediment.RaisedOn, inputs.Today, week);
 
         return new StandUpImpedimentDto(
             impediment.Id,
@@ -233,8 +274,22 @@ public static class StandUpReading
             impediment.CheckAgain,
             goal?.Id,
             goal?.Title,
-            impediment.Note);
+            impediment.Note,
+            HeldBackItems.ReadyToResolve(impediment, inputs.Tasks, inputs.PullRequests),
+            [.. impediment.HoldsBack.Select(item => new StandUpHeldBackItemDto(
+                item,
+                TitleOf(item, inputs.Tasks),
+                HeldBackItems.Settled(item, inputs.Tasks, inputs.PullRequests)))]);
     }
+
+    /// <summary>A held-back item's words: the task's title, or null for a task the reading
+    /// does not have; <c>owner/name#number</c>; or <c>+tag</c>.</summary>
+    private static string? TitleOf(HeldBackItemDto item, IReadOnlyList<ProgressTaskDto> tasks) => item.Kind switch
+    {
+        HeldBackKind.Task => tasks.FirstOrDefault(task => task.Id == item.TaskId)?.Title,
+        HeldBackKind.PullRequest => $"{item.Repository}#{item.Number?.ToString(CultureInfo.InvariantCulture)}",
+        _ => $"+{GoalItems.Bare(item.PlanTag)}",
+    };
 
     private static void Add(List<StandUpGroupDto> groups, GoalDto? goal, IEnumerable<StandUpItemDto> items)
     {

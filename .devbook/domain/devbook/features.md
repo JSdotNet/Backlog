@@ -88,7 +88,7 @@ rather than offering an empty tab strip.
 type: sub-feature
 status: draft
 feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
-related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
 
 Present each area's documents as readable content rather than raw files:
@@ -100,11 +100,11 @@ vocabulary rather than as an unknown one.
 
 Two parts of this are switches of their own, both off by default.
 [Devbook status](context.md#devbook-status) draws the status and decision state
-beside each file and chapter, and
-[Devbook editing](context.md#devbook-editing) offers Edit on a repository
+beside each file and chapter, and the state the app keeps for a decision or debt
+record. [Devbook editing](context.md#devbook-editing) offers Edit on a repository
 chapter; a Brain note keeps Edit either way. What follows about showing a status
-or a decision holds while status is on. Off, the file still states them and the
-app draws neither.
+or a decision holds while status is on. Off, the file still states them, the app
+still keeps a record's state, and the app draws none of it.
 
 Documents appear in the order the convention gives them:
 
@@ -126,20 +126,34 @@ enforce, folder by folder, so a chapter the app shows as fine is not one those
 checks reject:
 
 - **A status at rest says nothing.** Architecture, domain and design chapters
-  that are simply current carry no status at all and are shown as current.
-  Choosing "current" for one removes the word rather than writing it, and a
-  chapter that spells it out anyway is pointed out. Technology and AI-adoption
-  chapters are ratings, so the file always states theirs.
-- **A decision is state, not content.** A domain chapter can stand approved
-  (someone agreed it), and above that accepted (someone saw the built work
-  against it and accepted it). Where a review stands on the way there is state
-  too: requested, changes requested or cleared, and who owes the next move. The
-  app never offers those two steps as a status to pick, because the approval step
-  that makes the decision records them. Where that state is shown, and when a
-  decision record goes, are in
+  that are simply current carry no status at all and are shown as current. The
+  app writes no status into those chapters. A status one states anyway is shown
+  as a badge, and a chapter that spells out "current" is pointed out. Technology
+  and AI-adoption chapters are ratings, so the file always states theirs. The app
+  reads a rating from the `rating` field, and from `status` until the repository
+  migrates. A rating is the one value the reader picks, and the app writes it into
+  whichever of the two fields the chapter carries.
+- **A decision is state, not content.** A domain chapter can state that it stands
+  approved (someone agreed it), and above that accepted (someone saw the built
+  work against it and accepted it). Where a review stands on the way there is
+  state too: requested, changes requested or cleared, and who owes the next move.
+  The app shows them as the chapter states them and never writes them. Where that
+  state is shown is in
   [the requirements of this sub-feature](requirements.md#rendered-devbook-documents).
   No other area has them, and a chapter outside the domain that carries one is
   pointed out.
+- **A record's workflow state is the app's.** The app keeps the state of a
+  decision record and a debt record itself, never in the file
+  ([Subject State](domain.md#subject-state), local ADR 0044). The states a
+  repository's default branch still writes in its Markdown are imported into that
+  store once. The record shows that state beside its name, with who set it and
+  when. A debt record's state is picked there, on a branch snapshot too, because
+  picking it writes no file. A
+  decision record's state is shown and never picked. It is kept per pull request,
+  which the panel does not know, so the panel shows the state set most recently
+  for that path, in any pull request. An assistant sets it over the app's MCP
+  server, and a change proposal's state, approval and acceptance the same way.
+  No panel shows a proposal's state yet.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers its boundary document, its requirements and
   invariants and the single rules inside them, and its switches and settings. It
@@ -152,6 +166,9 @@ checks reject:
   that back it, its number and place in the reading order, and the day it
   records. State another tool keeps on the chapter under its own name is
   [carried as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
+- **Planning fields are not drawn.** The chapter view shows no `issue`, `effort`,
+  `roadmap` or `change` field. The app still reads them where tasks and the
+  knowledge graph need them.
 
 A bounded context's click demo is shown with the page it belongs to. A demo is
 the one HTML file a context holds: a clickable picture of what a person sees. It
@@ -224,18 +241,23 @@ related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-contai
 ```
 
 Let a reader leave a [remark](domain.md#remark) against one block of a chapter
-while reading it, and keep it. A remark can be a question, a flag or a note to
-self, and it sits beside the prose rather than inside it. It belongs to the
-person, not to the repository. The app keeps it, it moves with the person's
+while reading it, and keep it. A remark has a kind: a comment, a question, a
+suggestion or a flag. It sits beside the prose rather than inside it. It belongs
+to the person, not to the repository. The app keeps it, it moves with the person's
 backlog, and it reaches their other devices through sync. Because it stays out
 of the repository, a reader can remark on a chapter read from a branch nobody
 can edit; [the Remark invariants](domain.invariants.md#remark) say how. A remark
 can be resolved, which keeps it visible and quiet, or deleted.
 
+A remark is kept per branch. A remark left on a named branch shows only while
+that branch is read. A remark left on the default branch shows on a clone and on
+the default branch's snapshot alike.
+
 A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
 repository writes into a chapter; those are shown under
-[Review notes in a chapter](#review-notes-in-a-chapter). The app does not turn a
-remark into a review note.
+[Review notes in a chapter](#review-notes-in-a-chapter). A repository's open
+review notes on its default branch arrive as remarks once, imported by the app.
+The app does not turn a remark into a review note.
 
 A remark is anchored to the block it was left on, and remembers what that block
 said, so the chapter can change under it without the remark being lost. Where the
@@ -262,7 +284,8 @@ assistant's read, search and excerpts is in
 
 The app shows these notes and does not write them; the convention's own tooling
 does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
-shown apart and never merged, the decision local ADR 0011 records.
+shown apart. The default branch's open notes are imported once into remarks, as
+local ADR 0011 records, and the app still never writes a review note.
 
 ### Sync verdicts beside a chapter
 
@@ -454,185 +477,6 @@ Where GitHub answered with only part of the history or the file list, the review
 says so instead of passing a partial answer off as whole. The review is read from
 GitHub and held only for the session. Nothing is cloned, written to disk, or
 prepared, so a review leaves no trace in the repository or the app's storage.
-
-## Lobes atlas
-
-```meta
-type: feature
-status: draft
-depends-on: [.devbook/domain/brain/features.md#atlas-edges]
-feature-flag: .devbook/domain/devbook/context.md#lobes-atlas
-related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/brain/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent, .devbook/design/interaction-guidelines.md#motion-and-reduced-motion]
-```
-
-See the Brain and every devbook on this machine in one picture. One atlas maps
-the Brain and the devbook of every registered repository. It opens full-window
-from the shell header's **Atlas**, in place of whatever was on screen, and
-draws each of them as a brain: drag to rotate it, scroll to zoom. Its close
-button, Escape and a second press of **Atlas** return to where the person was:
-the main view, the takeover that was up, or the Devbook when its button opened
-the atlas. If that takeover or the Devbook has since been switched off, they
-return to the main view instead, and the tooltip names the main view.
-
-**Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
-**Brain**, then each registered devbook by alias, then each ghost devbook in a
-dashed button. Switching scope brings the camera home. The new scope's brains
-turn from where the last view left them to the default view in about half a
-second, easing in and out. Under reduced motion the new scope starts at the
-default view.
-
-| Scope | The atlas shows |
-| --- | --- |
-| **All** | The Brain in the middle, each devbook as a smaller brain around it |
-| **Brain** | The Brain alone, by region |
-| One per devbook | That devbook alone, by region, with a Brain hub beside it |
-
-**Layout.** The map fills the atlas, and everything else floats over it: the
-title and the scope switch at the top left, the left panel with the scope card
-under it, the picture's controls and the chips at the top right, the list of
-marks down the right, and the foot along the bottom. A drag or a scroll that
-starts on any of them leaves the camera alone. In a window 60rem wide or
-narrower nothing floats. The parts stack in one column, in the order the
-keyboard meets them: the title, the scope switch, the controls, the chips, one
-disclosure that folds the panel and the scope card away, the map with its list
-under it, and the foot. The scope switch and the chips each keep one row and
-scroll sideways.
-
-**The camera.** The brains move like a globe in the hand. A drag carries the
-near face of a brain with the pointer, across as well as up and down. A brisk
-drag carries on after release and comes to rest within about a second. A press
-on brains still turning only stops them, and selects nothing. A press on a mark
-that does not move selects the mark and leaves the camera where it is. A scroll
-zooms toward the point under the pointer, easing to each step, between half and
-2.4 times.
-
-After four seconds without input the brains turn slowly on their own, about
-once in a hundred seconds. The turn lasts until the person presses, scrolls or
-rests the pointer on a mark. Showing or hiding a region, or turning Labels on or
-off, keeps the camera where it was and moving as it was. Under reduced motion
-nothing moves on its own. A drag turns the brains only while it lasts, and a
-scroll and a scope switch land at once.
-
-A repository alias the Brain links to that is not registered on this machine
-is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
-outline, and only the chapters the notes name, in the link's own words. The
-atlas reads no repository, as [Atlas edges](../brain/features.md#atlas-edges) already says.
-
-**Brain regions.** A note's region comes from its PARA area. Its `para` field
-wins over its folder, as [PARA organization](../brain/features.md#para-organization) says.
-
-| Region | Brain notes |
-| --- | --- |
-| Frontal | Projects |
-| Parietal | Areas, Resources, and any area `CONVENTIONS.md` declares beyond PARA |
-| Temporal | People |
-| Occipital | The repository chapters the notes link to |
-| Cerebellum | Journal and the inbox |
-| Brain stem | The area roots and `CONVENTIONS.md` |
-
-Archive is no region: its notes are the faint dust around the outside.
-
-**Devbook regions.** A chapter's region comes from its folder.
-
-| Region | Devbook folder |
-| --- | --- |
-| Frontal | `arc42/` |
-| Parietal | `tech/` |
-| Temporal | `domain/` |
-| Occipital | `design/` |
-| Cerebellum | `ai/` |
-| Brain stem | Each folder's convention root and the reading-order roots |
-
-**Hubs and ghost chapters.** The Brain stem holds one hub for `CONVENTIONS.md`
-and one for each area. Occipital draws the repository chapters the notes link
-to as one hub per repository alias, with a bundle to each chapter. A chapter of
-a note takes the note's region, and a PARA area kept under another folder name
-keeps its region. A chapter a registered devbook's index does not hold is drawn
-dashed inside that devbook, in the link's own words, and its chip reads *not a
-chapter in its devbook*. Every chapter the notes name in a devbook not indexed
-yet is drawn the same way, but its chip reads *its devbook is not indexed yet —
-see its scope card*: the index is missing, not the chapter, as the card says.
-
-**Counts.** Each scope counts its marks per region, its notes or chapters
-without the hubs, and the Brain notes that link into it. The Brain's count is
-the notes that link into any devbook. In All, the tag over each brain gives its
-name and its count; a ghost devbook, which has no count here, reads *not
-registered* instead.
-
-**Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`;
-devbook marks are gold. In All, bundles run from the Brain's repository hubs
-to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
-the devbook with those same bundles. A bundle is solid when the link resolves
-and dashed when it does not, as in [Atlas edges](../brain/features.md#atlas-edges).
-
-**The left panel.** In All it lists the scopes, each with its count; a row
-opens that scope. In a single scope it lists that scope's six regions, each
-with what it holds and its count; a row shows or hides the region. The panel's
-heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
-**Devbook folders** for a devbook.
-
-**The top right.** **Labels**, **All** and **None** sit beside the close
-button, and under them one chip per region of the current scope, or one per
-scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
-hides what it names, as the panel's row does. **All** and **None** act on the
-current scope only, so the regions hidden in another scope stay hidden. In a
-scope, **None** hides the Archive dust with the regions, so nothing is left on
-the map or in the list beside it, and **All** shows it again. The dust has no
-chip or row of its own, so showing one region again after **None** leaves it
-hidden until **All**. The picture's **All** is named *All scopes* or *All
-regions* for a screen reader or speech input, apart from the scope switch's
-**All**.
-
-**The scope card.** Below the list, a scope card names the scope with its
-counts, says when its index was last built, such as "Indexed 4 minutes ago" or
-"Not indexed yet", and offers one action:
-
-| Scope | The card's action |
-| --- | --- |
-| All | **Step into the Brain**, which switches to the Brain's scope |
-| The Brain | **Open in the pane** |
-| A devbook | **Open devbook** |
-| A ghost devbook | **Register repository**, which opens the Repositories settings |
-
-A ghost devbook has no index of its own here, so its card gives no time.
-Coming back from the Repositories settings reopens the atlas on that ghost,
-with the same way back as before. Once the alias is registered, it opens on
-that devbook's scope instead.
-
-**The foot.** Along the map's bottom edge, the hint "Drag — rotate · Scroll —
-zoom" ends with the zoom level, and an orientation marker draws the superior,
-anterior and left axes turning with the camera.
-
-**Every control.** Each control of the atlas is a real button at least 44 px
-square with a visible focus ring, and every toggle reports whether it is
-pressed.
-
-**Selecting a mark.** A mark selected on the map or in the list beside it opens
-its details, as [Atlas edges](../brain/features.md#atlas-edges) does. A Brain note offers to open
-it in the pane. A chapter a note links to shows the link's chip: a gold chip
-opens that repository's devbook at the chapter, and a dashed one says why it
-cannot be followed. A devbook's own chapter opens in its devbook. Following
-any of them, or the card's **Open in the pane** or **Open devbook**, gives the
-Devbook the screen, which closes the atlas.
-
-**Browsing the list.** The list beside the map is one tab stop. The arrow keys,
-Home and End move from row to row and spotlight that mark on the map without
-opening its details. Enter or Space opens them, and Escape closes them with the
-focus back on the mark's row.
-
-**No index yet.** With no Brain index built yet, the atlas shows an empty state
-instead of a map. Its header names the Brain in its badge beside the title, as
-the header does over any atlas with no map to show. It says the Brain is not
-indexed yet, and offers **Build the index now** and **Back to notes**. Building runs the same refresher that builds
-the index in the background, and the map takes the empty state's place once the
-index exists. A build that fails, or finds nothing to index, says why and keeps
-the offer. A host that cannot build the index offers only **Back to notes**.
-Back to notes leaves the atlas the way its close button does.
-
-**Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
-opens this atlas at the pane's scope: the Brain, or that repository. While it
-is off, the button opens today's atlas. The Technology section keeps its own
-views either way; no atlas draws the stack.
 
 ## Technology view
 

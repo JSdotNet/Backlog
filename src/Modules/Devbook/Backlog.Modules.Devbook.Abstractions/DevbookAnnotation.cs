@@ -10,8 +10,9 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// the repository through git. This is the other thing: a private reading note,
 /// owned by the person and their devices rather than by the repository, never
 /// written into a governed devbook folder, and so free to exist on a chapter
-/// read from a branch snapshot nobody can write to. The two are deliberately not
-/// the same store, and nothing promotes one into the other yet.
+/// read from a branch snapshot nobody can write to. The two are not the same
+/// store; the one bridge is the one-time import of a repository's open fences
+/// through <see cref="IDevbookAnnotationStore.ImportIfAbsent"/>.
 /// </para>
 /// <para>
 /// Addressed by repository alias and repository-relative chapter path rather
@@ -32,6 +33,15 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <see cref="Body"/> is a draft the read view has open in its own textarea; it
 /// is kept so that closing the pane does not lose it, and never replicated.
 /// </para>
+/// <para>
+/// <see cref="Kind"/> and <see cref="Branch"/> came with devbook's branch-true
+/// decision, which makes the store rather than the fence where an open note lives.
+/// The kind is the fence's closed set, <see cref="DevbookAnnotationKind.Comment"/>
+/// by default. The branch is the one the chapter was read from: null for the
+/// default branch — a clone, a default-branch snapshot, and every remark stored
+/// before the field existed — and the name for a named-branch snapshot, so a
+/// remark left on a branch shows on that branch and nowhere else.
+/// </para>
 /// </summary>
 public sealed record DevbookAnnotation(
     Guid Id,
@@ -44,8 +54,16 @@ public sealed record DevbookAnnotation(
     DateTimeOffset UpdatedAt,
     bool Resolved = false,
     DateTimeOffset? DeletedAt = null,
-    string? BlockHash = null)
+    string? BlockHash = null,
+    DevbookAnnotationKind Kind = DevbookAnnotationKind.Comment,
+    string? Branch = null)
 {
+    /// <summary>One spelling for "the default branch": a blank name is none, and a
+    /// named one is trimmed. Every store keys a remark's branch through this, so a
+    /// caller holding <c>""</c> and one holding null ask the same question.</summary>
+    public static string? BranchKey(string? branch) =>
+        string.IsNullOrWhiteSpace(branch) ? null : branch.Trim();
+
     /// <summary>Whether this remark can be re-anchored at all.
     /// <para>
     /// A remark made before anchoring carried a hash — and one on a block with

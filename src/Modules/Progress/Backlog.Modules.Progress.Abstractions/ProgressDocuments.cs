@@ -59,7 +59,10 @@ public static class ProgressDocuments
 
     /// <summary>The impediment an <c>impediment</c> document holds, or null when it does not
     /// read as one — not JSON, no title, no history, or another id than
-    /// <paramref name="id"/>.</summary>
+    /// <paramref name="id"/>. A version 2 document holds back the items of its
+    /// <c>heldBack</c> list, in link order; version 1 holds back the tasks of
+    /// <c>holdsBack</c> alone. An item of a kind this build does not know, or missing what
+    /// its kind needs, is left out rather than refusing the impediment.</summary>
     public static ImpedimentDocumentDto? ReadImpediment(string? content, Guid? id = null)
     {
         if (Parse<ImpedimentShape>(content) is not { } shape) return null;
@@ -81,9 +84,30 @@ public static class ProgressDocuments
                 shape.CheckAgain,
                 Clean(shape.Note),
                 history,
-                [.. (shape.HoldsBack ?? []).Where(task => task != Guid.Empty).Distinct()]),
+                HeldBackOf(shape)),
             shape.CreatedAt);
     }
+
+    /// <summary>What an impediment document holds back, each item once by kind and identity.</summary>
+    private static List<HeldBackItemDto> HeldBackOf(ImpedimentShape shape)
+    {
+        IEnumerable<HeldBackItemDto?> items = shape.Version >= 2 && shape.HeldBack is { } heldBack
+            ? heldBack.Select(HeldBackItemOf)
+            : (shape.HoldsBack ?? []).Where(task => task != Guid.Empty).Select(HeldBackItemDto.ForTask);
+
+        return [.. items
+            .OfType<HeldBackItemDto>()
+            .DistinctBy(item => (item.Kind, item.TaskId, item.Number, item.Repository?.ToUpperInvariant(), item.PlanTag?.ToUpperInvariant()))];
+    }
+
+    private static HeldBackItemDto? HeldBackItemOf(HeldBackShape? stored) => stored?.Kind switch
+    {
+        HeldBackKind.Task when stored.TaskId is { } task && task != Guid.Empty => HeldBackItemDto.ForTask(task),
+        HeldBackKind.PullRequest when !string.IsNullOrWhiteSpace(stored.Repository) && stored.Number is > 0 =>
+            HeldBackItemDto.ForPullRequest(stored.Repository.Trim(), stored.Number.Value),
+        HeldBackKind.Plan when GoalItems.Bare(stored.Plan) is { Length: > 0 } plan => HeldBackItemDto.ForPlan(plan),
+        _ => null,
+    };
 
     /// <summary>The <see cref="StandUpContextDto"/> as its document's JSON.</summary>
     public static string WriteContext(StandUpContextDto context)
@@ -169,7 +193,7 @@ public static class ProgressDocuments
         long? Rank);
 
     private sealed record AttachmentShape(
-        [property: JsonConverter(typeof(LenientKindConverter))] GoalAttachmentKind? Kind,
+        [property: JsonConverter(typeof(LenientEnumConverter<GoalAttachmentKind>))] GoalAttachmentKind? Kind,
         string? Plan,
         Guid? TaskId,
         string? Repository,
@@ -177,6 +201,7 @@ public static class ProgressDocuments
         DateOnly AttachedOn);
 
     private sealed record ImpedimentShape(
+        int? Version,
         Guid Id,
         string? Title,
         string? ReportedTo,
@@ -185,7 +210,15 @@ public static class ProgressDocuments
         string? Note,
         List<StepShape>? History,
         List<Guid>? HoldsBack,
+        List<HeldBackShape?>? HeldBack,
         DateTimeOffset? CreatedAt);
+
+    private sealed record HeldBackShape(
+        [property: JsonConverter(typeof(LenientEnumConverter<HeldBackKind>))] HeldBackKind? Kind,
+        Guid? TaskId,
+        string? Repository,
+        int? Number,
+        string? Plan);
 
     private sealed record StepShape(ImpedimentState State, DateOnly On, string? With);
 
@@ -205,17 +238,18 @@ public static class ProgressDocuments
 
     private sealed record WeekShape(List<WorkingDay>? Days, List<DayOverride>? Overrides);
 
-    /// <summary>An attachment kind by name, or null for a name this build does not know, so
-    /// one new kind leaves that attachment out rather than the goal.</summary>
-    private sealed class LenientKindConverter : JsonConverter<GoalAttachmentKind?>
+    /// <summary>A goal attachment's or a held-back item's kind by name, or null for a name this
+    /// build does not know, so one new kind leaves that item out rather than its document.</summary>
+    private sealed class LenientEnumConverter<TKind> : JsonConverter<TKind?>
+        where TKind : struct, Enum
     {
-        public override GoalAttachmentKind? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-            reader.TokenType == JsonTokenType.String && Enum.TryParse<GoalAttachmentKind>(reader.GetString(), ignoreCase: true, out var kind)
+        public override TKind? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType == JsonTokenType.String && Enum.TryParse<TKind>(reader.GetString(), ignoreCase: true, out var kind)
                 && Enum.IsDefined(kind)
                 ? kind
                 : null;
 
-        public override void Write(Utf8JsonWriter writer, GoalAttachmentKind? value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, TKind? value, JsonSerializerOptions options)
         {
             if (value is { } kind) writer.WriteStringValue(kind.ToString());
             else writer.WriteNullValue();

@@ -33,13 +33,19 @@ public class ModuleBoundaryTests
     /// </summary>
     private static readonly (string From, string To, string Relationship)[] AllowedCrossContextUi =
     [
-        // Empty on purpose, and kept as a table rather than deleted: the last
-        // entry — Tasks.UI conforming to the Inbox's published item contract
-        // through TasksDrafts — went when the Inbox got a module of its own. The
-        // join between the two is now a port in Inbox.Abstractions answered by
-        // an adapter under src/Infrastructure, which is where a cross-context
-        // edge belongs. The next entry, if there is one, needs the context map's
-        // say-so in its Relationship, as that one had.
+        // One relationship, two references: the Brain's screens are the Brain's
+        // feature on Devbook's pane, so Brain.UI conforms to the pane's mode
+        // extension point and to the published language it is written in. The
+        // edge runs one way; nothing in Devbook references the Brain. The earlier
+        // entry — Tasks.UI conforming to the Inbox's published item contract —
+        // went when the Inbox got a module of its own and its join moved into an
+        // adapter under src/Infrastructure, which is where a cross-context edge
+        // belongs unless a pane renders on another context's pane. The next entry
+        // needs the context map's say-so in its Relationship, as these have.
+        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.UI",
+            "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point (local ADR 0040 §2; .devbook/domain/context-map.md)"),
+        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Abstractions",
+            "Customer/Supplier: the Brain answers Devbook's personal-source port and opens repository chapters in its published language (local ADR 0040 §2, ADR 0027 §6; .devbook/domain/context-map.md)"),
     ];
 
     [Fact]
@@ -253,6 +259,7 @@ public class ModuleBoundaryTests
             offenders.AddRange(Repository.ReferencedProjectNames(project)
                 .Where(abstractions.Contains)
                 .Where(reference => !OwningModuleOf(reference).Equals(self, StringComparison.OrdinalIgnoreCase))
+                .Where(reference => !IsAllowedCrossContextEdge(Path.GetFileNameWithoutExtension(project.Name), reference))
                 .Select(reference => $"{project.Name} -> {reference}"));
         }
 

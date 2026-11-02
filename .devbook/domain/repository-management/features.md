@@ -310,15 +310,15 @@ keeps the answer for ten minutes, so its rows carry the required total too. A
 branch whose rules cannot be read leaves its rows' approvals as the number received,
 with no verdict either way. A task's linked pull request card draws the marks while
 the pull request is open; one the open list did not hold — merged, closed, or in a
-repository no longer configured — draws its state alone, because the read by number
-behind it asks for no checks or approvals.
+repository no longer configured — draws its state alone. The card draws what the
+task list recorded of it, and only a row of the open list carries the marks.
 
 The marks are what a row shows of the status. The status itself carries more, and
 local ADR 0042 lists what
 ([§2](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#2-one-published-contract-for-status-and-verdict)).
-The marks are built. The one status every screen reads is not: today the pane,
-Progress and the side panel each read GitHub their own way, and ADR 0042 makes it
-one contract and one cache.
+Every screen reads the status through one contract, `IPullRequests`, and one cache
+in this context's module. A pull request one screen read within the minute is not
+read again for another.
 
 ## Pull request readiness
 
@@ -327,7 +327,7 @@ type: feature
 status: proposed
 feature-flag: .devbook/domain/repository-management/context.md#pull-requests
 related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestLabelFilterTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
 The pull requests pane is where a reader follows each open pull request of the
@@ -335,7 +335,10 @@ registered repositories to the point where it merges. Sessions and delivery runs
 produce many of them, and a person opens others by hand; the pane lists both. It is
 this context's screen (local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)).
-Until that record is built, the pane and its rules live in the desktop shell.
+The pane's rules live in this context's `.Abstractions` project: the verdict, the
+stacks, which merge a pull request is offered, and the label filter. The pane's
+markup, its status lines and its subjects stay in the desktop shell,
+`Backlog.Desktop.UI`, and read that contract.
 
 The pane has two views, Open and Recently merged. A Mine / Everyone's choice narrows the
 rows. Mine is the reader's own pull requests and those related to one of their tasks.
@@ -393,7 +396,7 @@ combine: Mine and Needs you is the reader's own work that is waiting on them.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
+tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestStacksTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestMergesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
 ```
 
 Each pull request that is still open gets exactly one readiness verdict. Where several
@@ -482,7 +485,7 @@ from the base repository, so a pull request from a fork has no such count.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests]
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestCommandTests.Each_command_acts_once_reads_its_repository_again_once_and_says_what_changed]
 ```
 
 Re-run failed is offered when a failed check is a GitHub Actions run. It starts the failed

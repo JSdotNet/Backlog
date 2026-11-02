@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, notifications and notificationReplies — and the two registry containers beside them.')
+@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, devbookSubjects, notifications and notificationReplies — and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -415,6 +415,41 @@ resource annotationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
         version: 2
       }
       defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `devbookSubjects` — the workflow state Backlog keeps for a repository's devbook
+// subjects (a change proposal, a decision record, a debt record), travelling between
+// a person's desktops on the annotations container's terms. No defaultTtl at all:
+// a subject's state is set and never deleted, so there is no tombstone to expire.
+resource devbookSubjectsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'devbookSubjects'
+  properties: {
+    resource: {
+      id: 'devbookSubjects'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
       indexingPolicy: {
         indexingMode: 'consistent'
         automatic: true
@@ -1001,6 +1036,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__AnnotationsContainerName'
               value: annotationsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__DevbookSubjectsContainerName'
+              value: devbookSubjectsContainer.name
             }
             {
               name: 'Sync__Cosmos__NotificationsContainerName'

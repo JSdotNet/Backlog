@@ -88,9 +88,20 @@ public sealed class GoalForecastingTests
     [Fact]
     public void A_goal_with_no_open_item_is_on_track_with_no_landing_date()
     {
-        var forecast = Forecast(0, [], Oct(1), heldBack: true);
+        var forecast = Forecast(0, [], Oct(1));
 
         Assert.Equal(GoalStanding.OnTrack, forecast.Standing);
+        Assert.Null(forecast.LandsOn);
+    }
+
+    /// <summary>Scenario "An impediment ready to resolve" on a goal whose items are all done:
+    /// only the person's Resolve lifts At risk (<c>.devbook/domain/progress/domain.md#goal-forecast</c>).</summary>
+    [Fact]
+    public void A_goal_with_no_open_item_held_back_by_an_open_impediment_is_at_risk_with_no_landing_date()
+    {
+        var forecast = Forecast(0, TwoAWeek, Oct(30), heldBack: true);
+
+        Assert.Equal(GoalStanding.AtRisk, forecast.Standing);
         Assert.Null(forecast.LandsOn);
     }
 

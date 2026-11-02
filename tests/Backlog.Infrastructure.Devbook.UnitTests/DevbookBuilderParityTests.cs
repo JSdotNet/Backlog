@@ -187,7 +187,7 @@ public class DevbookBuilderParityTests : IDisposable
         var fromApp = Path.Combine(_scratch, "brain-app.db");
 
         RunNodeWriter(brain, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"), brain: true);
-        Assert.True(DevbookDatabaseBuilder.Build(brain, fromApp, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(brain, fromApp, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         var differences = CompareDatabases(fromNode, fromApp);
 

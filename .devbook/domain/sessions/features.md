@@ -743,6 +743,36 @@ rule this area already applies to a dashboard's own gaps.
 [The cost of a run and its stages](#the-cost-of-a-run-and-its-stages) extends these
 figures with what the run and each stage cost in money.
 
+### What every run spent, for a report
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.The_default_window_is_the_last_seven_days_by_start, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.A_run_carries_its_totals_and_its_uncached_figure, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.Models_are_read_from_the_requests_claude_code_reported_while_the_run_was_open, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.A_request_belongs_to_one_run_and_an_abandoned_run_ends_where_the_next_began, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.Runs_are_placed_in_a_repository_by_what_named_one]
+```
+
+A session reading back the run it drives is never handed these figures: they are
+measured, not the run's to claim. A report written afterwards about many runs is the
+reader they are for, so it reads them through `list_run_usage`, a read-only tool of its
+own beside the delivery surface, behind the same Sessions switch.
+
+For a window — the last seven days, or a range of whole days — it answers every run on
+this machine that started inside it, across every repository:
+
+- the repository the run is placed in: the one it named, else its session's, else the
+  work it was linked to; a run nothing places is kept, with no repository;
+- its total and delegated tokens, each with the uncached figure beside it — input, cache
+  writes and output, the prompt cache's reads left out;
+- the same per stage, and per agent it delegated to;
+- per model, what Claude Code reported for the requests its sessions made while it was
+  open, each request counted for one run only; where nothing was reported, the models
+  are named with no figures;
+- the fullest its context got and how often it was compacted;
+- and a total per repository.
+
+A figure nothing measured is left out, never shown as zero. The `backlog-tools` plugin's
+weekly cost analysis reads it, repository by repository.
+
 ## The session list and its detail
 
 ```meta
@@ -1464,16 +1494,18 @@ the section's heading, since the card that held it is gone.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Linked_pull_requests_are_read_with_their_state_merge_date_and_author, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Many_linked_pull_requests_are_read_in_slim_batches]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
 ```
 
 Every pull request a task links is known by its own state — open, draft, merged or
 closed — by who opened it, and by when it merged. The open read answers for one still
 open in a configured repository. The rest are read by number, once the open read has
-landed, so the open cards never wait on them. That read asks only for what a link
-records, in batches of fifty, and never for checks or branches.
+landed, so the open cards never wait on them. That read carries what a row of the
+open list carries, checks and branches included, and asks GitHub about at most
+twenty-five numbers a query.
 
-A merged pull request is read once and kept while the app runs. A closed or open one is
+A merged pull request is read once and kept on this device, so it still reads merged
+after a restart with GitHub out of reach. A closed or open one is
 read again with the next read of the open list, at most once a minute, because GitHub
 can reopen a closed one. A number GitHub cannot find is not asked about again. The side
 panel reads none of them on its own.

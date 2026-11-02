@@ -102,7 +102,10 @@ public static class DevbookMetadataFindings
 
     private static void Status(List<DevbookMetadataFinding> findings, DevbookFolder folder, MetadataRecord record)
     {
-        var status = record.Status;
+        // In `tech/` and `ai/` the field is a rating, written `rating` once the
+        // repository migrates to devbook contract 38: a migrated entry is rated,
+        // not missing its required status.
+        var status = folder is DevbookFolder.Tech or DevbookFolder.Ai ? record.Rating : record.Status;
 
         if (DevbookSchema.IsResting(folder, status))
         {

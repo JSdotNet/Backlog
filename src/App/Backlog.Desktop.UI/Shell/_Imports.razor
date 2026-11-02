@@ -12,10 +12,12 @@
 @using Backlog.Desktop.UI.Devbook
 @using Backlog.Modules.DevPc.UI
 @using Backlog.Modules.Sessions.UI
-@* The pull requests list is the Sessions context's too, but it reads GitHub
-   through the adapter, which no Sessions project may reference — so it lives in
-   this project, in a folder of its own, and is composed from here like the rest. *@
+@* The pull requests list is Repository Management's screen (local ADR 0042). That
+   context has no UI project yet, and the list still acts through the GitHub
+   adapter — so it lives in this project, in a folder of its own, and is composed
+   from here like the rest. Its published surface is here for the feature key. *@
 @using Backlog.Desktop.UI.PullRequests
+@using Backlog.Modules.RepositoryManagement.Abstractions
 @* A task's sessions and pull requests, and the Goals view over the same read, join
    an entry to Sessions and GitHub, so they live beside the pull requests list for
    the same reason. *@
@@ -36,6 +38,9 @@
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.Modules.Roadmap.Abstractions
 @using Backlog.Modules.Sessions.Abstractions
+@* The Brain's published surface (local ADR 0040): Home reads its folder,
+   setup words and task links, as the shell may for every context. *@
+@using Backlog.Modules.Brain.Abstractions
 @* Capture's published surface, and the one exception to "constants only": the
    Inbox's Capture button is answered here, by calling the module's runner and
    writing its result into a sentence for the pane. The pane itself stays free

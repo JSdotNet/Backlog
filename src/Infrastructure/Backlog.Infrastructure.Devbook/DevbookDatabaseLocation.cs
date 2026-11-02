@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using Backlog.Infrastructure.Devbook.Building;
 using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.Devbook;
@@ -33,13 +34,13 @@ namespace Backlog.Infrastructure.Devbook;
 /// wanted, so a configured observer hears about each ask (see
 /// <see cref="DevbookDatabaseRefresher"/>). The ask never waits for it.</para>
 ///
-/// <para>The Brain (local ADR 0026) gets its database the same way, keyed by its
-/// folder's absolute path under the same <c>_databases</c> folder, and never in
-/// the folder itself, which is often synced. What differs is that the Brain's
-/// folder is the root rather than a folder one step below it, and that it is
-/// read under the Brain's convention; <see cref="ForBrainFolder"/> records both,
-/// so a reader handed the Brain's folder and the refresher building it each know
-/// it for what it is.</para>
+/// <para>A folder outside every repository — the Brain's, local ADR 0026 — gets
+/// its database the same way, keyed by its absolute path under the same
+/// <c>_databases</c> folder, and never in the folder itself, which is often
+/// synced. What differs is that such a folder is the root rather than a folder
+/// one step below it, and that it is read under its own corpus profile;
+/// <see cref="RegisterCorpus"/> records both, so a reader handed the folder and
+/// the refresher building it each know it for what it is.</para>
 /// </summary>
 public static class DevbookDatabaseLocation
 {
@@ -62,10 +63,13 @@ public static class DevbookDatabaseLocation
 
     private static volatile Configuration? s_configuration;
 
-    /// <summary>The normalized root of the Brain, or null: one per user, so one
-    /// per process, and a newly recorded folder replaces the last — a moved
-    /// setting must not leave its old folder read as a Brain.</summary>
-    private static volatile string? s_brainRoot;
+    /// <summary>Which normalized root each corpus profile is registered for, at
+    /// most one per profile: replaced whole under <see cref="s_corporaGate"/>, read
+    /// without it. A newly registered root replaces the profile's last — a moved
+    /// setting must not leave its old folder read under the profile.</summary>
+    private static volatile CorpusRoot[] s_corpora = [];
+
+    private static readonly Lock s_corporaGate = new();
 
     /// <summary>
     /// Points the resolver at the app's devbook cache folder, read on every ask so
@@ -111,42 +115,60 @@ public static class DevbookDatabaseLocation
     /// <summary>
     /// The database for the repository a devbook folder belongs to. The
     /// repository root is one level up from a root-layout folder (<c>.arc42</c>)
-    /// and two from a devbook-layout one (<c>.devbook/arc42</c>). A Brain folder
-    /// (<see cref="ForBrainFolder"/>) is its own root.
+    /// and two from a devbook-layout one (<c>.devbook/arc42</c>). A folder
+    /// registered under a corpus profile (<see cref="RegisterCorpus"/>) is its own
+    /// root.
     /// </summary>
     public static string? ForDevbookFolder(string? devbookFolderPath) =>
-        IsBrainRoot(devbookFolderPath)
+        IsRegisteredRoot(devbookFolderPath)
             ? ForRepositoryRoot(devbookFolderPath)
             : RepositoryRootFor(devbookFolderPath) is { } root ? ForRepositoryRoot(root) : null;
 
     /// <summary>
-    /// The Brain's database: the one for the Brain folder at
-    /// <paramref name="brainRoot"/>, keyed by its absolute path like a
-    /// repository's, in the app's storage. Records the folder as a Brain, so
-    /// <see cref="ForDevbookFolder"/> treats it as its own root and the refresher
-    /// builds it under the Brain's convention, and tells the configured observer.
+    /// Records <paramref name="root"/> as the folder read under
+    /// <paramref name="profile"/>, in place of the root it was registered for
+    /// before and of any other profile registered for the same root, without
+    /// asking for its database. Null or blank clears the profile's root.
+    /// <see cref="DevbookCorpusProfile.Repository"/> is what every unregistered
+    /// root reads as, so it is never registered.
     /// </summary>
-    public static string? ForBrainFolder(string? brainRoot)
+    public static void RegisterCorpus(DevbookCorpusProfile profile, string? root)
     {
-        RegisterBrainRoot(brainRoot);
-        return ForRepositoryRoot(brainRoot);
+        ArgumentNullException.ThrowIfNull(profile);
+        if (ReferenceEquals(profile, DevbookCorpusProfile.Repository))
+        {
+            throw new ArgumentException("The repository profile is what an unregistered root reads as; it is never registered.", nameof(profile));
+        }
+
+        var normalized = root is null ? null : NormalizedRoot(root);
+
+        lock (s_corporaGate)
+        {
+            var kept = s_corpora.Where(corpus => !ReferenceEquals(corpus.Profile, profile)
+                && !string.Equals(corpus.Root, normalized, StringComparison.Ordinal));
+
+            s_corpora = normalized is null ? [.. kept] : [.. kept, new CorpusRoot(profile, normalized)];
+        }
     }
 
-    /// <summary>Records <paramref name="brainRoot"/> as the Brain folder, in place
-    /// of any recorded before, without asking for its database; null or blank
-    /// records none.</summary>
-    public static void RegisterBrainRoot(string? brainRoot) =>
-        s_brainRoot = brainRoot is null ? null : NormalizedRoot(brainRoot);
+    /// <summary>The profile the folder at <paramref name="root"/> is built under:
+    /// the one it was registered for, or <see cref="DevbookCorpusProfile.Repository"/>.</summary>
+    public static DevbookCorpusProfile ProfileFor(string? root)
+    {
+        if (root is null || NormalizedRoot(root) is not { } normalized) return DevbookCorpusProfile.Repository;
 
-    /// <summary>Whether <paramref name="path"/> is the folder recorded as the Brain.</summary>
-    public static bool IsBrainRoot(string? path) =>
-        path is not null && s_brainRoot is { } brain && string.Equals(NormalizedRoot(path), brain, StringComparison.Ordinal);
+        foreach (var corpus in s_corpora)
+        {
+            if (string.Equals(corpus.Root, normalized, StringComparison.Ordinal)) return corpus.Profile;
+        }
 
-    /// <summary>The convention the folder at <paramref name="root"/> is built
-    /// under: the Brain's when it was recorded as one, a repository's
-    /// otherwise.</summary>
-    public static DevbookCorpusKind KindFor(string? root) =>
-        IsBrainRoot(root) ? DevbookCorpusKind.Brain : DevbookCorpusKind.Repository;
+        return DevbookCorpusProfile.Repository;
+    }
+
+    /// <summary>Whether <paramref name="path"/> is a root registered under a
+    /// profile other than the repository's.</summary>
+    public static bool IsRegisteredRoot(string? path) =>
+        !ReferenceEquals(ProfileFor(path), DevbookCorpusProfile.Repository);
 
     /// <summary>The repository root above a devbook folder, or
     /// <see langword="null"/> when the path has no parent to go to.</summary>
@@ -228,4 +250,6 @@ public static class DevbookDatabaseLocation
     }
 
     private sealed record Configuration(Func<string?> CacheDirectory, Action<string>? Requested);
+
+    private sealed record CorpusRoot(DevbookCorpusProfile Profile, string Root);
 }

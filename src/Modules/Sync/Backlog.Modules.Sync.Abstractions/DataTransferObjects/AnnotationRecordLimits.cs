@@ -38,6 +38,19 @@ public static class AnnotationRecordLimits
     /// else.</summary>
     public const int BlockHashLength = 128;
 
+    /// <summary>The longest branch name. Git allows longer refs in principle; no
+    /// branch a person reads a devbook from comes near this, and the bound keeps
+    /// the field a name rather than a place to put anything else.</summary>
+    public const int BranchLength = 255;
+
+    /// <summary>
+    /// devbook's closed set of note kinds, default first — the names an
+    /// <c>annotation</c> fence writes. Written down here rather than borrowed from
+    /// the Devbook module, which the wire may not reference; a kind the module
+    /// added without the wire knowing would be refused here.
+    /// </summary>
+    public static IReadOnlyList<string> Kinds { get; } = ["comment", "question", "suggestion", "flag"];
+
     /// <summary>
     /// Why the service would refuse <paramref name="change"/>, or null when it
     /// would store it. The service answers the reason as the detail of its
@@ -78,11 +91,20 @@ public static class AnnotationRecordLimits
             return "An annotation's block index cannot be negative.";
         }
 
+        // Absent is a comment, from a device that predates kinds. Present, it has
+        // to be one of the set: a kind the other device cannot read would arrive
+        // there as a comment and come back overwriting what was meant.
+        if (annotation.Kind is { } kind && !Kinds.Contains(kind, StringComparer.OrdinalIgnoreCase))
+        {
+            return $"An annotation's kind must be one of {string.Join(", ", Kinds)}; this one was '{kind}'.";
+        }
+
         return TooLong("repository alias", annotation.RepositoryAlias, RepositoryAliasLength)
             ?? TooLong("chapter path", annotation.ChapterPath, ChapterPathLength)
             ?? TooLong("author", annotation.Author, AuthorLength)
             ?? TooLong("body", annotation.Body, BodyLength)
-            ?? TooLong("block hash", annotation.BlockHash, BlockHashLength);
+            ?? TooLong("block hash", annotation.BlockHash, BlockHashLength)
+            ?? TooLong("branch", annotation.Branch, BranchLength);
     }
 
     private static string? TooLong(string field, string? value, int limit) =>

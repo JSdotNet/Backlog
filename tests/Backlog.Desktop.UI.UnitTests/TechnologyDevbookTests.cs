@@ -313,6 +313,21 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal(status, dotnet.Status);
     }
 
+    /// <summary>A repository migrated to devbook contract 38 writes the rating as
+    /// <c>rating</c>; the node reads it there rather than reporting it unknown.</summary>
+    [Fact]
+    public void A_node_reads_its_rating_from_the_rating_field_once_the_repository_migrates()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath);
+        File.WriteAllText(Path.Combine(techPath, "shared.md"),
+            "# Shared Technologies\n\n## .NET\n```meta\nrating: trial\nkind: runtime\n```\n\nCross-platform runtime.\n");
+
+        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
+
+        Assert.Equal("trial", Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net").Status);
+    }
+
     /// <summary>A `depends-on` target outside `.tech` is a real chapter documented
     /// elsewhere. The derived index already knows its name, its folder and its
     /// status, so those are read rather than reverse-engineered from the slug.</summary>

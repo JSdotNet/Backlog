@@ -26,10 +26,12 @@ public sealed record ReadStandUpQuery(DateOnly Today, IterationLength Length);
 /// open, not in progress, not blocked, not archived and waits on no open work; then under No
 /// goal the open tasks no goal counts that are due inside next. Each item once.</item>
 /// <item><b>Impediments</b>: the open ones in the order raised, each with its age in worked
-/// days and the first goal counting a task it holds back, and how many were resolved
-/// inside last.</item>
+/// days, the goal of the first item linked, its held-back items and whether it reads Ready
+/// to resolve; and how many were resolved inside last.</item>
 /// </list>
-/// A group with no item is left out. The pull requests of tasks no goal counts are not read.
+/// A group with no item is left out. The tasks, plans' entries and pull requests the open
+/// impediments hold back are read beside the goals' work; the pull requests of tasks no goal
+/// counts are not read.
 /// </summary>
 public sealed class ReadStandUpQueryHandler(
     IGoalRepository goals,
@@ -49,16 +51,21 @@ public sealed class ReadStandUpQueryHandler(
         var twoWeekStart = iteration.TwoWeekStart;
 
         IReadOnlyList<GoalDto> all = [.. (await goals.ListAsync(cancellationToken).ConfigureAwait(false)).Select(goal => goal.ToDto())];
+        IReadOnlyList<ImpedimentDto> raised = [.. (await impediments.ListAsync(cancellationToken).ConfigureAwait(false)).Select(impediment => impediment.ToDto())];
         var read = await tasks.ReadAsync(
-            StandUpReading.TaskQuery(all, query.Today, query.Length, twoWeekStart, week),
+            StandUpReading.TaskQuery(all, raised, query.Today, query.Length, twoWeekStart, week),
             cancellationToken).ConfigureAwait(false);
 
-        var asked = GoalItems.PullRequestsOf(all, read);
+        IReadOnlyList<PullRequestRefDto> asked =
+        [
+            .. GoalItems.PullRequestsOf(all, read)
+                .Concat(StandUpReading.PullRequestsHeldBack(raised))
+                .DistinctBy(GoalItems.KeyOf, StringComparer.OrdinalIgnoreCase)
+        ];
         IReadOnlyList<LinkedPullRequestDto> answers = asked.Count == 0
             ? []
             : [.. (await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false)).Select(LinkedPullRequestDto.Of)];
 
-        IReadOnlyList<ImpedimentDto> raised = [.. (await impediments.ListAsync(cancellationToken).ConfigureAwait(false)).Select(impediment => impediment.ToDto())];
         var pointsPerWeek = await pace.PointsPerWeekAsync(cancellationToken).ConfigureAwait(false);
 
         return StandUpReading.Read(new StandUpInputs(

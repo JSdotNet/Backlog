@@ -167,7 +167,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
     {
         var brain = WriteBrain();
         BuildDatabase(brain);
-        var service = new DevbookAtlasService(new FixedFolders("backlog")) { BrainDatabaseFor = DatabaseFor };
+        var service = new BrainAtlas(new FixedFolders("backlog")) { DatabaseFor = DatabaseFor };
 
         var graph = await service.ReadBrainAsync(new FixedBrain(brain), TestContext.Current.CancellationToken);
 
@@ -189,15 +189,15 @@ public sealed class DevbookBrainAtlasTests : IDisposable
     [Fact]
     public async Task With_no_brain_folder_or_no_index_the_atlas_says_so()
     {
-        var service = new DevbookAtlasService(new FixedFolders()) { BrainDatabaseFor = DatabaseFor };
+        var service = new BrainAtlas(new FixedFolders()) { DatabaseFor = DatabaseFor };
 
         var unset = await service.ReadBrainAsync(new FixedBrain(null), TestContext.Current.CancellationToken);
         Assert.False(unset.Available);
-        Assert.Equal(DevbookAtlasService.NoBrainFolder, unset.Message);
+        Assert.Equal(BrainAtlas.NoBrainFolder, unset.Message);
 
         var unbuilt = await service.ReadBrainAsync(new FixedBrain(WriteBrain()), TestContext.Current.CancellationToken);
         Assert.False(unbuilt.Available);
-        Assert.Equal(DevbookAtlasService.BrainIndexMissing, unbuilt.Message);
+        Assert.Equal(BrainAtlas.BrainIndexMissing, unbuilt.Message);
     }
 
     // ----- The pane ------------------------------------------------------------------
@@ -213,12 +213,12 @@ public sealed class DevbookBrainAtlasTests : IDisposable
         harness.WriteNote("projects/plan.md", $"# Plan\n\nSee [the blocks](repo:{harness.RepositoryAlias}/.arc42/01-introduction-and-goals.md).\n");
         harness.WriteNote("work/standup.md", "# Standup\n\nRead [a spec](repo:specmanager/.devbook/domain/specs/domain.md).\n");
         BuildDatabase(harness.BrainFolder);
-        harness.Context.Services.AddSingleton(sp => new DevbookAtlasService(sp.GetRequiredService<IDevbookFolderSource>()) { BrainDatabaseFor = DatabaseFor });
+        harness.Context.Services.AddSingleton(sp => new BrainAtlas(sp.GetRequiredService<IDevbookFolderSource>()) { DatabaseFor = DatabaseFor });
 
-        BrainRepoLink? opened = null;
+        DevbookRepositoryChapter? opened = null;
         var component = harness.Context.Render<DevbookPane>(parameters => parameters
             .Add(pane => pane.RepositoryAlias, string.Empty)
-            .Add(pane => pane.OnOpenRepositoryChapter, (BrainRepoLink link) => opened = link));
+            .Add(pane => pane.OnOpenRepositoryChapter, (DevbookRepositoryChapter link) => opened = link));
 
         component.WaitForAssertion(() => Assert.Contains("Projects", DevbookPaneBrainHarness.Tabs(component)));
 
@@ -244,7 +244,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
 
         Assert.NotNull(opened);
         Assert.Equal(harness.RepositoryAlias, opened.Alias);
-        Assert.Equal(".arc42/01-introduction-and-goals.md", opened.Path);
+        Assert.Equal(".arc42/01-introduction-and-goals.md", opened.Reference);
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-atlas']")));
     }
 
@@ -258,7 +258,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
         harness.WriteNote("projects/plan.md", "# Plan\n\nThe plan.\n");
         harness.WriteNote("work/standup.md", "# Standup\n\n```meta\nrelated: [projects/plan.md]\n```\n\nToday.\n");
         BuildDatabase(harness.BrainFolder);
-        harness.Context.Services.AddSingleton(sp => new DevbookAtlasService(sp.GetRequiredService<IDevbookFolderSource>()) { BrainDatabaseFor = DatabaseFor });
+        harness.Context.Services.AddSingleton(sp => new BrainAtlas(sp.GetRequiredService<IDevbookFolderSource>()) { DatabaseFor = DatabaseFor });
 
         var component = harness.RenderBrain();
         component.WaitForAssertion(() => Assert.Contains("Work", DevbookPaneBrainHarness.Tabs(component)));
@@ -282,7 +282,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
         IReadOnlyList<DevbookAtlasSourceNode> nodes,
         IReadOnlyList<DevbookAtlasSourceEdge> edges,
         Func<BrainRepoLink, BrainRepoLinkResolution> resolve) =>
-        DevbookAtlasReader.ReadBrain(DevbookAtlasScope.Brain, nodes, edges, resolve);
+        BrainAtlasReader.ReadBrain(DevbookAtlasScope.Brain, nodes, edges, resolve);
 
     private static DevbookAtlasSourceNode Note(string path, string label, string folder) =>
         new(path, label, folder, "file", string.Empty, path, false);
@@ -297,7 +297,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
     {
         var target = DatabaseFor(brainRoot);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-        Assert.True(DevbookDatabaseBuilder.Build(brainRoot, target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(brainRoot, target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
     }
 
     private string WriteBrain()

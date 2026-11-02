@@ -93,7 +93,7 @@
                         <span>@file.Title</span>
                         @if (StatusShown)
                         {
-                            <DevbookStatusPill Status="@file.Meta.Status" Folder="@Folder.Folder" />
+                            <DevbookStatusPill Status="@file.Meta.Rating" Folder="@Folder.Folder" />
                         }
                     </a>
                 }
@@ -140,7 +140,7 @@
                             <MetadataView Metadata="@file.Meta"
                                                Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                ShowFields="false"
-                                               CanEditStatus="@CanEdit"
+                                               CanEditStatus="@CanEditRating"
                                                ShowStatus="@StatusShown"
                                                AriaLabel="@($"{file.Title} metadata")"
                                                CssClass="folder-document__record"
@@ -260,7 +260,7 @@
                                   DevbookFolder="@Folder.Folder"
                                   DevbookDocumentPath="@DocumentPath(file)"
                                   ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, _folders, RepositoryAlias, DocumentPath(file))"
-                                  CanEditDevbookStatus="@CanEdit"
+                                  CanEditDevbookStatus="@CanEditRating"
                                   ShowDevbookStatus="@StatusShown"
                                   OnDevbookStatusChanged="change => ChangeChapterStatusAsync(file, change)"
                                   OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -300,7 +300,7 @@
                                     <MetadataView Metadata="@section.Meta"
                                                        Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                        ShowFields="false"
-                                                       CanEditStatus="@CanEdit"
+                                                       CanEditStatus="@CanEditRating"
                                                        ShowStatus="@StatusShown"
                                                        AriaLabel="@($"{section.Heading} metadata")"
                                                        CssClass="folder-section__record"
@@ -341,6 +341,19 @@
     /// read from a repository branch, which draws every status as a badge and
     /// renders chapters read-only.</summary>
     private bool CanEdit => _model?.CanEdit ?? true;
+
+    /// <summary>Whether the repository is archived, which refuses a sync direction
+    /// too (local ADR 0029 §4); a branch snapshot of an active one takes it.</summary>
+    private bool RepositoryArchived => _model is { RepositoryArchived: true };
+
+    /// <summary>
+    /// Whether a status here may be changed: in <c>ai/</c>, where the field is a
+    /// rating and stays in the Markdown, and only where the folder may be written.
+    /// <c>design/</c>'s status was workflow state, which under devbook's
+    /// branch-true decision is the tool's and not the file's, so this view no
+    /// longer writes it; an authored one still reads, as the badge.
+    /// </summary>
+    private bool CanEditRating => CanEdit && Folder.Folder == DevbookFolder.Ai;
 
     /// <summary>The open document's sync scope, cascaded to the records the file
     /// view draws. Only <c>design/</c>'s component-libraries document places any
@@ -502,10 +515,19 @@
     private IDevbookSyncVerdicts? _syncVerdicts;
     private IDevbookFolderSource? _folders;
 
+    /// <summary>Where a component's sync direction is kept: Backlog's map, not the
+    /// chapter (devbook's branch-true decision).</summary>
+    private IDevbookSyncDirectionStore _directions = null!;
+
     protected override void OnInitialized()
     {
         ArgumentNullException.ThrowIfNull(Provider);
         Provider.Changed += OnDevbookChanged;
+
+        // The host's direction map, or a session one where the host composed none,
+        // as the panels fall back for remarks.
+        _directions = Services.GetService<IDevbookSyncDirectionStore>() ?? new SessionDevbookSubjectStateStore();
+        _directions.Changed += OnDirectionsChanged;
 
         // Optional both: a host that keeps no sync verdicts, or has no folder source
         // to say which repository the alias is, draws the chapters without badges.
@@ -700,7 +722,7 @@
             chapter = await LoadChapterAsync();
             sync = file is null
                 ? DevbookSyncReading.None
-                : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file));
+                : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file), Stated(RepositoryAlias));
         }
         finally
         {
@@ -715,7 +737,7 @@
 
         var previous = _chapter.Chapter?.RelativePath;
         _chapter = chapter;
-        _syncScope = file is null ? null : sync.Scope(DocumentPath(file), CanEdit ? WriteSyncAsync : null);
+        _syncScope = file is null ? null : SyncScope(file, sync);
 
         if (!string.Equals(previous, _chapter.Chapter?.RelativePath, StringComparison.OrdinalIgnoreCase)) _editing = false;
 
@@ -838,55 +860,96 @@
     /// are read from the parsed folder, so without it the pane would keep showing
     /// what the file said before the write.
     /// </summary>
-    /// <param name="status">The word to write, or null where the reader chose to
-    /// state none — which removes the field instead of writing one. The two are
-    /// different operations all the way down to the file, so they are two calls
-    /// here rather than one call with a blank.</param>
-    /// <summary>The one place this pane writes a sync direction, reloaded for the
-    /// reason a status write is.</summary>
-    private async Task WriteSyncAsync(string itemPath, string? direction)
+    /// <param name="status">The rating to write. Only <c>ai/</c> offers the
+    /// control, and a rating is never cleared, so a blank writes nothing.</param>
+    /// <summary>The direction map's lookup for one repository, captured so a read
+    /// that lands after a scope switch still asks the scope it was made for.</summary>
+    private Func<string, string?> Stated(string? alias) => address => _directions.Get(alias, address);
+
+    /// <summary>The scope cascaded over <paramref name="file"/>: a direction may be
+    /// set wherever the repository is not archived — on a branch snapshot too,
+    /// since it is the map's and no file changes (local ADR 0029 §4).</summary>
+    private DevbookSyncScope SyncScope(DocumentDevbookFile file, DevbookSyncReading sync) =>
+        sync.Scope(DocumentPath(file), RepositoryArchived ? null : WriteSyncAsync);
+
+    /// <summary>The one place this pane sets a sync direction: stated in the
+    /// repository's direction map at the block the scope addressed — no file is
+    /// written, so an open editor is left as it is. The map's own event rebuilds
+    /// the scope (<see cref="OnDirectionsChanged"/>), as it does for any other
+    /// writer.</summary>
+    private Task WriteSyncAsync(string itemPath, string? direction)
     {
+        var hadError = _statusError is not null;
         _statusError = null;
+        if (RepositoryArchived) return Task.CompletedTask;
+
         try
         {
-            await FlushEditorAsync();
-
-            if (direction is null)
-            {
-                await Provider.ClearSyncAsync(RepositoryAlias, itemPath);
-            }
-            else
-            {
-                await Provider.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
-            }
-
-            await ReloadAsync();
+            _directions.Set(RepositoryAlias, DevbookSync.Address(Folder.Folder, itemPath), direction, DevbookLocalAuthor.Name);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (ArgumentException ex)
         {
             _statusError = ex.Message;
+            hadError = true;
         }
 
         // The pick arrives through the record's own callback, which re-renders the
-        // record and not this pane — so the rebuilt scope would never be cascaded,
-        // and every other block on the page would keep the direction it had.
-        StateHasChanged();
+        // record and not this pane — so an alert raised or cleared would never be
+        // drawn.
+        if (hadError) StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Reads the open file's sync state again, from the map as it is now,
+    /// and rebuilds the scope — unless another read has started meanwhile, whose
+    /// own answer lands instead.</summary>
+    private async Task RebuildSyncScopeAsync()
+    {
+        if (_chapterReadFor is not { File: { } file }) return;
+
+        var read = _chapterRead;
+        DevbookSyncReading sync;
+        try
+        {
+            sync = await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file), Stated(RepositoryAlias));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        if (read != _chapterRead || _chapterReadFor is not { File: { } still } || !ReferenceEquals(still, file)) return;
+
+        _syncScope = SyncScope(file, sync);
+    }
+
+    /// <summary>The direction map changed under the view — a tool call over MCP,
+    /// another pane, or the first read importing the Markdown's directions. It
+    /// arrives on whichever thread wrote, so the rebuild is marshalled.</summary>
+    private void OnDirectionsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed) return;
+
+            await RebuildSyncScopeAsync();
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     private async Task WriteStatusAsync(string itemPath, string? status)
     {
+        // A rating is never cleared — ai/ requires one, so its vocabulary offers
+        // no "No status" entry — and a blank is no write.
+        if (string.IsNullOrWhiteSpace(status)) return;
+
         _statusError = null;
         try
         {
-            if (string.IsNullOrWhiteSpace(status))
-            {
-                await Provider.ClearStatusAsync(RepositoryAlias, itemPath);
-            }
-            else
-            {
-                await Provider.UpdateStatusAsync(RepositoryAlias, itemPath, status);
-            }
-
+            await Provider.UpdateStatusAsync(RepositoryAlias, itemPath, status);
             await ReloadAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
@@ -895,7 +958,7 @@
         }
     }
 
-    /// <summary>The heading slug the status writer addresses a chapter by. Kept
+    /// <summary>The heading slug the rating writer addresses a chapter by. Kept
     /// here rather than shared with <see cref="DocumentDevbookParser"/>'s anchor,
     /// which prefixes the file name so an id is unique across the whole folder —
     /// the writer wants the heading alone.</summary>
@@ -1037,6 +1100,7 @@
         _chapterBusyWait?.Dispose();
         _chapterBusyWait = null;
         Provider.Changed -= OnDevbookChanged;
+        _directions.Changed -= OnDirectionsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
         _switches?.Dispose();
     }

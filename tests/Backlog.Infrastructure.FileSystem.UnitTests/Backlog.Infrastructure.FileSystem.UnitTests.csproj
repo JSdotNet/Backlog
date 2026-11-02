@@ -9,6 +9,18 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <!-- The Brain's ports and its adapters (local ADR 0040): the Brain adapter
+         suites were written here and stayed when the adapters moved. -->
+    <ProjectReference Include="..\..\src\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Backlog.Modules.Brain.Abstractions" />
+    <Using Include="Backlog.Infrastructure.Brain" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
   </ItemGroup>
 
 </Project>

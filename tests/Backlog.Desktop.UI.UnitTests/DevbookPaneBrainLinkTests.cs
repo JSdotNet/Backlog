@@ -101,10 +101,10 @@ public sealed class DevbookPaneBrainLinkTests
         harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Work — `work`\n");
         harness.WriteNote("work/plan.md", $"# Plan\n\nSee [the goals](repo:{harness.RepositoryAlias}/{Introduction}#goals).\n");
 
-        var asked = new List<BrainRepoLink>();
+        var asked = new List<DevbookRepositoryChapter>();
         var component = harness.Context.Render<DevbookPane>(parameters => parameters
             .Add(pane => pane.RepositoryAlias, string.Empty)
-            .Add(pane => pane.OnOpenRepositoryChapter, (BrainRepoLink link) => asked.Add(link)));
+            .Add(pane => pane.OnOpenRepositoryChapter, (DevbookRepositoryChapter link) => asked.Add(link)));
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='brain-repo-link'] button")));
 
         component.Find("[data-testid='brain-repo-link'] button").Click();
