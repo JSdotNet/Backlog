@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// Where the Lobes atlas seats its hubs, run rather than read
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>).
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>).
 /// <para>
 /// The design draws two or three hubs in a brain stem, and the renderer stepped
 /// each next hub twelve world units further down. The live QA pass met real data:

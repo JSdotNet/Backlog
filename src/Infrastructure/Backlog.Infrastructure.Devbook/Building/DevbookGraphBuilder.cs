@@ -23,7 +23,8 @@ internal static partial class DevbookGraphBuilder
     /// ADR 0027 §6).</summary>
     public const string RepoScheme = "repo:";
 
-    /// <summary>The edge a <c>repo:</c> link in a Brain note's prose draws.</summary>
+    /// <summary>The edge a <c>repo:</c> link draws in the prose of a corpus that
+    /// reads cross-corpus links (<see cref="DevbookCorpusProfile.ReadsCrossCorpusLinks"/>).</summary>
     public const string RepoLinkEdge = "repo-link";
 
     /// <summary>Metadata field → the edge type a reference in it draws.</summary>
@@ -52,7 +53,7 @@ internal static partial class DevbookGraphBuilder
 
         foreach (var folder in layout.Folders)
         {
-            foreach (var relativePath in DevbookBuildFiles.Markdown(repositoryRoot, folder, skipGenerated: false, layout.IsBrain))
+            foreach (var relativePath in DevbookBuildFiles.Markdown(repositoryRoot, folder, skipGenerated: false, layout.Profile.ReadsCloudPlaceholders))
             {
                 var folderKind = layout.FolderKindForPath(relativePath);
                 var conventionFolder = layout.ConventionFolderForPath(relativePath);
@@ -72,7 +73,7 @@ internal static partial class DevbookGraphBuilder
                     Path = relativePath
                 };
                 ApplyMeta(fileNode, fileMeta, conventionFolder, DevbookBuildLayout.IsDebtRecord(layout, relativePath, fileMeta));
-                if (layout.IsBrain) ApplyBrainFields(fileNode, fileMeta, folderKind);
+                layout.Profile.ApplyNodeFields(new NodeFields(fileNode, fileMeta), folderKind);
                 Add(fileNode);
 
                 var ancestors = new List<(int Level, string Id)> { (1, relativePath) };
@@ -128,7 +129,7 @@ internal static partial class DevbookGraphBuilder
                         Line = chapter.Line
                     };
                     ApplyMeta(node, chapter.Meta, conventionFolder);
-                    if (layout.IsBrain) ApplyBrainFields(node, chapter.Meta, area: null);
+                    layout.Profile.ApplyNodeFields(new NodeFields(node, chapter.Meta), folder: null);
                     Add(node);
                     ancestors.Add((chapter.Level, id));
                     owners.Add((chapter.Line, id));
@@ -136,7 +137,7 @@ internal static partial class DevbookGraphBuilder
                     edges.Add(new DevbookGraphEdge($"contains:{parentId}->{id}", "contains", parentId, id));
                 }
 
-                if (layout.IsBrain && markdown is not null) edges.AddRange(RepoLinkEdges(relativePath, markdown, owners));
+                if (layout.Profile.ReadsCrossCorpusLinks && markdown is not null) edges.AddRange(RepoLinkEdges(relativePath, markdown, owners));
             }
         }
 
@@ -159,10 +160,10 @@ internal static partial class DevbookGraphBuilder
                             Add(heading.Node);
                             edges.Add(new DevbookGraphEdge($"contains:{heading.Parent}->{reference}", "contains", heading.Parent, reference));
                         }
-                        else if (layout.IsBrain && reference.StartsWith(RepoScheme, StringComparison.Ordinal))
+                        else if (layout.Profile.ReadsCrossCorpusLinks && reference.StartsWith(RepoScheme, StringComparison.Ordinal))
                         {
-                            // A link into a repository devbook: nothing in a
-                            // Brain's database can resolve it, so the edge is
+                            // A link into a repository devbook: nothing in this
+                            // corpus's database can resolve it, so the edge is
                             // kept and its target is no node.
                         }
                         else
@@ -220,7 +221,7 @@ internal static partial class DevbookGraphBuilder
         // `feature-flag` and `roadmap` only when non-empty (the generator's
         // asList), `aliases` and `alternatives` whenever stated, then `tests`
         // only when non-empty — the test identifiers a requirement or invariant
-        // is proved by, which the Domain view reads (local ADR 0044). Only the
+        // is proved by, which the Domain view reads (local ADR 0045). Only the
         // authored entries: the generator also appends an `e2e:playwright` entry
         // for each `Proved by:` pointer whose scenario page a spec implements,
         // and that derivation is not ported — this corpus has no such spec yet,
@@ -247,25 +248,7 @@ internal static partial class DevbookGraphBuilder
     }
 
     /// <summary>
-    /// A Brain note's own fields as node attributes: <c>para</c> — the note's
-    /// area, from <paramref name="area"/> unless the block overrides it; a chapter
-    /// passes no area and carries one only when it says so — and the
-    /// <c>repos</c> and <c>tasks</c> it names.
-    /// </summary>
-    private static void ApplyBrainFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? area)
-    {
-        var para = meta?.GetValueOrDefault("para") is { } declared ? Scalar(declared) : area;
-        if (!string.IsNullOrEmpty(para)) node.Attributes.Add(("para", [para]));
-
-        foreach (var name in (string[])["repos", "tasks"])
-        {
-            var values = DevbookMarkdown.AsList(meta?.GetValueOrDefault(name));
-            if (values.Count > 0) node.Attributes.Add((name, values));
-        }
-    }
-
-    /// <summary>
-    /// One <c>repo-link</c> edge per <c>repo:</c> link in a note's prose, outside
+    /// One <c>repo-link</c> edge per <c>repo:</c> link in a chapter's prose, outside
     /// every fence, from the node whose slice holds it — the last heading at or
     /// above the line in <paramref name="owners"/>, or the file — once per source
     /// and target. <c>tools/devbook/brain.mjs</c>'s <c>repoLinkEdges</c> is the
@@ -330,6 +313,26 @@ internal static partial class DevbookGraphBuilder
     /// joins with commas.</summary>
     private static string Scalar(object value) =>
         value is IReadOnlyList<string> list ? string.Join(',', list) : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+
+    /// <summary>The face of one node and its block a corpus profile adds its
+    /// fields through.</summary>
+    private sealed class NodeFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta) : IDevbookNodeFields
+    {
+        public bool Has(string field) => meta?.GetValueOrDefault(field) is not null;
+
+        public string? Scalar(string field) =>
+            meta?.GetValueOrDefault(field) is { } value ? DevbookGraphBuilder.Scalar(value) : null;
+
+        public IReadOnlyList<string> List(string field) => DevbookMarkdown.AsList(meta?.GetValueOrDefault(field));
+
+        public void AddAttribute(string name, IReadOnlyList<string> values)
+        {
+            ArgumentException.ThrowIfNullOrEmpty(name);
+            ArgumentNullException.ThrowIfNull(values);
+
+            node.Attributes.Add((name, values));
+        }
+    }
 }
 
 internal sealed record DevbookGraph(IReadOnlyList<DevbookGraphNode> Nodes, IReadOnlyList<DevbookGraphEdge> Edges);

@@ -44,6 +44,34 @@ public sealed class AiDevbookViewTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='design-devbook-view']"));
     }
 
+    /// <summary>
+    /// The list's pill reads a file's <c>rating</c>, the field the devbook
+    /// renamed the ladder to, and falls back to <c>status</c> for a repository
+    /// that has not migrated — so a <c>rating:</c> block draws its word, and one
+    /// carrying both draws the rating, while a <c>status:</c>-only block still
+    /// draws.
+    /// </summary>
+    [Fact]
+    public async Task The_list_pill_reads_the_rating_and_falls_back_to_the_status()
+    {
+        await using var harness = CreateHarness();
+        File.WriteAllText(
+            Path.Combine(harness.AiFolder, "01-specify.md"),
+            Specify.ReplaceLineEndings("\n").Replace("status: adopted\ntype: stage", "rating: trial\ntype: stage", StringComparison.Ordinal));
+        File.WriteAllText(
+            Path.Combine(harness.AiFolder, "concepts.md"),
+            Concepts.ReplaceLineEndings("\n").Replace("status: adopted\ntype: concepts", "status: adopted\nrating: hold\ntype: concepts", StringComparison.Ordinal));
+
+        var component = harness.Render(selectedPath: null);
+
+        component.WaitForAssertion(() => Assert.Equal(3, component.FindAll(".folder-devbook__nav-link").Count));
+
+        Assert.Equal(
+            [("AI adoption map", "adopted"), ("Specify", "trial"), ("Concepts", "hold")],
+            component.FindAll(".folder-devbook__nav-link").Select(link =>
+                (link.QuerySelector("span")!.TextContent, link.QuerySelectorAll("span").Skip(1).FirstOrDefault()?.TextContent.Trim())));
+    }
+
     [Fact]
     public async Task A_chapter_rated_on_the_ladder_wears_the_ladder_s_badge()
     {

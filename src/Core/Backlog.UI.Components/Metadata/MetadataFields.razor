@@ -36,9 +36,6 @@
                 @RenderStrings("alternatives", Metadata.Alternatives)
                 @RenderKind()
                 @RenderVersion()
-                @RenderIssue()
-                @RenderEffort()
-                @RenderKeys("roadmap", Metadata.Roadmap, "devbook-roadmap-tags")
                 @RenderKeys("feature-flag", Metadata.FeatureFlag, "devbook-feature-flag-tags")
 
                 @* The fields contract 16 added, and `type` now that it is one.
@@ -157,7 +154,7 @@
         </text>;
 
     // A closed vocabulary drawn as the classification it is, and the first of the
-    // three rows that state their own field. The label is hidden rather than
+    // two rows that state their own field. The label is hidden rather than
     // dropped: a chip reading `framework` says what it is to somebody looking at it,
     // and says nothing at all to somebody listening.
     private RenderFragment RenderKind() =>
@@ -179,37 +176,14 @@
             }
         </text>;
 
-    // An issue is a URL or the `owner/repo#number` shorthand, and which of the two
-    // it is decides whether it can be followed. That question belongs to the value
-    // component, so the record only asks whether the field was stated at all.
-    private RenderFragment RenderIssue() =>
-        @<text>
-            @if (!string.IsNullOrWhiteSpace(Metadata.Issue))
-            {
-                <MetadataField Label="issue"><MetadataIssueLink Issue="@Metadata.Issue" /></MetadataField>
-            }
-        </text>;
-
-    // Absent when there is no estimate; 0 is an estimate and still shows. The
-    // record asks that question here rather than leaving the badge to answer it,
-    // because it is the row that must not appear — a badge that drew nothing would
-    // leave a labelled empty cell.
+    // `issue`, `effort` and `roadmap` are not drawn. They are planning facts, and
+    // the plan lives in Backlog's own entries rather than in a chapter; the reader
+    // still parses all three, because the tasks parser and the generated graph
+    // read them. `change` is recognised and dropped by the reader itself.
     //
-    // The third labelless row. "5 pts" names its own field; "5" would not, which is
-    // why the unit was already spelled out before the label went.
-    private RenderFragment RenderEffort() =>
-        @<text>
-            @if (Metadata.Effort is not null)
-            {
-                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="@Metadata.Effort" /></MetadataField>
-            }
-        </text>;
-
-    // Roadmap keys and feature-flag keys are the same shape: identifiers something
-    // outside these files answers to, drawn in the feature-badge family and never
-    // links. One fragment for both, so the two fields cannot drift apart — and the
-    // test id lands on the value cell, which is what MetadataField's TestId is
-    // for.
+    // Feature-flag keys are identifiers something outside these files answers to,
+    // drawn in the feature-badge family and never links. The test id lands on the
+    // value cell, which is what MetadataField's TestId is for.
     private RenderFragment RenderKeys(string label, IReadOnlyList<string> keys, string testId) =>
         @<text>
             @if (keys.Count > 0)
@@ -253,9 +227,6 @@
         || metadata.Alternatives.Count > 0
         || !string.IsNullOrWhiteSpace(metadata.Kind)
         || !string.IsNullOrWhiteSpace(metadata.Version)
-        || !string.IsNullOrWhiteSpace(metadata.Issue)
-        || metadata.Effort is not null
-        || metadata.Roadmap.Count > 0
         || metadata.FeatureFlag.Count > 0
         || ShowsTypeRow(metadata)
         || metadata.Tests.Count > 0

@@ -1,6 +1,6 @@
 using System.Globalization;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Integrations;
@@ -146,7 +146,7 @@ public static class WorkLinker
 
     /// <summary>The registered repository and number a typed reference names; else
     /// why it names none.</summary>
-    private static string? Resolve(TasksDesktopState state, EntryRow row, string? reference, out GitHubPullRequestReference? named)
+    private static string? Resolve(TasksDesktopState state, EntryRow row, string? reference, out PullRequestReference? named)
     {
         named = null;
 
@@ -182,7 +182,7 @@ public static class WorkLinker
             }
         }
 
-        named = new GitHubPullRequestReference(registered, number);
+        named = new PullRequestReference(registered, number);
         return null;
     }
 

@@ -2,12 +2,21 @@
 
 ```meta
 status: proposed
-related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 ## Status
 
 Proposed.
+
+> **Amended 2026-10-30: a subject's workflow state is set on a snapshot too.**
+> *(Proposed with local ADR 0044.)* The rule below that a branch offers no
+> status selector still holds for every chapter's own `status`, which no panel
+> writes any more outside a `tech/` or `ai/` rating. A devbook subject's
+> workflow state is another thing: Backlog keeps it in a store of its own, and
+> setting it changes no file. So the arc42 panel offers a debt record's state on
+> a branch snapshot as on a clone, and the snapshot stays byte for byte what the
+> branch holds. An archived repository still offers none (local ADR 0029 §4).
 
 > **Amended 2026-10-16: the branch list loads on open, and only a clone has an
 > update control.** Two lines below no longer hold.

@@ -44,7 +44,7 @@ internal static class ShellSurfaceTestServices
         services.AddScoped<IGoalsViewSource>(sp => sp.GetRequiredService<ShellGoalsViewSource>());
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
-        services.AddScoped<IBrainTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
+        services.AddScoped<IDevbookTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookTaskReferences>(sp => new ShellDevbookTaskReferences(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookWindowScope>(sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()));
         services.AddShellSurfaceWiring(ServiceLifetime.Scoped);

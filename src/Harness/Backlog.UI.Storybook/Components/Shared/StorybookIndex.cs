@@ -359,7 +359,7 @@ internal static class StorybookIndex
             new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings."),
 
             // After Type markers, because every unit, card and event line here is led
-            // by one. The Domain view's Domain page (local ADR 0044): it draws Tabs,
+            // by one. The Domain view's Domain page (local ADR 0045): it draws Tabs,
             // Card, EmptyState and MarkdownView from groups above, and its own
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList, DomainLinkRow and DomainGlossary: a `domain.md` read one unit at a time — a captioned chapter bar over an unsplit file, About as a summary for an aggregate, You can count on for a domain service."),
@@ -380,18 +380,18 @@ internal static class StorybookIndex
             // whole, with its filters and its Easily confused pairs.
             new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a find box that matches aliases too, All / Model / Terms / Borrowed pills with counts, proposed and deprecated badges, and Easily confused beside the list for terms that name each other."),
 
-            // The Domain view's Flow page (local ADR 0044): a lifecycle drawn as one
+            // The Domain view's Flow page (local ADR 0045): a lifecycle drawn as one
             // row of states, flowcharts and sequences in the same style; a diagram
             // none of them reads keeps DiagramView's rendering.
             new("devbook/domain-flows", "Domain flows", "DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
 
             // The board atop a context's page, then the page that holds it
-            // above its Overview (local ADR 0044).
+            // above its Overview (local ADR 0045).
             new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
             new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's one page — its neighbours, then its Overview: its badges and lead, its boundary inside and outside, what it holds, how well it is proved and how settled, its switches and the questions its pages answer."),
 
             // After the context page, which a card on the map opens: the
-            // Domain view's Context map page (local ADR 0044).
+            // Domain view's Context map page (local ADR 0045).
             new("devbook/domain-context-map", "Domain context map", "ContextMapView and ContextMapDiagram: `context-map.md` as Map — every context a card on an ellipse, a line per pair, amber between core contexts, dashed when not built — and as List, in reading order."),
 
             // Last, because it is the one page of the group that is not about the

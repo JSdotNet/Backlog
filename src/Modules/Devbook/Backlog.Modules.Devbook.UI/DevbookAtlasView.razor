@@ -183,10 +183,10 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
-    /// <summary>The Brain, read when <see cref="Scope"/> is
-    /// <see cref="DevbookAtlasScope.Brain"/>.</summary>
+    /// <summary>The pane's other devbook (local ADR 0040 §2), whose atlas is read
+    /// when <see cref="Scope"/> is <see cref="DevbookAtlasScope.Brain"/>.</summary>
     [Parameter]
-    public IBrainFolderSource? Brain { get; set; }
+    public IDevbookPaneMode? Mode { get; set; }
 
     /// <summary>Raised with a Brain note's path, relative to the Brain's root,
     /// when the reader opens it out of the Brain atlas.</summary>
@@ -196,12 +196,12 @@
     /// <summary>Raised when the reader follows a resolved repository chapter
     /// out of the Brain atlas.</summary>
     [Parameter]
-    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+    public EventCallback<DevbookRepositoryChapter> OnOpenRepositoryChapter { get; set; }
 
-    private IBrainFolderSource? _subscribedBrain;
+    private IDevbookPersonalSource? _subscribedBrain;
 
     private Task OpenRepositoryChapterAsync(string? raw) =>
-        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
+        raw is not null && Mode?.RepositoryChapterFor(raw) is { } chapter ? OnOpenRepositoryChapter.InvokeAsync(chapter) : Task.CompletedTask;
 
     private IReadOnlyList<GraphAtlasNode> AtlasNodes => _atlasNodes;
 
@@ -245,7 +245,7 @@
     {
         // The Brain announces a moved setting and a rebuilt index on its own
         // source, not on the repository one.
-        var brain = Scope.IsBrain ? Brain : null;
+        var brain = Scope.IsBrain ? Mode?.Source : null;
         if (!ReferenceEquals(brain, _subscribedBrain))
         {
             if (_subscribedBrain is not null) _subscribedBrain.Changed -= OnDevbookChanged;
@@ -253,19 +253,23 @@
             if (brain is not null) brain.Changed += OnDevbookChanged;
         }
 
-        var key = $"{Scope.Key}|{RepositoryAlias}|{brain?.BrainRoot}";
+        var key = $"{Scope.Key}|{RepositoryAlias}|{brain?.Root}";
         if (string.Equals(_loadedKey, key, StringComparison.Ordinal)) return;
 
         _loadedKey = key;
         await LoadAsync();
     }
 
+    /// <summary>What a Brain-scoped atlas says in a host that supplied no mode to
+    /// read; the pane never asks for one there.</summary>
+    private const string NothingToMap = "Nothing to map here.";
+
     private async Task LoadAsync()
     {
         _view = Scope.IsBrain
-            ? Brain is { } brain
-                ? await DevbookAtlas.ReadBrainAsync(brain)
-                : DevbookAtlasGraph.Unavailable(Scope, DevbookAtlasService.NoBrainFolder)
+            ? Mode is { } mode
+                ? await mode.ReadAtlasAsync()
+                : DevbookAtlasGraph.Unavailable(Scope, NothingToMap)
             : await DevbookAtlas.ReadAsync(Scope, RepositoryAlias);
 
         // A reread keeps the node the reader has open while it is still there:

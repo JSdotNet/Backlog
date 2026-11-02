@@ -83,29 +83,29 @@ public sealed class DevbookUnifiedSearch
         var scope = services.GetRequiredService<DevbookScope>();
         var repositories = services.GetRequiredService<GitHubSettingsStore>();
         var features = services.GetRequiredService<IAppFeatureSettings>();
-        var brain = services.GetService<IBrainFolderSource>();
+        var personal = services.GetService<IDevbookPersonalSource>();
 
         return new DevbookUnifiedSearch(
-            () => Sources(scope, repositories, brain),
+            () => Sources(scope, repositories, personal),
             services.GetRequiredService<IDevbookSearch>(),
-            brain is null ? null : new DevbookFullTextSearch(brain),
+            personal is null ? null : new DevbookFullTextSearch(personal),
             services.GetService<IDevbookVectorSearch>(),
-            brain is null ? null : new DevbookSemanticSearch(brain, DevbookEmbeddingModel.Default),
+            personal is null ? null : new DevbookSemanticSearch(personal, DevbookEmbeddingModel.Default),
             services.GetService<IDevbookQueryEmbedder>(),
             () => features.IsEnabled(DevbookFeatures.SemanticSearch),
-            brain is null
+            personal is null
                 ? null
-                : () => brain.Resolve(BrainConventions.FolderKey) is { Available: false, Message: { Length: > 0 } message } ? message : null);
+                : () => personal.Resolve(personal.FolderKey) is { Available: false, Message: { Length: > 0 } message } ? message : null);
     }
 
     /// <summary>The Brain, when the host composes one and Devbook offers it, then
     /// every configured repository that has a devbook to read, in the registry's
     /// order. A repository with no devbook folders is not a source: it has no
     /// devbook, which is different from a devbook with no index yet.</summary>
-    private static IReadOnlyList<DevbookSearchSource> Sources(DevbookScope scope, GitHubSettingsStore repositories, IBrainFolderSource? brain)
+    private static IReadOnlyList<DevbookSearchSource> Sources(DevbookScope scope, GitHubSettingsStore repositories, IDevbookPersonalSource? personal)
     {
         var sources = new List<DevbookSearchSource>();
-        if (brain is not null && scope.BrainOffered) sources.Add(DevbookSearchSource.Brain);
+        if (personal is not null && scope.BrainOffered) sources.Add(DevbookSearchSource.Brain);
 
         foreach (var repository in repositories.Current.Repositories)
         {

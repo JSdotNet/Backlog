@@ -38,14 +38,14 @@
     [Parameter]
     public EventCallback OnClose { get; set; }
 
-    private IBrainTaskTitles? _taskTitles;
+    private IDevbookTaskTitles? _taskTitles;
     private IDevbookTaskReferences? _taskReferences;
     private IDevbookWindowScope? _windowScope;
     private DevbookOpenRequest? _openRequest;
 
     protected override void OnInitialized()
     {
-        _taskTitles = Services.GetService<IBrainTaskTitles>();
+        _taskTitles = Services.GetService<IDevbookTaskTitles>();
         _taskReferences = Services.GetService<IDevbookTaskReferences>();
         _windowScope = Services.GetService<IDevbookWindowScope>();
     }
@@ -94,7 +94,7 @@
     private void OpenSearchResult(DevbookSearchOpen result) => ShowChapter(result.Source.Key, result.Reference);
 
     /// <summary>A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6).</summary>
-    private void OpenRepositoryChapter(BrainRepoLink link) => ShowChapter(link.Alias, link.Reference);
+    private void OpenRepositoryChapter(DevbookRepositoryChapter link) => ShowChapter(link.Alias, link.Reference);
 
     private void ShowChapter(string alias, string reference) =>
         Navigator.Show(SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)

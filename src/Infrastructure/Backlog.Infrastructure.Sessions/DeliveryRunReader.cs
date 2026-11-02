@@ -919,7 +919,12 @@ internal sealed partial class DeliveryRunReader
         return new DeliveryRunContext(
             Integer(context, "currentTokens") ?? 0,
             Integer(context, "tokenLimit") ?? 0,
-            Integer(context, "peakTokens") ?? 0);
+            Integer(context, "peakTokens") ?? 0)
+        {
+            Compactions = context.TryGetProperty("compactions", out var compactions) && compactions.ValueKind is JsonValueKind.Array
+                ? compactions.GetArrayLength()
+                : 0
+        };
     }
 
     /// <summary>

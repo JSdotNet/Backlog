@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Devbook;
+
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
@@ -35,14 +37,7 @@ public static class DevbookPath
     /// dot of a dot folder kept: <c>./.github\copilot-instructions.md</c> becomes
     /// <c>.github/copilot-instructions.md</c>.
     /// </summary>
-    public static string NormalizeKeepingDotFolder(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
-
-        var forward = path.Trim().Replace('\\', '/');
-        while (forward.StartsWith("./", StringComparison.Ordinal)) forward = forward[2..];
-        return forward.TrimStart('/');
-    }
+    public static string NormalizeKeepingDotFolder(string? path) => DevbookPaths.NormalizeKeepingDotFolder(path);
 
     /// <summary>
     /// Whether <paramref name="candidate"/>, a Devbook area document, is the chapter

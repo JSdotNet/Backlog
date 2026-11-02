@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Devbook;
+
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
@@ -22,31 +24,16 @@ public static class DevbookLayout
     /// <summary>The generated rollup's directory, beside the folders it indexes.</summary>
     public const string MetaDirectory = "_meta";
 
-    private const string DevbookPrefix = DevbookFolderSetting.DevbookRoot + "/";
-
-    /// <summary>The folder names the devbook layout recognises under
-    /// <c>.devbook/</c>. <c>backlog</c> is read for the root layout's retired
-    /// folder only, so it is absent here.</summary>
-    private static readonly string[] DevbookFolderNames = ["arc42", "domain", "tech", "design", "ai"];
-
     /// <summary>
     /// A path in the root layout's spelling: <c>.devbook/arc42/05.md</c> becomes
     /// <c>.arc42/05.md</c>; anything else comes back with forward slashes and no
     /// leading <c>./</c> or <c>/</c>, otherwise unchanged. The spelling stored keys
     /// and the per-area stores already use, so two paths naming the same chapter
-    /// compare equal after this whichever layout either came from.
+    /// compare equal after this whichever layout either came from. The rule itself
+    /// is the kernel's (<see cref="DevbookPaths.ConventionalPath"/>), so a context
+    /// beside Devbook reads a path the same way.
     /// </summary>
-    public static string ConventionalPath(string? path)
-    {
-        var normalized = Normalize(path);
-        if (!normalized.StartsWith(DevbookPrefix, StringComparison.OrdinalIgnoreCase)) return normalized;
-
-        var rest = normalized[DevbookPrefix.Length..];
-        var end = rest.IndexOf('/');
-        var name = end < 0 ? rest : rest[..end];
-
-        return DevbookFolderNames.Contains(name, StringComparer.OrdinalIgnoreCase) ? "." + rest : normalized;
-    }
+    public static string ConventionalPath(string? path) => DevbookPaths.ConventionalPath(path);
 
     /// <summary>
     /// A repository-relative path relative to the devbook folder it is in:
@@ -89,7 +76,7 @@ public static class DevbookLayout
 
         try
         {
-            return DevbookFolderNames.Any(name =>
+            return DevbookPaths.FolderNames.Any(name =>
                 Directory.Exists(System.IO.Path.Combine(repositoryRoot, DevbookFolderSetting.DevbookRoot, name)));
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or IOException or UnauthorizedAccessException)
@@ -104,6 +91,4 @@ public static class DevbookLayout
         devbookLayout
             ? System.IO.Path.Combine(repositoryRoot, DevbookFolderSetting.DevbookRoot, MetaDirectory)
             : System.IO.Path.Combine(repositoryRoot, MetaDirectory);
-
-    private static string Normalize(string? path) => DevbookPath.NormalizeKeepingDotFolder(path);
 }

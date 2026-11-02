@@ -20,8 +20,9 @@ repository owns its devbook.
 Inside the boundary: the Knowledge Note and the areas it is organized under, the
 Brain folder setting and the folder's `CONVENTIONS.md`, capturing into the Brain,
 the Brain chip's meaning, the Brain mode of the Devbook pane, repo links and the
-backlinks they draw, task links in both directions, and the Brain's scope on the
-MCP tools.
+backlinks they draw, task links in both directions, the Brain's scope on the
+MCP tools, and the [Lobes atlas](features.md#lobes-atlas), which maps the Brain
+beside the devbook of every repository registered on this machine.
 
 Outside it:
 
@@ -81,6 +82,28 @@ cleared, and reloads an open Devbook pane.
 Choosing another folder therefore builds another database, and the old one is left
 behind.
 
+## Lobes atlas
+
+```meta
+status: draft
+type: feature-flag
+key: atlas-lobes
+default: off
+related: [".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/brain/requirements.md#lobes-atlas"]
+```
+
+Turning it on makes the Devbook pane's **Atlas** button open the
+[Lobes atlas](features.md#lobes-atlas) at the pane's scope, the Brain or that
+repository, and offers the atlas from the shell header. Off, the button opens
+today's atlas, and the header offers none. The Technology section keeps its own
+views either way.
+
+It ships off, marked in development, while the Lobes atlas is finished. The key
+is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the
+settings screen lists it with the other switches, and a person's choice is kept
+in `features.json` like the pane's. It means nothing with Devbook off: Devbook's
+scope service answers both the header and the pane from the two switches
+together.
 
 ## Dependencies
 
@@ -92,9 +115,10 @@ Inbox, which routes items **To Brain**. It is a partner of Tasks.
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), conforming to the devbook convention as Published Language | In-process: the Markdown and `meta` reader, the database builder and refresher, the chapter viewer, search and remarks, applied to the Brain folder | The devbook convention (local ADR 0016); `IBrainSettings` and the Brain fields hook in `Backlog.Modules.Devbook.Abstractions` until the code move; local ADR 0040 | A Brain note is a devbook chapter with three more fields, so the Brain reads, indexes and renders it with Devbook's machinery rather than its own. |
+| [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), read-only | In-process: Devbook's reader opens the devbook database of every registered repository for the [Lobes atlas](features.md#lobes-atlas) | The devbook database and its reader (local ADR 0015); local ADR 0040 §2 | The Lobes atlas draws every registered repository's devbook beside the Brain. The read runs one way, Brain to Devbook: the Brain writes nothing into a repository's devbook, and no repository devbook links into the Brain. |
 | [Devbook](../devbook/context.md) | One-way reference | A [repo link](domain.md#repo-link), `repo:<alias>/<devbook path>[#slug]`, resolved against the repositories configured on this machine | `.devbook/domain/brain/domain.md#repo-link`; local ADR 0027 §6 | A note points at the repository chapter it is about. A repository devbook never links back. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link, read both ways from the note's `tasks` field | `.devbook/domain/brain/domain.md#cross-linking` | Notes link to tasks; a task row counts the owner's notes that name it. |
-| [Repository Management](../repository-management/context.md) | Customer/Supplier (Repository Management = supplier) | Repository registry lookup by alias | The configured repository aliases | A repo link's alias resolves only on a machine where that repository is configured. |
+| [Repository Management](../repository-management/context.md) | Customer/Supplier (Repository Management = supplier) | Repository registry lookup by alias | The configured repository aliases | A repo link's alias resolves only on a machine where that repository is configured. The registry is also the list of repositories whose devbooks the Lobes atlas draws; an alias the notes name that it does not hold is a ghost devbook there. |
 
 ### Inbound dependents (known)
 

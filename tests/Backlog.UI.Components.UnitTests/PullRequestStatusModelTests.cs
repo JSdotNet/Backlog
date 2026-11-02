@@ -43,7 +43,19 @@ public sealed class PullRequestStatusModelTests
 
         Assert.Equal(PullRequestChecksVariant.Failing, pr.ChecksVariant);
         Assert.Equal("2/14", pr.ChecksCount);
-        Assert.Equal("2 of 14 checks failing", pr.ChecksSpoken);
+        Assert.Equal("1 of 14 checks failing", pr.ChecksSpoken);
+    }
+
+    /// <summary>Pull request #1415: the failing arm speaks the failures, while the visible count
+    /// stays passed/total.</summary>
+    [Fact]
+    public void One_failure_among_twelve_passed_reads_1_of_13_failing()
+    {
+        var pr = Pr(new PullRequestChecks(12, 1, 0));
+
+        Assert.Equal(PullRequestChecksVariant.Failing, pr.ChecksVariant);
+        Assert.Equal("12/13", pr.ChecksCount);
+        Assert.Equal("1 of 13 checks failing", pr.ChecksSpoken);
     }
 
     [Fact]

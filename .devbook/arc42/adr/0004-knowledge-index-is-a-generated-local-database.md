@@ -1,7 +1,7 @@
 # ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/shared.md#sqlite"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/shared.md#sqlite", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 ## Status
@@ -344,7 +344,7 @@ database. The app reads and never writes — not even to repair a row it can see
 stale.
 
 That rule keeps the parse in one place. The alternative — letting the app
-re-index a file it has just written through `DevbookMarkdownStatusWriter` or
+re-index a file it has just written through `DevbookMarkdownRatingWriter` or
 `DevbookChapterWriter` — puts a second implementation of `metadata.mjs` in C#
 and makes it load-bearing for correctness rather than for speed. That is the drift
 hazard the Archify hash rule already demonstrates, and there is no reason to take
@@ -352,6 +352,12 @@ it twice. A file the app has just edited is simply a *drifted* file, and a drift
 file already has a defined answer: read the markdown. The user's own edit is
 served correctly and immediately by the fallback path rather than by new
 machinery.
+
+*(Amended 2026-10-30 by local ADR 0044: `DevbookMarkdownStatusWriter`, which this
+section named, is retired. Its heading helpers moved to `DevbookHeadingDocument`,
+and `DevbookMarkdownRatingWriter` writes only a `tech/` or `ai/` rating. A devbook
+subject's workflow state is kept in a store of its own and never reaches this
+database, which the rule above keeps generated from the Markdown alone.)*
 
 ### How the database is kept current
 

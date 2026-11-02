@@ -7,6 +7,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -47,7 +48,10 @@ namespace Backlog.Desktop.UI.Shell;
 /// arrived: the dashboard key from <c>MonitoringFeatures</c> to
 /// <c>DashboardFeatures</c>, and the roadmap key from the Roadmap <c>.UI</c>
 /// project to <c>RoadmapFeatures</c> in its abstractions project. Neither string
-/// changed, so nobody's settings file forgot what they had switched off.
+/// changed, so nobody's settings file forgot what they had switched off. The pull
+/// requests key made a third such move, from <c>SessionFeatures</c> to
+/// <see cref="RepositoryManagementFeatures"/> when Repository Management took over
+/// pull-request state (local ADR 0042), its string <c>"pull-requests"</c> unchanged.
 /// </para>
 /// </summary>
 public static class AppFeatures
@@ -143,7 +147,7 @@ public static class AppFeatures
             "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant.",
             Status: AppFeatureStatus.Dev),
         new(
-            SessionFeatures.PullRequests,
+            RepositoryManagementFeatures.PullRequests,
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),

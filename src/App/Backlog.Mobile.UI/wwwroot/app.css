@@ -371,6 +371,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 }
 .standup-detail__row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 1rem; }
 .standup-detail__item-title { flex: 1; min-width: 0; }
+.standup-detail__item-kind { flex: 0 0 2.5rem; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .standup-detail__word { color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .standup-detail__word--merged { color: var(--color-success-text); }
 .standup-detail__word--blocked, .standup-detail__word--closed { color: var(--color-error-text); }

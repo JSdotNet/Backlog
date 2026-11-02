@@ -62,85 +62,69 @@ public sealed class Arc42DevbookStore : IDisposable
         var rootPath = location.RootPath;
         var catalog = await Task.Run(() => Arc42DevbookReader.LoadFolder(folderPath, rootPath, _documents)).ConfigureAwait(false);
 
-        return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived };
-    }
-
-    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
-
-        var location = _source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture");
-
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".arc42/", status);
-        return Task.CompletedTask;
+        return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived, Branch = location.Branch };
     }
 
     /// <summary>
-    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
-    /// every other field intact. An <c>.arc42</c> chapter describing standing
-    /// structure states a status only while it is still being agreed, or once it
-    /// has been superseded.
-    ///
-    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
-    /// null — see the same method on the domain store for why.</para>
+    /// Set a decision or debt record's state, which is the subject store's and
+    /// not the chapter's: under devbook's branch-true decision a record's workflow
+    /// state is kept by the tool, so no file is written and no status writer is
+    /// asked.
+    /// <para>
+    /// That is also why a branch snapshot takes it. A file written there would be
+    /// gone at the next fetch, and the folder refuses it; a state in the store is
+    /// not in the snapshot to be discarded, as a remark is not. An archived
+    /// repository refuses it all the same (local ADR 0029 §4) — before the store is
+    /// asked, so nothing is kept to replicate.
+    /// </para>
+    /// <para>
+    /// The store is handed in rather than held, so the panel's own resolution —
+    /// the host's store, or a session one where the host composed none — is the one
+    /// written to. Who set it is this host; the caller never says.
+    /// </para>
+    /// <para>
+    /// Every no is an outcome, never a throw (guideline ADR 0004): the contract's
+    /// refusals as <see cref="DevbookSubjectOutcome.Refused"/>, and an archived
+    /// repository as <see cref="DevbookSubjectOutcome.Archived"/> — the host's own
+    /// refusal, outside the contract's closed set. Either makes
+    /// <see cref="DevbookSubjectOutcome.IsRefused"/> true, so a caller that branches
+    /// on that alone reports it.
+    /// </para>
     /// </summary>
-    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    public DevbookSubjectOutcome SetSubjectState(IDevbookSubjectStateStore subjects, string? repositoryAlias, DevbookSubject subject, string state)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        ArgumentNullException.ThrowIfNull(subjects);
+        ArgumentNullException.ThrowIfNull(subject);
 
-        var location = _source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture");
+        if (_source.Resolve(".arc42", repositoryAlias).RepositoryArchived)
+        {
+            return DevbookSubjectOutcome.Archived(DevbookWriteGuard.ArchivedMessage("Architecture"));
+        }
 
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
-        return Task.CompletedTask;
+        return subjects.SetState(repositoryAlias, subject, state, DevbookLocalAuthor.Name);
     }
 
     /// <summary>
-    /// The <c>sync</c> state of every block in one document: where each
-    /// sits and the direction in force there, read with the blocks above it. Read
-    /// from whatever the folder resolves to, branch snapshot included — a direction
-    /// is part of what the chapter says, and only writing it needs a local folder.
+    /// The <c>sync</c> state of every block in one document: where each sits, read
+    /// from the Markdown with the blocks above it, and the direction in force
+    /// there, read from <paramref name="stated"/> — the repository's direction map.
+    /// Read from whatever the folder resolves to, branch snapshot included. There is
+    /// no write beside it: a direction is the map's, and nothing writes
+    /// <c>sync</c> into a file.
     /// </summary>
-    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
+    public Task<DevbookSyncReading> ReadSyncAsync(
+        string? repositoryAlias,
+        string documentPath,
+        Func<string, string?> stated,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(stated);
+
         var location = _source.Resolve(".arc42", repositoryAlias);
         if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
 
         var folderPath = location.FullPath;
-        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolder.Arc42, documentPath), cancellationToken);
-    }
-
-    /// <summary>Set the item's <c>sync</c> direction, through the same address and
-    /// the same guard as its status. A block that may not state one is
-    /// refused.</summary>
-    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
-
-        var folderPath = _source.Resolve(".arc42", repositoryAlias).WritablePath("Architecture");
-
-        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, ".arc42/", direction);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
-    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
-    /// for the reason the status has one.</summary>
-    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-
-        var folderPath = _source.Resolve(".arc42", repositoryAlias).WritablePath("Architecture");
-
-        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, ".arc42/");
-        return Task.CompletedTask;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolder.Arc42, documentPath, stated), cancellationToken);
     }
 }
 
@@ -329,7 +313,10 @@ public static class Arc42DevbookReader
 /// belong to is archived (local ADR 0029 §4). The panel then takes no new
 /// remark, which <paramref name="CanEdit"/> alone does not decide: a branch
 /// snapshot of an active repository still takes remarks.</param>
-public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true, bool RepositoryArchived = false)
+/// <param name="Branch">The branch these documents were read from, as the remark
+/// store keys it: the name for a named-branch snapshot, null for a clone or the
+/// default branch (<see cref="DevbookFolderLocation.Branch"/>).</param>
+public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true, bool RepositoryArchived = false, string? Branch = null)
 {
     public static Arc42DevbookCatalog Missing(string rootDirectory) => new(rootDirectory, false, []);
 

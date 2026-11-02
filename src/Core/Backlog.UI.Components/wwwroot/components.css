@@ -21543,7 +21543,7 @@ select.field__input {
 
 /* --- Domain view: one unit at a time --------------------------------------- */
 /*
-  The Domain page of the Domain view (local ADR 0044). An unsplit domain.md
+  The Domain page of the Domain view (local ADR 0045). An unsplit domain.md
   offers its units in a chapter bar, each tab led by its type marker; a unit
   then reads as prose, cards for what it holds, rows of values, and one plain
   line per event. Monochrome: the marker and the words say the kind.
@@ -21558,7 +21558,7 @@ select.field__input {
     min-width: 0;
 }
 
-/* The chapter bar of an unsplit domain.md (local ADR 0044 §4): a caption that
+/* The chapter bar of an unsplit domain.md (local ADR 0045 §4): a caption that
    names the file, over a segmented bar — the open unit filled and bold — with
    each aggregate or domain service led by a square in its kind's tone
    (color-scheme.md#domain-view-element-tones). The name says the kind; the
@@ -22382,7 +22382,7 @@ select.field__input {
 
 /* --- Domain view: Glossary ------------------------------------------------- */
 /*
-  The Glossary unit of the Domain page (local ADR 0044). A fixed lead, then a
+  The Glossary unit of the Domain page (local ADR 0045). A fixed lead, then a
   labelled find box that fills the row beside the Show pills — All, Model, Terms,
   Borrowed, one choice, each with its count. Under them two columns that wrap
   under each other on a narrow pane: the A–Z card, a bordered list of divided
@@ -22709,7 +22709,7 @@ select.field__input {
 
 /* --- Domain view: Flow ----------------------------------------------------- */
 /*
-  The Flow page of the Domain view (local ADR 0044): a stateDiagram-v2 drawn as
+  The Flow page of the Domain view (local ADR 0045): a stateDiagram-v2 drawn as
   one row of states, each a box with its description. A move to the next state
   runs straight to it on top, a move back underneath in a dimmer tone; other
   forward arcs run in lanes above, other ways back in lanes below, the restore
@@ -23092,7 +23092,7 @@ select.field__input {
 /*
   The Features page reads a context's features in columns by what they build
   on, one card each; the Requirements page reads one feature's requirements
-  with their scenarios as Given / When / Then rows (local ADR 0044). Monochrome,
+  with their scenarios as Given / When / Then rows (local ADR 0045). Monochrome,
   as the Domain page is: a proposed card is dashed and a deprecated feature
   struck through in the box that gathers them, and each also says so in words.
   The flag and the status are information about the chapter, so each is a
@@ -24967,7 +24967,8 @@ select.field__input {
 }
 
 .goals-board__number,
-.goal-card__number {
+.goal-card__number,
+.work-item-search__number {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
@@ -25131,7 +25132,9 @@ select.field__input {
 }
 
 /* A row's Detach: a quiet glyph at the row's end; the button keeps its full target. */
-.goal-card__detach {
+.goal-card__detach,
+.impediment-row__unlink,
+.impediment-raise-dialog__remove {
     flex: 0 0 auto;
     color: var(--color-text-secondary);
 }
@@ -25214,13 +25217,17 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
-.goal-card__attach {
+/* The work search: GoalCard draws it in its own classes, an impediment's Link… and the
+   Raise impediment dialog in the search's own; both read the same. */
+.goal-card__attach,
+.work-item-search {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
 }
 
-.goal-card__matches {
+.goal-card__matches,
+.work-item-search__matches {
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -25231,7 +25238,8 @@ select.field__input {
     border-radius: var(--border-radius-md);
 }
 
-.goal-card__match {
+.goal-card__match,
+.work-item-search__match {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -25247,35 +25255,41 @@ select.field__input {
     cursor: pointer;
 }
 
-.goal-card__match:hover {
+.goal-card__match:hover,
+.work-item-search__match:hover {
     background: var(--color-background-alt);
 }
 
-.goal-card__match:focus-visible {
+.goal-card__match:focus-visible,
+.work-item-search__match:focus-visible {
     background: var(--color-background-alt);
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.goal-card__match:disabled {
+.goal-card__match:disabled,
+.work-item-search__match:disabled {
     cursor: default;
     opacity: 0.6;
 }
 
 /* The "New task" row closes the list, set off from the matches above it. */
-.goal-card__match-row:has(.goal-card__match--new):not(:first-child) {
+.goal-card__match-row:has(.goal-card__match--new):not(:first-child),
+.work-item-search__match-row:has(.work-item-search__match--new):not(:first-child) {
     margin-top: var(--spacing-xs);
     padding-top: var(--spacing-xs);
     border-top: var(--border-width) solid var(--color-border);
 }
 
-.goal-card__match-kind {
+.goal-card__match-kind,
+.work-item-search__match-kind {
     flex: 0 0 3rem;
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
-.goal-card__match-title {
+.goal-card__match-title,
+.work-item-search__match-title {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -25446,8 +25460,77 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-.goal-create-dialog .field + .field {
+.goal-create-dialog .field + .field,
+.impediment-raise-dialog .field + .field {
     margin-top: var(--spacing-sm);
+}
+
+/* Raise impediment sits at the end of the Impediments heading, after the count. */
+.stand-up-panel__raise {
+    flex: none;
+}
+
+/* Ready to resolve: the settled tone badge beside the state picker, never in its place. */
+.impediment-row__ready {
+    flex: none;
+}
+
+/* What an impediment holds back: one line per item, its kind label in the match list's
+   column, and the quiet Unlink at its end. */
+.impediment-row__items,
+.impediment-raise-dialog__picked {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.impediment-row__item,
+.impediment-raise-dialog__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 1.75rem;
+    font-size: var(--font-size-sm);
+}
+
+.impediment-row__item-kind,
+.impediment-raise-dialog__item-kind {
+    flex: 0 0 3rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.impediment-row__item-title,
+.impediment-raise-dialog__item-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.impediment-row__link {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.impediment-row__search {
+    align-self: stretch;
+}
+
+.impediment-raise-dialog__items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+}
+
+.impediment-raise-dialog__items-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
 }
 
 .two-week-start-dialog__text {
@@ -25596,7 +25679,7 @@ select.field__input {
     min-width: 0;
 }
 
-/* The Domain view's context page (local ADR 0044), one page with no tabs: its
+/* The Domain view's context page (local ADR 0045), one page with no tabs: its
    dependency tables drawn as a board on top, then the Overview after its board —
    the context's badges, name and lead, the boundary as an Inside and an Outside
    card, what it holds as tiles, how well it is proved as two cards, how settled
@@ -26502,7 +26585,7 @@ select.field__input {
     }
 }
 
-/* The Domain view's Context map page (local ADR 0044): Map draws every bounded
+/* The Domain view's Context map page (local ADR 0045): Map draws every bounded
    context as a card on an ellipse with one line per pair of contexts; List names
    them in reading order. A line between two core contexts is amber, any other
    grey, a relation named and not built dashed. Pointing at or focusing a card
@@ -26963,7 +27046,7 @@ select.field__input {
     margin: 0;
 }
 
-/* The Domain view's Model page (local ADR 0044): a class diagram drawn as each
+/* The Domain view's Model page (local ADR 0045): a class diagram drawn as each
    aggregate's consistency-boundary band — the root in the middle, its composed
    parts as a tree above and below it joined by lines with the gold "owns" diamond
    on the root, what it names by id in a column outside the band on a dashed line,
@@ -27574,7 +27657,7 @@ select.field__input {
     }
 }
 
-/* The Model page's Fields and Events tabs (local ADR 0044 §6): the technical half
+/* The Model page's Fields and Events tabs (local ADR 0045 §6): the technical half
    of a context — each class's fields grouped by kind, the relationship notes, how
    each domain service runs, and each domain event as a contract. Cards on the
    raised surface, labels in the band's small caps, types in the mono face. */

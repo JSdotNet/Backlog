@@ -73,8 +73,8 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<ProgressGate>()));
 
         // Impediments (local ADR 0035 §5). Composed through factories
-        // so a host that keeps no impediments still builds: the repository and the
-        // blocked-task source are the host's, and are asked for only when a call needs them.
+        // so a host that keeps no impediments still builds: the repository is the host's,
+        // and is asked for only when a call needs it.
         services.TryAddSingleton<ImpedimentSaved>();
         services.AddScoped(sp => new ImpedimentChanges(
             sp.GetRequiredService<IImpedimentRepository>(),
@@ -88,10 +88,6 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<ListImpedimentsQueryHandler>(),
             sp.GetRequiredService<ImpedimentCommandHandler>(),
             sp.GetRequiredService<ImpedimentSaved>()));
-        services.AddScoped<IBlockedTaskPolicy>(sp => new BlockedTaskPolicy(
-            sp.GetRequiredService<IBlockedTaskSource>(),
-            sp.GetRequiredService<ImpedimentChanges>(),
-            sp.GetRequiredService<TimeProvider>()));
 
         // Each impediment as an `impediment` document on the task feed, as each goal is.
         services.TryAddSingleton<IImpedimentReplication>(sp => new ImpedimentReplication(

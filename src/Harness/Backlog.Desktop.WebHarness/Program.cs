@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
@@ -258,6 +259,13 @@ _ = app.Services.GetRequiredService<SessionSyncWorker>();
 // And annotation replication's loop, the third sibling, on the same terms.
 _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+// And devbook subject state's loop, the annotations' sibling, on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+// And the one-time devbook import, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();
+
 // And the notification exchange's loop (local ADR 0039), on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
@@ -277,10 +285,7 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
-// And the blocked-task watcher, on the same terms and for the same reason the desktop
-// head resolves it.
-_ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
-// The question relay's escalation timer (local ADR 0041), as the desktop head starts it.
+// And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop

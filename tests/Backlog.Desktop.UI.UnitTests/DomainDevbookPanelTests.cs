@@ -374,11 +374,12 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         // The record is in the file view's header, and the header is what stays on
         // screen while the body is being typed into — so the document's state is
-        // still reachable and this panel still offers no second control for it.
-        // It used to have to: the record was at the top of the read view, and the
-        // read view is not what is on screen while writing.
+        // still in sight and this panel draws no second one. It is the badge: the
+        // product writes no status into a domain file any more, since a chapter's
+        // workflow state is the tool's under devbook's branch-true decision.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface']")));
-        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select"));
+        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .badge--status"));
+        Assert.Empty(component.FindAll(".file-view__header .status-editor__select"));
         Assert.Empty(component.FindAll("[data-testid='devbook-state-select']"));
     }
 
@@ -476,16 +477,20 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
     /// <summary>
     /// A direction picked on a page's own block reaches every unit on that page at
-    /// once: the scope is rebuilt from the file after the write, and each unit's
-    /// pad centre names the level it now inherits from.
+    /// once: the direction map takes it, the scope is rebuilt from the map, and
+    /// each unit's pad centre names the level it now inherits from. The file is
+    /// not touched — a direction is Backlog's, not the chapter's.
     /// </summary>
     [Fact]
     public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
     {
         await using var harness = CreateHarness();
+        var directions = new SessionDevbookSubjectStateStore();
+        harness.Context.Services.AddSingleton<IDevbookSyncDirectionStore>(directions);
         var contextPath = Path.Combine(harness.Root, ".domain", "inbox", "context.md");
         Directory.CreateDirectory(Path.GetDirectoryName(contextPath)!);
         File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
+        var before = File.ReadAllBytes(contextPath);
 
         var component = harness.Render(".domain/inbox/context.md");
         component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitPadValue(component), StringComparison.Ordinal));
@@ -495,8 +500,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The pad's right key states push.
         component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right").Click();
 
-        component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Equal("push", ((IDevbookSyncDirectionStore)directions).Get(harness.RepositoryAlias, "domain/inbox/context.md")));
         component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitPadValue(component)));
+        Assert.Equal(before, File.ReadAllBytes(contextPath));
     }
 
     private static string UnitPadValue(IRenderedComponent<DomainDevbookPanel> component) =>
@@ -511,7 +517,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']"));
 
-        ChangeTheChapterState(component);
+        ChangeTheChapter(component, harness.Root);
 
         // "As opened" is now a different text from the one on screen, and that is a
         // comparison worth offering however the commit answered.
@@ -532,7 +538,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // has changed something and then asks what the commit said.
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
-        ChangeTheChapterState(component);
+        ChangeTheChapter(component, harness.Root);
 
         // Back to reading first: the three modes are one at a time, and comparing is
         // what a reader does to a file they have stopped typing into.
@@ -553,21 +559,20 @@ public sealed class DomainDevbookPanelTests : IDisposable
     }
 
     /// <summary>
-    /// Changes the chapter the way a reader can change it without waiting for a
-    /// debounce: the state dropdown writes the file and the panel re-reads it, so
-    /// the body on screen stops being the body that was opened.
-    /// <para>
-    /// The dropdown is the file's own record, in the file view's header. It is the
-    /// only one on the panel — the header stays on screen in every mode, so this
-    /// panel offers no second control beside it — and the caller is left in the
+    /// Changes the chapter the way a reader does: types into it and lets the
+    /// debounce write the file, after which the panel re-reads it, so the body on
+    /// screen stops being the body that was opened. It used to pick a status in
+    /// the header's select, which wrote at once; the product writes no status into
+    /// a domain file any more, so typing is the way. The caller is left in the
     /// editing mode it entered.
-    /// </para>
     /// </summary>
-    private static void ChangeTheChapterState(IRenderedComponent<DomainDevbookPanel> component)
+    private static void ChangeTheChapter(IRenderedComponent<DomainDevbookPanel> component, string root)
     {
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
-        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
+        component.WaitForElement("textarea").Input(ContextMap.Replace("Original prose.", "Typed prose.", StringComparison.Ordinal));
+        component.WaitForAssertion(
+            () => Assert.Contains("Typed prose.", File.ReadAllText(Path.Combine(root, ".domain", "context-map.md")), StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -787,53 +792,6 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
     }
 
-    [Fact]
-    public async Task Changing_the_state_writes_the_pending_body_before_the_status()
-    {
-        await using var harness = CreateHarness();
-        var chapterPath = Path.Combine(harness.Root, ".domain", "context-map.md");
-        var component = harness.Render(ContextMapPath);
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
-
-        component.Find("[data-testid='domain-chapter-file-edit']").Click();
-
-        // The typed body moves the status field too, which is what makes the
-        // order decidable from the file alone. The writer's merge lets the text
-        // win a field the text changed, so a body written *after* the dropdown
-        // leaves "candidate" behind; flushed first, the dropdown is the last word
-        // and it reads "accepted".
-        component.WaitForElement("textarea").Input("# Context Map\n\n```meta\nstatus: candidate\n```\n\nTyped prose.\n");
-
-        // From here on, the first thing to ask the folder source where .domain is
-        // will be the status write, so what the chapter says at that moment is
-        // recorded. That is what makes the ordering decidable: the settled file
-        // cannot tell the two orders apart, because the merge repairs both.
-        harness.Folders.ArmStatusWriteSnapshot();
-
-        // The document's own dropdown, which is the only one on the panel: it is in
-        // the file view's header, and the header is what stays on screen while the
-        // body is being typed into.
-        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
-
-        component.WaitForAssertion(
-            () =>
-            {
-                var written = File.ReadAllText(chapterPath);
-                Assert.Contains("Typed prose.", written, StringComparison.Ordinal);
-                Assert.Contains("status: accepted", written, StringComparison.Ordinal);
-            },
-            TimeSpan.FromSeconds(5));
-
-        var settled = File.ReadAllText(chapterPath);
-        Assert.DoesNotContain("status: candidate", settled, StringComparison.Ordinal);
-        Assert.DoesNotContain("Original prose.", settled, StringComparison.Ordinal);
-
-        Assert.Contains(
-            "Typed prose.",
-            harness.Folders.ChapterWhenStatusWasWritten ?? "the status was never written",
-            StringComparison.Ordinal);
-    }
-
     /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
@@ -1007,46 +965,34 @@ public sealed class DomainDevbookPanelTests : IDisposable
     }
 
     /// <summary>
-    /// The badge used to be born open: <c>badge--gh-open</c> was a literal, so a
-    /// closed issue was still drawn as an open one. Nothing on this path knows the
-    /// state - <see cref="DevbookIssueLink"/> carries a repo, a number and a
-    /// label and no more - so the fix is not to derive the state but to stop
-    /// claiming it. Asserted as the absence of every state class rather than the
-    /// presence of one, because that is the property that matters: whichever
-    /// treatment the unknown case wears, the badge must not assert a state.
+    /// The planning fields leave the chapter view: the plan lives in Backlog's own
+    /// entries. A chapter naming an issue draws no issue badge, and <c>issue</c>,
+    /// <c>effort</c>, <c>roadmap</c> and <c>change</c> draw no row in the strip,
+    /// while an ordinary field beside them still does.
     /// </summary>
     [Fact]
-    public async Task A_linked_issue_is_not_drawn_as_an_open_one()
+    public async Task A_chapter_naming_an_issue_draws_no_issue_badge_and_no_planning_rows()
     {
         await using var harness = CreateHarness();
 
-        var component = harness.RenderView(IssueLinkedView(), ContextMapPath);
+        var component = harness.RenderView(PlanningFieldsView(), ContextMapPath);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-issue-badge']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-metadata")));
 
-        Assert.All(
-            component.FindAll("[data-testid='devbook-issue-badge']"),
-            badge =>
-            {
-                var classes = badge.GetAttribute("class") ?? string.Empty;
-                Assert.Contains("badge--gh", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-open", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-closed", classes, StringComparison.Ordinal);
-                Assert.DoesNotContain("badge--gh-merged", classes, StringComparison.Ordinal);
-
-                // The visible word was always honest about this - it says the issue
-                // is linked, not that it is open - and it stays that way.
-                Assert.Equal("linked", badge.QuerySelector(".badge__state")!.TextContent.Trim());
-            });
+        Assert.Empty(component.FindAll("[data-testid='devbook-issue-badge']"));
+        var strip = component.Find(".domain-metadata").TextContent;
+        Assert.Contains("platform-team", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("effort", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("add-remark-kind", strip, StringComparison.Ordinal);
+        Assert.DoesNotContain("42", strip, StringComparison.Ordinal);
     }
 
-    /// <summary>A context map whose metadata links a GitHub issue. The link is what
-    /// the badge is drawn from, and this is the only fixture that carries one, so a
-    /// test about the badge does not have to reach through a folder on disk to get
-    /// a fence written.</summary>
-    private static DomainDevbookView IssueLinkedView()
+    /// <summary>A context map whose block states every planning field the chapter
+    /// view no longer draws, and one ordinary field it still does.</summary>
+    private static DomainDevbookView PlanningFieldsView()
     {
-        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-issue", Guid.NewGuid().ToString("N"));
+        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-planning", Guid.NewGuid().ToString("N"));
 
         return new DomainDevbookView(
             "JSdotNet/Backlog",
@@ -1060,7 +1006,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
                 "draft",
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["issue"] = "42"
+                    ["issue"] = "42",
+                    ["effort"] = "5",
+                    ["roadmap"] = "[sync-service]",
+                    ["change"] = "add-remark-kind",
+                    ["owner"] = "platform-team"
                 },
                 "A summary nobody can edit.",
                 [],

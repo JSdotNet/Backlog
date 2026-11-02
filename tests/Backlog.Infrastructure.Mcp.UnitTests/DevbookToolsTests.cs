@@ -293,6 +293,47 @@ public sealed class DevbookToolsTests : IDisposable
         Assert.Equal(note.Id, Assert.Single(answer.Annotations).Id);
     }
 
+    /// <summary>A note says what it is — devbook's kind, as the fence spells it —
+    /// and a repository read from its default branch lists that branch's notes and
+    /// none left on another.</summary>
+    [Fact]
+    public void An_annotation_travels_with_its_kind_and_only_the_default_branchs_are_listed()
+    {
+        var question = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Who owns this?") with { Kind = DevbookAnnotationKind.Question };
+        var onBranch = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Branch only.") with { Branch = "feature/x" };
+        var tools = new DevbookTools(
+            new FakeDevbookFolderSource(_root.FullName, Arc42, Domain),
+            new FakeDevbookAnnotationStore(question, onBranch),
+            new FakeRepositoryDirectory([Backlog]));
+
+        var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", ChapterPath);
+
+        var listed = Assert.Single(answer.Annotations);
+        Assert.Equal(question.Id, listed.Id);
+        Assert.Equal("question", listed.Kind);
+    }
+
+    /// <summary>A repository read from a named branch's snapshot keeps its remarks
+    /// under that branch, so the tool lists those — the notes the panel shows and
+    /// <c>read_knowledge_chapter</c> returns — and not the default branch's. The
+    /// branch is the registry's answer, so nothing here resolves a folder.</summary>
+    [Fact]
+    public void A_repository_read_from_a_named_branch_lists_that_branchs_notes()
+    {
+        var onDefault = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Default only.");
+        var onBranch = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Left on the branch.") with { Branch = "feature/x" };
+        var folders = new FakeDevbookFolderSource(_root.FullName, Arc42, Domain) { Branch = "feature/x" };
+        var tools = new DevbookTools(
+            folders,
+            new FakeDevbookAnnotationStore(onDefault, onBranch),
+            new FakeRepositoryDirectory([Backlog]));
+
+        var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", ChapterPath);
+
+        Assert.Equal(onBranch.Id, Assert.Single(answer.Annotations).Id);
+        Assert.Empty(folders.Prepared);
+    }
+
     [Fact]
     public void Annotations_of_an_active_repository_say_it_is_not_archived()
     {

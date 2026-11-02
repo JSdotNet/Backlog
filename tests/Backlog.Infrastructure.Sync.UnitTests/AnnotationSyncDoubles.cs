@@ -43,10 +43,11 @@ internal sealed class InMemoryDevbookAnnotationStore : IDevbookAnnotationStore
 
     public List<DevbookAnnotation> Applied { get; } = [];
 
-    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath) =>
+    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null) =>
     [
         .. _annotations.Values
             .Where(annotation => annotation.IsLive)
+            .Where(annotation => annotation.Branch == DevbookAnnotation.BranchKey(branch))
             .Where(annotation => string.Equals(annotation.RepositoryAlias, repositoryAlias ?? string.Empty, StringComparison.OrdinalIgnoreCase))
             .Where(annotation => string.Equals(annotation.ChapterPath, chapterPath, StringComparison.OrdinalIgnoreCase))
             .OrderBy(annotation => annotation.CreatedAt),
@@ -59,7 +60,9 @@ internal sealed class InMemoryDevbookAnnotationStore : IDevbookAnnotationStore
         string chapterPath,
         int blockIndex,
         string author,
-        string? blockHash = null) =>
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null) =>
         throw new NotSupportedException("Seed the store instead.");
 
     public void Edit(Guid id, string body) => throw new NotSupportedException();
@@ -74,6 +77,8 @@ internal sealed class InMemoryDevbookAnnotationStore : IDevbookAnnotationStore
         Applied.Add(replicated);
         Changed?.Invoke();
     }
+
+    public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported) => throw new NotSupportedException();
 
     public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark) =>
     [

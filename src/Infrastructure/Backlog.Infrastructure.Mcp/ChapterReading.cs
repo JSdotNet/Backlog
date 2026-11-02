@@ -54,13 +54,18 @@ internal static class ChapterReading
     /// under (<see cref="DevbookChapterKey.Canonical"/>), so every configured
     /// spelling of a chapter names the same notes.
     /// </para>
+    /// <para>
+    /// Only the notes left on <paramref name="branch"/> — null for the default
+    /// branch — because a note is about the chapter as that branch has it.
+    /// </para>
     /// </summary>
     internal static IReadOnlyList<DevbookAnnotation> Notes(
         IDevbookAnnotationStore store,
         string? repositoryAlias,
-        string chapterPath) =>
+        string chapterPath,
+        string? branch) =>
         [
-            .. store.List(repositoryAlias, chapterPath)
+            .. store.List(repositoryAlias, chapterPath, branch)
                 .Where(note => !note.IsDraft)
                 .OrderBy(note => note.BlockIndex)
                 .ThenBy(note => note.CreatedAt)

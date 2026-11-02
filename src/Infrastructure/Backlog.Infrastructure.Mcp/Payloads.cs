@@ -292,7 +292,9 @@ public sealed record KnowledgeContextsPayload(string Repository, string Reposito
 
 /// <summary>
 /// One private reading note (local ADR 0011), never a devbook <c>annotation</c>
-/// fence. Drafts and tombstones never reach this shape.
+/// fence. Drafts and tombstones never reach this shape. <c>Kind</c> is one of
+/// devbook's note kinds — <c>comment</c>, <c>question</c>, <c>suggestion</c> or
+/// <c>flag</c> — last on the line so a caller reading the older shape is unmoved.
 /// </summary>
 public sealed record ChapterNotePayload(
     Guid Id,
@@ -301,7 +303,8 @@ public sealed record ChapterNotePayload(
     string Author,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    bool Resolved);
+    bool Resolved,
+    string Kind = "comment");
 
 /// <summary>
 /// One block of a chapter, at the index its notes are anchored to.
