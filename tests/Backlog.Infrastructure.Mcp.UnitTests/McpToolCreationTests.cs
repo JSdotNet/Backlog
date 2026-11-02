@@ -52,6 +52,7 @@ public class McpToolCreationTests
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
+        DecisionTools.GetState,
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
@@ -149,9 +150,13 @@ public class McpToolCreationTests
                 TrackerTools.CreateItem,
                 GoalTools.DeleteGoal,
                 GoalTools.DetachFromGoal,
+                DecisionTools.Accept,
+                DecisionTools.Approve,
+                DecisionTools.SetState,
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                ImpedimentTools.LinkToImpediment,
                 SessionRequestTools.MarkDelivery,
                 SessionRequestTools.MarkSessionRequest,
                 NotificationTools.Notify,
@@ -166,6 +171,7 @@ public class McpToolCreationTests
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
                 TrackerTools.Transition,
+                ImpedimentTools.UnlinkFromImpediment,
                 GoalTools.UpdateGoal,
                 SurfaceTools.UpdateStage
             ],
@@ -197,8 +203,12 @@ public class McpToolCreationTests
         Assert.Equal(["id"], schemas["read_item"]);
         Assert.Equal(["id", "status"], schemas["transition"]);
         Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
-        Assert.Equal(["title", "holdsBack", "note"], schemas["raise_impediment"]);
+        Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note"], schemas["raise_impediment"]);
         Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["link_to_impediment"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["unlink_from_impediment"]);
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "link_to_impediment")));
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "unlink_from_impediment")));
         Assert.Empty(schemas["list_goals"]);
         Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
         Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
@@ -242,6 +252,23 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
         Assert.Equal(["title", "body"], schemas["capture_note"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
+
+        // devbook.decision@1's arguments and nothing else: who decided and when are
+        // the host's, so neither by nor at is a parameter a caller could fill in.
+        Assert.Equal(["repository", "subject"], schemas["devbook_get_state"]);
+        Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
+        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_approve"]);
+        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_accept"]);
+        Assert.All(
+            [DecisionTools.GetState, DecisionTools.SetState, DecisionTools.Approve, DecisionTools.Accept],
+            name =>
+            {
+                var tool = Tools().Single(candidate => candidate.ProtocolTool.Name == name);
+                var subject = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("subject");
+
+                Assert.Equal(["kind", "name", "path", "pullRequest"], Properties(subject));
+                Assert.Equal(schemas[name], Required(tool));
+            });
 
         // Optional, and optional means absent from `required` rather than absent
         // from the schema: a model has to be told the narrowing exists to use it.
@@ -349,6 +376,10 @@ public class McpToolCreationTests
                 new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
                 new FakeDevbookAnnotationStore(),
                 new FakeRepositoryDirectory()),
+            [typeof(DecisionTools)] = new DecisionTools(
+                new FakeDevbookSubjectStateStore(TimeProvider.System),
+                new FakeRepositoryDirectory(),
+                new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42"))),
             [typeof(SessionTools)] = new SessionTools(
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
@@ -357,7 +388,7 @@ public class McpToolCreationTests
                 new FakeDeliveryRunSource(DeliveryRunCatalog.Empty),
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeClaudeApiRequestStore()),
-            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
+            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),

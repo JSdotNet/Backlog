@@ -1,0 +1,305 @@
+@*
+    A search over the work a host can hand a goal or an impediment
+    (.devbook/domain/progress/features.md#attaching-work-to-a-goal and
+    #linking-what-an-impediment-holds-back): a search box and, while the query is not blank,
+    the matches under it, each under its kind label. GoalCard's attach search and an
+    impediment row's Link… are this one component.
+
+    It matches the host's candidates — plans, tasks and pull requests — by title, or a pull
+    request by its number, limited to the Kinds the host names; null offers every kind —
+    and never what the host says it is Excluding. A
+    query is tried as typed and with one leading + or # dropped, since a plan is titled with
+    its bare slug and the app writes its tag as +slug; a title that holds the sigil still
+    matches as typed. A query that names a pull request — #N or N, read in each of the
+    host's Repositories, owner/name#N, or its GitHub address — leads the list with it,
+    titled with its repository, even when no candidate holds it: picking it names it by
+    identity alone.
+
+    Picking a match hands it back through OnPick, clears the query and puts the
+    focus back in the search box. With a host listening on OnQuickAdd, a query that is not
+    blank ends the list with "New task “‹query›”", shown even when nothing matches; picking
+    it hands the trimmed query back and leaves the query to the host, which clears it with
+    Clear once the task exists. That row waits while the host writes (Busy).
+
+    BaseClass is the block every part's class is built on — ‹block›__search, __matches,
+    __match-row, __match, __match--new, __match-kind, __match-title, __number — so GoalCard
+    passes goal-card and keeps the markup it always drew. Bare drops the wrapper for a host
+    that has its own.
+*@
+@if (Bare)
+{
+    @Body
+}
+else
+{
+    <div class="@ClassValue" data-testid="@TestId">@Body</div>
+}
+
+@code {
+    /// <summary>The most candidate matches the search lists at once.</summary>
+    public const int MatchLimit = 8;
+
+    private string _query = string.Empty;
+    private SearchBox? _box;
+    private bool _focus;
+
+    /// <summary>What the search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number is read in, <c>owner/name</c>
+    /// each. Empty reads a bare number against <see cref="Candidates"/> alone.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>The kinds the search offers; null offers every kind.</summary>
+    [Parameter]
+    public IReadOnlyCollection<GoalSubjectKind>? Kinds { get; set; }
+
+    /// <summary>Work the search leaves out — what an impediment already holds back, or a
+    /// draft has picked — whether a candidate holds it or a query names it.</summary>
+    [Parameter]
+    public IReadOnlyCollection<GoalSubject>? Excluding { get; set; }
+
+    /// <summary>The search box's placeholder.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The search box's accessible name; <see cref="Label"/> when not given.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>A match was picked: the work it names, with the title it was listed under.</summary>
+    [Parameter]
+    public EventCallback<GoalsItem> OnPick { get; set; }
+
+    /// <summary>The "New task" row was picked: the query, trimmed. Without a listener there
+    /// is no such row.</summary>
+    [Parameter]
+    public EventCallback<string> OnQuickAdd { get; set; }
+
+    /// <summary>While the host writes: the "New task" row waits.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The block every part's class is built on.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "work-item-search";
+
+    /// <summary>Appended to the wrapper's class.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Drops the wrapper, for a host that draws its own.</summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
+    /// <summary>Lands on the wrapper; the list and its rows take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The search box's test id; <c>‹TestId›-search</c> when not given.</summary>
+    [Parameter]
+    public string? SearchTestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private string Element(string element) => $"{BaseClass}__{element}";
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>Puts the focus in the search box.</summary>
+    public ValueTask FocusAsync() => _box?.FocusAsync() ?? ValueTask.CompletedTask;
+
+    /// <summary>Empties the query, which takes the list with it, and puts the focus back in
+    /// the search box: what a host does once the task a "New task" row asked for exists.</summary>
+    public void Clear()
+    {
+        _query = string.Empty;
+        _focus = true;
+        StateHasChanged();
+    }
+
+    private RenderFragment Body => __builder =>
+    {
+        <SearchBox @ref="_box"
+                   Value="@_query"
+                   ValueChanged="value => _query = value"
+                   Placeholder="@Label"
+                   AriaLabel="@(AriaLabel ?? Label)"
+                   DebounceMilliseconds="0"
+                   CssClass="@Element("search")"
+                   TestId="@(SearchTestId ?? Part("search"))" />
+        var matches = Matches;
+        if (matches.Count > 0 || QuickAddTitle is not null)
+        {
+            <ul class="@Element("matches")" aria-label="Matches" data-testid="@Part("matches")">
+                @foreach (var match in matches)
+                {
+                    <li class="@Element("match-row")">
+                        <AppButton Variant="ButtonVariant.None"
+                                   BaseClass="@Element("match")"
+                                   OnClick="() => PickAsync(match)"
+                                   TestId="@Part($"match-{match.Subject.Key}")">
+                            <span class="@Element("match-kind")">@KindLabel(match.Kind)</span>
+                            <span class="@Element("match-title")">
+                                @if (match.Number is { } number)
+                                {
+                                    <span class="@Element("number")">#@number</span>@(" ")
+                                }
+                                @match.Title
+                            </span>
+                        </AppButton>
+                    </li>
+                }
+                @if (QuickAddTitle is { } title)
+                {
+                    <li class="@Element("match-row")">
+                        <AppButton Variant="ButtonVariant.None"
+                                   BaseClass="@Element("match")"
+                                   CssClass="@Element("match--new")"
+                                   Disabled="Busy"
+                                   OnClick="() => OnQuickAdd.InvokeAsync(title)"
+                                   TestId="@Part("quick-add")">
+                            <span class="@Element("match-kind")">New</span>
+                            <span class="@Element("match-title")">New task “@title”</span>
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    private bool Offers(GoalSubjectKind kind) => Kinds is null || Kinds.Contains(kind);
+
+    // A kind left out is left out of the candidates and of the pull requests a query names,
+    // so a later kind the host does not list is never offered.
+
+    private bool Offers(GoalsItem item, HashSet<string> excluded) => Offers(item.Kind) && !excluded.Contains(item.Subject.Key);
+
+    // What the host leaves out goes before the limit is counted, and again after a query
+    // names a pull request by its number, which no candidate list holds back.
+    private IReadOnlyList<GoalsItem> Matches
+    {
+        get
+        {
+            if (Kinds is null && (Excluding is null || Excluding.Count == 0)) return Match(Candidates, _query, Repositories);
+
+            var excluded = (Excluding ?? []).Select(subject => subject.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return
+            [
+                .. Match([.. Candidates.Where(item => Offers(item, excluded))], _query,
+                        Offers(GoalSubjectKind.PullRequest) ? Repositories : [])
+                    .Where(item => Offers(item, excluded))
+            ];
+        }
+    }
+
+    /// <summary>The title the "New task" row offers: the query trimmed, while a host listens
+    /// and the query is not blank.</summary>
+    private string? QuickAddTitle =>
+        OnQuickAdd.HasDelegate && !string.IsNullOrWhiteSpace(_query) ? _query.Trim() : null;
+
+    private async Task PickAsync(GoalsItem match)
+    {
+        // The pick clears the query, which takes the list and the focused button with it:
+        // the focus goes back to the search box once the list is gone.
+        _query = string.Empty;
+        _focus = true;
+        await OnPick.InvokeAsync(match);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focus || _box is null) return;
+
+        _focus = false;
+        await _box.FocusAsync();
+    }
+
+    /// <summary>The candidates <see cref="IsMatch"/> keeps for <paramref name="query"/>; none
+    /// for a blank query.</summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query) =>
+        [.. Matching(candidates, query).Take(MatchLimit)];
+
+    private static IEnumerable<GoalsItem> Matching(IReadOnlyList<GoalsItem> candidates, string? query) =>
+        string.IsNullOrWhiteSpace(query) ? [] : candidates.Where(item => IsMatch(item, query));
+
+    /// <summary>
+    /// Whether <paramref name="item"/> answers <paramref name="query"/>, ignoring case: its
+    /// title holds the query as typed or with one leading <c>+</c> or <c>#</c> dropped — a
+    /// plan is titled with its bare slug, and the app writes its tag as <c>+slug</c> — or
+    /// its number starts with the query, a leading <c>#</c> ignored. A blank query answers
+    /// every item.
+    /// </summary>
+    public static bool IsMatch(GoalsItem item, string? query)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var text = query?.Trim() ?? string.Empty;
+        if (text.Length == 0) return true;
+
+        var bare = text[0] is '+' or '#' ? text[1..].TrimStart() : string.Empty;
+        var number = text.TrimStart('#');
+        return item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
+               || (bare.Length > 0 && item.Title.Contains(bare, StringComparison.OrdinalIgnoreCase))
+               || (number.Length > 0 && item.Number is { } n
+                   && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <see cref="Match(IReadOnlyList{GoalsItem}, string?)"/>, led by the pull requests
+    /// <paramref name="query"/> names (<see cref="PullRequestReference.Resolve"/>) — a bare
+    /// number in each of <paramref name="repositories"/> — so one no candidate holds can be
+    /// picked by identity, titled with its repository. A pull request a candidate holds is
+    /// listed once, as that candidate. Every named pull request is listed; <see cref="MatchLimit"/>
+    /// caps only the candidate matches after them, so no registered repository goes unoffered.
+    /// </summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query, IReadOnlyList<string> repositories)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        List<GoalsItem> named = [.. PullRequestReference.Resolve(query, repositories)
+            .Select(subject => candidates.FirstOrDefault(item => SamePullRequest(item.Subject, subject))
+                               ?? new GoalsItem(subject, subject.Repository!))
+            .DistinctBy(Key)];
+
+        var listed = named.Select(Key).ToHashSet(StringComparer.Ordinal);
+
+        return [.. named.Concat(Matching(candidates, query)
+            .Where(item => !listed.Contains(Key(item)))
+            .DistinctBy(Key)
+            .Take(MatchLimit))];
+    }
+
+    private static string Key(GoalsItem item) => item.Subject.Key.ToUpperInvariant();
+
+    private static bool SamePullRequest(GoalSubject left, GoalSubject right) =>
+        left.Kind == GoalSubjectKind.PullRequest
+        && right.Kind == GoalSubjectKind.PullRequest
+        && left.Number == right.Number
+        && string.Equals(left.Repository, right.Repository, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>An item as one line of text: a pull request's number before its title,
+    /// "#1357 Payment status webhook", as a match draws it.</summary>
+    public static string Line(GoalsItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        return item.Number is { } number
+            ? $"#{number.ToString(System.Globalization.CultureInfo.InvariantCulture)} {item.Title}"
+            : item.Title;
+    }
+
+    /// <summary>The kinds an impediment holds back — Link… and Raise impediment offer these —
+    /// named one by one so a kind added to goals later is not offered there unasked.</summary>
+    public static IReadOnlyCollection<GoalSubjectKind> ImpedimentKinds { get; } =
+        [GoalSubjectKind.Task, GoalSubjectKind.PullRequest, GoalSubjectKind.Plan];
+
+    /// <summary>The kind label a match, a No goal row or a held-back item reads under.</summary>
+    public static string KindLabel(GoalSubjectKind kind) => kind switch
+    {
+        GoalSubjectKind.Plan => "Plan",
+        GoalSubjectKind.Task => "Task",
+        _ => "PR"
+    };
+}

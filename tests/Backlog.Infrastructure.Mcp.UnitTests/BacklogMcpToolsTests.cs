@@ -45,6 +45,14 @@ public class BacklogMcpToolsTests
                 "list_annotations",
                 "resolve_annotation",
                 "capture_note",
+
+                // devbook.decision@1's state operations, beside the devbook tools
+                // and behind the same key.
+                "devbook_get_state",
+                "devbook_set_state",
+                "devbook_approve",
+                "devbook_accept",
+
                 "list_sessions",
 
                 // The delivery surface's eight, in the order the engine's
@@ -64,9 +72,11 @@ public class BacklogMcpToolsTests
                 // The measured usage of every run, beside the surface rather than on it.
                 "list_run_usage",
 
-                // Progress's impediments, beside set_blocked (local ADR 0035).
+                // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
+                "link_to_impediment",
+                "unlink_from_impediment",
 
                 // Progress's goals: read, set, edit, attach, detach, delete (local ADR 0035).
                 "list_goals",
@@ -111,6 +121,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Tracker.FeatureKey);
         Assert.Equal(RoadmapFeatures.Roadmap, BacklogMcpTools.Roadmap.FeatureKey);
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
+        Assert.Equal(DevbookFeatures.RepositoryDevbook, DecisionTools.Group.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
@@ -125,7 +136,7 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Two keys are read by several groups each, and that is the decision rather
+    /// Three keys are read by several groups each, and that is the decision rather
     /// than a duplicate to be cleaned up.
     /// <para>
     /// This used to assert that every group's key was distinct, which read §7's
@@ -147,10 +158,16 @@ public class BacklogMcpToolsTests
     /// is never handed its measured figures.
     /// </para>
     /// <para>
+    /// The devbook key is the third, on the same argument: reading a chapter and
+    /// keeping the workflow state of the records in it (<c>devbook.decision@1</c>)
+    /// are one area. Somebody switching the devbook off has switched off the
+    /// records these set as much as the chapters the other group reads.
+    /// </para>
+    /// <para>
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the eleven groups name are six: the session request queue's dispatcher tools
+    /// keys the groups name are six: the session request queue's dispatcher tools
     /// have <c>session-requests</c> to themselves, and the notification tools
     /// <c>notifications</c>.
     /// </para>
@@ -178,12 +195,18 @@ public class BacklogMcpToolsTests
             [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage],
             byKey[SessionFeatures.Sessions]);
 
-        // Every other key is one group's. Named as the two shared keys rather than
+        Assert.Equal(
+            [BacklogMcpTools.Devbook, DecisionTools.Group],
+            byKey[DevbookFeatures.RepositoryDevbook]);
+
+        // Every other key is one group's. Named as the sets above rather than
         // asserted as "a few may share", so adding another group to a key is a
         // failing test that asks for the reason to be written down here — which
         // is the whole of what this assertion is for.
         Assert.All(
-            byKey.Where(pair => pair.Key != TasksFeatures.Tasks && pair.Key != SessionFeatures.Sessions),
+            byKey.Where(pair => pair.Key != TasksFeatures.Tasks
+                && pair.Key != SessionFeatures.Sessions
+                && pair.Key != DevbookFeatures.RepositoryDevbook),
             pair => Assert.Single(pair.Value));
 
         // And two groups are two classes, which is what keeps the registration
@@ -253,6 +276,13 @@ public class BacklogMcpToolsTests
     /// attaching or detaching what is already so changes nothing, and a deleted goal
     /// stays deleted — those four are safe to repeat.
     /// </para>
+    /// <para>
+    /// The devbook state writes split the same way: <c>devbook_set_state</c> to the
+    /// state a subject already has leaves it as it was, while <c>devbook_approve</c>
+    /// and <c>devbook_accept</c> each record a person's decision with its own time —
+    /// and approving again withdraws an acceptance — so no client may repeat one on
+    /// its own account.
+    /// </para>
     /// </summary>
     [Fact]
     public void Every_tool_declares_what_it_does_and_is_described()
@@ -261,6 +291,9 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
+            DecisionTools.SetState,
+            DecisionTools.Approve,
+            DecisionTools.Accept,
             TrackerTools.Transition,
             TrackerTools.SetBlocked,
             TrackerTools.Comment,
@@ -276,6 +309,8 @@ public class BacklogMcpToolsTests
             SurfaceTools.FinishRun,
             ImpedimentTools.RaiseImpediment,
             ImpedimentTools.SetImpedimentState,
+            ImpedimentTools.LinkToImpediment,
+            ImpedimentTools.UnlinkFromImpediment,
             GoalTools.CreateGoal,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
@@ -305,6 +340,7 @@ public class BacklogMcpToolsTests
         string[] repeatable =
         [
             DevbookTools.ResolveAnnotation,
+            DecisionTools.SetState,
             TrackerTools.Transition,
             TrackerTools.SetBlocked,
             TrackerTools.LinkSession,
@@ -315,7 +351,9 @@ public class BacklogMcpToolsTests
             SurfaceTools.FinishRun,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
-            GoalTools.DetachFromGoal
+            GoalTools.DetachFromGoal,
+            ImpedimentTools.LinkToImpediment,
+            ImpedimentTools.UnlinkFromImpediment
         ];
 
         var seen = new List<string>();

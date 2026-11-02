@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Cosmos.Annotations;
+using Backlog.Infrastructure.Cosmos.DevbookSubjects;
 using Backlog.Infrastructure.Cosmos.Devices;
 using Backlog.Infrastructure.Cosmos.Notifications;
 using Backlog.Infrastructure.Cosmos.PairingCodes;
@@ -151,6 +152,7 @@ public static class CosmosReplicaRegistration
         builder.Services.AddSingleton<ITaskReplica, CosmosTaskReplica>();
         builder.Services.AddSingleton<ISessionReplica, CosmosSessionReplica>();
         builder.Services.AddSingleton<IAnnotationReplica, CosmosAnnotationReplica>();
+        builder.Services.AddSingleton<IDevbookSubjectReplica, CosmosDevbookSubjectReplica>();
         builder.Services.AddSingleton<INotificationReplica, CosmosNotificationReplica>();
         builder.Services.AddSingleton<IDeviceRegistry, CosmosDeviceRegistry>();
         builder.Services.AddSingleton<IPairingCodeStore, CosmosPairingCodeStore>();

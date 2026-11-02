@@ -49,6 +49,117 @@ A remark lives with the app rather than in the repository, so a reader can remar
 on a branch snapshot nobody can write to. It is not a
 [Review Note](#review-note), and neither is converted into the other.
 
+## Subject State
+
+```meta
+type: aggregate
+status: draft
+aliases: [DevbookSubjectState, IDevbookSubjectStateStore, subject state]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
+```
+
+The workflow state of one [Devbook Subject](#devbook-subject) in one repository,
+kept by the app rather than by the chapter. It holds the repository's alias, the
+subject, the state the subject is in, who set that state and when, and, for a
+proposal, the [approval and acceptance](#subject-decision) it stands on.
+
+It exists because devbook's branch-true decision took workflow state out of the
+chapter's `meta` block
+(`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#branch-true-devbook`). A
+branch states what is true of its code. Whether a debt record is planned, or a
+proposal approved, is a fact about the work around the chapter. So the host that
+runs the workflow keeps it, under the names the `devbook.decision@1` contract
+gives a subject. Backlog keeps it in its own store, one file per repository under
+the storage folder, and never in a repository or in the devbook database (local
+ADR 0044).
+
+It is an aggregate because each subject's state changes as one. Setting a state,
+approving and accepting move the state and its decisions together, and a refusal
+changes nothing. No other record changes with it. One set of rules,
+`DevbookSubjectRules`, decides all four operations for every store. The app
+always says who acted and when: the host's own name, the one a remark's author
+carries, and the store's clock. A caller never passes either.
+
+It replicates as a whole document through a replica container of its own (local
+ADR 0044). Its id is derived from the repository and the subject, so two devices
+that set a state on the same subject before either has synced land on one
+document. A state is set and never deleted, so it leaves no tombstone. How each
+change is stamped, which version wins, which state stays on this device, and
+where a state is stored are [the Subject State invariants](domain.invariants.md#subject-state).
+
+A state lives with the app rather than in the repository, so a reader can set a
+debt record's state on a branch snapshot nobody can write to. An archived
+repository's states are read and never set, as
+[Repository Management requires](../repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook).
+Where the panels show a state is in
+[the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
+A subject state holds no text of the chapter, and it is not a [Remark](#remark).
+
+### Devbook Subject
+
+```meta
+type: value-object
+status: draft
+aliases: [DevbookSubject, subject]
+```
+
+One thing in a devbook that has workflow state, named the way
+`devbook.decision@1` names it: a [kind](#subject-kind) and a key. Equality is by
+value.
+
+- A **proposal** is keyed by its change's folder name under `openspec/changes/`.
+- A **decision record** is keyed by its repository path and the pull request it
+  is decided in. A record decided again in a later pull request is another
+  subject, so one review's verdict never stands in for the next.
+- A **debt record** is keyed by its repository path.
+
+A decision record is a Markdown file directly in the arc42 folder's `adr/`, and a
+debt record one directly in its `tdr/`. The folder's README or index and the
+coding guidelines under `adr/guidelines/` are no records. Every other chapter is
+no subject: merged, it is in force, and its state is the branch it is on.
+
+A record path is spelled one way: forward slashes, no anchor, and no leading `./`
+or `/`. A subject the contract could not name is refused when it is made: a blank
+key, a decision record with no pull request, a pull request on another kind, or a
+proposal name that is no folder name.
+
+### Subject Kind
+
+```meta
+type: enum
+status: draft
+aliases: [DevbookSubjectKind]
+```
+
+Which of the contract's three subjects a subject is, and the states its kind can
+be in, in workflow order.
+
+| Kind | States |
+| --- | --- |
+| `proposal` | `draft`, `approved`, `accepted` |
+| `decision` | `proposed`, `decided`, `declined` |
+| `debt` | `identified`, `planned`, `in-progress`, `resolved` |
+
+The rows are closed within `devbook.decision@1`. A state outside its kind's row is
+refused and never stored.
+
+### Subject Decision
+
+```meta
+type: value-object
+status: draft
+aliases: [DevbookSubjectDecision, approval, acceptance]
+```
+
+A person's approval or acceptance of a proposal: who gave it, when, and the
+fingerprint of the change it was given at. Only a proposal has them. The
+fingerprint is the change's `devbook.chapter.fingerprint@1`, which is `sha256:`
+and eight lowercase hex characters, and the caller passes the one it read.
+
+An acceptance stands on an approval at the same fingerprint. A change that moved
+after it was approved therefore has to be approved again before anyone can accept
+it.
+
 ## Instruction Review
 
 ```meta

@@ -108,6 +108,144 @@ That is what lets a reader remark on a branch snapshot nobody can write to.
 
 Enforced at: `DevbookAnnotationStore`, which writes only under its own storage folder (`FolderName`), and `DevbookAnnotation`, which holds a repository alias and a chapter path rather than a path on disk
 
+## Subject State
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/devbook/domain.md#subject-state]
+```
+
+> The rules a Subject State is held to as it is set, stored and replicated. The record `DevbookSubjectState` has no behaviour of its own: `DevbookSubjectRules` decides every operation, and the stores and the replica merge keep the rest, so `Enforced at:` names them.
+
+### Invariant: A refused operation writes nothing
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_refused_operation_leaves_the_file_as_it_was_and_says_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_refusal_on_a_subject_with_no_state_creates_no_file, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.Accepting_with_no_approval_is_refused_not_approved_and_writes_nothing]
+```
+
+An operation the rules refuse leaves the subject's state as it was, and the store neither writes nor announces anything.
+A refusal carries no state, and a store writes only a state that comes back.
+
+Enforced at: `DevbookSubjectRules`, whose `DevbookSubjectOutcome.Refuse()` carries no state; `DevbookSubjectStateStore.Operate()` writes only what comes back
+
+### Invariant: A state is one of its kind's row
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_state_outside_the_subjects_row_is_refused, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_proposal_is_never_set_to_approved_or_accepted, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_decision_record_moves_through_its_own_row]
+```
+
+A subject is set only to a state in its kind's row, and a proposal reaches `approved` and `accepted` only by being approved and accepted (`bad-state`).
+
+Enforced at: `DevbookSubjectRules.SetState()`
+
+### Invariant: Approve and accept take a proposal alone
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approve_and_accept_take_a_proposal_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_fingerprint_that_is_no_fingerprint_is_refused]
+```
+
+Only a proposal is approved or accepted, and only at a value that is a fingerprint, `sha256:` and eight lowercase hex characters (`bad-state`).
+
+Enforced at: `DevbookSubjectRules.Approve()` and `Accept()`, through `IsFingerprint()`
+
+### Invariant: An acceptance stands on an approval at the same fingerprint
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_stands_on_an_approval_at_the_same_fingerprint, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_without_an_approval_is_refused_not_approved, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_at_another_fingerprint_is_refused_as_a_mismatch]
+```
+
+A proposal is accepted only at the fingerprint it was approved at (`not-approved`, `fingerprint-mismatch`).
+A change that moved since its approval has to be approved again, at what it now says, before it can be accepted.
+
+Enforced at: `DevbookSubjectRules.Accept()`
+
+### Invariant: Leaving a decision step withdraws the decisions above it
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Setting_a_proposal_back_to_draft_withdraws_approval_and_acceptance, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approving_again_withdraws_an_acceptance_at_the_old_fingerprint]
+```
+
+Setting a proposal back to `draft` withdraws its approval and its acceptance, and approving it again withdraws its acceptance.
+An acceptance stands on the approval it was given after, so it cannot outlive that approval.
+
+Enforced at: `DevbookSubjectRules.SetState()` and `Approve()`
+
+### Invariant: Each change stamps the state later than the copy it changed
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_state_set_on_a_copy_from_a_faster_clock_still_lands_after_it
+```
+
+Setting a state, approving or accepting stamps the subject's state later than the copy it changed, even when that copy arrived from a device whose clock runs ahead.
+Replication tells which version is newer by the stamp, so a change stamped earlier would lose to the version it replaced.
+
+Enforced at: `DevbookSubjectStateStore.Operate()`, through `Stamp()`
+
+### Invariant: The later version of a subject's state wins whole
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_replicated_state_no_later_than_the_one_held_is_not_written, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_later_state_from_elsewhere_replaces_the_local_one_whole, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.An_older_state_never_replaces_a_later_local_one, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.The_replica_stamp_decides_first_then_the_device_stamp_then_the_device_id]
+```
+
+When two versions of one subject's state meet, the one stamped later replaces the other as a whole document, and a tie keeps the one held.
+No version is ever deleted, so no tombstone takes part. The sync service holds the same rule for a push ([Change Precedence](../sync/domain.invariants.md#change-precedence)).
+
+Enforced at: `DevbookSubjectRules.Supersedes()`, which every store's `Apply()` asks under its own lock; `DevbookSubjectReplicaMerge.Wins()` reduces a pulled page to one version per subject by the replica's stamp, then the device's stamp, then the device id
+
+### Invariant: A subject has one id on every device
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.The_id_is_the_same_on_every_device_for_the_same_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.Another_repository_or_pull_request_is_another_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.An_alias_names_one_repository_whatever_its_case, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_record_filed_under_another_id_than_its_subjects_is_not_taken]
+```
+
+A subject's state has the same id on every device, derived from the repository's alias, whatever its case, and the subject's name, and a pulled state filed under any other id is not taken.
+Two devices that set a state on one subject before either has synced would otherwise keep two states with nothing to say which is current.
+
+Enforced at: `DevbookSubject.IdFor()`, through `AliasKey()`; `DevbookSubjectReplicaMerge.ToState()` refuses a record whose id is not its subject's
+
+### Invariant: A state the sync service would refuse stays on this device
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectSyncSessionTests.A_state_the_service_would_refuse_is_left_out_and_named_without_holding_back_the_rest, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_change_the_service_would_not_store_is_refused_with_a_reason]
+```
+
+A state filed under no repository, with a kind or state the contract does not have, with a decision on anything but a proposal, or with a field past its bound, is left out of the push and named in a warning.
+It is offered again only once its state is set again. The sync service refuses a push whole, so sending it would hold back every state beside it on every cycle.
+
+Enforced at: `DevbookSubjectSyncSession.PushAsync()`, through `DevbookSubjectRecordLimits.WhyRefused()`, the rule the sync endpoint runs
+
+### Invariant: A subject's state is never written into a repository
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.Each_repository_keeps_its_own_file, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookReadOnlyBranchTests.A_debt_records_state_is_set_on_a_branch_and_no_file_changes]
+```
+
+A subject's state is never written into a repository's devbook folders or into the devbook database.
+That is what lets a reader set a debt record's state on a branch snapshot nobody can write to, and what keeps a state when the database is rebuilt.
+
+Enforced at: `DevbookSubjectStateStore`, which writes only under its own storage folder (`FolderName`), and `DevbookSubject`, which holds a repository path rather than a path on disk
+
 ## Shared Value Objects
 
 ```meta

@@ -9,8 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
-/// The published <see cref="IStandUpContextSource"/>: every pull request the goals count,
-/// read through <see cref="IGoalPullRequestReader"/> and its cache, with the pace, the
+/// The published <see cref="IStandUpContextSource"/>: every pull request the goals count or
+/// an open impediment holds back, read through <see cref="IGoalPullRequestReader"/> and its
+/// cache, with the pace, the
 /// working week and the iteration choice, as the phone needs them to read the stand-up
 /// (local ADR 0035 §8). A singleton, because it keeps the last reading to tell a changed one
 /// from a repeat; what it reads through is scoped, so each reading opens a scope of its own.
@@ -30,16 +31,30 @@ public sealed class StandUpContextSource(
     public async Task<StandUpContextCopyDto?> ReadAsync(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<GoalDto> all = [.. (await goals.ListAsync(cancellationToken).ConfigureAwait(false)).Select(goal => goal.ToDto())];
-        if (all.Count == 0) return null;
 
         using var scope = scopes.CreateScope();
         var services = scope.ServiceProvider;
+
+        // The pull requests the open impediments hold back travel too, goals or none, so the
+        // phone reads Ready to resolve by the desktop's rule. A host that keeps no
+        // impediments has none to send.
+        var held = services.GetService<IImpedimentRepository>() is { } impediments
+            ? StandUpReading.PullRequestsHeldBack(
+                (await impediments.ListAsync(cancellationToken).ConfigureAwait(false)).Select(impediment => impediment.ToDto()))
+            : [];
+        if (all.Count == 0 && held.Count == 0) return null;
+
         var tasks = services.GetRequiredService<IProgressTaskSource>();
         var pullRequests = services.GetRequiredService<IGoalPullRequestReader>();
         var pace = services.GetService<IStandUpPace>();
 
-        var read = await tasks.ReadAsync(GoalItems.TaskQuery(all), cancellationToken).ConfigureAwait(false);
-        var asked = GoalItems.PullRequestsOf(all, read);
+        var read = all.Count == 0 ? [] : await tasks.ReadAsync(GoalItems.TaskQuery(all), cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<PullRequestRefDto> asked =
+        [
+            .. GoalItems.PullRequestsOf(all, read)
+                .Concat(held)
+                .DistinctBy(GoalItems.KeyOf, StringComparer.OrdinalIgnoreCase)
+        ];
         var answers = asked.Count == 0
             ? []
             : await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false);

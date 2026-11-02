@@ -10,7 +10,8 @@
     status dot each, Pull requests with a status line each, the merged ones gathered
     on one line as pills and "merged" — and below them the attach search.
 
-    The search matches the host's candidates — plans, tasks and pull requests — by
+    The attach search is the library's WorkItemSearch, drawn in this card's classes. It
+    matches the host's candidates — plans, tasks and pull requests — by
     title, or a pull request by its number, and lists each match under its kind label.
     A query is tried as typed and with one leading + or # dropped, since a plan is titled
     with its bare slug and the app writes its tag as +slug; a title that holds the sigil
@@ -226,66 +227,28 @@
             </div>
 
             <div class="goal-card__attach">
-                <SearchBox @ref="_search"
-                           Value="@_query"
-                           ValueChanged="value => _query = value"
-                           Placeholder="@AttachLabel"
-                           AriaLabel="@AttachLabel"
-                           DebounceMilliseconds="0"
-                           CssClass="goal-card__search"
-                           TestId="@Part("attach")" />
-                @if (Matches.Count > 0 || QuickAddTitle is not null)
-                {
-                    <ul class="goal-card__matches" aria-label="Matches" data-testid="@Part("matches")">
-                        @foreach (var match in Matches)
-                        {
-                            <li class="goal-card__match-row">
-                                <AppButton Variant="ButtonVariant.None"
-                                           BaseClass="goal-card__match"
-                                           OnClick="() => PickAsync(match)"
-                                           TestId="@Part($"match-{match.Subject.Key}")">
-                                    <span class="goal-card__match-kind">@KindLabel(match.Kind)</span>
-                                    <span class="goal-card__match-title">
-                                        @if (match.Number is { } number)
-                                        {
-                                            <span class="goal-card__number">#@number</span>@(" ")
-                                        }
-                                        @match.Title
-                                    </span>
-                                </AppButton>
-                            </li>
-                        }
-                        @if (QuickAddTitle is { } title)
-                        {
-                            <li class="goal-card__match-row">
-                                <AppButton Variant="ButtonVariant.None"
-                                           BaseClass="goal-card__match"
-                                           CssClass="goal-card__match--new"
-                                           Disabled="Busy"
-                                           OnClick="() => QuickAddAsync(title)"
-                                           TestId="@Part("quick-add")">
-                                    <span class="goal-card__match-kind">New</span>
-                                    <span class="goal-card__match-title">New task “@title”</span>
-                                </AppButton>
-                            </li>
-                        }
-                    </ul>
-                }
+                <WorkItemSearch @ref="_search"
+                                Bare="true"
+                                BaseClass="goal-card"
+                                Label="@AttachLabel"
+                                Candidates="Candidates"
+                                Repositories="Repositories"
+                                OnPick="match => OnAttach.InvokeAsync(match.Subject)"
+                                OnQuickAdd="@(OnQuickAdd.HasDelegate ? EventCallback.Factory.Create<string>(this, QuickAddAsync) : default)"
+                                Busy="Busy"
+                                TestId="@TestId"
+                                SearchTestId="@Part("attach")" />
             </div>
         </div>
     }
 </section>
 
 @code {
-    /// <summary>The most matches the attach search lists at once.</summary>
-    public const int MatchLimit = 8;
-
     /// <summary>The attach search's placeholder and accessible name.</summary>
     public const string AttachLabel = "Attach a plan, task or pull request";
 
     private readonly string _id = "goal-" + Guid.NewGuid().ToString("N");
-    private string _query = string.Empty;
-    private SearchBox? _search;
+    private WorkItemSearch? _search;
     private bool _focusSearch;
 
     [Parameter, EditorRequired]
@@ -623,100 +586,13 @@
         || Goal.Tasks.Any(task => task.Subject == subject)
         || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestSubject(index) == subject);
 
-    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query, Repositories);
-
-    /// <summary>The title the "New task" row offers: the query trimmed, while a host listens
-    /// and the query is not blank.</summary>
-    private string? QuickAddTitle =>
-        OnQuickAdd.HasDelegate && !string.IsNullOrWhiteSpace(_query) ? _query.Trim() : null;
-
     private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
-
-    /// <summary>The candidates <see cref="IsMatch"/> keeps for <paramref name="query"/>; none
-    /// for a blank query.</summary>
-    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query) =>
-        [.. Matching(candidates, query).Take(MatchLimit)];
-
-    private static IEnumerable<GoalsItem> Matching(IReadOnlyList<GoalsItem> candidates, string? query) =>
-        string.IsNullOrWhiteSpace(query) ? [] : candidates.Where(item => IsMatch(item, query));
-
-    /// <summary>
-    /// Whether <paramref name="item"/> answers <paramref name="query"/>, ignoring case: its
-    /// title holds the query as typed or with one leading <c>+</c> or <c>#</c> dropped — a
-    /// plan is titled with its bare slug, and the app writes its tag as <c>+slug</c> — or
-    /// its number starts with the query, a leading <c>#</c> ignored. A blank query answers
-    /// every item.
-    /// </summary>
-    public static bool IsMatch(GoalsItem item, string? query)
-    {
-        ArgumentNullException.ThrowIfNull(item);
-
-        var text = query?.Trim() ?? string.Empty;
-        if (text.Length == 0) return true;
-
-        var bare = text[0] is '+' or '#' ? text[1..].TrimStart() : string.Empty;
-        var number = text.TrimStart('#');
-        return item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
-               || (bare.Length > 0 && item.Title.Contains(bare, StringComparison.OrdinalIgnoreCase))
-               || (number.Length > 0 && item.Number is { } n
-                   && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// <see cref="Match(IReadOnlyList{GoalsItem}, string?)"/>, led by the pull requests
-    /// <paramref name="query"/> names (<see cref="PullRequestReference.Resolve"/>) — a bare
-    /// number in each of <paramref name="repositories"/> — so one no candidate holds can be
-    /// attached by identity, titled with its repository. A pull request a candidate holds is
-    /// listed once, as that candidate. Every named pull request is listed; <see cref="MatchLimit"/>
-    /// caps only the candidate matches after them, so no registered repository goes unoffered.
-    /// </summary>
-    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query, IReadOnlyList<string> repositories)
-    {
-        ArgumentNullException.ThrowIfNull(candidates);
-
-        List<GoalsItem> named = [.. PullRequestReference.Resolve(query, repositories)
-            .Select(subject => candidates.FirstOrDefault(item => SamePullRequest(item.Subject, subject))
-                               ?? new GoalsItem(subject, subject.Repository!))
-            .DistinctBy(Key)];
-
-        var listed = named.Select(Key).ToHashSet(StringComparer.Ordinal);
-
-        return [.. named.Concat(Matching(candidates, query)
-            .Where(item => !listed.Contains(Key(item)))
-            .DistinctBy(Key)
-            .Take(MatchLimit))];
-    }
-
-    private static string Key(GoalsItem item) => item.Subject.Key.ToUpperInvariant();
-
-    private static bool SamePullRequest(GoalSubject left, GoalSubject right) =>
-        left.Kind == GoalSubjectKind.PullRequest
-        && right.Kind == GoalSubjectKind.PullRequest
-        && left.Number == right.Number
-        && string.Equals(left.Repository, right.Repository, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The kind label a match or a No goal row reads under.</summary>
-    public static string KindLabel(GoalSubjectKind kind) => kind switch
-    {
-        GoalSubjectKind.Plan => "Plan",
-        GoalSubjectKind.Task => "Task",
-        _ => "PR"
-    };
-
-    private async Task PickAsync(GoalsItem match)
-    {
-        // The pick clears the query, which takes the list and the focused button with it:
-        // the focus goes back to the search box once the list is gone.
-        _query = string.Empty;
-        _focusSearch = true;
-        await OnAttach.InvokeAsync(match.Subject);
-    }
 
     /// <summary>Hands the title back for the host to create and attach. Once a task exists
     /// that did not before — held by the goal, or among the candidates when the attach after
-    /// the create was refused — the query clears and the focus goes back to the search box,
-    /// as a pick does, so the row cannot create it a second time. A refused create leaves the
-    /// typed text, to change and try again.</summary>
+    /// the create was refused — the search clears and takes the focus back, as a pick does,
+    /// so the row cannot create it a second time. A refused create leaves the typed text, to
+    /// change and try again.</summary>
     private async Task QuickAddAsync(string title)
     {
         var known = TasksKnown();
@@ -726,8 +602,7 @@
 
         if (TasksKnown().IsSubsetOf(known)) return;
 
-        _query = string.Empty;
-        _focusSearch = true;
+        _search?.Clear();
     }
 
     /// <summary>Every task the card can see: the goal's own and the candidates'.</summary>

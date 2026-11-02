@@ -41,21 +41,76 @@ public sealed class ImpedimentsTests : IDisposable
 
     private void On(int day) => _time.SetUtcNow(new DateTimeOffset(2026, 10, day, 9, 0, 0, TimeSpan.Zero));
 
-    private async Task<ImpedimentDto> RaiseAsync(string title = "Bank sample files missing", params Guid[] holds) =>
+    private async Task<ImpedimentDto> RaiseAsync(string title = "Bank sample files missing", params HeldBackItemDto[] holds) =>
         (await Impediments.RaiseAsync(new RaiseImpedimentRequest(title, holds), Cancellation)).Value;
 
     [Fact]
-    public async Task Raising_stores_a_New_impediment_dated_today_with_its_tasks_and_note()
+    public async Task Raising_stores_a_New_impediment_dated_today_with_its_items_and_note()
     {
         var task = Guid.NewGuid();
 
-        var raised = (await Impediments.RaiseAsync(new RaiseImpedimentRequest("Bank sample files missing", [task], "Asked twice"), Cancellation)).Value;
+        var raised = (await Impediments.RaiseAsync(
+            new RaiseImpedimentRequest(
+                "Bank sample files missing",
+                [HeldBackItemDto.ForTask(task), HeldBackItemDto.ForPullRequest(" acme/payments ", 412), HeldBackItemDto.ForPlan("+goals-standup")],
+                "Asked twice"),
+            Cancellation)).Value;
 
         Assert.Equal(ImpedimentState.New, raised.State);
         Assert.Equal(new DateOnly(2026, 10, 14), raised.RaisedOn);
-        Assert.Equal([task], raised.HoldsBack);
+        Assert.Equal(
+            [HeldBackItemDto.ForTask(task), HeldBackItemDto.ForPullRequest("acme/payments", 412), HeldBackItemDto.ForPlan("goals-standup")],
+            raised.HoldsBack);
+        Assert.Equal([task], raised.HeldBackTasks);
         Assert.Equal("Asked twice", raised.Note);
         Assert.Equivalent(raised, (await Impediments.GetAsync(raised.Id, Cancellation)).Value, strict: true);
+    }
+
+    [Fact]
+    public async Task An_item_without_its_identity_refuses_the_raise_and_stores_nothing()
+    {
+        var raised = await Impediments.RaiseAsync(
+            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(Guid.NewGuid()), new HeldBackItemDto(HeldBackKind.PullRequest, Number: 412)]),
+            Cancellation);
+
+        Assert.Equal("progress.held_back_item_without_identity", raised.Error.Code);
+        Assert.Equal(0, _repository.Saves);
+    }
+
+    /// <summary>Requirements scenarios "A pull request no task covers", "A plan", "Linking
+    /// twice" and "Unlinking", through the port.</summary>
+    [Fact]
+    public async Task Pull_requests_and_plans_are_linked_once_and_unlinked_leaving_the_history_alone()
+    {
+        var bank = await RaiseAsync();
+        On(15);
+        await Impediments.MoveAsync(bank.Id, ImpedimentState.Reported, "bank support", Cancellation);
+
+        await Impediments.HoldBackAsync(bank.Id, HeldBackItemDto.ForPullRequest("acme/payments", 412), Cancellation);
+        await Impediments.HoldBackAsync(bank.Id, HeldBackItemDto.ForPlan("goals-standup"), Cancellation);
+        var twice = (await Impediments.HoldBackAsync(bank.Id, HeldBackItemDto.ForPullRequest("ACME/Payments", 412), Cancellation)).Value;
+
+        Assert.Equal([HeldBackItemDto.ForPullRequest("acme/payments", 412), HeldBackItemDto.ForPlan("goals-standup")], twice.HoldsBack);
+        Assert.Equal([ImpedimentState.New, ImpedimentState.Reported], twice.History.Select(step => step.State));
+
+        var released = (await Impediments.ReleaseAsync(bank.Id, HeldBackItemDto.ForPullRequest("acme/payments", 412), Cancellation)).Value;
+        Assert.Equal([HeldBackItemDto.ForPlan("goals-standup")], released.HoldsBack);
+        Assert.Equal(ImpedimentState.Reported, released.State);
+    }
+
+    [Fact]
+    public async Task Linking_or_unlinking_an_item_without_its_identity_is_refused_and_changes_nothing()
+    {
+        var bank = await RaiseAsync();
+        var saves = _repository.Saves;
+
+        Assert.Equal(
+            "progress.held_back_item_without_identity",
+            (await Impediments.HoldBackAsync(bank.Id, new HeldBackItemDto(HeldBackKind.PullRequest, Number: 412), Cancellation)).Error.Code);
+        Assert.Equal(
+            "progress.held_back_item_without_identity",
+            (await Impediments.ReleaseAsync(bank.Id, HeldBackItemDto.ForPlan("+"), Cancellation)).Error.Code);
+        Assert.Equal(saves, _repository.Saves);
     }
 
     [Fact]
@@ -137,14 +192,14 @@ public sealed class ImpedimentsTests : IDisposable
 
         await Impediments.SetCheckAgainAsync(bank.Id, new DateOnly(2026, 10, 20), Cancellation);
         await Impediments.EditNoteAsync(bank.Id, "Chased by phone", Cancellation);
-        await Impediments.HoldBackAsync(bank.Id, task, Cancellation);
-        var held = (await Impediments.HoldBackAsync(bank.Id, task, Cancellation)).Value;
+        await Impediments.HoldBackAsync(bank.Id, HeldBackItemDto.ForTask(task), Cancellation);
+        var held = (await Impediments.HoldBackAsync(bank.Id, HeldBackItemDto.ForTask(task), Cancellation)).Value;
 
         Assert.Equal(new DateOnly(2026, 10, 20), held.CheckAgain);
         Assert.Equal("Chased by phone", held.Note);
-        Assert.Equal([task], held.HoldsBack);
+        Assert.Equal([HeldBackItemDto.ForTask(task)], held.HoldsBack);
 
-        var released = (await Impediments.ReleaseAsync(bank.Id, task, Cancellation)).Value;
+        var released = (await Impediments.ReleaseAsync(bank.Id, HeldBackItemDto.ForTask(task), Cancellation)).Value;
         Assert.Empty(released.HoldsBack);
         Assert.Equivalent(released, (await Impediments.GetAsync(bank.Id, Cancellation)).Value, strict: true);
     }

@@ -15,6 +15,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub.RepositoryManagement;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -35,6 +36,8 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -160,6 +163,11 @@ public static class DesktopCompositionRegistration
         // (§10).
         services.AddProgressModule();
 
+        // Repository Management (local ADR 0042): the one contract and cache every
+        // reader of a pull request goes through. GitHub and the settled-fact memory are
+        // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
+        services.AddRepositoryManagementModule();
+
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
         // its handler with AddNotificationAnswerHandler<T>(). The heads start
@@ -175,7 +183,7 @@ public static class DesktopCompositionRegistration
         services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
         services.AddNotificationSubjectProbe<PairingSubjectProbe>();
         services.AddSingleton(sp => new PullRequestSubjects(
-            sp.GetService<GitHubIntegration>(),
+            () => sp.GetService<IPullRequests>(),
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
@@ -237,6 +245,7 @@ public static class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
+        services.AddRepositoryManagementGitHubAdapters();
         services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);
@@ -251,6 +260,9 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        // Devbook subject state's progress sits beside the annotation progress, in its
+        // own file: the folder is the per-installation one, the feed is separate.
+        services.AddDevbookSubjectSyncStore(options.AnnotationSyncFolder);
         services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
@@ -383,6 +395,11 @@ public static class DesktopCompositionRegistration
         // modules' scoped services; see WindowStateLifetime for why that makes it
         // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
+        // Which task a session or a pull request belongs to, asked of Tasks over this
+        // window's rows (local ADR 0042, V8): the window's state answers the candidates,
+        // and the lookup lives as long as it does.
+        services.Add(new ServiceDescriptor(typeof(ITaskLookupCandidates), provider => provider.GetRequiredService<TasksDesktopState>(), options.WindowStateLifetime));
+        services.AddTaskLookup(options.WindowStateLifetime);
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
         services.AddInboxAiContentSource();
@@ -415,7 +432,7 @@ public static class DesktopCompositionRegistration
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer
-        // is resolved by the head at startup, like BlockedTaskWatcher.
+        // is resolved by the head at startup, like SpecManagerQuestionSource.
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
@@ -499,6 +516,9 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+        // And devbook subject state, the annotations' sibling: the states the panels and
+        // the MCP tools set travel to this person's other desktops on the same switch.
+        services.AddDevbookSubjectSyncClient(SyncServiceAddress);
 
         // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two
@@ -623,5 +643,13 @@ public static class DesktopCompositionRegistration
                     folders: sp.GetRequiredService<IDevbookFolderSource>()),
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RemarkNotificationStore>>()));
+
+        // The workflow state of a repository's devbook subjects — proposals,
+        // decision records, debt records — kept out of the chapters under devbook's
+        // branch-true decision: one JSON file per repository under the storage
+        // folder, following the root as the remarks above do. The panels fall back
+        // to a session store when it is absent, as they do for remarks.
+        services.AddSingleton<IDevbookSubjectStateStore>(sp =>
+            new DevbookSubjectStateStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
     }
 }

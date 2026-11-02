@@ -347,33 +347,90 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Empty(introduction.FindAll("[data-testid='devbook-sync']"));
     }
 
+    /// <summary>
+    /// The record's authored status still reads — it is part of what the file
+    /// says until the devbook migration strips it — but as the badge, with no
+    /// select to write it: under devbook's branch-true decision a record's state is
+    /// the tool's, kept in the subject store, and the status writer that put it in
+    /// the file is retired.
+    /// </summary>
     [Fact]
-    public async Task Changing_the_state_beside_the_heading_writes_it_to_the_file()
+    public async Task The_authored_status_reads_as_a_badge_and_nothing_writes_it()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
-        var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
 
-        // The select lives in the file view's header, beside the name it belongs
-        // to — the panel no longer draws one of its own. What it reports is the
-        // file's top heading, so the write addresses the file itself and lands on
-        // its own status fence.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
-        // `proposed`: under contract 16 `accepted` is a decision rung, domain/'s
-        // alone — the select does not offer it and the writer refuses it here.
-        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("proposed");
-
-        component.WaitForAssertion(
-            () => Assert.Contains("status: proposed", File.ReadAllText(chapterPath), StringComparison.Ordinal),
-            TimeSpan.FromSeconds(5));
-
-        var settled = File.ReadAllText(chapterPath);
-        Assert.DoesNotContain("status: draft", settled, StringComparison.Ordinal);
-
-        // The prose is untouched: a status change is a merge into the one fence, not
-        // a rewrite of the chapter around it.
-        Assert.Contains("Original prose.", settled, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("draft", component.Find(".file-view__header .devbook-record__headline").TextContent, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll(".file-view__header .status-editor__select"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-body'] .status-editor__select"));
     }
+
+    /// <summary>
+    /// A decision record's state is the store's most recently set one for that
+    /// path, whichever pull request it was decided in, drawn beside the status — by
+    /// "You" when this host set it — and not offered: its key needs the pull
+    /// request, which the panel does not know, so it is set over MCP.
+    /// </summary>
+    [Fact]
+    public async Task A_decision_records_state_is_drawn_read_only_from_the_store()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withSubjects: true);
+        harness.Subjects!.Apply(Stamped(harness.RepositoryAlias, DevbookSubject.Decision(DecisionPath, 11), "proposed", DevbookLocalAuthor.Name, new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero)));
+        harness.Subjects.Apply(Stamped(harness.RepositoryAlias, DevbookSubject.Decision(DecisionPath, 12), "decided", DevbookLocalAuthor.Name, new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero)));
+
+        var component = harness.Render(DecisionPath);
+
+        component.WaitForAssertion(() => Assert.Equal(
+            "decided",
+            component.Find(".file-view__header [data-testid='devbook-subject-state']").TextContent.Trim()));
+        Assert.Equal(
+            "decision state set by You on 2026-10-30",
+            component.Find(".file-view__header [data-testid='devbook-state-subject']").TextContent.Trim());
+        Assert.Empty(component.FindAll("[data-testid='devbook-subject-state-select']"));
+    }
+
+    /// <summary>A state set on another device — replication applying it, or a
+    /// tool call over MCP — redraws the open record, by its author's name.</summary>
+    [Fact]
+    public async Task A_state_that_arrives_while_the_record_is_open_is_drawn()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withSubjects: true);
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='devbook-state-subject']"));
+
+        await component.InvokeAsync(() => harness.Subjects!.Apply(Stamped(
+            harness.RepositoryAlias, DevbookSubject.Decision(DecisionPath, 7), "declined", "ana-laptop", new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero))));
+
+        component.WaitForAssertion(() => Assert.Equal(
+            "declined",
+            component.Find("[data-testid='devbook-subject-state']").TextContent.Trim()));
+        Assert.Equal(
+            "decision state set by ana-laptop on 2026-10-30",
+            component.Find("[data-testid='devbook-state-subject']").TextContent.Trim());
+    }
+
+    /// <summary>With the status display switched off (<c>devbook-status</c>),
+    /// a record's state goes with the status: nothing is drawn, and no select is
+    /// offered.</summary>
+    [Fact]
+    public async Task With_the_status_display_off_no_record_state_is_drawn()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withSubjects: true, statusShown: false);
+        harness.Subjects!.Apply(Stamped(harness.RepositoryAlias, DevbookSubject.Decision(DecisionPath, 12), "decided", DevbookLocalAuthor.Name, new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero)));
+
+        var component = harness.Render(DecisionPath);
+
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='devbook-state-subject']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-subject-state']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-subject-state-select']"));
+    }
+
+    /// <summary>A state document as replication hands it over, stamps and
+    /// all.</summary>
+    private static DevbookSubjectState Stamped(string alias, DevbookSubject subject, string state, string by, DateTimeOffset at) =>
+        new(DevbookSubject.IdFor(alias, subject), alias, subject, state, by, at, null, null, at);
 
     [Fact]
     public async Task A_debounced_save_leaves_the_editor_open_where_it_was()
@@ -619,12 +676,20 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <param name="archived">Whether the repository is archived, with a second,
     /// active repository configured after it — one repository must stay
     /// active.</param>
+    /// <param name="withSubjects">Whether the host registers a subject store for
+    /// the panel to find, the session one, so a test can set a record's state the
+    /// way replication would.</param>
+    /// <param name="statusShown">The <c>devbook-status</c> switch, through the
+    /// pane's scope; null registers no scope, which shows the status as a host
+    /// without one always did.</param>
     private Harness CreateHarness(
         bool withArc42Folder,
         string? configuredPath = null,
         bool withIndex = true,
         bool withAnnotations = false,
-        bool archived = false)
+        bool archived = false,
+        bool withSubjects = false,
+        bool? statusShown = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -703,7 +768,18 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         var annotations = withAnnotations ? new SessionDevbookAnnotationStore(folders: folders) : null;
         if (annotations is not null) context.Services.AddSingleton<IDevbookAnnotationStore>(annotations);
 
-        return new Harness(root, context, repository.Alias, folders, annotations, gitHub);
+        var subjects = withSubjects ? new SessionDevbookSubjectStateStore() : null;
+        if (subjects is not null) context.Services.AddSingleton<IDevbookSubjectStateStore>(subjects);
+
+        if (statusShown is { } shown)
+        {
+            var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+            _ = features.SetEnabled(DevbookFeatures.Status, shown);
+            context.Services.AddSingleton<IAppFeatureSettings>(features);
+            context.Services.AddSingleton<DevbookScope>();
+        }
+
+        return new Harness(root, context, repository.Alias, folders, annotations, gitHub, subjects);
     }
 
     private sealed record Harness(
@@ -712,7 +788,8 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         string RepositoryAlias,
         RecordingDevbookFolderSource Folders,
         SessionDevbookAnnotationStore? Annotations,
-        GitHubSettingsStore GitHub) : IAsyncDisposable
+        GitHubSettingsStore GitHub,
+        SessionDevbookSubjectStateStore? Subjects = null) : IAsyncDisposable
     {
         public IRenderedComponent<Arc42DevbookPanel> Render(string? selectedPath) =>
             Context.Render<Arc42DevbookPanel>(parameters => parameters

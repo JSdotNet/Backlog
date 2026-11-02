@@ -205,7 +205,8 @@ public sealed class HomeInitialLoadTests
             TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(sp.GetRequiredService<WorkspaceSettingsStore>()), new ConfiguredRepositoryDirectory()),
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
-            toasts: sp.GetRequiredService<IToastChannel>()));
+            toasts: sp.GetRequiredService<IToastChannel>(),
+            pullRequestStates: TasksTestHost.PullRequestStatesOver(sp.GetRequiredService<GitHubIntegration>())));
         // Home answers the Inbox's Capture button through the module's runner and
         // injects it hard, so a host that renders Home composes the module and
         // picks where its sources are kept, the same as the application hosts do.
@@ -226,8 +227,9 @@ public sealed class HomeInitialLoadTests
         return new Harness(root, context);
     }
 
-    /// <summary>Counts the pull request reads and answers each like a GitHub that
-    /// cannot find it — the count is the whole question here.</summary>
+    /// <summary>Counts the pull request reads — the read by number Repository
+    /// Management's source sends, and the one over REST it falls back to — and answers
+    /// each like a GitHub that cannot find it: the count is the whole question here.</summary>
     private sealed class CountingGitHubClient : IGitHubClient
     {
         private int _statusReads;
@@ -242,10 +244,10 @@ public sealed class HomeInitialLoadTests
         public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(GitHubRepositoryRef repository, IReadOnlyCollection<int> numbers, CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref _statusReads);
-            return Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
+            return Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("Not Found"));
         }
 
         public Task<GitHubPullRequest> GetPullRequestAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default)

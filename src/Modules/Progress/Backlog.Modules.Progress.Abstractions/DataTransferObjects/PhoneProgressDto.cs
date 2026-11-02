@@ -27,7 +27,8 @@ public sealed record ImpedimentDocumentDto(ImpedimentDto Impediment, DateTimeOff
 /// a refresh on one desktop never displaces an edit to a goal.
 /// </summary>
 /// <param name="ReadAt">When the desktop read it.</param>
-/// <param name="PullRequests">Every pull request the goals count, once each.</param>
+/// <param name="PullRequests">Every pull request the goals count, or an open impediment
+/// holds back, once each.</param>
 /// <param name="PointsPerWeek">The person's pace, or null when none is known.</param>
 /// <param name="Week">The person's working week, or null for Monday to Friday.</param>
 /// <param name="Length">The iteration length the person reads by on that desktop, or null.</param>

@@ -123,11 +123,11 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(TaskSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Sessions.SessionSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Annotations.AnnotationSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener),
             typeof(BackupWorker),
             typeof(Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
-            typeof(BlockedTaskWatcher),
             typeof(Backlog.Modules.Notifications.Services.NotificationsStartup),
             typeof(Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher),
             typeof(BrainFolderWatch),
@@ -225,6 +225,15 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(tasks, first.ServiceProvider.GetRequiredService<TasksDesktopState>());
         Assert.Same(tasks, first.ServiceProvider.GetRequiredService<ISaveStatusSource>());
         Assert.NotSame(tasks, second.ServiceProvider.GetRequiredService<TasksDesktopState>());
+        // Which task a session or a pull request belongs to is Tasks' answer over that
+        // window's one state (local ADR 0042, V8): one lookup per window, as its rows are.
+        Assert.Same(tasks, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
         Assert.NotSame(
             first.ServiceProvider.GetRequiredService<InboxDesktopState>(),
             second.ServiceProvider.GetRequiredService<InboxDesktopState>());

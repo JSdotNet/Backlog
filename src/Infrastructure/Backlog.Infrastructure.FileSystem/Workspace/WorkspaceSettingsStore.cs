@@ -422,7 +422,8 @@ public sealed class WorkspaceSettingsStore
 
     /// <summary>The folders in the root that are the app's, beside the
     /// database: the inbox folder, the shared repository registry, the
-    /// tools catalog when it was put here, and the Devbook remarks. This list is what a move carries
+    /// tools catalog when it was put here, the Devbook remarks and the
+    /// workflow state of the devbook subjects. This list is what a move carries
     /// and the whole of what it carries. The root used to hold one markdown
     /// file per entry, and a root that old still has that person's own
     /// notes, folders and images beside the database; copying the folder
@@ -436,6 +437,7 @@ public sealed class WorkspaceSettingsStore
         GitHubSettingsStore.RegistryFolderName,
         DevToolConfigurationPaths.ToolFolderName,
         DevbookAnnotationStore.FolderName,
+        DevbookSubjectStateStore.FolderName,
     ];
 
     /// <summary>Makes a chosen root usable: the folder itself, and the inbox

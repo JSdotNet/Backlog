@@ -289,6 +289,9 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And devbook subject state's loop, the annotations' sibling, on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
         // And the notification exchange's loop (local ADR 0039), on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
@@ -309,10 +312,7 @@ public static class MauiProgram
         // in as notifications; a singleton nobody resolves asks nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
-        // And the blocked-task watcher, on the same terms: it raises an impediment for a
-        // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
-        _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
-        // The question relay's escalation timer (local ADR 0041): it publishes a waiting
+        // And the question relay's escalation timer (local ADR 0041): it publishes a waiting
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 

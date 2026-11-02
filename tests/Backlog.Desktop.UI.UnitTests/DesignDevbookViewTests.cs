@@ -220,29 +220,39 @@ public sealed class DesignDevbookViewTests : IDisposable
         Assert.Empty(body.QuerySelectorAll(".devbook-record .md-heading--1"));
     }
 
+    /// <summary>
+    /// A design chapter's authored status reads, as the badge, and nothing offers
+    /// to write it: design/'s status is workflow state, which under devbook's
+    /// branch-true decision is the tool's and not the file's, so the view writes
+    /// no status into a design file any more.
+    /// </summary>
     [Fact]
-    public async Task A_status_picked_on_a_chapter_of_the_open_file_is_written_to_that_chapters_fence()
+    public async Task A_status_in_the_open_file_reads_as_a_badge_and_nothing_writes_it()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render("interaction-guidelines.md");
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='design-chapter-file-body'] .devbook-record select")));
-
-        await component.ChangeAsync("[data-testid='design-chapter-file-body'] .devbook-record select", "deprecated");
-
-        // Auto-save's fence is the one that changes. The file's own block is the
-        // heading directly above it in the source, and the pane used to be able to
-        // write nothing but that one — so the file staying `draft` is half the
-        // assertion. The status write asks for no render of its own, so the file
-        // is polled.
         var file = Path.Combine(harness.DesignFolder, "interaction-guidelines.md");
-        await Polling.WaitUntilAsync(
-            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
-            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
-            TimeSpan.FromSeconds(5));
+        var before = File.ReadAllText(file);
 
-        var text = File.ReadAllText(file);
-        Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
-        Assert.Contains("# Interaction guidelines\r\n```meta\r\nstatus: draft".ReplaceLineEndings(), text.ReplaceLineEndings(), StringComparison.Ordinal);
+        var component = harness.Render("interaction-guidelines.md");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='design-chapter-file-body'] .devbook-record .badge--status")));
+
+        Assert.Empty(component.FindAll("[data-testid='design-chapter-file-body'] .devbook-record select"));
+        Assert.Empty(component.FindAll(".file-view__header .devbook-record select"));
+        Assert.Equal(before, File.ReadAllText(file));
+    }
+
+    /// <summary>The folder overview, the same: every status a badge, no
+    /// select.</summary>
+    [Fact]
+    public async Task The_folder_overview_offers_no_status_select()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(selectedPath: null);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-document__header .badge--status")));
+
+        Assert.Empty(component.FindAll(".folder-document__header select"));
+        Assert.Empty(component.FindAll(".folder-section .devbook-record select"));
     }
 
     [Fact]
@@ -412,54 +422,6 @@ public sealed class DesignDevbookViewTests : IDisposable
         // Nothing draws it a second time above the file view.
         Assert.Empty(component.FindAll(".folder-document > .devbook-record"));
         Assert.Empty(component.FindAll(".folder-document > .devbook-meta"));
-    }
-
-    [Fact]
-    public async Task A_status_picked_on_a_design_file_is_written_to_the_file()
-    {
-        await using var harness = CreateHarness();
-        var component = harness.Render(selectedPath: null);
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-document__header select")));
-
-        await component.ChangeAsync(".folder-document__header select", "deprecated");
-
-        var file = Path.Combine(harness.DesignFolder, "color-scheme.md");
-        await Polling.WaitUntilAsync(
-            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
-            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
-            TimeSpan.FromSeconds(5));
-        Assert.Contains("status: deprecated", File.ReadAllText(file), StringComparison.Ordinal);
-
-        // The nav link reads its status off the parsed folder rather than off the
-        // control that was changed, so it only says the new word once the pane has
-        // re-read the file the write landed in.
-        component.WaitForAssertion(() => Assert.Contains(
-            "deprecated",
-            component.FindAll(".folder-devbook__nav-link")[0].TextContent,
-            StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task A_status_picked_on_a_design_chapter_is_written_to_that_chapters_fence()
-    {
-        await using var harness = CreateHarness();
-        var component = harness.Render(selectedPath: null);
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section .devbook-record select")));
-
-        await component.ChangeAsync(".folder-section .devbook-record select", "deprecated");
-
-        // Auto-save is the one chapter whose status the folder's vocabulary
-        // offers a control for, and its fence is the one that must change — not
-        // the file's, which is the heading directly above it in the source.
-        var file = Path.Combine(harness.DesignFolder, "interaction-guidelines.md");
-        await Polling.WaitUntilAsync(
-            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
-            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
-            TimeSpan.FromSeconds(5));
-
-        var text = File.ReadAllText(file);
-        Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
-        Assert.Contains("status: draft", text, StringComparison.Ordinal);
     }
 
     /// <summary>

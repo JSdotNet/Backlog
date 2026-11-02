@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Repository Management module's public surface — everything a host or an
+    adapter is allowed to see (ADR 0005, ADR 0009, local ADR 0042):
+      DataTransferObjects/  a pull request's status as every reader receives it —
+                            the pane, the session card, a task's row, Progress —
+                            and the listings that carry it
+      Services/             IPullRequests, the one contract every reader and every
+                            act goes through, and the ports the module asks of
+                            its host: IPullRequestSource (GitHub),
+                            IRegisteredRepositories and ISettledPullRequestStore
+      PullRequestErrors     the errors a command fails with
+      Enums                 the vocabulary those DTOs are written in
+      PullRequestVerdict, PullRequestStacks, PullRequestMerges,
+      PullRequestLabelFilter
+                            the one verdict per pull request, its stack and its
+                            merge offer, as pure policy statics. A deviation from
+                            ADR 0009's "DTOs and ports only", made after Progress's
+                            GoalForecasting: every reader must derive the same
+                            verdict from the same status, so the rule ships with
+                            the surface rather than behind a call.
+      RepositoryManagementFeatures
+                            the pull-requests feature key, moved here from
+                            SessionFeatures with its string unchanged
+    Nothing here may reference the module's implementation, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.RepositoryManagement.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

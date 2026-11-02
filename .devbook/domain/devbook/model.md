@@ -67,6 +67,12 @@ classDiagram
     class Remark {
         <<aggregate root>>
     }
+    class SubjectState {
+        <<aggregate root>>
+        +String state
+        +String by
+        +Date at
+    }
     class ReviewStep {
         <<enumeration>>
         requested
@@ -95,16 +101,23 @@ classDiagram
 ```
 
 - **`status` is folder-relative, and absent is a value.** In the architecture,
-  domain and design areas an absent status *is* `active`, the resting state,
-  and the panels write it by removing the line. In the technology and AI areas
-  it is a rating and always present. The domain area alone adds two decision
-  steps above the ladder, `approved` and `accepted`.
+  domain and design areas an absent status *is* `active`, the resting state. The
+  panels show a status a chapter there states and never write one. In the
+  technology and AI areas it is a rating and always present, and it is the one
+  `status` the panels write. The domain area alone adds two decision steps above
+  the ladder, `approved` and `accepted`.
 - **`DecisionState` and `ReviewState` are state, not content.** They sit in the
-  chapter's `meta` block but describe the road to a decision. Where the panels
-  show them, and when a `DecisionState` goes, are in
+  chapter's `meta` block but describe the road to a decision. The panels read them
+  and never write them. Where the panels show them is in
   [the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
   `ReviewState` is replaced by `DecisionState` when approval is written. Neither
   is legal outside the domain area.
+- **`SubjectState` sits outside `ChapterMetadata`.** A decision or debt record's
+  workflow state, and a change proposal's, is a
+  [Subject State](domain.md#subject-state) the app keeps in its own store, keyed
+  by the repository and the subject, never by a `meta` block. That is why the
+  diagram draws it apart. The panel draws it beside a record's own `status`, and
+  neither replaces the other.
 - **`type` is folder-relative too.** Domain, technology and AI chapters each
   draw from their own set; architecture and design define none. A domain
   context's additional page takes its own filename as its type.

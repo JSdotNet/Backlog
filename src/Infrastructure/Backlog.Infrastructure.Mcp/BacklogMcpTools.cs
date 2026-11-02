@@ -213,17 +213,17 @@ public static class BacklogMcpTools
         [UsageTools.ListRunUsage]);
 
     /// <summary>
-    /// The impediment tools beside <c>set_blocked</c>: Progress's own, so their own group
-    /// (local ADR 0035 §5). Behind <c>backlog</c>, the always-on Tasks key, since Progress
-    /// has no switch of its own: goals, impediments and the stand-up are always on (§10).
-    /// An impediment holds tasks back, and a session raises one beside the
-    /// <see cref="Tracker"/> call that marks a task blocked, so the key that gates that call
-    /// gates this one.
+    /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
+    /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
+    /// Behind <c>backlog</c>, the always-on Tasks key, since Progress has no switch of its
+    /// own: goals, impediments and the stand-up are always on (§10). An impediment holds
+    /// tasks back, and a session raises one beside the <see cref="Tracker"/> calls it works
+    /// tasks with, so the key that gates those gates these.
     /// </summary>
     public static McpToolGroup Impediments { get; } = new(
         TasksFeatures.Tasks,
         typeof(ImpedimentTools),
-        [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
+        [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState, ImpedimentTools.LinkToImpediment, ImpedimentTools.UnlinkFromImpediment]);
 
     /// <summary>
     /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
@@ -292,7 +292,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
