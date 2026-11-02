@@ -36,7 +36,7 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
 
     public event Action? Changed;
 
-    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath)
+    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null)
     {
         var alias = Key(repositoryAlias);
 
@@ -44,11 +44,13 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
         // asking in whichever spelling it holds is still asking about the one
         // chapter.
         var chapter = Canonical(alias, chapterPath);
+        var asked = DevbookAnnotation.BranchKey(branch);
 
         return
         [
             .. _annotations.Values
                 .Where(annotation => annotation.IsLive)
+                .Where(annotation => string.Equals(annotation.Branch, asked, StringComparison.Ordinal))
                 .Where(annotation => string.Equals(annotation.RepositoryAlias, alias, StringComparison.OrdinalIgnoreCase))
                 .Where(annotation => string.Equals(annotation.ChapterPath, chapter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(annotation => annotation.CreatedAt)
@@ -63,7 +65,9 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
         string chapterPath,
         int blockIndex,
         string author,
-        string? blockHash = null)
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null)
     {
         var now = _time.GetUtcNow();
 
@@ -80,7 +84,9 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
             author,
             now,
             now,
-            BlockHash: string.IsNullOrWhiteSpace(blockHash) ? null : blockHash.Trim());
+            BlockHash: string.IsNullOrWhiteSpace(blockHash) ? null : blockHash.Trim(),
+            Kind: kind,
+            Branch: branch);
 
         var stored = Put(annotation);
         Changed?.Invoke();
@@ -143,12 +149,36 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
         var stored = annotation with
         {
             RepositoryAlias = alias,
-            ChapterPath = Canonical(alias, annotation.ChapterPath)
+            ChapterPath = Canonical(alias, annotation.ChapterPath),
+            Branch = DevbookAnnotation.BranchKey(annotation.Branch)
         };
 
         _annotations[annotation.Id] = stored;
 
         return stored;
+    }
+
+    /// <summary>Each imported remark whose id is not held here, tombstones
+    /// included, written as given — the file store's rule, so a panel over this
+    /// store and one over the real store answer the same. One
+    /// <see cref="Changed"/> for the lot, and none when nothing was new.</summary>
+    public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+
+        var written = 0;
+
+        foreach (var annotation in imported)
+        {
+            if (annotation is null || _annotations.ContainsKey(annotation.Id)) continue;
+
+            Put(annotation);
+            written++;
+        }
+
+        if (written > 0) Changed?.Invoke();
+
+        return written;
     }
 
     public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark) =>

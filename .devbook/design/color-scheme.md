@@ -717,7 +717,7 @@ Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On trac
 
 ```meta
 status: draft
-related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
+related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/repository-management/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
 ```
 
 Every pull request row carries two [status marks](../domain/progress/features.md#pull-request-status):
@@ -737,7 +737,9 @@ Rules:
 - The words "checks" and "approvals" MUST NOT be printed on the row. Each mark
   carries them as visually hidden text, together with the variant, and the
   visible count is hidden from assistive technology, so a screen reader hears
-  one phrase: "9 of 14 checks running", "1 of 2 approvals".
+  one phrase: "9 of 14 checks running", "1 of 13 checks failing", "1 of 2
+  approvals". A failing mark's phrase counts the failed checks; its visible
+  count stays `passed/total`, `12/13`.
 - The glyph is decorative and hidden from assistive technology, per
   `accessibility.md#iconography-accessibility`. The count and the hidden words
   carry the meaning, so the ink is never the sole carrier.

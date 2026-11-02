@@ -58,7 +58,7 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void The_areas_are_the_scopes_declared_first_then_discovered()
     {
-        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         using var database = DevbookDatabase.TryOpen(Target);
         Assert.NotNull(database);
@@ -79,7 +79,7 @@ public class BrainDatabaseTests : IDisposable
         Write("_templates/meeting.md", "# Meeting template\n");
         Write(".obsidian/workspace.md", "# Workspace\n");
 
-        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         using var connection = Open();
         Assert.Equal(["work", "design", "archive"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
@@ -90,13 +90,13 @@ public class BrainDatabaseTests : IDisposable
     public void A_note_in_a_new_top_folder_makes_the_database_stale()
     {
         Directory.CreateDirectory(Path.Combine(Brain, "Meetings"));
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
 
         Write("Meetings/standup.md", "# Standup\n");
 
-        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using var connection = Open();
         Assert.Equal("Meetings", Strings(connection, "SELECT folder FROM node WHERE id = 'Meetings/standup.md'").Single());
@@ -105,7 +105,7 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void A_note_s_folder_is_its_area_and_no_devbook_convention_applies()
     {
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using var connection = Open();
         Assert.Equal("projects", Strings(connection, "SELECT folder FROM node WHERE id = 'projects/plan.md'").Single());
@@ -120,7 +120,7 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void Para_repos_and_tasks_are_node_attributes()
     {
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using var connection = Open();
         Assert.Equal(
@@ -138,7 +138,7 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void Repo_links_are_edges_whose_target_is_no_node()
     {
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using var connection = Open();
         Assert.Equal(
@@ -158,7 +158,7 @@ public class BrainDatabaseTests : IDisposable
     {
         var before = Directory.GetFiles(Brain, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray();
 
-        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         Assert.Equal(before, Directory.GetFiles(Brain, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal));
         Assert.StartsWith(Cache, Target, StringComparison.Ordinal);
@@ -171,8 +171,8 @@ public class BrainDatabaseTests : IDisposable
         Directory.CreateDirectory(empty);
         File.WriteAllText(Path.Combine(empty, BrainConventions.FileName), "## Areas\n\n- `work`\n");
 
-        Assert.False(DevbookDatabaseBuilder.HasDevbook(empty, DevbookCorpusKind.Brain));
-        Assert.False(DevbookDatabaseBuilder.Build(empty, Path.Combine(_scratch, "empty.db"), DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.False(DevbookDatabaseBuilder.HasDevbook(empty, BrainCorpusProfile.Instance));
+        Assert.False(DevbookDatabaseBuilder.Build(empty, Path.Combine(_scratch, "empty.db"), BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class BrainDatabaseTests : IDisposable
     {
         File.Delete(Path.Combine(Brain, BrainConventions.FileName));
 
-        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         using var connection = Open();
         Assert.Equal(["projects", "archive", "design", "work"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
@@ -189,12 +189,12 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void Declaring_an_area_makes_the_database_stale()
     {
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
 
         File.AppendAllText(Path.Combine(Brain, BrainConventions.FileName), "| Archive | archive |\n");
 
-        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
     }
 
     /// <summary>A OneDrive placeholder whose content is still in the cloud is
@@ -210,7 +210,7 @@ public class BrainDatabaseTests : IDisposable
         var note = Write("work/remote.md", "# Remote Note\n\n```meta\ntasks: [t-9]\n```\n\nFrom the other machine.\n");
         File.SetAttributes(note, File.GetAttributes(note) | FileAttributes.Offline);
 
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using (var connection = Open())
         {
@@ -220,12 +220,12 @@ public class BrainDatabaseTests : IDisposable
             Assert.Empty(Strings(connection, "SELECT value FROM node_attribute WHERE node_id = 'work/remote.md' AND name = 'tasks'"));
         }
 
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
         File.SetAttributes(note, File.GetAttributes(note) & ~FileAttributes.Offline);
-        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain), "hydrating the note is a change");
+        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance), "hydrating the note is a change");
 
         SqliteConnection.ClearAllPools();
-        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken);
 
         using var rebuilt = Open();
         Assert.Equal("Remote Note", Strings(rebuilt, "SELECT label FROM node WHERE id = 'work/remote.md'").Single());
@@ -236,28 +236,28 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void The_brain_s_database_is_keyed_by_its_folder_and_found_from_the_folder()
     {
-        var brainDatabase = DevbookDatabaseLocation.ForBrainFolder(Brain);
+        var brainDatabase = BrainDatabaseLocation.ForBrainFolder(Brain);
         Assert.NotNull(brainDatabase);
 
-        Assert.True(DevbookDatabaseLocation.IsBrainRoot(Brain));
-        Assert.Equal(DevbookCorpusKind.Brain, DevbookDatabaseLocation.KindFor(Brain + Path.DirectorySeparatorChar));
+        Assert.True(BrainDatabaseLocation.IsBrainRoot(Brain));
+        Assert.Same(BrainCorpusProfile.Instance, DevbookDatabaseLocation.ProfileFor(Brain + Path.DirectorySeparatorChar));
         Assert.Equal(brainDatabase, DevbookDatabaseLocation.ForRepositoryRoot(Brain));
 
         // The Brain's folder is its own root: the database is not its parent's.
         Assert.Equal(brainDatabase, DevbookDatabaseLocation.ForDevbookFolder(Brain));
         Assert.NotEqual(DevbookDatabaseLocation.ForRepositoryRoot(Path.GetDirectoryName(Brain)), brainDatabase);
-        Assert.Equal(DevbookCorpusKind.Repository, DevbookDatabaseLocation.KindFor(Path.GetDirectoryName(Brain)));
+        Assert.Same(DevbookCorpusProfile.Repository, DevbookDatabaseLocation.ProfileFor(Path.GetDirectoryName(Brain)));
     }
 
     [Fact]
     public async Task The_refresher_builds_a_recorded_brain_under_its_convention()
     {
         using var refresher = new DevbookDatabaseRefresher(() => Cache, quietInterval: TimeSpan.FromMinutes(5), watchFolder: (_, _) => null);
-        DevbookDatabaseLocation.RegisterBrainRoot(Brain);
+        BrainDatabaseLocation.RegisterBrainRoot(Brain);
 
         Assert.True(await refresher.RefreshAsync(Brain, TestContext.Current.CancellationToken));
 
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
         using var connection = Open();
         Assert.Equal("projects", Strings(connection, "SELECT folder FROM node WHERE id = 'projects/plan.md'").Single());
     }
@@ -282,7 +282,7 @@ public class BrainDatabaseTests : IDisposable
         refresher.WatchBrain(Brain);
         var first = refresher.Pending(Brain);
         await first.WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain), "watching checks at once");
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance), "watching checks at once");
         Assert.NotNull(changed);
 
         Write("work/new.md", "# New\n");
@@ -297,7 +297,7 @@ public class BrainDatabaseTests : IDisposable
         var deferred = refresher.Pending(Brain);
         Assert.NotSame(first, deferred);
         await deferred.WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain), "the last change of the burst was built");
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance), "the last change of the burst was built");
     }
 
     [Fact]
@@ -310,13 +310,13 @@ public class BrainDatabaseTests : IDisposable
         Write("work/added.md", "# Added\n");
 
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-        while (!DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain) && DateTime.UtcNow < deadline)
+        while (!DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(100, TestContext.Current.CancellationToken);
             await refresher.Pending(Brain).WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
         }
 
-        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, BrainCorpusProfile.Instance));
         using var database = DevbookDatabase.TryOpen(Target);
         Assert.NotEmpty(database!.Chapters("work/added.md"));
     }

@@ -3,7 +3,7 @@
 <PageTitle>Goals view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Goals view"
-           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow, GoalCreateDialog and TwoWeekStartDialog: the desktop Goals view, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
+           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, WorkItemSearch, StandUpPanel, ImpedimentRow, ImpedimentRaiseDialog, GoalCreateDialog and TwoWeekStartDialog: the desktop Goals view, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
            Guidelines="@Rules">
 
     <Story Name="At risk"
@@ -191,6 +191,67 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
         </div>
     </Story>
 
+    <Story Name="Impediment ready to resolve"
+           Description="Everything the impediment holds back is settled — the task Done, the pull request merged — so a Ready to resolve badge in the settled tone sits beside the state picker. It is a reading, never a state: the picker still holds Being handled, and resolving stays the person's. The goal it held back still reads At risk until it is resolved."
+           Code="@ReadyCode">
+        <div class="sb-menu">
+            <ImpedimentRow Impediment="@Ready" TestId="goals-view-impediment-ready" />
+        </div>
+    </Story>
+
+    <Story Name="Impediment holding back a pull request and a plan"
+           Description="An impediment holds back tasks, pull requests and plans, listed under it in the order they were linked, each under its kind label. Its line names the goal of the first item linked — here the goal that counts #1341. Nothing here is settled yet, so there is no Ready to resolve badge."
+           Code="@HoldsBackCode">
+        <div class="sb-menu">
+            <ImpedimentRow Impediment="@Holding" TestId="goals-view-impediment-holding" />
+        </div>
+    </Story>
+
+    <Story Name="Linking what an impediment holds back"
+           Description="With a host listening, Link… opens the work search under the row, limited to tasks, pull requests and plans: type pay, #1477 or +payment-provider. A pick links the item and the search stays open for the next; what the row already holds is not offered again, and Link… or Escape closes the search. Each item carries an icon-only Unlink named for it; unlinking changes nothing on the work, so it does not ask. Here the host is stubbed: the row takes the item, or lets it go, at once."
+           Code="@LinkCode">
+        <div class="sb-menu">
+            <ImpedimentRow Impediment="@_linked"
+                           Candidates="@Board.Candidates"
+                           Repositories="QuickAddRepositories"
+                           OnLink="LinkSample"
+                           OnUnlink="UnlinkSample"
+                           TestId="goals-view-impediment-link" />
+            <p class="sb-state" data-testid="goals-view-link-said">@(_linkSaid ?? "Press Link… and pick a task, pull request or plan.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Work search"
+           Description="The search a goal's attach and an impediment's Link… share, on its own: a box, and while the query is not blank the matches under their kind labels, a pull request named by its number leading the list in each repository handed in. Kinds limits what it offers — here tasks, pull requests and plans. A pick hands the item back, clears the query and puts the focus back in the box. GoalCard draws it in its own classes; everywhere else it wears work-item-search."
+           Code="@WorkSearchCode">
+        <div class="sb-menu">
+            <WorkItemSearch Candidates="@Board.Candidates"
+                            Repositories="QuickAddRepositories"
+                            Kinds="WorkItemSearch.ImpedimentKinds"
+                            Label="Link a task, pull request or plan"
+                            OnPick="@(item => _searchSaid = $"Picked {item.Subject.Key}")"
+                            TestId="goals-view-work-search" />
+            <p class="sb-state" data-testid="goals-view-work-search-said">@(_searchSaid ?? "Type pay or #1477.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Raising an impediment"
+           Description="Raise impediment in the stand-up's Impediments heading opens a dialog like New goal: a title, an optional note, and optionally the first work it holds back, picked in the work search and listed under it with a Remove each. Raise hands it back and the host raises it New, dated today, through the module, closing the dialog, or keeps it open with the module's refusal. Leave the title blank and press Raise to see it refused on the field."
+           Code="@RaiseCode">
+        <div class="sb-menu">
+            <StandUpPanel StandUp="@(Board.StandUp with { Impediments = _raised })"
+                          Iteration="GoalsIteration.Week"
+                          OnRaiseImpediment="@(() => _raiseOpen = true)"
+                          TestId="goals-view-raise-stand-up" />
+            <ImpedimentRaiseDialog Open="_raiseOpen"
+                                   OpenChanged="open => _raiseOpen = open"
+                                   Candidates="@Board.Candidates"
+                                   Repositories="QuickAddRepositories"
+                                   OnRaise="RaiseSample"
+                                   TestId="goals-view-raise-dialog" />
+        </div>
+    </Story>
+
     <Story Name="Two-week start"
            Description="The first time a person chooses 2 weeks there is no day two-week iterations count from yet, so the host asks for it before it reads by 2 weeks, offering the Monday of the current week — Monday 19 October here. Read by 2 weeks keeps the day and switches; Cancel leaves the iteration as it was. Clear the field and press Read by 2 weeks to see the refusal. Once a start is kept, 2 weeks switches at once."
            Code="@StartCode">
@@ -220,6 +281,7 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
     [
         new("color-scheme.md#goal-forecast-badges", "Why At risk and On track differ by edge as well as hue."),
         new("color-scheme.md#impediment-state-tones", "Which tone each impediment state takes, and why New carries a dot."),
+        new("color-scheme.md#badge-and-chip-tones", "Why Ready to resolve wears the settled tone, beside the state rather than in its place."),
         new("color-scheme.md#pull-request-status-marks", "The glyph and ink of each checks and approvals mark on a goal's pull requests."),
         new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the open goal's fields have no Save button, and how a refused edit is put back."),
@@ -601,6 +663,110 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
     private const string NoteCode = """
         <ImpedimentRow Impediment="@(impediment with { Note = "Account manager promised the CAMT.053 samples by Tuesday." })"
                        OnEditNote="note => EditNoteAsync(impediment.Id, note)" />
+        """;
+
+    private static readonly StandUpImpediment Ready = new(
+        "ready", "Waiting on the bank's test account", StandUpImpedimentState.BeingHandled,
+        [StandUpImpedimentState.Resolved], "Account manager", 6, null, "Customers get paid faster",
+        ReadyToResolve: true,
+        HoldsBack:
+        [
+            new GoalsItem(GoalSubject.ForTask(T1), "Invoice PDF export"),
+            new GoalsItem(Pr(1352), "Bank statement import")
+        ]);
+
+    private static readonly StandUpImpediment Holding = new(
+        "holding", "Payment provider sandbox down", StandUpImpedimentState.Reported,
+        [StandUpImpedimentState.Escalated, StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved],
+        "Provider support", 2, null, "Customers get paid faster",
+        HoldsBack:
+        [
+            new GoalsItem(Pr(1341), "Payment status webhook"),
+            new GoalsItem(GoalSubject.ForPlan("payment-provider"), "+payment-provider"),
+            new GoalsItem(GoalSubject.ForTask(T3), "Recurring invoices")
+        ]);
+
+    private StandUpImpediment _linked = new(
+        "linking", "Credit note numbering unclear", StandUpImpedimentState.New,
+        [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, null,
+        HoldsBack: [new GoalsItem(GoalSubject.ForTask(T4), "Credit notes")]);
+
+    private string? _linkSaid;
+    private string? _searchSaid;
+
+    /// <summary>The host's part, stubbed: the row holds the item, as the reading after the
+    /// link would show it.</summary>
+    private void LinkSample(GoalSubject subject)
+    {
+        var title = Board.Candidates.FirstOrDefault(item => item.Subject == subject)?.Title
+                    ?? subject.Repository ?? subject.Key;
+        _linked = _linked with { HoldsBack = [.. _linked.HoldsBack, new GoalsItem(subject, title)] };
+        _linkSaid = $"Linked {subject.Key}";
+    }
+
+    private void UnlinkSample(GoalSubject subject)
+    {
+        _linked = _linked with { HoldsBack = [.. _linked.HoldsBack.Where(item => item.Subject != subject)] };
+        _linkSaid = $"Unlinked {subject.Key}";
+    }
+
+    private bool _raiseOpen;
+    private IReadOnlyList<StandUpImpediment> _raised = [];
+
+    /// <summary>The host's part, stubbed: the impediment joins the list New, as the reading
+    /// after the raise would show it.</summary>
+    private void RaiseSample(ImpedimentRaiseRequest request)
+    {
+        _raiseOpen = false;
+        _raised =
+        [
+            .. _raised,
+            new StandUpImpediment($"raised-{_raised.Count}", request.Title, StandUpImpedimentState.New,
+                [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 0, null, null, request.Note,
+                HoldsBack: [.. request.Items.Select(subject => new GoalsItem(subject,
+                    Board.Candidates.FirstOrDefault(item => item.Subject == subject)?.Title ?? subject.Key))])
+        ];
+    }
+
+    private const string ReadyCode = """
+        <ImpedimentRow Impediment="@(impediment with { ReadyToResolve = true })" OnMove="state => MoveAsync(impediment.Id, state)" />
+        """;
+
+    private const string HoldsBackCode = """
+        <ImpedimentRow Impediment="@(impediment with
+                       {
+                           HoldsBack = [new GoalsItem(pr1341, "Payment status webhook"),
+                                        new GoalsItem(GoalSubject.ForPlan("payment-provider"), "+payment-provider"),
+                                        new GoalsItem(GoalSubject.ForTask(recurring), "Recurring invoices")]
+                       })" />
+        """;
+
+    private const string LinkCode = """
+        <ImpedimentRow Impediment="@impediment"
+                       Candidates="@board.Candidates"
+                       Repositories="@board.Repositories"
+                       OnLink="subject => LinkAsync(impediment.Id, subject)"
+                       OnUnlink="subject => UnlinkAsync(impediment.Id, subject)"
+                       LinkError="@_refusal" />
+        """;
+
+    private const string WorkSearchCode = """
+        <WorkItemSearch Candidates="@board.Candidates"
+                        Repositories="@board.Repositories"
+                        Kinds="WorkItemSearch.ImpedimentKinds"
+                        Label="Link a task, pull request or plan"
+                        OnPick="item => LinkAsync(impediment.Id, item.Subject)" />
+        """;
+
+    private const string RaiseCode = """
+        <StandUpPanel StandUp="@board.StandUp" OnRaiseImpediment="() => _raising = true" />
+        <ImpedimentRaiseDialog Open="_raising"
+                               OpenChanged="open => _raising = open"
+                               Candidates="@board.Candidates"
+                               Repositories="@board.Repositories"
+                               Busy="_saving"
+                               Error="@_refusal"
+                               OnRaise="request => RaiseAsync(request.Title, request.Note, request.Items)" />
         """;
 
     private const string StartCode = """

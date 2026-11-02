@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
-using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 
@@ -7,76 +9,77 @@ namespace Backlog.Desktop.UI.PullRequests;
 
 /// <summary>
 /// How a pull request the session list shows stands, answered the way the pull requests
-/// pane answers it: read from GitHub by number and given its readiness verdict
-/// (<see cref="PullRequestVerdict"/>), so a pull request wears the same chip on both
-/// screens.
+/// pane answers it: read by number through Repository Management's contract and given
+/// its one verdict (<see cref="PullRequestVerdict"/>, local ADR 0042), so a pull request
+/// wears the same chip on both screens.
 /// <para>
-/// Read by number — the pinned read — rather than from the open list, because a
-/// session's pull request may since have merged or closed, and the open list would not
-/// hold it. One pull request per call: the panel asks for the row it shows. An open one
-/// is then placed among its repository's open pull requests, so a stacked one names the
-/// pull request it waits on, as the pane does.
+/// Read by number rather than from the open list, because a session's pull request may
+/// since have merged or closed, and the open list would not hold it. One pull request
+/// per call: the panel asks for the row it shows. An open one is then placed in its
+/// stack by the rule a task's row places it by (<see cref="PullRequestStacks.PlaceAmong"/>),
+/// over its repository's open list, so a stacked one names the pull request it waits on,
+/// as the pane does, and the card and the row never give one pull request two verdicts.
+/// Both reads go through the contract's one cache, so the card costs nothing the pane or a
+/// task's row read within the minute.
 /// </para>
 /// </summary>
 internal static partial class SessionPullRequestStatuses
 {
     /// <summary>The verdict on one pull request, or null where it cannot be placed on
-    /// GitHub, GitHub is not configured, or the read failed. A reading that finds it merged
-    /// or closed is reported to <paramref name="subjects"/>, so the notifications about it
-    /// close.</summary>
+    /// GitHub, the contract is not composed or has no repository, the read failed, or its
+    /// place in a stack cannot be told — then it might be stacked, and a verdict could be
+    /// wrong. A reading that finds it merged or closed is reported to
+    /// <paramref name="subjects"/>, so the notifications about it close.</summary>
     public static async Task<SessionPullRequestStatus?> ReadAsync(
-        GitHubIntegration? gitHub,
+        IPullRequests? pullRequests,
         DeliveryRunReference pull,
         PullRequestSubjects? subjects = null)
     {
-        if (gitHub is not { IsConfigured: true } || PinOf(pull) is not { } pin) return null;
+        if (pullRequests is not { IsConfigured: true } || PinOf(pull) is not { } reference) return null;
 
-        var listing = await gitHub.ListPinnedPullRequestsAsync([pin]);
-        var found = listing.PullRequests.FirstOrDefault(candidate =>
-            candidate.Number == pin.Number
-            && string.Equals(candidate.RepositoryFullName, pin.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
+        var listing = await pullRequests.ReadAsync([reference]);
+        var found = listing.PullRequests.FirstOrDefault(candidate => reference.Names(candidate.RepositoryFullName, candidate.Number));
 
         if (found is null) return null;
 
         if (subjects is not null) await subjects.ObserveAsync(found);
 
-        return Of(found, await StackParentOfAsync(gitHub, found));
+        return await PlacedAsync(pullRequests, found) is { } placed ? Of(placed) : null;
     }
 
     /// <summary>
-    /// The open pull request <paramref name="pull"/> is stacked on, found the way the
-    /// pane finds it — <see cref="PullRequestStacks"/> over its repository's open pull
-    /// requests — so a stacked pull request's reason names its parent on the card as
-    /// it does in the pane. Null for one merged or closed, one in a repository that is
-    /// not configured, and one at the bottom of a stack or in none.
+    /// The pull request with the parent it is stacked on, by the one placing rule
+    /// (<see cref="PullRequestStacks.PlaceAmong"/>) over its repository's open list — or
+    /// no list, where that read failed — so a stacked pull request's reason names its
+    /// parent on the card as it does in the pane. Null where its place cannot be told.
     /// </summary>
-    private static async Task<GitHubOpenPullRequest?> StackParentOfAsync(GitHubIntegration gitHub, GitHubOpenPullRequest pull)
+    private static async Task<PullRequestStatus?> PlacedAsync(IPullRequests pullRequests, PullRequestStatus pull)
     {
-        if (!pull.IsOpen) return null;
+        if (!pull.IsOpen) return PullRequestStacks.PlaceAmong(pull, null);
 
-        var repository = gitHub.Repositories.FirstOrDefault(candidate =>
-            string.Equals(candidate.FullName, pull.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
-        if (repository is null) return null;
+        PullRequestListing? open;
+        try
+        {
+            open = await pullRequests.ListOpenAsync([pull.RepositoryFullName]);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            open = null;
+        }
 
-        var open = await gitHub.ListOpenPullRequestsAsync([repository]);
-        var others = open.PullRequests.Where(candidate => candidate.Number != pull.Number
-            || !string.Equals(candidate.RepositoryFullName, pull.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
-
-        return PullRequestStacks.Of([.. others, pull]).ParentOf(pull);
+        return PullRequestStacks.PlaceAmongListing(pull, open);
     }
 
     /// <summary>A pull request as the session list's card draws it: its verdict's label
-    /// and tone, its title, and the verdict's reason. Closed without merging is no
-    /// verdict, so it reads as closed in the archived tone.</summary>
-    /// <param name="pull">The pull request.</param>
-    /// <param name="waitsOn">The open pull request it is stacked on, as
-    /// <see cref="PullRequestVerdict.Of(GitHubOpenPullRequest, GitHubOpenPullRequest?)"/>
-    /// takes it, so the card's reason is the pane's.</param>
-    public static SessionPullRequestStatus Of(GitHubOpenPullRequest pull, GitHubOpenPullRequest? waitsOn = null)
+    /// and tone, its title, and the verdict's reason — the reason naming the pull request
+    /// it waits on where <see cref="PullRequestStatus.StackParent"/> is set, so the card's
+    /// reason is the pane's. Closed without merging is no verdict, so it reads as closed
+    /// in the archived tone.</summary>
+    public static SessionPullRequestStatus Of(PullRequestStatus pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
-        return PullRequestVerdict.Of(pull, waitsOn) is { } verdict
+        return PullRequestVerdict.Of(pull) is { } verdict
             ? new SessionPullRequestStatus(verdict.Label, verdict.Tone.ToString().ToLowerInvariant(), pull.Title, verdict.Reason)
             : new SessionPullRequestStatus("Closed", "archived", pull.Title, "Closed without merging.");
     }
@@ -86,7 +89,7 @@ internal static partial class SessionPullRequestStatuses
     /// the reference where it carries one, else from its URL — and its number, from the
     /// URL or the <c>PR #n</c> label. Null where either cannot be read.
     /// </summary>
-    public static PullRequestPin? PinOf(DeliveryRunReference pull)
+    public static PullRequestReference? PinOf(DeliveryRunReference pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
@@ -100,7 +103,7 @@ internal static partial class SessionPullRequestStatuses
                 ? int.Parse(label.Groups["number"].Value, System.Globalization.CultureInfo.InvariantCulture)
                 : 0;
 
-        return repository is null || number <= 0 ? null : new PullRequestPin(repository, number);
+        return repository is null || number <= 0 ? null : new PullRequestReference(repository, number);
     }
 
     [GeneratedRegex(@"^https?://github\.com/(?<repository>[^/\s]+/[^/\s]+)/pull/(?<number>\d{1,9})", RegexOptions.IgnoreCase)]

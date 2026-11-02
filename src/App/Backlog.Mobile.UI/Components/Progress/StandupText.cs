@@ -2,6 +2,7 @@ using System.Globalization;
 
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.PhoneStandup;
 using Backlog.UI.Components.Progress;
 
@@ -197,4 +198,59 @@ public static class StandupText
 
     /// <summary>A pull request's number without its <c>#</c>.</summary>
     public static string Number(string number) => number.Trim().TrimStart('#');
+
+    /// <summary>The words a held-back task the phone does not hold — deleted, or not synced
+    /// yet — reads under.</summary>
+    public const string TaskNotOnPhone = "A task not on this phone";
+
+    /// <summary>
+    /// What <paramref name="impediment"/> holds back, in the order linked, as its page lists
+    /// it: each item's kind word — the desktop row's own (WorkItemSearch.KindLabel) — its
+    /// title, and whether it is settled by the rule the stand-up reading reads Ready to
+    /// resolve with (<see cref="HeldBackItems.Settled"/>), over the phone's tasks and the
+    /// pull requests the stand-up context carries. A pull request is titled by a synced task
+    /// that links it, else by its repository; a plan by its tag in words.
+    /// </summary>
+    public static IReadOnlyList<HeldBackLine> HeldBack(
+        ImpedimentDto impediment,
+        IReadOnlyList<ProgressTaskDto> work,
+        StandUpContextDto? context)
+    {
+        ArgumentNullException.ThrowIfNull(impediment);
+        ArgumentNullException.ThrowIfNull(work);
+
+        var pullRequests = Linked(context);
+        var tasks = work.ToDictionary(task => task.Id);
+
+        return
+        [
+            .. impediment.HoldsBack.Select(item => new HeldBackLine(
+                WorkItemSearch.KindLabel(item.Kind switch
+                {
+                    HeldBackKind.Task => GoalSubjectKind.Task,
+                    HeldBackKind.PullRequest => GoalSubjectKind.PullRequest,
+                    _ => GoalSubjectKind.Plan
+                }),
+                item.Kind switch
+                {
+                    HeldBackKind.Task => item.TaskId is { } id && tasks.TryGetValue(id, out var task) ? task.Title : TaskNotOnPhone,
+                    HeldBackKind.PullRequest => PullRequestLine(HeldBackItems.PullRequestRef(item), work),
+                    _ => PlanTitle(item.PlanTag ?? string.Empty)
+                },
+                HeldBackItems.Settled(item, work, pullRequests),
+                item.Kind == HeldBackKind.Task && item.TaskId is { } blockedId
+                    && tasks.TryGetValue(blockedId, out var marked) && marked.IsBlocked))
+        ];
+    }
+
+    private static string PullRequestLine(PullRequestRefDto pull, IEnumerable<ProgressTaskDto> work) =>
+        $"#{Number(pull.Number)} {PullRequestTitle(pull, work) ?? pull.Repository}";
 }
+
+/// <summary>One item an impediment holds back, as its page lists it.</summary>
+/// <param name="Kind">Task, PR or Plan.</param>
+/// <param name="Title">What the row reads.</param>
+/// <param name="Settled">Whether the work it names is over.</param>
+/// <param name="Blocked">Whether it is a task its own <c>blocked:</c> mark says is blocked:
+/// a Tasks mark the row shows, which settles nothing.</param>
+public sealed record HeldBackLine(string Kind, string Title, bool Settled, bool Blocked = false);

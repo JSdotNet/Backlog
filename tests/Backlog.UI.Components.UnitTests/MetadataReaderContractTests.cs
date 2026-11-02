@@ -267,4 +267,57 @@ public sealed class MetadataReaderContractTests
 
         Assert.Equal(".domain/tasks/features.md#feature-roadmap-planning", Assert.Single(meta.Implements).Raw);
     }
+
+    [Fact]
+    public void A_rating_is_read_from_the_rating_field_and_never_lands_in_extra()
+    {
+        var meta = MetadataReader.Parse("rating: adopt");
+
+        Assert.Equal("adopt", meta.Rating);
+        Assert.Null(meta.Status);
+        Assert.Empty(meta.Extra);
+        Assert.False(meta.IsEmpty);
+    }
+
+    [Fact]
+    public void A_rating_falls_back_to_status_until_the_repository_migrates()
+    {
+        var meta = MetadataReader.Parse("status: trial");
+
+        Assert.Equal("trial", meta.Rating);
+    }
+
+    [Fact]
+    public void A_written_rating_wins_over_a_status_beside_it()
+    {
+        var meta = MetadataReader.Parse("status: assess\nrating: adopt");
+
+        Assert.Equal("adopt", meta.Rating);
+        Assert.Equal("assess", meta.Status);
+    }
+
+    [Fact]
+    public void A_block_with_no_rating_and_no_status_has_no_rating()
+    {
+        Assert.Null(MetadataReader.Parse("type: library").Rating);
+    }
+
+    [Fact]
+    public void Change_is_recognised_and_dropped_like_order()
+    {
+        var meta = MetadataReader.Parse("type: aggregate\nchange: add-remark-kind");
+
+        Assert.Empty(meta.Extra);
+    }
+
+    [Fact]
+    public void Effort_roadmap_and_issue_are_still_parsed_for_the_readers_that_need_them()
+    {
+        var meta = MetadataReader.Parse("effort: 5\nroadmap: [sync-v2]\nissue: JSdotNet/Backlog#118");
+
+        Assert.Equal(5, meta.Effort);
+        Assert.Equal("sync-v2", Assert.Single(meta.Roadmap));
+        Assert.Equal("JSdotNet/Backlog#118", meta.Issue);
+        Assert.Empty(meta.Extra);
+    }
 }

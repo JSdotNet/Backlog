@@ -15,15 +15,13 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// the app reads but this project does not control to be searchable; nothing
 /// holds it to the retired generator that used to index it.</para>
 ///
-/// <para>The Brain (<see cref="DevbookCorpusKind.Brain"/>) is a third: its
-/// folders are its areas in tab order — the ones its <c>CONVENTIONS.md</c>
-/// declares, then every other top folder holding a note, minus the ignored ones
-/// (<see cref="BrainConventions"/>) — and a path's folder is the area it is in. No
-/// devbook folder convention applies to an area — no root document by name, no
-/// resting status, no <c>kind</c> fallback — even one that happens to be called
-/// <c>design</c>, which is what <see cref="ConventionFolderForPath"/> answers;
-/// <c>tools/devbook/brain.mjs</c> gets the same from the generator, which knows
-/// none of a Brain's folders.</para>
+/// <para>A corpus profile (<see cref="DevbookCorpusProfile"/>) may name its own
+/// folders instead, in its own order, and a path's folder is then the first of
+/// them it lies under. Where the profile has no folder conventions, none applies
+/// to a profile's own folder — no root document by name, no resting status, no
+/// <c>kind</c> fallback — even one that happens to be called <c>design</c>, which
+/// is what <see cref="ConventionFolderForPath"/> answers; the generator gets the
+/// same by knowing none of such a corpus's folders.</para>
 /// </summary>
 internal sealed record DevbookBuildLayout(
     bool IsDevbookLayout,
@@ -36,8 +34,9 @@ internal sealed record DevbookBuildLayout(
 
     private static readonly string[] RootFolderNames = [".arc42", ".domain", ".backlog", ".tech", ".design", ".ai"];
 
-    /// <summary>Whether this is a Brain's layout rather than a repository's.</summary>
-    public bool IsBrain { get; private init; }
+    /// <summary>The profile the folder is read under; a repository's unless a
+    /// profile's own discovery made this layout.</summary>
+    public DevbookCorpusProfile Profile { get; private init; } = DevbookCorpusProfile.Repository;
 
     /// <summary>
     /// The layout of <paramref name="repositoryRoot"/> and the folders it actually
@@ -63,27 +62,20 @@ internal sealed record DevbookBuildLayout(
         return new DevbookBuildLayout(false, rootFolders);
     }
 
-    /// <summary>The layout of a folder read under <paramref name="kind"/>.</summary>
-    public static DevbookBuildLayout Discover(string root, DevbookCorpusKind kind) =>
-        kind is DevbookCorpusKind.Brain ? DiscoverBrain(root) : Discover(root);
-
     /// <summary>
-    /// A Brain's layout: its areas (<see cref="BrainConventions.Read"/>) — the
-    /// ones <c>CONVENTIONS.md</c> declares, or the PARA set, then the discovered
-    /// top folders holding a note, never an ignored folder or a dot-folder — in
-    /// tab order, of those that are folders on disk. The same set the pane's tabs
-    /// show and <c>brain.mjs</c> reads, and, through <see cref="Folders"/>, the
-    /// set the inputs fingerprint records, so a note in a new top folder makes the
-    /// database stale. A Brain with no area folder yet has nothing to build.
+    /// The layout of a folder read under <paramref name="profile"/>: the folders
+    /// the profile names, in its order — which, through <see cref="Folders"/>, are
+    /// also what a tagged inputs fingerprint records, so a new folder makes the
+    /// database stale — or, where it names none, the repository layout's own
+    /// discovery read under the profile.
     /// </summary>
-    public static DevbookBuildLayout DiscoverBrain(string brainRoot)
+    public static DevbookBuildLayout Discover(string root, DevbookCorpusProfile profile)
     {
-        var folders = BrainConventions.Read(brainRoot)
-            .Select(area => area.Folder)
-            .Where(folder => Directory.Exists(Path.Combine(brainRoot, folder)))
-            .ToArray();
+        ArgumentNullException.ThrowIfNull(profile);
 
-        return new DevbookBuildLayout(false, folders) { IsBrain = true };
+        return profile.Folders(root) is { } folders
+            ? new DevbookBuildLayout(false, folders) { Profile = profile }
+            : Discover(root) with { Profile = profile };
     }
 
     /// <summary>The scopes: the repository, then each folder.</summary>
@@ -92,14 +84,14 @@ internal sealed record DevbookBuildLayout(
     /// <summary>
     /// The folder a repository-relative path belongs to, as the generator's
     /// <c>folderKindForPath</c> names it — <c>domain</c> for
-    /// <c>.devbook/domain/…</c>, the area for a Brain's <c>projects/…</c> — or
-    /// <see langword="null"/> outside every folder.
+    /// <c>.devbook/domain/…</c>, a profile's own folder for its <c>projects/…</c>
+    /// — or <see langword="null"/> outside every folder.
     /// </summary>
     public string? FolderKindForPath(string relativePath)
     {
         var normalized = relativePath.Replace('\\', '/');
 
-        if (IsBrain)
+        if (!Profile.HasFolderConventions)
         {
             return Folders.FirstOrDefault(folder => normalized.StartsWith(folder + "/", StringComparison.Ordinal));
         }
@@ -120,10 +112,11 @@ internal sealed record DevbookBuildLayout(
     /// <summary>
     /// The devbook folder whose conventions apply to a path — its reading-order
     /// slots, its resting status, its <c>kind</c> fallback. The path's folder in a
-    /// repository; nothing in a Brain, whose areas carry none of them.
+    /// repository; nothing under a profile without folder conventions, whose
+    /// folders carry none of them.
     /// </summary>
     public string? ConventionFolderForPath(string relativePath) =>
-        IsBrain ? null : FolderKindForPath(relativePath);
+        Profile.HasFolderConventions ? FolderKindForPath(relativePath) : null;
 
     /// <summary>The status a folder's chapters rest at and so omit — or, for a debt
     /// record's top-level block, <c>identified</c>, where its own ladder rests
@@ -142,7 +135,7 @@ internal sealed record DevbookBuildLayout(
     public static bool IsDebtRecord(DevbookBuildLayout layout, string relativePath, IReadOnlyDictionary<string, object?>? fileMeta)
     {
         ArgumentNullException.ThrowIfNull(layout);
-        if (!layout.IsDevbookLayout || layout.IsBrain) return false;
+        if (!layout.IsDevbookLayout || !layout.Profile.HasFolderConventions) return false;
 
         var normalized = relativePath.Replace('\\', '/');
         return normalized.StartsWith(DevbookFolderSetting.DevbookRoot + "/arc42/tdr/", StringComparison.Ordinal)

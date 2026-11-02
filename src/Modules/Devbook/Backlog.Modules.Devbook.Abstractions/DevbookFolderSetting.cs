@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Devbook;
+
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 public sealed record DevbookFolderSetting(string Key, string DisplayName, string DefaultRelativePath, bool SupportsPathOverride = true)
 {
     /// <summary>The folder every section lives under in the devbook layout.</summary>
-    public const string DevbookRoot = ".devbook";
+    public const string DevbookRoot = DevbookPaths.DevbookRoot;
 
     public bool Enabled { get; init; } = true;
 

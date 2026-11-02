@@ -23,8 +23,17 @@
         "resolved": "10.8.3",
         "contentHash": "K0B05oApxmviWalNHPMBBcRC7erKiDATz3ENNR/jqTR9JwIwLRefgDhj2jCRwL1aca99pXUe0qyQC73/xIuZig=="
       },
+      "backlog.modules.brain.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.devbook.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.notifications.abstractions": {
         "type": "Project",

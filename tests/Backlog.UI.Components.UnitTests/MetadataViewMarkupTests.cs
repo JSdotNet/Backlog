@@ -7,7 +7,7 @@ namespace Backlog.UI.Components.UnitTests;
 ///
 /// <para>Written when the record's field-by-field drawing moved out of
 /// <c>MetadataView</c> and into one component per value shape. Every other
-/// suite around this one asks about a field at a time — an effort badge, an alias
+/// suite around this one asks about a field at a time — an alias
 /// badge, a reference that is not a control — which is the right shape for a rule
 /// about what a field means, and blind to what a move like that risks: a class that
 /// quietly went missing three elements away from whatever the test was looking at,
@@ -23,13 +23,16 @@ namespace Backlog.UI.Components.UnitTests;
 /// <para>
 /// Six fields were redrawn in the round that followed, on the owner's review of the
 /// storybook, and this is where that shows. <c>kind</c> is a classification chip
-/// and <c>version</c> takes a <c>v</c>; both, with <c>effort</c>, now hide their
-/// label rather than printing it, so their rows carry <c>--bare</c> and their
-/// <c>dt</c> carries <c>sr-only</c>. <c>issue</c> is drawn through
-/// <c>IntegrationLink</c> and reads as the number and its repository behind the
-/// GitHub mark. <c>aliases</c> is a superscript badge per name. <c>feature-flag</c>
-/// and <c>roadmap</c> are badges in the feature family rather than tag chips.
+/// and <c>version</c> takes a <c>v</c>; both now hide their label rather than
+/// printing it, so their rows carry <c>--bare</c> and their <c>dt</c> carries
+/// <c>sr-only</c>. <c>aliases</c> is a superscript badge per name.
+/// <c>feature-flag</c> is badges in the feature family rather than tag chips.
 /// </para>
+///
+/// <para>Since then <c>issue</c>, <c>effort</c> and <c>roadmap</c> have left the
+/// chapter view — the plan lives in Backlog's own entries — and <c>change</c> is
+/// recognised and dropped like <c>order</c>. Their rows and the whitespace between
+/// their call sites went with them.</para>
 ///
 /// <para><c>related</c>, <c>depends-on</c>, <c>implements</c>, <c>alternatives</c>,
 /// the two Extra rows, the headline in both of its shapes, and every scrap of
@@ -77,10 +80,10 @@ public sealed class MetadataViewMarkupTests
         using var context = new BunitContext();
 
         var view = context.Render<MetadataView>(parameters => parameters
-            .Add(record => record.Metadata, MetadataReader.Parse(IssueOnly))
+            .Add(record => record.Metadata, MetadataReader.Parse(FeatureFlagOnly))
             .Add(record => record.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Backlog)));
 
-        Assert.Equal(Normalize(IssueMarkup), Normalize(view.Markup));
+        Assert.Equal(Normalize(FeatureFlagMarkup), Normalize(view.Markup));
     }
 
     /// <summary>
@@ -106,9 +109,11 @@ public sealed class MetadataViewMarkupTests
 
     /// <summary>Every value shape at once, which is a block no folder would write:
     /// the schema is folder-specific and half of these fields are meaningless
-    /// together. <c>order</c> is in it on purpose — it is the field this record
-    /// must read and not draw — and so are the two keys that end up under Extra,
-    /// one invented and one a <c>related</c> entry that will not parse.</summary>
+    /// together. <c>order</c> and <c>change</c> are in it on purpose — the fields
+    /// this record must read and not draw — and so are <c>issue</c>, <c>effort</c>
+    /// and <c>roadmap</c>, which it reads and the chapter view no longer draws; and
+    /// so are the two keys that end up under Extra, one invented and one a
+    /// <c>related</c> entry that will not parse.</summary>
     private const string EveryShape = """
         status: adopted
         kind: framework
@@ -123,15 +128,16 @@ public sealed class MetadataViewMarkupTests
         aliases: [TaskItem, backlog_entry_id]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
         order: [overview.md, backlog]
+        change: add-remark-kind
         owner: platform-team
         related-typo: [not an address]
         """;
 
     /// <summary>A backlog block stating one field, so every other row in the list
     /// is an absent one.</summary>
-    private const string IssueOnly = """
+    private const string FeatureFlagOnly = """
         status: ready
-        issue: https://github.com/JSdotNet/Backlog/issues/118
+        feature-flag: [inbox-pane]
         """;
 
     // The expectations are written flush left, closing delimiter included. A raw
@@ -157,15 +163,6 @@ public sealed class MetadataViewMarkupTests
                     <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
                 <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
-                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
-                    <dd class="devbook-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
-            <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
-
-            <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></span></dd></div>
-                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">effort</dt>
-                    <dd class="devbook-fields__value"><span class="badge badge--effort" data-testid="devbook-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
-                <div class="devbook-fields__row"><dt class="devbook-fields__label">roadmap</dt>
-                    <dd class="devbook-fields__value" data-testid="devbook-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
                     <dd class="devbook-fields__value" data-testid="devbook-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">owner</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value">platform-team</code></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">related-typo</dt>
@@ -189,24 +186,15 @@ public sealed class MetadataViewMarkupTests
                     <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
                 <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
-                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
-                    <dd class="devbook-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
-            <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
-
-            <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></span></dd></div>
-                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">effort</dt>
-                    <dd class="devbook-fields__value"><span class="badge badge--effort" data-testid="devbook-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
-                <div class="devbook-fields__row"><dt class="devbook-fields__label">roadmap</dt>
-                    <dd class="devbook-fields__value" data-testid="devbook-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
                     <dd class="devbook-fields__value" data-testid="devbook-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">owner</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value">platform-team</code></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">related-typo</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value">not an address</code></dd></div></dl></div>
 """;
 
-    /// <summary>One field stated, and the whitespace the ten absent ones leave
-    /// behind them inside the description list.</summary>
-    private const string IssueMarkup = """
+    /// <summary>One field stated, and the whitespace the absent ones before it
+    /// leave behind them inside the description list.</summary>
+    private const string FeatureFlagMarkup = """
 <div class="devbook-record" role="group" aria-label="Devbook metadata"><div class="devbook-record__headline"><label class="status-editor badge badge--status badge--status-ready"><span class="sr-only">Change status</span>
     <select class="status-editor__select" value="ready" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="draft">draft</option><option value="ready" selected>ready</option><option value="in-progress">in-progress</option><option value="done">done</option><option value="blocked">blocked</option></select></label></div><dl class="devbook-fields">
                 
@@ -215,13 +203,7 @@ public sealed class MetadataViewMarkupTests
                 
                 
                 
-                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
-                    <dd class="devbook-fields__value"><a class="integration-link integration-link--link integration-link--inline" href="https://github.com/JSdotNet/Backlog/issues/118" target="_blank" rel="noopener" title="https://github.com/JSdotNet/Backlog/issues/118">
-            <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
-
-            <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></a></dd></div>
-                
-                
-                </dl></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
+                    <dd class="devbook-fields__value" data-testid="devbook-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span></dd></div></dl></div>
 """;
 }

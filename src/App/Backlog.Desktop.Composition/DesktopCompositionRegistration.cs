@@ -15,6 +15,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub.RepositoryManagement;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -24,6 +25,7 @@ using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -35,6 +37,8 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -160,6 +164,11 @@ public static class DesktopCompositionRegistration
         // (§10).
         services.AddProgressModule();
 
+        // Repository Management (local ADR 0042): the one contract and cache every
+        // reader of a pull request goes through. GitHub and the settled-fact memory are
+        // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
+        services.AddRepositoryManagementModule();
+
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
         // its handler with AddNotificationAnswerHandler<T>(). The heads start
@@ -175,7 +184,7 @@ public static class DesktopCompositionRegistration
         services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
         services.AddNotificationSubjectProbe<PairingSubjectProbe>();
         services.AddSingleton(sp => new PullRequestSubjects(
-            sp.GetService<GitHubIntegration>(),
+            () => sp.GetService<IPullRequests>(),
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
@@ -237,6 +246,7 @@ public static class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
+        services.AddRepositoryManagementGitHubAdapters();
         services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);
@@ -251,6 +261,9 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        // Devbook subject state's progress sits beside the annotation progress, in its
+        // own file: the folder is the per-installation one, the feed is separate.
+        services.AddDevbookSubjectSyncStore(options.AnnotationSyncFolder);
         services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
@@ -323,6 +336,13 @@ public static class DesktopCompositionRegistration
         // module says which port it starts through; the domain store lives as long
         // as one window's state does.
         AddDevbookAdapters(services);
+        // The Brain (local ADR 0026, ADR 0040), through its one registration: its
+        // settings file, its folder source beside the repository source, the note
+        // writer, the readers over its database, Show hidden, the Inbox's To Brain
+        // target, the watch that ties the setting to the devbook refresher just
+        // registered, and the mode it adds to the Devbook pane. Each head starts
+        // the watch after Build().
+        services.AddBrainModule(options.BrainSettings);
         services.AddDevbookModule(options.CopilotCliLauncher, options.WindowStateLifetime);
         // The open-chapter mirror the Devbook pane writes and the Ask AI source that
         // pins from it, over the search and folder ports registered just above.
@@ -370,7 +390,7 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
         // The titles a Brain note's Tasks section draws, from the window's own task list.
         services.Add(new ServiceDescriptor(
-            typeof(IBrainTaskTitles),
+            typeof(IDevbookTaskTitles),
             sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
         // The window's repository scope, for a Devbook opened with no scope of its own (§6).
@@ -383,6 +403,11 @@ public static class DesktopCompositionRegistration
         // modules' scoped services; see WindowStateLifetime for why that makes it
         // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
+        // Which task a session or a pull request belongs to, asked of Tasks over this
+        // window's rows (local ADR 0042, V8): the window's state answers the candidates,
+        // and the lookup lives as long as it does.
+        services.Add(new ServiceDescriptor(typeof(ITaskLookupCandidates), provider => provider.GetRequiredService<TasksDesktopState>(), options.WindowStateLifetime));
+        services.AddTaskLookup(options.WindowStateLifetime);
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
         services.AddInboxAiContentSource();
@@ -415,7 +440,7 @@ public static class DesktopCompositionRegistration
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer
-        // is resolved by the head at startup, like BlockedTaskWatcher.
+        // is resolved by the head at startup, like SpecManagerQuestionSource.
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
@@ -450,14 +475,6 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton(options.FolderEditorLauncher);
 
-        // The Brain folder (local ADR 0026): where it is, kept per user and never in
-        // the folder, and the file-system work of setting one up that the Settings
-        // card does. The folder picker behind its Browse is the desktop head's
-        // alone; a host that registers none types the folder instead.
-        services.AddSingleton(options.BrainSettings);
-        services.AddSingleton<IBrainSettings>(sp => sp.GetRequiredService<BrainSettingsStore>());
-        services.AddSingleton(_ => new BrainFolderSetup());
-
         services.AddSingleton(options.AppUpdateService);
         // How a page asks the footer's update window to open — the Devices page,
         // when the sync service is newer than this app. One per window, like the
@@ -480,11 +497,6 @@ public static class DesktopCompositionRegistration
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
             new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
-        // Show hidden (local ADR 0026 §2): whether the Brain's ignored folders and
-        // dot-folders show as tabs, kept per device in the same file — never in the
-        // Brain folder, never on the Brain setting whose change reloads the Brain.
-        services.AddSingleton<IBrainShowHidden>(sp =>
-            new BrainShowHidden(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
@@ -499,6 +511,9 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+        // And devbook subject state, the annotations' sibling: the states the panels and
+        // the MCP tools set travel to this person's other desktops on the same switch.
+        services.AddDevbookSubjectSyncClient(SyncServiceAddress);
 
         // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two
@@ -559,33 +574,6 @@ public static class DesktopCompositionRegistration
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<IDevbookSnapshotCache>()));
 
-        // The Brain (local ADR 0026): its folder asked of the person's setting on
-        // every resolve, under a port of its own — registering it as a second
-        // IDevbookFolderSource would replace the repository source every search,
-        // reference and annotation reader resolves. The watch ties the setting to
-        // the refresher above; each head starts it after Build().
-        services.AddSingleton(sp =>
-        {
-            var settings = sp.GetRequiredService<IBrainSettings>();
-            return new BrainFolderSource(() => settings.BrainFolder);
-        });
-        services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
-
-        // The one writer of a new note into the Brain's inbox area: the pane's
-        // Capture, triage's To Brain and the capture tool all go through it.
-        services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
-
-        // The Brain notes that link to a repository chapter, read in reverse from
-        // the Brain's own database (local ADR 0027 §6) — so the repository's
-        // devbook shows its owner "From your Brain" and nothing is written there.
-        services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
-        services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
-        services.AddSingleton(sp => new BrainFolderWatch(
-            sp.GetRequiredService<IBrainSettings>(),
-            sp.GetRequiredService<IBrainFolderSource>(),
-            sp.GetRequiredService<DevbookDatabaseRefresher>(),
-            sp.GetService<ILogger<BrainFolderWatch>>()));
-
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
         // not let degrade to a corpus scan, so where there is no database these
@@ -623,5 +611,46 @@ public static class DesktopCompositionRegistration
                     folders: sp.GetRequiredService<IDevbookFolderSource>()),
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RemarkNotificationStore>>()));
+
+        // The workflow state of a repository's devbook subjects — proposals,
+        // decision records, debt records — kept out of the chapters under devbook's
+        // branch-true decision: one JSON file per repository under the storage
+        // folder, following the root as the remarks above do. The panels fall back
+        // to a session store when it is absent, as they do for remarks.
+        // The same instance keeps the repository's sync direction map, in the same
+        // file, so it is registered once and answered for both ports. The folder
+        // source is what lets the first read of a repository's map copy in what its
+        // Markdown still states.
+        services.AddSingleton(sp =>
+            new DevbookSubjectStateStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+        services.AddSingleton<IDevbookSubjectStateStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
+        services.AddSingleton<IDevbookSyncDirectionStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
+
+        // The one-time import of what a repository's default branch still writes
+        // into its Markdown — a subject's status, an open annotation fence — into
+        // the two stores above, through their import write alone. Once per
+        // repository: the ledger beside them, under the storage folder, records
+        // which ones finished. Each head resolves the worker after Build(), as it
+        // does the sync loops; a singleton nobody resolves never runs.
+        services.AddSingleton<IDevbookImportLedger>(sp =>
+            new DevbookImportLedger(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<GitHubSettingsStore>();
+
+            return new Backlog.Desktop.UI.Devbook.DevbookImportWorker(
+                () => settings.Current.Repositories,
+                sp.GetRequiredService<IDevbookFolderSource>(),
+                sp.GetRequiredService<IDevbookSnapshotCache>(),
+                sp.GetRequiredService<IGitHubClient>(),
+                sp.GetRequiredService<IDevbookImportLedger>(),
+                sp.GetRequiredService<IDevbookSubjectStateStore>(),
+                sp.GetRequiredService<IDevbookAnnotationStore>(),
+                sp.GetRequiredService<IAppFeatureSettings>(),
+                sp.GetService<TimeProvider>() ?? TimeProvider.System,
+                sp.GetService<ILogger<Backlog.Desktop.UI.Devbook.DevbookImportWorker>>());
+        });
     }
 }

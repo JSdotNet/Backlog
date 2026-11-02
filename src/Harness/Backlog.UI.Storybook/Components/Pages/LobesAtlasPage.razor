@@ -142,13 +142,14 @@ This is the one story that moves on its own: after a few seconds without input t
         var all = model.Layout == LobesAtlasModel.AllLayout;
         var hiddenScopes = model.HiddenScopes.ToHashSet();
         var hiddenLobes = model.HiddenLobes.ToHashSet();
+        var hiddenAllLobes = (model.HiddenAllLobes ?? []).ToHashSet();
         var scopes = model.Scopes.ToDictionary(scope => scope.Key);
 
         return
         [
             .. model.Marks
                 .Where(mark => all
-                    ? !hiddenScopes.Contains(mark.Scope)
+                    ? !hiddenScopes.Contains(mark.Scope) && !hiddenAllLobes.Contains(new LobesAtlasRegionKey(mark.Scope, mark.Lobe))
                     : mark.Scope == model.Layout && !hiddenLobes.Contains(new LobesAtlasRegionKey(mark.Scope, mark.Lobe)))
                 .Select(mark => new GraphAtlasNode(
                     mark.Id,

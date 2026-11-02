@@ -58,22 +58,23 @@ public static class DevbookDatabaseBuilder
     /// </summary>
     /// <exception cref="IOException">The finished database could not be moved into place.</exception>
     public static bool Build(string repositoryRoot, string target, CancellationToken cancellationToken = default) =>
-        Build(repositoryRoot, target, DevbookCorpusKind.Repository, cancellationToken);
+        Build(repositoryRoot, target, DevbookCorpusProfile.Repository, cancellationToken);
 
     /// <summary>
     /// Builds the database for the folder at <paramref name="root"/>, read under
-    /// <paramref name="kind"/>'s convention, at <paramref name="target"/>. Returns
+    /// <paramref name="profile"/>, at <paramref name="target"/>. Returns
     /// <see langword="false"/> — writing nothing — when there is nothing to read:
-    /// no devbook folder in a repository, no area folder in a Brain.
+    /// no devbook folder in a repository, none of a profile's folders on disk.
     /// </summary>
     /// <exception cref="IOException">The finished database could not be moved into place.</exception>
-    public static bool Build(string root, string target, DevbookCorpusKind kind, CancellationToken cancellationToken = default)
+    public static bool Build(string root, string target, DevbookCorpusProfile profile, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
+        ArgumentNullException.ThrowIfNull(profile);
 
         var repositoryRoot = Path.GetFullPath(root);
-        var layout = DevbookBuildLayout.Discover(repositoryRoot, kind);
+        var layout = DevbookBuildLayout.Discover(repositoryRoot, profile);
         if (layout.Folders.Count == 0) return false;
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
@@ -102,29 +103,31 @@ public static class DevbookDatabaseBuilder
     /// not current.
     /// </summary>
     public static bool IsCurrent(string repositoryRoot, string databasePath) =>
-        IsCurrent(repositoryRoot, databasePath, DevbookCorpusKind.Repository);
+        IsCurrent(repositoryRoot, databasePath, DevbookCorpusProfile.Repository);
 
     /// <summary>Whether the database at <paramref name="databasePath"/> was built
     /// from exactly the inputs the folder at <paramref name="root"/> holds now,
-    /// read under <paramref name="kind"/>'s convention.</summary>
-    public static bool IsCurrent(string root, string databasePath, DevbookCorpusKind kind)
+    /// read under <paramref name="profile"/>.</summary>
+    public static bool IsCurrent(string root, string databasePath, DevbookCorpusProfile profile)
     {
+        ArgumentNullException.ThrowIfNull(profile);
+
         using var database = DevbookDatabase.TryOpen(databasePath);
         if (database is null) return false;
         if (!database.Meta.TryGetValue(InputsKey, out var recorded)) return false;
 
         var full = Path.GetFullPath(root);
-        return string.Equals(recorded, InputsFingerprint(full, DevbookBuildLayout.Discover(full, kind)), StringComparison.Ordinal);
+        return string.Equals(recorded, InputsFingerprint(full, DevbookBuildLayout.Discover(full, profile)), StringComparison.Ordinal);
     }
 
     /// <summary>Whether the repository has anything to build from.</summary>
-    public static bool HasDevbook(string repositoryRoot) => HasDevbook(repositoryRoot, DevbookCorpusKind.Repository);
+    public static bool HasDevbook(string repositoryRoot) => HasDevbook(repositoryRoot, DevbookCorpusProfile.Repository);
 
     /// <summary>Whether the folder has anything to build from under
-    /// <paramref name="kind"/>'s convention: a devbook folder, or an area
-    /// folder.</summary>
-    public static bool HasDevbook(string root, DevbookCorpusKind kind) =>
-        DevbookBuildLayout.Discover(Path.GetFullPath(root), kind).Folders.Count > 0;
+    /// <paramref name="profile"/>: a devbook folder, or one of the profile's
+    /// folders.</summary>
+    public static bool HasDevbook(string root, DevbookCorpusProfile profile) =>
+        DevbookBuildLayout.Discover(Path.GetFullPath(root), profile).Folders.Count > 0;
 
     private static void Write(string root, DevbookBuildLayout layout, string temporary, string previous, CancellationToken cancellationToken)
     {
@@ -362,7 +365,7 @@ public static class DevbookDatabaseBuilder
 
         foreach (var folder in layout.Folders)
         {
-            foreach (var relativePath in DevbookBuildFiles.Markdown(root, folder, skipGenerated: true, layout.IsBrain))
+            foreach (var relativePath in DevbookBuildFiles.Markdown(root, folder, skipGenerated: true, layout.Profile.ReadsCloudPlaceholders))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -434,7 +437,7 @@ public static class DevbookDatabaseBuilder
 
         foreach (var folder in layout.Folders)
         {
-            foreach (var relativePath in DevbookBuildFiles.Demos(root, folder, layout.IsBrain))
+            foreach (var relativePath in DevbookBuildFiles.Demos(root, folder, layout.Profile.ReadsCloudPlaceholders))
             {
                 var file = new FileInfo(DevbookBuildFiles.Absolute(root, relativePath));
                 var candidate = $"{relativePath[..relativePath.LastIndexOf('/')]}/{DevbookReadingConvention.DemoPage(relativePath)}";
@@ -463,7 +466,7 @@ public static class DevbookDatabaseBuilder
 
         foreach (var folder in layout.Folders)
         {
-            foreach (var indexPath in DevbookBuildFiles.ArchifyIndexes(root, folder, layout.IsBrain))
+            foreach (var indexPath in DevbookBuildFiles.ArchifyIndexes(root, folder, layout.Profile.ReadsCloudPlaceholders))
             {
                 var artifactDirectory = indexPath[..indexPath.LastIndexOf('/')];
                 var chapterDirectory = artifactDirectory[..artifactDirectory.LastIndexOf('/')];
@@ -534,27 +537,35 @@ public static class DevbookDatabaseBuilder
     /// <para>
     /// A cloud-only file is marked as one, so the build that follows its
     /// hydration — which may change neither its size nor its time — reads it. A
-    /// Brain adds its <c>CONVENTIONS.md</c> and the areas it resolved to, since
-    /// declaring an area changes what is read before any file under it does.
+    /// corpus profile adds its extra inputs after the walk and, when it has a
+    /// fingerprint tag, a line naming the folders it resolved to, since a changed
+    /// folder set changes what is read before any file under it does.
     /// </para>
     /// </summary>
-    internal static string InputsFingerprint(string root, DevbookBuildLayout layout)
+    internal static string InputsFingerprint(string root, DevbookBuildLayout layout) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(InputsText(root, layout))));
+
+    /// <summary>The text <see cref="InputsFingerprint"/> hashes: the schema version,
+    /// the profile's tag line if any, then one line per input. Its bytes are what a
+    /// database built earlier is compared by, so they never change for a corpus
+    /// whose inputs did not.</summary>
+    internal static string InputsText(string root, DevbookBuildLayout layout)
     {
         var inputs = new List<string>();
         foreach (var folder in layout.Folders)
         {
-            inputs.AddRange(DevbookBuildFiles.Markdown(root, folder, skipGenerated: false, layout.IsBrain));
-            inputs.AddRange(DevbookBuildFiles.ArchifyIndexes(root, folder, layout.IsBrain));
-            inputs.AddRange(DevbookBuildFiles.Demos(root, folder, layout.IsBrain));
+            inputs.AddRange(DevbookBuildFiles.Markdown(root, folder, skipGenerated: false, layout.Profile.ReadsCloudPlaceholders));
+            inputs.AddRange(DevbookBuildFiles.ArchifyIndexes(root, folder, layout.Profile.ReadsCloudPlaceholders));
+            inputs.AddRange(DevbookBuildFiles.Demos(root, folder, layout.Profile.ReadsCloudPlaceholders));
         }
 
         inputs.Sort(StringComparer.Ordinal);
 
-        if (layout.IsBrain) inputs.Add(BrainConventions.FileName);
+        inputs.AddRange(layout.Profile.ExtraInputs(root));
 
         var text = new StringBuilder();
         text.Append(DevbookDatabaseSchema.Version).Append('\n');
-        if (layout.IsBrain) text.Append("brain\t").Append(string.Join(',', layout.Folders)).Append('\n');
+        if (layout.Profile.FingerprintTag is { } tag) text.Append(tag).Append('\t').Append(string.Join(',', layout.Folders)).Append('\n');
         foreach (var relativePath in inputs.Distinct(StringComparer.Ordinal))
         {
             var file = new FileInfo(DevbookBuildFiles.Absolute(root, relativePath));
@@ -573,7 +584,7 @@ public static class DevbookDatabaseBuilder
             text.Append('\n');
         }
 
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+        return text.ToString();
     }
 
     private static void MoveIntoPlace(string temporary, string target, CancellationToken cancellationToken)

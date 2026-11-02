@@ -190,6 +190,26 @@ public sealed class RemarkNotificationStoreTests
         Assert.Equal(1, changed);
     }
 
+    /// <summary>An imported fence was read out of the repository on this device, not left on
+    /// another one: it is written, raises the store's change once, and raises no alert however
+    /// recent its date.</summary>
+    [Fact]
+    public async Task An_imported_open_remark_is_written_and_raises_no_alert()
+    {
+        var store = Store();
+        var changed = 0;
+        store.Changed += () => changed++;
+        var imported = Remark() with { Kind = DevbookAnnotationKind.Question };
+
+        var written = store.ImportIfAbsent([imported]);
+        await store.LastAlert;
+
+        Assert.Equal(1, written);
+        Assert.Equal(imported, store.Find(imported.Id));
+        Assert.Equal(1, changed);
+        Assert.Empty(_notifications.Published);
+    }
+
     private RemarkNotificationStore Store() => new(_inner, () => _notifications, time: _clock);
 
     private static DevbookAnnotation Remark() =>
@@ -210,14 +230,23 @@ public sealed class RemarkNotificationStoreTests
             return remark;
         }
 
-        public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath) =>
-            [.. _remarks.Values.Where(remark => remark.ChapterPath == chapterPath && remark.DeletedAt is null)];
+        public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null) =>
+            [.. _remarks.Values.Where(remark => remark.ChapterPath == chapterPath && remark.Branch == branch && remark.DeletedAt is null)];
 
         public DevbookAnnotation? Find(Guid id) => _remarks.GetValueOrDefault(id);
 
-        public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author, string? blockHash = null)
+        public DevbookAnnotation Add(
+            string? repositoryAlias,
+            string chapterPath,
+            int blockIndex,
+            string author,
+            string? blockHash = null,
+            DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+            string? branch = null)
         {
-            var remark = new DevbookAnnotation(Guid.NewGuid(), repositoryAlias ?? string.Empty, chapterPath, blockIndex, string.Empty, author, Noon, Noon, BlockHash: blockHash);
+            var remark = new DevbookAnnotation(
+                Guid.NewGuid(), repositoryAlias ?? string.Empty, chapterPath, blockIndex, string.Empty, author, Noon, Noon,
+                BlockHash: blockHash, Kind: kind, Branch: branch);
             _remarks[remark.Id] = remark;
             Changed?.Invoke();
             return remark;
@@ -230,6 +259,22 @@ public sealed class RemarkNotificationStoreTests
         public void Delete(Guid id) => _remarks[id] = _remarks[id] with { DeletedAt = Noon };
 
         public void Apply(DevbookAnnotation replicated) => _remarks[replicated.Id] = replicated;
+
+        public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported)
+        {
+            var written = 0;
+
+            foreach (var remark in imported)
+            {
+                if (!_remarks.TryAdd(remark.Id, remark)) continue;
+
+                written++;
+            }
+
+            if (written > 0) Changed?.Invoke();
+
+            return written;
+        }
 
         public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark) =>
             [.. _remarks.Values.Where(remark => remark.UpdatedAt > watermark)];

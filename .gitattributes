@@ -18,6 +18,10 @@
 # instead of fixing a generator's phantom diff.
 **/_archify/index.json text eol=lf
 
+# The Workflow tool refuses a script with CRLF line endings, so the devbook
+# sweep's workflow scripts in plugins/backlog-tools stay LF on a Windows checkout.
+*.workflow.js text eol=lf
+
 # Test fixtures are byte-exact inputs: a PDF's xref offsets and a JPEG's EXIF
 # would break under line-ending conversion.
 tests/**/Fixtures/** binary

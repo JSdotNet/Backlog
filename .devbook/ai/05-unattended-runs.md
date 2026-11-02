@@ -111,7 +111,9 @@ the technology graph from the package inventories as a draft pull request.
 - **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
   chapter: prose and content change only through `flow-spec`. `devbook-verify` covers only
   the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
-  direction is `report` and skips `off`; the two sweeps below take the rest.
+  direction is `report` and skips `off`; the two sweeps below take the rest. It reads the
+  direction from the chapter, not from Backlog's map, so once a repository's chapters
+  state none it reports on every unit.
 
 ## Scheduled devbook sync sweeps
 
@@ -121,18 +123,22 @@ type: workflow
 layer: [thread]
 feeds: [".devbook/ai/03-test.md#personal-validation-gate: draft pull requests"]
 evidence: none
-depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
+depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin", ".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
 date: 2026-10-06
 ```
 
-Two catalog schedules act on the drift `devbook-verify` only reports. Each takes the
-[sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose `sync`
-direction asks for it, in groups. Units a requirement ties together, by naming two
+Two sweeps act on the drift `devbook-verify` only reports. Each takes the
+[sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
+direction in Backlog's direction map asks for it, in groups. Both are the
+`backlog-tools` skill `devbook-sweep`, run as one local routine per repository: pull
+first, then push. The skill reads each unit's direction from the `backlog` MCP server's
+`list_sync_directions`. Before branch-true-devbook entry 7 they were `delivery-schedule`
+catalog schedules reading a `sync` field in the chapter. Units a requirement ties together, by naming two
 aggregates and no feature, form one group; every other unit is a group of its own.
 
 | | `devbook-pull-sweep` | `devbook-push-sweep` |
 | --- | --- | --- |
-| Runs on | Mondays | Wednesdays |
+| Runs on | weekly, first in the routine | weekly, right after the pull sweep |
 | Acts on | a `code-ahead` verdict | a `spec-ahead` verdict on an agreed chapter |
 | Through | `capture-specs`, into chapters | `apply-change`, into code |
 | Groups a run | up to three | one |
@@ -145,10 +151,10 @@ verdicts conflict goes to a person.
   settled and its unit-test project covers them. Inbox is `pull`: its chapters are still
   `draft`, but they were written from the code its tests cover. Every other unit resolves to
   `report`.
-- **Adopted by** — nobody: neither schedule is selected. Both ship in delivery-schedule, and
-  selecting them is open.
+- **Adopted by** — nobody: no repository has a devbook sweep routine yet. `backlog-tools`'
+  README says how to create one, and creating it is open.
 - **Evidence** — none.
-- **Moves up when** — a sweep is selected under `components.schedule`.
+- **Moves up when** — a repository's devbook sweep routine is created.
 - **Limits** — push writes no chapter and removes no code, and skips a draft or unagreed
   chapter; pull changes only chapters and never raises a status above `draft`.
 
@@ -206,17 +212,20 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Three schedules report what happened. Each report is one `schedule-report` issue, and an
+Two schedules report what happened. Each report is one `schedule-report` issue, and an
 unread one is extended rather than joined by another.
 
 | Schedule | Runs | Covers |
 | --- | --- | --- |
-| `morning-brief` | every weekday | the last day, or the weekend on a Monday |
 | `change-report` | every Friday | the week's pull requests, and the ones whose ticket disagrees with them |
 | `weekly-update` | every Friday evening | the week |
 
+A third, `morning-brief`, reported the last day every weekday from 2026-09-25. It was
+dropped on 2026-10-30, when `schedule-morning-brief` left the `delivery-schedule` catalog
+under devbook's branch-true decision.
+
 - **Used for** — the owner's view of the repository without reading every notification.
-- **Adopted by** — the three schedules, since 2026-09-25.
+- **Adopted by** — the two schedules, since 2026-09-25.
 - **Evidence** — `change-report` and `weekly-update` fired on 2026-09-25; no report issue
   was published.
 - **Moves up when** — the first report issue is published.

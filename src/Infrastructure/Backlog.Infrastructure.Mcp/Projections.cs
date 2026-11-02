@@ -114,7 +114,8 @@ internal static class Projections
         annotation.Author,
         annotation.CreatedAt,
         annotation.UpdatedAt,
-        annotation.Resolved);
+        annotation.Resolved,
+        DevbookAnnotationKinds.Name(annotation.Kind));
 
     internal static SessionPayload Session(AgentSession session) => new(
         session.Id,

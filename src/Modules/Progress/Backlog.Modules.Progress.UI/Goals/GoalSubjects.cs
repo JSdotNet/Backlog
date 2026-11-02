@@ -39,6 +39,34 @@ public static class GoalSubjects
         };
     }
 
+    /// <summary>The subject an impediment's held-back <paramref name="item"/> names, a plan's
+    /// sigil dropped: the same three kinds a goal holds.</summary>
+    public static GoalSubject FromHeldBack(HeldBackItemDto item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return item.Kind switch
+        {
+            HeldBackKind.Plan => GoalSubject.ForPlan(Bare(item.PlanTag)),
+            HeldBackKind.Task => GoalSubject.ForTask(item.TaskId ?? Guid.Empty),
+            _ => GoalSubject.ForPullRequest(item.Repository ?? string.Empty, item.Number ?? 0)
+        };
+    }
+
+    /// <summary>The item the impediment port takes for <paramref name="subject"/>.</summary>
+    public static HeldBackItemDto ToHeldBack(GoalSubject subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+
+        return subject.Kind switch
+        {
+            GoalSubjectKind.Plan => HeldBackItemDto.ForPlan(subject.PlanTag ?? string.Empty),
+            GoalSubjectKind.Task => HeldBackItemDto.ForTask(subject.TaskId ?? Guid.Empty),
+            GoalSubjectKind.PullRequest => HeldBackItemDto.ForPullRequest(subject.Repository ?? string.Empty, subject.Number ?? 0),
+            _ => throw new ArgumentOutOfRangeException(nameof(subject), subject.Kind, "An impediment holds back a task, a pull request or a plan.")
+        };
+    }
+
     /// <summary>
     /// The goals the picker offers: every goal not yet reached — one with nothing in it
     /// counts as open — by due date, and the goal that holds the work now whether or not

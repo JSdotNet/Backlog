@@ -23,7 +23,7 @@ The status is a control here because this sample is read as `.tech`, and a folde
     </Story>
 
     <Story Name="One block, every field, drawn"
-           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `kind`, `version` and `effort` draw no visible label, because a classification chip, a `v10.0` and a points badge each say which field they came from — the name stays in the markup for a screen reader. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
+           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `kind` and `version` draw no visible label, because a classification chip and a `v10.0` each say which field they came from — the name stays in the markup for a screen reader. `issue`, `effort` and `roadmap` are parsed and not drawn: the plan lives in Backlog's own entries, not in a chapter. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
 
 A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
 
@@ -65,7 +65,7 @@ Nothing here knows which of the two it is in. The order of the rows and the ques
 
 One component means the `dt`/`dd` pairing a screen reader depends on is built once rather than once per field. What a host reuses it for is a record of its own: the row takes a `BaseClass`, a label class and a value class, so a settings panel or a spec sheet can lay out label-and-value pairs without a second implementation of the pair.
 
-It never asks whether there is anything to say. That question belongs to the caller, because only the caller knows what empty means for its own field — an absent list, a blank scalar and an estimate of zero are three different answers, and zero is an estimate that still shows. The `dl` belongs to the record too: a row that brought its own list would break the pairing for every other row.
+It never asks whether there is anything to say. That question belongs to the caller, because only the caller knows what empty means for its own field — an absent list, a blank scalar and a number of zero are three different answers, and zero is a number that still shows. The `dl` belongs to the record too: a row that brought its own list would break the pairing for every other row.
 
 The last row draws no visible name. Some values say which field they came from without help, and in front of one of those the label is a dimmed word restating what the value already said — so `ShowLabel` hides it. What it does not do is remove it: the `dt` stays in the list wearing `sr-only`, because a value read out with no field name is worse to hear than a name nobody needed to see. The row takes a `--bare` modifier off whatever `BaseClass` it was given, which is what lets the stylesheet give the value the column the hidden label is no longer holding.
 
@@ -79,8 +79,8 @@ The bottom pair is the same two rows pointed at names that are not the library&#
                 <MetadataField Label="kind">
                     <code class="devbook-value">framework</code>
                 </MetadataField>
-                <MetadataField Label="effort">
-                    <Badge Kind="effort">5 pts</Badge>
+                <MetadataField Label="alternatives">
+                    <code class="devbook-value">Azure Functions</code>
                 </MetadataField>
                 <MetadataField Label="feature-flag" TestId="devbook-field-flag">
                     <Badge Kind="feature">inbox-pane</Badge>
@@ -318,8 +318,6 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         status: adopted
         kind: framework
         version: "10.0"
-        effort: 5
-        issue: JSdotNet/Backlog#118
         depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
         related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
@@ -432,9 +430,8 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
         new("issue", "scalar", ".backlog, .arc42 decisions",
             "issue: JSdotNet/Backlog#118",
-            "The tracking issue: a URL, or the owner/repo#number shorthand. Stored exactly as authored "
-            + "— only the URL form can be followed from here, because the shorthand needs a remote "
-            + "this library knows nothing about."),
+            "The tracking issue: a URL, or the owner/repo#number shorthand. Stored exactly as authored, "
+            + "and no longer drawn in the chapter view: the plan lives in Backlog's own entries."),
 
         new("feature-flag", "application keys", ".domain features",
             "feature-flag: [inbox-pane, inbox-filters]",

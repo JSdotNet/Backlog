@@ -13,7 +13,7 @@ public sealed class DevbookBrainNoteLinkTests
         var link = DevbookChapterLink.ForBrainNote("projects/plan.md#next-step");
 
         Assert.NotNull(link);
-        Assert.Equal(DevbookMenu.BrainAreaKey("projects"), link.AreaKey);
+        Assert.Equal(DevbookMenu.PersonalTabKey("projects"), link.AreaKey);
         Assert.Equal("projects/plan.md", link.RelativePath);
         Assert.Equal("next-step", link.Anchor);
     }
@@ -32,7 +32,7 @@ public sealed class DevbookBrainNoteLinkTests
     [Fact]
     public void An_area_folder_with_capitals_lands_on_its_tab()
     {
-        Assert.Equal(DevbookMenu.BrainAreaKey("projects"), DevbookChapterLink.ForBrainNote("Projects/plan.md")?.AreaKey);
+        Assert.Equal(DevbookMenu.PersonalTabKey("projects"), DevbookChapterLink.ForBrainNote("Projects/plan.md")?.AreaKey);
     }
 
     [Theory]

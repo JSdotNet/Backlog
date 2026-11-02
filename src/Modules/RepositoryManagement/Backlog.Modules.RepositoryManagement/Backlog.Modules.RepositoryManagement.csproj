@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Repository Management module — the owner of pull-request state (local ADR 0042),
+    laid out by feature slices (ADR 0009):
+      Features/    one slice per use case: the open, merged and by-number reads, and
+                   the merge, auto-merge, update-branch, mark-ready and re-run commands
+      Services/    the one cache every reader shares, the IPullRequests contract over
+                   the slices, and the fallbacks a host without GitHub gets
+      Extensions/  AddRepositoryManagementModule() composition root for hosts
+    GitHub, the registry and the settled-fact memory are ports in the Abstractions,
+    answered by adapters in src/Infrastructure: this project may reference the shared
+    kernel and its own Abstractions, and nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.RepositoryManagement</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddRepositoryManagementModule(); the cache and the handlers know
+         nothing about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- The cache says what it read and what it reused at Debug, and a memory it could
+         not write at Warning; a host without logging hands it none. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.RepositoryManagement.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 
+using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
@@ -23,7 +24,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// (<c>.devbook/domain/brain/features.md#mcp-brain-scope</c>, local ADR 0027
 /// §5). Every tool that takes a <c>repository</c> also takes
 /// <see cref="BrainMcpScope.Value"/>, matched before the directory is asked, and
-/// answers for the Brain: its one folder from <see cref="IBrainFolderSource"/>,
+/// answers for the Brain: its one folder from <see cref="IDevbookPersonalSource"/>,
 /// a note by its path from the Brain's root, and the remarks the store keeps
 /// under <see cref="BrainScope.Value"/>. The two Brain ports are optional, so a
 /// host that composes no Brain still constructs this class and answers the
@@ -33,8 +34,10 @@ namespace Backlog.Infrastructure.Mcp;
 /// Two writes, and two only. <see cref="ResolveAnnotationFor"/> over
 /// <see cref="IDevbookAnnotationStore.SetResolved"/> is how a session says a note
 /// has been answered. <c>Add</c>, <c>Edit</c>, <c>Delete</c> and <c>Apply</c> are
-/// never called from this assembly, and no chapter file is opened for anything
-/// but reading — local ADR 0012 §6: the MCP server never writes a fence. The
+/// never called from this class — <see cref="DecisionTools"/>' note operations
+/// post and reply through <c>Add</c> and <c>Edit</c>, as <c>devbook.decision@1</c>
+/// asks — and no chapter file is opened for anything but reading — local ADR 0012
+/// §6: the MCP server never writes a fence. The
 /// answer itself is a devbook <c>annotation</c> fence the session writes in its
 /// own checkout, with the plugin's own tool, and this marks the inbox afterwards.
 /// <see cref="CaptureNoteAsync"/> is the other: a <em>new</em> note in the
@@ -49,7 +52,7 @@ public sealed class DevbookTools(
     IDevbookFolderSource folders,
     IDevbookAnnotationStore annotations,
     IRepositoryDirectory repositories,
-    IBrainFolderSource? brain = null,
+    IDevbookPersonalSource? brain = null,
     IBrainNoteWriter? brainNotes = null)
 {
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
@@ -72,9 +75,11 @@ public sealed class DevbookTools(
     private const string NoBrainHere = "The Brain is not available in this host.";
 
     /// <summary>The Brain's folder as a catalog names it, for the answer given
-    /// when no source is there to name it: the one definition the folder source
-    /// answers too.</summary>
-    private static DevbookFolderSetting BrainFolder => BrainConventions.Folder;
+    /// when no source is there to name it. The same value the Brain's folder
+    /// source answers (<c>BrainFolderSource.Folder</c>), spelt here because this
+    /// project references no adapter.</summary>
+    private static DevbookFolderSetting BrainFolder { get; } =
+        new(BrainConventions.FolderKey, BrainConventions.ScopeLabel, string.Empty, SupportsPathOverride: false);
 
     // OpenWorld, unlike every tool outside this class. A repository whose devbook
     // is read from a branch snapshot (local ADR 0008) has no clone to resolve
@@ -250,7 +255,7 @@ public sealed class DevbookTools(
         var clone = location.Source is DevbookSourceKind.LocalFolder ? location.RootPath : null;
 
         return await BuildChapterAsync(
-            scope.Id, scope.Alias, folder.Key, normalized, fullPath, clone, review, cancellationToken).ConfigureAwait(false);
+            scope.Id, scope.Alias, folder.Key, normalized, fullPath, clone, location.Branch, review, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -324,7 +329,7 @@ public sealed class DevbookTools(
 
         return await BuildChapterAsync(
             BrainMcpScope.Value, BrainScope.Value, BrainConventions.FolderKey, normalized, fullPath,
-            location.FullPath, review, cancellationToken).ConfigureAwait(false);
+            location.FullPath, branch: null, review, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -334,6 +339,8 @@ public sealed class DevbookTools(
     /// <param name="clone">The local root a chapter's demos are looked for
     /// under, or null where the folder is a branch snapshot and nothing beside
     /// the chapter was fetched.</param>
+    /// <param name="branch">The branch the chapter was read from, which its notes
+    /// are kept under: null for a clone, the default branch and the Brain.</param>
     private async Task<ChapterPayload> BuildChapterAsync(
         string repositoryId,
         string repositoryAlias,
@@ -341,6 +348,7 @@ public sealed class DevbookTools(
         string normalized,
         string fullPath,
         string? clone,
+        string? branch,
         bool review,
         CancellationToken cancellationToken)
     {
@@ -361,7 +369,7 @@ public sealed class DevbookTools(
         }
 
         var notes = review
-            ? ChapterReading.Notes(annotations, repositoryAlias, normalized)
+            ? ChapterReading.Notes(annotations, repositoryAlias, normalized, branch)
             : [];
 
         var besidePage = clone is null ? [] : ChapterDemos.BesidePage(normalized, fullPath);
@@ -378,7 +386,10 @@ public sealed class DevbookTools(
     [McpServerTool(Name = ListAnnotations, Title = "List the private notes on a chapter", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "The reader's own private notes on one devbook chapter — Backlog's remarks, not the devbook `annotation` "
-        + "fences in the file. Drafts nobody has typed into and deleted notes are left out. For " + BrainMcpScope.Value
+        + "fences in the file. Drafts nobody has typed into and deleted notes are left out. The notes are the ones "
+        + "left on the branch the repository is read from — its configured branch when the app reads a branch "
+        + "snapshot, else the default branch — the same ones the app's chapter view shows and `read_knowledge_chapter` "
+        + "returns with `review`. For " + BrainMcpScope.Value
         + ", the notes on one Brain note. `archived` is true when the repository is archived: its devbook is "
         + "read-only, so write no `annotation` fence into it and do not resolve its notes. Read-only.")]
     public AnnotationsPayload ListAnnotationsOn(
@@ -405,9 +416,14 @@ public sealed class DevbookTools(
         // One question, and the store canonicalizes it. No file is touched here
         // and no folder is resolved: an unavailable or switched-off area still has
         // notes, and a note about a chapter somebody has stopped showing is still
-        // what somebody said.
+        // what somebody said. The branch the notes are kept under is the registry's
+        // answer, not a resolution's, so this path still starts no fetch: the
+        // repository's named branch when it is read from that branch's snapshot,
+        // the default branch otherwise — the notes its panel shows. The Brain is a
+        // folder, never a branch.
+        var branch = BrainMcpScope.Is(repository) ? null : folders.RemarkBranch(scope.Alias);
         var notes = ChapterReading
-            .Notes(annotations, scope.Alias, normalized)
+            .Notes(annotations, scope.Alias, normalized, branch)
             .Select(Projections.Note)
             .ToList();
 

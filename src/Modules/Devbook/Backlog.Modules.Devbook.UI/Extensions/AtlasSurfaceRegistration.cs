@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Devbook.Extensions;
 
 /// <summary>
 /// Puts the Lobes atlas in the shell as a takeover-group <see cref="ShellSurface"/>
-/// (local ADR 0043 §1; <c>.devbook/domain/devbook/features.md#lobes-atlas</c>),
+/// (local ADR 0043 §1; <c>.devbook/domain/brain/features.md#lobes-atlas</c>),
 /// offered behind <see cref="DevbookFeatures.LobesAtlas"/>, the flag its header option
 /// has always gated on. The atlas maps what the Devbook reads, so the shell offers it
 /// only while the Devbook's own flag is on as well (<c>DevbookScope.LobesAtlasOffered</c>).

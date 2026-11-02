@@ -198,6 +198,12 @@ public sealed record GitHubOpenPullRequest(
     /// <summary>When it closed, for a merged or closed pinned pull request.</summary>
     public DateTimeOffset? ClosedAt { get; init; }
 
+    /// <summary>The repository's default branch, as the open list and the read by number
+    /// answer it for every pull request they read — so a merge's landing is judged without
+    /// a read of its own, and an open one based on it is known to be stacked on nothing,
+    /// even past the open list's cap. Null where the read did not say.</summary>
+    public string? DefaultBranch { get; init; }
+
     /// <summary>The label names, as GitHub spells them.</summary>
     public IReadOnlyList<string> Labels { get; init; } = [];
 
@@ -414,9 +420,7 @@ public sealed record GitHubReviewSummary(GitHubReviewState Decision, int Approva
     /// rule requires approving reviews at all) and every pull request rule a ruleset
     /// applies to it. Null where no rule asks for an approval, where the branch is
     /// gone, where the token could not read the rules, and for every read that does not
-    /// ask — the status read
-    /// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>) asks, and the
-    /// adapter's open and pinned lists ask through
+    /// ask — the adapter's open and pinned lists ask through
     /// <see cref="IGitHubClient.ReadRequiredApprovalsAsync"/>. Zero is never
     /// reported: a rule requiring no approval is no rule for this count. An init
     /// property, so every construction written before it reads as no rule.
@@ -442,74 +446,6 @@ public sealed record PullRequestPin(string RepositoryFullName, int Number)
     /// regard to case, the way GitHub compares it.</summary>
     public bool Names(string repositoryFullName, int number) =>
         Number == number && string.Equals(RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
-}
-
-/// <summary>One pull request a task links, by <c>owner/name</c> and number — what
-/// <see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/> is asked to read.</summary>
-public sealed record GitHubPullRequestReference(string RepositoryFullName, int Number);
-
-/// <summary>
-/// One pull request a task links, as a read by number finds it: what it is called,
-/// where it stands, who opened it, when it merged, how its checks stand and how its
-/// approvals stand against what its base branch requires.
-/// <para>
-/// Its own record rather than a <see cref="GitHubOpenPullRequest"/>, because the read
-/// that answers it asks for these facts and no others. The merge state, the branches
-/// and the distance from the base are what an act on an open pull request needs, and a
-/// linked pull request is read for the record of its work and its status, not to act
-/// on. The checks and reviews are filled by the status read alone
-/// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>), and are init
-/// properties, so a caller written before them still constructs one.
-/// </para>
-/// </summary>
-/// <param name="AuthorLogin">Who opened it; null where GitHub no longer knows the
-/// account.</param>
-/// <param name="MergedAt">When it merged; null unless <paramref name="State"/> is
-/// <see cref="GitHubItemState.Merged"/>.</param>
-/// <param name="CreatedAt">When it was opened; null where the answer did not say. Last
-/// and defaulted, so a caller written before it still constructs one.</param>
-public sealed record GitHubLinkedPullRequest(
-    int Number,
-    string Url,
-    string Title,
-    string RepositoryFullName,
-    GitHubItemState State,
-    string? AuthorLogin,
-    DateTimeOffset? MergedAt,
-    DateTimeOffset? CreatedAt = null)
-{
-    /// <summary>How far the head commit's checks have got, or null where it has none,
-    /// the token was refused them, or the answer did not say.</summary>
-    public GitHubCheckCounts? CheckCounts { get; init; }
-
-    /// <summary>The names of the head commit's failed checks, each once, in the order
-    /// GitHub lists them — from the first <see cref="GitHubClient.HeadCheckLimit"/>
-    /// checks, so a commit with more can have failures <see cref="CheckCounts"/> counts
-    /// and this does not name. Empty where none failed or the checks were not read.</summary>
-    public IReadOnlyList<string> FailingChecks { get; init; } = [];
-
-    /// <summary>What the reviewers decided, with the approvals the base branch requires
-    /// (<see cref="GitHubReviewSummary.Required"/>).</summary>
-    public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
-
-    /// <summary>The branch the pull request merges into, or null where the answer did
-    /// not say. With <see cref="DefaultBranch"/>, what tells a merge that lands work
-    /// from one into a stacked parent's branch.</summary>
-    public string? BaseRefName { get; init; }
-
-    /// <summary>The repository's default branch at the read, or null where the answer
-    /// did not say.</summary>
-    public string? DefaultBranch { get; init; }
-}
-
-/// <summary>The linked pull requests of several repositories, read together, and the
-/// repositories that could not be read — failures beside the answers, as
-/// <see cref="GitHubPullRequestListing"/> keeps them.</summary>
-public sealed record GitHubLinkedPullRequestListing(
-    IReadOnlyList<GitHubLinkedPullRequest> PullRequests,
-    IReadOnlyList<GitHubRepositoryFailure> Failures)
-{
-    public static GitHubLinkedPullRequestListing Empty { get; } = new([], []);
 }
 
 /// <summary>One repository's pull requests merged since a moment, as

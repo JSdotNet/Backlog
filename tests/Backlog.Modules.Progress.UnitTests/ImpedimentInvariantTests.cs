@@ -168,19 +168,96 @@ public sealed class ImpedimentInvariantTests
     }
 
     [Fact]
-    public void A_task_is_held_back_once_and_released_by_id()
+    public void An_item_is_held_back_once_by_kind_and_identity()
     {
         var impediment = Raised();
         var task = Guid.NewGuid();
 
-        Assert.True(impediment.HoldBack(task).IsSuccess);
-        Assert.True(impediment.HoldBack(task).IsSuccess);
-        Assert.Equal([task], impediment.HoldsBack);
-        Assert.Equal("progress.task_required", impediment.HoldBack(Guid.Empty).Error.Code);
+        impediment.HoldBack(HeldTask(task));
+        impediment.HoldBack(HeldPullRequest("Acme/Payments", 412));
+        impediment.HoldBack(HeldPlan("+Goals-standup"));
+        impediment.HoldBack(HeldTask(task));
+        impediment.HoldBack(HeldPullRequest("acme/payments", 412));
+        impediment.HoldBack(HeldPlan("goals-standup"));
 
-        Assert.True(impediment.Release(task));
-        Assert.False(impediment.Release(task));
-        Assert.Empty(impediment.HoldsBack);
+        Assert.Equal([HeldTask(task), HeldPullRequest("acme/payments", 412), HeldPlan("goals-standup")], impediment.HoldsBack);
+        Assert.True(impediment.Holds(HeldPullRequest("ACME/PAYMENTS", 412)));
+        Assert.False(impediment.Holds(HeldPullRequest("acme/payments", 413)));
+    }
+
+    [Fact]
+    public void A_task_a_pull_request_and_a_plan_never_equal_one_another()
+    {
+        Assert.NotEqual(HeldPullRequest("acme/payments", 7), HeldPlan("acme/payments"));
+        Assert.NotEqual(HeldPlan("7"), HeldPullRequest("7", 7));
+        Assert.NotEqual(HeldTask(Guid.Parse("00000000-0000-0000-0000-000000000007")), HeldPullRequest("acme/payments", 7));
+    }
+
+    [Theory]
+    [InlineData(null, 412)]
+    [InlineData("", 412)]
+    [InlineData("   ", 412)]
+    [InlineData("acme/payments", null)]
+    [InlineData("acme/payments", 0)]
+    [InlineData("acme/payments", -3)]
+    public void A_held_back_pull_request_names_its_repository_and_a_positive_number(string? repository, int? number) =>
+        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForPullRequest(repository, number).Error.Code);
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("+")]
+    [InlineData(" + ")]
+    public void A_held_back_plan_names_a_non_blank_tag(string? tag) =>
+        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForPlan(tag).Error.Code);
+
+    [Fact]
+    public void A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil()
+    {
+        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForTask(Guid.Empty).Error.Code);
+
+        var plan = HeldPlan(" +goals-standup ");
+        Assert.Equal(HeldBackKind.Plan, plan.Kind);
+        Assert.Equal("goals-standup", plan.PlanTag);
+
+        var pull = HeldPullRequest(" acme/payments ", 412);
+        Assert.Equal("acme/payments", pull.Repository);
+        Assert.Equal(412, pull.Number);
+    }
+
+    [Fact]
+    public void Releasing_an_item_it_does_not_hold_back_changes_nothing()
+    {
+        var impediment = At(ImpedimentState.Reported);
+        var task = Guid.NewGuid();
+        impediment.HoldBack(HeldTask(task));
+        impediment.HoldBack(HeldPullRequest("acme/payments", 412));
+        var history = impediment.History.ToList();
+
+        Assert.False(impediment.Release(HeldTask(Guid.NewGuid())));
+        Assert.False(impediment.Release(HeldPullRequest("acme/payments", 413)));
+        Assert.False(impediment.Release(HeldPlan("goals-standup")));
+
+        Assert.Equal([HeldTask(task), HeldPullRequest("acme/payments", 412)], impediment.HoldsBack);
+        Assert.Equal(history, impediment.History);
+
+        Assert.True(impediment.Release(HeldPullRequest("ACME/payments", 412)));
+        Assert.Equal([HeldTask(task)], impediment.HoldsBack);
+    }
+
+    [Fact]
+    public void Linking_and_unlinking_leave_the_state_and_history_alone()
+    {
+        var impediment = At(ImpedimentState.Reported, ImpedimentState.Escalated);
+        var history = impediment.History.ToList();
+
+        impediment.HoldBack(HeldPlan("goals-standup"));
+        impediment.HoldBack(HeldPullRequest("acme/payments", 412));
+        impediment.Release(HeldPlan("goals-standup"));
+
+        Assert.Equal(ImpedimentState.Escalated, impediment.State);
+        Assert.Equal(history, impediment.History);
     }
 
     [Fact]
@@ -200,14 +277,30 @@ public sealed class ImpedimentInvariantTests
     }
 
     [Fact]
-    public void Restoring_keeps_a_task_once_and_opens_an_empty_history_as_New()
+    public void Restoring_keeps_each_item_once_in_link_order_and_opens_an_empty_history_as_New()
     {
         var task = Guid.NewGuid();
 
-        var restored = Impediment.Restore(Guid.NewGuid(), "Bank sample files missing", null, null, null, null, [], [task, task, Guid.Empty], null, Thu15);
+        var restored = Impediment.Restore(
+            Guid.NewGuid(),
+            "Bank sample files missing",
+            null,
+            null,
+            null,
+            null,
+            [],
+            [HeldPlan("goals-standup"), HeldTask(task), HeldPullRequest("acme/payments", 412), HeldTask(task), HeldPlan("+GOALS-STANDUP")],
+            null,
+            Thu15);
 
-        Assert.Equal([task], restored.HoldsBack);
+        Assert.Equal([HeldPlan("goals-standup"), HeldTask(task), HeldPullRequest("acme/payments", 412)], restored.HoldsBack);
         Assert.Equal(ImpedimentState.New, restored.State);
         Assert.Equal(Thu15, restored.RaisedOn);
     }
+
+    private static HeldBackItem HeldTask(Guid id) => HeldBackItem.ForTask(id).Value;
+
+    private static HeldBackItem HeldPullRequest(string repository, int number) => HeldBackItem.ForPullRequest(repository, number).Value;
+
+    private static HeldBackItem HeldPlan(string tag) => HeldBackItem.ForPlan(tag).Value;
 }

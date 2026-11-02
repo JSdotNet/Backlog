@@ -5,6 +5,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
@@ -16,6 +17,9 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Tasks.Extensions;
+using ITaskLookupCandidates = Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates;
+using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion;
 using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -2359,7 +2363,7 @@ public sealed class HomeWorkspaceSurfaceTests
             shellNavigation.SetLastSurface("PullRequests");
 
             using var harness = CreateHarness(
-                features => features.SetEnabled(SessionFeatures.PullRequests, false),
+                features => features.SetEnabled(RepositoryManagementFeatures.PullRequests, false),
                 shellNavigation);
             var component = Render(harness);
 
@@ -2484,8 +2488,8 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal(row.Id, pane.PullRequestTask(branch, true)?.EntryId);
         Assert.Null(pane.PullRequestTask(longer, false));
 
-        // Done in the entry's own text, then any change the shell hears of — which is
-        // what rebuilds its matcher, since a row changes in place.
+        // Done in the entry's own text, then any change the Tasks state announces —
+        // which is what has the lookup read the rows again, since a row changes in place.
         row.RawText = row.RawText.Replace("`!ready`", "`!done`", StringComparison.Ordinal);
         Assert.Equal(EntryStatus.Done, row.PreviewStatus);
         component.InvokeAsync(() => state.SetSelectionMode(true));
@@ -2497,7 +2501,7 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    private static PullRequestTaskSubject PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
+    private static PullRequestTaskQuestion PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
         new(repository, number, title, head, [], SessionId: null);
 
     // --- What a change draws again ------------------------------------------
@@ -2928,7 +2932,7 @@ public sealed class HomeWorkspaceSurfaceTests
             features =>
             {
                 features.SetEnabled(SessionFeatures.Sessions, false);
-                features.SetEnabled(SessionFeatures.PullRequests, false);
+                features.SetEnabled(RepositoryManagementFeatures.PullRequests, false);
             });
         var component = Render(harness);
 
@@ -3195,7 +3199,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 
-    // ----- The Lobes atlas (.devbook/domain/devbook/context.md#lobes-atlas) ------------
+    // ----- The Lobes atlas (.devbook/domain/brain/context.md#lobes-atlas) ------------
 
     /// <summary>With the atlas-lobes flag off — its default — the header offers no
     /// Atlas.</summary>
@@ -3908,7 +3912,7 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(SessionFeatures.PullRequests, true);
+        _ = featureSettings.SetEnabled(RepositoryManagementFeatures.PullRequests, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
@@ -3998,6 +4002,10 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
             toasts: sp.GetRequiredService<IToastChannel>()));
+        // Which task a session or a pull request belongs to is Tasks' answer over the
+        // same state, composed as the application hosts compose it (local ADR 0042, V8).
+        context.Services.AddScoped<ITaskLookupCandidates>(sp => sp.GetRequiredService<TasksDesktopState>());
+        context.Services.AddTaskLookup(ServiceLifetime.Scoped);
         // Home answers the Inbox's Capture button through the module's runner and
         // injects it hard, so a host that renders Home composes the module and
         // picks where its sources are kept, the same as the application hosts do.

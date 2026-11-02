@@ -75,6 +75,13 @@
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- The Brain's published surface (local ADR 0040): the shell sees every
+         context, and Home, Settings and the Storage page's Brain card name the
+         Brain's folder source, settings, setup words and task links. -->
+    <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- The Brain's adapters (local ADR 0040): the Storage page's Brain card runs
+         the folder setup, which is file-system work the ports do not carry. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
     <!-- Capture's published surface: the runner the Inbox's Capture button is
          answered with; the sources panel on the Inbox pane is Capture.UI's. The
@@ -87,6 +94,11 @@
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Repository Management's published surface (local ADR 0042): the status
+         every pull request reader draws, its one verdict, its stacks and merge
+         offer, and the pull-requests feature key. The pull requests pane is that
+         context's screen, kept in the shell until the module has a UI project. -->
+    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
          the GitHub repository/devbook-folder settings plus the local clone

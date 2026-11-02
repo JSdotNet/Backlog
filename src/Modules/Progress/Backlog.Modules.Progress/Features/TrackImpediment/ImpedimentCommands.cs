@@ -21,11 +21,11 @@ public sealed record SetCheckAgainCommand(Guid ImpedimentId, DateOnly? CheckAgai
 /// <summary>Replaces or clears an impediment's note.</summary>
 public sealed record EditImpedimentNoteCommand(Guid ImpedimentId, string? Note);
 
-/// <summary>Links a task an impediment holds back.</summary>
-public sealed record HoldBackTaskCommand(Guid ImpedimentId, Guid TaskId);
+/// <summary>Links a task, pull request or plan an impediment holds back.</summary>
+public sealed record HoldBackItemCommand(Guid ImpedimentId, HeldBackItemDto Item);
 
-/// <summary>Unlinks a task an impediment held back.</summary>
-public sealed record ReleaseTaskCommand(Guid ImpedimentId, Guid TaskId);
+/// <summary>Unlinks a task, pull request or plan an impediment held back.</summary>
+public sealed record ReleaseItemCommand(Guid ImpedimentId, HeldBackItemDto Item);
 
 /// <summary>Applies one edit the phone asked for (local ADR 0035 §8), while the field it
 /// changes still says what the phone saw.</summary>
@@ -39,8 +39,8 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
       ICommandHandler<MoveImpedimentCommand, Result<ImpedimentDto>>,
       ICommandHandler<SetCheckAgainCommand, Result<ImpedimentDto>>,
       ICommandHandler<EditImpedimentNoteCommand, Result<ImpedimentDto>>,
-      ICommandHandler<HoldBackTaskCommand, Result<ImpedimentDto>>,
-      ICommandHandler<ReleaseTaskCommand, Result<ImpedimentDto>>
+      ICommandHandler<HoldBackItemCommand, Result<ImpedimentDto>>,
+      ICommandHandler<ReleaseItemCommand, Result<ImpedimentDto>>
 {
     private DateOnly Today => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
@@ -53,10 +53,12 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
         if (raised.IsFailure) return raised.Error;
 
         var impediment = raised.Value;
-        foreach (var task in command.Request.HoldsBack ?? [])
+        foreach (var requested in command.Request.HoldsBack ?? [])
         {
-            var linked = impediment.HoldBack(task);
-            if (linked.IsFailure) return linked.Error;
+            var item = ItemOf(requested);
+            if (item.IsFailure) return item.Error;
+
+            impediment.HoldBack(item.Value);
         }
 
         impediment.EditNote(command.Request.Note);
@@ -97,10 +99,21 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
             cancellationToken);
     }
 
-    public Task<Result<ImpedimentDto>> Handle(HoldBackTaskCommand command, CancellationToken cancellationToken = default)
+    public async Task<Result<ImpedimentDto>> Handle(HoldBackItemCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return changes.ChangeAsync(command.ImpedimentId, impediment => impediment.HoldBack(command.TaskId), cancellationToken);
+
+        var item = ItemOf(command.Item);
+        if (item.IsFailure) return item.Error;
+
+        return await changes.ChangeAsync(
+            command.ImpedimentId,
+            impediment =>
+            {
+                impediment.HoldBack(item.Value);
+                return Result.Success();
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -172,16 +185,26 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
-    public Task<Result<ImpedimentDto>> Handle(ReleaseTaskCommand command, CancellationToken cancellationToken = default)
+    public async Task<Result<ImpedimentDto>> Handle(ReleaseItemCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return changes.ChangeAsync(
+
+        var item = ItemOf(command.Item);
+        if (item.IsFailure) return item.Error;
+
+        return await changes.ChangeAsync(
             command.ImpedimentId,
             impediment =>
             {
-                impediment.Release(command.TaskId);
+                impediment.Release(item.Value);
                 return Result.Success();
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>The held-back item a caller named, or why it names none.</summary>
+    private static Result<HeldBackItem> ItemOf(HeldBackItemDto? item) =>
+        item is null
+            ? ProgressErrors.HeldBackItemWithoutIdentity()
+            : HeldBackItem.Of(item.Kind, item.TaskId, item.Repository, item.Number, item.PlanTag);
 }

@@ -60,6 +60,13 @@ public sealed class TechnologyDevbookService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Writes a node's rating — where it stands on the adoption ladder — into its
+    /// <c>meta</c> fence. Still spelled <c>status</c> in the file until devbook
+    /// contract 38 renames it; a rating is what the chapter says, not where it is
+    /// in a workflow, so it stays in the Markdown where the status writes of the
+    /// other folders went to the subject store.
+    /// </summary>
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -69,7 +76,7 @@ public sealed class TechnologyDevbookService : IDisposable
         var location = _source.Resolve(".tech", repositoryAlias);
         var folderPath = location.WritablePath("Technology");
 
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".tech/", status);
+        DevbookMarkdownRatingWriter.UpdateRating(folderPath, itemPath, ".tech/", status);
         return Task.CompletedTask;
     }
 }
@@ -863,7 +870,9 @@ internal static class TechnologyMarkdownParser
         }
 
         return new DevbookMetadata(
-            ReadString(values, "status"),
+            // The rating: `rating` once the repository has migrated to devbook
+            // contract 38, `status` until then.
+            ReadString(values, "rating") ?? ReadString(values, "status"),
             // `type` is the field; `kind` is how `.tech` spelled it before, and
             // the convention still parses it. Read in that order — the corpus
             // writes `type`, and reading only `kind` left every node a generic

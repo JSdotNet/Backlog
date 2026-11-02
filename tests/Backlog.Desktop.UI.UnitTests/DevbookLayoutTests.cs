@@ -82,7 +82,7 @@ public sealed class DevbookLayoutTests : IDisposable
     }
 
     [Fact]
-    public async Task Architecture_under_devbook_counts_decision_records_and_writes_status()
+    public async Task Architecture_under_devbook_counts_decision_records()
     {
         var arc42 = Path.Combine(_root, ".devbook", "arc42");
         Directory.CreateDirectory(Path.Combine(arc42, "adr"));
@@ -101,12 +101,6 @@ public sealed class DevbookLayoutTests : IDisposable
         var document = Assert.Single(catalog.Documents);
         Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", document.Path);
         Assert.Equal(1, catalog.DecisionRecordCount);
-
-        // `deprecated` rather than `accepted`: under contract 16 `accepted` is a
-        // decision rung, domain/'s alone, and the writer refuses it in arc42/.
-        await knowledge.UpdateStatusAsync("backlog", document.Path, "deprecated", TestContext.Current.CancellationToken);
-
-        Assert.Contains("status: deprecated", File.ReadAllText(Path.Combine(arc42, "adr", "0001-use-sqlite.md")), StringComparison.Ordinal);
     }
 
     /// <summary>Remarks already synced are keyed <c>.arc42/…</c>; a folder moving

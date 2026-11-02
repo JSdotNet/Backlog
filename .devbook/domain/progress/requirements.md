@@ -96,10 +96,10 @@ The system SHALL show a goal without a due date as At risk when its landing date
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_open_impediment_on_the_goals_plan_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_with_no_open_item_held_back_by_an_open_impediment_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_finished_goal_stays_at_risk_until_the_impediment_holding_it_back_is_resolved]
 ```
 
-The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, whatever its landing date.
+The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, or a plan one of whose entries it counts, whatever its landing date.
 
 #### Scenario: An impediment on a plan's entry
 
@@ -112,6 +112,18 @@ The system SHALL show a goal as At risk while an impediment that is not Resolved
 - **Given** the goal lands before its due date, and "Bank sample files missing" is Resolved
 - **When** the Goals view is read
 - **Then** the goal reads "On track"
+
+#### Scenario: An impediment on the goal's plan
+
+- **Given** the goal lands before its due date, and the open impediment "Bank API contract unsigned" holds back the plan `bank-integration`
+- **When** the Goals view is read
+- **Then** the goal reads "At risk"
+
+#### Scenario: An impediment ready to resolve
+
+- **Given** the goal lands before its due date, and "Bank sample files missing" is Reported and reads Ready to resolve
+- **When** the Goals view is read
+- **Then** the goal reads "At risk" until the person resolves the impediment
 
 ### Requirement: A goal with no recent done rate and open items is At risk
 
@@ -575,7 +587,7 @@ The system SHALL tag Planned with the planned items' `effort:` added up, then th
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_names_the_goal_of_the_first_item_linked]
 ```
 
 The system SHALL list under Impediments every impediment that is not Resolved, with its state, who it is with, its age in working days and the goal it holds back, followed by how many were resolved in the last window.
@@ -591,6 +603,12 @@ The system SHALL list under Impediments every impediment that is not Resolved, w
 - **Given** "Credit note numbering unclear" is New
 - **When** the stand-up is read
 - **Then** its line reads "Not reported yet"
+
+#### Scenario: An impediment on a pull request
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1358` alone, which the task "Bank import mapping" of "Customers get paid faster" links
+- **When** the stand-up is read
+- **Then** its line names "Customers get paid faster"
 
 ### Requirement: Copy for stand-up copies the four blocks
 
@@ -673,12 +691,221 @@ The system SHALL record with each move the day it was made and who the impedimen
 - **When** the person escalates it to the account manager on Friday 16 October
 - **Then** its history reads New Wed 14, Reported · bank support Thu 15, Escalated · account manager Fri 16
 
-### Requirement: A blocked task raises one New impediment
+### Requirement: A person raises an impediment from the stand-up
 
 ```meta
 type: requirement
 status: draft
-tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.Set_blocked_raises_one_New_impediment_and_unblocking_leaves_it, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.A_blocked_token_in_the_entry_text_raises_one_too]
+related: [.devbook/domain/progress/features.md#raising-an-impediment]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Raise_impediment_raises_it_through_the_module_with_its_first_items_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialog_refuses_a_blank_title_on_the_field_and_hands_nothing_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialogs_blank_title_message_clears_once_a_title_is_typed, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Raising_stores_a_New_impediment_dated_today_with_its_items_and_note]
+```
+
+The system SHALL let a person raise an impediment from the desktop stand-up's Impediments block with a title, an optional note and optional first items it holds back.
+
+#### Scenario: Raising with a title alone
+
+- **Given** no impediment is called "Bank API contract unsigned"
+- **When** the person raises "Bank API contract unsigned" on Monday 19 October
+- **Then** it is listed under Impediments, New, holding back nothing, and its history reads New Mon 19
+
+#### Scenario: Raising with a note and a first item
+
+- **Given** the task "Bank import mapping" is in progress
+- **When** the person raises "Bank sample files missing" with the note "Asked Jan on 14 Oct" and links "Bank import mapping" in the same form
+- **Then** it is listed New, shows the note, and holds back "Bank import mapping"
+
+#### Scenario: Raising without a title
+
+- **Given** the raise form is open
+- **When** the person leaves the title blank and confirms
+- **Then** no impediment is raised, and the form says a title is needed
+
+### Requirement: A person links and unlinks what an impediment holds back
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Link_holds_back_the_picked_item_through_the_module_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_unlink_stays_in_the_row_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Link_opens_the_work_search_without_what_the_row_holds_and_hands_the_pick_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Unlink_hands_the_item_back_named_for_it_and_the_impediment, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_work_search_offers_only_the_kinds_it_is_given, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Pull_requests_and_plans_are_linked_once_and_unlinked_leaving_the_history_alone]
+```
+
+The system SHALL let a person, on the desktop stand-up, link a task, a pull request or a plan to an open impediment and unlink one, changing nothing on the work it names.
+
+#### Scenario: Linking a pull request no task covers
+
+- **Given** "Bank sandbox down" holds back nothing, and no task links `acme/invoicing#1358`
+- **When** the person links `acme/invoicing#1358` to it
+- **Then** it holds back `acme/invoicing#1358`, and the pull request is unchanged
+
+#### Scenario: Linking a plan
+
+- **Given** "Bank API contract unsigned" holds back nothing
+- **When** the person links the plan `bank-integration`
+- **Then** it holds back the plan, and an entry filed under `+bank-integration` later is held back with it
+
+#### Scenario: Linking an item twice
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping"
+- **When** the person links "Bank import mapping" again
+- **Then** it holds back "Bank import mapping" once, and its history is unchanged
+
+#### Scenario: Unlinking an item
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping" and `acme/invoicing#1358`
+- **When** the person unlinks `acme/invoicing#1358`
+- **Then** it holds back "Bank import mapping" alone, keeps its state, and its history is unchanged
+
+#### Scenario: No session is offered
+
+- **Given** the session "Session abcd1234" is running
+- **When** the person searches for "abcd1234" in an impediment's Link… search
+- **Then** the session is not offered
+
+### Requirement: An agent raises and links impediments through MCP
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#impediments-for-agents]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Raise_takes_tasks_pull_requests_and_plan_tags, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_hands_the_one_item_its_selector_names_to_the_port, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_and_unlink_take_exactly_one_whole_selector]
+```
+
+The system SHALL let an agent, through MCP, raise an impediment holding back tasks, pull requests and plans, and link or unlink a task, a pull request or a plan on an existing one.
+
+#### Scenario: Raising with a pull request
+
+- **Given** an agent hits a failing bank sandbox while working on `acme/invoicing#1358`
+- **When** it calls `raise_impediment` titled "Bank sandbox down", holding back `acme/invoicing#1358`
+- **Then** a New impediment "Bank sandbox down" holds back that pull request
+
+#### Scenario: Linking a plan
+
+- **Given** the impediment "Bank API contract unsigned" holds back nothing
+- **When** an agent links the plan `bank-integration` to it
+- **Then** it holds back the plan
+
+#### Scenario: A pull request without its repository
+
+- **Given** the impediment "Bank sandbox down" is open
+- **When** an agent links pull request 1358 with no repository
+- **Then** the link is refused, and the impediment is unchanged
+
+### Requirement: A held-back item is settled by its kind
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#settled]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_is_settled_when_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_the_reading_does_not_have_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_is_settled_when_merged_or_closed_and_read_from_a_repository_that_is_not_archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_with_no_answer_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_is_settled_when_every_entry_it_gathers_is_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_with_an_open_entry_or_no_entry_is_not_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_lists_each_held_back_item_with_whether_it_is_settled]
+```
+
+The system SHALL count a held-back task as settled when its status is Done or Archived, a pull request when it is merged or closed, and a plan when it gathers at least one entry and every entry is Done or Archived.
+
+#### Scenario: An archived task
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", which was archived on 15 October
+- **When** the stand-up is read
+- **Then** "Old CSV import" counts as settled
+
+#### Scenario: A pull request closed without merging
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344`, which was closed without merging
+- **When** the stand-up is read
+- **Then** `acme/invoicing#1344` counts as settled
+
+#### Scenario: A plan with one open entry left
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-integration`, eight of whose nine entries are Done and "Payment matching rules" is in progress
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A plan with no entries
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-statements`, which no entry carries
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A deleted task
+
+- **Given** "Bank sample files missing" holds back a task that was deleted on 16 October
+- **When** the stand-up is read
+- **Then** that item does not count as settled
+
+#### Scenario: A pull request that cannot be read
+
+- **Given** "Bank sandbox down" holds back `acme/legacy-billing#77`, whose repository is archived
+- **When** the stand-up is read
+- **Then** `acme/legacy-billing#77` does not count as settled
+
+### Requirement: An impediment whose items are all settled reads Ready to resolve
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state]
+```
+
+The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and every item it holds back is settled, leaving its state and history unchanged.
+
+#### Scenario: A done task still marked blocked
+
+- **Given** the impediment "Beschikbaarheid van reserveringen" is New and holds back the task of that name alone, which was Done on 20 October and still carries `blocked:2026-10-13`
+- **When** the stand-up is read
+- **Then** the impediment is listed, New, and reads Ready to resolve
+
+#### Scenario: An impediment with no links
+
+- **Given** "Credit note numbering unclear" is New and holds back nothing
+- **When** the stand-up is read
+- **Then** it is listed and does not read Ready to resolve
+
+#### Scenario: One item still open
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", archived, and "Bank import mapping", in progress
+- **When** the stand-up is read
+- **Then** it does not read Ready to resolve
+
+#### Scenario: Work that comes back
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve, and its task is moved from Done back to in progress
+- **When** the stand-up is read again
+- **Then** it no longer reads Ready to resolve, and it is still New
+
+#### Scenario: The person resolves it
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve
+- **When** the person moves it to Resolved
+- **Then** it leaves the list of open impediments, and its history reads New, Resolved
+
+### Requirement: A task's blocked mark changes no impediment
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/tasks/features.md#marking-a-task-blocked]
+tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Set_blocked_raises_no_impediment, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Removing_the_blocked_token_leaves_the_impediment_that_holds_the_task_back_alone]
+```
+
+The system SHALL raise, move and change no impediment when a task is marked blocked or its mark is removed.
+
+#### Scenario: Marking a task blocked
+
+- **Given** the task "Bank import mapping" is held back by no impediment
+- **When** an agent calls `set_blocked` on it
+- **Then** no impediment is raised
+
+#### Scenario: The token is removed
+
+- **Given** "Bank sample files missing", Being handled, holds back "Bank import mapping", which is marked blocked
+- **When** the `blocked:` token is removed from the task
+- **Then** "Bank sample files missing" is still Being handled
+
+### Requirement: A blocked task raises one New impediment
+
+```meta
+type: requirement
+status: deprecated
 ```
 
 When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, the system SHALL raise a New impediment titled with the task's title that holds the task back, unless an impediment already holds it back that is not Resolved, or that was raised on or after the day the task was marked blocked.
@@ -706,21 +933,6 @@ When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, 
 - **Given** "Bank import mapping" was marked blocked on 15 October, and the impediment that raised is Resolved on 16 October
 - **When** the task is written again with its mark unchanged
 - **Then** no impediment is raised
-
-### Requirement: Unblocking a task leaves its impediment
-
-```meta
-type: requirement
-status: draft
-```
-
-The system SHALL leave an impediment's state unchanged when a task it holds back is no longer marked blocked.
-
-#### Scenario: The token is removed
-
-- **Given** "Bank sample files missing", Being handled, holds back "Bank import mapping", which is marked blocked
-- **When** the `blocked:` token is removed from the task
-- **Then** "Bank sample files missing" is still Being handled
 
 ## Pull request status
 
@@ -771,6 +983,7 @@ related: [.devbook/domain/progress/features.md#goals-on-the-phone]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_page_lists_the_tasks_pull_requests_and_plans_it_holds_back_and_reads_ready_to_resolve, unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_stand_up_card_of_an_impediment_ready_to_resolve_says_so, unit:dotnet:Backlog.Modules.Progress.UnitTests.PhoneProgressTests.The_context_carries_the_pull_requests_open_impediments_hold_back_even_with_no_goal]
 ```
 
 The system SHALL show on the phone the goals, the four stand-up blocks and the impediments that the paired desktop has synced.
@@ -781,11 +994,18 @@ The system SHALL show on the phone the goals, the four stand-up blocks and the i
 - **When** the person opens Stand-up on the phone
 - **Then** it shows the three goals, Finished, Planned and the three impediments
 
+#### Scenario: An impediment ready to resolve on the phone
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344` alone, and a desktop last read it as closed
+- **When** the person opens Stand-up on the phone
+- **Then** "Bank sandbox down" reads Ready to resolve, as it does on the desktop
+
 ### Requirement: The phone changes only an impediment's state, check-again date and note
 
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_phone_offers_no_raise_link_or_unlink
 ```
 
 The system SHALL let the phone change an impediment's state, check-again date and note, through the device outbox, and nothing else in Progress.
@@ -820,6 +1040,12 @@ The system SHALL let the phone change an impediment's state, check-again date an
 - **When** the person looks for a way to edit it, attach work to it or copy the stand-up
 - **Then** the phone offers none
 
+#### Scenario: No raising or linking on the phone
+
+- **Given** "Bank sample files missing" is open on the phone
+- **When** the person looks for a way to raise an impediment, or to link or unlink what it holds back
+- **Then** the phone offers none
+
 ## Syncing goals and impediments
 
 ```meta
@@ -833,7 +1059,7 @@ related: [.devbook/domain/progress/features.md#syncing-goals-and-impediments]
 ```meta
 type: requirement
 status: draft
-tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment]
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_version_1_write_keeps_the_pull_requests_and_plans_a_version_2_desktop_holds]
 ```
 
 The system SHALL carry each goal as one `goal` document and each impediment as one `impediment` document on the task feed, under its own id, while sync is on and the device is paired.
@@ -849,6 +1075,12 @@ The system SHALL carry each goal as one `goal` document and each impediment as o
 - **Given** two paired desktops with sync on
 - **When** the person raises "Bank sample files missing" on the first, holding back one task
 - **Then** the second shows it New, with its note and the task it holds back, after its next pull, without a Refresh
+
+#### Scenario: An impediment holding back all three kinds
+
+- **Given** two paired desktops on the same build, with sync on
+- **When** the person links a task, `acme/invoicing#1358` and the plan `bank-integration` to "Bank sample files missing" on the first
+- **Then** the second shows it holding back all three after its next pull
 
 #### Scenario: A sprint series an older build left
 
