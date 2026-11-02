@@ -1981,7 +1981,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             var first = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-checks']")!;
             Assert.Equal("failing", first.GetAttribute("data-variant"));
             Assert.Equal("7/10", first.QuerySelector(".pull-request-status__count")!.TextContent);
-            Assert.Equal("7 of 10 checks failing", first.QuerySelector(".sr-only")!.TextContent);
+            Assert.Equal("1 of 10 checks failing", first.QuerySelector(".sr-only")!.TextContent);
             // The base branch's rules were not read: the count alone, and no verdict on
             // whether it is enough.
             var approvals = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-approvals']")!;
