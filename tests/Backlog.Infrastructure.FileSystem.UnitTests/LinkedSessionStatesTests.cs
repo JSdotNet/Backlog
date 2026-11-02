@@ -18,6 +18,7 @@ public class LinkedSessionStatesTests
     [InlineData(AgentSessionState.Running, LinkedSessionState.Running)]
     [InlineData(AgentSessionState.Stalled, LinkedSessionState.Stalled)]
     [InlineData(AgentSessionState.Finished, LinkedSessionState.Finished)]
+    [InlineData(AgentSessionState.Waiting, LinkedSessionState.Waiting)]
     public async Task Each_session_state_crosses_as_the_same_state(AgentSessionState state, LinkedSessionState expected)
     {
         var adapter = new LinkedSessionStates(new StubSessions(Session("e711d47d-3e09", state)));
