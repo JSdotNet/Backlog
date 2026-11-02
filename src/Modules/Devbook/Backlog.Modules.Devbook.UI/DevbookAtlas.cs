@@ -54,7 +54,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 
     /// <summary>
     /// One registered repository's devbook out of its database, as the Lobes
-    /// atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>) draws it
+    /// atlas (<c>.devbook/domain/brain/features.md#lobes-atlas</c>) draws it
     /// beside the personal devbook that links into it — or its absence in words.
     /// A registered repository with no index yet is still a scope, unavailable,
     /// holding only the chapters the links name.

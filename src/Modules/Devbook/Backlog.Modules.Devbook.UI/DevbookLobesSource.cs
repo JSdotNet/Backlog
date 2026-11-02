@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// Where the Lobes atlas takeover reads its graph from
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>): the Brain and every
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>): the Brain and every
 /// registered devbook, read in one go, and a word whenever either changed.
 /// <para>
 /// A port of its own rather than the takeover reaching for

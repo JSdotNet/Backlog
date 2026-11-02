@@ -63,8 +63,8 @@ Redeeming it is the one transition, and the code is burned before the new
 ```meta
 status: draft
 type: domain-service
-aliases: [TaskChangePrecedence, AnnotationChangePrecedence, last-write-wins]
-related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/domain/tasks/requirements.md#requirement-the-later-edit-wins-whole]
+aliases: [TaskChangePrecedence, AnnotationChangePrecedence, DevbookSubjectChangePrecedence, last-write-wins]
+related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/tasks/requirements.md#requirement-the-later-edit-wins-whole]
 ```
 
 Decides whether a pushed copy of a document may replace the copy the replica
@@ -78,11 +78,14 @@ device therefore echoes every document it pulled, once, on its next push. Withou
 the rule that echo would replace whatever the replica had learned in between: a
 tombstone would come back as the live copy, and an edit would revert.
 
-There are two copies of the rule, `TaskChangePrecedence` for the task feed and
-`AnnotationChangePrecedence` for the annotation feed. The two change records share a
-shape and not a type, and the rule is four lines (local ADR 0011). Both replica
-adapters, the in-memory one and the Cosmos one, call the same copy, so they cannot
-disagree about what a stale push is. Session records need no precedence: each is
+There are three copies of the rule: `TaskChangePrecedence` for the task feed,
+`AnnotationChangePrecedence` for the annotation feed, and
+`DevbookSubjectChangePrecedence` for the devbook subject feed. The change records
+share a shape and not a type, and the rule is four lines (local ADRs 0011 and
+0044). The devbook subject copy compares the stamp alone, because a subject's
+state is never deleted and has no tombstone. Both replica adapters of a feed, the
+in-memory one and the Cosmos one, call the same copy, so they cannot disagree
+about what a stale push is. Session records need no precedence: each is
 written by one machine only (local ADR 0005 §Session records).
 
 Invocation semantics: command-invoked, by a push, once per document.
@@ -160,11 +163,11 @@ owner's data, and the store would not object.
 ```meta
 status: draft
 type: value-object
-aliases: [TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor]
+aliases: [TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor, DevbookSubjectReplicaCursor]
 related: [.devbook/domain/sync/domain.md#synccursor]
 ```
 
-A verified position in one owner's task, session or annotation feed: an
+A verified position in one owner's task, session, annotation or devbook subject feed: an
 [OwnerId](#ownerid) and a continuation. There is one type per feed, so a
 continuation for one feed cannot be handed to another feed's replica, and no
 replica port takes a bare string; the service reads each from a verified
@@ -207,7 +210,7 @@ The backlog an [OwnerId](#ownerid) names. It is not a person's account, since th
 product requires none, but the identifier every device paired together shares. The
 first device to register mints it; every device paired to that device afterward
 registers under the same one. It is the partition every stored task, session
-record, annotation and attachment carries. The sync service reads it out of a
+record, annotation, devbook subject state and attachment carries. The sync service reads it out of a
 device's presented [Device token](#device-token) to decide which partition a call
 may touch.
 

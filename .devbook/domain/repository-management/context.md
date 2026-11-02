@@ -26,13 +26,17 @@ are read from GitHub, and with which account. Health counts the open pull reques
 of a repository; readiness says what each one waits on. Both come from the same
 reads. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#1-repository-management-owns-pull-request-state)
-widens the subject this way, and it is proposed.
+widens the subject this way.
 
 It consumes baselines from
 [Technology Stack](../technology-stack/domain.md#technology-registry). The
-registry is built; scanning and health scoring are planned. Pull request
-readiness is built, but in the desktop shell rather than in a module of this
-context. ADR 0042 introduces that module, and the shell's code moves into it.
+registry is built; scanning and health scoring are planned. Pull request state
+is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its
+`.Abstractions` project holds the contract every reader uses. Beside it sit the
+rules every screen shares: the readiness verdict, the stacks, which merge a pull
+request is offered, and the label filter. The module holds the one cache and the
+merge commands. The pull requests pane's markup and its status lines
+stay in the desktop shell and read that contract.
 
 No feature flag gates [archiving a repository](features.md#archiving-a-repository).
 It is a registry edit like a rename, so it is there wherever the repository list
@@ -59,6 +63,7 @@ status: proposed
 type: feature-flag
 key: pull-requests
 related: [".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.RepositoryManagementFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
 ```
 
 Turning it on offers the pull requests pane in the shell, with its lanes, its detail
@@ -69,11 +74,11 @@ It is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings scre
 mark for a feature still under construction
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 A person's choice is kept in `features.json` beside the app's other per-device
-choices. Today the key is declared on `SessionFeatures` in the Sessions module.
-Local
+choices. The key is declared as `RepositoryManagementFeatures.PullRequests` in
+this context's `.Abstractions` project. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key)
-moves the declaration to this context and keeps the key, so a stored choice still
-applies. It is retired when the pull requests pane leaves `DEV`.
+moved the declaration here from `SessionFeatures` and kept the key, so a stored
+choice still applies. It is retired when the pull requests pane leaves `DEV`.
 
 ## Additional repositories
 

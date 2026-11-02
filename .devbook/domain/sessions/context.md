@@ -50,8 +50,8 @@ the session produced, the
 context publishes. The desktop shell composes that card, so this context holds only
 the pull request's number and references nothing of Repository Management. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
-decides it, and it is proposed. Until it is built, the pane lives in the desktop
-shell and its flag is still declared on `SessionFeatures`.
+decides it. The shell composes the pane, which reads Repository Management's
+contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests`.
 
 ## Sessions area
 
@@ -66,8 +66,8 @@ related: [".devbook/domain/sessions/features.md#turn-the-area-off"]
 Turning it on shows the Sessions segment and its list in the Home shell. Switching it
 off withdraws the area everywhere else too:
 
-- the `list_sessions` tool and the eight delivery-surface operations leave the MCP
-  endpoint;
+- the `list_sessions` and `list_run_usage` tools and the eight delivery-surface operations
+  leave the MCP endpoint;
 - the dashboard's hours worked and the roadmap's actual hours stop reading agent
   activity.
 

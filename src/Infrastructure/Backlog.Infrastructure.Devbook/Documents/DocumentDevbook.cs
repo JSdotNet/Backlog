@@ -94,20 +94,22 @@ public abstract class DocumentDevbookProvider : IDisposable
         }
 
         files = OrderFiles(files);
-        return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
+        return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit, location.RepositoryArchived);
     }
 
     /// <summary>
-    /// Writes a status into the <c>meta</c> fence under the addressed heading —
+    /// Writes a rating into the <c>meta</c> fence under the addressed heading —
     /// the file's own when the path names a file, a chapter's when it carries an
-    /// anchor.
+    /// anchor — in <c>ai/</c>, where the field is a rating and stays in the
+    /// Markdown.
     /// <para>
-    /// Through the same writer the architecture, domain and technology folders
-    /// use, and deliberately: where a status lives in a Markdown file is one fact
-    /// about this repository's documentation, not five. All this method adds is
-    /// which folder is being written and where that folder currently is.
+    /// <c>design/</c>'s status was workflow state, which is the tool's now and not
+    /// the file's, so a write there is refused by the rating writer before the
+    /// file is opened; the design view offers no control that would ask. A rating
+    /// is never cleared — <c>ai/</c> requires one — so there is no clearing verb.
     /// </para>
     /// </summary>
+    /// <exception cref="ArgumentException">The folder keeps no rating.</exception>
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -117,75 +119,32 @@ public abstract class DocumentDevbookProvider : IDisposable
         var location = _source.Resolve(Folder.Key, repositoryAlias);
         var folderPath = location.WritablePath(Folder.DisplayName);
 
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, Folder.PathPrefix, status);
+        DevbookMarkdownRatingWriter.UpdateRating(folderPath, itemPath, Folder.PathPrefix, status);
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
-    /// every other field intact. <c>.design</c> states a status only while a
-    /// guideline is unsettled or superseded; a guideline that is simply current
-    /// says so by saying nothing. Offered for every folder this provider reads
-    /// and only ever reached in one whose vocabulary allows an absent status —
-    /// <c>.ai</c> requires one, and its record view offers no way to clear it.
-    ///
-    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
-    /// null — see the same method on the domain store for why.</para>
+    /// The <c>sync</c> state of every block in one document: where each sits, read
+    /// from the Markdown with the blocks above it, and the direction in force
+    /// there, read from <paramref name="stated"/> — the repository's direction map.
+    /// Read from whatever the folder resolves to, branch snapshot included. There is
+    /// no write beside it: a direction is the map's, set through
+    /// <c>IDevbookSyncDirectionStore</c>, and nothing writes <c>sync</c> into a
+    /// file.
     /// </summary>
-    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    public Task<DevbookSyncReading> ReadSyncAsync(
+        string? repositoryAlias,
+        string documentPath,
+        Func<string, string?> stated,
+        CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        ArgumentNullException.ThrowIfNull(stated);
 
-        var location = _source.Resolve(Folder.Key, repositoryAlias);
-        var folderPath = location.WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, Folder.PathPrefix);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// The <c>sync</c> state of every block in one document: where each
-    /// sits and the direction in force there, read with the blocks above it. Read
-    /// from whatever the folder resolves to, branch snapshot included — a direction
-    /// is part of what the chapter says, and only writing it needs a local folder.
-    /// </summary>
-    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
-    {
         var location = _source.Resolve(Folder.Key, repositoryAlias);
         if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
 
         var folderPath = location.FullPath;
-        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolders.FromPath(Folder.PathPrefix), documentPath), cancellationToken);
-    }
-
-    /// <summary>Set the item's <c>sync</c> direction, through the same address and
-    /// the same guard as its status. A block that may not state one is
-    /// refused.</summary>
-    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
-
-        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, Folder.PathPrefix, direction);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
-    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
-    /// for the reason the status has one.</summary>
-    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-
-        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, Folder.PathPrefix);
-        return Task.CompletedTask;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Folder.Folder, documentPath, stated), cancellationToken);
     }
 
     /// <summary>
@@ -533,20 +492,25 @@ public static class DocumentDevbookParser
     private readonly record struct ParsedHeading(int Level, string Text);
 }
 
+/// <param name="RepositoryArchived">Whether the repository the folder belongs to
+/// is archived (local ADR 0029 §4) — which refuses a sync direction, a write to
+/// Backlog's own map that a read-only branch snapshot still takes.</param>
 public sealed record DocumentDevbookModel(
     bool IsAvailable,
     string? RepositoryName,
     string? FolderPath,
     IReadOnlyList<DocumentDevbookFile> Files,
     string Message,
-    bool CanEdit = true)
+    bool CanEdit = true,
+    bool RepositoryArchived = false)
 {
     public static DocumentDevbookModel Available(
         string repositoryName,
         string folderPath,
         IReadOnlyList<DocumentDevbookFile> files,
-        bool canEdit = true) =>
-        new(true, repositoryName, folderPath, files, string.Empty, canEdit);
+        bool canEdit = true,
+        bool repositoryArchived = false) =>
+        new(true, repositoryName, folderPath, files, string.Empty, canEdit, repositoryArchived);
 
     public static DocumentDevbookModel Unavailable(string message) =>
         new(false, null, null, [], message);

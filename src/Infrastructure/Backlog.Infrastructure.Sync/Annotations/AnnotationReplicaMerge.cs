@@ -60,10 +60,14 @@ public sealed class AnnotationReplicaMerge
                 annotation.Author,
                 annotation.CreatedAt,
                 annotation.Resolved,
-                annotation.BlockHash));
+                annotation.BlockHash,
+                DevbookAnnotationKinds.Name(annotation.Kind),
+                annotation.Branch));
     }
 
-    /// <summary>The stored record for one arriving change.</summary>
+    /// <summary>The stored record for one arriving change. A payload without a
+    /// kind or a branch — an older build's, or one a service deployed before
+    /// them stripped — is a comment on the default branch.</summary>
     public static DevbookAnnotation ToAnnotation(AnnotationChange change)
     {
         ArgumentNullException.ThrowIfNull(change);
@@ -81,7 +85,9 @@ public sealed class AnnotationReplicaMerge
             change.UpdatedAt,
             payload.Resolved,
             change.DeletedAt,
-            payload.BlockHash);
+            payload.BlockHash,
+            DevbookAnnotationKinds.Parse(payload.Kind),
+            DevbookAnnotation.BranchKey(payload.Branch));
     }
 
     /// <summary>Whether <paramref name="inbound"/> is the later of two records

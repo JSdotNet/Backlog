@@ -98,7 +98,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     /// show.</summary>
     public string Directory => Path.Combine(_rootDirectory(), FolderName);
 
-    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath)
+    public IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null)
     {
         ArgumentNullException.ThrowIfNull(chapterPath);
 
@@ -114,11 +114,13 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             // a document path from a relocated folder, a selection from the menu —
             // and still be asking about the one chapter.
             var chapter = Canonical(alias, chapterPath);
+            var asked = DevbookAnnotation.BranchKey(branch);
 
             return
             [
                 .. file.Annotations.Values
                     .Where(annotation => annotation.IsLive)
+                    .Where(annotation => string.Equals(annotation.Branch, asked, StringComparison.Ordinal))
                     .Where(annotation => string.Equals(annotation.ChapterPath, chapter, StringComparison.OrdinalIgnoreCase))
                     .OrderBy(annotation => annotation.CreatedAt)
                     .ThenBy(annotation => annotation.Id),
@@ -141,7 +143,9 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         string chapterPath,
         int blockIndex,
         string author,
-        string? blockHash = null)
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(chapterPath);
         ArgumentOutOfRangeException.ThrowIfNegative(blockIndex);
@@ -163,7 +167,9 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             author,
             now,
             now,
-            BlockHash: NullIfBlank(blockHash));
+            BlockHash: NullIfBlank(blockHash),
+            Kind: kind,
+            Branch: branch);
 
         // What the store now holds, never what was constructed: a caller that
         // goes on to ask for this remark by its chapter path has to be given the
@@ -245,6 +251,46 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         Write(replicated);
     }
 
+    /// <summary>
+    /// Writes each imported remark whose id no document here holds, tombstones
+    /// included, and saves every repository file it touched once.
+    /// <para>
+    /// The check and the write are under the one lock, so a remark a panel or
+    /// replication writes in between can never be overwritten by the import. The
+    /// stamps are the import's own — the authored time — and the store's clock is
+    /// not asked.
+    /// </para>
+    /// </summary>
+    public int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+
+        var touched = new HashSet<RepositoryFile>();
+        var written = 0;
+
+        lock (_gate)
+        {
+            Load();
+
+            foreach (var annotation in imported)
+            {
+                if (annotation is null || FindLoaded(annotation.Id) is not null) continue;
+
+                touched.Add(Place(annotation).File);
+                written++;
+            }
+
+            foreach (var file in touched)
+            {
+                Save(file);
+            }
+        }
+
+        if (written > 0) Changed?.Invoke();
+
+        return written;
+    }
+
     public IReadOnlyList<DevbookAnnotation> ListChangedSince(DateTimeOffset watermark)
     {
         lock (_gate)
@@ -307,6 +353,19 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     /// </para></summary>
     private DevbookAnnotation Put(DevbookAnnotation annotation)
     {
+        var (file, stored) = Place(annotation);
+        Save(file);
+
+        return stored;
+    }
+
+    /// <summary><see cref="Put"/> without the save: the document settled and held
+    /// in memory, and the file it went into, for a caller that writes several and
+    /// saves each file once. The branch is settled with the other addressing
+    /// fields, so a blank one arriving from any writer is the default branch.
+    /// Must be called under the lock, after <see cref="Load"/>.</summary>
+    private (RepositoryFile File, DevbookAnnotation Stored) Place(DevbookAnnotation annotation)
+    {
         var key = Key(annotation.RepositoryAlias);
 
         if (!_files.TryGetValue(key, out var file))
@@ -318,13 +377,13 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         var stored = annotation with
         {
             RepositoryAlias = key,
-            ChapterPath = Canonical(key, annotation.ChapterPath)
+            ChapterPath = Canonical(key, annotation.ChapterPath),
+            Branch = DevbookAnnotation.BranchKey(annotation.Branch)
         };
 
         file.Annotations[annotation.Id] = stored;
-        Save(file);
 
-        return stored;
+        return (file, stored);
     }
 
     /// <summary>
@@ -453,7 +512,9 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
                     entry.UpdatedAt,
                     entry.Resolved,
                     entry.DeletedAt,
-                    NullIfBlank(entry.BlockHash));
+                    NullIfBlank(entry.BlockHash),
+                    DevbookAnnotationKinds.Parse(entry.Kind),
+                    DevbookAnnotation.BranchKey(entry.Branch));
             }
 
             return file;
@@ -492,6 +553,8 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
                             Resolved = annotation.Resolved,
                             DeletedAt = annotation.DeletedAt,
                             BlockHash = annotation.BlockHash,
+                            Kind = DevbookAnnotationKinds.Name(annotation.Kind),
+                            Branch = annotation.Branch,
                         }),
                 ],
             }, JsonOptions));
@@ -542,5 +605,13 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         /// <summary>Absent from every file written before anchoring carried a
         /// digest. It deserializes to null, which means "trust the index".</summary>
         public string? BlockHash { get; init; }
+
+        /// <summary>One of the four kind names. Absent from every file written
+        /// before kinds existed, and read then — or when unknown — as a comment.</summary>
+        public string? Kind { get; init; }
+
+        /// <summary>The branch the remark was left on. Absent, or null, for the
+        /// default branch, which is every remark written before the field existed.</summary>
+        public string? Branch { get; init; }
     }
 }

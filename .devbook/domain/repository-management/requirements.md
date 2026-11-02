@@ -341,10 +341,10 @@ The system SHALL fetch no devbook snapshot of an archived repository on its own.
 type: requirement
 status: draft
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ResolveAnnotationTests.A_note_on_an_archived_repository_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.Annotations_of_an_archived_repository_still_list_and_say_it_is_archived]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ResolveAnnotationTests.A_note_on_an_archived_repository_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.Annotations_of_an_archived_repository_still_list_and_say_it_is_archived, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_repositorys_notes_are_listed_and_never_written, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.Archived_repositories_and_the_brain_are_never_read]
 ```
 
-The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository, and the MCP `resolve_annotation` tool SHALL refuse to resolve a remark on it.
+The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository. The MCP `resolve_annotation`, `devbook_post_note` and `devbook_resolve_note` tools SHALL refuse to write or resolve a remark on it, and the devbook import SHALL add no remark or state for it.
 
 #### Scenario: A remark waits on an archived devbook
 
@@ -358,6 +358,43 @@ The handle-remarks skill SHALL refuse to write an annotation into the devbook of
 - **When** an agent calls `resolve_annotation` for that remark
 - **Then** the call is refused with `repository.archived`, and the remark stays unresolved
 - **And** `list_annotations` still lists the remark and says the repository is archived
+
+#### Scenario: An agent posts a note over MCP
+
+- **Given** `budgetbeheer` is archived and a remark on one of its change proposals is open
+- **When** an agent calls `devbook_post_note` to reply to it, or `devbook_resolve_note` to resolve it
+- **Then** each call is refused with `repository.archived`, and the remark stays as it was
+- **And** `devbook_list_notes` still lists the remark
+
+#### Scenario: The app imports the devbooks
+
+- **Given** `budgetbeheer` is archived, and its default branch holds an open review note and a `planned` debt record
+- **When** the app imports the devbooks of the registered repositories
+- **Then** the devbook of `budgetbeheer` is not read, and no remark or state is added for it
+
+### Requirement: Subject state is not set on an archived devbook
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_repository_is_read_and_never_written, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_outcome_is_answered_as_repository_archived, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookReadOnlyBranchTests.A_subject_state_on_an_archived_repository_is_refused_and_nothing_is_kept, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_arc42_panel_shows_a_debt_records_state_read_only_on_an_archived_repository]
+```
+
+The system SHALL show the workflow state of an archived repository's decision and debt records without offering to change it, and the MCP state tools SHALL refuse to set, approve or accept a subject of an archived repository.
+
+#### Scenario: A debt record on an archived devbook
+
+- **Given** `budgetbeheer` is archived, and one of its debt records was `planned` before the archive
+- **When** the person opens that record
+- **Then** it shows `planned`, and no state is offered to pick
+
+#### Scenario: An agent sets a state over MCP
+
+- **Given** `budgetbeheer` is archived, and one of its debt records is `planned`
+- **When** an agent calls `devbook_set_state` to set it to `resolved`
+- **Then** the call is refused with `repository.archived`, and the record stays `planned`
+- **And** `devbook_get_state` still answers `planned`
 
 ### Requirement: Filing under an archived repository keeps it archived
 
@@ -427,7 +464,7 @@ related: [.devbook/domain/repository-management/features.md#pull-request-status,
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failure_among_twelve_passed_reads_1_of_13_failing, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
 ```
 
 The system SHALL show on every open pull request row an icon and its checks as `passed/total`, in a running variant while a check runs and a failing variant once one fails.
@@ -446,16 +483,17 @@ The system SHALL show on every open pull request row an icon and its checks as `
 
 #### Scenario: A failing check
 
-- **Given** #1344 has 14 checks, 2 passed and one failed
+- **Given** #1344 has 14 checks, 2 passed, one failed and 11 still running
 - **When** its row is drawn
 - **Then** it shows the failing icon and `2/14`
+- **And** a screen reader hears "1 of 14 checks failing", the failed count over the total
 
 ### Requirement: A pull request row shows approvals over required
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_base_branch_with_no_rule_has_no_required_total]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.A_base_branch_with_no_rule_has_no_required_total]
 ```
 
 The system SHALL show on every open pull request row an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.

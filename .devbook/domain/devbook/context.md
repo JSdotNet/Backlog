@@ -16,9 +16,10 @@ bounded context of its own (local ADR 0040).
 
 Inside the boundary: reading a repository's devbook folders in place, the
 devbook database and its builder, the chapter viewer and the Devbook pane, the
-reader's [remarks](domain.md#remark) on chapters, the planning fields every
-devbook chapter may carry, instruction review, and retrieval across every
-devbook the app reads.
+reader's [remarks](domain.md#remark) on chapters, the
+[workflow state](domain.md#subject-state) of a change proposal, a decision record
+and a debt record, the planning fields every devbook chapter may carry,
+instruction review, and retrieval across every devbook the app reads.
 
 Outside it:
 
@@ -69,7 +70,7 @@ status: draft
 type: feature-flag
 key: c4-zoom
 default: off
-related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0044-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
+related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0045-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
 ```
 
 Turning it on adds a **C4 zoom** tab beside the **C4** tab in the architecture
@@ -81,7 +82,7 @@ or off.
 
 The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and the
 switch is retired once the zoom tab has been validated and replaces the **C4** tab
-(local ADR 0044).
+(local ADR 0045).
 
 ## Devbook editing
 
@@ -119,17 +120,21 @@ status: draft
 type: feature-flag
 key: devbook-status
 default: off
-related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/design/content-editing.md#knowledge-metadata-blocks"]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off]
+related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-a-records-state-is-shown-from-the-apps-store", ".devbook/design/content-editing.md#knowledge-metadata-blocks"]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn]
 ```
 
 Turning it on shows the status every devbook file and each of its chapters
 state: the selector or badge beside the file's name and beside each heading, and
 the decision state that qualifies it. It covers every area, the technology
-ratings and Brain notes included. Off, no status or decision state is drawn
-there, and neither are the findings about them. A chapter's other fields, such
-as `related` and `sync`, are still drawn, and a heading over an otherwise empty
-`meta` fence still renders.
+ratings and Brain notes included. It also shows the workflow state the app keeps
+for a decision or debt record ([Subject State](domain.md#subject-state)), with who
+set it and when. Off, no status, decision state or record state is drawn there,
+and neither are the findings about them. A record's state is still kept, and an
+assistant can still read and set it over MCP. A chapter's other fields, such
+as `related`, are still drawn, and so is a unit's sync direction, which the app
+keeps in its direction map. A heading over an otherwise empty `meta` fence still
+renders.
 
 It switches the file and chapter surfaces only. The AI loop's usage pills and the
 atlas badges read a chapter's status as a summary shown somewhere else, and are

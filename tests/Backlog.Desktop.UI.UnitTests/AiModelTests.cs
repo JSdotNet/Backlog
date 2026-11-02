@@ -111,6 +111,22 @@ public sealed class AiModelTests
         Assert.Equal("merge-review", usage.Link.Anchor);
     }
 
+    /// <summary>A repository migrated to devbook contract 38 writes the rating as
+    /// <c>rating</c>, and the usage is rated by it.</summary>
+    [Fact]
+    public void A_usage_is_rated_by_its_rating_field_once_the_repository_migrates()
+    {
+        var section = new DocumentDevbookSection(
+            "Merge review",
+            "merge-review",
+            MetadataReader.Parse("rating: trial\nstage: [verify]"),
+            []);
+
+        var usage = Assert.Single(AiModel.From([File("04-integrate.md", section)]).Usages);
+
+        Assert.Equal("trial", usage.Status);
+    }
+
     [Fact]
     public void A_usage_without_the_optional_fields_reads_them_as_absent()
     {

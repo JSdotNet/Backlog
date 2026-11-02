@@ -160,16 +160,13 @@
 </section>
 
 @code {
-    // The folder's own vocabulary, not a list kept here. This used to be
-    // ["draft", "candidate", "accepted", "active", "adopted"] — three of those
-    // words `.domain` does not define, so the select offered states the index
-    // generator rejects, and it was missing `proposed` and `deprecated`, which it
-    // does. Asking DevbookStatus means the select cannot drift from the
-    // convention again, and it is what brings the empty option here — labelled
-    // `active`, because in .domain no status is the resting value — and keeps the
-    // decision rungs out of the list.
+    // The folder's own vocabulary, not a list kept here, so the badge judges an
+    // authored status by the same words the convention defines.
     private static MetadataStatusVocabulary DevbookVocabulary => DevbookStatus.Vocabulary(DevbookFolder.Domain);
-    private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "devbook-issue", "github-issue", "issue" };
+    // The keys never drawn as a row: the status, which the header carries, and the
+    // planning fields — `issue`, `effort`, `roadmap` — plus `change`, which the
+    // chapter view no longer draws anywhere. The plan lives in Backlog's own entries.
+    private static readonly HashSet<string> UndrawnMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "devbook-issue", "github-issue", "issue", "effort", "roadmap", "change" };
     private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
 
     /// <summary>The chapter as it was when it was opened, and the chapter as it
@@ -239,6 +236,11 @@
     /// readable and nothing more (local ADR 0029 §4) — see
     /// <see cref="DevbookRemarkControls"/>.</summary>
     private bool RepositoryArchived => _view is { RepositoryArchived: true };
+
+    /// <summary>The branch the view was read from, which is what its remarks are
+    /// kept under: null for a clone or the default branch, the name for a
+    /// named-branch snapshot.</summary>
+    private string? RemarkBranch => _view?.Branch;
 
     /// <summary>The remark controls the read view is bound to: none while
     /// archived.</summary>
@@ -390,6 +392,11 @@
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
+
+        // The same arrangement for a sync direction: the host's direction map, or a
+        // session one where the host composed none.
+        _directions = Services.GetService<IDevbookSyncDirectionStore>() ?? new SessionDevbookSubjectStateStore();
+        _directions.Changed += OnDirectionsChanged;
 
         // Optional, like the annotation store: a host that keeps no sync verdicts
         // draws the chapters without them.
@@ -632,10 +639,10 @@
             : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit, reader: _chapterReader);
         var sync = document is null
             ? DevbookSyncReading.None
-            : await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path);
+            : await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path, Stated(RepositoryAlias));
         if (read != _chapterRead) return;
 
-        _syncScope = document is null ? null : sync.Scope(document.Path, CanEdit ? (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction) : null);
+        _syncScope = document is null ? null : SyncScope(document, sync);
 
         _chapterPath = document?.Path;
         _chapterRoot = root;
@@ -884,7 +891,7 @@
     /// blocks and mean nothing against another file's.</summary>
     private void RefreshChapterComments() =>
         _chapterComments = _chapterDocument is { } document
-            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path)), RepositoryArchived)
+            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path, RemarkBranch)), RepositoryArchived)
             : [];
 
     /// <summary>The store changed under the panel — replication applied what
@@ -920,7 +927,8 @@
             document.Path,
             blockIndex,
             DevbookAnnotationComments.LocalAuthor,
-            _chapterView?.BlockDigestAt(blockIndex));
+            _chapterView?.BlockDigestAt(blockIndex),
+            branch: RemarkBranch);
 
         RefreshChapterComments();
     }
@@ -957,74 +965,87 @@
         RefreshChapterComments();
     }
 
+    /// <summary>Where a unit's sync direction is kept: Backlog's map, not the
+    /// chapter (devbook's branch-true decision).</summary>
+    private IDevbookSyncDirectionStore _directions = null!;
+
+    /// <summary>The direction map's lookup for one repository, captured so a read
+    /// that lands after a scope switch still asks the scope it was made for.</summary>
+    private Func<string, string?> Stated(string? alias) => address => _directions.Get(alias, address);
+
+    /// <summary>The scope cascaded over <paramref name="document"/>: a direction
+    /// may be set wherever the repository is not archived — on a branch snapshot
+    /// too, since it is the map's and no file changes (local ADR 0029 §4).</summary>
+    private DevbookSyncScope SyncScope(DomainDevbookDocument document, DevbookSyncReading sync) =>
+        sync.Scope(document.Path, RepositoryArchived ? null : (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction));
+
     /// <summary>
-    /// A status changed in the body, written to whichever chapter it belongs to.
-    /// <para>
-    /// The read view reports the heading, and the knowledge writer addresses a
-    /// status by path — the document's own path for the file's top heading, and the
-    /// <c>path#anchor</c> the parse produced for a section. So the heading is
-    /// matched back to one of those here; this panel already holds both lists, and
-    /// it is the only thing that does.
-    /// </para>
+    /// A sync direction picked in the open chapter, stated in the repository's
+    /// direction map at the block the scope addressed — no file is written, so an
+    /// open editor is left as it is. The map's own event rebuilds the scope
+    /// (<see cref="OnDirectionsChanged"/>), as it does for any other writer; a
+    /// refusal lands where a failed status write does, on the document.
     /// </summary>
-    /// <summary>
-    /// A sync direction picked in the open chapter, written to the block the scope
-    /// addressed. A failure lands where a failed status write does, on the
-    /// document.
-    /// </summary>
-    private async Task ChangeSyncAsync(DomainDevbookDocument document, string itemPath, string? direction)
+    private Task ChangeSyncAsync(DomainDevbookDocument document, string itemPath, string? direction)
     {
-        _statusErrors.Remove(document.Path);
+        var hadError = _statusErrors.Remove(document.Path);
+        if (RepositoryArchived) return Task.CompletedTask;
+
         try
         {
-            await FlushEditorAsync();
-
-            if (direction is null)
-            {
-                await DomainDevbook.ClearSyncAsync(RepositoryAlias, itemPath);
-            }
-            else
-            {
-                await DomainDevbook.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
-            }
-
-            await ReloadAsync();
+            _directions.Set(RepositoryAlias, DevbookSync.Address(DevbookFolder.Domain, itemPath), direction, DevbookLocalAuthor.Name);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (ArgumentException ex)
         {
             _statusErrors[document.Path] = ex.Message;
+            hadError = true;
         }
 
         // The pick arrives through the record's own callback, which re-renders the
-        // record and not this pane — so the rebuilt scope would never be cascaded,
-        // and every other block on the page would keep the direction it had.
-        StateHasChanged();
+        // record and not this pane — so an alert raised or cleared would never be
+        // drawn.
+        if (hadError) StateHasChanged();
+
+        return Task.CompletedTask;
     }
 
-    private Task ChangeChapterStatusAsync(DomainDevbookDocument document, DevbookStatusChange change)
+    /// <summary>Reads the open chapter's sync state again, from the map as it is
+    /// now, and rebuilds the scope — unless another chapter has started loading
+    /// meanwhile, whose own read has the answer.</summary>
+    private async Task RebuildSyncScopeAsync(DomainDevbookDocument document)
     {
-        if (change.Heading is not { } heading) return Task.CompletedTask;
+        if (!ReferenceEquals(_chapterDocument, document)) return;
 
-        if (string.Equals(heading, document.Title, StringComparison.OrdinalIgnoreCase))
+        var read = _chapterRead;
+        DevbookSyncReading sync;
+        try
         {
-            return ChangeDevbookStatusAsync(
-                new DevbookActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary),
-                change.Status);
+            sync = await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path, Stated(RepositoryAlias));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
         }
 
-        if (document.Sections.FirstOrDefault(section => string.Equals(section.Title, heading, StringComparison.OrdinalIgnoreCase)) is { } section)
-        {
-            return ChangeDevbookStatusAsync(
-                new DevbookActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt),
-                change.Status);
-        }
+        if (read != _chapterRead || !ReferenceEquals(_chapterDocument, document)) return;
 
-        // Nothing on screen answers to that heading, which means the parse this
-        // panel is holding and the text the body rendered have drifted apart. Said
-        // rather than swallowed: the alternative is a control that appears to work
-        // and writes nowhere.
-        _statusErrors[document.Path] = $"Could not tell which chapter \"{heading}\" is, so its state was not saved. Reopen the chapter and try again.";
-        return Task.CompletedTask;
+        _syncScope = SyncScope(document, sync);
+    }
+
+    /// <summary>The direction map changed under the panel — a tool call over MCP,
+    /// another pane, or the first read importing the Markdown's directions. It
+    /// arrives on whichever thread wrote, so the rebuild is marshalled.</summary>
+    private void OnDirectionsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed || _chapterDocument is not { } document) return;
+
+            await RebuildSyncScopeAsync(document);
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     /// <summary>
@@ -1181,8 +1202,6 @@
     private bool IsContextSelected(DomainDevbookContext? context) =>
         string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal);
 
-    private static IReadOnlyList<SelectorOption> DevbookStatusOptions() => DevbookVocabulary.Options();
-
     /// <summary>The modifier a document's article wears, so a stylesheet can tell
     /// one kind of knowledge file from another. The context map is on the list
     /// because it is reachable two ways — as the folder's own view when nothing is
@@ -1311,9 +1330,8 @@
                       DevbookFolder="DevbookFolder.Domain"
                       DevbookDocumentPath="@document.Path"
                       ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Services.GetService<IDevbookFolderSource>(), RepositoryAlias, document.Path)"
-                      CanEditDevbookStatus="@CanEdit"
+                      CanEditDevbookStatus="false"
                       ShowDevbookStatus="@StatusShown"
-                      OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
                       Comments="@_chapterComments"
                       OnAddComment="@Remarks.Add"
@@ -1433,44 +1451,23 @@
     </article>;
 
     @* showStatus is false for a heading whose status the open file view is already
-       drawing. Two selects for one field is how the pane used to disagree with
-       itself: the reader changed one and the other went on showing the old word
-       until something reloaded. Conditional on the file and not on the mode — a
-       chapter that states no status has no record for the file view to draw, and
-       the only way to give it one is still this select. *@
+       drawing, so one field is drawn once. Conditional on the file and not on the
+       mode — a chapter that states no status has no record for the file view to
+       draw. *@
     private RenderFragment RenderDevbookActions(DevbookActionItem item, bool showStatus = true) => @<div class="domain-devbook__actions" aria-label="Devbook item actions">
-        @* Read from a branch, the state is still shown — it is part of what the
-           chapter says — but as the badge rather than the select, which is the
-           same substitution MetadataView makes when a status cannot honestly be
-           edited. Hiding it outright would take the information with the
-           control. The same substitution covers a status the select cannot
-           honestly show: a decision rung, which is recognised and never offered,
-           and an explicit `status: active`, whose only option is the empty one —
-           both read as the badge, the second with the title saying how the
-           resting value is written. *@
-        @* And none of it is drawn while the status display is switched off
-           (DevbookFeatures.Status): the select, the badge and the decision state
-           go together, as they do in MetadataView. *@
-        @if (showStatus && StatusShown && (!CanEdit || !DevbookVocabulary.Selectable(DevbookActionMetadata.Status(item.Metadata))))
+        @* The status an item states is shown, as the badge, and no longer
+           offered as a select: under devbook's branch-true decision a chapter's
+           workflow state is the tool's, not the file's, so this panel writes no
+           `status` into a domain file. An authored one still reads — it is part of
+           what the file says until the devbook migration strips it. None of it is
+           drawn while the status display is switched off (DevbookFeatures.Status):
+           the badge and the decision state go together, as they do in
+           MetadataView. *@
+        @if (showStatus && StatusShown)
         {
             <MetadataStatusBadge Status="@DevbookActionMetadata.Status(item.Metadata)"
-                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
+                                 Vocabulary="@DevbookVocabulary"
                                  TestId="devbook-state-badge" />
-        }
-        else if (showStatus && StatusShown)
-        {
-            @* The slug comes from the vocabulary rather than being left to the
-               control to derive. Without it a cleared item fell through to
-               BadgeSlug's "draft" fallback and wore the draft pill — a real state,
-               standing in for none, which is the one thing the badge must not
-               do. *@
-            <StatusSelector Id="@StateSelectId(item)"
-                            CurrentValue="@DevbookActionMetadata.Status(item.Metadata)"
-                            Options="@DevbookStatusOptions()"
-                            Slug="@DevbookVocabulary.SlugFor(DevbookActionMetadata.Status(item.Metadata))"
-                            Label="@($"State for {item.Title}")"
-                            TestId="devbook-state-select"
-                            OnChanged="value => ChangeDevbookStatusAsync(item, value)" />
         }
 
         @* The decision and review state, beside the status it qualifies — the one
@@ -1480,22 +1477,6 @@
         @if (showStatus && StatusShown && DomainDevbookDecisionState.Describe(item.Metadata) is { Count: > 0 } decisionState)
         {
             <span class="domain-devbook__decision" data-testid="devbook-decision-state">@string.Join("; ", decisionState)</span>
-        }
-
-        @if (DevbookActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
-        {
-            @* Unknown rather than open: the link carries a repo, a number and a
-               label, and nothing on this path fetches the issue's state, so the
-               badge must not claim one. The visible word already says "linked". *@
-            <a class="badge badge--gh badge--gh-unknown"
-               data-testid="devbook-issue-badge"
-               href="@issue.Url"
-               target="_blank"
-               rel="noopener"
-               title="Devbook Issue @issue.Label in @issue.RepoFullName">
-                Devbook Issue @issue.Label
-                <span class="badge__state">linked</span>
-            </a>
         }
 
         @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli))
@@ -1576,39 +1557,6 @@
 
     private static RenderFragment UnfollowableDevbookLink(string link) => builder => builder.AddContent(0, link);
 
-    /// <param name="status">The word the reader picked, or null for "no status",
-    /// which removes the field. The no-op check still applies to both: clearing an
-    /// item that already states nothing writes nothing, exactly as re-picking the
-    /// word it already has does.</param>
-    private async Task ChangeDevbookStatusAsync(DevbookActionItem item, string? status)
-    {
-        var current = DevbookActionMetadata.Status(item.Metadata);
-        var clearing = string.IsNullOrWhiteSpace(status);
-        if (clearing ? string.IsNullOrWhiteSpace(current) : string.Equals(status, current, StringComparison.OrdinalIgnoreCase)) return;
-
-        _statusErrors.Remove(item.Path);
-        try
-        {
-            // The body goes first; DevbookChapterEditor.FlushAsync says why.
-            await FlushEditorAsync();
-
-            if (clearing)
-            {
-                await DomainDevbook.ClearStatusAsync(RepositoryAlias, item.Path);
-            }
-            else
-            {
-                await DomainDevbook.UpdateStatusAsync(RepositoryAlias, item.Path, status!);
-            }
-
-            await ReloadAsync();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
-        {
-            _statusErrors[item.Path] = ex.Message;
-        }
-    }
-
     /// <summary>
     /// Follows a reference in the metadata strip or in the prose.
     /// <para>
@@ -1669,9 +1617,9 @@
         VisibleMetadata(metadata).Any() || links.Count > 0;
 
     /// <summary>
-    /// The fields drawn as rows: everything but what the header already carries,
-    /// the <c>type</c> the heading draws as a mark, and the nine decision and review
-    /// state fields.
+    /// The fields drawn as rows: everything but the status the header carries, the
+    /// planning fields the chapter view no longer draws, the <c>type</c> the heading
+    /// draws as a mark, and the nine decision and review state fields.
     /// <para>
     /// The nine are not chapter content — contract 16 says a view draws them beside
     /// the status and never as rows in the body — so they come off the strip here
@@ -1683,7 +1631,7 @@
     /// </para>
     /// </summary>
     private static IEnumerable<KeyValuePair<string, string>> VisibleMetadata(IReadOnlyDictionary<string, string> metadata) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair) && !DevbookSchema.IsStateField(pair.Key));
+        metadata.Where(pair => !UndrawnMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair) && !DevbookSchema.IsStateField(pair.Key));
 
     private static string MetadataItemClass(string key) =>
         DevbookSchema.IsExtensionKey(key) ? "domain-metadata__item domain-metadata__item--extension" : "domain-metadata__item";
@@ -1707,13 +1655,11 @@
         [.. value.Trim().Trim('[', ']').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => v.Trim().Trim('"', '\'', '[', ']')).Where(v => v.Length > 0)];
 
     private static bool MetadataContainsLink(IReadOnlyDictionary<string, string> metadata, string link) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key)).SelectMany(pair => MetadataValues(pair.Value)).Any(value => string.Equals(value, link, StringComparison.OrdinalIgnoreCase));
+        metadata.Where(pair => !UndrawnMetadataKeys.Contains(pair.Key)).SelectMany(pair => MetadataValues(pair.Value)).Any(value => string.Equals(value, link, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsDevbookLink(string value) => value.StartsWith(".", StringComparison.Ordinal) && value.Contains('/');
 
     private static string ElementId(string path) => "devbook-" + new string(path.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-');
-
-    private static string StateSelectId(DevbookActionItem item) => ElementId(item.Path) + "-state";
 
     private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
 
@@ -1739,6 +1685,7 @@
         DomainDevbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        _directions.Changed -= OnDirectionsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
         _switches?.Dispose();

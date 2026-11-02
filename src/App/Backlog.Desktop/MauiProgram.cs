@@ -290,6 +290,14 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And devbook subject state's loop, the annotations' sibling, on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+        // And the one-time devbook import, on the same terms: it reads each repository's
+        // default branch once into the two stores above, and a worker nobody resolves
+        // imports nothing.
+        _ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();
+
         // And the notification exchange's loop (local ADR 0039), on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 

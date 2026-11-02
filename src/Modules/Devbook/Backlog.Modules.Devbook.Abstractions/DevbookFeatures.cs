@@ -53,7 +53,7 @@ public static class DevbookFeatures
     /// reading of the same model, and with the model off there is nothing to zoom
     /// through. Its own key rather than a change to the C4 tab, so the new navigation
     /// can be used beside the current one and replace it only once it is validated
-    /// (local ADR 0044).
+    /// (local ADR 0045).
     /// </para></summary>
     public const string C4Zoom = "c4-zoom";
 
@@ -106,7 +106,7 @@ public static class DevbookFeatures
     public const string Status = "devbook-status";
 
     /// <summary>Map the Brain and every registered devbook as brains in one
-    /// full-window atlas (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>).
+    /// full-window atlas (<c>.devbook/domain/brain/context.md#lobes-atlas</c>).
     /// <para>
     /// A devbook key by the same rule as its neighbours: the pane's own Atlas
     /// button reads it to choose which atlas it opens, and the Shell reads it to

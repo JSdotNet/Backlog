@@ -51,7 +51,7 @@ classDiagram
     }
 
     class ReplicaCursor {
-        <<TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor>>
+        <<TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor, DevbookSubjectReplicaCursor>>
         +OwnerId Owner
         +string Continuation
     }
@@ -75,6 +75,12 @@ classDiagram
         +AnnotationPayload Annotation
     }
 
+    class DevbookSubjectChange {
+        +Guid Id
+        +DateTimeOffset UpdatedAt
+        +DevbookSubjectPayload Subject
+    }
+
     class SessionRecord {
         +string SessionId
         +string AgentKind
@@ -89,6 +95,7 @@ classDiagram
     ReplicaCursor ..> SyncCursor : built only from
     ChangePrecedence ..> TaskChange : compares two
     ChangePrecedence ..> AnnotationChange : compares two
+    ChangePrecedence ..> DevbookSubjectChange : compares two
     SessionRecord ..> DeviceId : keyed under, by Session Record Key
 ```
 
@@ -97,11 +104,12 @@ classDiagram
 - **The two aggregates meet only at the owner.** A Pairing Code names the owner a
   redeeming device joins and the device that issued it. Redeeming it creates a new
   Device under that owner; the code keeps no reference to the device it made.
-- **The documents are not Sync's types.** `TaskChange`, `SessionRecord` and
-  `AnnotationChange` are the published language in
+- **The documents are not Sync's types.** `TaskChange`, `SessionRecord`,
+  `AnnotationChange` and `DevbookSubjectChange` are the published language in
   `Backlog.Modules.Sync.Abstractions`. Sync reads their envelope (id, `updatedAt`,
-  `deletedAt`, and a session record's machine, agent and session id) and stores the
-  payload whole. What the payload means stays with Tasks, Sessions and Devbook.
+  `deletedAt` where the feed has tombstones, and a session record's machine, agent
+  and session id) and stores the payload whole. What the payload means stays
+  with Tasks, Sessions and Devbook.
 - **Every replicated document carries an OwnerId** as its partition, and every
   replica read is given an [OwnerScope](domain.md#ownerscope) or a
   [Replica Cursor](domain.md#replica-cursor) naming one. Nothing reaches a replica

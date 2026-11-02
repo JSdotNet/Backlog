@@ -474,45 +474,6 @@ public sealed class MetadataViewTests
     }
 
     [Fact]
-    public void An_issue_url_is_followable_and_the_shorthand_is_not()
-    {
-        // Both forms are drawn through the integrations family — the GitHub mark, the
-        // number, the repository beside it — and which of the two it is decides only
-        // whether there is an address behind it.
-        using var context = new BunitContext();
-
-        var url = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("issue: https://github.com/JSdotNet/Backlog/issues/42")));
-
-        Assert.Equal(
-            "https://github.com/JSdotNet/Backlog/issues/42",
-            url.Find("a.integration-link--link").GetAttribute("href"));
-        Assert.Equal("#42", url.Find(".integration-link__label").TextContent);
-
-        var shorthand = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("issue: JSdotNet/Backlog#42")));
-
-        Assert.Empty(shorthand.FindAll("a"));
-        Assert.Equal("#42", shorthand.Find("span.integration-link--inert .integration-link__label").TextContent);
-        Assert.Equal("JSdotNet/Backlog", shorthand.Find(".integration-link__repository").TextContent);
-    }
-
-    [Fact]
-    public void An_issue_named_in_a_fence_carries_no_state_so_no_state_chip_is_drawn()
-    {
-        // A meta fence says which issue, never whether it is open. Drawing the
-        // Unknown chip would put a dashed "Not checked" on every chapter that names
-        // one, which is a claim about a read nobody performed.
-        using var context = new BunitContext();
-
-        var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("issue: JSdotNet/Backlog#42")));
-
-        Assert.Empty(view.FindAll(".badge--integration"));
-        Assert.DoesNotContain("Not checked", view.Markup, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Plain_string_fields_never_become_links_even_when_a_href_is_offered()
     {
         // An alternative was weighed and rejected, so it was never written up and
@@ -557,12 +518,12 @@ public sealed class MetadataViewTests
     }
 
     [Fact]
-    public void Kind_version_and_effort_keep_their_names_for_a_screen_reader_and_hide_them_on_screen()
+    public void Kind_and_version_keep_their_names_for_a_screen_reader_and_hide_them_on_screen()
     {
         // The value says which field it is — a classification chip, a v-prefixed
-        // version, a points badge — so the visible label was restating it. Hidden and
-        // not dropped: a value read out with no field name is worse to hear than a
-        // name nobody needed to see.
+        // version — so the visible label was restating it. Hidden and not dropped: a
+        // value read out with no field name is worse to hear than a name nobody
+        // needed to see.
         using var context = new BunitContext();
 
         var view = context.Render<MetadataView>(parameters => parameters
@@ -570,23 +531,21 @@ public sealed class MetadataViewTests
                 related: [".tech/shared.md"]
                 kind: framework
                 version: "10.0"
-                effort: 5
                 """))
             .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Equal(
-            ["kind", "version", "effort"],
+            ["kind", "version"],
             view.FindAll("dt.sr-only").Select(label => label.TextContent));
 
         // Every other row keeps the name, because every other row still needs it.
         Assert.Equal(["related"], view.FindAll("dt:not(.sr-only)").Select(label => label.TextContent));
 
         // The modifier is what lets the stylesheet give the value the column back.
-        Assert.Equal(3, view.FindAll("div.devbook-fields__row--bare").Count);
+        Assert.Equal(2, view.FindAll("div.devbook-fields__row--bare").Count);
 
         Assert.Equal("framework", view.Find(".badge--kind").TextContent);
         Assert.Equal("v10.0", view.Find("code.devbook-value").TextContent);
-        Assert.Equal("5 pts", view.Find(".badge--effort").TextContent);
     }
 
     [Fact]
@@ -808,88 +767,48 @@ public sealed class MetadataViewTests
     }
 
     [Fact]
-    public void An_effort_draws_a_points_badge_and_says_what_the_number_counts()
+    public void Issue_effort_roadmap_and_change_draw_no_row()
     {
+        // The plan lives in Backlog's own entries, so the chapter view draws none
+        // of the planning fields; `change` is recognised and dropped like `order`.
         using var context = new BunitContext();
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: draft
+                kind: framework
+                issue: JSdotNet/Backlog#42
                 effort: 5
-                """)));
-
-        var badge = view.Find("[data-testid=\"devbook-effort-badge\"]");
-        Assert.Contains("badge", badge.ClassList);
-        Assert.Equal("5 pts", badge.TextContent.Trim());
-
-        // An effort row is labelled like every other secondary field.
-        Assert.Contains("effort", view.FindAll("dt").Select(label => label.TextContent));
-    }
-
-    [Fact]
-    public void An_effort_of_zero_still_draws_its_badge()
-    {
-        // Zero is an estimate, not the absence of one, so it shows.
-        using var context = new BunitContext();
-
-        var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("""
-                status: draft
-                effort: 0
-                """)));
-
-        Assert.Equal("0 pts", view.Find("[data-testid=\"devbook-effort-badge\"]").TextContent.Trim());
-    }
-
-    [Fact]
-    public void No_effort_draws_no_badge()
-    {
-        using var context = new BunitContext();
-
-        var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
-
-        Assert.Empty(view.FindAll("[data-testid=\"devbook-effort-badge\"]"));
-        Assert.DoesNotContain("effort", view.FindAll("dt").Select(label => label.TextContent));
-    }
-
-    [Fact]
-    public void Roadmap_keys_draw_one_badge_each_inside_the_labelled_container()
-    {
-        // Drawn in the same treatment as feature-flag by the same component, because
-        // the two fields are the same shape: a key something outside these files
-        // answers to. The field is out of the storybook for now and no file in this
-        // repository writes it, so a second component nobody could look at was the
-        // alternative.
-        using var context = new BunitContext();
-
-        var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("""
-                status: draft
                 roadmap: [sync-service, mobile-mvp]
+                change: add-remark-kind
                 """)));
 
-        var container = view.Find("[data-testid=\"devbook-roadmap-tags\"]");
-        Assert.Equal(
-            ["sync-service", "mobile-mvp"],
-            container.QuerySelectorAll(".badge--feature").Select(badge => badge.TextContent.Trim()));
-
-        // A key names a roadmap item, it does not address a chapter, so it is
-        // never dressed as a link.
-        Assert.Empty(container.QuerySelectorAll("a"));
-        Assert.Contains("roadmap", view.FindAll("dt").Select(label => label.TextContent));
+        Assert.Equal(["kind"], view.FindAll("dt").Select(label => label.TextContent));
+        Assert.DoesNotContain("pts", view.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("sync-service", view.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Backlog#42", view.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("add-remark-kind", view.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void An_empty_roadmap_draws_no_chips_and_no_container()
+    public void A_block_stating_only_planning_fields_has_no_rows_to_draw()
     {
+        var metadata = MetadataReader.Parse("issue: JSdotNet/Backlog#42\neffort: 0\nroadmap: [sync-service]");
+
+        Assert.False(MetadataFields.HasAny(metadata));
+    }
+
+    [Fact]
+    public void A_rating_written_as_rating_is_the_headline_value()
+    {
+        // A `tech/` or `ai/` block migrated to devbook contract 38 writes `rating`;
+        // the headline shows it where it showed the status before.
         using var context = new BunitContext();
 
         var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
+            .Add(v => v.Metadata, MetadataReader.Parse("rating: adopted")));
 
-        Assert.Empty(view.FindAll("[data-testid=\"devbook-roadmap-tags\"]"));
-        Assert.DoesNotContain("roadmap", view.FindAll("dt").Select(label => label.TextContent));
+        Assert.Equal("adopted", view.Find(".badge--status").TextContent);
     }
 
     [Fact]

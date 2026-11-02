@@ -89,8 +89,11 @@ status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```
 
-> The requirements of how a chapter's metadata is shown and written: the decision
-> state a domain chapter carries, and the state another tool keeps on it.
+> The requirements of how a chapter's metadata and workflow state are shown: the
+> decision state a domain chapter carries, the state the app keeps for a decision
+> or debt record and a proposal, the state another tool keeps on a chapter, and
+> the planning fields the view leaves out. They also say how the app's store first
+> takes the states a repository's Markdown still writes.
 
 ### Requirement: Decision state is shown beside the status
 
@@ -114,27 +117,57 @@ While [Devbook status](context.md#devbook-status) is on, the system SHALL show a
 - **When** the reader opens it in the domain panel
 - **Then** neither its status nor the decision line is drawn, and the approval and acceptance fields are still not listed with its metadata
 
+### Requirement: A record's state is shown from the app's store
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_decision_records_state_is_drawn_read_only_from_the_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_state_that_arrives_while_the_record_is_open_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.The_authored_status_reads_as_a_badge_and_nothing_writes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_arc42_panel_sets_a_debt_records_state_on_a_branch_and_writes_no_file, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.The_line_states_the_kind_who_and_when, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_options_is_offered_where_the_status_cannot_be_edited, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_no_options_is_shown_and_not_offered, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.With_the_status_hidden_the_subject_state_is_not_drawn]
+```
+
+While [Devbook status](context.md#devbook-status) is on, the system SHALL show a decision or debt record's state from the app's own store beside the record's name, saying who set it and when.
+
+#### Scenario: A debt record on a branch
+
+- **Given** Devbook status is on, and a debt record under `arc42/tdr/` read from a branch snapshot
+- **When** the reader picks `planned` as its state
+- **Then** the record shows `planned` and *debt state set by You* on that day, and no file of the snapshot changes
+
+#### Scenario: A decision record
+
+- **Given** Devbook status is on, and an assistant set a decision record to `proposed` in one pull request and to `decided` in a later one
+- **When** the reader opens the record
+- **Then** it shows `decided` with who set it and when, and offers no state to pick
+
+#### Scenario: Status switched off
+
+- **Given** Devbook status is off, and a debt record whose state is `planned`
+- **When** the reader opens it
+- **Then** no state is drawn beside its name, and the store still keeps `planned`
+
 ### Requirement: Leaving a decision step takes its record with it
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Moving_from_accepted_to_approved_deletes_the_acceptance_record_and_keeps_the_approval, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_an_ordinary_status_deletes_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_the_resting_value_deletes_the_status_and_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Removing_the_status_of_an_approved_chapter_deletes_the_approval_record_with_it]
+related: [.devbook/domain/devbook/domain.invariants.md#invariant-leaving-a-decision-step-withdraws-the-decisions-above-it]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Setting_a_proposal_back_to_draft_withdraws_approval_and_acceptance, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approving_again_withdraws_an_acceptance_at_the_old_fingerprint]
 ```
 
-The system SHALL delete a domain chapter's approval or acceptance record in the same write that moves the chapter off that step.
+The system SHALL withdraw a proposal's approval and acceptance when it is set back to draft, and its acceptance when it is approved again.
 
-#### Scenario: Back from accepted to approved
+#### Scenario: Approved again
 
-- **Given** a domain chapter that is accepted, with its approval and acceptance records
-- **When** the reader sets its status to approved
-- **Then** the chapter keeps its approval record and no longer carries an acceptance record
+- **Given** a proposal that is accepted, with its approval and acceptance, in the app's store
+- **When** an assistant approves it again at the change's new fingerprint
+- **Then** the proposal is approved at that fingerprint and no longer carries an acceptance
 
 #### Scenario: Back to draft
 
-- **Given** a domain chapter that is accepted, with its approval and acceptance records
-- **When** the reader sets its status to draft
-- **Then** the chapter carries neither record
+- **Given** a proposal that is accepted, with its approval and acceptance, in the app's store
+- **When** an assistant sets its state to `draft`
+- **Then** the proposal carries neither its approval nor its acceptance
 
 ### Requirement: Another tool's state is carried as written
 
@@ -152,6 +185,58 @@ The system SHALL show every `ext.` key of a chapter's metadata with its key and 
 - **When** the reader opens it
 - **Then** the chapter lists `ext.archify.layer` with the value `core`, marked as another tool's, and no finding is reported about it
 
+### Requirement: The default branch's states are imported once
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/domain/devbook/domain.invariants.md#invariant-an-import-never-overwrites-a-state-the-store-holds]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_repository_is_imported_from_its_default_branch_and_marked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_second_run_reads_nothing_writes_nothing_and_raises_no_changed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.An_import_run_again_never_overwrites_what_the_stores_hold, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.When_the_default_branch_cannot_be_read_nothing_is_written_or_marked_and_the_next_run_retries, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_debt_record_imports_its_status, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_proposed_decision_record_is_planned_for_its_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_accepted_proposal_keeps_its_authored_approval_and_acceptance]
+```
+
+The system SHALL import once the state each decision record, debt record and proposal has in a registered repository's default branch, and never over a state its store holds.
+
+#### Scenario: A debt record planned in its file
+
+- **Given** the default branch of `budgetbeheer` holds a debt record whose `meta` block states `planned`, and the app's store holds no state for it
+- **When** the app imports the devbook of `budgetbeheer`
+- **Then** the store holds `planned` for the record, set by `devbook import` at the time of the commit that added the file
+
+#### Scenario: An accepted proposal
+
+- **Given** the default branch holds a proposal that states `accepted`, with its approval and acceptance written by `jobsc`
+- **When** the app imports the devbook
+- **Then** the store holds the proposal `accepted`, with the approval and acceptance by `jobsc` at the times and fingerprints the file states
+
+#### Scenario: A state moved on since
+
+- **Given** the debt record was imported as `planned`, and a person has since set it to `in-progress`
+- **When** the import runs again on another device
+- **Then** the record stays `in-progress`
+
+#### Scenario: The default branch cannot be read
+
+- **Given** the default branch of `budgetbeheer` cannot be read
+- **When** the app imports its devbook
+- **Then** nothing is written, the repository is not marked as imported, and the next run tries again
+
+### Requirement: Planning fields are not drawn
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#effort, .devbook/domain/devbook/domain.md#roadmap-contribution]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.Issue_effort_roadmap_and_change_draw_no_row, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.A_block_stating_only_planning_fields_has_no_rows_to_draw, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookPanelTests.A_chapter_naming_an_issue_draws_no_issue_badge_and_no_planning_rows, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.Effort_roadmap_and_issue_are_still_parsed_for_the_readers_that_need_them]
+```
+
+The chapter view SHALL draw nothing for a chapter's `issue`, `effort`, `roadmap` or `change` field, while the app still reads the first three.
+
+#### Scenario: A chapter that names its issue
+
+- **Given** a chapter whose `meta` block states `issue: JSdotNet/Backlog#42`, `effort: 5`, `roadmap: [sync-service]` and `change: add-remark-kind`
+- **When** the reader opens it
+- **Then** no issue badge and no effort, roadmap or change row is drawn, and its other fields are listed as before
+
 ## Remarks on a chapter
 
 ```meta
@@ -161,7 +246,8 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 
 > The requirements of where the read view shows a reader's remark once the chapter
-> it was left on has changed.
+> it was left on has changed, on which branch it shows, and how a repository's
+> open review notes become remarks.
 
 ### Requirement: A remark follows its passage
 
@@ -196,6 +282,52 @@ The read view SHALL show a remark whose passage has been deleted or reworded at 
 - **Given** a remark on a paragraph of a chapter
 - **When** that paragraph is deleted and the reader opens the chapter again
 - **Then** the remark shows at the end of the chapter
+
+### Requirement: Open review notes are imported once as remarks
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#review-note, .devbook/domain/devbook/domain.invariants.md#invariant-an-import-never-overwrites-a-remark-the-store-holds]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_open_fence_becomes_a_remark_anchored_to_the_block_above_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_question_keeps_its_kind_and_its_replies_fold_into_the_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_unknown_kind_reads_as_a_comment_and_a_resolved_fence_imports_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_repository_is_imported_from_its_default_branch_and_marked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_second_run_reads_nothing_writes_nothing_and_raises_no_changed, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.An_imported_open_remark_is_written_and_raises_no_alert]
+```
+
+The system SHALL import each open review note on a registered repository's default branch once, as a remark of the same kind beside the passage the note follows, and SHALL import no resolved note.
+
+#### Scenario: An open question with a reply
+
+- **Given** the default branch of `budgetbeheer` holds an open `question` review note by `jobsc` below a paragraph, with one reply
+- **When** the app imports the devbook of `budgetbeheer`
+- **Then** a question remark by `jobsc` shows beside that paragraph on the default branch, with the reply below its body, and no alert is raised
+
+#### Scenario: A resolved note
+
+- **Given** the default branch holds a resolved review note
+- **When** the app imports the devbook
+- **Then** no remark is added for it
+
+#### Scenario: The next start
+
+- **Given** the devbook of `budgetbeheer` has been imported on this device
+- **When** the app starts again
+- **Then** its default branch is not read again, and no remark is added
+
+### Requirement: A named branch's remarks show only on that branch
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#remark]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.List_answers_only_the_remarks_for_the_branch_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_branch_across_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch]
+```
+
+The read view SHALL show a remark left on a named branch only while that branch is read, and a remark left on the default branch only while the default branch or the clone is read.
+
+#### Scenario: Reading a feature branch
+
+- **Given** a chapter with one remark left on the default branch and one left on `feature/remark-kinds`
+- **When** the reader opens the chapter from `feature/remark-kinds`
+- **Then** only the remark left on `feature/remark-kinds` shows, and a new remark is kept under that branch
 
 ## Review notes in a chapter
 
@@ -579,7 +711,7 @@ related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 ```
 
 > The requirements of the **C4 zoom** tab of the architecture panel, behind the
-> `c4-zoom` switch (local ADR 0044). Each has its cases written inline until a
+> `c4-zoom` switch (local ADR 0045). Each has its cases written inline until a
 > journey proves it.
 
 ### Requirement: The zoom tab sits beside the C4 tab

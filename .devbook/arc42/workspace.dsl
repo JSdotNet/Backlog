@@ -39,6 +39,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
                 dashboard = component "Dashboard" "Monitoring signals and saved dashboards." "Razor Class Library"
                 devPc = component "Dev PC Management" "The machines this system knows about and what is installed on them." "Razor Class Library"
                 sessions = component "Sessions" "The record of Claude and Copilot sessions on this PC." "Razor Class Library"
+                repositoryManagement = component "Repository Management" "Pull-request state of the registered repositories: status, readiness verdict, stacks, merge commands and one cache." "Class Library"
                 components = component "UI Components" "The shared control library every screen renders through." "Razor Class Library"
                 workers = component "Fetch Workers" "Polling for YouTube, websites, email, GitHub sync and stale detection." "Background services"
                 persistence = component "Local Persistence" "The task store and the settings files." "SQLite, JSON"
@@ -99,6 +100,11 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         backlog.desktop.roadmap -> backlog.desktop.persistence "Reads planned work"
         backlog.desktop.workers -> backlog.desktop.inbox "Delivers captured items"
         backlog.desktop.persistence -> backlog.taskStore "Reads and writes" "file system"
+
+        backlog.desktop.shell -> backlog.desktop.repositoryManagement "Reads pull-request status and verdict; runs the merge commands"
+        backlog.desktop.backlogModule -> backlog.desktop.repositoryManagement "Reads linked pull-request state, through an adapter"
+        backlog.desktop.repositoryManagement -> backlog.desktop.persistence "Remembers merged pull requests"
+        backlog.desktop.repositoryManagement -> github "Reads pull requests, checks and reviews; sends merge commands" "HTTPS / gh CLI"
 
         backlog.desktop.workers -> youtube "Polls the subscription feed" "HTTPS"
         backlog.desktop.workers -> websites "Monitors by RSS and DOM diff" "HTTPS"

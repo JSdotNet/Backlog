@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-16
-related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/domain/devbook/features.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/domain/devbook/features.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 c4: [backlog.desktop.devbook, backlog.cloud, backlog.cloudDb]
 ```
 
@@ -61,6 +61,49 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > stamps the remark past the watermark again, so it is offered once more then.
 > A tombstone now travels with an empty body, so a remark whose body grew past
 > the bound can still be deleted on every device.
+>
+> **Amended, 2026-10-30 — a second Devbook record takes this arrangement.** A
+> devbook subject's workflow state (local ADR 0044) is kept and replicated the way
+> this record keeps a remark: one JSON file per repository under the storage
+> folder, in `devbook-subjects/`, and a container of its own, `devbookSubjects`,
+> with its own route, `/api/sync/devbook-subjects`. Three things differ, and ADR
+> 0044 §7 gives the reasons. The id is derived from the repository and the
+> subject, so two devices converge on one document. A tie in `updatedAt` changes
+> nothing. Nothing is deleted, so there is no tombstone and the container has no
+> TTL. `DevbookSubjectSyncWorker` is one more copy of this record's loop, so the
+> extraction deferred under **Consequences** now faces five copies. It is still
+> deferred. Nothing about remarks changed.
+>
+> **Amended, 2026-11-02 — a remark carries its kind and its branch, and a
+> repository's open fences arrive as remarks once.** devbook's branch-true decision
+> (`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#branch-true-devbook`) makes
+> the tool's store, not the fence, the place an open note lives. Plan entry 6
+> follows it:
+>
+> - **A remark is keyed by repository alias, branch and chapter path.** The branch
+>   is null for the default branch, which covers a clone, a default-branch snapshot
+>   and every remark stored before the field existed. A remark left on a
+>   named-branch snapshot carries that branch's name, and shows on that branch
+>   alone.
+> - **A remark carries a `kind`** from devbook's closed set: `comment`, the
+>   default, `question`, `suggestion` or `flag`.
+> - **The wire gains two optional trailing members.** `AnnotationPayload` adds
+>   `Kind` and `Branch` on `BlockHash`'s precedent, so a payload without them, from
+>   an older build or service, reads as a `comment` on the default branch.
+>   `AnnotationRecordLimits.WhyRefused` refuses an unknown kind and a branch longer
+>   than 255 characters, at the endpoint and in the desktop push alike.
+> - **The port gains a third kind of write.** Beside the panel verbs and `Apply`,
+>   `IDevbookAnnotationStore.ImportIfAbsent` writes a remark only when the store
+>   holds no document under its id, a tombstone included. Local ADR 0044 §8 runs it
+>   once per repository: each open `annotation` fence on the default branch becomes
+>   a remark of its kind, and a resolved one is skipped. The remark keeps the
+>   fence's author, its date or else the time of the commit that added the file,
+>   and its replies folded into the body. The import raises no remark
+>   notification, because nobody left the note on another device.
+>
+> The 2026-09-25 note under **What does not change** said a fence is never
+> converted into or out of a remark. That is reversed in one direction only: an
+> open fence becomes a remark once, and Backlog still never writes a fence.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -232,6 +275,10 @@ remark into.
 > `DevbookAnnotationFence` reads the fence; `DevbookAnnotation` remains the
 > remark. Nothing in C# writes a fence — the convention's `annotations.mjs` is
 > its only writer — so this record's boundary holds unchanged.
+>
+> *Amended 2026-11-02:* the default branch's open fences are now imported once
+> into remarks (see the amendment of that date under **Status**). A remark is
+> still never turned into a fence.
 
 ## Consequences
 
@@ -256,7 +303,9 @@ Negative, and accepted:
   `AnnotationSyncWorker` share a mechanism by copy. A third copy is where an
   extraction normally pays; it is deferred because the two existing loops were
   out of scope to refactor and the copy keeps their "fail separately" property
-  by construction.
+  by construction. *(Amended 2026-10-30: `NotificationSyncWorker`, local ADR
+  0039, and `DevbookSubjectSyncWorker`, local ADR 0044, make five copies. The
+  extraction is still deferred, on the same reasoning.)*
 - **~~No re-anchoring.~~** *Resolved.* This originally read: a chapter edited
   above a remark moves the block the remark points at, and the read view shows
   an orphan at the end rather than dropping it. `BlockHash` on the record and
