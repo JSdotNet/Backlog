@@ -1,7 +1,4 @@
-using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -14,6 +11,11 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <see cref="DevbookAtlasService"/>, the Brain and the repository registry
 /// itself, because which repositories count as devbooks and which Brain is meant
 /// is a question with one answer, and the takeover only draws it.
+/// </para>
+/// <para>
+/// The personal devbook conforms to it (local ADR 0040 §2): the context that
+/// supplies that devbook registers the implementation and reads it, and Devbook
+/// only draws what it hands back.
 /// </para>
 /// </summary>
 public interface IDevbookLobesSource
@@ -35,66 +37,39 @@ public interface IDevbookLobesSource
     /// null when it was built — or was current already — and the reason in words
     /// when it could not be.</summary>
     Task<string?> BuildBrainIndexAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The repository chapter a link out of the personal devbook names,
+    /// as the atlas's raw link text wrote it, or null when it names none.</summary>
+    DevbookRepositoryChapter? RepositoryChapterFor(string? raw);
 }
 
 /// <summary>
-/// The application's <see cref="IDevbookLobesSource"/>: the Brain the host
-/// composes, and the configured repositories with a devbook to read, in the
-/// registry's order.
+/// The <see cref="IDevbookLobesSource"/> of a host that composes no personal
+/// devbook: an atlas with nothing to map, that cannot build anything. The
+/// takeover falls back to it when the context that supplies the personal devbook
+/// registered no source of its own (local ADR 0040 §2).
 /// </summary>
-internal sealed class DevbookLobesSource(DevbookAtlasService atlas, DevbookScope scope, IServiceProvider services) : IDevbookLobesSource
+internal sealed class UnavailableLobesSource : IDevbookLobesSource
 {
-    /// <summary>Asked for on every read and every subscription: a host composes
-    /// one Brain or none, and asking late keeps a host without one working.</summary>
-    private IBrainFolderSource? Brain => services.GetService<IBrainFolderSource>();
+    public static UnavailableLobesSource Instance { get; } = new();
+
 
     public event Action? Changed
     {
-        add
-        {
-            atlas.Changed += value;
-            if (Brain is { } brain) brain.Changed += value;
-        }
-        remove
-        {
-            atlas.Changed -= value;
-            if (Brain is { } brain) brain.Changed -= value;
-        }
+        add { }
+        remove { }
     }
 
     public Task<DevbookLobesGraph> ReadAsync(CancellationToken cancellationToken = default) =>
-        Brain is { } brain
-            ? atlas.ReadLobesAsync(brain, scope.DevbookRepositoryAliases(), cancellationToken)
-            : Task.FromResult(DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder));
+        Task.FromResult(DevbookLobesGraph.Unavailable(NothingToMap));
 
-    /// <summary>The app's one refresher, the same that builds the Brain in the
-    /// background when it is read (local ADR 0015); a host without one — a test
-    /// host — cannot build.</summary>
-    private DevbookDatabaseRefresher? Refresher => services.GetService<DevbookDatabaseRefresher>();
+    public bool CanBuildBrainIndex => false;
 
-    public bool CanBuildBrainIndex => Brain is { BrainRoot.Length: > 0 } && Refresher is not null;
+    public Task<string?> BuildBrainIndexAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(NothingToMap);
 
-    public async Task<string?> BuildBrainIndexAsync(CancellationToken cancellationToken = default)
-    {
-        if (Brain is not { BrainRoot: { Length: > 0 } root }) return DevbookAtlasService.NoBrainFolder;
-        if (Refresher is not { } refresher) return BuildUnavailable;
+    public DevbookRepositoryChapter? RepositoryChapterFor(string? raw) => null;
 
-        try
-        {
-            // Recorded as the Brain first, so the refresher builds it under the
-            // Brain's convention rather than a repository's. A build that ran
-            // raises the refresher's Rebuilt, which the Brain's watch turns into
-            // Changed, and every open atlas reads again.
-            DevbookDatabaseLocation.RegisterBrainRoot(root);
-            await refresher.RefreshAsync(root, cancellationToken).ConfigureAwait(false);
-            return null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return $"The Brain's index could not be built: {ex.Message}";
-        }
-    }
-
-    /// <summary>What a host that cannot build the index says.</summary>
-    internal const string BuildUnavailable = "This app cannot build the Brain's index from here.";
+    /// <summary>What the atlas says in a host with no personal devbook.</summary>
+    internal const string NothingToMap = "Nothing to map here.";
 }

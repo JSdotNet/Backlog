@@ -75,6 +75,13 @@
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- The Brain's published surface (local ADR 0040): the shell sees every
+         context, and Home, Settings and the Storage page's Brain card name the
+         Brain's folder source, settings, setup words and task links. -->
+    <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- The Brain's adapters (local ADR 0040): the Storage page's Brain card runs
+         the folder setup, which is file-system work the ports do not carry. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
     <!-- Capture's published surface: the runner the Inbox's Capture button is
          answered with; the sources panel on the Inbox pane is Capture.UI's. The

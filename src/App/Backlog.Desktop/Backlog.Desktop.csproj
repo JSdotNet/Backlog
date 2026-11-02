@@ -143,6 +143,9 @@
          Copilot, Claude, dotnet and winget CLIs. The head composes it with its
          MCP endpoint source. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
+    <!-- The Brain's published surface (local ADR 0040): this head answers its
+         folder picker port with the Windows folder dialog. -->
+    <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <!-- The feed readers behind the Inbox's Capture button, and the delivery
          that hands what they found to the Inbox. -->
@@ -150,6 +153,9 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <!-- The Brain's adapters (local ADR 0040): this head names where the Brain
+         setting is kept and starts the Brain folder watch. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <!-- The Sessions context's disk readers, which this head composes. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />

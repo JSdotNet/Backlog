@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Brain's adapters (local ADR 0040 §1; its adapter project rather than
+    folders spread across FileSystem, Devbook and Mcp): the Brain setting's file,
+    its folder source, the note writer, the folder watch, the corpus profile
+    Devbook's builder reads the Brain under, the backlink and task-link readers
+    over its database, the Inbox's To Brain join, and Show hidden.
+
+    The edge runs from here to the modules and never back: Devbook supplies the
+    hooks (the corpus profile, the personal source), this project plugs the Brain
+    into them, and nothing in Devbook names a Brain project.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Brain</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- BrainFolderWatch logs a panel that throws while reloading. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The new tests of what this project adds: the corpus profile and the
+         database location. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Brain.UnitTests" />
+    <!-- BrainSettingsStoreTests (RepositoryAbove), BrainFolderSetupTests
+         (BrainConventionsResult.Failed) and InboxBrainTargetTests (BodyOf), which
+         stayed in the suite they were written in when the adapters moved here. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.FileSystem.UnitTests" />
+    <!-- BrainBacklinkTests and BrainTaskLinkTests (the readers' database seam and
+         their queries over an open database), beside the Brain database they read. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Devbook.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The Brain's ports, which these adapters answer. -->
+    <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- Devbook's published hooks the Brain plugs into: the personal source the
+         folder source also answers, and the folder setting it reports. -->
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- The Inbox's IInboxBrainTarget port, answered over the note writer: the
+         To Brain join only an adapter seeing both contexts may hold. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Devbook's builder and registry, for the corpus profile, the database
+         location and the readers over the Brain's database. -->
+    <ProjectReference Include="..\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+    <!-- ShellNavigationStore, which Show hidden reads, and the synced-folder probe
+         and the workspace's settings-file conventions the Brain setup reuses.
+         FileSystem does not reference this project, so the graph stays acyclic. -->
+    <ProjectReference Include="..\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The convention Create conventions writes into a new Brain (local ADR
+         0026), kept as the Markdown it is so what lands in the person's folder
+         can be reviewed as written. Named by file rather than by folder path so
+         BrainConventionTemplate does not depend on where the files sit; the
+         resource names are unchanged by the move. -->
+    <EmbeddedResource Include="Templates\*.md" LogicalName="Backlog.Brain.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

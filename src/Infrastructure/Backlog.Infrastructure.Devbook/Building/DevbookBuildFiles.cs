@@ -102,7 +102,8 @@ internal static class DevbookBuildFiles
     /// either kind — a symbolic link, a junction — is neither, as it is to Node's
     /// <c>Dirent</c>. A directory that cannot be read has no entries.
     /// <para>
-    /// With <paramref name="placeholders"/> — a Brain's walk — a link is told by
+    /// With <paramref name="placeholders"/> — the walk of a profile that reads cloud
+    /// placeholders, such as the Brain's — a link is told by
     /// its target rather than by the reparse-point attribute, because a synced
     /// folder's placeholders carry that attribute too: under OneDrive's Files
     /// On-Demand every file and folder is a cloud-file reparse point, cloud only
@@ -139,7 +140,7 @@ internal static class DevbookBuildFiles
     /// not read: a build that opened every placeholder of a synced Brain would
     /// download the whole folder behind the person's back. Once the sync client
     /// hydrates it, the attributes change, the inputs fingerprint with them
-    /// (<see cref="DevbookDatabaseBuilder.IsCurrent(string, string, DevbookCorpusKind)"/>),
+    /// (<see cref="DevbookDatabaseBuilder.IsCurrent(string, string, DevbookCorpusProfile)"/>),
     /// and the next build reads its <c>meta</c> and its text.
     /// </para>
     /// </summary>

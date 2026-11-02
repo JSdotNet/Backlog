@@ -482,7 +482,10 @@
         }
       },
       "backlog.modules.devbook.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.notifications.abstractions": {
         "type": "Project",

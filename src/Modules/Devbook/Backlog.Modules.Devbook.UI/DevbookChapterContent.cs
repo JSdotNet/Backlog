@@ -1,5 +1,7 @@
 using Backlog.Modules.Devbook.Abstractions;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
@@ -21,12 +23,17 @@ namespace Backlog.Desktop.UI.Devbook;
 /// memory to serve the one on screen, so the file is read again here for the one
 /// that is.
 /// </para>
+/// <para>
+/// Public, with the one <see cref="LoadAsync(IServiceProvider, string, string?, string?, bool, CancellationToken)"/>
+/// overload, because another context's panel renders on Devbook's viewer and
+/// editor (local ADR 0040 §2): that overload is the hook it loads a file through.
+/// </para>
 /// </summary>
-internal sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string? Text)
+public sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string? Text)
 {
     /// <summary>Nothing selected, or nothing editable about what is. Panels hold
     /// this rather than two nullable fields so the pair cannot drift apart.</summary>
-    internal static DevbookChapterContent None { get; } = new(null, null);
+    public static DevbookChapterContent None { get; } = new(null, null);
 
     /// <summary>Loads against a folder the devbook-folder port located.</summary>
     /// <param name="reader">The disk when omitted; see <see cref="DevbookChapterFileReader"/>.</param>
@@ -55,6 +62,22 @@ internal sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string?
         CancellationToken cancellationToken = default,
         DevbookChapterFileReader? reader = null) =>
         LoadAsync(DevbookChapterResolver.TryResolve(areaKey, rootPath, selection, canEdit: canEdit), reader, cancellationToken);
+
+    /// <summary>Loads against a root, reading the file through the host's chapter
+    /// reader when it composes one and the disk when it does not — the lookup
+    /// every panel here does once, done for a caller that cannot see the reader.</summary>
+    public static Task<DevbookChapterContent> LoadAsync(
+        IServiceProvider services,
+        string areaKey,
+        string? rootPath,
+        string? selection,
+        bool canEdit = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        return LoadAsync(areaKey, rootPath, selection, canEdit, cancellationToken, services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk);
+    }
 
     private static async Task<DevbookChapterContent> LoadAsync(DevbookChapterRef? chapter, DevbookChapterFileReader? reader, CancellationToken cancellationToken)
     {

@@ -119,7 +119,7 @@ public class BrainTaskLinkTests : IDisposable
 
     private DevbookDatabase Build()
     {
-        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
         var database = DevbookDatabase.TryOpen(Target);
         Assert.NotNull(database);
         return database;

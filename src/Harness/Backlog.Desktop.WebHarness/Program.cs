@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;

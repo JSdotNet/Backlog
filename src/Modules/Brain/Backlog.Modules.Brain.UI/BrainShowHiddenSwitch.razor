@@ -1,0 +1,24 @@
+@*
+    Show hidden, at the end of the Brain menu's heading (local ADR 0026 §2).
+    Pressing it only records the choice; the port's change notice is what reads
+    the tabs and the menu again, so a press in another window lands on the pane
+    the same way.
+*@
+
+<ToggleButton Pressed="@Shown"
+              PressedChanged="SetShown"
+              BaseClass="btn btn--icon btn--toggle"
+              CssClass="devbook-stack__show-hidden"
+              TestId="devbook-show-hidden"
+              AriaLabel="Show hidden folders"
+              Title="@(Shown ? "Hide the folders the Brain hides" : "Show the folders the Brain hides")"><EyeIcon /></ToggleButton>
+
+@code {
+    /// <summary>The device's Show hidden choice.</summary>
+    [Parameter, EditorRequired]
+    public IBrainShowHidden ShowHidden { get; set; } = null!;
+
+    private bool Shown => ShowHidden.Shown;
+
+    private void SetShown(bool shown) => ShowHidden.SetShown(shown);
+}
