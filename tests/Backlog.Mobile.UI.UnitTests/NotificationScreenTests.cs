@@ -81,6 +81,33 @@ public sealed class NotificationScreenTests
         Assert.Empty(app.FindAll("[data-testid='notification-body']"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_list_and_the_detail_draw_the_origin_line(bool detail)
+    {
+        var question = Migration() with { Origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin") };
+        var (host, _, _) = Phone(question);
+        using var disposing = host;
+
+        var app = host.Open(detail ? $"notifications/{question.Id}" : "notifications");
+
+        app.WaitForAssertion(() => Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").TextContent));
+        Assert.Equal("JSdotNet/Backlog · Notification origin", app.Find("[data-testid='notification-origin-place']").TextContent);
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_draws_no_origin_line()
+    {
+        var (host, _, _) = Phone(Migration());
+        using var disposing = host;
+
+        var app = host.Open("notifications");
+
+        app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
+        Assert.Empty(app.FindAll("[data-testid='notification-origin']"));
+    }
+
     [Fact]
     public void An_owner_that_stopped_pushing_is_offline_and_a_reply_delivers_on_wake()
     {
@@ -255,6 +282,84 @@ public sealed class NotificationScreenTests
 
         app.WaitForAssertion(() => Assert.Equal("Phones answer questions now.", Assert.Single(service.Replies).Text));
         Assert.Empty(service.Replies[0].ChoiceIds);
+    }
+
+    [Fact]
+    public void A_choice_that_takes_text_asks_for_its_words_before_it_sends()
+    {
+        var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
+
+        app.Find("[data-testid='notification-choice-revise']").Click();
+
+        var box = app.Find("[data-testid='notification-choice-text'] textarea");
+        Assert.Equal("What should change?", box.GetAttribute("placeholder"));
+        Assert.Equal("2000", box.GetAttribute("maxlength"));
+        Assert.True(app.Find("[data-testid='notification-choice-send']").HasAttribute("disabled"));
+        Assert.Empty(service.Replies);
+        Assert.Empty(host.Outbox.Entries);
+
+        app.Find("[data-testid='notification-choice-text'] textarea").Input("The toast overlaps the header");
+        app.Find("[data-testid='notification-choice-send']").Click();
+
+        app.WaitForAssertion(() => Assert.Single(service.Replies));
+        Assert.Equal(["revise"], service.Replies[0].ChoiceIds);
+        Assert.Equal("The toast overlaps the header", service.Replies[0].Text);
+    }
+
+    [Fact]
+    public void Cancelling_a_choices_words_leaves_the_plain_choices_answering_at_once()
+    {
+        var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
+
+        app.Find("[data-testid='notification-choice-revise']").Click();
+        app.Find("[data-testid='notification-choice-cancel']").Click();
+        Assert.Empty(app.FindAll("[data-testid='notification-choice-text']"));
+
+        app.Find("[data-testid='notification-choice-approve']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(["approve"], Assert.Single(service.Replies).ChoiceIds));
+        Assert.Null(service.Replies[0].Text);
+    }
+
+    [Fact]
+    public void Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox()
+    {
+        var spec = new AnswerSpec(
+            [.. Enumerable.Range(1, 8).Select(n => new AnswerChoice($"c{n}", $"Choice {n}"))],
+            Note: new OpenAnswer("Why, or anything the asker should know", 4000));
+        var (host, service, _) = Phone(TestNotifications.Question("Which rounding rule applies to invoice totals?", Now.AddMinutes(-4), spec));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-note-text'] textarea")));
+
+        Assert.Equal(8, app.FindAll("button[data-testid^='notification-choice-']").Count);
+        Assert.Contains("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
+        Assert.Contains("Add a note (optional)", app.Find("[data-testid='notification-note']").TextContent);
+        Assert.Equal("4000", app.Find("[data-testid='notification-note-text'] textarea").GetAttribute("maxlength"));
+
+        app.Find("[data-testid='notification-note-text'] textarea").Input("Only for invoice totals");
+        app.Find("[data-testid='notification-choice-c8']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal("Only for invoice totals", Assert.Single(service.Replies).Note));
+        Assert.Equal(["c8"], service.Replies[0].ChoiceIds);
+    }
+
+    [Fact]
+    public void A_question_without_a_note_draws_no_note_box()
+    {
+        var (host, _, _) = Phone(Migration());
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
+
+        Assert.Empty(app.FindAll("[data-testid='notification-note']"));
+        Assert.DoesNotContain("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
     }
 
     [Fact]

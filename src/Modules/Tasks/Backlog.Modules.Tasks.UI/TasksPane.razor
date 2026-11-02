@@ -23,13 +23,9 @@
     says edit-in-place, "not a split write-raw/preview as the primary mode", and
     this pane had that inverted.
 
-    The body has two readings and shows one at a time: the steps, or the markdown
-    block they are written in. They are the same characters — `EntryTextParser`
-    reads a `##` chapter as a step — so switching is a view change and nothing is
-    converted. Which one an entry opens in is remembered on the entry itself, as a
-    `view:` token, because the markdown is canonical and a preference kept beside
-    the file would not survive the file being shared. The steps view says so when
-    it is leaving prose off the screen rather than quietly dropping it.
+    The body is one MarkdownEditor over the whole text. A step is a `##` chapter
+    written in it — `EntryTextParser` reads it as one — so there is no second
+    reading to switch to.
 
     The panel is the fixed half of the split and the list flexes, which is the
     opposite of how it started. See the comment on the SplitPane below.
@@ -3697,7 +3693,7 @@
                     {
                         @LinkedWork(row)
                     }
-                    @RenderBodyViews(row)
+                    @RenderBody(row)
                 </Body>
                 <Footer>
                     @* The escape hatch. Reached from Ctrl+Shift+M on the pane, and
@@ -3706,12 +3702,11 @@
                        everything else here.
 
                        There is no button for it any more. The row that used to open
-                       it sat under the body reading "</> Markdown" while the body's
-                       own view switch above already said "Markdown" — two controls,
-                       one word, and only one of them the source. The switch is the
-                       one a reader means nine times in ten, so the other one went
-                       rather than being renamed into a distinction nobody was
-                       looking for.
+                       it sat under the body reading "</> Markdown" while the body
+                       above was already the markdown — two controls, one word, and
+                       only one of them the source. The body is the one a reader
+                       means nine times in ten, so the other one went rather than
+                       being renamed into a distinction nobody was looking for.
 
                        In the footer because it acts on the whole entry rather than
                        on one field of it, which is the same sentence that puts close
@@ -3817,181 +3812,35 @@
     private static string DetailTitle(EntryRow row) =>
         string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle;
 
-    // --- The body: steps, or the markdown block ----------------------------
+    // --- The body ----------------------------------------------------------
 
     /// <summary>
-    /// The entry's body, in whichever of its two readings the reader asked for.
-    /// <para>
-    /// Two views of one text and no conversion between them. The steps are already
-    /// parsed out of the body markdown by <c>EntryTextParser</c> — a <c>##</c>
-    /// chapter is a step — so switching draws the same characters differently and
-    /// writes them back the same way. A converter here would be a second source of
-    /// truth with a migration in the middle of it.
-    /// </para>
-    /// <para>
-    /// The choice is remembered on the entry, as a <c>view:</c> token on the metadata
-    /// line (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>). Not
-    /// because it is a fact about the work — it is a preference about looking at it —
-    /// but because the markdown is canonical: a preference kept beside the file would
-    /// not survive the file being shared.
-    /// </para>
+    /// The entry's body: one <c>MarkdownEditor</c> over the whole text, prose and
+    /// <c>##</c> chapters together, with no label above it. A step is a chapter
+    /// written here; a <c>view:</c> token on the line is kept but no longer read.
     /// </summary>
-    private RenderFragment RenderBodyViews(EntryRow row) =>
+    private RenderFragment RenderBody(EntryRow row) =>
         @<CascadingValue TValue="IDevbookImageSource"
                          Value="@BodyImagesFor(row)"
                          IsFixed="true">
-        @* A scenario: image in the opening text or a step's note draws the
-           screenshot a chapter would. Cascaded rather than handed to every view, as
-           the Devbook pane does, and fixed for the reason it is: a cascade that is not
-           fixed re-renders every view under it on every render of this pane, and that
-           takes a note being typed with it. What is cascaded is this pane's own
-           stand-in, pointed at the open entry's repository on every render, so an
-           entry from another repository — or a repository resolved late — reaches
-           the views without remounting the editor or the step composer beside them. *@
+        @* Inert for now: the editor renders no markdown, so nothing under it reads
+           this. Kept so a rendered reading of the body, when one returns, draws a
+           scenario: image the way a chapter would. Fixed, because an unfixed cascade
+           re-renders the editor on every render of this pane and takes a note
+           being typed with it; the stand-in it holds is re-pointed instead. *@
         <div class="entry-detail__body">
-
-            @* Tabs, not a pressed strip. Two readings of one text, one of them on
-               screen at a time and the other reachable by name — that is a tab
-               strip's job, and the strip carries the wiring a hand-rolled switch
-               was only miming: `role="tablist"`, `aria-selected`, each panel
-               labelled by its own tab, arrow keys between them, and one stop in
-               the tab order for the pair rather than one per option.
-
-               Bare, because this pane's body is already the column that places
-               them. The wrapper and the panels box the library draws for a host
-               without a layout of its own would be two more boxes to plumb the
-               body's height through, for nothing on screen. *@
-            <Tabs Bare="true"
-                  ActiveId="@ViewId(row.EffectiveView)"
-                  ActiveIdChanged="id => State.ChangeViewAsync(row, ViewFor(id))"
-                  AriaLabel="Show the entry's body as"
-                  ListCssClass="tabs__list entry-detail__views"
-                  ListTestId="entry-view-switch">
-
-                <TabPanel Id="@StepsViewId"
-                          Title="Steps"
-                          TabTestId="entry-view-steps"
-                          TestId="entry-view-steps-panel"
-                          BaseClass="entry-detail__view">
-                    @* Steps, as their own list. Reordering, renaming and completing
-                       are the same three callbacks the entry list uses.
-
-                       No OnLink, so a drag here can only ever reorder — which is
-                       what a list that passes none gets, with no flag to remember
-                       and no link handle drawn on any row. A step has no identity
-                       to name:
-                       its TaskRow.Id *is* its index, so a dependency written against
-                       one would point at a different step the moment a step above it
-                       is added or deleted. Chaining steps needs somewhere stable to
-                       write the target down first, which is a decision about the data
-                       rather than about this list.
-
-                       DirectRename, so a step's title is a field without a pencil
-                       first — and that is why the rows are still reorderable by
-                       pointer only through their grip, and by keyboard through
-                       Alt+Arrow inside the field. See TaskItem.
-
-                       QuickEdit is the other half of that bargain, and it is also what
-                       replaced the "next step" control that used to sit under this list.
-                       Tab settles one step's title and opens the field on the next, and
-                       off the bottom of the rows the list draws an add row of its own —
-                       permanent, in the tab order after the last step, committing on
-                       Enter or on leaving. A press that turned into a field, and a field
-                       that then had to be dismissed, was a composer the reader had to
-                       find twice; the shared one is simply there. AddLabel is what it is
-                       called, to a screen reader and on the face of it: "Next", because
-                       what the field asks for is the next step and the answer is the
-                       only thing that ever gets typed into it.
-
-                       Drawn whether or not the entry has chapters yet, which is the
-                       point of adopting it: the count guard that used to stand in front
-                       of this list also hid the only control that could create the first
-                       step, so an entry with no steps had nothing here to press.
-
-                       No EmptyMessage, so an entry with no steps draws the add row and
-                       nothing above it. "No steps yet." was a line that said what the
-                       empty field under it already showed, and two ways of saying
-                       nothing is here is one more than the reader needs.
-
-                       OnDelete is what puts a bin on the end of each step's row, and it
-                       is the same deal as the rename: the list reports which step, this
-                       pane decides what that means — here, the chapter and its notes cut
-                       out of the entry's text. No confirmation, because the entry-level
-                       bin in this pane's footer asks for none either and a step is the
-                       cheaper of the two to lose. The lists in this pane that pass no
-                       OnDelete — the entry list above, which deletes from the footer of
-                       the open entry instead — grow no bin at all.
-
-                       GroupCompleted is off: an entry's steps are a sequence
-                       somebody wrote in an order, and moving the finished ones to
-                       the bottom would rewrite that order on screen while the
-                       markdown kept the real one.
-
-                       Copying needs nothing said here, unlike the entry list above.
-                       StepTasks already puts the step's note on the row as its Body,
-                       so the shared row's own default — the title, a blank line, then
-                       the body — is already the shape a step is worth pasting in.
-
-                       Keyed on the entry, because the add row and an open rename hold
-                       drafts of their own. Without a key this is one component for every
-                       entry the reader opens, and a half-typed step would follow them to
-                       the next one and be committed there — which is what the composer's
-                       reset on selection used to prevent. *@
-                    @if (row.StepsViewHidesProse)
-                    {
-                        @* The text an entry opens with, before its first chapter, read
-                           rather than edited: the steps view lists chapters and this
-                           prose is not one, so a view that left it off would make the
-                           entry look like it had lost text. Rendered here, a scenario
-                           image in it shows its screenshot the way a chapter does; the
-                           Markdown tab stays where it is written. *@
-                        <div class="entry-detail__prose" data-testid="entry-view-prose">
-                            <MarkdownView Blocks="@row.PreviewBlocks" />
-                        </div>
-                    }
-
-                    <TaskListView @key="row.Key"
-                                  Tasks="@StepTasks(row)"
-                                  OnToggle="index => OnStepToggledAsync(row, index)"
-                                  OnRename="rename => OnStepRenamedAsync(row, rename)"
-                                  DirectRename="true"
-                                  QuickEdit="true"
-                                  OnAdd="title => OnAddStepAsync(row, title)"
-                                  AddLabel="Next"
-                                  OnBodyChanged="change => OnStepNoteChanged(row, change)"
-                                  OnDelete="index => OnDeleteStepAsync(row, index)"
-                                  Reorderable="true"
-                                  OnReorder="move => OnStepReorderedAsync(row, move)"
-                                  GroupCompleted="false"
-                                  BodyLabel="Notes"
-                                  AriaLabel="Steps"
-                                  EmptyMessage=""
-                                  TestId="subitem-list" />
-
-                </TabPanel>
-
-                <TabPanel Id="@NotesViewId"
-                          Title="Markdown"
-                          TabTestId="entry-view-notes"
-                          TestId="entry-view-notes-panel"
-                          BaseClass="entry-detail__view">
-                    @* The whole body, prose and chapters together. MarkdownEditor rather
-                       than a textarea: this is prose written by the same person in the
-                       same product as every other body, and the toolbar is the closest
-                       this pane comes to the edit-in-place `#editing-model` asks for.
-                       Not the note alone — a writer scoped to the prose half would
-                       silently drop a `##` chapter typed into the block, and this block's
-                       whole promise is that it is the text. *@
-                    <MarkdownEditor Value="@row.PreviewBody"
-                                    ValueChanged="body => State.ChangeBody(row, body)"
-                                    AriaLabel="Markdown"
-                                    ToolbarLabel="Formatting for the entry's markdown"
-                                    Rows="6"
-                                    AutoGrow="true"
-                                    CssClass="entry-detail__note"
-                                    TestId="entry-body-editor" />
-                </TabPanel>
-            </Tabs>
+            @* MarkdownEditor rather than a textarea: the toolbar is the closest this
+               pane comes to the edit-in-place `#editing-model` asks for. The whole
+               text, not the prose alone — a writer scoped to the prose would drop a
+               `##` chapter typed into it. *@
+            <MarkdownEditor Value="@row.PreviewBody"
+                            ValueChanged="body => State.ChangeBody(row, body)"
+                            AriaLabel="Markdown"
+                            ToolbarLabel="Formatting for the entry's markdown"
+                            Rows="6"
+                            AutoGrow="true"
+                            CssClass="entry-detail__note"
+                            TestId="entry-body-editor" />
         </div>
         </CascadingValue>;
 
@@ -4018,104 +3867,6 @@
 
         public RenderFragment? Image(string target, string caption, string? documentPath) =>
             Current?.Image(target, caption, documentPath);
-    }
-
-    private const string StepsViewId = "steps";
-    private const string NotesViewId = "notes";
-
-    /// <summary>Which tab is on, from the view the entry is being read in.</summary>
-    private static string ViewId(EntryView view) =>
-        view is EntryView.Steps ? StepsViewId : NotesViewId;
-
-    /// <summary>And back again, when the reader presses the other tab.</summary>
-    private static EntryView ViewFor(string id) =>
-        string.Equals(id, StepsViewId, StringComparison.Ordinal) ? EntryView.Steps : EntryView.Notes;
-
-    // --- Steps -------------------------------------------------------------
-
-    /// <summary>
-    /// The entry's steps, indexed the way every sub-item write here is indexed —
-    /// the nth <c>##</c> chapter. The id is the index, because a step has no
-    /// identity of its own in the markdown: it is the chapter written in that
-    /// position, which is also why moving one is a rewrite.
-    /// <para>
-    /// Titles and notes come from the row's one reading of its steps
-    /// (<see cref="EntryRow.PreviewStepTexts"/>), read again only when the text
-    /// changes, rather than two passes over the whole text per step per render. A
-    /// step past the end of that reading has no title or notes, which is what the
-    /// per-index reads answer for it.
-    /// </para>
-    /// </summary>
-    private IReadOnlyList<TaskRow> StepTasks(EntryRow row)
-    {
-        var steps = row.PreviewSubItems;
-        var texts = row.PreviewStepTexts;
-
-        return [.. Enumerable.Range(0, steps.Count).Select(index => new TaskRow(
-            index.ToString(CultureInfo.InvariantCulture),
-            index < texts.Count ? texts[index].Title : string.Empty,
-            Done: steps[index].Done,
-            Body: index < texts.Count && texts[index].Note is { Length: > 0 } note ? note : null))];
-    }
-
-    private static int StepIndex(string id) =>
-        int.TryParse(id, CultureInfo.InvariantCulture, out var index) ? index : -1;
-
-    private async Task OnStepToggledAsync(EntryRow row, string id) =>
-        await State.ToggleSubItemAsync(row, StepIndex(id));
-
-    private async Task OnStepRenamedAsync(EntryRow row, TaskRename rename) =>
-        await State.RenameSubItemAsync(row, StepIndex(rename.Id), rename.Title);
-
-    private void OnStepNoteChanged(EntryRow row, TaskBodyChange change) =>
-        State.ChangeSubItemNote(row, StepIndex(change.Id), change.Body);
-
-    private async Task OnStepReorderedAsync(EntryRow row, TaskMove move) =>
-        await State.MoveSubItemAsync(row, StepIndex(move.Id), StepIndex(move.TargetId));
-
-    /// <summary>Deletes the step the bin was pressed on: the chapter, its own
-    /// metadata line and its notes, cut out of the entry's text. The id is the
-    /// index, exactly as it is for every other handler here — the step is the
-    /// chapter written in that position, which is why deleting one renumbers the
-    /// ones under it.</summary>
-    private async Task OnDeleteStepAsync(EntryRow row, string id) =>
-        await State.RemoveSubItemAsync(row, StepIndex(id));
-
-    // A step used to carry two hand-off buttons of its own here — push this chapter
-    // to GitHub as its own issue, and start Copilot CLI. Both are gone, and the
-    // reason is in the model rather than in taste: `.devbook/domain/tasks/domain.md` gives
-    // ProjectionRef to the entry and says a Sub-Item "may project to GitHub issue
-    // task-list checkboxes", which are checkboxes inside the entry's issue. A step
-    // that was its own issue had nowhere to record the link it got back, so it could
-    // be pushed twice with nothing noticing — and the Copilot button on a step was
-    // never about the step at all: it handed over the parent, from a row that made
-    // it look otherwise. The entry-level pair is now labelled and grouped as acting
-    // on the whole task, which is what it always did.
-
-    /// <summary>
-    /// A step, by title, as the steps list's own add row reports it.
-    /// <para>
-    /// The title is the whole of it, which is the deal <c>TaskListView.OnAdd</c>
-    /// offers and the same one its rename already follows: the list says what was
-    /// typed and this pane decides what it means — here, one more <c>##</c> chapter
-    /// at the end of the entry's text. There is nothing to close afterwards, which
-    /// is why this no longer resets anything: the field the title came from is a
-    /// permanent row in the list rather than a state this pane was briefly in.
-    /// </para>
-    /// <para>
-    /// Trimmed and ignored when empty even though the list has already promised
-    /// both. A write to the markdown is not the place to inherit somebody else's
-    /// guarantee, and a chapter called nothing is one the reader cannot see, select
-    /// or remove.
-    /// </para>
-    /// </summary>
-    private async Task OnAddStepAsync(EntryRow row, string title)
-    {
-        title = title.Trim();
-
-        if (title.Length == 0) return;
-
-        await State.AddSubItemAsync(row, title);
     }
 
     // --- Metadata ----------------------------------------------------------

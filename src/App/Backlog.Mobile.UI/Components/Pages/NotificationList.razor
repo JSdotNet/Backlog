@@ -138,7 +138,7 @@
 
         try
         {
-            await Notifications.ReplyAsync(id, pick.ChoiceIds, pick.Text);
+            await Notifications.ReplyAsync(id, pick.ChoiceIds, pick.Text, pick.Note);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -295,6 +295,26 @@ public sealed class DeliveryRunMergingTests
         Assert.Equal(["run-old", "run-d", "run-new"], merged.Select(run => run.Id));
     }
 
+    [Fact]
+    public void The_gate_decision_taken_last_wins_whichever_surface_recorded_it()
+    {
+        // A notification answer is recorded on the backlog surface's file only, while the
+        // dashboard still holds the pending the flow set when the gate opened.
+        var dashboard = Run("run-d", "delivery-surface-dashboard", Noon) with
+        {
+            Approval = new DeliveryRunApproval("pending", null, Noon.AddMinutes(1))
+        };
+        var backlog = Run("run-b", "backlog", Noon.AddMilliseconds(-224)) with
+        {
+            Approval = new DeliveryRunApproval("rejected", "Rejected from a Backlog notification.", Noon.AddMinutes(5), "reject")
+        };
+
+        var merged = Assert.Single(DeliveryRunMerging.Merge([backlog, dashboard]));
+
+        Assert.Equal("run-d", merged.Id);
+        Assert.Equal(backlog.Approval, merged.Approval);
+    }
+
     private static DeliveryRun Run(
         string id,
         string dashboard,

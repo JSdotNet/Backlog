@@ -84,6 +84,7 @@ public sealed class PairingSubjectsTests
         Assert.Equal(["allow", "refuse"], answer.Choices.Select(choice => choice.Id));
         Assert.Equal(["Allow", "Refuse"], answer.Choices.Select(choice => choice.Label));
         Assert.Null(answer.Open);
+        Assert.Equal(new NotificationOrigin("Backlog", "Pairing"), draft.Origin);
     }
 
     [Fact]

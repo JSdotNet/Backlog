@@ -113,7 +113,8 @@ public static class NotificationPayloads
     }
 
     /// <summary>What the Android push may say about <paramref name="snapshot"/>: kind and
-    /// severity as the payload writes them, the title, and the summary unless it is private.</summary>
+    /// severity as the payload writes them, the title, the summary unless it is private, and the
+    /// origin's "System · Place" cut to fit a tray subtitle, private or not.</summary>
     public static NotificationPushPreview PreviewOf(NotificationSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -123,7 +124,8 @@ public static class NotificationPayloads
             SeverityOf(snapshot.Severity),
             snapshot.Title,
             snapshot.IsPrivate ? null : snapshot.Summary,
-            snapshot.IsPrivate);
+            snapshot.IsPrivate,
+            snapshot.Origin?.LineWithin(NotificationRecordLimits.PreviewOriginLength));
     }
 
     private static string KindOf(NotificationKind kind) => kind switch
@@ -146,7 +148,13 @@ public static class NotificationPayloads
 
         try
         {
-            return change.Notification.Deserialize<NotificationPayload>(Options);
+            var payload = change.Notification.Deserialize<NotificationPayload>(Options);
+
+            // An origin that names no system reads as none, as the owner's own store reads it,
+            // rather than as an origin every line of which is blank.
+            return payload?.Notification is { Origin: { } origin } notification && string.IsNullOrWhiteSpace(origin.System)
+                ? payload with { Notification = notification with { Origin = null } }
+                : payload;
         }
         catch (JsonException)
         {

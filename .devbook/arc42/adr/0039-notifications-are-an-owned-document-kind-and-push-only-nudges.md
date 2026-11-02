@@ -122,13 +122,16 @@ misses a nudge still finds every document on its next pull.
 - **The Android phone** receives an OS push. The sync service sends it through
   Azure Notification Hubs on its Free tier, which relays it to FCM. The payload
   is a data-only FCM v1 message at high priority. Its string values are `id`,
-  `kind`, `severity`, `state`, `title` and `summary`, and never the body.
+  `kind`, `severity`, `state`, `title`, `summary` and, when the notification
+  names one, `origin` — "System · Place", at most 60 characters, which the tray
+  shows as the subtitle. Never the body.
 - **The owner writes the push preview.** The owner desktop puts kind, severity,
   title, summary and privacy beside the document, as a `NotificationPushPreview`
   on the `NotificationChange` envelope. So the sync service reads its own
   envelope and never opens the document. The owner leaves a private
   notification's summary out, and the service sends "Backlog has a question for
-  you" in its place.
+  you" in its place. The origin stays in a private notification's preview: it
+  says where the notification came from, not what it says.
 - **Only a transition pushes.** The service pushes when a notification is new to
   the replica or moves state. The owner's 10-minute presence re-push sends
   nothing, and nor does a stale change or one held under another owner instance.
@@ -250,8 +253,9 @@ phone.
   - a hub that fails to send never fails the push request;
   - revoking a phone removes its installation, even when the hub fails;
   - the hub gets a data-only FCM v1 message at high priority, to the owner's tag.
-- `NotificationPushMessagesTests` proves the data map: the six string values, no
-  body, and the private text. `InMemoryNotificationReplicaTransitionTests` and
+- `NotificationPushMessagesTests` proves the data map: the six string values,
+  the `origin` value a private notification still sends, no body, and the
+  private text. `InMemoryNotificationReplicaTransitionTests` and
   `CosmosNotificationReplicaTransitionTests` prove which changes count as a transition, and `NotificationPushPreviewTests` that the
   owner desktop leaves a private summary out of the preview.
 - The `Backlog.Mobile.UI.UnitTests` push tests prove the phone's logic seams:
@@ -268,6 +272,7 @@ phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-10-26 | §4 amended: the push adds an `origin` value, the notification's "System · Place" cut to 60 characters, sent for a private notification too. | Every notification now says where it came from (`domain.md#origin`), and the tray shows it as the subtitle before the phone has pulled. |
 | 2026-10-26 | §5 amended: Bicep declares two hub rules, `sync-send` (Send) and `sync-manage` (Listen, Manage, Send), each into its own container app secret, in place of one Send-only key. | The service registers each phone's installation itself, and a Send-only rule cannot: an installation needs Manage. |
 | 2026-10-26 | §4 amended: the Android push is built. Its payload adds kind, severity and state to the id, title and summary; the owner writes them as a push preview on the `NotificationChange` envelope; only a transition pushes; a phone registers through `PUT /api/sync/notifications/push`. | The service never reads the opaque document, and the owner's 10-minute presence re-push must not buzz the phone. |
 | 2026-10-22 | Notifications are owned documents on a `notifications` container; Web PubSub and Notification Hubs to FCM only nudge. | A desktop must ask and hear the answer from any device while the sync service keeps scaling to zero. |

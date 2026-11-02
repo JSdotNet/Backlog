@@ -93,6 +93,32 @@ public sealed class ProgressViewTests : IDisposable
         Assert.Null(pulls[1].Checks);
     }
 
+    /// <summary>The phone lists goals in the person's order, by the one rule the desktop
+    /// lists them by (<see cref="GoalOrder"/>): a rank where the person placed a goal, when it
+    /// was set otherwise.</summary>
+    [Fact]
+    public async Task Goals_are_listed_in_the_persons_order_a_rank_ahead_of_when_they_were_set()
+    {
+        var first = Guid.Parse("1a000000-0000-4000-8000-000000000001");
+        var second = Guid.Parse("1a000000-0000-4000-8000-000000000002");
+        var moved = Guid.Parse("1a000000-0000-4000-8000-000000000003");
+        var monday = new DateTimeOffset(2026, 10, 12, 9, 0, 0, TimeSpan.Zero);
+
+        _service.Append(Whole(first, "goal", "First", Now.AddDays(-3), $$"""
+            {"version":1,"id":"{{first}}","title":"First","createdAt":"2026-10-12T09:00:00+00:00"}
+            """));
+        _service.Append(Whole(second, "goal", "Second", Now.AddDays(-3), $$"""
+            {"version":1,"id":"{{second}}","title":"Second","createdAt":"2026-10-12T10:00:00+00:00"}
+            """));
+        _service.Append(Whole(moved, "goal", "Moved", Now.AddDays(-1), $$"""
+            {"version":1,"id":"{{moved}}","title":"Moved","createdAt":"2026-10-14T09:00:00+00:00","rank":{{monday.UtcTicks - 1}}}
+            """));
+
+        await _progress.PullAsync(Cancellation);
+
+        Assert.Equal(["Moved", "First", "Second"], _progress.Goals().Select(view => view.Goal.Title));
+    }
+
     [Fact]
     public async Task A_deleted_goal_and_an_older_copy_arriving_after_it_stay_gone()
     {

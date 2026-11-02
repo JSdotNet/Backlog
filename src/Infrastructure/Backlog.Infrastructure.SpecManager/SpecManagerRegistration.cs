@@ -1,8 +1,11 @@
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
+using Backlog.Infrastructure.SpecManager.Questions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Extensions;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -12,9 +15,17 @@ namespace Backlog.Infrastructure.SpecManager;
 
 /// <summary>
 /// The one call a host makes to ship the spec-manager connector: its options, its
-/// token store, its HTTP client and pipeline, the sign-in, and the connector —
+/// token store, its HTTP clients and pipeline, the sign-in, and the connector —
 /// registered as an <see cref="ITaskConnector"/> for the sync and, the same
 /// instance, as an <see cref="ITaskConnectorSignIn"/> for the settings screen.
+/// <para>
+/// And the product's questions as notifications: the <see cref="SpecManagerQuestionSource"/>
+/// a head resolves once to start it, the answer handler for the <c>spec-manager</c> source
+/// and the probe for its subjects; and the person's other spec-manager notifications as
+/// alerts, pulled by the same source, with the listener that marks one read once its alert is
+/// acknowledged. They use the Notifications context's ports when the host composes them, and
+/// stay idle when it does not.
+/// </para>
 /// </summary>
 public static class SpecManagerRegistration
 {
@@ -25,16 +36,24 @@ public static class SpecManagerRegistration
     /// null.</param>
     /// <param name="configure">Changes to <see cref="SpecManagerOptions"/>, such as
     /// another installation's base URL.</param>
+    /// <param name="configuration">The <see cref="SpecManagerOptions.SectionName"/>
+    /// section to bind the options from (ADR 0018 in
+    /// <c>.devbook/arc42/adr/guidelines/</c>): <c>SpecManager:BaseUrl</c>, so a harness
+    /// can point the app at a local spec-manager. Bound before
+    /// <paramref name="configure"/>, and validated when the app starts.</param>
     public static IServiceCollection AddSpecManager(
         this IServiceCollection services,
         Func<IServiceProvider, ISpecManagerTokenStore>? tokenStore = null,
-        Action<SpecManagerOptions>? configure = null)
+        Action<SpecManagerOptions>? configure = null,
+        IConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         var options = services.AddOptions<SpecManagerOptions>();
+        if (configuration is not null) options.Bind(configuration);
         if (configure is not null) options.Configure(configure);
         options.Validate(value => value.IsValid(), "SpecManager:BaseUrl must be an absolute http or https URL.");
+        if (configuration is not null) options.ValidateOnStart();
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(tokenStore ?? (_ => SpecManagerTokenStoreFactory.Create()));
@@ -57,7 +76,8 @@ public static class SpecManagerRegistration
             return new SpecManagerClient(
                 () => factory.CreateClient(SpecManagerClient.HttpClientName),
                 sp.GetRequiredService<SpecManagerSignIn>(),
-                sp.GetRequiredService<IOptions<SpecManagerOptions>>().Value);
+                sp.GetRequiredService<IOptions<SpecManagerOptions>>().Value,
+                () => factory.CreateClient(SpecManagerClient.StreamHttpClientName));
         });
 
         services.AddTaskConnector<SpecManagerConnector>();
@@ -67,6 +87,75 @@ public static class SpecManagerRegistration
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITaskConnectorSignIn, SpecManagerConnector>(
             sp => sp.GetServices<ITaskConnector>().OfType<SpecManagerConnector>().Single()));
 
+        AddQuestions(services);
+
         return services;
     }
+
+    /// <summary>The questions and the other notifications: the source, the answer handler, the
+    /// subject probe, and the notifications' pull and read listener the source owns.</summary>
+    private static void AddQuestions(IServiceCollection services)
+    {
+        services.TryAddSingleton<ISpecManagerLinkedWorkLookup>(sp => new SpecManagerLinkedWorkLookup(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
+
+        services.TryAddSingleton(sp => new SpecManagerQuestionSync(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<IConnectedTargets>(),
+            sp.GetRequiredService<INotifications>(),
+            sp.GetService<INotificationReplication>(),
+            sp.GetRequiredService<ISpecManagerLinkedWorkLookup>(),
+            sp.GetRequiredService<TimeProvider>(),
+            IsDefaultInstallation(sp),
+            sp.GetService<ILogger<SpecManagerQuestionSync>>()));
+
+        services.TryAddSingleton(sp => new SpecManagerNotificationSync(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetRequiredService<INotifications>(),
+            sp.GetService<INotificationReplication>(),
+            IsDefaultInstallation(sp),
+            sp.GetService<ILogger<SpecManagerNotificationSync>>()));
+
+        // The centre is the owner's alone; on any other host the listener hears nothing and
+        // the pull's reconcile is what marks an acknowledged alert's notification read.
+        services.TryAddSingleton(sp => new SpecManagerNotificationReads(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<INotificationCentre>(),
+            sp.GetService<ILogger<SpecManagerNotificationReads>>()));
+
+        services.TryAddSingleton(sp => new SpecManagerQuestionSource(
+            sp.GetRequiredService<SpecManagerQuestionSync>(),
+            new SpecManagerEventStreamConnector(sp.GetRequiredService<SpecManagerClient>()),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<IConnectedTargets>(),
+            sp.GetService<INotificationAnswerReplay>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<ILogger<SpecManagerQuestionSource>>(),
+            sp.GetRequiredService<SpecManagerNotificationSync>(),
+            sp.GetRequiredService<SpecManagerNotificationReads>()));
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, SpecManagerAnswers>(sp => new SpecManagerAnswers(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<INotifications>,
+            sp.GetService<INotificationReplication>,
+            IsDefaultInstallation(sp),
+            sp.GetService<ILogger<SpecManagerAnswers>>())));
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationSubjectProbe, SpecManagerQuestionProbe>(sp => new SpecManagerQuestionProbe(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<IConnectedTargets>(),
+            sp.GetRequiredService<TimeProvider>())));
+    }
+
+    /// <summary>Whether the options name the installation that ships, which a question's
+    /// origin then does not spell out.</summary>
+    private static bool IsDefaultInstallation(IServiceProvider services) =>
+        string.Equals(
+            services.GetRequiredService<IOptions<SpecManagerOptions>>().Value.Root,
+            new SpecManagerOptions().Root,
+            StringComparison.OrdinalIgnoreCase);
 }

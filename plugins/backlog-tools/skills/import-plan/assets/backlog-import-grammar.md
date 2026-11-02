@@ -101,6 +101,21 @@ instructions for an AI. Work that needs both is split: the manual step is its ow
 (or `test`), and the prompts that need it done wait on it with `after:`. `idea` is a type
 Backlog holds, not one a plan emits.
 
+### Reading a pasted entry's kind
+
+How `run-plan-item` tells what a pasted or stored entry is:
+
+- **The entry's metadata line** is only a backtick line directly under the title. One under a
+  `##`/`###` heading is that step's status line, and its `task` word says nothing about the
+  entry — the app's copy drops the entry's line, so an older paste can end on a step's.
+- **`plan`**, on the metadata line or from `read_item`, is a roadmap item, never run: it is
+  brought in by Import, and its steps are what to paste.
+- **`prompt`**: a body with the plan item marker or the session-name line, or a `prompt` type
+  from `read_item` without either — a follow-up filed from a Personal Validation answer has
+  neither line.
+- **The user's own work**: a `task` or `test` type, or, short of a `prompt` type, a body with
+  neither line.
+
 ## Two levels
 
 A `plan` entry is a Roadmap Item written in the same grammar, discriminated by the bare type

@@ -290,6 +290,7 @@ public sealed class WorkLinksProjection
     {
         AgentSessionState.Running => IntegrationSessionState.Running,
         AgentSessionState.Stalled => IntegrationSessionState.Stalled,
+        AgentSessionState.Waiting => IntegrationSessionState.Waiting,
         _ => IntegrationSessionState.Finished
     };
 

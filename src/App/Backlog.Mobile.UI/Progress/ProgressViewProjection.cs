@@ -118,22 +118,24 @@ public sealed class ProgressViewProjection : IDisposable
     /// <summary>The phone's own date, the local calendar.</summary>
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
 
-    /// <summary>Every goal still set, in the order they were set — when set, then by id, so
-    /// every phone lists them alike. A document this build cannot read is passed over.</summary>
+    /// <summary>Every goal still set, in the person's order by the desktop's own rule
+    /// (<see cref="GoalOrder"/>) — a rank where they placed a goal, when it was set otherwise,
+    /// then by id, so every phone lists them alike. A document this build cannot read is
+    /// passed over.</summary>
     public IReadOnlyList<GoalView> Goals()
     {
         var context = Context();
         var statuses = new Dictionary<string, GoalPullRequestDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var pull in context?.PullRequests ?? []) statuses.TryAdd(GoalItems.Key(pull.Repository, pull.Number), pull);
 
+        var live = Live(ProgressFold.GoalType)
+            .Select(row => ProgressDocuments.ReadGoal(row.Content, row.Id))
+            .OfType<GoalDocumentDto>()
+            .Where(document => !document.Deleted);
+
         return
         [
-            .. Live(ProgressFold.GoalType)
-                .Select(row => ProgressDocuments.ReadGoal(row.Content, row.Id))
-                .OfType<GoalDocumentDto>()
-                .Where(document => !document.Deleted)
-                .OrderBy(document => document.CreatedAt ?? DateTimeOffset.MaxValue)
-                .ThenBy(document => document.Goal.Id)
+            .. GoalOrder.Sort(live, document => document.Rank, document => document.CreatedAt, document => document.Goal.Id)
                 .Select(document => new GoalView(document.Goal, document.CreatedAt, PullRequestsOf(document.Goal, statuses)))
         ];
     }

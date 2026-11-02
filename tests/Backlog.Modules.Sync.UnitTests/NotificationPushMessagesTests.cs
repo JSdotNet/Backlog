@@ -61,6 +61,55 @@ public class NotificationPushMessagesTests
         Assert.Equal("Approve the payout?", message.Data["title"]);
     }
 
+    [Fact]
+    public void The_message_carries_the_origin_as_one_more_string()
+    {
+        var change = Change(NotificationStates.Open, new NotificationPushPreview(
+            NotificationKinds.Question, NotificationSeverities.Info, "Which rounding rule?", "#7", IsPrivate: false,
+            Origin: "spec-manager · Billing"));
+
+        var message = NotificationPushMessages.For(change);
+
+        Assert.Equal("origin", NotificationPushData.Origin);
+        Assert.Equal("spec-manager · Billing", message.Data["origin"]);
+    }
+
+    /// <summary>The origin says where it came from, never what it says, so a private
+    /// notification still sends it.</summary>
+    [Fact]
+    public void A_private_notification_still_sends_its_origin()
+    {
+        var change = Change(NotificationStates.Open, new NotificationPushPreview(
+            NotificationKinds.Question, NotificationSeverities.Critical, "Approve the payout?", null, IsPrivate: true,
+            Origin: "Claude Code · billing"));
+
+        var message = NotificationPushMessages.For(change);
+
+        Assert.Equal("Claude Code · billing", message.Data["origin"]);
+        Assert.Equal("Backlog has a question for you", message.Data["summary"]);
+    }
+
+    [Fact]
+    public void A_preview_without_an_origin_sends_no_origin_key()
+    {
+        var change = Change(NotificationStates.Open, new NotificationPushPreview(
+            NotificationKinds.Alert, NotificationSeverities.Info, "Build finished", "All green.", IsPrivate: false));
+
+        Assert.False(NotificationPushMessages.For(change).Data.ContainsKey("origin"));
+    }
+
+    [Fact]
+    public void A_preview_whose_origin_runs_past_sixty_characters_is_refused()
+    {
+        var preview = new NotificationPushPreview(
+            NotificationKinds.Alert, NotificationSeverities.Info, "Build finished", null, IsPrivate: false,
+            Origin: new string('o', NotificationRecordLimits.PreviewOriginLength + 1));
+
+        Assert.Equal(60, NotificationRecordLimits.PreviewOriginLength);
+        Assert.NotNull(NotificationRecordLimits.WhyRefused(preview));
+        Assert.Null(NotificationRecordLimits.WhyRefused(preview with { Origin = new string('o', 60) }));
+    }
+
     /// <summary>An owner that predates the preview pushes none; the phone still learns which
     /// notification moved and where it stands, and pulls the rest.</summary>
     [Fact]

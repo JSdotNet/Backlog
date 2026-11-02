@@ -104,6 +104,44 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         </div>
     </Story>
 
+    <Story Name="Finding a plan by its tag and adding a new task"
+           Description="The app writes a plan tag as +slug, so that is what a person types: the attach search tries the query as typed and with one leading + or # dropped, so +payment-provider lists the plan titled payment-provider, and a title that holds the sigil still matches as typed.
+
+With a host listening on OnQuickAdd, a query that is not blank ends the list with New task “‹query›”, even when nothing matches — type Bank export. Picking it hands the trimmed title back; the host creates the task, To do and with no plan tag, and attaches it to the goal. Here the host is stubbed: the task joins the goal's Tasks, the query clears and the focus goes back to the search box. A refusal would leave the typed text."
+           Code="@NewTaskCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@_quickAdded"
+                      Expanded="true"
+                      Candidates="@Board.Candidates"
+                      OnAttach="@(subject => _newTaskSaid = $"Attach {subject.Key} to {_quickAdded.Title}")"
+                      OnQuickAdd="QuickAddSample"
+                      TestId="goals-view-new-task" />
+            <p class="sb-state" data-testid="goals-view-new-task-said">@(_newTaskSaid ?? "Type +payment-provider, or a title no candidate holds.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Reordering the goals"
+           Description="With a host listening on OnMoveGoal, each goal leads its row with a grip and carries Move up and Move down before its chevron; neither opens nor folds the goal. Drag a goal by its grip onto another and it takes that goal's place — the board shows where it would land while it is held, and Escape puts it back. With the keyboard, Move up and Move down move it one place and keep the focus on the button; the first goal's Move up and the last goal's Move down are disabled. The new order is drawn at once and said in a live region, Moved ‹goal› to position n of m; the host stores it and reads the view again, which puts the stored order back after a refusal. The drag is the library's one pointer reorder, the task list's, because a native drag is aborted in the desktop head's WebView2."
+           Code="@ReorderCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@_orderBoard"
+                        TestId="goals-view-reorder-board"
+                        OnMoveGoal="MoveSample" />
+            <p class="sb-state" data-testid="goals-view-reorder-said">@(_orderSaid ?? "Drag a goal by its grip, or press Move up or Move down.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Searching No goal"
+           Description="A search beside the No goal heading filters its rows as it is typed, by the attach search's rule: a title holding the query, a pull request number starting with it, a leading + or # tolerated, case ignored. Type pay, #1357 or VAT; type something nothing holds to see No matches, and clear the box to see every row again. Attach… on a filtered row attaches that row's work. The query is the board's own and never reaches the host."
+           Code="@NoGoalSearchCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@NoGoalBoard"
+                        TestId="goals-view-no-goal-board"
+                        OnAttach="@(request => _noGoalSaid = $"Attach {request.Subject.Key} to {request.GoalId}")" />
+            <p class="sb-state" data-testid="goals-view-no-goal-said">@(_noGoalSaid ?? "Type in the No goal search.")</p>
+        </div>
+    </Story>
+
     <Story Name="Empty"
            Description="No goals, and nothing in progress outside one: the goals column is an empty state with New goal as its action, and the stand-up beside it still says what was finished and planned."
            Code="@EmptyCode">
@@ -185,6 +223,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         new("color-scheme.md#pull-request-status-marks", "The glyph and ink of each checks and approvals mark on a goal's pull requests."),
         new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the open goal's fields have no Save button, and how a refused edit is put back."),
+        new("interaction-guidelines.md#keyboard-accessible-reordering", "Why every goal can be moved without a pointer, and what a move says."),
         new("typography-and-layout.md#iconography", "The glyphs the view draws, and the size they are drawn at.")
     ];
 
@@ -362,7 +401,8 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         ],
         StandUp,
         [
-            new GoalsItem(GoalSubject.ForPlan("payment-provider"), "Payment provider switch"),
+            // Titled with its bare slug, as the host titles a plan.
+            new GoalsItem(GoalSubject.ForPlan("payment-provider"), "payment-provider"),
             new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
             new GoalsItem(Pr(1357), "Payment status webhook"),
             new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget")
@@ -460,6 +500,69 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                   Candidates="@board.Candidates"
                   Repositories="@board.Repositories"
                   OnAttach="subject => AttachAsync(goal.Id, subject)" />
+        """;
+
+    private GoalCardModel _quickAdded = Search;
+    private string? _newTaskSaid;
+
+    /// <summary>The host's part, stubbed: the new task joins the goal, as the reading after
+    /// the create and the attach would show it.</summary>
+    private void QuickAddSample(string title)
+    {
+        var id = $"new-{_quickAdded.Tasks.Count}";
+        _quickAdded = _quickAdded with
+        {
+            Tasks = [.. _quickAdded.Tasks, new GoalTaskModel(id, title, GoalTaskStatus.ToDo)]
+        };
+        _newTaskSaid = $"Created {title} and attached it to {_quickAdded.Title}";
+    }
+
+    private const string NewTaskCode = """
+        <GoalCard Goal="@goal"
+                  Expanded="true"
+                  Candidates="@board.Candidates"
+                  OnAttach="subject => AttachAsync(goal.Id, subject)"
+                  OnQuickAdd="title => CreateAndAttachAsync(goal.Id, title)" />
+        """;
+
+    private GoalsBoardModel _orderBoard = Board;
+    private string? _orderSaid;
+
+    /// <summary>The host's part, stubbed: store the order and read it back as a new model,
+    /// as the reading after IGoals.MoveAsync would.</summary>
+    private void MoveSample(GoalMoveRequest request)
+    {
+        var goals = _orderBoard.Goals.ToList();
+        var goal = goals.First(g => g.Id == request.GoalId);
+        goals.Remove(goal);
+        goals.Insert(request.ToIndex, goal);
+        _orderBoard = _orderBoard with { Goals = goals };
+        _orderSaid = $"Moved {goal.Title} to {request.ToIndex + 1} of {goals.Count}";
+    }
+
+    private const string ReorderCode = """
+        <GoalsBoard Model="@board"
+                    OnMoveGoal="request => MoveAsync(request.GoalId, request.ToIndex)"
+                    Error="@_error" />
+        """;
+
+    /// <summary>A No goal list long enough to want its search.</summary>
+    private static readonly GoalsBoardModel NoGoalBoard = Board with
+    {
+        NoGoal =
+        [
+            .. Board.NoGoal,
+            new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget"),
+            new GoalsItem(Pr(1362), "Payment retries back off"),
+            new GoalsItem(Pr(1370), "VAT export as CSV")
+        ]
+    };
+
+    private string? _noGoalSaid;
+
+    private const string NoGoalSearchCode = """
+        <GoalsBoard Model="@board"
+                    OnAttach="request => AttachAsync(request.GoalId, request.Subject)" />
         """;
 
     private const string EmptyCode = """

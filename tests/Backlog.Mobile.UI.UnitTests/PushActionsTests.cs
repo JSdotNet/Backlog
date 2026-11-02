@@ -68,6 +68,7 @@ public sealed class PushActionsTests
         { "multiple choice", Answerable(Choices(3, multiple: true)) },
         { "more than three choices", Answerable(Choices(4)) },
         { "three choices and an open answer", Answerable(Choices(3, new OpenAnswer())) },
+        { "a choice that takes text", Answerable(new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("revise", "Revise", TakesText: true)])) },
         { "answered on the owner only", Answerable(Choices(2, answerOn: AnswerOn.Owner)) with { Standing = NotificationStanding.OwnerOnly } },
         { "an alert", Answerable(null) with { Notification = TestNotifications.Alert("Build failed", Now), Standing = NotificationStanding.Alert } },
         { "a reply already waiting for the owner", Answerable(TestNotifications.YesNo) with { Standing = NotificationStanding.AwaitingOwner } }

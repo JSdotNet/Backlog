@@ -91,7 +91,7 @@ internal sealed class SessionsAiContentSource(IAgentSessionSource sessions) : IA
             // A duration only when there are two ends to measure between: a
             // session still running has no end, and a length written for it
             // would be a length as of some moment nobody can see.
-            if (session.State != AgentSessionState.Running)
+            if (session.State is not (AgentSessionState.Running or AgentSessionState.Waiting))
             {
                 text.Append(", lasted ").Append(Duration(session.LastActivityAt - started));
             }

@@ -33,6 +33,16 @@ public sealed class PushMessageTests
             (message.Kind, message.Severity, message.Title, message.Summary));
     }
 
+    [Fact]
+    public void The_origin_is_read_when_the_service_sent_one()
+    {
+        var data = Data();
+        data["origin"] = "spec-manager · Billing";
+
+        Assert.Equal("spec-manager · Billing", PushMessage.Parse(data)!.Origin);
+        Assert.Null(PushMessage.Parse(Data())!.Origin);
+    }
+
     [Theory]
     [InlineData("answered")]
     [InlineData("acknowledged")]

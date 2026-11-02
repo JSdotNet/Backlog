@@ -153,14 +153,14 @@ public sealed class CompositeAgentSessionSourceTests
         var composite = new CompositeAgentSessionSource(
         [
             new StubSource(new AgentSessionCatalog(
-                [Session("both") with { Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" }],
+                [Session("both") with { Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_1" }],
                 [],
                 1)),
             new StubSource(new AgentSessionCatalog(
                 [
                     Session("both") with { Origin = AgentSessionOrigin.Recorded, Archived = true },
-                    Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" },
-                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" }
+                    Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_2" },
+                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_3" }
                 ],
                 [],
                 3))
@@ -169,8 +169,8 @@ public sealed class CompositeAgentSessionSourceTests
         var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            ["both False nightly-sweep Sidebar name", "recorded   ", "replicated   "],
-            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask} {session.DesktopTitle}"));
+            ["both False nightly-sweep Sidebar name local_1", "recorded    ", "replicated    "],
+            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask} {session.DesktopTitle} {session.DesktopSessionId}"));
     }
 
     /// <summary>The local reading's count of open sessions listed past its cap reaches
@@ -248,8 +248,9 @@ public sealed class CompositeAgentSessionSourceTests
 
         Assert.Equal(3, contributors.Count);
         Assert.Contains(contributors, source => source is ReplicatedAgentSessionSource);
-        // The composite, behind the watcher that notices a session end on every reading.
-        Assert.IsType<SessionEndWatchingSource>(provider.GetRequiredService<IAgentSessionSource>());
+        // The composite, behind the watcher that notices a session end on every reading,
+        // and the question relay read in last.
+        Assert.IsType<WaitingSessionSource>(provider.GetRequiredService<IAgentSessionSource>());
     }
 
     private static AgentSession Session(string id) =>

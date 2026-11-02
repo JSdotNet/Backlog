@@ -49,6 +49,11 @@
     min-height: 0;
 }
 
+/* The "From" filter over the list: which system the notifications come from. */
+.notification-centre__filter {
+    margin-bottom: var(--spacing-sm);
+}
+
 .notification-centre__list,
 .notification-centre__detail {
     min-height: 0;

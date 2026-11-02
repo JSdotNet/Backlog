@@ -5,7 +5,8 @@
 
 @*
     One notification on the phone, as the proposal's phone mockup draws it: the
-    kind and severity with its age, the title, the summary, the answer controls
+    kind and severity with its age, where it came from (the origin's system badge
+    and place, as the desktop card draws them), the title, the summary, the answer controls
     while the phone may answer, where it stands, and the desktop that owns it
     with whether that desktop is running (.devbook/domain/notifications/context.md).
 
@@ -14,10 +15,17 @@
     a diagram like it is everywhere else.
 
     The answer controls follow the question's shape and nothing else:
-      single choice      one AppButton per set answer, pressed to answer
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
+    Seven or eight choices wrap into two even columns. A question that takes a
+    note adds a plain-text box, "Add a note (optional)", under the answers, and
+    whatever is in it goes with the answer.
+    The tray offers no actions for a question with a choice that takes text, so
+    this card is where the phone answers it.
     A question that says answerOn: owner draws none: only its owner takes an
     answer. An alert draws none either; acknowledging one stays on the desktop.
 
@@ -37,6 +45,17 @@
         </span>
         <span class="phone-notification__age" data-testid="notification-age">@Age</span>
     </header>
+
+    @if (Item.Origin is { } origin)
+    {
+        <p class="phone-notification__origin" data-testid="notification-origin">
+            <Badge Kind="notification-origin" Slug="system" TestId="notification-origin-system">@origin.System</Badge>
+            @if (!string.IsNullOrWhiteSpace(origin.Place))
+            {
+                <span class="phone-notification__place" data-testid="notification-origin-place">@origin.Place</span>
+            }
+        </p>
+    }
 
     @if (Href is not null)
     {
@@ -86,22 +105,46 @@
                     <AppButton Variant="ButtonVariant.Primary"
                                Busy="@Busy"
                                BusyLabel="Answering"
-                               Disabled="@(!NotificationStandings.Fits(spec, _picked, null))"
+                               Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
                                TestId="notification-submit"
                                OnClick="SubmitPicksAsync">Answer</AppButton>
                 </div>
             }
             else if (spec.Choices.Count > 0)
             {
-                <div class="phone-notification__choices" data-testid="notification-choices">
+                <div class="@ChoicesClass(spec)" data-testid="notification-choices">
                     @foreach (var choice in spec.Choices)
                     {
                         <AppButton Variant="@VariantFor(choice.Style)"
                                    Disabled="@Busy"
                                    TestId="@($"notification-choice-{choice.Id}")"
-                                   OnClick="@(() => ReplyAsync([choice.Id], null))">@choice.Label</AppButton>
+                                   OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
                     }
                 </div>
+
+                @if (Composing is { } composing)
+                {
+                    <div class="phone-notification__open" data-testid="notification-choice-text">
+                        <TextArea Label="@($"{composing.Label}: in your own words")"
+                                  @bind-Value="_choiceText"
+                                  Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                                  Disabled="@Busy"
+                                  Rows="2"
+                                  maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
+                        <div class="phone-notification__choices">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="@Busy"
+                                       BusyLabel="Sending"
+                                       Disabled="@(!NotificationStandings.Fits(spec, [composing.Id], _choiceText, _note))"
+                                       TestId="notification-choice-send"
+                                       OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@Busy"
+                                       TestId="notification-choice-cancel"
+                                       OnClick="CancelChoiceText">Cancel</AppButton>
+                        </div>
+                    </div>
+                }
             }
 
             @if (spec.Open is { } open)
@@ -122,6 +165,19 @@
                                    TestId="notification-send"
                                    OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
                     </div>
+                </div>
+            }
+
+            @if (spec.Note is { } note)
+            {
+                <div class="phone-notification__note" data-testid="notification-note">
+                    <TextArea Label="Add a note (optional)"
+                              @bind-Value="_note"
+                              Placeholder="@note.Placeholder"
+                              Disabled="@Busy"
+                              Rows="2"
+                              TestId="notification-note-text"
+                              maxlength="@note.MaxLength" />
                 </div>
             }
         </div>
@@ -153,6 +209,9 @@
     private readonly string _titleId = "notification-" + Guid.NewGuid().ToString("N");
     private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
     private string? _text;
+    private string? _composing;
+    private string? _choiceText;
+    private string? _note;
     private Guid _shownId;
 
     /// <summary>The notification and where it stands for this phone.</summary>
@@ -251,7 +310,15 @@
         _shownId = Notification.Id;
         _picked.Clear();
         _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
     }
+
+    /// <summary>Seven or eight choices wrap into an even grid rather than one long row.</summary>
+    private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
+        ? "phone-notification__choices phone-notification__choices--many"
+        : "phone-notification__choices";
 
     private string Local(DateTimeOffset at)
     {
@@ -282,6 +349,30 @@
         else _picked.Remove(id);
     }
 
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private AnswerChoice? Composing => _composing is null
+        ? null
+        : Spec?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private Task ChooseAsync(AnswerChoice choice)
+    {
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is queued until Send.
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal)) _choiceText = null;
+            _composing = choice.Id;
+            return Task.CompletedTask;
+        }
+
+        return ReplyAsync([choice.Id], null);
+    }
+
+    private void CancelChoiceText()
+    {
+        _composing = null;
+        _choiceText = null;
+    }
+
     private Task SubmitPicksAsync() =>
         ReplyAsync([.. Spec!.Choices.Where(choice => _picked.Contains(choice.Id)).Select(choice => choice.Id)], null);
 
@@ -289,9 +380,13 @@
     {
         if (Busy) return;
 
-        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text));
+        var note = Spec?.Note is not null && !string.IsNullOrWhiteSpace(_note) ? _note.Trim() : null;
+        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text, note));
 
         _picked.Clear();
         _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
     }
 }

@@ -13,7 +13,8 @@ namespace Backlog.Mobile.UI.Notifications;
 /// <param name="Text">The second line, or null.</param>
 /// <param name="Urgent">Whether the notification is critical.</param>
 /// <param name="Actions">The tray's buttons; empty when the tap opens the question instead.</param>
-public sealed record PushTrayEntry(Guid Id, string Title, string? Text, bool Urgent, IReadOnlyList<PushAction> Actions);
+/// <param name="Subtitle">Where it came from, "System · Place", shown as the entry's subtitle; or null.</param>
+public sealed record PushTrayEntry(Guid Id, string Title, string? Text, bool Urgent, IReadOnlyList<PushAction> Actions, string? Subtitle = null);
 
 /// <summary>
 /// Decides what the tray shows for a push (local ADR 0039 §4), from the message and the copy the
@@ -49,7 +50,10 @@ public static class PushTray
             ? severity == NotificationSeverities.Critical
             : notification?.Severity == NotificationSeverity.Critical;
 
-        return new PushTrayEntry(message.Id, title, text, urgent, held is null ? [] : PushActions.For(held));
+        var subtitle = message.Origin
+            ?? notification?.Origin?.LineWithin(NotificationRecordLimits.PreviewOriginLength);
+
+        return new PushTrayEntry(message.Id, title, text, urgent, held is null ? [] : PushActions.For(held), subtitle);
     }
 
     private static string? Summary(NotificationSnapshot? notification) => notification switch

@@ -14,13 +14,15 @@ namespace Backlog.Mobile.UI.Notifications;
 /// <param name="Severity">One of <see cref="NotificationSeverities"/>, or null.</param>
 /// <param name="Title">The title, or null.</param>
 /// <param name="Summary">The summary — already the fixed text for a private notification — or null.</param>
+/// <param name="Origin">Where it came from, "System · Place", or null.</param>
 public sealed record PushMessage(
     Guid Id,
     string State,
     string? Kind,
     string? Severity,
     string? Title,
-    string? Summary)
+    string? Summary,
+    string? Origin = null)
 {
     /// <summary>Whether the message puts the notification in the tray. Every other state —
     /// answered, acknowledged, closed — takes it out.</summary>
@@ -44,7 +46,8 @@ public sealed record PushMessage(
             Read(data, NotificationPushData.Kind),
             Read(data, NotificationPushData.Severity),
             Read(data, NotificationPushData.Title),
-            Read(data, NotificationPushData.Summary));
+            Read(data, NotificationPushData.Summary),
+            Read(data, NotificationPushData.Origin));
     }
 
     private static string? Read(IReadOnlyDictionary<string, string> data, string key) =>

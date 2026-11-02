@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 
 using Backlog.Modules.Progress;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.DomainModels;
 
@@ -48,28 +49,32 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT document FROM progress_goals ORDER BY created_at, id;";
+        command.CommandText = "SELECT document, created_at FROM progress_goals;";
 
         var all = new List<Goal>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (Parse(reader.GetString(0)) is { } goal) all.Add(goal);
+            if (Parse(reader.GetString(0), reader.GetString(1)) is { } goal) all.Add(goal);
         }
 
-        return all;
+        return [.. GoalOrder.Sort(all, goal => goal.Rank, goal => goal.CreatedAt, goal => goal.Id)];
     }
+
+    private static DateTimeOffset? Moment(string stored) =>
+        DateTimeOffset.TryParse(stored, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var moment) ? moment : null;
 
     public async Task<Goal?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT document FROM progress_goals WHERE id = $id;";
+        command.CommandText = "SELECT document, created_at FROM progress_goals WHERE id = $id;";
         command.Parameters.AddWithValue("$id", Key(id));
 
-        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string document
-            ? Parse(document)
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+            ? Parse(reader.GetString(0), reader.GetString(1))
             : null;
     }
 
@@ -77,12 +82,28 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     {
         ArgumentNullException.ThrowIfNull(goal);
 
-        var document = JsonSerializer.Serialize(GoalDocument.From(goal), GoalDocument.JsonOptions);
-
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        // What a newer build wrote into the stored goal and this one does not know is
+        // written back with it, so an edit here does not strip it.
+        var extra = await StoredExtraAsync(connection, goal.Id, cancellationToken).ConfigureAwait(false);
+        var document = JsonSerializer.Serialize(GoalDocument.From(goal) with { Extra = extra }, GoalDocument.JsonOptions);
+
         var stamp = await NextStampAsync(connection, goal.Id, cancellationToken).ConfigureAwait(false);
 
         await UpsertAsync(connection, goal.Id, document, stamp, goal.CreatedAt ?? stamp, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<Dictionary<string, JsonElement>?> StoredExtraAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
+    {
+        await using var read = connection.CreateCommand();
+        read.CommandText = "SELECT document FROM progress_goals WHERE id = $id;";
+        read.Parameters.AddWithValue("$id", Key(id));
+
+        return await read.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string stored
+               && ParseDocument(stored) is { IsTombstone: false, Extra: { Count: > 0 } extra }
+            ? extra
+            : null;
     }
 
     /// <summary>
@@ -120,22 +141,25 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     // --- The replicated documents -------------------------------------------
 
     /// <summary>Every row's document and stamp exactly as stored, tombstones included, in
-    /// the order the goals were set.</summary>
+    /// the person's order; a tombstone, which holds no place, by when its row was set.</summary>
     public async Task<IReadOnlyList<GoalReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT id, document, updated_at FROM progress_goals ORDER BY created_at, id;";
+        command.CommandText = "SELECT id, document, updated_at, created_at FROM progress_goals;";
 
-        var all = new List<GoalReplicaCopyDto>();
+        var all = new List<(GoalReplicaCopyDto Copy, long? Rank, DateTimeOffset? CreatedAt)>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (Copy(reader.GetString(0), reader.GetString(1), reader.GetString(2)) is { } copy) all.Add(copy);
+            if (Copy(reader.GetString(0), reader.GetString(1), reader.GetString(2)) is not { } copy) continue;
+
+            var document = ParseDocument(copy.Content);
+            all.Add((copy, document?.Rank, document?.CreatedAt ?? Moment(reader.GetString(3))));
         }
 
-        return all;
+        return [.. GoalOrder.Sort(all, entry => entry.Rank, entry => entry.CreatedAt, entry => entry.Copy.Id).Select(entry => entry.Copy)];
     }
 
     public async Task<GoalReplicaCopyDto?> ReadAsync(Guid id, CancellationToken cancellationToken = default)
@@ -228,9 +252,12 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     }
 
     /// <summary>The goal a row holds, or null for a tombstone and for a document this build
-    /// cannot read.</summary>
-    private static Goal? Parse(string document) =>
-        ParseDocument(document) is { IsTombstone: false } parsed ? parsed.ToGoal() : null;
+    /// cannot read. A document that does not say when the goal was set reads as set at its
+    /// row's <c>created_at</c> — the stamp of its first save, where the row has always listed
+    /// it — so the store's order and the order <see cref="Modules.Progress.Services.GoalOrdering"/> counts a move in are
+    /// one order, both by <see cref="GoalOrder.Key"/>.</summary>
+    private static Goal? Parse(string document, string rowCreatedAt) =>
+        ParseDocument(document) is { IsTombstone: false } parsed ? parsed.ToGoal(Moment(rowCreatedAt)) : null;
 
     /// <summary>The stored document — a goal or a tombstone — or null for one this build
     /// cannot read.</summary>

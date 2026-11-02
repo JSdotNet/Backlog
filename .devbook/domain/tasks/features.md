@@ -81,9 +81,12 @@ related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
 Break a task into ordered sub-items with a title, a status (pending or done),
-and notes. A person toggles a sub-item between open and done from the rendered
-task, and can reorder, add and remove sub-items independently. The parent shows
-its progress, such as 3/5 done. Sub-items can project to GitHub issue task lists.
+and notes. On the desktop a step is a `##` chapter written in the task's body.
+A person adds, renames, reorders and removes steps by editing that text. A step
+is finished with `[x]` in its heading or `!done` on the line under it. On the
+phone a person ticks a step on or off from the checklist on the task's own page,
+while the task is in today's My Day. The parent shows its progress, such as 3/5
+done. Sub-items can project to GitHub issue task lists.
 
 A step is a [Sub-Item](domain.md#sub-item); that chapter says what a step
 carries and what stays on the task.
@@ -146,12 +149,12 @@ When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
 
-A task's own text can show a scenario screenshot. An image written
-`scenario:<scenarios file>#<label>` in the text a task opens with, or in a step's note, shows
-the capture from the journey's last run with its source line, exactly as a chapter
-shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
-It is resolved against the repository the task's Devbook references open in. Any
-other image in a task shows as it always has.
+A task's own text can name a scenario screenshot, as an image written
+`scenario:<scenarios file>#<label>`. The desktop's task detail shows the body as
+Markdown source and draws no image, so the image reads there as the text written.
+Drawing it is kept for a later rendered reading of the body. Until then the
+screenshot is shown where its scenarios file is read in the Devbook pane
+([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
 each part with its state and last run, the step a failed part stopped on, and a count
@@ -502,6 +505,56 @@ Marking a task blocked
 [raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
 unless an open impediment already holds it back. Progress reacts to the mark. The task
 stores no impediment id, and Tasks never calls Progress.
+
+### Filing a follow-up after an entry
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry, .devbook/domain/tasks/domain.md#dependency, .devbook/domain/notifications/features.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#re-importing-an-updated-plan, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+File one new prompt that waits on an entry, when the person approves that entry's
+delivery run and asks for a follow-up in the same answer. The person answers the
+run's Personal Validation question with Approve + follow-up and a few words, on the
+phone or at the desktop. Sessions records the approval and asks Tasks to file the
+follow-up. The entry the run was working is the **gated entry**.
+
+The follow-up is an ordinary [Task](domain.md#task), born as follows:
+
+| Field | Value |
+| --- | --- |
+| Type | `prompt` |
+| Status | `ready` |
+| Waits on | the gated entry, as `after:<id>` |
+| Tags | the gated entry's plan tag, when it has one: its `import_plan_id`, or else the one plan tag it carries |
+| Repository | the gated entry's |
+| Title | "Follow-up: " and the gated entry's title |
+| Body | the person's words, as body text |
+| Provenance | the id of the notification whose answer asked for it |
+
+It carries the plan's tag and no `import_plan_id`. So the plan still lists it, and
+[re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
+the re-import clears tasks by `import_plan_id`. A gated entry outside any plan gets
+a follow-up with no plan tag. A follow-up of a follow-up stays in the plan through
+the tag its gated entry carries. Sessions names the gated entry by its id, or by
+its plan and item.
+
+The notification id is the follow-up's provenance and its key. An answer handed
+over twice files one follow-up, never a second. A follow-up the person deleted
+since is not filed again by the same answer.
+
+The person's words stay body text. A line that looks like a sub-item, a heading or
+a fence is kept as plain text, so the words cannot add steps or structure the person
+did not see.
+
+Nothing here creates a session request:
+[only a click in the app requests a session](../sessions/requirements.md#requirement-only-a-click-in-the-app-requests-a-session),
+as §1 of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides. An attended `execute-plan` runs the follow-up like any other ready prompt
+of its plan once the gated entry lands, and `run-plan-item` checks it before
+doing anything.
 
 ## Multi-repo targeting
 

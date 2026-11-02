@@ -174,6 +174,29 @@ public sealed class TaskEditsTests : IDisposable
         Assert.Equal(45, row.Task.AgendaMinutes);
     }
 
+    /// <summary>A follow-up filed on the desktop from an Approve + follow-up answer
+    /// keeps the notification it came from through a phone edit: the phone sends the
+    /// whole document, and one that dropped the field would let a redelivery of the
+    /// same answer on the desktop file the follow-up a second time.</summary>
+    [Fact]
+    public async Task A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from()
+    {
+        var notification = Guid.Parse("0199a3f2-7c41-7d1a-9d0f-00000000000a");
+        var change = TestTasks.Task("Follow-up: Show the empty state", Now.AddHours(-1), inMyDayOn: Today);
+        change = change with { Task = change.Task with { SourceNotificationId = notification } };
+        _service.Append(change);
+        await _view.PullAsync(Cancellation);
+        _service.State = InboxServiceState.Unreachable;
+
+        var row = await _edits.MarkDoneAsync(change.Id, Cancellation);
+        await _outbox.WhenIdleAsync();
+
+        Assert.Equal(notification, TaskOutboxKind.Read(Assert.Single(_outbox.Entries)).Task.SourceNotificationId);
+        Assert.NotNull(row);
+        Assert.Equal(notification, row.Task.SourceNotificationId);
+        Assert.Equal(notification, Assert.Single(_store.ReadRows(), kept => kept.Id == change.Id).Task.SourceNotificationId);
+    }
+
     [Fact]
     public async Task The_edited_row_is_marked_waiting_until_the_outbox_delivers_it()
     {

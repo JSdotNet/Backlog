@@ -362,3 +362,159 @@ The system SHALL offer no queue icon, no wait route and no dispatcher tool while
 - **Given** the `session-requests` flag is off
 - **When** the person opens a prompt entry and a dispatcher calls the wait route
 - **Then** the entry offers no queue icon, the route answers `404` and the MCP endpoint lists no dispatcher tool
+
+## Answer a session's question from elsewhere
+
+```meta
+status: draft
+type: requirements
+related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/sessions/domain.md#question-relay, .devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
+```
+
+> The requirements of one feature. The feature chapter itself says what the
+> capability is and why it exists; this says what it promises. Local ADR 0041
+> decides them. None of them is built yet.
+
+### Requirement: A question asked while the person is away is notified at once
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL publish a session's question as a notification when it is asked while the person is away: after the away setting, 10 minutes by default, without keyboard or mouse input, or while the screen is locked.
+
+#### Scenario: The person left the desk
+
+- **Given** the `notifications` flag is on and there has been no input on the desktop for 12 minutes
+- **When** a Claude session asks a question through `ask` with its session id
+- **Then** the question is Notified, a notification about the session is published, and `ask` answers the route `backlog`
+
+#### Scenario: The screen is locked
+
+- **Given** the screen of the desktop is locked
+- **When** a session asks a question
+- **Then** the question is Notified at once
+
+### Requirement: A question asked at the keyboard waits before it is notified
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL keep a question asked while the person is at the keyboard in the session, and SHALL publish it only if it is still open after the notify setting, 15 minutes by default.
+
+#### Scenario: Answered in time
+
+- **Given** the person typed a minute ago and a session opens a question dialog
+- **When** the person answers the dialog after five minutes
+- **Then** nothing is published, and the question is Answered
+
+#### Scenario: Left open
+
+- **Given** the person typed a minute ago and a session asks in prose
+- **When** 15 minutes pass with no answer
+- **Then** the question is Notified and a notification about the session is published
+
+### Requirement: Coming back never takes a question back
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL keep a Notified question published when the person returns to the keyboard.
+
+#### Scenario: Back at the desk
+
+- **Given** a question was Notified while the person was away
+- **When** the person moves the mouse and opens Backlog
+- **Then** the question stays Notified and its notification stays Open
+
+### Requirement: An answer in the session closes the question
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL close a question answered in the session, with the answers, and close each notification it published.
+
+#### Scenario: Answered at the desk after it was notified
+
+- **Given** a Notified prose question
+- **When** the person types the answer into the session
+- **Then** the question is Answered, its notification closes showing it was answered in the session, and no delivery is made
+
+### Requirement: A dialog asked while the person is away is answered through the hook
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL answer the `get_answer` call of the hook holding a dialog asked while the person is away with the accepted answers, holding each call at most 55 seconds, for up to the dialog wait setting, 8 hours by default.
+
+#### Scenario: Answered on the phone
+
+- **Given** the person is away and a session opens a question dialog with two questions
+- **When** the person answers both on the phone and the owner desktop accepts the replies
+- **Then** the hook's waiting `get_answer` answers with both answers, the session receives them as the dialog's answers, and the dialog never opened
+
+#### Scenario: No answer within the wait
+
+- **Given** a dialog's hook has waited the whole dialog wait
+- **When** the wait runs out
+- **Then** the question closes as timed out and the dialog opens in the session
+
+### Requirement: Any other answer reaches the session through the Manager
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL turn the answer to a prose question, or to a dialog that escalated from the session, into a delivery that the dispatch wait route hands to a waiting Manager before any session request.
+
+#### Scenario: A prose question answered on the phone
+
+- **Given** a Notified prose question and a Manager waiting on `GET /session-requests/wait` with a session request also Requested
+- **When** the person answers on the phone and the owner desktop accepts it
+- **Then** the wait route answers with the delivery, carrying the session id, the question and the answer, before the session request
+
+#### Scenario: The session is gone
+
+- **Given** a Manager claimed a delivery
+- **When** it cannot reach the session and marks the delivery released
+- **Then** the delivery is Pending again
+
+### Requirement: A waiting session is not working
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL count a session with an open question as waiting, not working, in the dispatch capacity rule.
+
+#### Scenario: Three sessions wait on questions
+
+- **Given** three dispatched sessions each hold an open question
+- **When** a Manager checks its capacity
+- **Then** none of the three counts as working, and it may start the next session request
+
+### Requirement: The relay sits behind the notifications flag
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL register no question and publish nothing for a session while the `notifications` flag is off.
+
+#### Scenario: The flag is off
+
+- **Given** the `notifications` flag is off
+- **When** a session's hook calls `ask` with its session id
+- **Then** `ask` answers that notifications are not available, and the session asks in place

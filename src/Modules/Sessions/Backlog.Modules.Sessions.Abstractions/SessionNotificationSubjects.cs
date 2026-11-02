@@ -42,8 +42,18 @@ public static class SessionNotificationSubjects
     /// <summary>The choice that approves a run's Personal Validation.</summary>
     public const string ApproveChoice = "approve";
 
-    /// <summary>The choice that rejects a run's Personal Validation.</summary>
+    /// <summary>The choice that rejects a run's Personal Validation. Recorded as a rejection
+    /// with no words of the person's, and the entry is blocked.</summary>
     public const string RejectChoice = "reject";
+
+    /// <summary>The choice that approves a run's Personal Validation and, with the person's
+    /// words, files a follow-up entry after the gated entry. Takes text; offered only when
+    /// the run names its entry.</summary>
+    public const string ApproveFollowUpChoice = "approve-follow-up";
+
+    /// <summary>The choice that sends a run's Personal Validation back for another round
+    /// with the person's words. Takes text; recorded as a rejection with those words.</summary>
+    public const string ReviseChoice = "revise";
 
     /// <summary>
     /// The source key of the Personal Validation question about a run: the run and the

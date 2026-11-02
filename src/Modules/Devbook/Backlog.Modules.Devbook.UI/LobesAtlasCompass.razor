@@ -1,0 +1,97 @@
+@using System.Globalization
+
+@*
+    The Lobes atlas's foot (.devbook/domain/devbook/features.md#lobes-atlas): the
+    drag/scroll hint with the zoom level, and the orientation marker — superior,
+    anterior and left drawn as three axes that turn with the camera, as the
+    design's marker does.
+
+    A component of its own so a camera report re-renders these few elements and
+    nothing else: the takeover hands each report to Show rather than through an
+    EventCallback, which would re-render the takeover and its whole index.
+*@
+
+<div class="lobes-atlas__footer" data-testid="lobes-atlas-footer">
+    <p class="lobes-atlas__hint" data-testid="lobes-atlas-hint">
+        Drag — rotate · Scroll — zoom · <span data-testid="lobes-atlas-zoom">@($"{_camera.ZoomPercent.ToString(CultureInfo.InvariantCulture)}%")</span>
+    </p>
+    <svg class="lobes-atlas__orientation"
+         data-testid="lobes-atlas-orientation"
+         data-yaw="@Format(_camera.Yaw)"
+         data-pitch="@Format(_camera.Pitch)"
+         viewBox="0 0 120 120"
+         width="96"
+         height="96"
+         aria-hidden="true"
+         focusable="false">
+        <circle class="lobes-atlas__orientation-ring" cx="60" cy="60" r="56" />
+        @foreach (var axis in Axes())
+        {
+            <line class="lobes-atlas__orientation-axis"
+                  data-axis="@axis.Name"
+                  x1="60" y1="60"
+                  x2="@Format(axis.X2)" y2="@Format(axis.Y2)" />
+            @* Razor reserves <text>, so the SVG element is written out whole; the
+               name is one of three fixed letters and the numbers are formatted. *@
+            @((MarkupString)$"<text class=\"lobes-atlas__orientation-tag\" data-axis=\"{axis.Name}\" x=\"{Format(axis.TagX)}\" y=\"{Format(axis.TagY)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">{axis.Name}</text>")
+        }
+    </svg>
+</div>
+
+@code {
+    private GraphAtlasCamera _camera = GraphAtlasCamera.LobesDefault;
+
+    /// <summary>The axes the marker draws, each a unit vector in the atlas's
+    /// world as the renderer lays it out: superior up the screen (y grows down),
+    /// anterior along +z (into the screen at the default view), left along +x —
+    /// the design's three.</summary>
+    private static readonly (string Name, double X, double Y, double Z)[] WorldAxes =
+    [
+        ("S", 0, -1, 0),
+        ("A", 0, 0, 1),
+        ("L", 1, 0, 0)
+    ];
+
+    /// <summary>Where the camera is now, as the takeover was last told.</summary>
+    public GraphAtlasCamera Camera => _camera;
+
+    /// <summary>A camera report from the renderer. Re-renders this foot alone,
+    /// and only when the marker or the percentage would change as drawn: the
+    /// angles to the two decimals the marker is written in, the zoom to the
+    /// whole percent the hint prints.</summary>
+    public void Show(GraphAtlasCamera camera)
+    {
+        ArgumentNullException.ThrowIfNull(camera);
+        if (Format(camera.Yaw) == Format(_camera.Yaw)
+            && Format(camera.Pitch) == Format(_camera.Pitch)
+            && camera.ZoomPercent == _camera.ZoomPercent) return;
+
+        _camera = camera;
+        StateHasChanged();
+    }
+
+    /// <summary>Each axis projected the way the renderer projects a point —
+    /// turned by the yaw, then tilted by the pitch — and drawn from the marker's
+    /// centre, never shorter than a stub so an axis pointing at the viewer still
+    /// shows where it is.</summary>
+    private IEnumerable<(string Name, double X2, double Y2, double TagX, double TagY)> Axes()
+    {
+        var cy = Math.Cos(_camera.Yaw);
+        var sy = Math.Sin(_camera.Yaw);
+        var cp = Math.Cos(_camera.Pitch);
+        var sp = Math.Sin(_camera.Pitch);
+
+        foreach (var (name, x, y, z) in WorldAxes)
+        {
+            var x1 = x * cy + z * sy;
+            var z1 = -x * sy + z * cy;
+            var y2 = y * cp - z1 * sp;
+            var length = Math.Max(0.15, Math.Sqrt(x1 * x1 + y2 * y2));
+            var angle = Math.Atan2(y2, x1);
+            var reach = 44 * length;
+            yield return (name, 60 + Math.Cos(angle) * reach, 60 + Math.Sin(angle) * reach, 60 + x1 * 50, 60 + y2 * 50);
+        }
+    }
+
+    private static string Format(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}

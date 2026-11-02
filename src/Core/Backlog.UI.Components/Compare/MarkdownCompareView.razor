@@ -16,7 +16,7 @@
 
     Everything is rendered through MarkdownView, which emits through the render
     tree's normal escaping and filters link and image URLs by scheme
-    (MarkdownRender.IsNavigable). No raw HTML is emitted anywhere here, which
+    (LinkSchemes.IsNavigable). No raw HTML is emitted anywhere here, which
     matters more than usual: the "before" side is by definition text somebody
     has already changed their mind about, and it may have arrived from a
     repository file nobody in this product wrote.

@@ -76,8 +76,11 @@ queues, and one that tends a person's Brain — and a pane that follows a runnin
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
   anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
-  at each Personal Validation, and the orchestrator relays it to the person and sends the
-  decision back to that session (`SendMessage`); *unattended* (branch or stacked), each entry parks at
+  at each Personal Validation, and the orchestrator relays it to the person, takes the first
+  answer — from the chat or from the question the gate raises on the person's devices
+  (`skills/execute-plan/assets/gates.md`) — and sends it back to that session (`SendMessage`);
+  Reject blocks the entry, and a follow-up an Approve + follow-up files runs as a ready entry
+  once the gated one lands; *unattended* (branch or stacked), each entry parks at
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
@@ -138,9 +141,15 @@ queues, and one that tends a person's Brain — and a pane that follows a runnin
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
   Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
   finds the app's port and token the way the telemetry forwarder does, loops on
-  `GET /session-requests/wait` and prints each request once, so the Manager spends no turn
-  while nothing is queued; it never polls the request tools in a loop. Before each start it
-  checks capacity, cheapest first: fewer than 3 of its own linked sessions working, every plan
+  `GET /session-requests/wait` and prints each item once — an answer delivery (`delivery`,
+  local ADR 0041) before any session request (`request`) — so the Manager spends no turn
+  while nothing is queued; it never polls the request tools in a loop. It delivers first: for
+  each pending delivery whose session the Claude desktop app holds open it claims it
+  (`claim_delivery`), sends "You asked: <question>. The answer from Backlog: <answer>" to the
+  session with `send_message`, which wakes an idle session, and marks it `delivered`, or
+  `released` when the session no longer exists. Before each start it
+  checks capacity, cheapest first: fewer than 3 of its own linked sessions working — a session
+  the `backlog` server's `list_sessions` reads `Waiting` on a question does not count — every plan
   limit under 80%, and — through the PowerShell probe `assets/capacity.ps1` — average CPU
   under 80% over 30 seconds and at least 4 GB free; all four are arguments with these
   defaults, and a request that does not fit stays Requested. Oldest first, it claims the
@@ -149,8 +158,8 @@ queues, and one that tends a person's Brain — and a pane that follows a runnin
   reports it (`mark_session_request` `started`), or gives the claim back (`released`) when
   the start fails. A new request wakes it through the Monitor and a finished session through
   `wake_when_done`; the `/loop` tick is the fallback only, 300 seconds while usage, CPU or
-  memory holds the queue and 1800 otherwise. On restart it releases the claims its dispatcher
-  still holds. The dispatcher is named for the machine, and the skill runs one Manager per
+  memory holds the queue and 1800 otherwise. On restart it releases the request and delivery
+  claims its dispatcher still holds. The dispatcher is named for the machine, and the skill runs one Manager per
   machine. A request released after a failed start is skipped for that turn and comes up again
   on the next tick or re-armed Monitor. It writes no brief — the app builds each from the request's kind and id — so
   the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
@@ -220,7 +229,7 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
   draws there, such as `delivery-run-view`'s flow band, stays under it.
 - **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
   the whole plan as a matrix — every entry a row, every stage a column under its short name
-  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's run and worktree and each block's reason under it.
   A surface has no `parked` status, so an unattended entry reports the Personal Validation it
   moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
   run stopped at.

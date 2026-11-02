@@ -30,7 +30,8 @@ internal sealed record NotificationDocument(
     DateTimeOffset? SettledAt,
     string? CloseReason,
     NotificationAnswer? Accepted,
-    DateTimeOffset? AnswerDeliveredAt)
+    DateTimeOffset? AnswerDeliveredAt,
+    NotificationOrigin? Origin = null)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -61,7 +62,8 @@ internal sealed record NotificationDocument(
         notification.SettledAt,
         notification.CloseReason,
         notification.Answer,
-        notification.AnswerDeliveredAt);
+        notification.AnswerDeliveredAt,
+        notification.Origin);
 
     /// <summary>The notification this document holds. Throws <see cref="JsonException"/> for one
     /// that parsed but does not read as a notification — a missing owner, source or title — so the
@@ -100,5 +102,7 @@ internal sealed record NotificationDocument(
         SettledAt,
         CloseReason,
         Accepted is null ? null : Accepted with { ChoiceIds = Accepted.ChoiceIds ?? [] },
-        AnswerDeliveredAt);
+        AnswerDeliveredAt,
+        // A stored origin without its system reads as none, rather than costing the row.
+        string.IsNullOrWhiteSpace(Origin?.System) ? null : Origin);
 }

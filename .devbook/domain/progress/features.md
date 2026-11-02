@@ -253,36 +253,22 @@ calls Progress.
 
 ```meta
 type: feature
-status: draft
-related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/sessions/features.md#pull-request-readiness, .devbook/design/color-scheme.md]
+status: proposed
+related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
-See whether a pull request can merge without opening it. Every pull request row in
-Progress, each row of the
-[Pull requests pane](../sessions/features.md#pull-request-readiness), and each open
-pull request card among a task's linked work in its side panel, carries its number
-and two marks:
+Goal rows show the status Repository Management publishes. Every pull request row in
+Progress carries its number and the checks and approvals marks of
+[Pull request status](../repository-management/features.md#pull-request-status), and
+a merged one reads "merged" instead of both. So a pull request reads the same on a
+goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
 
-- **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
-  (`9/14`, still running) and a failing one (`2/14`, failing);
-- **approvals**: an icon and `approvals/required`, such as `1/2`, where required is
-  the number of approvals the base branch's rules ask for: its protection rule or a
-  ruleset's pull request rule, whichever asks for more. A base branch no rule asks an
-  approval of has no required total, and neither does one whose rules GitHub will not
-  show.
-
-The words "checks" and "approvals" are screen-reader labels only, so the row stays
-short. A merged pull request reads "merged" instead of both marks. Checks that have
-not run draw no checks mark. With no required total, the approvals read as the
-number received alone.
-
-The Pull requests pane reads each base branch's rules once, beside its list, and
-keeps the answer for ten minutes, so its rows carry the required total too. A
-branch whose rules cannot be read leaves its rows' approvals as the number received,
-with no verdict either way. A task's linked pull request card draws the marks while
-the pull request is open; one the open list did not hold — merged, closed, or in a
-repository no longer configured — draws its state alone, because the read by number
-behind it asks for no checks or approvals.
+Progress defines neither mark. It names a pull request by its repository and number,
+and Repository Management answers with its status. The marks used to be defined here
+(local ADR 0035 §7); local
+[ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)
+moves them to the context that reads pull requests. The rows draw as they did; only
+the owner of what they draw changes, and that move is not built yet.
 
 ## Goals on the phone
 

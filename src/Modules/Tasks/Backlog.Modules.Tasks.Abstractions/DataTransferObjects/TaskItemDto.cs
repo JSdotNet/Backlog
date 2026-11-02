@@ -78,6 +78,12 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// its own column, never rebuilt from the text. Last, for the reason
 /// <paramref name="StartedOn"/> is.
 /// </para>
+/// <para>
+/// <paramref name="SourceNotificationId"/> is the notification whose answer asked for
+/// the entry — a follow-up filed from an Approve + follow-up answer — or null. On
+/// <paramref name="SourceInboxId"/>'s terms: its own column, never rebuilt from the
+/// text, fixed at birth. Last, for the reason <paramref name="StartedOn"/> is.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
@@ -111,7 +117,8 @@ public sealed record TaskItemDto(
     DateOnly? BlockedSince = null,
     SourceRef? SourceRef = null,
     AgendaTime? AgendaTime = null,
-    IReadOnlyList<PlannedHoursDto>? PlannedHours = null)
+    IReadOnlyList<PlannedHoursDto>? PlannedHours = null,
+    Guid? SourceNotificationId = null)
 {
     /// <summary>The hours the person set aside for the entry on given days, one block
     /// per day, in date order — the Calendar's planned hours. Published on

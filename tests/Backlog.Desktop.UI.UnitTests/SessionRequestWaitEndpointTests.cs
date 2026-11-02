@@ -47,7 +47,8 @@ public class SessionRequestWaitEndpointTests
         using var json = JsonDocument.Parse(reply.Body);
         var root = json.RootElement;
         Assert.Equal(older.Id, root.GetProperty("id").GetGuid());
-        Assert.Equal("entry", root.GetProperty("kind").GetString());
+        Assert.Equal("request", root.GetProperty("kind").GetString());
+        Assert.Equal("entry", root.GetProperty("requestKind").GetString());
         Assert.Equal(older.EntryId, root.GetProperty("entryId").GetGuid());
         Assert.Equal(JsonValueKind.Null, root.GetProperty("planTag").ValueKind);
         Assert.Equal("JSdotNet/Backlog", root.GetProperty("repository").GetString());
@@ -65,7 +66,8 @@ public class SessionRequestWaitEndpointTests
         var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken);
 
         using var json = JsonDocument.Parse(reply.Body);
-        Assert.Equal("plan", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal("request", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal("plan", json.RootElement.GetProperty("requestKind").GetString());
         Assert.Equal("session-dispatch", json.RootElement.GetProperty("planTag").GetString());
         Assert.Equal("/backlog-tools:execute-plan +session-dispatch", json.RootElement.GetProperty("brief").GetString());
     }
@@ -199,6 +201,134 @@ public class SessionRequestWaitEndpointTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, gone.Token, TimeSpan.FromSeconds(30), ShortPoll));
+    }
+
+    [Fact]
+    public async Task A_delivery_is_handed_out_before_an_older_session_request()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromHours(1)));
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now - TimeSpan.FromMinutes(1));
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
+
+        Assert.Equal(200, reply.StatusCode);
+        Assert.Equal(0, queue.NextCalls);
+
+        using var json = JsonDocument.Parse(reply.Body);
+        var root = json.RootElement;
+        Assert.Equal("delivery", root.GetProperty("kind").GetString());
+        Assert.Equal(delivery.Id, root.GetProperty("id").GetGuid());
+        Assert.Equal("cli-1", root.GetProperty("sessionId").GetString());
+        Assert.Equal("local_1", root.GetProperty("desktopSessionId").GetString());
+        Assert.Equal("Which database?", root.GetProperty("question").GetString());
+        Assert.Equal("Postgres", root.GetProperty("answer").GetString());
+        Assert.Equal("pending", root.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Deliveries_are_handed_out_oldest_answer_first()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var questions = new HeldWaitingQuestions();
+        questions.AddPendingDelivery("cli-2", "Second?", "b", now - TimeSpan.FromMinutes(1));
+        var older = questions.AddPendingDelivery("cli-1", "First?", "a", now - TimeSpan.FromMinutes(5));
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"), FixedSessionSource.Claude("cli-2", "local_2"));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken,
+            questions: questions, sessions: sessions);
+
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(older.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    /// <summary>A CLI session, or one the desktop app archived, has nobody the Manager could
+    /// send the answer to, so its delivery waits and the queue behind it is not held up.</summary>
+    [Fact]
+    public async Task A_delivery_whose_session_the_desktop_app_does_not_hold_open_is_not_handed_out()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var queue = new InMemorySessionRequestStore();
+        var request = queue.Add(Entry(Guid.NewGuid(), now));
+        var questions = new HeldWaitingQuestions();
+        questions.AddPendingDelivery("cli-only", "A?", "a", now);
+        questions.AddPendingDelivery("archived", "B?", "b", now);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-only", null), FixedSessionSource.Claude("archived", "local_9", archived: true));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
+
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal("request", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task A_claimed_delivery_is_not_handed_out_until_its_lease_runs_out()
+    {
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "A?", "a", clock.GetUtcNow());
+        await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ClaimDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var held = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+
+        clock.Advance(WaitingQuestions.DeliveryLease);
+
+        var lapsed = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+
+        Assert.Equal(204, held.StatusCode);
+        Assert.Equal(200, lapsed.StatusCode);
+        using var json = JsonDocument.Parse(lapsed.Body);
+        Assert.Equal(delivery.Id, json.RootElement.GetProperty("id").GetGuid());
+        Assert.Equal("pending", json.RootElement.GetProperty("state").GetString());
+    }
+
+    /// <summary>A delivery the Manager gave back — its session could not be reached — is
+    /// held back for one lease, so the route does not wake the Manager for it on every call.</summary>
+    [Fact]
+    public async Task A_released_delivery_is_held_back_for_one_lease()
+    {
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "A?", "a", clock.GetUtcNow());
+        await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ClaimDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
+        await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ReleaseDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var held = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+
+        clock.Advance(WaitingQuestions.DeliveryLease);
+
+        var again = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+
+        Assert.Equal(204, held.StatusCode);
+        Assert.Equal(200, again.StatusCode);
+    }
+
+    [Fact]
+    public async Task One_held_call_reads_the_session_list_once_for_a_delivery_it_cannot_send()
+    {
+        var questions = new HeldWaitingQuestions();
+        questions.AddPendingDelivery("cli-only", "A?", "a", DateTimeOffset.UtcNow);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-only", null));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            new InMemorySessionRequestStore(), Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken,
+            TimeSpan.FromMilliseconds(200), ShortPoll, questions, sessions);
+
+        Assert.Equal(204, reply.StatusCode);
+        Assert.Equal(1, sessions.Reads);
     }
 
     private static IAppFeatureSettings Features(bool on) => new SessionRequestFlag(on);

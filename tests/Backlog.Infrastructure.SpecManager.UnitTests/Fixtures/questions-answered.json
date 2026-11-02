@@ -1,0 +1,30 @@
+[
+  {
+    "id": "40000000-0000-0000-0000-000000000005",
+    "itemId": "20000000-0000-0000-0000-000000000007",
+    "itemNumber": 7,
+    "itemTitle": "Rounding in invoices",
+    "text": "Show the rounding difference on the invoice?",
+    "context": null,
+    "options": [
+      { "position": 1, "label": "Yes", "description": null },
+      { "position": 2, "label": "No", "description": null }
+    ],
+    "assignee": null,
+    "askedBy": { "id": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries" },
+    "askedAt": "2026-10-04T11:00:00+00:00",
+    "source": "agent-session",
+    "openSpecChange": null,
+    "answer": {
+      "option": 2,
+      "optionLabel": "No",
+      "other": null,
+      "note": "Only in the export.",
+      "answeredBy": { "id": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries" },
+      "answeredAt": "2026-10-05T11:30:00+00:00",
+      "answeredVia": "spec-manager"
+    },
+    "updatedAt": "2026-10-05T11:30:00+00:00",
+    "canAnswer": false
+  }
+]

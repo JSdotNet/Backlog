@@ -54,8 +54,10 @@ public sealed class Notification
         AnswerSpec? answerSpec,
         string? deepLink,
         bool isPrivate,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        NotificationOrigin? origin)
     {
+        Origin = origin;
         Id = id;
         OwnerInstanceId = ownerInstanceId;
         Source = source;
@@ -96,6 +98,10 @@ public sealed class Notification
     public string? DeepLink { get; }
 
     public bool IsPrivate { get; }
+
+    /// <summary>Where it came from, in words a person reads, or null
+    /// (<c>.devbook/domain/notifications/domain.md#origin</c>).</summary>
+    public NotificationOrigin? Origin { get; }
 
     public DateTimeOffset CreatedAt { get; }
 
@@ -162,6 +168,9 @@ public sealed class Notification
         var body = draft.BodyMarkdown ?? string.Empty;
         if (Encoding.UTF8.GetByteCount(body) > MaxBodyBytes) return NotificationsErrors.ContentTooLong("body", MaxBodyBytes, "bytes of Markdown");
 
+        var origin = Checked(draft.Origin);
+        if (origin.IsFailure) return origin.Error;
+
         return new Notification(
             id,
             ownerInstanceId,
@@ -175,8 +184,51 @@ public sealed class Notification
             draft.Answer,
             string.IsNullOrWhiteSpace(draft.DeepLink) ? null : draft.DeepLink.Trim(),
             draft.IsPrivate,
-            createdAt);
+            createdAt,
+            origin.Value);
     }
+
+    /// <summary>
+    /// The draft's origin, trimmed, with blank parts dropped; or null when it has none. Refused
+    /// (<c>notification.origin_invalid</c>, <c>notification.content_too_long</c>) for one without a
+    /// system, a part that runs over a line or past its bound, or a link that is not an absolute
+    /// <c>http</c> or <c>https</c> address.
+    /// </summary>
+    private static Result<NotificationOrigin?> Checked(NotificationOrigin? origin)
+    {
+        if (origin is null) return Result.Success<NotificationOrigin?>(null);
+
+        var system = origin.System?.Trim() ?? string.Empty;
+        if (system.Length == 0) return NotificationsErrors.OriginInvalid("An origin names the system that raised it.");
+
+        var parts = new (string Field, string? Text, int Limit)[]
+        {
+            ("origin's system", system, NotificationOrigin.MaxSystemLength),
+            ("origin's place", origin.Place, NotificationOrigin.MaxPlaceLength),
+            ("origin's asked-by", origin.AskedBy, NotificationOrigin.MaxAskedByLength),
+            ("origin's via", origin.Via, NotificationOrigin.MaxViaLength)
+        };
+
+        foreach (var (field, text, limit) in parts)
+        {
+            var trimmed = text?.Trim() ?? string.Empty;
+            if (trimmed.Contains('\n', StringComparison.Ordinal) || trimmed.Contains('\r', StringComparison.Ordinal))
+                return NotificationsErrors.OriginInvalid($"The {field} is one line.");
+            if (trimmed.Length > limit) return NotificationsErrors.ContentTooLong(field, limit, "characters");
+        }
+
+        if (!string.IsNullOrWhiteSpace(origin.OpenLink) && !NotificationOrigin.IsOpenLink(origin.OpenLink))
+            return NotificationsErrors.OriginInvalid("An origin's link is an absolute http or https address.");
+
+        return Result.Success<NotificationOrigin?>(new NotificationOrigin(
+            system,
+            Blank(origin.Place),
+            Blank(origin.AskedBy),
+            Blank(origin.Via),
+            Blank(origin.OpenLink)));
+    }
+
+    private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules held
     /// when it was written.</summary>
@@ -198,8 +250,9 @@ public sealed class Notification
         DateTimeOffset? settledAt,
         string? closeReason,
         NotificationAnswer? answer,
-        DateTimeOffset? answerDeliveredAt) =>
-        new(id, ownerInstanceId, source, subject, kind, severity, title, summary, bodyMarkdown, answerSpec, deepLink, isPrivate, createdAt)
+        DateTimeOffset? answerDeliveredAt,
+        NotificationOrigin? origin = null) =>
+        new(id, ownerInstanceId, source, subject, kind, severity, title, summary, bodyMarkdown, answerSpec, deepLink, isPrivate, createdAt, origin)
         {
             State = state,
             SettledAt = settledAt,
@@ -253,7 +306,7 @@ public sealed class Notification
         if (AnswerSpec.AnswerOn == AnswerOn.Owner && reply.FromDeviceId != OwnerInstanceId)
             return NotificationsErrors.ReplyOwnerOnly();
 
-        var fits = ReplyValidation.Validate(AnswerSpec, reply.ChoiceIds, reply.Text);
+        var fits = ReplyValidation.Validate(AnswerSpec, reply.ChoiceIds, reply.Text, reply.Note);
         if (fits.IsFailure) return fits.Error;
 
         var answer = new NotificationAnswer(
@@ -263,7 +316,8 @@ public sealed class Notification
             reply.FromDeviceId,
             [.. reply.ChoiceIds ?? []],
             string.IsNullOrWhiteSpace(reply.Text) ? null : reply.Text,
-            at);
+            at,
+            string.IsNullOrWhiteSpace(reply.Note) ? null : reply.Note.Trim());
 
         Answer = answer;
         State = NotificationState.Answered;

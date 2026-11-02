@@ -70,7 +70,8 @@ public static class TestNotifications
             Settings[Settings] --> Desktop[This desktop]
             Desktop --> Phone[Your phone]
         ```
-        """);
+        """,
+        Origin: Origin);
 
     /// <summary>The test question: two set answers, "It works" and "Not yet", and an open answer
     /// beside them.</summary>
@@ -92,7 +93,11 @@ public static class TestNotifications
                 new AnswerChoice(ItWorksChoiceId, "It works", AnswerChoiceStyle.Primary),
                 new AnswerChoice(NotYetChoiceId, "Not yet")
             ],
-            Open: new OpenAnswer("Anything else to say?")));
+            Open: new OpenAnswer("Anything else to say?")),
+        Origin: Origin);
+
+    /// <summary>Where a test comes from: Backlog's own Settings.</summary>
+    public static NotificationOrigin Origin { get; } = new(NotificationOrigins.Backlog, "Settings › Notifications", Via: "Test");
 }
 
 /// <summary>

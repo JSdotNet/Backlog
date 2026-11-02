@@ -15,7 +15,9 @@
 
     The index beside it is the control. It is a real listbox over the same nodes
     in the same order, it prints every fact the marks encode, and it is where the
-    keyboard lives.
+    keyboard lives. Its arrows move the active row, which the picture spotlights;
+    only Enter, Space or a click selects, so a reader can browse the list without
+    a sheet opening on every row they pass.
 
     The sheet is what a selection opens, and it is the host's — this component
     knows a node has been picked and nothing about what that means.
@@ -24,7 +26,10 @@
     decides. Two selection models either side of the interop boundary is the bug
     this shape exists to prevent, and the reason `select` is pushed rather than
     the model being re-handed is that re-handing the model would repaint the
-    scene every time a reader arrowed down a list.
+    scene every time a reader arrowed down a list. What `select` is told is the
+    spotlit node: the active row once the keyboard has moved to it, the selection
+    otherwise. Clearing the selection clears the spotlight, and leaves the list's
+    tab stop on the row.
 *@
 
 <section class="@ClassValue"
@@ -51,7 +56,7 @@
     <div class="graph-atlas__stage">
         <div @ref="_container"
              class="graph-atlas__canvas"
-             data-tone="@SelectedTone"
+             data-tone="@SpotlitTone"
              role="region"
              aria-label="@AriaLabel">
             <p class="graph-atlas__status" role="status">@StatusText</p>
@@ -60,6 +65,8 @@
         <GraphAtlasIndex Nodes="@Nodes"
                          SelectedId="@SelectedId"
                          SelectedIdChanged="SelectAsync"
+                         ActiveId="@_activeId"
+                         ActiveIdChanged="Activate"
                          AriaLabel="@IndexLabel"
                          TestId="@IndexTestId" />
     </div>
@@ -81,6 +88,9 @@
     private ElementReference _container;
     private object? _renderedData;
     private string? _syncedSelection;
+    private string? _activeId;
+    private bool _spotlightActive;
+    private string? _seenSelectedId;
 
     /// <summary>The picture's own model, handed to the renderer untouched. Opaque
     /// here for the same reason it is opaque on the other diagram hosts: what a
@@ -134,6 +144,16 @@
     [Parameter]
     public RenderFragment? Detail { get; set; }
 
+    /// <summary>Told where the picture's camera is whenever it moves — a drag, the
+    /// wheel, a new layout — for a host that draws the zoom level or an
+    /// orientation marker beside it. A plain delegate rather than an
+    /// <see cref="EventCallback"/> on purpose: a callback re-renders the host on
+    /// every report, and the host's index can be thousands of rows long, so the
+    /// host decides what re-renders. Only renderers that keep a camera report
+    /// one.</summary>
+    [Parameter]
+    public Action<GraphAtlasCamera>? OnCameraMoved { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -150,12 +170,47 @@
 
     private string? IndexTestId => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-index";
 
-    /// <summary>The selected node's tone, on the stage, so the surface can take
-    /// its cast from what is selected. Empty when nothing is.</summary>
-    private string SelectedTone =>
-        Nodes.FirstOrDefault(node => string.Equals(node.Id, SelectedId, StringComparison.Ordinal)) is { } node
+    /// <summary>The node the picture spotlights: the index's active row after an
+    /// arrow or a selection moved it there, the selection otherwise. Arrowing down
+    /// the list moves this and leaves the selection — and so the host's sheet —
+    /// alone. A selection cleared — a sheet closed, a pick on empty canvas —
+    /// clears it too.</summary>
+    private string? SpotlitId => _spotlightActive && _activeId is { } active ? active : SelectedId;
+
+    /// <summary>The spotlit node's tone, on the stage, so the surface can take its
+    /// cast from what the reader is on. Empty when nothing is.</summary>
+    private string SpotlitTone =>
+        Nodes.FirstOrDefault(node => string.Equals(node.Id, SpotlitId, StringComparison.Ordinal)) is { } node
             ? (string.IsNullOrWhiteSpace(node.ToneSlug) ? "unknown" : node.ToneSlug)
             : string.Empty;
+
+    /// <summary>A selection the host made — or one a pick made — moves the active
+    /// row to it, so the list's tab stop and the spotlight follow. A selection
+    /// cleared leaves the active row where it was, unspotlit: closing a sheet
+    /// returns the focus to that row, and the list must still be on it. An active
+    /// row the nodes no longer hold is dropped, so a later scope that brings the
+    /// id back does not bring the old row back with it.</summary>
+    protected override void OnParametersSet()
+    {
+        if (_activeId is { } active && Nodes.All(node => !string.Equals(node.Id, active, StringComparison.Ordinal)))
+        {
+            _activeId = null;
+            _spotlightActive = false;
+        }
+
+        if (string.Equals(_seenSelectedId, SelectedId, StringComparison.Ordinal)) return;
+
+        _seenSelectedId = SelectedId;
+        Follow(SelectedId);
+    }
+
+    /// <summary>Where a selection leaves the keyboard: on the selected row, or —
+    /// when it was cleared — on the row it was on, with nothing spotlit.</summary>
+    private void Follow(string? selectedId)
+    {
+        if (selectedId is not null) _activeId = selectedId;
+        _spotlightActive = selectedId is not null;
+    }
 
     /// <summary>Reported by the canvas when a node is picked with the pointer. The
     /// canvas says what happened; this decides what it means.
@@ -165,6 +220,12 @@
     /// a reader would see as the picture going dead to clicks.</para></summary>
     [JSInvokable]
     public Task NodePicked(string? nodeId) => InvokeAsync(() => SelectAsync(nodeId));
+
+    /// <summary>Reported by a renderer that keeps a camera, as it moves. On the
+    /// renderer's dispatcher, for the reason <see cref="NodePicked"/> is.</summary>
+    [JSInvokable]
+    public Task CameraMoved(double yaw, double pitch, double zoom) =>
+        InvokeAsync(() => OnCameraMoved?.Invoke(new GraphAtlasCamera(yaw, pitch, zoom)));
 
     /// <summary>Reported when the drawing context goes away — WebView2 drops one on
     /// resume and on a display change, silently. Forgetting the rendered model is
@@ -181,8 +242,18 @@
         if (string.Equals(SelectedId, nodeId, StringComparison.Ordinal)) return;
 
         SelectedId = nodeId;
+        _seenSelectedId = nodeId;
+        Follow(nodeId);
         await SelectedIdChanged.InvokeAsync(nodeId);
         StateHasChanged();
+    }
+
+    /// <summary>The index moved its active row: spotlight it, and nothing else.
+    /// The callback re-renders this component, which pushes the spotlight.</summary>
+    private void Activate(string? nodeId)
+    {
+        _activeId = nodeId;
+        _spotlightActive = nodeId is not null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -216,17 +287,18 @@
         }
     }
 
-    /// <summary>Pushes the selection to the picture as a camera move. Never a
+    /// <summary>Pushes the spotlit node to the picture as a camera move. Never a
     /// re-render: the scene did not change, only what is spotlit in it.</summary>
     private async Task SyncSelectionAsync()
     {
-        if (string.Equals(_syncedSelection, SelectedId, StringComparison.Ordinal)) return;
+        var spotlit = SpotlitId;
+        if (string.Equals(_syncedSelection, spotlit, StringComparison.Ordinal)) return;
 
-        _syncedSelection = SelectedId;
+        _syncedSelection = spotlit;
 
         try
         {
-            await Js.InvokeVoidAsync("backlogGraphAtlas.select", _atlasId, SelectedId);
+            await Js.InvokeVoidAsync("backlogGraphAtlas.select", _atlasId, spotlit);
         }
         catch (JSException)
         {

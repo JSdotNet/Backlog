@@ -73,6 +73,9 @@ internal sealed class NotificationReplyDocument
 
     public string? Text { get; set; }
 
+    /// <summary>The note written beside the answer, or null.</summary>
+    public string? Note { get; set; }
+
     public DateTimeOffset RepliedAt { get; set; }
 
     /// <summary>The backstop: a reply the owner never processes — an owner unpaired for
@@ -137,6 +140,7 @@ internal static class NotificationDocumentFactory
             FromDeviceId = ReplicaDocumentSerialization.Key(scope.DeviceId.Value),
             ChoiceIds = [.. reply.ChoiceIds ?? []],
             Text = reply.Text,
+            Note = reply.Note,
             RepliedAt = reply.RepliedAt,
             Ttl = options.NotificationReplyTtlSeconds,
         };
@@ -154,7 +158,7 @@ internal static class NotificationDocumentFactory
         }
 
         return new NotificationReplyRecord(
-            new NotificationReplyPost(id, notificationId, ownerInstanceId, [.. document.ChoiceIds ?? []], document.Text, document.RepliedAt),
+            new NotificationReplyPost(id, notificationId, ownerInstanceId, [.. document.ChoiceIds ?? []], document.Text, document.RepliedAt, document.Note),
             ownerId,
             fromDeviceId,
             document.Timestamp);

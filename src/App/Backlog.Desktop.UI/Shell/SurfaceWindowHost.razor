@@ -1,0 +1,41 @@
+@inject NavigationManager Navigation
+
+@*
+    The interactive root of a surface served as a web page (local ADR 0043 §7): the
+    SurfaceWindow a native popped-out window renders, under the same layout, for the
+    surface the address names.
+
+    No Router, and that is the point of this component. The routes assembly also
+    holds the main window's Home and the Settings screen, and a Router here would
+    render either inside the circuit on an in-app link without asking the listener,
+    which serves /window/{surfaceId} and nothing else. The surface id is read off
+    the address instead, the way the route template would bind it.
+
+    The page cascades a window key of its own, as a native window's head does, so
+    the IShellWindows this host composes can retitle and close its own tab.
+*@
+<CascadingValue Name="@SurfaceWindowRoute.WindowKeyCascade" Value="_windowKey" IsFixed="true">
+    <LayoutView Layout="typeof(MainLayout)">
+        <SurfaceWindow SurfaceId="@SurfaceIdOf(Navigation.ToBaseRelativePath(Navigation.Uri))" />
+    </LayoutView>
+</CascadingValue>
+
+@code {
+    private const string RoutePrefix = "window/";
+
+    private readonly string _windowKey = Guid.NewGuid().ToString("N");
+
+    /// <summary>The surface id a page address names: the segment after
+    /// <c>window/</c>, unescaped, without the query or fragment. Empty for an
+    /// address that names none, which SurfaceWindow answers as not available.</summary>
+    internal static string SurfaceIdOf(string baseRelativePath)
+    {
+        ArgumentNullException.ThrowIfNull(baseRelativePath);
+
+        if (!baseRelativePath.StartsWith(RoutePrefix, StringComparison.OrdinalIgnoreCase)) return string.Empty;
+
+        var rest = baseRelativePath[RoutePrefix.Length..];
+        var end = rest.IndexOfAny(['/', '?', '#']);
+        return Uri.UnescapeDataString(end < 0 ? rest : rest[..end]);
+    }
+}

@@ -177,9 +177,28 @@ public static class DeliveryRunMerging
             Repository = primary.Repository ?? others.Select(other => other.Repository).FirstOrDefault(repository => repository is not null),
             Verdicts = primary.Verdicts.Count > 0 ? primary.Verdicts : First(others, other => other.Verdicts),
             Quality = primary.Quality ?? others.Select(other => other.Quality).FirstOrDefault(quality => quality is not null),
+            Approval = LatestApproval(primary, others),
             Surfaces = [primary.Dashboard, .. others.Select(other => other.Dashboard)],
             RunIds = [primary.Id, .. others.Select(other => other.Id)]
         };
+    }
+
+    /// <summary>The gate decision taken last, whichever file recorded it: a notification
+    /// answer lands on the backlog surface's file only, while the dashboard's still holds
+    /// what the flow set when the gate opened. The record's own wins a tie.</summary>
+    private static DeliveryRunApproval? LatestApproval(DeliveryRun primary, IEnumerable<DeliveryRun> others)
+    {
+        var latest = primary.Approval;
+
+        foreach (var approval in others.Select(other => other.Approval).OfType<DeliveryRunApproval>())
+        {
+            if (latest is null || (approval.DecidedAt ?? DateTimeOffset.MinValue) > (latest.DecidedAt ?? DateTimeOffset.MinValue))
+            {
+                latest = approval;
+            }
+        }
+
+        return latest;
     }
 
     private static IReadOnlyList<T> First<T>(IEnumerable<DeliveryRun> others, Func<DeliveryRun, IReadOnlyList<T>> of) =>

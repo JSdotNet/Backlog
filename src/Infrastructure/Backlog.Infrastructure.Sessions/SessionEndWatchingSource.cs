@@ -30,7 +30,8 @@ namespace Backlog.Infrastructure.Sessions;
 internal sealed class SessionEndWatchingSource(
     IAgentSessionSource inner,
     Func<INotifications?> notifications,
-    ILogger? logger = null) : IAgentSessionSource
+    ILogger? logger = null,
+    Func<QuestionRelay?>? relay = null) : IAgentSessionSource
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
@@ -77,11 +78,27 @@ internal sealed class SessionEndWatchingSource(
         return catalog;
     }
 
-    private Task CloseAsync(string id, CancellationToken cancellationToken) =>
-        SessionSubjectEnds.CloseAsync(
+    private async Task CloseAsync(string id, CancellationToken cancellationToken)
+    {
+        // The session's end closes its waiting questions too (local ADR 0041), before the
+        // subject's notifications, so each closes as session ended rather than unexplained.
+        if (relay?.Invoke() is { } questions)
+        {
+            try
+            {
+                await questions.CloseForSessionAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning(exception, "Closing the waiting questions of session {Session} failed.", id);
+            }
+        }
+
+        await SessionSubjectEnds.CloseAsync(
             notifications,
             SessionSubjectEnds.Session(id),
             SessionNotificationSubjects.SessionEndedReason,
             _logger,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+    }
 }

@@ -53,6 +53,59 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     }
 
     /// <summary>
+    /// One registered repository's devbook out of its database, as the Lobes
+    /// atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>) draws it
+    /// beside the personal devbook that links into it — or its absence in words.
+    /// A registered repository with no index yet is still a scope, unavailable,
+    /// holding only the chapters the links name.
+    /// </summary>
+    /// <param name="alias">The repository alias as registered.</param>
+    public DevbookLobesDevbookSource ReadLobesDevbook(string alias)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+
+        try
+        {
+            using var database = DevbookDatabaseSource.TryOpen(source, alias);
+            if (database is null) return DevbookLobesDevbookSource.Missing(alias, DevbookRetrieval.UnavailableMessage($"The {alias} devbook's map"));
+
+            var roots = database.Outline(DevbookDatabaseSchema.RepositoryScope)
+                .Where(row => row.IsRoot && row.Path.Length > 0)
+                .Select(row => row.Path)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return new DevbookLobesDevbookSource(alias, true, null, SourceNodes(database.Nodes()), SourceEdges(database.Edges()), roots, IndexedAt(database));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return DevbookLobesDevbookSource.Missing(alias, $"The {alias} devbook could not be read: {ex.Message}");
+        }
+    }
+
+    /// <summary>When a database was built, as it records it; null when it
+    /// recorded nothing readable.</summary>
+    public static DateTimeOffset? IndexedAt(DevbookDatabase database)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+        return database.GeneratedUtc == DateTime.MinValue ? null : new DateTimeOffset(DateTime.SpecifyKind(database.GeneratedUtc, DateTimeKind.Utc));
+    }
+
+    /// <summary>A devbook database's <c>node</c> rows as the atlas readers take them.</summary>
+    public static List<DevbookAtlasSourceNode> SourceNodes(IEnumerable<DevbookNodeRow> rows) =>
+        [.. rows.Select(node => new DevbookAtlasSourceNode(
+            node.Id,
+            node.Label ?? string.Empty,
+            node.Folder ?? string.Empty,
+            node.Type,
+            node.Status ?? string.Empty,
+            node.Path ?? string.Empty,
+            node.OutOfScope))];
+
+    /// <summary>A devbook database's <c>edge</c> rows as the atlas readers take them.</summary>
+    public static List<DevbookAtlasSourceEdge> SourceEdges(IEnumerable<DevbookEdgeRow> rows) =>
+        [.. rows.Select(edge => new DevbookAtlasSourceEdge(edge.Type, edge.Source, edge.Target))];
+
+    /// <summary>
     /// The graph files a branch may carry, fetched before the read looks for
     /// them. Only the graphs: the atlas is a reading of the generated index,
     /// not of the chapters, so no chapter is fetched to draw it. A repository

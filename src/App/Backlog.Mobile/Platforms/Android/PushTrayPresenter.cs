@@ -57,6 +57,9 @@ public sealed class PushTrayPresenter(Context context)
 
         var builder = Builder(entry.Id, entry.Title, entry.Text, entry.Urgent);
 
+        // Where it came from, "System · Place": the line Android draws beside the app name.
+        if (!string.IsNullOrWhiteSpace(entry.Subtitle)) builder.SetSubText(entry.Subtitle);
+
         foreach (var action in entry.Actions)
         {
             builder.AddAction(action.Kind == PushActionKind.InlineReply

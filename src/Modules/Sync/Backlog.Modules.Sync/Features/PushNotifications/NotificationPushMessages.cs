@@ -31,6 +31,10 @@ public static class NotificationPushMessages
             data[NotificationPushData.Summary] = preview.IsPrivate
                 ? NotificationPushData.PrivateSummary
                 : preview.Summary ?? string.Empty;
+
+            // Never the body: the origin says where it came from, not what it says, so a
+            // private notification sends it too.
+            if (!string.IsNullOrWhiteSpace(preview.Origin)) data[NotificationPushData.Origin] = preview.Origin;
         }
 
         return new NotificationPushMessage(change.Id, data);

@@ -13,7 +13,7 @@ lists only system-wide architecture terms that don't belong to a single domain.
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 ```
 
 | Term | Definition |
@@ -28,6 +28,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
 | **Note** | An Inbox item of content kind `note`. It syncs both ways between the desktop and the phone, and either side may edit it. Not a *Knowledge Note*, which is a Devbook term. See `.devbook/domain/inbox/domain.md#note` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`. |
+| **Readiness verdict** | The one word that says whether an open pull request is ready to merge, and if not, what it waits on: Conflicts, Failing checks, Changes requested, Behind, Draft, Checks running, Review required or Ready. One function computes it from the pull request's status, and the pull requests pane, the session card and the task row all show it. Repository Management owns the term: see [One verdict per pull request](../domain/repository-management/features.md#one-verdict-per-pull-request) and `.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`. |
 | **Sanitization boundary** | The line between what a session record may carry off the machine and what stays: the record is a whitelist of fields, and the transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them. |
 | **Settled-fact cache** | A per-machine copy of a provider's answer about something that cannot change again, such as a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. |
 | **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the phone's Notes tab. Outbox kind `talk-note` sends a talk-note entry still waiting in the phone's outbox as a capture. Never called a *session note*: *session* already names a bounded context (Sessions, the record of an AI coding session), and the two must not share a word. See `.devbook/domain/capture/features.md#talk-note`. |

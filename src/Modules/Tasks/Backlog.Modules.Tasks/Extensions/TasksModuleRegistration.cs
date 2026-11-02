@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Features.CountTasks;
 using Backlog.Modules.Tasks.Features.DeleteTask;
+using Backlog.Modules.Tasks.Features.FileFollowUp;
 using Backlog.Modules.Tasks.Features.GetTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
@@ -67,6 +68,10 @@ public static class TasksModuleRegistration
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<ITaskItems, TaskItems>();
+
+        // A port of its own beside ITaskItems, for the Sessions adapter that files the
+        // follow-up an Approve + follow-up answer asks for; it reads the same clock.
+        services.AddScoped<ITaskFollowUps, FileFollowUpHandler>();
 
         return services;
     }

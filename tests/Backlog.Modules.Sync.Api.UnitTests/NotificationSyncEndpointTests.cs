@@ -283,6 +283,36 @@ public class NotificationSyncEndpointTests : IDisposable
         Assert.Equal(SyncErrorCodes.NotificationInvalid, (await posted.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
     }
 
+    [Fact]
+    public async Task A_note_past_its_bound_is_refused()
+    {
+        var (desktop, phone) = await PairedDevices();
+        var id = Guid.CreateVersion7();
+        await desktop.PushNotifications(Change(id, NotificationStates.Open, "Which rounding rule applies?"));
+
+        var posted = await phone.PostReply(Reply(id) with { Note = new string('x', NotificationRecordLimits.ReplyNoteLength + 1) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, posted.StatusCode);
+        Assert.Equal(SyncErrorCodes.NotificationInvalid, (await posted.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+    }
+
+    [Fact]
+    public async Task A_reply_carries_up_to_eight_choices_and_its_note_to_the_owner()
+    {
+        var (desktop, phone) = await PairedDevices();
+        var id = Guid.CreateVersion7();
+        await desktop.PushNotifications(Change(id, NotificationStates.Open, "Which rules apply?"));
+        string[] eight = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"];
+
+        var posted = await phone.PostReply(Reply(id) with { ChoiceIds = eight, Note = "All of them, for now" });
+
+        Assert.True(posted.IsSuccessStatusCode, await posted.Content.ReadAsStringAsync(Cancellation));
+        var waiting = Assert.Single((await desktop.ListReplies(DesktopInstance)).Replies);
+        Assert.Equal(eight, waiting.Reply.ChoiceIds);
+        Assert.Equal("All of them, for now", waiting.Reply.Note);
+        Assert.Equal(8, NotificationRecordLimits.ReplyChoices);
+    }
+
     [Theory]
     [InlineData("GET", SyncRoutes.Notifications)]
     [InlineData("POST", SyncRoutes.Notifications)]

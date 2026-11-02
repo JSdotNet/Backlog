@@ -34,6 +34,12 @@ public interface ITaskConnectorSignIn
     /// <summary>Forgets the signed-in account and what the connector kept for it.
     /// Signing out when nobody is signed in does nothing.</summary>
     Task SignOutAsync(CancellationToken cancellationToken);
+
+    /// <summary>What the connector asks of the person beside its sign-in, in a
+    /// sentence they can act on — "Sign in to spec-manager to send answers" while an
+    /// answer waits on a sign-in — or null when it asks nothing. A change is announced
+    /// through <see cref="AccountChanged"/>.</summary>
+    string? Notice => null;
 }
 
 /// <summary>

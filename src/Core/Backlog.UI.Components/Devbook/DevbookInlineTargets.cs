@@ -1,4 +1,5 @@
 using Backlog.SharedKernel.Devbook;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
 
 using Microsoft.AspNetCore.Components;
@@ -117,7 +118,7 @@ public static class DevbookInlineTargets
             // it does not claim keeps the rule below.
             if (images?.Image(target, text, documentPath) is { } image) return image;
 
-            return MarkdownRender.NamesScheme(target) ? null : Inert(text, "md-image--inert");
+            return LinkSchemes.NamesScheme(target) ? null : Inert(text, "md-image--inert");
         }
 
         var reference = kind is MarkdownInlineKind.Link
@@ -134,7 +135,7 @@ public static class DevbookInlineTargets
             return Link(reference, label, hrefFor?.Invoke(reference), onNavigate);
         }
 
-        if (kind is not MarkdownInlineKind.Link || MarkdownRender.NamesScheme(target)) return null;
+        if (kind is not MarkdownInlineKind.Link || LinkSchemes.NamesScheme(target)) return null;
 
         return Inert(text, "md-link--inert");
     }

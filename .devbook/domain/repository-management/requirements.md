@@ -3,7 +3,7 @@
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/repository-management/features.md, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+related: [.devbook/domain/repository-management/features.md, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
@@ -407,3 +407,89 @@ The system SHALL carry whether a repository is archived to every paired device w
 - **Given** two paired devices both register `budgetbeheer`
 - **When** the person archives `budgetbeheer` on the first
 - **Then** after the next sync the second device reads `budgetbeheer` as archived
+
+## Pull request status
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/progress/requirements.md#pull-request-status]
+```
+
+> The checks and approvals marks of the [pull request status](domain.md#pull-request-status)
+> this context publishes. They moved here from Progress with the status itself (local
+> [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#2-one-published-contract-for-status-and-verdict)).
+> What Progress promises about its own rows is in
+> [its requirements](../progress/requirements.md#pull-request-status).
+
+### Requirement: A pull request row shows its checks as passed over total
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
+```
+
+The system SHALL show on every open pull request row an icon and its checks as `passed/total`, in a running variant while a check runs and a failing variant once one fails.
+
+#### Scenario: Every check passed
+
+- **Given** #1341 has 14 checks, all passed
+- **When** its row is drawn
+- **Then** it shows the passed icon and `14/14`
+
+#### Scenario: Checks still running
+
+- **Given** #1358 has 14 checks, 9 passed and 5 running
+- **When** its row is drawn
+- **Then** it shows the running icon and `9/14`
+
+#### Scenario: A failing check
+
+- **Given** #1344 has 14 checks, 2 passed and one failed
+- **When** its row is drawn
+- **Then** it shows the failing icon and `2/14`
+
+### Requirement: A pull request row shows approvals over required
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_base_branch_with_no_rule_has_no_required_total]
+```
+
+The system SHALL show on every open pull request row an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.
+
+#### Scenario: One of two approvals
+
+- **Given** #1341 has one approval and its base branch `main` requires two
+- **When** its row is drawn
+- **Then** it shows the approvals icon and `1/2`
+
+#### Scenario: A ruleset asks for the approval
+
+- **Given** #1350's base branch has no protection rule and a ruleset whose pull request rule requires one approval
+- **When** its row is drawn
+- **Then** required is 1
+
+#### Scenario: No rule asks for an approval
+
+- **Given** #1358's base branch `main` has a ruleset that requires status checks and no review
+- **When** its status is read
+- **Then** it has no required total, and its approvals still count the ones received
+
+### Requirement: Checks and approvals are named for screen readers only
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.The_visible_text_holds_counts_and_a_screen_reader_hears_the_words]
+```
+
+The system SHALL name the checks and approvals marks with the words "checks" and "approvals" in their accessible labels and not in their visible text.
+
+#### Scenario: Read by a screen reader
+
+- **Given** #1341's row shows `14/14` and `1/2`
+- **When** a screen reader reads the row
+- **Then** it hears "14 of 14 checks passed" and "1 of 2 approvals", and the visible text holds neither word

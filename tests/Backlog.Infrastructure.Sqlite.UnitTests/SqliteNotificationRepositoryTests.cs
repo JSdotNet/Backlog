@@ -78,6 +78,22 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         Assert.True(read.IsPrivate);
         Assert.Equal(question.CreatedAt, read.CreatedAt);
         Assert.Equal(NotificationState.Open, read.State);
+        Assert.Null(read.Origin);
+    }
+
+    [Fact]
+    public async Task A_stored_origin_reads_back_unchanged()
+    {
+        var origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada", "Agent session", "https://example.test/s/1");
+        var alert = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(new NotificationSource("sessions", "run-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Run done", "", "", Origin: origin),
+            Now).Value;
+
+        await _repository.SaveAsync(alert, Cancellation);
+
+        Assert.Equal(origin, (await _repository.GetAsync(alert.Id, Cancellation))!.Origin);
     }
 
     [Fact]
@@ -142,6 +158,58 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         var open = await _repository.ListOpenAsync(Cancellation);
 
         Assert.Equal([earlier.Id, later.Id], open.Select(notification => notification.Id));
+    }
+
+    [Fact]
+    public async Task A_choice_that_takes_text_reads_back_with_its_placeholder()
+    {
+        var question = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(
+                new NotificationSource("sessions", "run-58"),
+                Session,
+                NotificationKind.Question,
+                NotificationSeverity.Warning,
+                "Approve the validation of run-58?",
+                "Personal Validation",
+                "Check the toast.",
+                new AnswerSpec(
+                [
+                    new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                    new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
+                ])),
+            Now).Value;
+
+        await _repository.SaveAsync(question, Cancellation);
+        var read = await _repository.GetAsync(question.Id, Cancellation);
+
+        Assert.Equal(
+            [("approve", false, (string?)null), ("revise", true, "What should change?")],
+            read!.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.TakesText, choice.Placeholder)));
+    }
+
+    [Fact]
+    public async Task A_document_written_before_choices_took_text_reads_as_taking_none()
+    {
+        const string Id = "11111111-1111-1111-1111-111111111111";
+        const string Document = """{"version":1,"id":"11111111-1111-1111-1111-111111111111","ownerInstanceId":"22222222-2222-2222-2222-222222222222","source":{"context":"sessions","key":"run-1"},"kind":"Question","severity":"Info","title":"Approve?","summary":"","bodyMd":"","answer":{"choices":[{"id":"approve","label":"Approve","style":"Primary"},{"id":"reject","label":"Reject","style":"Destructive"}],"allowMultiple":false,"open":{"maxLength":2000},"answerOn":"AnyInstance"},"isPrivate":false,"createdAt":"2026-10-22T09:41:00+00:00","state":"Open"}""";
+
+        await using (var connection = new SqliteConnection($"Data Source={_repository.DatabasePath}"))
+        {
+            // Saving first creates the schema the raw row goes into.
+            await _repository.SaveAsync(Question(), Cancellation);
+            await connection.OpenAsync(Cancellation);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"INSERT INTO notifications (id, state, awaits_delivery, created_at, updated_at, document) VALUES ('{Id}', 'Open', 0, '2026-01-01', '2026-01-01', $document);";
+            command.Parameters.AddWithValue("$document", Document);
+            await command.ExecuteNonQueryAsync(Cancellation);
+        }
+
+        var read = await _repository.GetAsync(Guid.Parse(Id), Cancellation);
+
+        Assert.All(read!.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
+        Assert.All(read.AnswerSpec.Choices, choice => Assert.Null(choice.Placeholder));
     }
 
     [Fact]

@@ -557,6 +557,33 @@ public sealed class TaskReplicaMergeTests
     }
 
     /// <summary>
+    /// The notification whose answer filed a follow-up rides as a member of its own,
+    /// last and defaulted: a follow-up pulled on the other device still knows the
+    /// answer it came from, so a redelivery there files nothing — and a document from
+    /// a build that never heard of it reads as filed from no answer.
+    /// </summary>
+    [Fact]
+    public void The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none()
+    {
+        var notification = Guid.NewGuid();
+        var followUp = new TaskItem(
+            Guid.NewGuid(), "Follow-up: Show the empty state", "Words", EntryType.Prompt, EntryStatus.Ready, Priority.Medium,
+            repoIds: null, tags: ["+notifications"], sourceInboxId: null, createdAt: Noon,
+            sourceNotificationId: notification);
+        followUp.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(followUp);
+        Assert.Equal(notification, payload.SourceNotificationId);
+
+        var restored = TaskReplicaMerge.ToTaskItem(TaskReplicaMerge.ToChange(followUp));
+        Assert.Equal(notification, restored.SourceNotificationId);
+        Assert.Equal(Noon, restored.UpdatedAt);
+
+        var older = TaskReplicaMerge.ToTaskItem(new TaskChange(followUp.Id, Noon, null, payload with { SourceNotificationId = null }));
+        Assert.Null(older.SourceNotificationId);
+    }
+
+    /// <summary>
     /// The agenda time rides as two plain values of its own, for the reason the
     /// block does: its tokens live on the metadata line, which is not in
     /// <c>ContentMd</c>. Through the JSON the service stores, back into a task on

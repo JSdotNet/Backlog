@@ -1079,6 +1079,26 @@ public sealed class TaskConnectorSettingsTests
         page.WaitForAssertion(() => Assert.Equal("Signed in as Sam", page.Find(Part("account")).TextContent.Trim()));
     }
 
+    /// <summary>What a connector asks of the person beside its sign-in — an answer waiting to
+    /// be sent — is said on its line, and goes when the connector stops asking.</summary>
+    [Fact]
+    public void A_notice_the_connector_raises_is_said_on_its_sign_in_line()
+    {
+        var connector = new SigningConnector();
+        using var context = ComposeSigning(connector);
+        var page = context.Render<TaskConnectorSettings>();
+
+        connector.Notice = "Sign in to spec-manager to send answers.";
+        connector.RaiseAccountChanged();
+
+        page.WaitForAssertion(() => Assert.Equal("Sign in to spec-manager to send answers.", page.Find(Part("error")).TextContent));
+
+        connector.Notice = null;
+        connector.RaiseAccountChanged();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(Part("error"))));
+    }
+
     private static string Part(string part) => $"[data-testid='task-connector-sign-in-{SigningConnector.Id}-{part}']";
 
     /// <summary>A connector a person signs in to, whose sign-in waits for the test
@@ -1095,6 +1115,8 @@ public sealed class TaskConnectorSettingsTests
         public TaskConnectorCapabilities Capabilities { get; } = new();
 
         public TaskConnectorAccount? Account { get; set; }
+
+        public string? Notice { get; set; }
 
         public event Action? AccountChanged;
 

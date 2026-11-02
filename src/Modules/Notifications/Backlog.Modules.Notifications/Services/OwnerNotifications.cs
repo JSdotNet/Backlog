@@ -34,7 +34,29 @@ internal sealed class OwnerNotifications(
 
         if (features is not null && !features.IsEnabled(NotificationsFeatures.Notifications)) return NotificationsErrors.NotAvailable();
 
-        var published = Notification.Publish(Guid.NewGuid(), Me, draft, time.GetUtcNow());
+        if (draft.Id is not { } named) return await SaveNewAsync(Guid.NewGuid(), draft, cancellationToken).ConfigureAwait(false);
+
+        if (named == Guid.Empty) return NotificationsErrors.IdRequired();
+
+        // A named id is the source saying "this one thing": publishing it again — the next pull of
+        // the same question — changes nothing, whatever state the first one reached. Under the
+        // gate, so two pulls racing to publish it store it once.
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (await repository.GetAsync(named, cancellationToken).ConfigureAwait(false) is not null) return named;
+
+            return await SaveNewAsync(named, draft, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<Result<Guid>> SaveNewAsync(Guid id, NotificationDraft draft, CancellationToken cancellationToken)
+    {
+        var published = Notification.Publish(id, Me, draft, time.GetUtcNow());
         if (published.IsFailure) return published.Error;
 
         await repository.SaveAsync(published.Value, cancellationToken).ConfigureAwait(false);

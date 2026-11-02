@@ -58,6 +58,9 @@ public sealed class Goals(
     public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default) =>
         set.Handle(new DeleteGoalCommand(goalId), cancellationToken);
 
+    public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default) =>
+        set.Handle(new MoveGoalCommand(goalId, toIndex), cancellationToken);
+
     public Task<Result<GoalDto>> AttachAsync(
         Guid goalId,
         GoalItemDto item,

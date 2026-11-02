@@ -24,6 +24,10 @@
     that lists none gets no group; with nothing to pick and nothing stored, there
     is no repository picker.
 
+    A connector that asks questions also gets one line under "Only questions
+    assigned to me": its own push reaches a phone subscribed to it as well, and
+    which of its preferences leaves only Backlog's.
+
     A last sync that failed is shown under the head, in the sync's own sentence,
     until a sync succeeds: a target that stopped syncing says why on its own card.
     So does a target the host says is paused, in the host's sentence, while its
@@ -81,6 +85,21 @@
                     Checked="@Options.CompleteAtSource"
                     CheckedChanged="value => ChangeAsync(Options with { CompleteAtSource = value })"
                     TestId="@Suffix("complete-at-source")" />
+        }
+        @if (Options.HasQuestions)
+        {
+            <Toggle Label="Only questions assigned to me"
+                    Description="Off also brings the unassigned questions you may answer."
+                    Checked="@Options.OnlyQuestionsAssignedToMe"
+                    CheckedChanged="value => ChangeAsync(Options with { OnlyQuestionsAssignedToMe = value })"
+                    TestId="@Suffix("only-assigned-questions")">
+                @* The source pushes its own questions to a phone subscribed to it, so
+                   that phone buzzes twice for each one. Both pushes are kept, and the
+                   card says which switch on the phone leaves only Backlog's. *@
+                <TextContent>
+                    <span class="connected-target__push-hint" data-testid="@Suffix("question-push-hint")">@QuestionPushHint</span>
+                </TextContent>
+            </Toggle>
         }
         <SelectField Form="true"
                      Label="Sync every"
@@ -234,6 +253,14 @@
         string.IsNullOrWhiteSpace(Options.LastSyncError) ? null
         : Options.LastSyncFailed is { } when ? $"Last sync failed {when}: {Options.LastSyncError}"
         : $"Last sync failed: {Options.LastSyncError}";
+
+    /// <summary>The line beside "Only questions assigned to me": the source's own
+    /// push for a question, on a phone subscribed to it, comes on top of Backlog's.
+    /// "Backlog question" is spec-manager's name for that preference: spec-manager is
+    /// the one connector that asks questions, and one that joins it brings its own.</summary>
+    private string QuestionPushHint =>
+        $"Questions also arrive as {Options.ConnectorName}'s own push on a phone subscribed to it. " +
+        $"Switch off \"Backlog question\" in {Options.ConnectorName}'s notification preferences on that phone to get only Backlog's.";
 
     private IntegrationProvider Mark =>
         Enum.TryParse<IntegrationProvider>(Options.Icon, ignoreCase: true, out var provider)

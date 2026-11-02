@@ -87,7 +87,7 @@
                                      Icon="@descriptor.Icon"
                                      AccountName="@signIn.Account?.DisplayName"
                                      SigningIn="@state.SigningIn"
-                                     Error="@state.Error"
+                                     Error="@(state.Error ?? signIn.Notice)"
                                      OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
                                      OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
                                      TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
@@ -742,10 +742,12 @@
             target.TitleFollowsSource,
             (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
             target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null,
-            target.CompleteAtSource)
+            target.CompleteAtSource,
+            target.OnlyQuestionsAssignedToMe)
         {
             Icon = Sources.Find(target.ConnectorId)?.Icon,
             CanCompleteAtSource = Sources.CanComplete(target.ConnectorId),
+            HasQuestions = Sources.HasQuestions(target.ConnectorId),
             LastSynced = target.LastSyncedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
             LastSyncError = target.LastSyncError,
             LastSyncFailed = target.LastSyncFailedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
@@ -869,6 +871,7 @@
             Enabled = options.Enabled,
             TitleFollowsSource = options.TitleFollowsSource,
             CompleteAtSource = options.CompleteAtSource,
+            OnlyQuestionsAssignedToMe = options.OnlyQuestionsAssignedToMe,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
             SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,
             RepositoryId = options.RepositoryId,

@@ -352,6 +352,30 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
         Assert.Single(sink.Events);
     }
 
+    /// <summary>The route feeds the desktop's presence too (local ADR 0041): a
+    /// <c>UserPromptSubmit</c> it takes is that session's last prompt, whether or not a run
+    /// is attributed to the session, and a body it refuses is no prompt.</summary>
+    [Fact]
+    public async Task The_endpoint_keeps_the_last_prompt_per_session_from_user_prompt_submit()
+    {
+        var sink = new RecordingTelemetry();
+        var prompts = new SessionPrompts(_clock);
+
+        Assert.Equal(204, await AcceptWithPrompts("""{"hook_event_name":"UserPromptSubmit","session_id":"s-1","prompt":"go"}""", sink, prompts));
+        Assert.Equal(204, await AcceptWithPrompts("""{"hook_event_name":"Stop","session_id":"s-2"}""", sink, prompts));
+        Assert.Equal(400, await AcceptWithPrompts("""[{"hook_event_name":"UserPromptSubmit","session_id":"s-3"}]""", sink, prompts));
+
+        Assert.Equal(_clock.GetUtcNow(), prompts.LastPromptAt("s-1"));
+        Assert.Null(prompts.LastPromptAt("s-2"));
+        Assert.Null(prompts.LastPromptAt("s-3"));
+
+        // The run attribution still gets every event it was given.
+        Assert.Equal(["UserPromptSubmit", "Stop"], sink.Events);
+    }
+
+    private static Task<int> AcceptWithPrompts(string body, IDeliveryRunTelemetry sink, SessionPrompts prompts) =>
+        BacklogTelemetryEndpoint.AcceptAsync(new MemoryStream(Encoding.UTF8.GetBytes(body)), null, sink, prompts, Ct);
+
     public void Dispose()
     {
         try

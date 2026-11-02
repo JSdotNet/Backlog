@@ -51,6 +51,10 @@ public interface ISpecManagerTokenStore
 /// refresh, so the one kept is always the last one given.</param>
 /// <param name="AccountName">Who is signed in, as the installation names them.</param>
 /// <param name="SignedInAt">When the sign-in happened.</param>
+/// <param name="FirstSignedInAt">When this machine first signed in to the installation, kept
+/// through every sign-out and sign-in after it: only spec-manager notifications created at or
+/// after it come in as alerts. Null on an entry kept before it was recorded; its
+/// <paramref name="SignedInAt"/> stands in then. Not a secret.</param>
 public sealed record SpecManagerCredential(
     string ClientId,
     string RedirectUri,
@@ -58,15 +62,23 @@ public sealed record SpecManagerCredential(
     DateTimeOffset? AccessTokenExpiresAt = null,
     string? RefreshToken = null,
     string? AccountName = null,
-    DateTimeOffset? SignedInAt = null)
+    DateTimeOffset? SignedInAt = null,
+    DateTimeOffset? FirstSignedInAt = null)
 {
     /// <summary>Whether someone is signed in: there is a token pair to call
     /// with.</summary>
     [JsonIgnore]
     public bool IsSignedIn => !string.IsNullOrEmpty(RefreshToken) || !string.IsNullOrEmpty(AccessToken);
 
-    /// <summary>The same registration with the tokens and the account dropped.</summary>
-    public SpecManagerCredential SignedOut() => new(ClientId, RedirectUri);
+    /// <summary>When this machine first signed in to the installation:
+    /// <see cref="FirstSignedInAt"/>, else — on an entry kept before it was recorded —
+    /// <see cref="SignedInAt"/>; null when it never did.</summary>
+    [JsonIgnore]
+    public DateTimeOffset? FirstSignIn => FirstSignedInAt ?? SignedInAt;
+
+    /// <summary>The same registration with the tokens and the account dropped, and the first
+    /// sign-in moment kept.</summary>
+    public SpecManagerCredential SignedOut() => new(ClientId, RedirectUri, FirstSignedInAt: FirstSignIn);
 
     public override string ToString() =>
         $"SpecManagerCredential {{ ClientId = {ClientId}, SignedIn = {IsSignedIn}, AccountName = {AccountName} }}";

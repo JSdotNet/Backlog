@@ -47,6 +47,14 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// </summary>
     public bool CompleteAtSource { get; init; }
 
+    /// <summary>
+    /// Whether only the questions assigned to the person reach them from this target,
+    /// rather than those and the unassigned ones they may answer. Off by default, and
+    /// offered only where the connector's <see cref="TaskConnectorCapabilities.HasQuestions"/>
+    /// is set: a source that asks nothing has nothing to narrow.
+    /// </summary>
+    public bool OnlyQuestionsAssignedToMe { get; init; }
+
     /// <summary>When the last successful sync started fetching, or null before the
     /// first. The next fetch asks for what closed since then.</summary>
     public DateTimeOffset? LastSyncedAt { get; init; }

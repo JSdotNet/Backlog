@@ -252,8 +252,8 @@ internal sealed partial class DesktopHarness
         await Page.GetByTestId("entry-action-myday").WaitForAsync();
     }
 
-    /// <summary>Whether a task row — an entry or a step — is ticked off: its
-    /// check carries the tick mark either way, as a button or as a picture.</summary>
+    /// <summary>Whether an entry's row is ticked off: its check carries the tick
+    /// mark, as a button or as a picture.</summary>
     public static async Task<bool> IsTickedAsync(ILocator row) =>
         await row.Locator(".task-item__check .task-item__tick").CountAsync() > 0;
 
@@ -275,45 +275,62 @@ internal sealed partial class DesktopHarness
     /// whether it is picked for today.</summary>
     public ILocator MyDayToggle => Page.GetByTestId("entry-action-myday-set");
 
-    /// <summary>A step of the open entry, as the Steps tab lists it. Each step's
-    /// title is an input of its own (rename in place), so the row is found by
-    /// that input's name rather than by its text.</summary>
-    public ILocator Step(string title) =>
-        Page.GetByTestId("subitem-list").Locator("[data-task-id]").Filter(new LocatorFilterOptions
-        {
-            Has = Page.GetByRole(AriaRole.Textbox, new PageGetByRoleOptions { Name = $"Rename {title}", Exact = true }),
-        });
+    /// <summary>The open entry's body: the textarea of its markdown editor, which
+    /// holds the prose and the steps' <c>##</c> chapters together.</summary>
+    public ILocator BodyEditor => Page.GetByTestId("entry-body-editor").Locator("textarea");
 
-    /// <summary>Adds steps to the open entry through the Steps tab's add row.</summary>
+    /// <summary>Adds steps to the open entry the way a person writes one: a
+    /// <c>##</c> chapter per step, typed at the end of its body.</summary>
     public async Task AddStepsAsync(params string[] steps)
     {
-        // The panel opens on whichever view the workspace last showed; Steps is
-        // a tab beside the notes.
-        var tab = Page.GetByTestId("entry-view-steps");
+        var editor = BodyEditor;
+        await editor.WaitForAsync();
+
+        var chapters = string.Concat(steps.Select(step => $"\n\n## {step}"));
         await Interactive.RepeatAsync(
             async () =>
             {
-                if (await tab.GetAttributeAsync("aria-selected") != "true") await tab.ClickAsync();
+                // Filled again only while the steps are not there: the fill writes
+                // them all at once, so a fill that landed needs no second one.
+                var body = (await editor.InputValueAsync()).TrimEnd();
+                if (HasSteps(body, steps)) return;
+                await editor.FillAsync((body.Length == 0 ? chapters.TrimStart('\n') : body + chapters) + "\n");
             },
-            async () => await tab.GetAttributeAsync("aria-selected") == "true",
-            "the Steps tab");
-
-        var add = Page.GetByTestId("subitem-list-add-input");
-        foreach (var step in steps)
-        {
-            await Interactive.RepeatAsync(
-                async () =>
-                {
-                    // Typed again only while it has not appeared: each Enter
-                    // that lands adds a step.
-                    if (await Step(step).CountAsync() > 0) return;
-                    await add.FillAsync(step);
-                    await add.PressAsync("Enter");
-                },
-                async () => await Step(step).CountAsync() > 0,
-                $"adding the step {step}");
-        }
+            async () => HasSteps(await editor.InputValueAsync(), steps),
+            "typing the steps into the body");
     }
+
+    /// <summary>Whether a step of the open entry is done, read off its chapter in
+    /// the body: a <c>[x]</c> in its heading, or <c>!done</c> on the metadata line
+    /// under it — the two forms a tick is written in.</summary>
+    public async Task<bool> IsStepDoneAsync(string title)
+    {
+        string[] lines = [];
+        var heading = -1;
+        await Interactive.EventuallyAsync(
+            async () =>
+            {
+                lines = (await BodyEditor.InputValueAsync()).ReplaceLineEndings("\n").Split('\n');
+                heading = Array.FindIndex(lines, line => StepTitle(line) == title);
+                return heading >= 0;
+            },
+            TimeSpan.FromSeconds(10),
+            $"the step {title} in the open entry's body");
+
+        if (StepHeading().Match(lines[heading]).Groups["mark"].Value is "x" or "X") return true;
+
+        return heading + 1 < lines.Length && lines[heading + 1].Contains("`!done`", StringComparison.Ordinal);
+    }
+
+    private static bool HasSteps(string body, IEnumerable<string> steps)
+    {
+        var titles = body.ReplaceLineEndings("\n").Split('\n').Select(StepTitle).ToHashSet(StringComparer.Ordinal);
+        return steps.All(titles.Contains);
+    }
+
+    /// <summary>The step a line heads, or null when it is not a <c>##</c> heading.</summary>
+    private static string? StepTitle(string line) =>
+        StepHeading().Match(line) is { Success: true } match ? match.Groups["title"].Value.Trim() : null;
 
     /// <summary>
     /// Gives the open entry, already in My Day, an agenda time: a start on the
@@ -383,4 +400,9 @@ internal sealed partial class DesktopHarness
 
     [GeneratedRegex(@"^Inbox pane\b")]
     private static partial Regex InboxPaneFeature();
+
+    /// <summary>A step's heading: two or more hashes, an optional task-list marker,
+    /// then the title.</summary>
+    [GeneratedRegex(@"^##+\s+(?:\[(?<mark>[ xX])\]\s+)?(?<title>.+)$")]
+    private static partial Regex StepHeading();
 }

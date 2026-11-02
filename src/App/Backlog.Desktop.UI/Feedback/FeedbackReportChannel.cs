@@ -22,9 +22,9 @@ public sealed record FeedbackReportDraft(string Title, string Details);
 /// asked.
 /// </para>
 /// <para>
-/// One instance per window: a singleton in the MAUI head, where there is one
-/// WebView, and scoped in the harnesses, where every circuit is its own window
-/// and a request in one must not open the dialog in another.
+/// One instance per window: scoped, to each BlazorWebView in the MAUI head and to
+/// each circuit in the harnesses, so a request in one window never opens the
+/// dialog in another.
 /// </para>
 /// </summary>
 public sealed class FeedbackReportChannel

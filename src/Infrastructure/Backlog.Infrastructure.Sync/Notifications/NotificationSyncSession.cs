@@ -79,7 +79,13 @@ public sealed class NotificationSyncSession
     private readonly IDeviceCredentialStore _credentials;
     private readonly IDeviceIdentitySource _identity;
     private readonly TimeProvider _time;
+    private readonly INotifications? _owner;
     private readonly ILogger _log;
+
+    /// <summary>Why a notification the replica holds under another owner instance is closed
+    /// here: the same id published on two desktops — a question both read from the same source —
+    /// belongs to the desktop that put it on the replica first, and this one stays a viewer of it.</summary>
+    public const string OwnedElsewhereReason = "Owned by another desktop";
 
     public NotificationSyncSession(
         NotificationSyncClient client,
@@ -89,7 +95,8 @@ public sealed class NotificationSyncSession
         IDeviceCredentialStore credentials,
         IDeviceIdentitySource identity,
         TimeProvider time,
-        ILogger<NotificationSyncSession>? log = null)
+        ILogger<NotificationSyncSession>? log = null,
+        INotifications? owner = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(notifications);
@@ -106,6 +113,7 @@ public sealed class NotificationSyncSession
         _credentials = credentials;
         _identity = identity;
         _time = time;
+        _owner = owner;
         _log = log ?? NullLogger<NotificationSyncSession>.Instance;
     }
 
@@ -297,9 +305,34 @@ public sealed class NotificationSyncSession
                     Withheld = notOwned.Contains(change.Id),
                 });
             }
+
+            await CloseOwnedElsewhereAsync(notOwned, cancellationToken).ConfigureAwait(false);
         }
 
         return (pushed, settled);
+    }
+
+    /// <summary>
+    /// Closes the local copy of each open notification the replica holds under another owner
+    /// instance, and marks it pushed as closed so it is not offered again. A source that names its
+    /// notifications by a derived id — one spec-manager question read on two signed-in desktops —
+    /// publishes the same id on both, and the replica's one-writer rule keeps the first; the second
+    /// desktop then stops asking the person, rather than taking an answer the owner never sees.
+    /// </summary>
+    private async Task CloseOwnedElsewhereAsync(IReadOnlySet<Guid> notOwned, CancellationToken cancellationToken)
+    {
+        if (_owner is null) return;
+
+        foreach (var id in notOwned)
+        {
+            var closed = await _owner.CloseAsync(id, OwnedElsewhereReason, cancellationToken).ConfigureAwait(false);
+            if (closed.IsFailure) continue;
+
+            if (_state.Current.Tracked.TryGetValue(id, out var entry))
+            {
+                Update(id, entry with { Dirty = false, PushedState = NotificationStates.Closed, SettledAt = _time.GetUtcNow() });
+            }
+        }
     }
 
     /// <summary>Now, or just after <paramref name="previous"/> when the clock reads earlier:
@@ -388,7 +421,8 @@ public sealed class NotificationSyncSession
             record.FromDeviceId == me.DeviceId ? _identity.Current.Id : record.FromDeviceId,
             record.Reply.ChoiceIds ?? [],
             record.Reply.Text,
-            record.Reply.RepliedAt);
+            record.Reply.RepliedAt,
+            record.Reply.Note);
 
     private void Reject(NotificationReplyRecord record, Error error)
     {

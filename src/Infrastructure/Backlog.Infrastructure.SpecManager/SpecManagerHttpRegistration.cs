@@ -40,6 +40,15 @@ internal static class SpecManagerHttpRegistration
 
         client.AddStandardResilienceHandler(ConfigurePipeline);
 
+        // The notification stream is one GET meant to stay open for a quarter of an hour:
+        // a timeout would cut it and a retry would only open it again, which the question
+        // source already does on its own growing wait. So this client carries no pipeline
+        // and no timeout at all.
+        var stream = services.AddHttpClient(SpecManagerClient.StreamHttpClientName, http => http.Timeout = Timeout.InfiniteTimeSpan);
+#pragma warning disable EXTEXP0001
+        stream.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+
         return services;
     }
 

@@ -43,11 +43,17 @@ public static class NotificationsErrors
     public static Error TitleRequired() =>
         Error.Validation("notification.title_required", "A notification needs a one-line title.");
 
+    public static Error IdRequired() =>
+        Error.Validation("notification.id_required", "A notification a source names by its own id needs an id that is not empty.");
+
     public static Error SourceRequired() =>
         Error.Validation("notification.source_required", "A notification names its source context and key.");
 
     public static Error SubjectIncomplete() =>
         Error.Validation("notification.subject_incomplete", "A subject is named by its context, its type and its id.");
+
+    public static Error OriginInvalid(string reason) =>
+        Error.Validation("notification.origin_invalid", reason);
 
     public static Error OtherSubject() =>
         Error.Validation("notification.other_subject", "The notification is about another subject.");

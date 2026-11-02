@@ -358,6 +358,9 @@ public sealed class GoalAttachTests : IDisposable
         public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Writes.Add($"Attach {goalId} {item.Kind}:{item.TaskId?.ToString() ?? item.PlanTag ?? $"{item.Repository}#{item.Number}"} move:{moveFromOtherGoal}");

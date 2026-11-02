@@ -95,7 +95,10 @@
         }
     </div>
 
-    <div class="task-card__title" data-testid="@Suffix("title")">@Task.Title</div>
+    @* An address in the title is link-styled text a pointer can follow without
+       opening the card; the anchor a keyboard reaches is in the badge slot. The
+       tags stay words here — the card lists them as chips of their own below. *@
+    <div class="task-card__title" data-testid="@Suffix("title")"><TaskTitleText Title="@Task.Title" /></div>
 
     @if (Blocked)
     {
@@ -152,16 +155,19 @@
             </span>
         }
 
-        @if (Badges is not null || Task.Source is not null)
+        @if (Badges is not null || Task.Source is not null || TitleRuns.HasUrl(Task.Title))
         {
             @* The row's slot, on the row's terms: facts to follow rather than
-               fields to set, and a press inside it is never the card's. *@
+               fields to set, and a press inside it is never the card's. The
+               title's own addresses are among them, after the source, as on the
+               row. *@
             <span class="task-card__badges"
                   data-testid="@Suffix("badges")"
                   @onmousedown:stopPropagation="true"
                   @onclick:stopPropagation="true"
                   @onkeydown:stopPropagation="true">
                 <SourceBadge Source="@Task.Source" CssClass="task-card__source" TestId="@Suffix("source")" />
+                <TaskTitleLinks Title="@Task.Title" TestId="@Suffix("title-link")" />
                 @Badges?.Invoke(Task)
             </span>
         }

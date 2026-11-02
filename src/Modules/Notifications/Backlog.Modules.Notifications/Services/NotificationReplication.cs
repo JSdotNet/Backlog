@@ -36,5 +36,6 @@ internal sealed class NotificationReplication(INotificationRepository repository
             notification.State,
             notification.SettledAt,
             notification.CloseReason,
-            notification.Answer);
+            notification.Answer,
+            notification.Origin);
 }

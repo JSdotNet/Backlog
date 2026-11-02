@@ -25,7 +25,8 @@ public interface IGoals
     event Action? Changed;
 
     /// <summary>
-    /// Every goal, in the order they were set, each with its
+    /// Every goal, in the person's order (<see cref="GoalOrder"/>) — the order they were set
+    /// in until the person moves one — each with its
     /// <see cref="GoalProgressDto"/> read from the current state of its work.
     /// <see cref="GoalProgressDto.DoneInWindow"/> counts the items done from
     /// <paramref name="windowStart"/> to <paramref name="windowEnd"/>, both days
@@ -54,6 +55,13 @@ public interface IGoals
     /// <summary>Deletes a goal and its attachments. The plans, tasks and pull requests it
     /// held are unchanged and belong to no goal from then on.</summary>
     Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default);
+
+    /// <summary>Puts the goal at <paramref name="toIndex"/> in the person's order — counted
+    /// among the goals <see cref="ListAsync"/> lists, clamped to them — and raises
+    /// <see cref="Changed"/> so the order travels. Nothing the goal holds changes, and a goal
+    /// moved to the place it holds writes nothing. Refused for a goal that is not there
+    /// (<c>progress.goal_not_found</c>).</summary>
+    Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Attaches a plan, a task or a pull request to a goal. Attaching what the goal holds

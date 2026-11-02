@@ -9,4 +9,10 @@
     <RootNamespace>Backlog.SharedKernel</RootNamespace>
   </PropertyGroup>
 
+  <!-- MarkdownSourceBlocks fails safe on a parse whose spans cannot be trusted,
+       and the parser never hands it one; its tests hand it one directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.SharedKernel.UnitTests" />
+  </ItemGroup>
+
 </Project>

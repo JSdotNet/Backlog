@@ -58,6 +58,14 @@ reaches this ground. No typed options class exists and nothing calls
   through a secret manager the service reads itself. That is not a deviation,
   but it is a choice: the Key Vault the template provisions is not consulted,
   and `docs/deployment/sync.md#the-device-token-signing-key` records why.
+- **The desktop heads bind one section too.** `SpecManagerOptions` binds
+  `SpecManager` (`BaseUrl`), owned by `Backlog.Infrastructure.SpecManager`: both
+  desktop heads hand their configuration to the shared desktop composition, which
+  binds it and validates it on start, so `SpecManager__BaseUrl` points a harness at
+  a local spec-manager. The MAUI head has no generic host to run the start
+  validation, so a bad value fails there when the question source is resolved at
+  startup instead — still before the first window. Unset, the installation that
+  ships is used.
 - This is also the first real exercise of the section-naming convention
   (`Modules:Sync:…`); no conflict has arisen because it is still the only
   section a module owns outside what Aspire injects.

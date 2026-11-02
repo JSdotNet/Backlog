@@ -23,8 +23,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// So these tests are the other side of the same fact. The hand-offs are asserted
-/// where they belong — on the entry, in a group that says so out loud — and asserted
-/// absent from a step, so a third accidental restoration fails instead of shipping.
+/// where they belong — on the entry, in a group that says so out loud. The detail
+/// no longer lists steps at all — they are written in the body's markdown — so
+/// there is no step row left for a hand-off to come back on.
 /// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -36,29 +37,6 @@ public sealed class SubItemActionsTests
         "Notes on the parent.\n\n" +
         "## Wire up the store\n" +
         "How the store gets wired.\n";
-
-    [Fact]
-    public async Task A_step_offers_no_hand_off_of_its_own()
-    {
-        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync(EntryWithSubItem);
-
-        // Every gate the removed markup used to ask about is open, so an absent
-        // button here is a decision rather than an unmet condition.
-        Assert.True(host.Features.IsEnabled(TasksFeatures.GitHubIntegration));
-        Assert.True(host.Features.IsEnabled(AppFeatureKeys.CopilotCli));
-        Assert.True(host.State.GitHubConfigured);
-        Assert.True(row.IsPersisted);
-        Assert.NotNull(host.State.RepositoryFor(row));
-
-        var pane = host.Render();
-
-        // The step itself is still there, listed by the shared task list.
-        Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
-
-        Assert.Empty(pane.FindAll("[data-testid='subitem-github-push-button']"));
-        Assert.Empty(pane.FindAll("[data-testid='subitem-copilot-cli-button']"));
-    }
 
     /// <summary>The hand-offs live on the entry, and say so. "Create an issue"
     /// without saying what is being filed is the one thing a person would want to
@@ -131,7 +109,6 @@ public sealed class SubItemActionsTests
 
         var pane = host.Render();
 
-        Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
         Assert.Empty(pane.FindAll("[data-testid='github-push-button']"));
     }
 

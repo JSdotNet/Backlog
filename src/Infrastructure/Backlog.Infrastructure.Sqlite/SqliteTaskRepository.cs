@@ -37,7 +37,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
         "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on, " +
-        "devbook_refs, blocked_since, source_ref, agenda_at, agenda_minutes, planned_hours";
+        "devbook_refs, blocked_since, source_ref, agenda_at, agenda_minutes, planned_hours, source_notification_id";
 
     private readonly string _databasePath;
 
@@ -106,7 +106,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
-                $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref, $agenda_at, $agenda_minutes, $planned_hours)
+                $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref, $agenda_at, $agenda_minutes, $planned_hours,
+                $source_notification_id)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -142,7 +143,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 source_ref = excluded.source_ref,
                 agenda_at = excluded.agenda_at,
                 agenda_minutes = excluded.agenda_minutes,
-                planned_hours = excluded.planned_hours;
+                planned_hours = excluded.planned_hours,
+                source_notification_id = excluded.source_notification_id;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -156,6 +158,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         command.Parameters.AddWithValue("$created_at", task.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
         command.Parameters.AddWithValue("$source_inbox_id", Nullable(task.SourceInboxId));
         command.Parameters.AddWithValue("$recurrence_source_id", Nullable(task.RecurrenceSourceId?.ToString()));
+        command.Parameters.AddWithValue("$source_notification_id", Nullable(task.SourceNotificationId?.ToString()));
         command.Parameters.AddWithValue("$due_on", Nullable(WriteDate(task.DueOn)));
         command.Parameters.AddWithValue("$remind_at", Nullable(WriteWallClock(task.RemindAt)));
         command.Parameters.AddWithValue(
@@ -397,7 +400,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 source_ref           TEXT NULL,
                 agenda_at            TEXT NULL,
                 agenda_minutes       INTEGER NULL,
-                planned_hours        TEXT NOT NULL DEFAULT '[]'
+                planned_hours        TEXT NOT NULL DEFAULT '[]',
+                source_notification_id TEXT NULL
             );
 
             CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
@@ -450,6 +454,11 @@ public sealed class SqliteTaskRepository : ITaskRepository
             // before the column reads as having no hours set aside on any day — which it
             // had not.
             new("tasks", "planned_hours", "TEXT NOT NULL DEFAULT '[]'"),
+
+            // The notification whose answer filed the task as a follow-up, as
+            // recurrence_source_id holds its source: a GUID as text. Null on a row from
+            // before the column, which no answer filed.
+            new("tasks", "source_notification_id", "TEXT NULL"),
         ],
         afterColumns:
         [
@@ -528,6 +537,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int SourceRef = 32;
         public const int AgendaAt = 33, AgendaMinutes = 34;
         public const int PlannedHours = 35;
+        public const int SourceNotificationId = 36;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -543,7 +553,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
             TaskPayloads.Read<string>(Text(row, Col.Tags)),
             Text(row, Col.SourceInboxId),
             DateTimeOffset.Parse(row.GetString(Col.CreatedAt), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-            ParseGuid(Text(row, Col.RecurrenceSourceId)));
+            ParseGuid(Text(row, Col.RecurrenceSourceId)),
+            ParseGuid(Text(row, Col.SourceNotificationId)));
 
         task.SetOrder(row.GetInt32(Col.SortOrder));
         task.SetArea(Text(row, Col.Area));

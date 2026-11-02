@@ -6,7 +6,8 @@ namespace Backlog.Modules.Notifications.DomainModels;
 /// <summary>
 /// Whether an <see cref="AnswerSpec"/> is one of the four shapes
 /// <c>.devbook/domain/notifications/domain.md#answer-spec</c> allows — single choice, multiple
-/// choice, open, or choices with open — and nothing else.
+/// choice, open, or choices with open — and nothing else. A choice that
+/// <see cref="AnswerChoice.TakesText"/> belongs to a single-choice question only.
 /// </summary>
 internal static class AnswerSpecRules
 {
@@ -14,7 +15,7 @@ internal static class AnswerSpecRules
     public const int MinimumChoices = 2;
 
     /// <summary>The most set choices a question offers.</summary>
-    public const int MaximumChoices = 6;
+    public const int MaximumChoices = 8;
 
     public static Result Validate(AnswerSpec spec)
     {
@@ -24,6 +25,7 @@ internal static class AnswerSpecRules
 
         if (!Enum.IsDefined(spec.AnswerOn)) return Invalid("A question is answered on any instance or on the owner only.");
         if (spec.Open is { MaxLength: < 1 }) return Invalid("An open answer's length limit is at least one character.");
+        if (spec.Note is { MaxLength: < 1 }) return Invalid("A note's length limit is at least one character.");
 
         if (choices.Count == 0)
         {
@@ -54,6 +56,10 @@ internal static class AnswerSpecRules
         }
 
         if (spec.Open is not null) return Invalid("A multiple-choice question takes no open answer.");
+
+        // A reply carries one text, so two picked choices could not each bring their words.
+        if (choices.Any(choice => choice.TakesText))
+            return Invalid("Only a single-choice question has a choice that takes text.");
 
         var min = spec.MinChoices ?? 1;
         var max = spec.MaxChoices ?? choices.Count;

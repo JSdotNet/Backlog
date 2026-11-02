@@ -312,9 +312,33 @@ internal sealed partial class DeliveryRunReader
                 Repository = Text(root, "repo"),
                 Verdicts = Verdicts(root),
                 RunContext = ObjectText(root, "runContext"),
-                Quality = DeliveryQualityFacts.Of(root)
+                Quality = DeliveryQualityFacts.Of(root),
+                Approval = Approval(root)
             };
         }
+    }
+
+    /// <summary>
+    /// The run's Personal Validation decision from its top-level <c>approval</c>, or null
+    /// where there is none or every field of it is still empty — the shape
+    /// <c>start_run</c> writes before any gate is decided.
+    /// </summary>
+    private static DeliveryRunApproval? Approval(JsonElement root)
+    {
+        if (!root.TryGetProperty("approval", out var approval) || approval.ValueKind is not JsonValueKind.Object) return null;
+
+        var decision = Text(approval, "personalValidation");
+        var note = Text(approval, "note");
+        var choice = Text(approval, "choice");
+
+        if (decision is null && note is null && choice is null) return null;
+
+        return new DeliveryRunApproval(
+            decision,
+            note,
+            Moment(approval, "decidedAt"),
+            choice,
+            Guid.TryParse(Text(approval, "followUpEntryId"), out var followUp) ? followUp : null);
     }
 
     /// <summary>
@@ -494,31 +518,28 @@ internal sealed partial class DeliveryRunReader
     {
         var prompt = Text(root, "originalPrompt");
 
-        if (string.IsNullOrWhiteSpace(prompt)) return null;
-
-        var entry = EntryMarker().Match(prompt);
-        Guid? entryId = entry.Success ? Guid.Parse(entry.Groups[1].Value) : null;
+        if (RunEntryMarkers.In(prompt) is not { } named) return null;
 
         // No address in either case: a Backlog entry is in this product, not on a
         // page. A surface that can open one wires that itself, from the id or from
         // the plan and the item.
-        if (PlanMarker().Match(prompt) is { Success: true } match)
+        if (named is { Plan: { } plan, Item: { } item })
         {
             return new DeliveryRunReference(
                 DeliveryRunReferenceKind.Task,
-                match.Groups[1].Value,
-                $"Plan {match.Groups[2].Value}",
+                item,
+                $"Plan {plan}",
                 Url: null,
                 Repository: null,
-                Plan: match.Groups[2].Value,
-                EntryId: entryId);
+                Plan: plan,
+                EntryId: named.EntryId);
         }
 
-        if (entryId is not { } id) return null;
+        if (named.EntryId is not { } id) return null;
 
         return new DeliveryRunReference(
             DeliveryRunReferenceKind.Task,
-            TitleUnder(prompt, entry) ?? id.ToString()[..8],
+            TitleUnder(prompt!, named.EntryMarkerEnd) ?? id.ToString()[..8],
             Title: null,
             Url: null,
             Repository: null,
@@ -528,9 +549,9 @@ internal sealed partial class DeliveryRunReader
     /// <summary>The first line written under the entry marker, heading marks dropped:
     /// the copied entry's title, which is how the app writes one. The rest of the
     /// marker's own line — its closing colon — is not a title.</summary>
-    private static string? TitleUnder(string prompt, Match marker)
+    private static string? TitleUnder(string prompt, int markerEnd)
     {
-        var lineEnd = prompt.IndexOf('\n', marker.Index + marker.Length);
+        var lineEnd = prompt.IndexOf('\n', markerEnd);
 
         if (lineEnd < 0) return null;
 
@@ -562,13 +583,6 @@ internal sealed partial class DeliveryRunReader
 
     [GeneratedRegex(@"https?://github\.com/([\w.-]+)/([\w.-]+)/(?:pull|issues)/(\d+)", RegexOptions.IgnoreCase)]
     private static partial Regex GitHubItem();
-
-    [GeneratedRegex("""Backlog plan item [`'"]([\w.-]+)[`'"] of plan [`'"]([\w.-]+)[`'"]""")]
-    private static partial Regex PlanMarker();
-
-    // The skill was backlog-run-plan-item before the plugin dropped its prefix; stored runs keep that spelling.
-    [GeneratedRegex("""(?:backlog-)?run-plan-item entry `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`""")]
-    private static partial Regex EntryMarker();
 
     /// <summary>
     /// The stages, named. An older generation of the dashboard stored them nameless —

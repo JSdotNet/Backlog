@@ -25,7 +25,7 @@ public sealed class Goal
 {
     private readonly List<GoalAttachment> _attachments;
 
-    private Goal(Guid id, string title, string? outcome, DateOnly? dueDate, List<GoalAttachment> attachments, DateTimeOffset? createdAt)
+    private Goal(Guid id, string title, string? outcome, DateOnly? dueDate, List<GoalAttachment> attachments, DateTimeOffset? createdAt, long? rank = null)
     {
         Id = id;
         Title = title;
@@ -33,6 +33,7 @@ public sealed class Goal
         DueDate = dueDate;
         _attachments = attachments;
         CreatedAt = createdAt;
+        Rank = rank;
     }
 
     public Guid Id { get; }
@@ -52,6 +53,14 @@ public sealed class Goal
     /// <summary>When the goal was set, on the desktop that set it; it orders the goals
     /// alike on every device. Null for a goal restored without one.</summary>
     public DateTimeOffset? CreatedAt { get; }
+
+    /// <summary>Where the person placed the goal in their order, or null for a goal never
+    /// placed by hand — listed by when it was set. Set only by
+    /// <see cref="Services.GoalOrdering"/>, which sees the other goals.</summary>
+    public long? Rank { get; private set; }
+
+    /// <summary>The goal's place in the person's order (<see cref="GoalOrder.Key"/>).</summary>
+    public long OrderKey => GoalOrder.Key(Rank, CreatedAt);
 
     /// <summary>A new goal holding nothing, with or without a due date. Refused without a
     /// title (<c>progress.goal_without_title</c>), or with an outcome that is not one line
@@ -80,8 +89,9 @@ public sealed class Goal
         string? outcome,
         DateOnly? dueDate,
         IEnumerable<GoalAttachment> attachments,
-        DateTimeOffset? createdAt = null) =>
-        new(id, title, string.IsNullOrWhiteSpace(outcome) ? null : outcome, dueDate, [.. attachments.Distinct()], createdAt);
+        DateTimeOffset? createdAt = null,
+        long? rank = null) =>
+        new(id, title, string.IsNullOrWhiteSpace(outcome) ? null : outcome, dueDate, [.. attachments.Distinct()], createdAt, rank);
 
     public Result Rename(string? title)
     {
@@ -120,6 +130,10 @@ public sealed class Goal
         ArgumentNullException.ThrowIfNull(item);
         if (!Holds(item)) _attachments.Add(item);
     }
+
+    /// <summary>Places the goal at <paramref name="rank"/> in the person's order. Whether
+    /// that is between the goals the person meant is <see cref="Services.GoalOrdering"/>'s.</summary>
+    internal void PlaceAt(long rank) => Rank = rank;
 
     /// <summary>Detaches <paramref name="item"/>, answering whether the goal held it.
     /// Nothing on the item changes.</summary>

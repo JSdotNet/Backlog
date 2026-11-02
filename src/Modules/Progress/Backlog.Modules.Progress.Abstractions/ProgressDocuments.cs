@@ -47,7 +47,8 @@ public static class ProgressDocuments
         return new GoalDocumentDto(
             new GoalDto(shape.Id, shape.Title, shape.Outcome, StoredDueDate(shape.DueDate), attachments),
             shape.CreatedAt,
-            deleted);
+            deleted,
+            shape.Rank);
     }
 
     /// <summary>A goal's stored due date as the goal holds it: <c>0001-01-01</c> is none. A
@@ -164,7 +165,8 @@ public static class ProgressDocuments
         DateOnly? DueDate,
         List<AttachmentShape?>? Attachments,
         DateTimeOffset? CreatedAt,
-        DateTimeOffset? DeletedAt);
+        DateTimeOffset? DeletedAt,
+        long? Rank);
 
     private sealed record AttachmentShape(
         [property: JsonConverter(typeof(LenientKindConverter))] GoalAttachmentKind? Kind,

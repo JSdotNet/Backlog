@@ -110,6 +110,18 @@
         </div>
         <p class="sb-state" data-testid="task-card-control-state">@(_lastPress ?? "Nothing pressed yet.")</p>
     </Story>
+
+    <Story Name="A link typed into the title"
+           Description="Nothing to switch on: a bare `http://` or `https://` address in the title is drawn link-styled where it stands, and the badge slot holds a linked badge for it after the source badge, labelled with the host — as on the row. The address in the title is a span with no tab stop; a click on it opens the address in the browser and does not open the card. The badge in the slot is the link a keyboard reaches. Press the title's prose and the line below says the card opened; press the address and it does not."
+           Code="@TitleLinkCode">
+        <div class="sb-board-column" data-testid="task-card-title-link">
+            <TaskCard Task="@TitleLink"
+                      Effort="2"
+                      OnSelected="id => _titleLinkOpened = id"
+                      TestId="title-link" />
+        </div>
+        <p class="sb-state" data-testid="task-card-title-link-state">@(_titleLinkOpened is null ? "Nothing opened yet." : $"Opened {_titleLinkOpened}.")</p>
+    </Story>
 </StoryPage>
 
 @code {
@@ -180,6 +192,10 @@
 
     private string? _lastPress;
 
+    /// <summary>The title-link story's own line, so a press in another story never
+    /// reads as one in this.</summary>
+    private string? _titleLinkOpened;
+
     private static string? Mark(int? colour) => colour is null ? null : $"repo-mark repo-mark--{colour}";
 
     private void Open(string id)
@@ -236,6 +252,18 @@
         @* The same class the row is handed through RowCssClass, or null while
            the repository colours are off. *@
         <TaskCard Task="@row" Repository="backlog" CssClass="@State.RepositoryMarkClass(entry)" />
+        """;
+
+    private static readonly TaskRow TitleLink = new(
+        "title-link",
+        "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr",
+        Due: "Due Oct 8",
+        Kind: TaskKinds.Task);
+
+    private const string TitleLinkCode = """
+        // Nothing to switch on: the card reads the title it was given.
+        <TaskCard Task="@(new TaskRow("id", "Concurrency issue: https://claude.ai/artifact/UkBhdNFEcb95CNmbrJbzWr"))"
+                  OnSelected="id => Open(id)" />
         """;
 
     private const string ControlCode = """

@@ -41,6 +41,8 @@ public interface INotificationReplication
 /// <param name="SettledAt">When it left Open, or null.</param>
 /// <param name="CloseReason">Why it was closed, or null.</param>
 /// <param name="Answer">The accepted answer, or null.</param>
+/// <param name="Origin">Where it came from, in words, or null — absent from an owner that
+/// predates it, and then the viewer draws it by its source as before.</param>
 public sealed record NotificationSnapshot(
     Guid Id,
     Guid OwnerInstanceId,
@@ -58,4 +60,5 @@ public sealed record NotificationSnapshot(
     NotificationState State,
     DateTimeOffset? SettledAt,
     string? CloseReason,
-    NotificationAnswer? Answer);
+    NotificationAnswer? Answer,
+    NotificationOrigin? Origin = null);

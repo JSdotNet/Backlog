@@ -39,7 +39,13 @@ public enum AgentSessionState
     Stalled,
 
     /// <summary>Over. Only its record is left.</summary>
-    Finished
+    Finished,
+
+    /// <summary>Live, and holding an open waiting question: it asked the person something
+    /// and no answer has reached it yet (local ADR 0041). Read in from the question relay
+    /// by <see cref="WaitingQuestions.StateWith"/>, never from a file; last, so the
+    /// members before it keep their values.</summary>
+    Waiting
 }
 
 /// <summary>
@@ -333,6 +339,14 @@ public sealed record AgentSession(
     /// </para>
     /// </summary>
     public string? DesktopTitle { get; init; }
+
+    /// <summary>
+    /// The Claude desktop app's own id for the session — <c>local_&lt;guid&gt;</c>, the id its
+    /// session tools take — where its session store holds a record, else null. What the
+    /// Manager sends an answer delivery to (local ADR 0041 §3); local-only on the same
+    /// terms as <see cref="Archived"/>.
+    /// </summary>
+    public string? DesktopSessionId { get; init; }
 }
 
 /// <summary>
@@ -645,7 +659,7 @@ public static class AgentSessionViews
     /// <summary>The same test over a state alone, which is what a row that may have
     /// no session behind it can offer.</summary>
     public static bool IsLive(AgentSessionState state) =>
-        state is AgentSessionState.Running or AgentSessionState.Stalled;
+        state is AgentSessionState.Running or AgentSessionState.Stalled or AgentSessionState.Waiting;
 
     /// <summary>
     /// Whether the Claude desktop app holds this session open: its desktop record says

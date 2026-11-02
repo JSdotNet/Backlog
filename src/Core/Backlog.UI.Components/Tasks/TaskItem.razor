@@ -278,7 +278,7 @@
         @RenderOpen()
     }
 
-    @if (Badges is not null || Task.Source is not null)
+    @if (Badges is not null || Task.Source is not null || HasTitleLinks)
     {
         @* What the host knows about this task that the row has no field for — the
            pull request work on it opened, the session that did it. Facts rather
@@ -294,6 +294,12 @@
             @* A linked task's source leads the slot: it is the one badge every
                linked row has, so it holds the same place on each of them. *@
             <SourceBadge Source="@Task.Source" CssClass="task-item__source" TestId="@Suffix("source")" />
+
+            @* The addresses typed into the title, as links a keyboard and a screen
+               reader can follow: inside the title they are text in the open button.
+               Drawn by the row rather than handed in by the host, so every list
+               that shows a title with an address in it offers the link. *@
+            <TaskTitleLinks Title="@Task.Title" TestId="@Suffix("title-link")" />
             @Badges?.Invoke(Task)
         </span>
     }
@@ -614,25 +620,25 @@
     /// </para>
     ///
     /// <para>
+    /// A web address typed into the title is drawn link-styled where it stands,
+    /// for the same arithmetic: it is a span and not an anchor, and it takes no tab
+    /// stop. A pointer can still follow it — components.js opens the address and
+    /// <see cref="TaskTitleText"/> keeps the click from the row — and the anchor a
+    /// keyboard reaches is in the badge slot beside the title.
+    /// </para>
+    ///
+    /// <para>
     /// Display only. The title also feeds the rename draft, the row's aria-labels
     /// and the copy payload, and every one of those keeps the raw string: a chip
     /// is something a reader sees, never something an editor or the clipboard
     /// inherits.
     /// </para></summary>
     private RenderFragment RenderTitle() =>
-        @<text>
-        @foreach (var segment in TagText.Segments(Task.Title))
-        {
-            if (segment.IsTag)
-            {
-                <TagChip Text="@segment.Text" CssClass="task-item__title-tag" />
-            }
-            else
-            {
-                @segment.Text
-            }
-        }
-        </text>;
+        @<TaskTitleText Title="@Task.Title" Tags="true" TagCssClass="task-item__title-tag" />;
+
+    /// <summary>Whether the title holds an address, which is enough on its own to
+    /// draw the badge slot the link beside the title sits in.</summary>
+    private bool HasTitleLinks => TitleRuns.HasUrl(Task.Title);
 
     /// <summary>
     /// Everything the row knows about itself, in the order a reader asks for it:

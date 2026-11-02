@@ -165,6 +165,162 @@ public sealed class NotificationCardTests
         Assert.NotNull(card.Find("[data-testid='notification-card-open'] textarea"));
     }
 
+    private static readonly NotificationCardAnswerSpec Validation = new(
+    [
+        new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+        new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+    ]);
+
+    [Fact]
+    public void Picking_a_choice_that_takes_text_asks_for_its_words_and_sends_nothing_yet()
+    {
+        using var context = Context();
+        var answered = false;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, _ => answered = true));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-choice-text']"));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.False(answered);
+        var box = card.Find("[data-testid='notification-card-choice-text'] textarea");
+        Assert.Equal("What should change?", box.GetAttribute("placeholder"));
+        Assert.Equal("2000", box.GetAttribute("maxlength"));
+        Assert.True(card.Find("[data-testid='notification-card-choice-send']").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_choice_that_takes_text_answers_with_the_choice_and_the_words()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+        card.Find("[data-testid='notification-card-choice-text'] textarea").Input("   ");
+        Assert.True(card.Find("[data-testid='notification-card-choice-send']").HasAttribute("disabled"));
+
+        card.Find("[data-testid='notification-card-choice-text'] textarea").Input("  The toast overlaps the header  ");
+        card.Find("[data-testid='notification-card-choice-send']").Click();
+
+        Assert.Equal(["revise"], reply!.ChoiceIds);
+        Assert.Equal("The toast overlaps the header", reply.Text);
+    }
+
+    [Fact]
+    public void A_choices_text_box_keeps_to_the_open_answers_limit()
+    {
+        using var context = Context();
+        var spec = Validation with { Open = new NotificationCardOpenAnswer(MaxLength: 300) };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.Equal("300", card.Find("[data-testid='notification-card-choice-text'] textarea").GetAttribute("maxlength"));
+    }
+
+    [Fact]
+    public void Cancelling_a_choices_words_puts_the_box_away_and_the_plain_choices_still_answer_at_once()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+        card.Find("[data-testid='notification-card-choice-cancel']").Click();
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-choice-text']"));
+        Assert.Null(reply);
+
+        card.Find("[data-testid='notification-card-choice-approve']").Click();
+
+        Assert.Equal(["approve"], reply!.ChoiceIds);
+        Assert.Null(reply.Text);
+    }
+
+    [Fact]
+    public void Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row()
+    {
+        using var context = Context();
+        var eight = new NotificationCardAnswerSpec([.. Enumerable.Range(1, 8).Select(n => new NotificationCardChoice($"c{n}", $"Choice {n}"))]);
+        var seven = eight with { Choices = eight.Choices.Take(7).ToList() };
+        var six = eight with { Choices = eight.Choices.Take(6).ToList() };
+
+        var eightCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(eight)));
+        var sevenCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(seven)));
+        var sixCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(six)));
+
+        Assert.Equal(8, eightCard.FindAll("[data-testid^='notification-card-choice-']").Count);
+        Assert.Contains("notification-card__actions--many", eightCard.Find("[data-testid='notification-card-choices']").ClassList);
+        Assert.Contains("notification-card__actions--many", sevenCard.Find("[data-testid='notification-card-choices']").ClassList);
+        Assert.DoesNotContain("notification-card__actions--many", sixCard.Find("[data-testid='notification-card-choices']").ClassList);
+    }
+
+    [Fact]
+    public void A_question_that_takes_a_note_sends_it_with_the_choice_pressed()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+        var spec = YesNo with { Note = new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000) };
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        var note = card.Find("[data-testid='notification-card-note']");
+        Assert.Contains("Add a note (optional)", note.TextContent);
+        var box = note.QuerySelector("textarea")!;
+        Assert.Equal("4000", box.GetAttribute("maxlength"));
+        Assert.Equal("Why, or anything the asker should know", box.GetAttribute("placeholder"));
+
+        box.Input("  After the nightly backup  ");
+        card.Find("[data-testid='notification-card-choice-yes']").Click();
+
+        Assert.Equal(["yes"], reply!.ChoiceIds);
+        Assert.Equal("After the nightly backup", reply.Note);
+    }
+
+    [Fact]
+    public void A_note_goes_with_an_open_answer_and_an_empty_note_sends_none()
+    {
+        using var context = Context();
+        var replies = new List<NotificationCardReply>();
+        var spec = new NotificationCardAnswerSpec([], Open: new NotificationCardOpenAnswer(), Note: new NotificationCardOpenAnswer());
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => replies.Add(r)));
+
+        card.Find("[data-testid='notification-card-open'] textarea").Input("Signals");
+        card.Find("[data-testid='notification-card-send']").Click();
+        card.Find("[data-testid='notification-card-note'] textarea").Input("Short and plain");
+        card.Find("[data-testid='notification-card-send']").Click();
+
+        Assert.Null(replies[0].Note);
+        Assert.Equal("Signals", replies[1].Text);
+        Assert.Equal("Short and plain", replies[1].Note);
+    }
+
+    [Fact]
+    public void A_question_without_a_note_draws_no_note_box()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question()));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-note']"));
+    }
+
     [Fact]
     public void An_alert_offers_acknowledge()
     {
@@ -226,5 +382,89 @@ public sealed class NotificationCardTests
 
         Assert.Equal("Closed · Session archived", card.Find("[data-testid='notification-card-outcome']").TextContent);
         Assert.Equal("closed", card.Find("article").GetAttribute("data-state"));
+    }
+
+    // --- The origin ----------------------------------------------------------------------
+
+    private static readonly NotificationCardOrigin SpecManager =
+        new("spec-manager", "Billing · #7 Rounding in invoices", "Ada Lovelace", "Agent session", "https://spec-manager.example/q/7");
+
+    [Fact]
+    public void An_origin_draws_a_system_badge_and_the_place_above_the_title()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        var origin = card.Find("[data-testid='notification-card-origin']");
+        Assert.Equal("spec-manager", origin.QuerySelector("[data-testid='notification-card-system']")!.TextContent);
+        Assert.Equal("Billing · #7 Rounding in invoices", origin.QuerySelector("[data-testid='notification-card-place']")!.TextContent);
+        Assert.True(
+            card.Markup.IndexOf("notification-card__origin", StringComparison.Ordinal)
+            < card.Markup.IndexOf("notification-card__title", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Who_asked_and_how_sit_under_the_title()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        Assert.Equal("Asked by Ada Lovelace", card.Find("[data-testid='notification-card-asked-by']").TextContent);
+        Assert.Equal("Agent session", card.Find("[data-testid='notification-card-via']").TextContent);
+        Assert.True(
+            card.Markup.IndexOf("notification-card__title", StringComparison.Ordinal)
+            < card.Markup.IndexOf("notification-card__asked", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_link_offers_open_in_the_system_in_a_new_window()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        var open = card.Find("[data-testid='notification-card-open-origin']");
+        Assert.Equal("Open in spec-manager ↗", open.TextContent.Trim());
+        Assert.Equal("https://spec-manager.example/q/7", open.GetAttribute("href"));
+        Assert.Equal("_blank", open.GetAttribute("target"));
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("backlog://devbook/_/arc42.md")]
+    public void A_link_that_is_not_http_or_https_offers_nothing(string link)
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager with { OpenLink = link } }));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-open-origin']"));
+    }
+
+    [Fact]
+    public void An_origin_without_a_link_place_or_asker_draws_only_the_badge()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Alert() with { Origin = new NotificationCardOrigin("Backlog") }));
+
+        Assert.Equal("Backlog", card.Find("[data-testid='notification-card-system']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-place']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-asked']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-open-origin']"));
+        Assert.Equal("1 h ago", card.Find(".notification-card__meta").TextContent);
+    }
+
+    [Fact]
+    public void A_card_without_an_origin_names_its_source_beside_the_time_as_before()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question()));
+
+        Assert.Equal("MCP · 2 min ago", card.Find(".notification-card__meta").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-origin']"));
     }
 }

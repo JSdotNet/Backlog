@@ -96,11 +96,16 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         TargetHelp = "The product's slug, as it appears in its spec-manager URL.",
     };
 
-    /// <summary>Items carry storypoints and say what they wait on, and an item is
-    /// completed by moving it to the product's first end status.</summary>
-    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, HasDependencies: true, CanComplete: true);
+    /// <summary>Items carry storypoints and say what they wait on, an item is completed
+    /// by moving it to the product's first end status, and the product's questions reach
+    /// the person as notifications (<see cref="Questions.SpecManagerQuestionSource"/>).</summary>
+    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, HasDependencies: true, CanComplete: true, HasQuestions: true);
 
     public TaskConnectorAccount? Account => _signIn.Account;
+
+    /// <summary>"Sign in to spec-manager to send answers" while an answer given in Backlog
+    /// waits on a sign-in.</summary>
+    public string? Notice => _signIn.Notice;
 
     public event Action? AccountChanged
     {

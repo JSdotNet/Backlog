@@ -258,6 +258,62 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
+    /// A port the head composed as a singleton is the head's own instance, and the
+    /// listener never disposes it. The logs route resolves the request store out of
+    /// the request's scope; forwarded through a scoped factory, that scope's end
+    /// disposed the desktop singleton with it, and the main window went on writing to
+    /// a disposed store. Handed over as the instance, two exports land in it and it
+    /// is still undisposed after the request scopes that resolved it have ended.
+    /// </summary>
+    [Fact]
+    public async Task Ending_a_listener_scope_leaves_a_forwarded_desktop_singleton_undisposed()
+    {
+        var store = new DisposableRequestStore();
+        var collection = new ServiceCollection().AddSingleton<IClaudeApiRequestStore>(store);
+        collection.AddSingleton(new DesktopServiceRegistrations([.. collection]));
+        var services = new GatedProvider(collection.BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureMcpServerToken();
+
+        for (var export = 0; export < 2; export++)
+        {
+            using var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        // A scope ends after its response has gone, so the disposal it would carry is
+        // given a moment to arrive rather than read off the response.
+        var disposed = await Task.WhenAny(store.Disposed, Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken)) == store.Disposed;
+
+        Assert.False(disposed, "Ending a listener request's scope disposed the desktop app's singleton.");
+        Assert.Equal(4, store.Added.Count);
+    }
+
+    /// <summary>A request store that says when it is disposed.</summary>
+    private sealed class DisposableRequestStore : IClaudeApiRequestStore, IDisposable
+    {
+        private readonly RecordingRequestStore _inner = new();
+        private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Disposed => _disposed.Task;
+
+        public IReadOnlyList<ClaudeApiRequest> Added => _inner.Added;
+
+        public Task<int> AddAsync(IReadOnlyList<ClaudeApiRequest> requests, CancellationToken cancellationToken = default) =>
+            _inner.AddAsync(requests, cancellationToken);
+
+        public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
+            _inner.ListAsync(sessionId, cancellationToken);
+
+        public void Dispose() => _disposed.TrySetResult();
+    }
+
+    /// <summary>
     /// The session-request long poll reaches the head's listener behind the same bearer
     /// token as <c>/mcp</c> (local ADR 0038 §4): the real listener refuses a wait with no
     /// token and one with the wrong token, and answers the right one with the waiting

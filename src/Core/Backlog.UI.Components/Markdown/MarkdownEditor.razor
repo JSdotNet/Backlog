@@ -53,7 +53,7 @@ else
     /// This is the one place the bargain above needs help. The textarea is the
     /// truth, but Blazor cannot see it: its diff compares this render to the
     /// last one, never to the DOM. A host that stores the body through a parser
-    /// — the Tasks pane's Markdown tab, a step's notes — hands back the typed
+    /// — the Tasks pane's entry body — hands back the typed
     /// text with its edges trimmed, and the diff, finding "Hello" where it wrote
     /// "Hello" last time, leaves the textarea alone with the "Hello\n" the
     /// reader just typed. The highlight layer and the auto-grow replica are

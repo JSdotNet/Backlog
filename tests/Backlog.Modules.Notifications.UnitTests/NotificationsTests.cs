@@ -72,6 +72,46 @@ public sealed class NotificationsTests
         Assert.True((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).IsSuccess);
     }
 
+    [Fact]
+    public async Task A_draft_that_names_its_id_is_stored_under_it()
+    {
+        var named = Guid.NewGuid();
+
+        var id = (await Owner_().PublishAsync(Question() with { Id = named }, TestContext.Current.CancellationToken)).Value;
+
+        Assert.Equal(named, id);
+        Assert.NotNull(await _store.GetAsync(named, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>A source that derives its id from what it asks about publishes the same thing on
+    /// every pull: the second publish changes nothing, the first one's state included.</summary>
+    [Fact]
+    public async Task Publishing_a_named_id_again_changes_nothing_whatever_state_it_reached()
+    {
+        var owner = Owner_();
+        var named = Guid.NewGuid();
+        await owner.PublishAsync(Question() with { Id = named }, TestContext.Current.CancellationToken);
+        await owner.CloseAsync(named, "Answered elsewhere", TestContext.Current.CancellationToken);
+        var saves = _store.Saves;
+
+        var again = await owner.PublishAsync(Question() with { Id = named, Title = "Asked again" }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(named, again.Value);
+        Assert.Equal(saves, _store.Saves);
+        var stored = await _store.GetAsync(named, TestContext.Current.CancellationToken);
+        Assert.Equal(NotificationState.Closed, stored!.State);
+        Assert.NotEqual("Asked again", stored.Title);
+    }
+
+    [Fact]
+    public async Task An_empty_named_id_is_refused()
+    {
+        var result = await Owner_().PublishAsync(Question() with { Id = Guid.Empty }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("notification.id_required", result.Error.Code);
+        Assert.Equal(0, _store.Saves);
+    }
+
     // --- Closing ----------------------------------------------------------------------
 
     [Fact]
@@ -443,6 +483,27 @@ public sealed class NotificationsTests
         var other = (await notifications.PublishAsync(Question(subject: new("never", "thing", "1")), TestContext.Current.CancellationToken)).Value;
         await provider.GetRequiredService<NotificationsStartup>().Start();
         Assert.Equal(NotificationState.Closed, (await _store.GetAsync(other, TestContext.Current.CancellationToken))!.State);
+    }
+
+    /// <summary>A source whose handler refused an answer for a reason it can see end — a sign-in
+    /// that lapsed — has it handed over again now, through the same delivery the startup uses.</summary>
+    [Fact]
+    public async Task The_owner_registration_replays_a_waiting_answer_on_request()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<INotificationRepository>(_store);
+        services.AddSingleton<IDeviceIdentitySource>(new FixedDevice(Owner));
+        services.AddNotificationsModule();
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        var notifications = provider.GetRequiredService<INotifications>();
+        var id = (await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        await provider.GetRequiredService<INotificationReplies>().AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
+        Assert.True((await _store.GetAsync(id, TestContext.Current.CancellationToken))!.AwaitsDelivery);
+
+        var replay = provider.GetRequiredService<INotificationAnswerReplay>();
+        Assert.Equal(0, await replay.ReplayAsync(TestContext.Current.CancellationToken));
+        Assert.Same(provider.GetRequiredService<AnswerDelivery>(), replay);
     }
 
     [Fact]

@@ -307,6 +307,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             {
                 decided["personalValidation"] = approval;
                 decided["decidedAt"] = Now();
+
+                // A decision taken here is no notification's answer: what an earlier
+                // answer chose, and the follow-up it filed, no longer describe it.
+                decided.Remove("choice");
+                decided.Remove("followUpEntryId");
             }
 
             if (approvalNote is not null) decided["note"] = approvalNote;
@@ -474,10 +479,12 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // a different pass rather than an amendment to the first.
         if (execution is not null) stage["execution"] = execution.DeepClone();
 
-        // The gate asks the person in a notification, or closes the question once the
-        // gate moved on at the desktop — recorded on the run in the same write.
+        // The gate asks the person in a notification on its first report with a handoff,
+        // or closes the question once the gate moved on at the desktop — recorded on the
+        // run in the same write. What this call passes, not what the stage holds: an
+        // earlier attempt's links and output are still on it.
         await ValidationQuestions.OnStageAsync(
-            run, Text(stage, "name") ?? string.Empty, previousStatus, status, worktree, runId, _notifications, _logger, cancellationToken).ConfigureAwait(false);
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, cancellationToken).ConfigureAwait(false);
 
         WritePhaseDoneCounts(run);
 
@@ -624,22 +631,60 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     }
 
     /// <summary>
-    /// Records the answer to a run's Personal Validation question as its gate decision, under
-    /// the run's gate, and says whether anything changed — nothing for a run that is gone, a
-    /// replayed answer, or one to a question the run moved past
-    /// (<see cref="ValidationQuestions.Record"/>).
+    /// The first half of taking the answer to a run's Personal Validation question, under the
+    /// run's gate: decides what it asks (<see cref="ValidationQuestions.Decide"/>), and records
+    /// it at once unless a follow-up has to be filed first. Nothing for a run that is gone, a
+    /// replayed answer, or one to a question the run moved past. A follow-up is filed by the
+    /// caller after this returns — the gate is not held while another store is awaited — and
+    /// recorded through <see cref="RecordValidationAnswerAsync"/>.
     /// </summary>
-    internal async Task<bool> RecordValidationAnswerAsync(string worktree, string runId, NotificationAnswer answer, CancellationToken cancellationToken = default)
+    internal async Task<ValidationAnswerStep> DecideValidationAnswerAsync(string worktree, string runId, NotificationAnswer answer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(answer);
 
         using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
 
-        if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return false;
-        if (!ValidationQuestions.Record(run, answer)) return false;
+        if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return ValidationAnswerStep.Nothing;
 
-        await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
-        return true;
+        var step = ValidationQuestions.Decide(run, answer);
+        if (step.Kind is not ValidationAnswerKind.Record) return step;
+
+        if (ValidationQuestions.Record(run, answer) is not ValidationRecord.Unchanged)
+        {
+            await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+        }
+
+        return step;
+    }
+
+    /// <summary>
+    /// Records the answer to a run's Personal Validation question as its gate decision, with
+    /// the follow-up filed for it, under the run's gate — re-checked there, because the gate
+    /// was let go while the follow-up was filed: a replay or a question the run moved past
+    /// changes nothing, and a decision the desktop took meanwhile stands
+    /// (<see cref="ValidationQuestions.Record"/>).
+    /// </summary>
+    internal async Task<ValidationRecord> RecordValidationAnswerAsync(
+        string worktree,
+        string runId,
+        NotificationAnswer answer,
+        Guid? followUpEntryId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
+
+        if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return ValidationRecord.Unchanged;
+
+        var recorded = ValidationQuestions.Record(run, answer, followUpEntryId);
+
+        if (recorded is not ValidationRecord.Unchanged)
+        {
+            await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+        }
+
+        return recorded;
     }
 
     public async Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default)

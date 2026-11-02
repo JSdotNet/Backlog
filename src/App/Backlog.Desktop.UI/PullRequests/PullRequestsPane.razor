@@ -2031,6 +2031,7 @@
             {
                 AgentSessionState.Running => IntegrationSessionState.Running,
                 AgentSessionState.Stalled => IntegrationSessionState.Stalled,
+                AgentSessionState.Waiting => IntegrationSessionState.Waiting,
                 _ => IntegrationSessionState.Finished
             },
             title: $"Session {session.Id} — open in Sessions");

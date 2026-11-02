@@ -5,7 +5,7 @@ index: root
 type: context
 deployment: module
 sync: push
-related: [.devbook/arc42/05-building-block-view.md#desktop-app]
+related: [.devbook/arc42/05-building-block-view.md#desktop-app, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 The Sessions context owns the record of what the AI coding agents have been doing. It
@@ -39,6 +39,19 @@ does not change when records replicate.
 "Which agent, in which repository, for how long" is this context's question. "How is
 this PC configured" is [Dev PC Management](../dev-pc-management/domain.md#machine-registry)'s,
 and that context models no sessions.
+
+Pull requests are outside it too. A session or a delivery run often opens one, but
+whether it is ready, the stack it sits in and the commands that merge it are
+[Repository Management](../repository-management/context.md)'s. That includes the
+[pull requests pane](../repository-management/features.md#pull-request-readiness)
+and its merge and re-run acts. A session's detail panel shows, on each pull request
+the session produced, the
+[readiness verdict](../repository-management/domain.md#readiness-verdict) that
+context publishes. The desktop shell composes that card, so this context holds only
+the pull request's number and references nothing of Repository Management. Local
+[ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
+decides it, and it is proposed. Until it is built, the pane lives in the desktop
+shell and its flag is still declared on `SessionFeatures`.
 
 ## Sessions area
 

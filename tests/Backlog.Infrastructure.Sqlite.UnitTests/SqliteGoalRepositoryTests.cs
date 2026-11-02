@@ -90,6 +90,120 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.Equal(2, await CountRowsAsync());
     }
 
+    private static Goal Placed(string title, DateTimeOffset createdAt, long? rank) =>
+        Modules.Progress.DomainModels.Goal.Restore(Guid.NewGuid(), title, null, null, [], createdAt, rank);
+
+    private static readonly DateTimeOffset Eight = new(2026, 10, 17, 8, 0, 0, TimeSpan.Zero);
+
+    /// <summary>A goal placed by hand keeps its rank, written as <c>rank</c>; one never
+    /// placed is written without one, in the v1 shape.</summary>
+    [Fact]
+    public async Task A_rank_round_trips_and_a_goal_never_placed_is_written_without_one()
+    {
+        var placed = Placed("Placed", Eight, 1234);
+        var unplaced = Placed("Unplaced", Eight.AddHours(1), null);
+        await _repository.SaveAsync(placed, Cancellation);
+        await _repository.SaveAsync(unplaced, Cancellation);
+
+        Assert.Equal(1234, (await _repository.GetAsync(placed.Id, Cancellation))!.Rank);
+        Assert.Null((await _repository.GetAsync(unplaced.Id, Cancellation))!.Rank);
+        Assert.Contains("\"rank\":1234", (await _repository.ReadAsync(placed.Id, Cancellation))!.Content, StringComparison.Ordinal);
+        Assert.DoesNotContain("rank", (await _repository.ReadAsync(unplaced.Id, Cancellation))!.Content, StringComparison.Ordinal);
+    }
+
+    /// <summary>Goals list in the person's order: by rank where placed, by when they were set
+    /// otherwise — on this device and in the copies that travel.</summary>
+    [Fact]
+    public async Task Goals_list_in_the_persons_order_and_the_copies_too()
+    {
+        var first = Placed("First", Eight, null);
+        var second = Placed("Second", Eight.AddHours(1), null);
+        var third = Placed("Third", Eight.AddHours(2), Eight.UtcTicks - 1);
+        foreach (var goal in new[] { first, second, third }) await _repository.SaveAsync(goal, Cancellation);
+
+        Assert.Equal(["Third", "First", "Second"], (await _repository.ListAsync(Cancellation)).Select(goal => goal.Title));
+        Assert.Equal(["Third", "First", "Second"], (await _repository.ReadAllAsync(Cancellation)).Select(copy => copy.Title));
+    }
+
+    /// <summary>A goal whose document does not say when it was set reads as set at its row's
+    /// first save, so the order the store lists and the order a move counts in are one:
+    /// "Move B up" from U, A, B moves B, not nothing.</summary>
+    [Fact]
+    public async Task A_goal_without_a_date_is_keyed_alike_by_the_list_and_by_a_move()
+    {
+        var undated = Modules.Progress.DomainModels.Goal.Restore(Guid.NewGuid(), "U", null, null, []);
+        await _repository.SaveAsync(undated, Cancellation);
+        var a = Placed("A", DateTimeOffset.UtcNow.AddHours(1), null);
+        var b = Placed("B", DateTimeOffset.UtcNow.AddHours(2), null);
+        await _repository.SaveAsync(a, Cancellation);
+        await _repository.SaveAsync(b, Cancellation);
+
+        var listed = await _repository.ListAsync(Cancellation);
+        Assert.Equal(["U", "A", "B"], listed.Select(goal => goal.Title));
+        Assert.NotNull(listed[0].CreatedAt);
+
+        var moved = Modules.Progress.Services.GoalOrdering.MoveTo(listed, listed[2], 1);
+
+        Assert.Single(moved);
+        Assert.Equal(
+            ["U", "B", "A"],
+            Modules.Progress.Abstractions.GoalOrder.Sort(listed, goal => goal.Rank, goal => goal.CreatedAt, goal => goal.Id).Select(goal => goal.Title));
+    }
+
+    /// <summary>A pulled copy carrying a rank reorders the goals here as it did there.</summary>
+    [Fact]
+    public async Task A_pulled_copy_with_a_rank_reorders_the_goals_here()
+    {
+        var first = Placed("First", Eight, null);
+        var second = Placed("Second", Eight.AddHours(1), null);
+        await _repository.SaveAsync(first, Cancellation);
+        await _repository.SaveAsync(second, Cancellation);
+
+        var there = new SqliteGoalRepository(_other);
+        // Moved to the top there: the same goal, now ranked before the first.
+        await there.SaveAsync(
+            Modules.Progress.DomainModels.Goal.Restore(second.Id, "Second", null, null, [], second.CreatedAt, Eight.UtcTicks - 1),
+            Cancellation);
+        var copy = (await there.ReadAsync(second.Id, Cancellation))! with { UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(1) };
+
+        Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
+
+        Assert.Equal(["Second", "First"], (await _repository.ListAsync(Cancellation)).Select(goal => goal.Title));
+    }
+
+    /// <summary>A field a newer build wrote survives a save here, so that build's goal is not
+    /// stripped of it by an edit on this one.</summary>
+    [Fact]
+    public async Task A_field_this_build_does_not_know_survives_a_save()
+    {
+        var id = Guid.NewGuid();
+        var copy = new GoalReplicaCopyDto(
+            id,
+            "T",
+            $$$"""{"version":1,"id":"{{{id}}}","title":"T","createdAt":"2026-10-17T08:00:00+00:00","laterField":{"x":1}}""",
+            DateTimeOffset.UtcNow);
+        Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
+
+        var goal = (await _repository.GetAsync(id, Cancellation))!;
+        goal.Rename("Edited here");
+        await _repository.SaveAsync(goal, Cancellation);
+
+        var stored = (await _repository.ReadAsync(id, Cancellation))!.Content;
+        Assert.Contains("\"laterField\":{\"x\":1}", stored, StringComparison.Ordinal);
+        Assert.Contains("Edited here", stored, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_phone_reads_the_rank_the_desktop_stored()
+    {
+        var goal = Placed("Placed", Eight, 99);
+        await _repository.SaveAsync(goal, Cancellation);
+
+        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadGoal((await _repository.ReadAsync(goal.Id, Cancellation))!.Content, goal.Id);
+
+        Assert.Equal(99, read!.Rank);
+    }
+
     [Fact]
     public async Task The_document_writes_dates_as_days_and_kinds_by_name()
     {

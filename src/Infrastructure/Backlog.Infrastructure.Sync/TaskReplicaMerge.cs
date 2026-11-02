@@ -405,7 +405,8 @@ public sealed class TaskReplicaMerge(
             AgendaMinutes: task.AgendaTime?.DurationMinutes,
             PlannedHours: task.PlannedHours.Count == 0
                 ? null
-                : [.. task.PlannedHours.Select(block => new PlannedHoursPayload(block.On, block.Hours))]);
+                : [.. task.PlannedHours.Select(block => new PlannedHoursPayload(block.On, block.Hours))],
+            SourceNotificationId: task.SourceNotificationId);
     }
 
     /// <summary>The source reference a document carries, or null. One that names no
@@ -466,7 +467,8 @@ public sealed class TaskReplicaMerge(
             payload.Tags,
             payload.SourceInboxId,
             payload.CreatedAt,
-            payload.RecurrenceSourceId);
+            payload.RecurrenceSourceId,
+            payload.SourceNotificationId);
 
         task.SetOrder(payload.Order);
         task.SetArea(payload.Area);

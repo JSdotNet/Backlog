@@ -344,7 +344,7 @@ public class WebHarnessHostTests
 
         var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
 
-        Assert.Equal(["devbook", "sessions", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
         Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
         Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
@@ -355,7 +355,8 @@ public class WebHarnessHostTests
     /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools, the Settings page's test question
-    /// (Notifications), a run's Personal Validation (Sessions), and the device that
+    /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
+    /// (the spec-manager adapter), and the device that
     /// redeemed a pairing code (Sync).
     /// </summary>
     [Fact]
@@ -365,7 +366,7 @@ public class WebHarnessHostTests
 
         var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
 
-        Assert.Equal(["mcp", "notifications", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.Equal(["mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
     }
 
@@ -493,5 +494,35 @@ public class WebHarnessHostTests
         Assert.Single(sections, section => section.Id == "devices"
             && section.Title == "Devices"
             && section.FeatureKey == Backlog.Modules.Sync.Abstractions.SyncFeatures.Sync);
+    }
+
+    /// <summary>
+    /// The desktop harness opens a popped-out surface in a browser tab of its own
+    /// (local ADR 0043 §7): it composes <see cref="Backlog.Desktop.UI.Shell.IShellWindows"/>
+    /// per circuit, so <c>Home</c> draws the ⧉, and the address a ⧉ opens renders the
+    /// Devbook under the popped-out window's slim header rather than "not available".
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_renders_the_devbook_at_its_popped_out_window_route()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using (var scope = harness.Services.CreateScope())
+        {
+            Assert.IsType<Backlog.Desktop.UI.Shell.BrowserTabShellWindows>(
+                scope.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Shell.IShellWindows>());
+        }
+
+        using var client = harness.CreateClient();
+        using var response = await client.GetAsync(
+            Backlog.Desktop.UI.Shell.SurfaceWindowRoute.PathFor("devbook"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("data-testid=\"surface-window\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-surface-id=\"devbook\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-surface\"", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"surface-window-unavailable\"", page, StringComparison.Ordinal);
     }
 }

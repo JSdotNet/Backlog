@@ -8,11 +8,18 @@
     last test among the centre's notifications when it opens, and follows INotificationCentre.Changed
     from then on, so an answer given on the phone moves the list while the page is open. Clear test
     closes the test through INotifications, the way any publisher closes what it raised.
+
+    The second card holds the question relay's three timings (local ADR 0041): away after, notify
+    after and dialog wait, through INotificationTimingSettings, which the desktop answers over its
+    workspace settings file. Each field commits on change, the way the spend budgets do, so a
+    half-typed number never reaches the store, and a refused one stays on screen to correct.
 *@
 @using global::Backlog.UI.Components.Settings
+@using global::Backlog.UI.Components.Inputs
 @implements IDisposable
 @inject INotifications Notifications
 @inject INotificationCentre Centre
+@inject INotificationTimingSettings Timings
 
 <SettingsHeadline>@Headline(_test, Centre.ThisDevice.Id)</SettingsHeadline>
 
@@ -71,14 +78,85 @@
         </div>
     }
 </SettingsCard>
+
+<SettingsCard Title="@TimingsCardTitle"
+              Id="notifications-timings-title"
+              Description="When a question a Claude session is waiting on leaves the session and reaches you here and on your phone. Read on this desktop only."
+              TestId="notifications-timings-card">
+    @foreach (var timing in TimingFields)
+    {
+        <TextField Label="@timing.Label"
+                   Id="@($"notifications-timing-{timing.Key}")"
+                   TestId="@($"notifications-timing-{timing.Key}")"
+                   inputmode="numeric"
+                   autocomplete="off"
+                   HelpText="@timing.Help"
+                   Value="@TimingDraft(timing)"
+                   @onchange="@(e => ApplyTiming(timing, e))" />
+    }
+
+    <p class="setting__status" data-testid="notifications-timings-status" role="status">
+        @if (_timingError is not null)
+        {
+            <span class="setting__status--error">@_timingError</span>
+        }
+        else
+        {
+            <span>@TimingsSummary(Timings)</span>
+        }
+    </p>
+</SettingsCard>
 </div>
 
 @code {
-    /// <summary>The page's one card - what its <c>SettingsSection.CardTitles</c> declares.</summary>
+    /// <summary>The page's first card.</summary>
     public const string TestCardTitle = "Test notification";
 
+    /// <summary>The page's second card: the question relay's timings.</summary>
+    public const string TimingsCardTitle = "Questions from sessions";
+
     /// <summary>The cards the page draws, in order: what the settings search reads.</summary>
-    public static IReadOnlyList<string> CardTitles { get; } = [TestCardTitle];
+    public static IReadOnlyList<string> CardTitles { get; } = [TestCardTitle, TimingsCardTitle];
+
+    /// <summary>One timing field: the key its test id carries, its name, the unit it is typed in
+    /// and that unit's name, its help, and how it reads from the three timings.</summary>
+    public sealed record TimingField(
+        string Key,
+        string Name,
+        TimeSpan Unit,
+        string UnitName,
+        string Help,
+        Func<INotificationTimingSettings, TimeSpan> Read)
+    {
+        public string Label => $"{Name} ({UnitName})";
+    }
+
+    private static readonly IReadOnlyList<TimingField> TimingFields =
+    [
+        new("away-after", "Away after", TimeSpan.FromMinutes(1), "minutes",
+            "You count as away after this long without keyboard or mouse input, or while the screen is locked.",
+            timings => timings.AwayAfter),
+        new("notify-after", "Notify after", TimeSpan.FromMinutes(1), "minutes",
+            "A question asked while you are at the keyboard becomes a notification once it has waited this long.",
+            timings => timings.NotifyAfter),
+        new("dialog-wait", "Dialog wait", TimeSpan.FromHours(1), "hours",
+            "How long a question dialog waits for your answer from Backlog before it opens in the session.",
+            timings => timings.DialogWait)
+    ];
+
+    /// <summary>The line under the timing fields while nothing was refused.</summary>
+    public static string TimingsSummary(INotificationTimingSettings timings)
+    {
+        ArgumentNullException.ThrowIfNull(timings);
+
+        return $"Away after {Minutes(timings.AwayAfter)} without input or while locked; questions asked at the keyboard reach you after {Minutes(timings.NotifyAfter)}; a dialog waits up to {Hours(timings.DialogWait)}.";
+    }
+
+    private static string Minutes(TimeSpan span) =>
+        span.TotalMinutes == 1 ? "1 minute" : $"{span.TotalMinutes.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} minutes";
+
+    private static string Hours(TimeSpan span) =>
+        span.TotalHours == 1 ? "1 hour" : $"{span.TotalHours.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} hours";
 
     /// <summary>What the push row says. The sync service sends the Android push through
     /// Notification Hubs (local ADR 0039 §4), but nothing reports back to this desktop whether it
@@ -160,13 +238,56 @@
         subject is null ? "nothing in particular" : $"{subject.Context} / {subject.Type} / {subject.Id}";
 
     private NotificationView? _test;
+    private string? _timingError;
+    private (string Key, string Text)? _timingRefused;
     private NotificationKind? _sending;
     private bool _clearing;
     private string? _error;
 
+    /// <summary>What a timing field shows: the typed text while it is refused, otherwise the
+    /// stored timing in the field's unit.</summary>
+    private string TimingDraft(TimingField field) =>
+        _timingRefused is { } refused && refused.Key == field.Key
+            ? refused.Text
+            : (field.Read(Timings) / field.Unit).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private void ApplyTiming(TimingField field, ChangeEventArgs e)
+    {
+        var typed = (e.Value?.ToString() ?? string.Empty).Trim();
+
+        if (!int.TryParse(typed, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count))
+        {
+            _timingRefused = (field.Key, typed);
+            _timingError = $"Give {field.Name.ToLowerInvariant()} as a whole number of {field.UnitName}.";
+            return;
+        }
+
+        var value = field.Unit * count;
+        var error = Timings.Set(
+            field.Key == "away-after" ? value : Timings.AwayAfter,
+            field.Key == "notify-after" ? value : Timings.NotifyAfter,
+            field.Key == "dialog-wait" ? value : Timings.DialogWait);
+
+        // The store answers in one sentence for two outcomes: a value it now holds was kept
+        // and only could not be saved; anything else was refused and nothing moved.
+        if (error is null || field.Read(Timings) == value)
+        {
+            _timingRefused = null;
+            _timingError = error;
+        }
+        else
+        {
+            _timingRefused = (field.Key, typed);
+            _timingError = error;
+        }
+    }
+
+    private void OnTimingsChanged() => _ = InvokeAsync(StateHasChanged);
+
     protected override async Task OnInitializedAsync()
     {
         Centre.Changed += OnCentreChanged;
+        Timings.Changed += OnTimingsChanged;
 
         // The centre lists newest first: the first test in it is the last one sent.
         var listed = await Centre.ListAsync();
@@ -250,5 +371,9 @@
         });
     }
 
-    public void Dispose() => Centre.Changed -= OnCentreChanged;
+    public void Dispose()
+    {
+        Centre.Changed -= OnCentreChanged;
+        Timings.Changed -= OnTimingsChanged;
+    }
 }

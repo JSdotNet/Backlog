@@ -92,7 +92,7 @@ public sealed class NotificationCentreScreenTests : IDisposable
     public async Task An_answered_row_says_the_winning_answer_and_the_device_it_came_from()
     {
         var id = await PublishAsync(Question());
-        await _centre.AnswerAsync(id, ["yes"], null, Ct);
+        await _centre.AnswerAsync(id, ["yes"], null, cancellationToken: Ct);
 
         var list = _context.Render<NotificationList>(p => p
             .Add(c => c.Notifications, _centre.ListAsync(Ct).Result)
@@ -102,6 +102,26 @@ public sealed class NotificationCentreScreenTests : IDisposable
         var row = list.Find($"[data-testid='notification-row-{id:N}']");
         Assert.Equal("Answered", row.QuerySelector("[data-testid='notification-row-badge']")!.TextContent);
         Assert.Equal("Answered from this desktop · Yes, run it", row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task An_answered_row_shows_the_note_beside_the_winning_answer()
+    {
+        var spec = new AnswerSpec(
+            [new AnswerChoice("yes", "Yes, run it"), new AnswerChoice("no", "Not now")],
+            Note: new OpenAnswer());
+        var id = await PublishAsync(Question(spec));
+        await _centre.AnswerAsync(id, ["yes"], null, "After the backup", Ct);
+
+        var list = _context.Render<NotificationList>(p => p
+            .Add(c => c.Notifications, _centre.ListAsync(Ct).Result)
+            .Add(c => c.Now, _time.GetUtcNow())
+            .Add(c => c.ThisDeviceId, Owner));
+
+        var row = list.Find($"[data-testid='notification-row-{id:N}']");
+        Assert.Equal(
+            "Answered from this desktop · Yes, run it, note: “After the backup”",
+            row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
     }
 
     [Fact]
@@ -161,6 +181,32 @@ public sealed class NotificationCentreScreenTests : IDisposable
     }
 
     [Fact]
+    public async Task A_choice_that_takes_text_is_answered_from_the_pane_with_its_words()
+    {
+        var id = await PublishAsync(Question(new AnswerSpec(
+        [
+            new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+            new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
+        ])));
+
+        var pane = _context.Render<NotificationCentrePane>();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='notification-card-choice-revise']")));
+
+        pane.Find("[data-testid='notification-card-choice-revise']").Click();
+        Assert.Equal(NotificationState.Open, (await _inner.GetAsync(id, Ct))!.State);
+
+        pane.Find("[data-testid='notification-card-choice-text'] textarea").Input("The toast overlaps the header");
+        pane.Find("[data-testid='notification-card-choice-send']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Answered from this desktop · Revise, “The toast overlaps the header” · just now",
+            pane.Find("[data-testid='notification-card-outcome']").TextContent));
+        var answer = (await _inner.GetAsync(id, Ct))!.Answer!;
+        Assert.Equal(["revise"], answer.ChoiceIds);
+        Assert.Equal("The toast overlaps the header", answer.Text);
+    }
+
+    [Fact]
     public async Task A_refused_answer_shows_its_reason_and_keeps_the_controls()
     {
         var spec = new AnswerSpec([], Open: new OpenAnswer(MaxLength: 5));
@@ -211,6 +257,66 @@ public sealed class NotificationCentreScreenTests : IDisposable
         pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='notification-group']")));
     }
 
+    // --- The origin ----------------------------------------------------------------------
+
+    private static readonly NotificationOrigin ClaudeCode =
+        new("Claude Code", "JSdotNet/Backlog · Notification origin", Via: "Agent session");
+
+    [Fact]
+    public async Task A_row_with_an_origin_says_its_system_and_place_instead_of_its_source()
+    {
+        var id = await PublishAsync(Question() with { Origin = ClaudeCode });
+
+        var list = _context.Render<NotificationList>(p => p
+            .Add(c => c.Notifications, _centre.ListAsync(Ct).Result)
+            .Add(c => c.Now, _time.GetUtcNow())
+            .Add(c => c.ThisDeviceId, Owner));
+
+        Assert.Equal(
+            "Claude Code · JSdotNet/Backlog · Notification origin · 1 min ago",
+            list.Find($"[data-testid='notification-row-{id:N}'] [data-testid='notification-row-line']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task The_pane_draws_the_origin_line_on_the_card()
+    {
+        await PublishAsync(Question() with { Origin = ClaudeCode });
+
+        var pane = _context.Render<NotificationCentrePane>();
+
+        pane.WaitForAssertion(() => Assert.Equal("Claude Code", pane.Find("[data-testid='notification-card-system']").TextContent));
+        Assert.Equal("JSdotNet/Backlog · Notification origin", pane.Find("[data-testid='notification-card-place']").TextContent);
+        Assert.Equal("Agent session", pane.Find("[data-testid='notification-card-via']").TextContent);
+    }
+
+    [Fact]
+    public async Task The_from_filter_narrows_the_list_to_one_system()
+    {
+        var fromClaude = await PublishAsync(Question() with { Origin = ClaudeCode });
+        var fromBacklog = await PublishAsync(Alert() with { Origin = new NotificationOrigin("Backlog", "Pairing") });
+        var unnamed = await PublishAsync(Question(subject: Task123));
+
+        var pane = _context.Render<NotificationCentrePane>();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find($"[data-testid='notification-row-{unnamed:N}']")));
+
+        var options = pane.FindAll("[data-testid='notification-centre-from'] option").Select(option => option.TextContent.Trim()).ToList();
+        Assert.Equal(["From anywhere", "From Backlog", "From Claude Code", "From Sessions"], options);
+
+        pane.Find("[data-testid='notification-centre-from'] select").Change("Backlog");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(pane.Find($"[data-testid='notification-row-{fromBacklog:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='notification-row-{fromClaude:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='notification-row-{unnamed:N}']"));
+        });
+        Assert.NotNull(pane.Find("[data-testid='notification-card-acknowledge']"));
+
+        pane.Find("[data-testid='notification-centre-from'] select").Change(string.Empty);
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find($"[data-testid='notification-row-{fromClaude:N}']")));
+    }
+
     // --- The shell's count ---------------------------------------------------------------
 
     [Fact]
@@ -223,7 +329,7 @@ public sealed class NotificationCentreScreenTests : IDisposable
         var badge = _context.Render<NotificationsWaitingBadge>();
         badge.WaitForAssertion(() => Assert.Equal("2", badge.Find("[data-testid='notifications-waiting']").TextContent));
 
-        await _centre.AnswerAsync(question, ["no"], null, Ct);
+        await _centre.AnswerAsync(question, ["no"], null, cancellationToken: Ct);
 
         badge.WaitForAssertion(() => Assert.Equal("1", badge.Find("[data-testid='notifications-waiting']").TextContent));
     }

@@ -72,6 +72,37 @@ public sealed class PushTrayTests
     }
 
     [Fact]
+    public void The_origin_the_service_sent_is_the_subtitle()
+    {
+        var question = Question();
+        var message = new PushMessage(question.Id, "open", "question", "info", "Deploy?", null, Origin: "spec-manager · Billing");
+
+        Assert.Equal("spec-manager · Billing", PushTray.Entry(message, Held(question))!.Subtitle);
+    }
+
+    [Fact]
+    public void Without_one_in_the_message_the_subtitle_is_the_pulled_origin_cut_to_sixty_characters()
+    {
+        var question = Question(isPrivate: true) with
+        {
+            Origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Approve the validation of the notification origin run")
+        };
+
+        var subtitle = PushTray.Entry(new PushMessage(question.Id, "open", null, null, null, null), Held(question))!.Subtitle;
+
+        Assert.Equal(60, subtitle!.Length);
+        Assert.StartsWith("Claude Code · JSdotNet/Backlog", subtitle, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_has_no_subtitle()
+    {
+        var question = Question();
+
+        Assert.Null(PushTray.Entry(new PushMessage(question.Id, "open", null, null, null, null), Held(question))!.Subtitle);
+    }
+
+    [Fact]
     public void A_notification_the_pull_found_settled_shows_nothing()
     {
         var question = TestNotifications.Answered(Question(), Guid.NewGuid(), Guid.NewGuid(), Now, "yes");

@@ -13,6 +13,12 @@
         <NotificationCard Model="@SingleChoice" TestId="notification-card-single" OnAnswer="@Answered" />
     </Story>
 
+    <Story Name="With an origin"
+           Description="Where it came from, above the title: the system as a badge and the place beside it — a product and item, a repository and session. Who asked and how sit under the title, the way asked as an outlined pill, and Open in the system at the foot when the origin carries a link. A card without an origin keeps its source beside the time instead."
+           Code="@OriginCode">
+        <NotificationCard Model="@WithOrigin" TestId="notification-card-origin-sample" OnAnswer="@Answered" />
+    </Story>
+
     <Story Name="Multiple choice"
            Description="A checkbox per set answer and one Answer button. The legend says how many to pick, and Answer stays disabled until the picks fit the question's minimum and maximum."
            Code="@MultipleCode"
@@ -30,6 +36,18 @@
            Description="The set answers as buttons, and the box with Send under them for an answer in the person's own words."
            Code="@ChoicesWithOpenCode">
         <NotificationCard Model="@ChoicesWithOpen" TestId="notification-card-choices-open" OnAnswer="@Answered" />
+    </Story>
+
+    <Story Name="A choice that takes text"
+           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once."
+           Code="@TakesTextCode">
+        <NotificationCard Model="@TakesText" TestId="notification-card-takes-text" OnAnswer="@Answered" />
+    </Story>
+
+    <Story Name="Eight choices and a note"
+           Description="The most a question offers: eight set answers, an open answer in place of them, and an optional note beside whichever answer the person gives — the shape a spec-manager question takes. From seven choices up the buttons lay out as an even grid that wraps, and a long label breaks inside its button. The note box, Add a note (optional), sits under the answers; what is in it goes with the button pressed or the text sent."
+           Code="@EightWithNoteCode">
+        <NotificationCard Model="@EightWithNote" TestId="notification-card-eight-note" OnAnswer="@Answered" />
     </Story>
 
     <Story Name="Alert"
@@ -146,6 +164,54 @@
             Open: new NotificationCardOpenAnswer("Another name")),
         NotificationCardState.Open);
 
+    private static readonly NotificationCardModel TakesText = new(
+        "validation",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Warning,
+        "Approve the validation of run-58?",
+        "Personal Validation of “Capture notifications”.",
+        """
+        **Review links**
+
+        - Storybook, Notification card — the new story
+
+        **What to check:** the toast offers Open in Backlog for this question.
+        """,
+        "Sessions",
+        "just now",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
+            new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        ]),
+        NotificationCardState.Open);
+
+    private static readonly NotificationCardModel EightWithNote = new(
+        "rounding",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Info,
+        "Which rounding rule applies to invoice totals?",
+        "Billing · #7 Rounding in invoices",
+        string.Empty,
+        "spec-manager",
+        "4 min ago",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("half-even", "Round half even", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("half-up", "Round half up"),
+            new NotificationCardChoice("half-down", "Round half down"),
+            new NotificationCardChoice("truncate", "Truncate to cents"),
+            new NotificationCardChoice("ceiling", "Always round up"),
+            new NotificationCardChoice("floor", "Always round down"),
+            new NotificationCardChoice("per-line", "Round each invoice line, then add up the rounded lines"),
+            new NotificationCardChoice("customer", "Follow the customer's contract")
+        ],
+        Open: new NotificationCardOpenAnswer("Another rule", 4000),
+        Note: new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000)),
+        NotificationCardState.Open);
+
     private static readonly NotificationCardModel Alert = new(
         "remark",
         NotificationCardKind.Alert,
@@ -157,6 +223,30 @@
         "1 h ago",
         null,
         NotificationCardState.Open);
+
+    private static readonly NotificationCardModel WithOrigin = new(
+        "rounding",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Info,
+        "Which rounding rule applies to invoice totals?",
+        "#7 Rounding in invoices",
+        "Invoices round each line today, so a total can be a cent off the sum of its lines.",
+        "spec-manager · Billing · #7 Rounding in invoices",
+        "4 min ago",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("half-even", "Round half even", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("half-up", "Round half up"),
+            new NotificationCardChoice("truncate", "Truncate to cents")
+        ],
+        Open: new NotificationCardOpenAnswer("Other…")),
+        NotificationCardState.Open,
+        Origin: new NotificationCardOrigin(
+            "spec-manager",
+            "Billing · #7 Rounding in invoices",
+            AskedBy: "Ada Lovelace",
+            Via: "Agent session",
+            OpenLink: "https://spec-manager.example/billing/backlog/7"));
 
     private static readonly NotificationCardModel AnsweredQuestion = SingleChoice with
     {
@@ -178,7 +268,8 @@
     };
 
     private void Answered(NotificationCardReply reply) =>
-        _last = reply.Text ?? string.Join(", ", reply.ChoiceIds);
+        _last = string.Join(" · ", reply.ChoiceIds.Append(reply.Text).Where(part => !string.IsNullOrEmpty(part)))
+            + (reply.Note is { } note ? $" · note: {note}" : string.Empty);
 
     private void Acknowledged() => _last = "acknowledged";
 
@@ -187,6 +278,18 @@
 
         // question.Answer = new NotificationCardAnswerSpec(
         //     [new("yes", "Yes, run it", NotificationCardChoiceStyle.Primary), new("no", "Not now")]);
+        """;
+
+    private const string OriginCode = """
+        <NotificationCard Model="@(question with
+        {
+            Origin = new NotificationCardOrigin(
+                "spec-manager",
+                "Billing · #7 Rounding in invoices",
+                AskedBy: "Ada Lovelace",
+                Via: "Agent session",
+                OpenLink: "https://spec-manager.example/billing/backlog/7")
+        })" OnAnswer="AnswerAsync" />
         """;
 
     private const string MultipleCode = """
@@ -205,6 +308,28 @@
         <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
 
         // question.Answer = new NotificationCardAnswerSpec(choices, Open: new NotificationCardOpenAnswer("Another name"));
+        """;
+
+    private const string TakesTextCode = """
+        <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
+
+        // question.Answer = new NotificationCardAnswerSpec(
+        // [
+        //     new("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        //     new("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+        //     new("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        // ]);
+        // The reply: ChoiceIds ["revise"], Text "The toast overlaps the header".
+        """;
+
+    private const string EightWithNoteCode = """
+        <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
+
+        // question.Answer = new NotificationCardAnswerSpec(
+        //     eightChoices,
+        //     Open: new NotificationCardOpenAnswer("Another rule", 4000),
+        //     Note: new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000));
+        // reply.Note carries the note beside reply.ChoiceIds or reply.Text.
         """;
 
     private const string AlertCode = """

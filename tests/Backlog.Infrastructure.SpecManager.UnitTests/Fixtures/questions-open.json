@@ -1,0 +1,64 @@
+[
+  {
+    "id": "40000000-0000-0000-0000-000000000001",
+    "itemId": "20000000-0000-0000-0000-000000000007",
+    "itemNumber": 7,
+    "itemTitle": "Rounding in invoices",
+    "text": "Which rounding rule applies to invoice totals?",
+    "context": "Totals are summed per line and **rounded once**.",
+    "options": [
+      { "position": 1, "label": "Round half even", "description": "Banker's rounding, as the ledger does." },
+      { "position": 2, "label": "Round half up", "description": null },
+      { "position": 3, "label": "Truncate to cents", "description": "What the old export did." }
+    ],
+    "assignee": { "id": "30000000-0000-0000-0000-000000000001", "name": "Jip Jansen" },
+    "askedBy": { "id": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries" },
+    "askedAt": "2026-10-05T11:00:00+00:00",
+    "source": "agent-session",
+    "openSpecChange": null,
+    "answer": null,
+    "contextHtml": "<p>Totals are summed per line and <strong>rounded once</strong>.</p>",
+    "updatedAt": "2026-10-05T11:00:00+00:00",
+    "canAnswer": true
+  },
+  {
+    "id": "40000000-0000-0000-0000-000000000002",
+    "itemId": null,
+    "itemNumber": null,
+    "itemTitle": null,
+    "text": "Ship the export behind a flag?",
+    "context": null,
+    "options": [
+      { "position": 1, "label": "Yes", "description": null },
+      { "position": 2, "label": "No", "description": null }
+    ],
+    "assignee": null,
+    "askedBy": { "id": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries" },
+    "askedAt": "2026-10-05T10:00:00+00:00",
+    "source": "spec-manager",
+    "openSpecChange": "add-export-flag",
+    "answer": null,
+    "updatedAt": "2026-10-05T10:00:00+00:00",
+    "canAnswer": true
+  },
+  {
+    "id": "40000000-0000-0000-0000-000000000003",
+    "itemId": "20000000-0000-0000-0000-000000000004",
+    "itemNumber": 4,
+    "itemTitle": "Invoice numbering",
+    "text": "Restart numbering each year?",
+    "context": null,
+    "options": [
+      { "position": 1, "label": "Yes", "description": null },
+      { "position": 2, "label": "No", "description": null }
+    ],
+    "assignee": { "id": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries" },
+    "askedBy": { "id": "30000000-0000-0000-0000-000000000001", "name": "Jip Jansen" },
+    "askedAt": "2026-10-05T09:00:00+00:00",
+    "source": "spec-manager",
+    "openSpecChange": null,
+    "answer": null,
+    "updatedAt": "2026-10-05T09:00:00+00:00",
+    "canAnswer": true
+  }
+]

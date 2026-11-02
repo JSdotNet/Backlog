@@ -1,0 +1,45 @@
+{
+  "unread": 4,
+  "notifications": [
+    {
+      "id": "50000000-0000-0000-0000-000000000001",
+      "category": "Mention",
+      "subject": "Kees mentioned you on #7 Rounding in invoices",
+      "text": "@Jip can you check the rounding rule before Friday?",
+      "link": "/producten/billing/backlog?item=7",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "createdAt": "2026-10-05T10:00:00+00:00",
+      "isRead": false
+    },
+    {
+      "id": "50000000-0000-0000-0000-000000000002",
+      "category": "Reply",
+      "subject": "Ada replied to your comment",
+      "text": "Agreed, per line it is.",
+      "link": "/inbox",
+      "productId": null,
+      "createdAt": "2026-10-05T09:00:00+00:00",
+      "isRead": false
+    },
+    {
+      "id": "50000000-0000-0000-0000-000000000003",
+      "category": "BacklogQuestion",
+      "subject": "A question for you",
+      "text": "Which rounding rule applies to invoice totals?",
+      "link": "/producten/billing/questions",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "createdAt": "2026-10-05T08:00:00+00:00",
+      "isRead": false
+    },
+    {
+      "id": "50000000-0000-0000-0000-000000000004",
+      "category": "ChangeProposal",
+      "subject": "A change was proposed",
+      "text": "From before this desktop signed in.",
+      "link": "/producten/billing",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "createdAt": "2026-10-01T00:00:00+00:00",
+      "isRead": false
+    }
+  ]
+}

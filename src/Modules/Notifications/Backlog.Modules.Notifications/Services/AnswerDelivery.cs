@@ -27,7 +27,7 @@ internal sealed class AnswerDelivery(
     IEnumerable<INotificationAnswerHandler> handlers,
     INotificationRepository repository,
     TimeProvider time,
-    ILogger<AnswerDelivery>? logger = null) : IDisposable
+    ILogger<AnswerDelivery>? logger = null) : INotificationAnswerReplay, IDisposable
 {
     private readonly IReadOnlyList<INotificationAnswerHandler> _handlers = [.. handlers];
     private readonly ILogger _logger = logger ?? NullLogger<AnswerDelivery>.Instance;

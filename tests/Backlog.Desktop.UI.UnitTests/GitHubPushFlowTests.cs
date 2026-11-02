@@ -1875,11 +1875,9 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// <summary>
     /// Editing one step touches that chapter and nothing around it.
     /// <para>
-    /// The route changed and the claim did not. There used to be a raw textarea per
-    /// sub-item card, handed the chapter's whole text; a step's title and its notes
-    /// are now two controls in the detail pane, each reporting through the shared
-    /// task row. Both still end in a <c>ReplaceSubItemText</c> against the same
-    /// index, which is exactly what this has always been about: an edit that reached
+    /// The desktop edits a step in the body's markdown now, so this holds the
+    /// parser's own step rewrites to it, a level down: both end in a
+    /// <c>ReplaceSubItemText</c> against the same index, and an edit that reached
     /// the wrong chapter would overwrite a neighbour with no error anywhere.
     /// </para>
     /// </summary>
@@ -1897,15 +1895,15 @@ public sealed class GitHubPushFlowTests : IDisposable
             "## Last\n" +
             "Keep last.\n");
 
-        await harness.State.RenameSubItemAsync(row, 1, "Updated target");
-        harness.State.ChangeSubItemNote(row, 1, "New target notes.");
+        var text = EntryTextParser.WithSubItemTitle(row.RawText, 1, "Updated target");
+        text = EntryTextParser.WithSubItemNote(text, 1, "New target notes.");
 
-        Assert.Contains("## First\nKeep this.", row.RawText);
+        Assert.Contains("## First\nKeep this.", text);
         // Same line break the chapter already had. Writing notes back must not
         // introduce a blank line the author did not type.
-        Assert.Contains("### Updated target\nNew target notes.", row.RawText);
-        Assert.DoesNotContain("Old target notes.", row.RawText);
-        Assert.Contains("## Last\nKeep last.", row.RawText);
+        Assert.Contains("### Updated target\nNew target notes.", text);
+        Assert.DoesNotContain("Old target notes.", text);
+        Assert.Contains("## Last\nKeep last.", text);
     }
 
     [Fact]

@@ -10,9 +10,10 @@ namespace Backlog.Infrastructure.SpecManager;
 /// </para>
 /// <para>
 /// <see cref="SectionName"/> names the section a host binds it from (ADR 0018 in
-/// <c>.devbook/arc42/adr/guidelines/</c>). The desktop composition binds no
-/// configuration today, so <see cref="SpecManagerRegistration.AddSpecManager"/>
-/// takes a delegate instead and the default below is what ships.
+/// <c>.devbook/arc42/adr/guidelines/</c>). Both desktop heads hand their configuration
+/// to the desktop composition, which binds this section, so <c>SpecManager__BaseUrl</c>
+/// in a harness's environment points it at a local spec-manager; with nothing set, the
+/// default below is what ships.
 /// </para>
 /// </summary>
 public sealed class SpecManagerOptions

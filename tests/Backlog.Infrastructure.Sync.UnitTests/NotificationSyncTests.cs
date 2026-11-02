@@ -418,6 +418,44 @@ public sealed class NotificationSyncTests
         Assert.Null(NotificationRecordLimits.WhyRefused(change));
     }
 
+    [Fact]
+    public void A_choice_that_takes_text_round_trips_through_the_wire()
+    {
+        var question = Question(Guid.CreateVersion7()) with
+        {
+            AnswerSpec = new AnswerSpec(
+            [
+                new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
+            ])
+        };
+
+        var read = NotificationPayloads.Read(NotificationPayloads.ToChange(question, [], Noon));
+
+        Assert.Equal(
+            [("approve", false, (string?)null), ("revise", true, "What should change?")],
+            read!.Notification.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.TakesText, choice.Placeholder)));
+    }
+
+    [Fact]
+    public void A_payload_written_before_choices_took_text_reads_as_taking_none()
+    {
+        var change = NotificationPayloads.ToChange(Question(Guid.CreateVersion7()), [], Noon);
+
+        // An older desktop writes no takesText or placeholder on a choice.
+        var older = System.Text.Json.Nodes.JsonNode.Parse(change.Notification.GetRawText())!;
+        foreach (var choice in older["notification"]!["answerSpec"]!["choices"]!.AsArray())
+        {
+            Assert.True(choice!.AsObject().Remove("takesText"));
+            choice.AsObject().Remove("placeholder");
+        }
+
+        var read = NotificationPayloads.Read(change with { Notification = JsonSerializer.SerializeToElement(older) });
+
+        Assert.NotNull(read);
+        Assert.All(read.Notification.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
+    }
+
     // --- Doubles ---------------------------------------------------------------------
 
     private static NotificationSnapshot Question(Guid id) =>

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The dispatch-sessions skill's only wait: run under a Monitor, it loops on the Backlog app's
-// GET /session-requests/wait long poll (local ADR 0038 §4) and prints one line per request, so
-// the Manager session spends no model turn while nothing is queued.
+// GET /session-requests/wait long poll (local ADR 0038 §4) and prints one line per answer
+// delivery (local ADR 0041) and per request, so the Manager spends no model turn while nothing waits.
 //
 // Port and token are found the way hooks/telemetry-forwarder.mjs finds them: BACKLOG_MCP_PORT /
 // BACKLOG_MCP_TOKEN, else the app's own settings.json, read again after every failure so an app
@@ -9,6 +9,7 @@
 //
 // Lines, each one event for the Manager:
 //   ready dispatcher=<name> url=<url>   once, at start
+//   delivery <id> <desktop-session-id>  an answer for a session, before any request, once per offer
 //   request <id> <kind> <repository>    a Requested request, oldest first, once per Monitor
 //   flag-off | unauthorized | unreachable | unavailable[ status=<n>]   once per change of state
 //   stopped <reason>                    the script ended; the Monitor needs re-arming

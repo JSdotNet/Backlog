@@ -55,6 +55,27 @@ public class NotificationDocumentTests
         Assert.Equal("Run the migration?", record.Change.Notification.GetProperty("title").GetString());
     }
 
+    /// <summary>The service stores the notification whole and reads none of it, so a field it
+    /// has never heard of — a choice that takes text — comes back as the owner wrote it.</summary>
+    [Fact]
+    public void A_choice_that_takes_text_passes_through_the_document_untouched()
+    {
+        var notification = JsonSerializer.SerializeToElement(new
+        {
+            title = "Approve the validation of run-58?",
+            answerSpec = new { choices = new object[] { new { id = "approve", label = "Approve" }, new { id = "revise", label = "Revise", takesText = true, placeholder = "What should change?" } } }
+        });
+        var change = Change(NotificationStates.Open) with { Notification = notification };
+
+        var document = NotificationDocumentFactory.From(Scope, change, new CosmosOptions());
+        var stored = JsonSerializer.Deserialize<NotificationDocument>(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options), ReplicaDocumentSerialization.Options)!;
+        var record = NotificationDocumentFactory.ToRecord(stored);
+
+        var revise = record!.Change.Notification.GetProperty("answerSpec").GetProperty("choices")[1];
+        Assert.True(revise.GetProperty("takesText").GetBoolean());
+        Assert.Equal("What should change?", revise.GetProperty("placeholder").GetString());
+    }
+
     [Fact]
     public void The_notification_document_serialises_with_the_names_the_container_is_partitioned_on()
     {
@@ -91,6 +112,22 @@ public class NotificationDocumentTests
         Assert.Equal(Scope.OwnerId.Value, record.OwnerId);
         Assert.Equal(Scope.DeviceId.Value, record.FromDeviceId);
         Assert.Equal(["yes"], record.Reply.ChoiceIds);
+    }
+
+    [Fact]
+    public void A_reply_keeps_the_note_written_beside_its_answer()
+    {
+        var reply = new NotificationReplyPost(Guid.CreateVersion7(), NotificationId, Instance, ["half-even"], null, DateTimeOffset.UtcNow, "Only for invoice totals");
+
+        var document = NotificationDocumentFactory.From(Scope, reply, new CosmosOptions());
+
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
+        Assert.Equal("Only for invoice totals", json.RootElement.GetProperty("note").GetString());
+
+        var record = NotificationDocumentFactory.ToRecord(document);
+        Assert.NotNull(record);
+        Assert.Equal(["half-even"], record.Reply.ChoiceIds);
+        Assert.Equal("Only for invoice totals", record.Reply.Note);
     }
 
     private static NotificationChange Change(string state) =>
