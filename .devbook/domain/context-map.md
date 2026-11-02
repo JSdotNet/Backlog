@@ -136,13 +136,13 @@ flowchart LR
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 
     %% Notifications. Local ADR 0039. It conforms to Sync's replica protocol and
-    %% offers INotifications to the contexts that publish. The Sessions edge is
+    %% offers INotifications to the contexts that publish. Every edge below is
     %% built: see .devbook/domain/notifications/context.md.
-    Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
+    Sync -->|Conformist<br/>Notification and reply replica| Notify
     Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sessions
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sync
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Devbook
-    Notify -.->|"OHS + Published Language (not built)<br/>Close by subject"| Tasks
+    Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sync
+    Notify -->|OHS + Published Language<br/>INotifications| Devbook
+    Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 ```
 
 ## Published languages and contracts
@@ -165,7 +165,7 @@ flowchart LR
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
 | Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | The lookup from a session id or a pull request to its task, `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
-| Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` (not built) | Sessions, Sync, Devbook, Tasks |
+| Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
