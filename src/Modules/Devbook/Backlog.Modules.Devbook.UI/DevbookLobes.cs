@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// The region of a brain a Lobes atlas node is drawn in
-/// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>). <see cref="Dust"/>
+/// (<c>.devbook/domain/brain/features.md#lobes-atlas</c>). <see cref="Dust"/>
 /// is no region: an archived Brain note drawn as the faint dust around the
 /// outside.
 /// </summary>

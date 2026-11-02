@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Lobes atlas's read model (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>):
+/// The Lobes atlas's read model (<c>.devbook/domain/brain/features.md#lobes-atlas</c>):
 /// the Brain and every registered devbook in one graph, read from their own
 /// databases, each node carrying its scope, its region and its kind.
 /// </summary>

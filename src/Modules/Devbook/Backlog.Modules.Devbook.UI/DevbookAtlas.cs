@@ -127,7 +127,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     }
 
     /// <summary>
-    /// The Lobes atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>):
+    /// The Lobes atlas (<c>.devbook/domain/brain/features.md#lobes-atlas</c>):
     /// the Brain and the devbook of every registered repository in one graph,
     /// read from the Brain's database and each repository's devbook database and
     /// nothing else. Each node carries its scope, its region and its kind; each

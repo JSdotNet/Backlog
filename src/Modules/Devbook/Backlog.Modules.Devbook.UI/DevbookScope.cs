@@ -65,7 +65,7 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
 
     /// <summary>
     /// Whether the Lobes atlas is offered
-    /// (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>): its own switch is
+    /// (<c>.devbook/domain/brain/context.md#lobes-atlas</c>): its own switch is
     /// on, and so is Devbook, whose Brain and devbooks it maps. The shell's header
     /// and the pane's Atlas button both ask this one question.
     /// </summary>
