@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Lobes atlas takeover (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>)
+/// The Lobes atlas takeover (<c>.devbook/domain/brain/features.md#lobes-atlas</c>)
 /// over a graph handed in whole: its scope switch, the camera a switch resets, the
 /// regions a scope hides, and what a selected node offers.
 /// <para>
@@ -158,8 +158,10 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
                 option => option.GetAttribute("data-node-id") == "repo:backlog|.devbook/arc42/01-introduction.md");
         });
 
+        // All shows every region of backlog; the ghost's technology stays hidden in its own scope.
         component.Find("[data-testid='lobes-atlas-show-all']").Click();
-        component.WaitForAssertion(() => Assert.Empty(LastModel().HiddenLobes));
+        component.WaitForAssertion(() =>
+            Assert.Equal([new LobesAtlasRegionKey("ghost:devbook-stack", LobesAtlasMark.Parietal)], LastModel().HiddenLobes));
     }
 
     [Fact]
@@ -206,9 +208,12 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_resolved_chapter_opens_its_devbook_and_a_dashed_one_says_why_it_cannot()
     {
-        BrainRepoLink? opened = null;
+        DevbookRepositoryChapter? opened = null;
         var component = Render(onOpenChapter: link => opened = link);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        // The ghost's one chapter is technology, hidden in All until Tech shows it.
+        component.Find("[data-testid='lobes-atlas-tech']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option'][data-node-id='ghost:devbook-stack|ghost:tech/radar.md']")));
 
         component.Find("[data-testid='graph-atlas-index-option'][data-node-id='ghost:devbook-stack|ghost:tech/radar.md']").Click();
         component.WaitForAssertion(() =>
@@ -220,7 +225,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         Assert.NotNull(opened);
         Assert.Equal("backlog", opened.Alias);
-        Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", opened.Path);
+        Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", opened.Reference);
     }
 
     /// <summary>A chapter a note names in a devbook not indexed yet says that, as
@@ -228,8 +233,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_chapter_of_a_devbook_not_indexed_yet_says_so_on_its_chip_as_the_card_does()
     {
-        _lobes.Graph = DevbookLobesReader.Read(
-            new DevbookLobesBrainSource(
+        _lobes.Graph = BrainLobesReader.Read(
+            new BrainLobesNotes(
                 [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
                 [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
                 new Dictionary<string, string>(),
@@ -255,7 +260,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_devbook_chapter_no_note_links_to_still_opens_in_its_devbook()
     {
-        BrainRepoLink? opened = null;
+        DevbookRepositoryChapter? opened = null;
         var component = Render("repo:backlog", onOpenChapter: link => opened = link);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
 
@@ -264,7 +269,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         Assert.NotNull(opened);
         Assert.Equal("backlog", opened.Alias);
-        Assert.Equal(".devbook/arc42/01-introduction.md", opened.Path);
+        Assert.Equal(".devbook/arc42/01-introduction.md", opened.Reference);
     }
 
     [Fact]
@@ -290,7 +295,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_read_that_failed_is_said_in_words_with_a_way_back()
     {
-        _lobes.Graph = DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder);
+        _lobes.Graph = DevbookLobesGraph.Unavailable(BrainAtlas.NoBrainFolder);
         var closed = 0;
         var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => closed++));
 
@@ -309,7 +314,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var closed = 0;
         var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => closed++));
 
@@ -334,7 +339,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.OnBuild = () => _lobes.Graph = SampleGraph();
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -352,7 +357,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.BuildProblem = "The Brain's index could not be built: disk full";
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -373,7 +378,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void A_host_that_cannot_build_the_index_offers_only_the_way_back()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.CanBuildBrainIndex = false;
         var component = _context.Render<LobesAtlasTakeover>();
 
@@ -452,19 +457,17 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Equal(["ARC", "TEC", "DOM", "DES", "AI", "IDX"], chips.Select(chip => chip.TextContent.Trim()));
         // The name starts with the code on the chip, so a speech user can say it.
         Assert.Equal(["ARC arc42", "TEC tech", "DOM domain", "DES design", "AI ai", "IDX Index"], chips.Select(chip => chip.GetAttribute("aria-label")));
-        Assert.All(chips, chip =>
-        {
-            AssertRealButton(chip);
-            Assert.Equal("true", chip.GetAttribute("aria-pressed"));
-        });
+        // Every region is shown but tech, which a devbook starts hidden.
+        Assert.All(chips, AssertRealButton);
+        Assert.Equal(["true", "false", "true", "true", "true", "true"], chips.Select(chip => chip.GetAttribute("aria-pressed")));
 
         // A chip hides its region, and the panel's row follows it.
-        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").Click();
+        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='frontal']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
-            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-region'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+            Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal), LastModel().HiddenLobes);
+            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='frontal']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-region'][data-lobe='frontal']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -492,10 +495,17 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     {
         var component = Render("repo:backlog");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+        var backlogHidden = new[]
+        {
+            new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal),
+            new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal),
+            // The ghost devbook's technology, hidden from the start in its own scope.
+            new LobesAtlasRegionKey("ghost:devbook-stack", LobesAtlasMark.Parietal)
+        };
 
-        // A region hidden in backlog…
+        // A region hidden in backlog, beside the tech every devbook starts with hidden…
         component.Find("[data-testid='lobes-atlas-chip'][data-lobe='frontal']").Click();
-        component.WaitForAssertion(() => Assert.Single(LastModel().HiddenLobes));
+        component.WaitForAssertion(() => Assert.Equal(3, LastModel().HiddenLobes.Count));
 
         // …is left alone by None and All on the Brain.
         Scope(component, "brain").Click();
@@ -503,15 +513,15 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.Find("[data-testid='lobes-atlas-show-none']").Click();
         component.WaitForAssertion(() =>
         {
-            // The Brain's six regions and its Archive dust, and backlog's one.
-            Assert.Equal(8, LastModel().HiddenLobes.Count);
-            Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal), LastModel().HiddenLobes);
+            // The Brain's six regions and its Archive dust, backlog's two and the ghost's one.
+            Assert.Equal(10, LastModel().HiddenLobes.Count);
+            Assert.All(backlogHidden, region => Assert.Contains(region, LastModel().HiddenLobes));
             Assert.All(component.FindAll("[data-testid='lobes-atlas-chip']"), chip => Assert.Equal("false", chip.GetAttribute("aria-pressed")));
         });
 
         component.Find("[data-testid='lobes-atlas-show-all']").Click();
         component.WaitForAssertion(() =>
-            Assert.Equal([new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal)], LastModel().HiddenLobes));
+            Assert.Equal(backlogHidden.ToHashSet(), LastModel().HiddenLobes.ToHashSet()));
 
         // In All, None hides every scope and leaves the regions as they were.
         Scope(component, LobesAtlasModel.AllLayout).Click();
@@ -521,7 +531,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal(3, LastModel().HiddenScopes.Count);
-            Assert.Single(LastModel().HiddenLobes);
+            Assert.Equal(3, LastModel().HiddenLobes.Count);
         });
     }
 
@@ -603,8 +613,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     public void The_empty_states_header_names_the_brain_beside_the_title(bool indexMissing)
     {
         _lobes.Graph = indexMissing
-            ? DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing)
-            : DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder);
+            ? DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing)
+            : DevbookLobesGraph.Unavailable(BrainAtlas.NoBrainFolder);
         var component = _context.Render<LobesAtlasTakeover>();
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-subject']")));
@@ -635,6 +645,193 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             Assert.Equal("false", component.Find("[data-testid='lobes-atlas-labels']").GetAttribute("aria-pressed"));
             Assert.False(LastModel().ShowLabels);
         });
+    }
+
+    // ----- Technology starts hidden ------------------------------------------------
+
+    private const string Docker = "repo:backlog|.devbook/tech/docker.md";
+
+    [Fact]
+    public void Technology_starts_hidden_in_a_devbooks_scope_with_its_count_still_in_the_panel()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+        Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Docker);
+        Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+        var row = component.Find("[data-testid='lobes-atlas-region'][data-lobe='parietal']");
+        Assert.Equal("false", row.GetAttribute("aria-pressed"));
+        Assert.Equal("1", row.QuerySelector(".lobes-atlas__row-count")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_brains_parietal_starts_shown_because_it_holds_areas_and_resources_not_technology()
+    {
+        var component = Render("brain");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+
+        Assert.DoesNotContain(new LobesAtlasRegionKey("brain", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+        Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+    }
+
+    [Theory]
+    [InlineData("[data-testid='lobes-atlas-chip'][data-lobe='parietal']")]
+    [InlineData("[data-testid='lobes-atlas-region'][data-lobe='parietal']")]
+    [InlineData("[data-testid='lobes-atlas-show-all']")]
+    public void The_reader_shows_technology_with_its_chip_its_row_or_all(string control)
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+
+        component.Find(control).Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Docker);
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-region'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void A_reread_keeps_technology_the_reader_turned_on_and_a_new_devbook_starts_with_it_hidden()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").Click();
+        component.WaitForAssertion(() =>
+            Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes));
+
+        // The ghost's alias registered since: a reread with a new devbook.
+        var graph = SampleGraph();
+        _lobes.Graph = graph with
+        {
+            Scopes = [.. graph.Scopes.Select(scope => scope.Kind == DevbookLobesScopeKind.Ghost
+                ? scope with { Key = "repo:devbook-stack", Kind = DevbookLobesScopeKind.Devbook }
+                : scope)]
+        };
+        _lobes.RaiseChanged();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(4, component.FindAll("[data-testid='lobes-atlas-scope']").Count);
+            Assert.Contains(new LobesAtlasRegionKey("repo:devbook-stack", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+            Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed()
+    {
+        var component = Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
+
+        Assert.Equal(["Labels", "Tech", "All", "None", "✕"],
+            component.Find(".lobes-atlas__tools").QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        var tech = component.Find("[data-testid='lobes-atlas-tech']");
+        AssertRealButton(tech);
+        Assert.Equal("false", tech.GetAttribute("aria-pressed"));
+        Assert.Equal("Show every devbook's technology chapters", tech.GetAttribute("title"));
+        // The same toggle as Labels, so the same 44px target and focus ring.
+        Assert.Contains("btn", tech.ClassList);
+        Assert.Contains("btn--toggle", tech.ClassList);
+
+        Assert.Equal(
+            [new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal)],
+            LastModel().HiddenAllLobes);
+        var listed = component.FindAll("[data-testid='graph-atlas-index-option']").Select(option => option.GetAttribute("data-node-id")).ToList();
+        Assert.DoesNotContain(Docker, listed);
+        Assert.Contains("repo:backlog|.devbook/arc42/01-introduction.md", listed);
+    }
+
+    private const string GhostStack = "ghost:devbook-stack";
+    private const string Radar = "ghost:devbook-stack|ghost:tech/radar.md";
+
+    [Fact]
+    public void A_ghost_devbooks_named_technology_starts_hidden_in_its_scope_and_in_all_and_shows_with_its_chip_or_tech()
+    {
+        var component = Render(GhostStack);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+
+        // Hidden in the ghost's own scope, its chip not pressed.
+        Assert.Contains(new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+        Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Radar);
+        Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
+
+        // Its chip shows it.
+        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain(new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Radar);
+        });
+
+        // Hidden in All too, until Tech shows it.
+        Scope(component, LobesAtlasModel.AllLayout).Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
+        Assert.Contains(new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal), LastModel().HiddenAllLobes!);
+        Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Radar);
+
+        component.Find("[data-testid='lobes-atlas-tech']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(LastModel().HiddenAllLobes!);
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Radar);
+        });
+    }
+
+    [Fact]
+    public void The_tech_toggle_shows_technology_in_all_and_leaves_each_scopes_own_chip_unchanged()
+    {
+        var component = Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
+
+        component.Find("[data-testid='lobes-atlas-tech']").Click();
+        component.WaitForAssertion(() =>
+        {
+            var tech = component.Find("[data-testid='lobes-atlas-tech']");
+            Assert.Equal("true", tech.GetAttribute("aria-pressed"));
+            Assert.Equal("Hide every devbook's technology chapters", tech.GetAttribute("title"));
+            Assert.Empty(LastModel().HiddenAllLobes!);
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Docker);
+            // The devbook's own Parietal stays as the reader left it: hidden.
+            Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+        });
+
+        Scope(component, "repo:backlog").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed")));
+
+        // Shown in the scope, then hidden again in All: the scope keeps it shown.
+        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").Click();
+        Scope(component, LobesAtlasModel.AllLayout).Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
+        component.Find("[data-testid='lobes-atlas-tech']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-tech']").GetAttribute("aria-pressed"));
+            Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Docker);
+            Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
+        });
+
+        Scope(component, "repo:backlog").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed")));
+    }
+
+    [Theory]
+    [InlineData("brain")]
+    [InlineData("repo:backlog")]
+    [InlineData("ghost:devbook-stack")]
+    public void The_tech_toggle_is_alls_alone(string scope)
+    {
+        var component = Render(scope);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-labels']")));
+
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-tech']"));
     }
 
     // ----- The scope card ------------------------------------------------------------
@@ -729,7 +926,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void Every_control_of_the_empty_state_is_a_real_button()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var component = _context.Render<LobesAtlasTakeover>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-empty']")));
 
@@ -741,7 +938,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         var finish = new TaskCompletionSource<string?>();
         _lobes.Pending = finish.Task;
         var component = _context.Render<LobesAtlasTakeover>();
@@ -766,7 +963,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     [Fact]
     public void An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built()
     {
-        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing);
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.OnBuild = () => _lobes.Graph = SampleGraph();
         var component = Render("repo:backlog");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-build']")));
@@ -1012,11 +1209,11 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     private IRenderedComponent<LobesAtlasTakeover> Render(
         string? scope = null,
         Action<string>? onOpenNote = null,
-        Action<BrainRepoLink>? onOpenChapter = null) =>
+        Action<DevbookRepositoryChapter>? onOpenChapter = null) =>
         _context.Render<LobesAtlasTakeover>(parameters => parameters
             .Add(atlas => atlas.Scope, scope)
             .Add(atlas => atlas.OnOpenNote, (string path) => onOpenNote?.Invoke(path))
-            .Add(atlas => atlas.OnOpenRepositoryChapter, (BrainRepoLink link) => onOpenChapter?.Invoke(link)));
+            .Add(atlas => atlas.OnOpenRepositoryChapter, (DevbookRepositoryChapter link) => onOpenChapter?.Invoke(link)));
 
     /// <summary>A real, named button: the element, not a div made to act as one.</summary>
     private static void AssertRealButton(AngleSharp.Dom.IElement element)
@@ -1169,6 +1366,10 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             OnBuild?.Invoke();
             return Pending is { } pending ? await pending : BuildProblem;
         }
+
+        /// <summary>A raw link as the Brain's source reads it.</summary>
+        public DevbookRepositoryChapter? RepositoryChapterFor(string? raw) =>
+            BrainRepoLink.Parse(raw) is { } link ? new DevbookRepositoryChapter(link.Alias, link.Reference) : null;
 
         public void RaiseChanged() => Changed?.Invoke();
     }

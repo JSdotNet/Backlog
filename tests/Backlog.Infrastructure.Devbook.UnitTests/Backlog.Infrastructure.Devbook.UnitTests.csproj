@@ -8,6 +8,12 @@
   -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+    <!-- The Brain's conventions, note text and link types (local ADR 0040), whose
+         suites live here beside the Brain database they describe. -->
+    <ProjectReference Include="..\..\src\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- The Brain's corpus profile, database location and readers (local ADR
+         0040), which the Brain database suites here build and read through. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +23,8 @@
 
   <ItemGroup>
     <Using Include="Backlog.Infrastructure.Devbook" />
+    <Using Include="Backlog.Modules.Brain.Abstractions" />
+    <Using Include="Backlog.Infrastructure.Brain" />
   </ItemGroup>
 
   <ItemGroup>

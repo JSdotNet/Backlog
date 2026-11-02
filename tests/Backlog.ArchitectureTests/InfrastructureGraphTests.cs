@@ -58,12 +58,12 @@ public class InfrastructureGraphTests
             + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
             + "context's published surface by design. Notifications' surface is also how the pairing client "
             + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends."),
-        ("Backlog.Infrastructure.Mcp", 6,
+        ("Backlog.Infrastructure.Mcp", 7,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
-            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039) and, for the "
-            + "impediment tools beside set_blocked, Progress (local ADR 0035). It references abstractions "
-            + "only, never a module's implementation.")
+            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
+            + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
+            + "for `#brain` and the capture tool. It references abstractions only, never a module's implementation.")
     ];
 
     /// <summary>

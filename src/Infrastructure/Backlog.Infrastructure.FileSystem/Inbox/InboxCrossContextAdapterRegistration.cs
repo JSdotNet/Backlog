@@ -1,4 +1,3 @@
-using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -42,12 +41,10 @@ public static class InboxCrossContextAdapterRegistration
         services.AddScoped<IBacklogTagSource, InboxBacklogTagSource>();
         services.AddScoped<IInboxTaskReferences, InboxTaskReferences>();
 
-        // To Brain, over the Brain's note writer — when the host has a Brain. One
-        // composed without IBrainNoteWriter registers no target, and the route
-        // answers inbox.brain.unavailable.
-        services.TryAddScoped<IInboxBrainTarget>(sp => sp.GetService<IBrainNoteWriter>() is { } writer
-            ? new InboxBrainTarget(writer, sp.GetService<IBrainFolderSource>())
-            : new NoBrainTarget());
+        // To Brain: refused in words, and nothing written, until a host composes
+        // the Brain — Backlog.Infrastructure.Brain's registration then replaces
+        // this with the target over the Brain's note writer (local ADR 0040).
+        services.TryAddScoped<IInboxBrainTarget, NoBrainTarget>();
 
         // Where an item's files are kept: under the workspace's inbox folder,
         // read per call so a moved workspace takes them along. A singleton,

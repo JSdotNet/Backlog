@@ -37,6 +37,7 @@ public sealed partial class DesktopCompositionTests
         "AddCaptureModule",
         "AddDashboardModule",
         "AddDevbookModule",
+        "AddBrainModule",
         "AddRoadmapCrossContextAdapters",
         "AddTasksCrossContextAdapters",
         "AddInboxCrossContextAdapters",

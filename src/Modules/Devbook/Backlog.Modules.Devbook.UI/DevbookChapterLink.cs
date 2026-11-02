@@ -39,7 +39,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// own folder and without the area prefix, which is what a menu node carries
     /// and what a selection is remembered by. Both layouts' folder prefixes come
     /// off — <c>.domain/</c> and <c>.devbook/domain/</c>.</summary>
-    public string RelativePath => DevbookMenu.IsBrainAreaKey(AreaKey) ? Path : DevbookLayout.WithinFolder(Path);
+    public string RelativePath => DevbookMenu.IsPersonalTabKey(AreaKey) ? Path : DevbookLayout.WithinFolder(Path);
 
     /// <summary>
     /// Whether this names a view of the C4 model beside the chapters rather than a
@@ -59,7 +59,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// file in it — what <see cref="ForFolder"/> builds, its path ending in a
     /// separator. Following it opens the
     /// section's tab with whatever chapter that section has open.</summary>
-    public bool IsFolder => Anchor is null && Path.EndsWith('/') && !DevbookMenu.IsBrainAreaKey(AreaKey);
+    public bool IsFolder => Anchor is null && Path.EndsWith('/') && !DevbookMenu.IsPersonalTabKey(AreaKey);
 
     /// <summary>
     /// A section's folder, for a caller that names a folder rather than a chapter
@@ -121,7 +121,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// A note of the Brain, addressed the way the Brain's database names it:
     /// relative to the Brain's root, its first segment the area folder
     /// (<c>projects/plan.md#next</c>). Its area key is the Brain's
-    /// (<see cref="DevbookMenu.BrainAreaKey"/>), and its path is already the one
+    /// (<see cref="DevbookMenu.PersonalTabKey"/>), and its path is already the one
     /// the Brain's menu selects by, so <see cref="RelativePath"/> leaves it whole.
     /// A note at the Brain's root sits in no area and resolves to nothing.
     /// </summary>
@@ -136,7 +136,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
         var separator = path.IndexOf('/');
         if (separator <= 0 || !IsChapterFile(path)) return null;
 
-        return new DevbookChapterLink(DevbookMenu.BrainAreaKey(path[..separator]), path, reference.Slug);
+        return new DevbookChapterLink(DevbookMenu.PersonalTabKey(path[..separator]), path, reference.Slug);
     }
 
     private static bool IsChapterFile(string path) =>

@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Brain context's screens, drawn on the Devbook pane as the Brain's feature
+    on Devbook's pane (local ADR 0040, Consequences): the note panel, Capture, the
+    From your Brain box under a repository chapter, the atlas over the Brain,
+    Show hidden, and the mode that hands them all to the pane.
+
+    Devbook draws the pane; this project conforms to the one extension point it
+    publishes for that (IDevbookPaneMode), which is the one declared edge between
+    the two contexts. Nothing in Devbook references this project back.
+  -->
+  <PropertyGroup>
+    <!--
+      Matches the project name, as the later module UI projects do. The Razor
+      generator emits @using directives inside this namespace without a global::
+      prefix, so every Backlog.* import in a .razor file here is written
+      @using global::Backlog.Something (DesktopDomainBoundaryTests).
+    -->
+    <RootNamespace>Backlog.Modules.Brain.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddBrainModule(), the Brain's one registration. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The pane's Brain suites drive these components through the Devbook pane
+         and read the atlas reader and the mode directly. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The chapter reference and writer the note panel edits a note through. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- This context's own published surface. -->
+    <ProjectReference Include="..\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- The Brain's adapters: AddBrainModule registers them, and the atlas asks
+         where the Brain's database is. A screen may take an adapter. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
+    <!-- The read side of the devbook database the Brain's atlas reads, and the
+         chapter reference a note is edited through. A screen may take an adapter. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+    <!-- Declared edge (local ADR 0040 §2; .devbook/domain/context-map.md,
+         Customer/Supplier): the Brain conforms to the Devbook pane's mode
+         extension point and renders its notes with Devbook's viewer and editor. -->
+    <ProjectReference Include="..\..\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
+    <!-- Declared edge (local ADR 0040 §2; .devbook/domain/context-map.md,
+         Customer/Supplier): the Brain answers Devbook's personal-source port and
+         opens repository chapters in Devbook's published language. -->
+    <ProjectReference Include="..\..\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

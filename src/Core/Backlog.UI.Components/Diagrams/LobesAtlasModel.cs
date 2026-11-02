@@ -26,8 +26,8 @@ namespace Backlog.UI.Components.Diagrams;
 /// <param name="Links">The edges between marks.</param>
 /// <param name="HiddenScopes">Scope keys not drawn in <see cref="AllLayout"/>.</param>
 /// <param name="HiddenLobes">Regions not drawn while their scope is the
-/// <paramref name="Layout"/>; ignored in <see cref="AllLayout"/>, where a region
-/// toggle does not apply.</param>
+/// <paramref name="Layout"/>; ignored in <see cref="AllLayout"/>, which reads
+/// <paramref name="HiddenAllLobes"/> instead.</param>
 /// <param name="ShowLabels">Whether the region, hub and scope names are written
 /// on the picture.</param>
 /// <param name="EmptyMessage">What the canvas says when nothing is left to draw.</param>
@@ -35,6 +35,9 @@ namespace Backlog.UI.Components.Diagrams;
 /// few seconds without input. Drag, its inertia and the eased zoom stay either
 /// way, and reduced motion turns it off regardless. A page whose picture should
 /// be the same on every load, such as a storybook story, sets it false.</param>
+/// <param name="HiddenAllLobes">Regions not drawn in <see cref="AllLayout"/>,
+/// whatever <paramref name="HiddenLobes"/> says for their scope's own layout — a
+/// host's own toggle for All, such as every devbook's technology. Null hides none.</param>
 public sealed record LobesAtlasModel(
     string Layout,
     IReadOnlyList<LobesAtlasScope> Scopes,
@@ -44,7 +47,8 @@ public sealed record LobesAtlasModel(
     IReadOnlyList<LobesAtlasRegionKey> HiddenLobes,
     bool ShowLabels = true,
     string EmptyMessage = "Nothing to draw.",
-    bool IdleMotion = true)
+    bool IdleMotion = true,
+    IReadOnlyList<LobesAtlasRegionKey>? HiddenAllLobes = null)
 {
     /// <summary>The layout that draws every scope at once.</summary>
     public const string AllLayout = "all";

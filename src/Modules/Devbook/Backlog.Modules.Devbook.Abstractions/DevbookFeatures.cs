@@ -94,7 +94,7 @@ public static class DevbookFeatures
     public const string Status = "devbook-status";
 
     /// <summary>Map the Brain and every registered devbook as brains in one
-    /// full-window atlas (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>).
+    /// full-window atlas (<c>.devbook/domain/brain/context.md#lobes-atlas</c>).
     /// <para>
     /// A devbook key by the same rule as its neighbours: the pane's own Atlas
     /// button reads it to choose which atlas it opens, and the Shell reads it to

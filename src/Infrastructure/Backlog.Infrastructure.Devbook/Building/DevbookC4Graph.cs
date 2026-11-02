@@ -51,7 +51,7 @@ internal static partial class DevbookC4Graph
         // The generator reads `.devbook/arc42/workspace.dsl` alone; a root layout
         // has no path it would look at.
         var workspacePath = Path.Combine(repositoryRoot, WorkspacePath.Replace('/', Path.DirectorySeparatorChar));
-        var workspace = layout.IsDevbookLayout && !layout.IsBrain && File.Exists(workspacePath)
+        var workspace = layout.IsDevbookLayout && layout.Profile.HasFolderConventions && File.Exists(workspacePath)
             ? TryRead(repositoryRoot)
             : null;
         if (workspace is null) return (added, edges);

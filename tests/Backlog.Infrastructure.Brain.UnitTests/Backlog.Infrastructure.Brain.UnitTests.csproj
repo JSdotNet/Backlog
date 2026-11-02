@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Brain adapter project's own suite, for what the project adds rather than
+    what moved into it: the corpus profile Devbook's builder reads the Brain under,
+    and the Brain's side of the corpus registry. The suites of the adapters that
+    moved stayed where they were written (Infrastructure.FileSystem.UnitTests,
+    Infrastructure.Devbook.UnitTests), so their devbook test ids still resolve.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Backlog.Modules.Brain.Abstractions" />
+    <Using Include="Backlog.Infrastructure.Devbook" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 
+using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
@@ -23,7 +24,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// (<c>.devbook/domain/brain/features.md#mcp-brain-scope</c>, local ADR 0027
 /// §5). Every tool that takes a <c>repository</c> also takes
 /// <see cref="BrainMcpScope.Value"/>, matched before the directory is asked, and
-/// answers for the Brain: its one folder from <see cref="IBrainFolderSource"/>,
+/// answers for the Brain: its one folder from <see cref="IDevbookPersonalSource"/>,
 /// a note by its path from the Brain's root, and the remarks the store keeps
 /// under <see cref="BrainScope.Value"/>. The two Brain ports are optional, so a
 /// host that composes no Brain still constructs this class and answers the
@@ -51,7 +52,7 @@ public sealed class DevbookTools(
     IDevbookFolderSource folders,
     IDevbookAnnotationStore annotations,
     IRepositoryDirectory repositories,
-    IBrainFolderSource? brain = null,
+    IDevbookPersonalSource? brain = null,
     IBrainNoteWriter? brainNotes = null)
 {
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
@@ -74,9 +75,11 @@ public sealed class DevbookTools(
     private const string NoBrainHere = "The Brain is not available in this host.";
 
     /// <summary>The Brain's folder as a catalog names it, for the answer given
-    /// when no source is there to name it: the one definition the folder source
-    /// answers too.</summary>
-    private static DevbookFolderSetting BrainFolder => BrainConventions.Folder;
+    /// when no source is there to name it. The same value the Brain's folder
+    /// source answers (<c>BrainFolderSource.Folder</c>), spelt here because this
+    /// project references no adapter.</summary>
+    private static DevbookFolderSetting BrainFolder { get; } =
+        new(BrainConventions.FolderKey, BrainConventions.ScopeLabel, string.Empty, SupportsPathOverride: false);
 
     // OpenWorld, unlike every tool outside this class. A repository whose devbook
     // is read from a branch snapshot (local ADR 0008) has no clone to resolve
