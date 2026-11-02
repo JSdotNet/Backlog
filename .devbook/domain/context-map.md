@@ -65,7 +65,7 @@ flowchart LR
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
     Inbox -->|OHS + Published Language<br/>ItemTriaged: To Brain| Brain
     Tasks <-->|Partnership<br/>Task links by id| Brain
-    Devbook -->|Customer/Supplier<br/>Reader, database builder, viewer, search, remarks| Brain
+    Devbook -->|"Customer/Supplier<br/>Reader, database builder, viewer, search, remarks<br/>Every registered devbook, read-only"| Brain
     Brain -.->|"One-way reference<br/>repo: link to a repository chapter"| Devbook
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Brain
     Tasks <-->|Partnership<br/>Optional cross-link by id| Roadmap
@@ -157,6 +157,7 @@ flowchart LR
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-item` | Tasks |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
+| Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas) |
 | Monitoring & Dashboard | `.devbook/domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
@@ -202,7 +203,9 @@ flowchart LR
   a hook Devbook offers, and Devbook knows no PARA, area or capture. Its repo links
   run one way, into a repository chapter: no repository devbook links into a
   Brain, and its backlinks are read from the owner's Brain, never written into
-  the repository.
+  the repository. Its [Lobes atlas](brain/features.md#lobes-atlas) reads the
+  devbook of every repository in Repository Management's registry through
+  Devbook's reader, the same one way: a read, never a write.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
   registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in

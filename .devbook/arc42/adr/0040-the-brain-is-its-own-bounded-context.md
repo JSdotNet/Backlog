@@ -77,8 +77,9 @@ flowchart LR
 
 The Brain owns the Knowledge Note and its value objects, the areas, the Brain
 folder setting, capture, the Brain scope, the Brain mode of the Devbook pane,
-repo links and their backlinks, task links, and the Brain's MCP scope. Its
-chapters live in `.devbook/domain/brain/`. It is a Core subdomain, as Devbook is.
+repo links and their backlinks, task links, the Brain's MCP scope, and the
+[Lobes atlas](../../domain/brain/features.md#lobes-atlas). Its chapters live in
+`.devbook/domain/brain/`. It is a Core subdomain, as Devbook is.
 
 ### 2. Devbook supplies the reading machinery, as Customer/Supplier
 
@@ -88,7 +89,9 @@ chapters live in `.devbook/domain/brain/`. It is a Core subdomain, as Devbook is
 Devbook is upstream and the Brain is its customer. Devbook supplies the Markdown
 and `meta` reader, the database builder and refresher, the chapter viewer,
 search and remarks. The Brain conforms to the devbook convention (ADR 0016) as a
-published language.
+published language. The same reader also serves the Brain the devbook database
+of every registered repository, read-only, for the Lobes atlas: a read, one way,
+that writes nothing into a repository.
 
 It is not a Shared Kernel. A shared kernel is co-owned: each change to it needs
 both contexts' agreement. The reader serves repositories first, and a devbook
@@ -173,3 +176,4 @@ Look for these in the specification and, after the code move, in the code:
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-10-29 | Proposed: the Brain leaves the Devbook context for one of its own, downstream of Devbook as Customer/Supplier. | The Brain has its own owner, language and neighbours, and its folders became the person's to curate (ADR 0026, amended 2026-10-28). |
+| 2026-10-30 | The Lobes atlas moves to the Brain, which reads every registered repository's devbook through Devbook's reader, read-only (§1, §2). | The atlas maps the Brain by PARA area, which Devbook does not know. |
