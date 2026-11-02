@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.UI.Components.Data;
 
 namespace Backlog.Modules.Roadmap.UI;
 
@@ -7,7 +8,8 @@ namespace Backlog.Modules.Roadmap.UI;
 /// for a session, the queue icon's press and Cancel (local ADR 0038). The
 /// requests move where the band cannot hear it, so while the action is offered they
 /// are read again every <see cref="PollInterval"/>, and <see cref="Changed"/> is raised
-/// only when the answer differs.
+/// only when the answer differs — the library's <see cref="PolledSnapshot{TKey, TValue}"/>
+/// keeps the answer and its guard.
 /// </summary>
 public sealed class RoadmapSessionRequests : IDisposable
 {
@@ -15,25 +17,19 @@ public sealed class RoadmapSessionRequests : IDisposable
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private readonly IPlanSessionRequests? _port;
-    private readonly ITimer? _poll;
-    private IReadOnlyDictionary<string, PlanSessionRequest> _open =
-        new Dictionary<string, PlanSessionRequest>(StringComparer.OrdinalIgnoreCase);
-    private volatile bool _disposed;
-
-    /// <summary>Moved on by every press, so a poll that set out before it cannot land
-    /// after it and put back the answer the press replaced.</summary>
-    private int _version;
+    private readonly PolledSnapshot<string, PlanSessionRequest> _open;
 
     /// <param name="port">The queue's port, or null when the host composed none.</param>
     /// <param name="clock">What the poll waits on; the system clock when null.</param>
     public RoadmapSessionRequests(IPlanSessionRequests? port, TimeProvider? clock = null)
     {
         _port = port;
-
-        if (_port is not null)
-        {
-            _poll = (clock ?? TimeProvider.System).CreateTimer(_ => _ = RefreshAsync(), null, PollInterval, PollInterval);
-        }
+        _open = new PolledSnapshot<string, PlanSessionRequest>(
+            () => _port!.OpenAsync(),
+            _port is null ? null : RefreshAsync,
+            PollInterval,
+            StringComparer.OrdinalIgnoreCase,
+            clock);
     }
 
     /// <summary>Raised when a plan's wait changed, or a press started or ended.</summary>
@@ -54,30 +50,15 @@ public sealed class RoadmapSessionRequests : IDisposable
     {
         var key = (tag ?? string.Empty).Trim().TrimStart('+', '#').Trim();
 
-        return IsOffered && key.Length > 0 && _open.TryGetValue(key, out var request) ? request : null;
+        return IsOffered && key.Length > 0 && _open.TryGet(key, out var request) ? request : null;
     }
 
     /// <summary>Reads the open requests again, and redraws when they changed.</summary>
     public async Task RefreshAsync()
     {
-        if (_port is null || _disposed || !_port.IsOffered) return;
+        if (_port is null || _open.IsDisposed || !_port.IsOffered) return;
 
-        var version = Volatile.Read(ref _version);
-
-        IReadOnlyDictionary<string, PlanSessionRequest> read;
-        try
-        {
-            read = await _port.OpenAsync();
-        }
-        catch (Exception)
-        {
-            return;
-        }
-
-        if (_disposed || version != Volatile.Read(ref _version) || Same(read, _open)) return;
-
-        _open = new Dictionary<string, PlanSessionRequest>(read, StringComparer.OrdinalIgnoreCase);
-        Changed?.Invoke();
+        if (await _open.RefreshAsync()) Changed?.Invoke();
     }
 
     /// <summary>Queues a plan request on the terms of <paramref name="offer"/>.</summary>
@@ -88,14 +69,14 @@ public sealed class RoadmapSessionRequests : IDisposable
         if (_port is null || !offer.IsEnabled || Busy) return false;
 
         Busy = true;
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
         try
         {
             var request = await _port.RequestAsync(offer.Tag, offer.Repository!, offer.CloneFolder!);
-            _open = new Dictionary<string, PlanSessionRequest>(_open, StringComparer.OrdinalIgnoreCase) { [offer.Tag] = request };
+            _open.Put(offer.Tag, request);
             return true;
         }
         catch (Exception)
@@ -117,7 +98,7 @@ public sealed class RoadmapSessionRequests : IDisposable
         if (_port is null || Busy || OpenFor(tag) is not { State: PlanSessionRequestState.Requested } request) return false;
 
         Busy = true;
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
@@ -136,25 +117,13 @@ public sealed class RoadmapSessionRequests : IDisposable
         {
             Busy = false;
 
-            try
-            {
-                if (!_disposed) _open = new Dictionary<string, PlanSessionRequest>(await _port.OpenAsync(), StringComparer.OrdinalIgnoreCase);
-            }
-            catch (Exception)
-            {
-                // The poll will try again.
-            }
+            // Read back rather than assumed: a refused cancel means a dispatcher moved
+            // it on, and the chip should say where to.
+            await _open.ReadBackAsync();
 
-            if (!_disposed) Changed?.Invoke();
+            if (!_open.IsDisposed) Changed?.Invoke();
         }
     }
 
-    public void Dispose()
-    {
-        _disposed = true;
-        _poll?.Dispose();
-    }
-
-    private static bool Same(IReadOnlyDictionary<string, PlanSessionRequest> a, IReadOnlyDictionary<string, PlanSessionRequest> b) =>
-        a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var other) && other == pair.Value);
+    public void Dispose() => _open.Dispose();
 }

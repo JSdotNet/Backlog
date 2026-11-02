@@ -153,11 +153,50 @@ public sealed class SqliteSessionRequestStoreTests : IDisposable
 
         Assert.Equal(request.Id, (await store.NextAsync(Ct))!.Id);
         Assert.Equal([request.Id], (await store.ListAsync(SessionRequestState.Requested, Ct)).Select(r => r.Id));
-        Assert.False((await store.ReportStartedAsync(request.Id, "manager-1", "session-a", Ct)).Succeeded);
 
         var reclaimed = await store.ClaimAsync(request.Id, "manager-2", Ct);
         Assert.True(reclaimed.Succeeded);
         Assert.Equal("manager-2", (await store.GetAsync(request.Id, Ct))!.ClaimedBy);
+    }
+
+    [Fact]
+    public async Task A_late_report_from_the_lapsed_holder_writes_Started_while_nobody_else_claimed()
+    {
+        var store = Store();
+        var request = await store.RequestAsync(Entry(), Ct);
+        await store.ClaimAsync(request.Id, "manager-1", Ct);
+
+        _clock.Now = Noon.AddMinutes(3);
+
+        var outcome = await store.ReportStartedAsync(request.Id, "manager-1", "session-a", Ct);
+
+        Assert.True(outcome.Succeeded);
+
+        var stored = (await store.GetAsync(request.Id, Ct))!;
+        Assert.Equal(SessionRequestState.Started, stored.State);
+        Assert.Equal("session-a", stored.SessionId);
+        Assert.Null(await store.NextAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_late_report_is_refused_once_another_dispatcher_claimed_in_between()
+    {
+        var store = Store();
+        var request = await store.RequestAsync(Entry(), Ct);
+        await store.ClaimAsync(request.Id, "manager-1", Ct);
+
+        _clock.Now = Noon.AddMinutes(3);
+        await store.ClaimAsync(request.Id, "manager-2", Ct);
+
+        var outcome = await store.ReportStartedAsync(request.Id, "manager-1", "session-a", Ct);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("Another dispatcher holds the claim.", outcome.Refusal);
+
+        var stored = (await store.GetAsync(request.Id, Ct))!;
+        Assert.Equal(SessionRequestState.Claimed, stored.State);
+        Assert.Equal("manager-2", stored.ClaimedBy);
+        Assert.Null(stored.SessionId);
     }
 
     [Fact]

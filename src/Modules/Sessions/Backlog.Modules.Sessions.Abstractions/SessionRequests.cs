@@ -116,7 +116,8 @@ public sealed record SessionRequestOutcome(SessionRequest? Request, string? Refu
 /// Requested → Claimed     a dispatcher claims it (2-minute lease)
 /// Claimed   → Requested   the lease runs out, or the dispatcher releases it
 /// Claimed   → Started     the dispatcher reports the session
-/// Started   → Linked      that session calls link_session
+/// Requested → Started     the lapsed holder reports, nobody else claimed it
+/// Started   → Linked     that session calls link_session
 /// Requested → Cancelled   the person cancels it
 /// Claimed   → Cancelled   the person cancels it
 /// </code>
@@ -221,17 +222,21 @@ public static class SessionRequests
         return SessionRequestOutcome.Done(Unclaimed(request));
     }
 
-    /// <summary>Claimed → Started, reported by the dispatcher holding the claim with
-    /// the session it started. Refused once the lease has run out: the request is
-    /// Requested again and may already be another dispatcher's.</summary>
+    /// <summary>Claimed → Started, reported by the dispatcher that claimed it with the
+    /// session it started. Taken from that dispatcher after its lease ran out too, as
+    /// long as no other claimed it since: the session was started, and refusing the
+    /// report would only have the request dispatched again and start a second one.
+    /// Refused once another dispatcher holds the claim, or the request was cancelled.</summary>
     public static SessionRequestOutcome Report(SessionRequest request, string dispatcher, string sessionId, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var who = Required(dispatcher, nameof(dispatcher));
         var session = Required(sessionId, nameof(sessionId));
+        var lapsedButStillTheirs = request.State == SessionRequestState.Claimed
+            && string.Equals(request.ClaimedBy, who, StringComparison.Ordinal);
 
-        if (HeldBy(request, who, now) is { } refusal) return SessionRequestOutcome.Refused(request, refusal);
+        if (!lapsedButStillTheirs && HeldBy(request, who, now) is { } refusal) return SessionRequestOutcome.Refused(request, refusal);
 
         return SessionRequestOutcome.Done(request with
         {

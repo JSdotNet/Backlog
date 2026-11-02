@@ -302,6 +302,7 @@ The system SHALL let only one dispatcher claim a request at a time.
 ```meta
 status: draft
 type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_from_the_lapsed_holder_writes_Started_while_nobody_else_claimed, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_is_refused_once_another_dispatcher_claimed_in_between]
 ```
 
 The system SHALL hand a Claimed request to the next dispatcher once two minutes pass without a reported session, and accept the late report of the dispatcher that claimed it until another dispatcher claims it.
