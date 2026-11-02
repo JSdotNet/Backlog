@@ -38,6 +38,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <!-- For AddToolsAiContentSource(), the composition root a host calls to put
          the tool catalog behind the shell's Ask AI port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 

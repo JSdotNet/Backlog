@@ -37,6 +37,7 @@
          taking it here would put that reference one project reference away from
          anything that ever wants to read a tool. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="ModelContextProtocol.Core" />
   </ItemGroup>
 

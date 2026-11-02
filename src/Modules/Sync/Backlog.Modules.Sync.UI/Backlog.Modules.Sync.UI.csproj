@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <!-- For AddSyncSettings(), the composition root a host calls to put the page
          on its settings screen. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <!-- For the optional logger an unexpected failure is written to. -->
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

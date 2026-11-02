@@ -4,6 +4,7 @@
     <PackageReference Include="bunit" />
     <!-- FakeTimeProvider: the pane's run log stamps each run and the design
          tests pin the clock it reads. -->
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 

@@ -24,6 +24,7 @@
     <PackageReference Include="Microsoft.Azure.NotificationHubs" />
     <!-- Lifts the client's vulnerable 6.0.1 dependency; see Directory.Packages.props. -->
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>

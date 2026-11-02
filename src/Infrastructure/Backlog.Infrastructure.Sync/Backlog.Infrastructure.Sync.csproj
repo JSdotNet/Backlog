@@ -106,6 +106,7 @@
   <ItemGroup>
     <!-- The named "sync-token" client and the typed pairing client, plus the
          DelegatingHandler pipeline that keeps the two apart. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <!-- The replication clients' own pipeline in place of the host's default:
          pushes go out once, with an attempt sized for a full batch. See

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <!-- The progress reading counts working days up to "today"; the tests pin it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <!-- AddProgressModule() is resolved through a real container once. -->
     <PackageReference Include="Microsoft.Extensions.Logging" />

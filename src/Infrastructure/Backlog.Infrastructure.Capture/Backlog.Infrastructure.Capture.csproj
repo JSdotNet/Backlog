@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <!-- The named feed client and its timeout. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <!-- The standard resilience pipeline, tuned here for a button press
          rather than inherited from the host's defaults; see

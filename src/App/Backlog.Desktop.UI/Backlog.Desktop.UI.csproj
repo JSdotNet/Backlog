@@ -18,6 +18,8 @@
          The dependency-injection half of the SDK only: .AspNetCore carries the
          Microsoft.AspNetCore.App framework reference and belongs to the two
          hosts, and this package's nuspec declares none. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
 

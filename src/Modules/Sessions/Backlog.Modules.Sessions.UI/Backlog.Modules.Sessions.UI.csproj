@@ -37,6 +37,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <!-- For AddSessionsAiContentSource(), and for the run line's optional lookup of
          the diagram port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 

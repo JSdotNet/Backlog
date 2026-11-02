@@ -18,6 +18,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <!-- For AddInboxAiContentSource(), the composition root a host calls to put
          the Inbox's content behind the shell's Ask AI port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
