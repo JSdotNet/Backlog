@@ -24,8 +24,15 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc
 A person's own note on one block of a chapter, kept by the app rather than by the
 repository. It holds the repository's alias and the chapter's path inside the
 repository, the block it is anchored to, its body, its author, and whether it is
-resolved. The alias is the name a repository already has on every device, so one
-remark names the same chapter on all of them.
+resolved. It also holds its kind and the branch it was left on. The alias is the
+name a repository already has on every device, so one remark names the same
+chapter on all of them.
+
+A remark's kind is one of a review note's four: comment, question, suggestion or
+flag. A remark that states none is a comment. A remark left on a named branch's
+snapshot keeps that branch's name and shows only on that branch. A remark left on
+the default branch keeps no branch name, whether the chapter was read from a clone
+or from a snapshot. So does a remark stored before remarks had a branch.
 
 A remark is anchored by two things: the block's index and a digest of what the
 block said. The index says where to look. The digest says whether the block found
@@ -47,7 +54,12 @@ stays local, and where a remark is stored are
 
 A remark lives with the app rather than in the repository, so a reader can remark
 on a branch snapshot nobody can write to. It is not a
-[Review Note](#review-note), and neither is converted into the other.
+[Review Note](#review-note), but a review note can become one. The app imports
+the open review notes on each registered repository's default branch once, as
+remarks of the same kind on the default branch (local ADR 0011). An imported
+remark keeps the note's author and date, and the note's replies are added to its
+body. The import never overwrites a remark the store holds, and a remark is never
+turned into a review note.
 
 ## Subject State
 
@@ -78,7 +90,20 @@ approving and accepting move the state and its decisions together, and a refusal
 changes nothing. No other record changes with it. One set of rules,
 `DevbookSubjectRules`, decides all four operations for every store. The app
 always says who acted and when: the host's own name, the one a remark's author
-carries, and the store's clock. A caller never passes either.
+carries, and the store's clock. A caller never passes either. The one exception
+is the import below, which keeps who and when the repository wrote down.
+
+A state has a second source: what a repository's default branch still states in
+its Markdown. Before the branch-true decision, a chapter's `meta` block stated a
+debt record's status, a proposed decision record's status, and a proposal's status
+with its approval and acceptance. The app imports these once for each registered
+repository, and never over a state the store holds. The import reads no archived
+repository and no Brain.
+
+An imported state keeps the who, when and fingerprint the repository authored. A
+state with no such record is set by `devbook import`, at the time of the commit
+that added its file. A decision record is keyed by the pull request that added it,
+and is skipped when no pull request did.
 
 It replicates as a whole document through a replica container of its own (local
 ADR 0044). Its id is derived from the repository and the subject, so two devices
@@ -450,5 +475,6 @@ beside the passage it is about. It has a kind (comment, question, suggestion or
 flag), a status (open or resolved), an author, a date, an optional quote, and its
 replies. It is the repository's shared review state: the convention's own tooling
 writes it, and Devbook only reads it. A review note is not chapter content
-([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)),
-and it is never a [Remark](#remark).
+([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)).
+The app imports each open review note on a repository's default branch once, as
+a [Remark](#remark) of the same kind. A resolved review note is not imported.

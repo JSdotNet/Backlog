@@ -74,10 +74,11 @@ Enforced at: `DevbookAnnotation.IsDraft`; `DevbookAnnotationStore.ListChangedSin
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_the_service_would_refuse_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_longer_than_the_service_stores_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_left_out_is_counted_and_named_in_a_warning_that_leaves_out_its_body]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_the_service_would_refuse_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_longer_than_the_service_stores_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_left_out_is_counted_and_named_in_a_warning_that_leaves_out_its_body, unit:dotnet:Backlog.Modules.Sync.UnitTests.AnnotationRecordLimitsTests.An_unknown_kind_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.AnnotationRecordLimitsTests.A_branch_past_the_bound_is_refused]
 ```
 
-A remark filed under no repository, with a blank chapter path or a negative block index, or with a field past its bound, is left out of the push, named in a warning without its body, and offered again only after an edit.
+A remark the sync service would refuse is left out of the push, named in a warning without its body, and offered again only after an edit.
+The service refuses a remark filed under no repository, one with a blank chapter path or a negative block index, one whose kind is not comment, question, suggestion or flag, and one with a field past its bound, its branch name included.
 The sync service refuses a push whole, so sending it would hold back every remark beside it on every cycle.
 
 Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimits.WhyRefused()`, the rule the sync endpoint runs
@@ -107,6 +108,32 @@ A remark is never written into a repository's devbook folders.
 That is what lets a reader remark on a branch snapshot nobody can write to.
 
 Enforced at: `DevbookAnnotationStore`, which writes only under its own storage folder (`FolderName`), and `DevbookAnnotation`, which holds a repository alias and a chapter path rather than a path on disk
+
+### Invariant: An import never overwrites a remark the store holds
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_overwrites_a_remark_the_store_holds, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_brings_back_a_remark_the_person_deleted, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
+```
+
+Importing a repository's open review notes writes only the remarks the store holds no document for, so a remark already held, a tombstone included, stays as it is.
+The person may have edited, resolved or deleted the remark since, and an import that ran again would otherwise undo that.
+
+Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which checks and writes under one lock; `SessionDevbookAnnotationStore.ImportIfAbsent()` holds the same rule
+
+### Invariant: An imported remark keeps its authored time
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_imported_remark_stamped_in_the_past_is_not_pushed_as_a_new_change
+```
+
+An imported remark is stamped with its review note's date, or with the time of the commit that added the chapter when the note states none, and never with the store's clock.
+Every device imports for itself under the same id, so a remark stamped in the past is not pushed as a new change.
+
+Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which writes the remark's own stamps
 
 ## Subject State
 
@@ -245,6 +272,32 @@ A subject's state is never written into a repository's devbook folders or into t
 That is what lets a reader set a debt record's state on a branch snapshot nobody can write to, and what keeps a state when the database is rebuilt.
 
 Enforced at: `DevbookSubjectStateStore`, which writes only under its own storage folder (`FolderName`), and `DevbookSubject`, which holds a repository path rather than a path on disk
+
+### Invariant: An import never overwrites a state the store holds
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.An_import_never_overwrites_a_state_the_store_holds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookSubjectStateStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
+```
+
+Importing a repository's default-branch states writes only the states the store holds no document for, so a state already held stays as it is.
+A state set in the app since says more than the Markdown the import read, and an import that ran again would otherwise undo it.
+
+Enforced at: `DevbookSubjectStateStore.ImportIfAbsent()`, which checks and writes under one lock; `SessionDevbookSubjectStateStore.ImportIfAbsent()` holds the same rule
+
+### Invariant: An imported state keeps its authored time
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.An_imported_state_stamped_in_the_past_is_not_pushed_as_a_new_change
+```
+
+An imported state is stamped with the time the repository authored it, or with the time of the commit that added its file when it has no record, and never with the store's clock.
+Every device imports for itself under the same id, so a state stamped in the past is not pushed as a new change.
+
+Enforced at: `DevbookSubjectStateStore.ImportIfAbsent()`, which writes the state's own stamps
 
 ## Shared Value Objects
 
