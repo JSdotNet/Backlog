@@ -147,16 +147,49 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     }
 
     /// <summary>
-    /// The location, stamped with whether its repository is archived.
+    /// The location, stamped with whether its repository is archived and with the
+    /// branch a remark on it is keyed by.
     /// <para>
     /// Stamped once here rather than at each of the answers below, so no answer
     /// about an archived repository can leave the flag off: the flag is what turns
     /// <see cref="DevbookFolderLocation.CanEdit"/> false for its clone and what the
     /// panels refuse a new remark on (local ADR 0029 §4).
     /// </para>
+    /// <para>
+    /// The branch is the repository's configured devbook branch when it reads
+    /// from a snapshot of a named branch, and null otherwise — a clone, or the
+    /// default branch's snapshot — whether or not this folder resolved. A
+    /// configured name is taken as given: whether it happens to be the default
+    /// branch is GitHub's to say, and this resolution never asks it.
+    /// </para>
     /// </summary>
     private static DevbookFolderLocation Stamped(DevbookFolderLocation location, GitHubRepositoryRef repository) =>
-        repository.Archived ? location with { RepositoryArchived = true } : location;
+        location with
+        {
+            RepositoryArchived = location.RepositoryArchived || repository.Archived,
+            Branch = RemarkBranchOf(repository)
+        };
+
+    /// <summary>The same key <see cref="Stamped"/> puts on a location, read from the
+    /// registry alone: no folder is resolved, so no snapshot fetch is started. An
+    /// unscoped question is answered for the repository <see cref="Resolve"/> would
+    /// fall back to, and one the registry does not know for the default branch.</summary>
+    public string? RemarkBranch(string? repositoryAlias)
+    {
+        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? FallbackAlias() : repositoryAlias;
+
+        return alias is not null && _settings.Current.Find(alias) is { } repository
+            ? RemarkBranchOf(repository)
+            : null;
+    }
+
+    /// <summary>The one rule both answers above keep: the configured devbook branch
+    /// when the repository reads a named branch's snapshot, and null — the default
+    /// branch — for a clone or the default branch's snapshot.</summary>
+    private static string? RemarkBranchOf(GitHubRepositoryRef repository) =>
+        repository.DevbookSource is DevbookSourceKind.Branch && !string.IsNullOrWhiteSpace(repository.DevbookBranch)
+            ? repository.DevbookBranch.Trim()
+            : null;
 
     /// <summary>The repository an unscoped question is answered for, or null
     /// when it is answered for none: the default repository — the first active
@@ -412,7 +445,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     /// kilobytes each and read only when a rendered diagram is shown, so an area
     /// is fetched without them — they are the bulk of what the archive used to
     /// carry, and the reason it was slow.</summary>
-    private const string RenderedArtifactsFolder = "_archify";
+    private const string RenderedArtifactsFolder = DevbookSnapshotSelection.RenderedArtifactsFolder;
 
     /// <summary>The repository behind a branch location, or null when the
     /// location is a local folder or this composition has no snapshots.</summary>

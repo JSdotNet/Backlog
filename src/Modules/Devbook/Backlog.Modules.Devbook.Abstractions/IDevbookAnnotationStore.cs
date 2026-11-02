@@ -31,8 +31,15 @@ public interface IDevbookAnnotationStore
     /// <summary>The live remarks on one chapter, drafts included, oldest first.
     /// An unscoped chapter — no repository alias — is answered under the empty
     /// alias, so a storybook or harness with no registry still keeps its
-    /// remarks somewhere.</summary>
-    IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath);
+    /// remarks somewhere.
+    /// <para>
+    /// Only the remarks left on <paramref name="branch"/>: null, or blank, is the
+    /// default branch, which is what a clone and a default-branch snapshot read;
+    /// a named-branch snapshot asks by its branch's name
+    /// (<see cref="DevbookFolderLocation.Branch"/>).
+    /// </para>
+    /// </summary>
+    IReadOnlyList<DevbookAnnotation> List(string? repositoryAlias, string chapterPath, string? branch = null);
 
     /// <summary>One remark by id, tombstone or not, or null. Replication asks
     /// this to decide whether an arriving version is newer.</summary>
@@ -47,13 +54,20 @@ public interface IDevbookAnnotationStore
     /// can compute one: a host without it still gets today's index-only
     /// anchoring rather than a refusal.
     /// </para>
+    /// <para>
+    /// <paramref name="kind"/> is what the remark is, a comment unless said
+    /// otherwise, and <paramref name="branch"/> the branch the chapter was read
+    /// from — null for the default branch, as <see cref="List"/> takes it.
+    /// </para>
     /// </summary>
     DevbookAnnotation Add(
         string? repositoryAlias,
         string chapterPath,
         int blockIndex,
         string author,
-        string? blockHash = null);
+        string? blockHash = null,
+        DevbookAnnotationKind kind = DevbookAnnotationKind.Comment,
+        string? branch = null);
 
     /// <summary>Replaces the body. A no-op for an id the store does not hold.</summary>
     void Edit(Guid id, string body);
@@ -74,6 +88,28 @@ public interface IDevbookAnnotationStore
     /// live, stamps and all. Nothing here decides whether it should win; the
     /// merge did.</summary>
     void Apply(DevbookAnnotation replicated);
+
+    /// <summary>
+    /// Writes each of <paramref name="imported"/> whose id the store does not hold
+    /// at all — live, draft or tombstone — exactly as given, stamps included, and
+    /// answers how many it wrote.
+    /// <para>
+    /// The third kind of write: the one-time import of a repository's open
+    /// <c>annotation</c> fences. It never overwrites, so a remark a person has
+    /// edited, resolved or deleted since stays as they left it, and running the
+    /// import again writes nothing. The stamps are the note's authored time rather
+    /// than the store's clock, so any later write by a person wins, and the
+    /// imported remark sits behind a push watermark the device has already passed:
+    /// every device imports for itself and the deterministic ids converge.
+    /// </para>
+    /// <para>
+    /// <see cref="Changed"/> is raised once when anything was written and not at
+    /// all when nothing was. It is not <see cref="Apply"/>: nothing arrived from
+    /// another device, so a decorator that tells the person about remarks left
+    /// elsewhere says nothing about these.
+    /// </para>
+    /// </summary>
+    int ImportIfAbsent(IReadOnlyList<DevbookAnnotation> imported);
 
     /// <summary>
     /// Everything this machine has changed strictly after <paramref name="watermark"/>,

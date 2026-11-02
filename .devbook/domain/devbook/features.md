@@ -88,7 +88,7 @@ rather than offering an empty tab strip.
 type: sub-feature
 status: draft
 feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
-related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
 
 Present each area's documents as readable content rather than raw files:
@@ -100,11 +100,11 @@ vocabulary rather than as an unknown one.
 
 Two parts of this are switches of their own, both off by default.
 [Devbook status](context.md#devbook-status) draws the status and decision state
-beside each file and chapter, and
-[Devbook editing](context.md#devbook-editing) offers Edit on a repository
+beside each file and chapter, and the state the app keeps for a decision or debt
+record. [Devbook editing](context.md#devbook-editing) offers Edit on a repository
 chapter; a Brain note keeps Edit either way. What follows about showing a status
-or a decision holds while status is on. Off, the file still states them and the
-app draws neither.
+or a decision holds while status is on. Off, the file still states them, the app
+still keeps a record's state, and the app draws none of it.
 
 Documents appear in the order the convention gives them:
 
@@ -126,20 +126,34 @@ enforce, folder by folder, so a chapter the app shows as fine is not one those
 checks reject:
 
 - **A status at rest says nothing.** Architecture, domain and design chapters
-  that are simply current carry no status at all and are shown as current.
-  Choosing "current" for one removes the word rather than writing it, and a
-  chapter that spells it out anyway is pointed out. Technology and AI-adoption
-  chapters are ratings, so the file always states theirs.
-- **A decision is state, not content.** A domain chapter can stand approved
-  (someone agreed it), and above that accepted (someone saw the built work
-  against it and accepted it). Where a review stands on the way there is state
-  too: requested, changes requested or cleared, and who owes the next move. The
-  app never offers those two steps as a status to pick, because the approval step
-  that makes the decision records them. Where that state is shown, and when a
-  decision record goes, are in
+  that are simply current carry no status at all and are shown as current. The
+  app writes no status into those chapters. A status one states anyway is shown
+  as a badge, and a chapter that spells out "current" is pointed out. Technology
+  and AI-adoption chapters are ratings, so the file always states theirs. The app
+  reads a rating from the `rating` field, and from `status` until the repository
+  migrates. A rating is the one value the reader picks, and the app writes it into
+  whichever of the two fields the chapter carries.
+- **A decision is state, not content.** A domain chapter can state that it stands
+  approved (someone agreed it), and above that accepted (someone saw the built
+  work against it and accepted it). Where a review stands on the way there is
+  state too: requested, changes requested or cleared, and who owes the next move.
+  The app shows them as the chapter states them and never writes them. Where that
+  state is shown is in
   [the requirements of this sub-feature](requirements.md#rendered-devbook-documents).
   No other area has them, and a chapter outside the domain that carries one is
   pointed out.
+- **A record's workflow state is the app's.** The app keeps the state of a
+  decision record and a debt record itself, never in the file
+  ([Subject State](domain.md#subject-state), local ADR 0044). The states a
+  repository's default branch still writes in its Markdown are imported into that
+  store once. The record shows that state beside its name, with who set it and
+  when. A debt record's state is picked there, on a branch snapshot too, because
+  picking it writes no file. A
+  decision record's state is shown and never picked. It is kept per pull request,
+  which the panel does not know, so the panel shows the state set most recently
+  for that path, in any pull request. An assistant sets it over the app's MCP
+  server, and a change proposal's state, approval and acceptance the same way.
+  No panel shows a proposal's state yet.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers its boundary document, its requirements and
   invariants and the single rules inside them, and its switches and settings. It
@@ -152,6 +166,9 @@ checks reject:
   that back it, its number and place in the reading order, and the day it
   records. State another tool keeps on the chapter under its own name is
   [carried as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
+- **Planning fields are not drawn.** The chapter view shows no `issue`, `effort`,
+  `roadmap` or `change` field. The app still reads them where tasks and the
+  knowledge graph need them.
 
 A bounded context's click demo is shown with the page it belongs to. A demo is
 the one HTML file a context holds: a clickable picture of what a person sees. It
@@ -224,18 +241,23 @@ related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-contai
 ```
 
 Let a reader leave a [remark](domain.md#remark) against one block of a chapter
-while reading it, and keep it. A remark can be a question, a flag or a note to
-self, and it sits beside the prose rather than inside it. It belongs to the
-person, not to the repository. The app keeps it, it moves with the person's
+while reading it, and keep it. A remark has a kind: a comment, a question, a
+suggestion or a flag. It sits beside the prose rather than inside it. It belongs
+to the person, not to the repository. The app keeps it, it moves with the person's
 backlog, and it reaches their other devices through sync. Because it stays out
 of the repository, a reader can remark on a chapter read from a branch nobody
 can edit; [the Remark invariants](domain.invariants.md#remark) say how. A remark
 can be resolved, which keeps it visible and quiet, or deleted.
 
+A remark is kept per branch. A remark left on a named branch shows only while
+that branch is read. A remark left on the default branch shows on a clone and on
+the default branch's snapshot alike.
+
 A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
 repository writes into a chapter; those are shown under
-[Review notes in a chapter](#review-notes-in-a-chapter). The app does not turn a
-remark into a review note.
+[Review notes in a chapter](#review-notes-in-a-chapter). A repository's open
+review notes on its default branch arrive as remarks once, imported by the app.
+The app does not turn a remark into a review note.
 
 A remark is anchored to the block it was left on, and remembers what that block
 said, so the chapter can change under it without the remark being lost. Where the
@@ -262,7 +284,8 @@ assistant's read, search and excerpts is in
 
 The app shows these notes and does not write them; the convention's own tooling
 does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
-shown apart and never merged, the decision local ADR 0011 records.
+shown apart. The default branch's open notes are imported once into remarks, as
+local ADR 0011 records, and the app still never writes a review note.
 
 ### Sync verdicts beside a chapter
 

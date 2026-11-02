@@ -52,9 +52,13 @@ public class McpToolCreationTests
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
+        DecisionTools.GetState,
+        SyncDirectionTools.ListSyncDirections,
+        DecisionTools.ListNotes,
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
+        UsageTools.ListRunUsage,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries,
@@ -148,6 +152,11 @@ public class McpToolCreationTests
                 TrackerTools.CreateItem,
                 GoalTools.DeleteGoal,
                 GoalTools.DetachFromGoal,
+                DecisionTools.Accept,
+                DecisionTools.Approve,
+                DecisionTools.PostNote,
+                DecisionTools.ResolveNote,
+                DecisionTools.SetState,
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
@@ -247,6 +256,34 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
         Assert.Equal(["title", "body"], schemas["capture_note"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
+
+        // devbook.decision@1's arguments and nothing else: who decided and when are
+        // the host's, so neither by nor at is a parameter a caller could fill in.
+        Assert.Equal(["repository", "subject"], schemas["devbook_get_state"]);
+        Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
+        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_approve"]);
+        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_accept"]);
+
+        // The units are optional: without them the tool answers the stated entries.
+        Assert.Equal(["repository", "units"], schemas["list_sync_directions"]);
+        Assert.Equal(["repository"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_sync_directions")));
+
+        // The note operations' arguments: by and at are the host's here too, and
+        // the contract carries no branch.
+        Assert.Equal(["repository", "address"], schemas["devbook_list_notes"]);
+        Assert.Equal(["repository", "address", "body", "kind", "replyTo"], schemas["devbook_post_note"]);
+        Assert.Equal(["repository", "address", "body"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "devbook_post_note")));
+        Assert.Equal(["repository", "id"], schemas["devbook_resolve_note"]);
+        Assert.All(
+            [DecisionTools.GetState, DecisionTools.SetState, DecisionTools.Approve, DecisionTools.Accept],
+            name =>
+            {
+                var tool = Tools().Single(candidate => candidate.ProtocolTool.Name == name);
+                var subject = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("subject");
+
+                Assert.Equal(["kind", "name", "path", "pullRequest"], Properties(subject));
+                Assert.Equal(schemas[name], Required(tool));
+            });
 
         // Optional, and optional means absent from `required` rather than absent
         // from the schema: a model has to be told the narrowing exists to use it.
@@ -354,10 +391,20 @@ public class McpToolCreationTests
                 new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
                 new FakeDevbookAnnotationStore(),
                 new FakeRepositoryDirectory()),
+            [typeof(DecisionTools)] = new DecisionTools(
+                new FakeDevbookSubjectStateStore(TimeProvider.System),
+                new FakeRepositoryDirectory(),
+                new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+                new FakeDevbookAnnotationStore()),
+            [typeof(SyncDirectionTools)] = new SyncDirectionTools(new FakeDevbookSyncDirectionStore(), new FakeRepositoryDirectory()),
             [typeof(SessionTools)] = new SessionTools(
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
+            [typeof(UsageTools)] = new UsageTools(
+                new FakeDeliveryRunSource(DeliveryRunCatalog.Empty),
+                new FakeAgentSessionSource(AgentSessionCatalog.Empty),
+                new FakeClaudeApiRequestStore()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),

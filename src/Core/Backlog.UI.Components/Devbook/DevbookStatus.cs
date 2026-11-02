@@ -166,6 +166,62 @@ public static class DevbookStatus
         _ => string.Empty
     };
 
+    /// <summary>
+    /// The tone a devbook subject's state carries: a decision record's, a debt
+    /// record's or a proposal's, which the tool keeps rather than the file.
+    ///
+    /// <para>On the same scale as a folder's status, because a reader meets the two
+    /// side by side in one headline and the colour scheme allows one scale. Unset is
+    /// quiet, as nothing has happened to it yet. Work under way is live: a debt
+    /// record planned or in progress, a proposal approved and being built. A state
+    /// that has finished is settled: resolved, decided, accepted. A declined
+    /// decision is out of force, so it is retired. The kind is asked because the
+    /// same word could mean different things in different subjects; a kind or a
+    /// word this does not know gets <see cref="DevbookStatusTone.Unknown"/> rather
+    /// than a guess.</para>
+    /// </summary>
+    /// <param name="kind">The subject's kind as the contract names it —
+    /// <c>decision</c>, <c>debt</c>, <c>proposal</c>.</param>
+    /// <param name="state">The state, or null for a subject nobody has set one
+    /// on.</param>
+    public static DevbookStatusTone SubjectTone(string? kind, string? state)
+    {
+        var value = state?.Trim().ToLowerInvariant();
+
+        return kind?.Trim().ToLowerInvariant() switch
+        {
+            "debt" => value switch
+            {
+                null or "" or "identified" => DevbookStatusTone.Provisional,
+                "planned" or "in-progress" => DevbookStatusTone.Active,
+                "resolved" => DevbookStatusTone.Complete,
+                _ => DevbookStatusTone.Unknown
+            },
+            "decision" => value switch
+            {
+                null or "" or "proposed" => DevbookStatusTone.Provisional,
+                "decided" => DevbookStatusTone.Complete,
+                "declined" => DevbookStatusTone.Retired,
+                _ => DevbookStatusTone.Unknown
+            },
+            "proposal" => value switch
+            {
+                null or "" or "draft" => DevbookStatusTone.Provisional,
+                "approved" => DevbookStatusTone.Active,
+                "accepted" => DevbookStatusTone.Complete,
+                _ => DevbookStatusTone.Unknown
+            },
+            _ => DevbookStatusTone.Unknown
+        };
+    }
+
+    /// <summary>The status badge modifier a subject's state wears — the same
+    /// modifier whether the state is drawn as a select or as a badge, so an
+    /// editable state is never told apart from a read-only one by its colour.
+    /// Empty for a state <see cref="SubjectTone"/> does not know, which leaves the
+    /// plain badge.</summary>
+    public static string SubjectSlug(string? kind, string? state) => Modifier(SubjectTone(kind, state));
+
     /// <summary>The values a folder allows, in the order its own instructions
     /// list them.</summary>
     public static IReadOnlyList<string> Values(DevbookFolder folder) => folder switch

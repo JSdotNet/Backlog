@@ -64,6 +64,16 @@ public sealed class CosmosOptions
     public string AnnotationsContainerName { get; set; } = "annotations";
 
     /// <summary>
+    /// The container holding devbook subject state documents — a change
+    /// proposal's, a decision record's, a debt record's — partitioned on
+    /// <c>/ownerId</c> like the other replica containers. No TTL and no
+    /// tombstones: a subject's state is set and never deleted, so the container
+    /// keeps every document for as long as its owner has one.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string DevbookSubjectsContainerName { get; set; } = "devbookSubjects";
+
+    /// <summary>
     /// The container holding registered devices, partitioned on <c>/id</c> —
     /// the device id, not the owner. The one read on every token mint has only
     /// the device id in hand, and partitioning on the owner would put a

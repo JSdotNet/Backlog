@@ -743,6 +743,36 @@ rule this area already applies to a dashboard's own gaps.
 [The cost of a run and its stages](#the-cost-of-a-run-and-its-stages) extends these
 figures with what the run and each stage cost in money.
 
+### What every run spent, for a report
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.The_default_window_is_the_last_seven_days_by_start, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.A_run_carries_its_totals_and_its_uncached_figure, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.Models_are_read_from_the_requests_claude_code_reported_while_the_run_was_open, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.A_request_belongs_to_one_run_and_an_abandoned_run_ends_where_the_next_began, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.UsageToolsTests.Runs_are_placed_in_a_repository_by_what_named_one]
+```
+
+A session reading back the run it drives is never handed these figures: they are
+measured, not the run's to claim. A report written afterwards about many runs is the
+reader they are for, so it reads them through `list_run_usage`, a read-only tool of its
+own beside the delivery surface, behind the same Sessions switch.
+
+For a window — the last seven days, or a range of whole days — it answers every run on
+this machine that started inside it, across every repository:
+
+- the repository the run is placed in: the one it named, else its session's, else the
+  work it was linked to; a run nothing places is kept, with no repository;
+- its total and delegated tokens, each with the uncached figure beside it — input, cache
+  writes and output, the prompt cache's reads left out;
+- the same per stage, and per agent it delegated to;
+- per model, what Claude Code reported for the requests its sessions made while it was
+  open, each request counted for one run only; where nothing was reported, the models
+  are named with no figures;
+- the fullest its context got and how often it was compacted;
+- and a total per repository.
+
+A figure nothing measured is left out, never shown as zero. The `backlog-tools` plugin's
+weekly cost analysis reads it, repository by repository.
+
 ## The session list and its detail
 
 ```meta

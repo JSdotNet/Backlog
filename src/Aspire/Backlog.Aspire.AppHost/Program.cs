@@ -34,6 +34,9 @@ var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");
 cosmosDatabase.AddContainer("sessions", "/ownerId");
 cosmosDatabase.AddContainer("annotations", "/ownerId");
+// Devbook subject state — a change proposal's, a decision record's, a debt record's —
+// partitioned on the owner like the other replicas, with no TTL: a state is never deleted.
+cosmosDatabase.AddContainer("devbookSubjects", "/ownerId");
 // Notifications and the replies to them (local ADR 0039), partitioned on the owner like
 // the other replicas. Their TTLs — 30 days after a notification settles, and the reply
 // backstop — are stamped per document and live only in the bicep, as the others do.
