@@ -30,15 +30,6 @@ internal sealed class InMemoryImpedimentRepository : IImpedimentRepository
     }
 }
 
-/// <summary>The tasks marked blocked, as Tasks would answer them.</summary>
-internal sealed class FakeBlockedTasks : IBlockedTaskSource
-{
-    public List<BlockedTaskDto> Blocked { get; } = [];
-
-    public Task<IReadOnlyList<BlockedTaskDto>> ReadBlockedAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<BlockedTaskDto>>([.. Blocked]);
-}
-
 /// <summary>The impediments the scenarios use, on the requirements' days in October 2026.</summary>
 internal static class MakeImpediment
 {

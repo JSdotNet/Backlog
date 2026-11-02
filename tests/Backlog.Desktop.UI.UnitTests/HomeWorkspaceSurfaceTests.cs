@@ -3199,7 +3199,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 
-    // ----- The Lobes atlas (.devbook/domain/devbook/context.md#lobes-atlas) ------------
+    // ----- The Lobes atlas (.devbook/domain/brain/context.md#lobes-atlas) ------------
 
     /// <summary>With the atlas-lobes flag off — its default — the header offers no
     /// Atlas.</summary>

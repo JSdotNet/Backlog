@@ -38,6 +38,9 @@
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.Modules.Roadmap.Abstractions
 @using Backlog.Modules.Sessions.Abstractions
+@* The Brain's published surface (local ADR 0040): Home reads its folder,
+   setup words and task links, as the shell may for every context. *@
+@using Backlog.Modules.Brain.Abstractions
 @* Capture's published surface, and the one exception to "constants only": the
    Inbox's Capture button is answered here, by calling the module's runner and
    writing its result into a sentence for the pane. The pane itself stays free

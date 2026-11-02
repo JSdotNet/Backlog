@@ -5074,13 +5074,16 @@
         const scopes = new Map((model.scopes || []).map((scope) => [scope.key, scope]));
         const seats = backlogLobesSeats(model);
         const hiddenLobes = new Set((model.hiddenLobes || []).map((region) => region.scope + '\u0000' + region.lobe));
+        const hiddenAllLobes = new Set((model.hiddenAllLobes || []).map((region) => region.scope + '\u0000' + region.lobe));
         const showLabels = model.showLabels !== false;
         let palette = backlogLobesPalette();
 
-        // What is drawn: a mark whose scope has a seat, and — in a scope's own
-        // layout — whose region the reader has not hidden.
+        // What is drawn: a mark whose scope has a seat, and whose region is not
+        // hidden — by the reader in a scope's own layout, or in All by the
+        // host's own list (a devbook's technology until its toggle is on). A
+        // link or a pick only ever reaches a drawn mark, through byId below.
         const drawn = (mark) => seats.has(mark.scope)
-            && (all || !hiddenLobes.has(mark.scope + '\u0000' + mark.lobe));
+            && !(all ? hiddenAllLobes : hiddenLobes).has(mark.scope + '\u0000' + mark.lobe);
 
         const points = backlogLobesAnatomy(model).filter((point) => drawn(point.mark));
 

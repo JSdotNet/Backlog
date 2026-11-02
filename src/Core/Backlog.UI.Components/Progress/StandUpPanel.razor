@@ -16,6 +16,13 @@
     focus moves on to the impediment that took its place, the last one when it was the
     last, or the "n resolved" line once none is left.
 
+    With a host listening on OnRaiseImpediment, the Impediments heading carries "Raise
+    impediment", and the host opens ImpedimentRaiseDialog
+    (.devbook/domain/progress/features.md#raising-an-impediment). With hosts listening on
+    OnLinkImpediment and OnUnlinkImpediment each row offers Link… over the board's
+    Candidates and Repositories and an Unlink per item it holds back; a link or unlink
+    waits the other rows as a move does, and LinkError shows in the row that asked last.
+
     The Goals block of the stand-up is the goals column beside this; the clipboard text
     carries all four.
 *@
@@ -66,6 +73,15 @@
             <span class="stand-up-panel__dot stand-up-panel__dot--impediments" aria-hidden="true"></span>
             <h3 class="stand-up-panel__block-title" id="@($"{_id}-impediments")">Impediments</h3>
             <Badge Kind="tone" Slug="quiet" TestId="@Part("impediments-count")">@StandUp.Impediments.Count</Badge>
+            @if (OnRaiseImpediment.HasDelegate)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           Disabled="Busy"
+                           CssClass="stand-up-panel__raise"
+                           OnClick="() => OnRaiseImpediment.InvokeAsync()"
+                           TestId="@Part("raise")">Raise impediment</AppButton>
+            }
         </div>
         @for (var index = 0; index < StandUp.Impediments.Count; index++)
         {
@@ -74,9 +90,14 @@
             <ImpedimentRow @key="impediment.Id"
                            @ref="_rows[impediment.Id]"
                            Impediment="impediment"
-                           Disabled="@(Busy && impediment.Id != _moving && impediment.Id != _noting)"
+                           Disabled="@(Busy && impediment.Id != _moving && impediment.Id != _noting && impediment.Id != _linking)"
                            OnMove="state => MoveAsync(impediment.Id, at, state)"
                            OnEditNote="@(OnEditImpedimentNote.HasDelegate ? EventCallback.Factory.Create<string?>(this, note => EditNoteAsync(impediment.Id, note)) : default)"
+                           OnLink="@(OnLinkImpediment.HasDelegate ? EventCallback.Factory.Create<GoalSubject>(this, subject => LinkAsync(impediment.Id, subject)) : default)"
+                           OnUnlink="@(OnUnlinkImpediment.HasDelegate ? EventCallback.Factory.Create<GoalSubject>(this, subject => UnlinkAsync(impediment.Id, subject)) : default)"
+                           Candidates="Candidates"
+                           Repositories="Repositories"
+                           LinkError="@(impediment.Id == _linked ? LinkError : null)"
                            TestId="@Part($"impediment-{impediment.Id}")" />
         }
         @if (StandUp.ResolvedInLast > 0)
@@ -91,6 +112,8 @@
     private readonly Dictionary<string, ImpedimentRow> _rows = new(StringComparer.Ordinal);
     private string? _moving;
     private string? _noting;
+    private string? _linking;
+    private string? _linked;
     private int _parameterSets;
     private (string Id, int Index, int ParameterSets)? _resolving;
 
@@ -108,6 +131,33 @@
     /// <summary>An impediment's note was written; without a listener the notes are text.</summary>
     [Parameter]
     public EventCallback<ImpedimentNoteRequest> OnEditImpedimentNote { get; set; }
+
+    /// <summary>Raise impediment was pressed: the host opens <see cref="ImpedimentRaiseDialog"/>.
+    /// Without a listener there is no Raise impediment.</summary>
+    [Parameter]
+    public EventCallback OnRaiseImpediment { get; set; }
+
+    /// <summary>A task, pull request or plan was picked in a row's Link…. Without a listener
+    /// no row offers Link….</summary>
+    [Parameter]
+    public EventCallback<ImpedimentLinkRequest> OnLinkImpediment { get; set; }
+
+    /// <summary>An item's Unlink was pressed in a row. Without a listener no item has one.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentUnlinkRequest> OnUnlinkImpediment { get; set; }
+
+    /// <summary>What a row's Link… search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number in Link… is read in.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>Why the last link or unlink was refused, in the module's words; shown in the
+    /// row that asked.</summary>
+    [Parameter]
+    public string? LinkError { get; set; }
 
     /// <summary>While a move is being saved: the pickers wait.</summary>
     [Parameter]
@@ -153,6 +203,28 @@
         finally
         {
             _noting = null;
+        }
+    }
+
+    /// <summary>A link or an unlink is saved like a note: the other rows wait, and this one
+    /// stays live so the focus in its search or on its Link… stays.</summary>
+    private Task LinkAsync(string impedimentId, GoalSubject subject) =>
+        LinkWriteAsync(impedimentId, () => OnLinkImpediment.InvokeAsync(new ImpedimentLinkRequest(impedimentId, subject)));
+
+    private Task UnlinkAsync(string impedimentId, GoalSubject subject) =>
+        LinkWriteAsync(impedimentId, () => OnUnlinkImpediment.InvokeAsync(new ImpedimentUnlinkRequest(impedimentId, subject)));
+
+    private async Task LinkWriteAsync(string impedimentId, Func<Task> write)
+    {
+        _linking = impedimentId;
+        _linked = impedimentId;
+        try
+        {
+            await write();
+        }
+        finally
+        {
+            _linking = null;
         }
     }
 

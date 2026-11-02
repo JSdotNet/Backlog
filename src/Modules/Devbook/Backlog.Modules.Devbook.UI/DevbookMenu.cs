@@ -47,108 +47,108 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return new DevbookMenuTree(folders);
     }
 
-    /// <summary>What every Brain area key starts with, so a Brain area never
-    /// shares a key with a repository area of the same folder name
+    /// <summary>What every personal tab key starts with, so a tab of the Brain
+    /// never shares a key with a repository folder of the same name
     /// (<c>domain</c>, <c>design</c>, <c>ai</c>) and none of the pane's
-    /// repository special cases reaches it.</summary>
-    public const string BrainAreaPrefix = "brain/";
+    /// repository special cases reaches it. The value is stored in the pane's
+    /// navigation state and stays <c>brain/</c>.</summary>
+    public const string PersonalTabPrefix = "brain/";
 
-    /// <summary>The area key of the Brain area in <paramref name="folder"/>:
+    /// <summary>The key of the personal tab over <paramref name="folder"/>:
     /// <c>brain/work</c> for <c>work</c>.</summary>
-    public static string BrainAreaKey(string folder)
+    public static string PersonalTabKey(string folder)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
-        return BrainAreaPrefix + folder.ToLowerInvariant();
+        return PersonalTabPrefix + folder.ToLowerInvariant();
     }
 
-    /// <summary>Whether <paramref name="areaKey"/> names a Brain area rather
-    /// than a repository one.</summary>
-    public static bool IsBrainAreaKey(string? areaKey) =>
-        areaKey is not null
-        && areaKey.Length > BrainAreaPrefix.Length
-        && areaKey.StartsWith(BrainAreaPrefix, StringComparison.Ordinal);
+    /// <summary>Whether <paramref name="tabKey"/> names a personal tab rather
+    /// than a repository folder.</summary>
+    public static bool IsPersonalTabKey(string? tabKey) =>
+        tabKey is not null
+        && tabKey.Length > PersonalTabPrefix.Length
+        && tabKey.StartsWith(PersonalTabPrefix, StringComparison.Ordinal);
 
     /// <summary>
-    /// The rail over the Brain (local ADR 0026 §2): one root per area — the ones
-    /// its <c>CONVENTIONS.md</c> declares, in that order, or the PARA set, then
-    /// every other top folder holding a note — keyed <see cref="BrainAreaKey"/>,
-    /// labelled with the area's name, each listing that area folder's notes.
+    /// The rail over the personal devbook — the Brain (local ADR 0040 §2): one
+    /// root per tab its source answers (<see cref="IDevbookPersonalSource.Tabs"/>),
+    /// in that order, keyed <see cref="PersonalTabKey"/>, labelled with the tab's
+    /// label, each listing that folder's chapters.
     /// <para>
-    /// With <paramref name="showHidden"/> on (Show hidden), the hidden areas —
-    /// each folder <c>## Ignore</c> lists and each dot-folder — follow every other
-    /// root, and every area lists its dot-entries too. Off, a dot-folder or
-    /// dot-file — an editor's or a sync client's own state — is not a note and is
-    /// not listed.
+    /// With <paramref name="showHidden"/> on (Show hidden), the hidden tabs
+    /// (<see cref="IDevbookPersonalSource.HiddenTabs"/>) follow every other root,
+    /// and every tab lists its dot-entries too. Off, a dot-folder or dot-file — an
+    /// editor's or a sync client's own state — is not a chapter and is not listed.
     /// </para>
     /// <para>
-    /// Every node's <see cref="DevbookMenuNode.Path"/> is relative to the Brain's
-    /// root (<c>projects/plan.md</c>), the way the Brain's database names a note,
-    /// so a panel opens it against the one folder the Brain resolves to. An area
-    /// whose folder is not there yet is a root that says so rather than an error.
-    /// With no Brain folder set, or one that is not there, the tree is empty:
+    /// Every node's <see cref="DevbookMenuNode.Path"/> is relative to the
+    /// devbook's root (<c>projects/plan.md</c>), the way its database names a
+    /// chapter, so a panel opens it against the one folder the source resolves
+    /// to. A tab whose folder is not there yet is a root that says so rather than
+    /// an error. With no folder set, or one that is not there, the tree is empty:
     /// what to say about that is <see cref="IDevbookFolderSource.Resolve"/>'s
     /// message, not a menu row.
     /// </para>
     /// <para>
-    /// No generated outline is read: a Brain note's place in its area is its
-    /// name, the same order the folder shows in any file browser.
+    /// No generated outline is read: a chapter's place in its tab is its name,
+    /// the same order the folder shows in any file browser.
     /// </para>
     /// </summary>
-    public async Task<DevbookMenuTree> LoadBrainAsync(IBrainFolderSource brain, bool showHidden = false, CancellationToken cancellationToken = default)
+    public async Task<DevbookMenuTree> LoadBrainAsync(IDevbookPersonalSource source, bool showHidden = false, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(brain);
+        ArgumentNullException.ThrowIfNull(source);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var location = await brain.PrepareListingAsync(BrainConventions.FolderKey, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var location = await source.PrepareListingAsync(source.FolderKey, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null) return DevbookMenuTree.Empty;
 
-        var tree = brain.FileTree(location);
-        var brainRoot = location.FullPath;
+        var tree = source.FileTree(location);
+        var root = location.FullPath;
 
         // On the pool for the reason ReadFolderAsync gives: the pane awaits this
-        // on the dispatcher. Reading the areas is a disk walk of its own too —
-        // CONVENTIONS.md, then each undeclared top folder probed for a note.
+        // on the dispatcher. Reading the tabs is a disk walk of its own too —
+        // the source's convention file, then each top folder it probes.
         return await Task.Run(() =>
         {
-            IReadOnlyList<BrainArea> areas = showHidden ? [.. brain.Areas(), .. brain.HiddenAreas()] : brain.Areas();
-            return new DevbookMenuTree([.. areas.Select(area => ReadBrainArea(tree, brainRoot, area, showHidden, cancellationToken))]);
+            IReadOnlyList<DevbookTab> tabs = showHidden ? [.. source.Tabs(), .. source.HiddenTabs()] : source.Tabs();
+            return new DevbookMenuTree([.. tabs.Select(tab => ReadPersonalTab(tree, root, tab, showHidden, cancellationToken))]);
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private static DevbookMenuNode ReadBrainArea(IDevbookFileTree tree, string brainRoot, BrainArea area, bool showHidden, CancellationToken cancellationToken)
+    private static DevbookMenuNode ReadPersonalTab(IDevbookFileTree tree, string root, DevbookTab tab, bool showHidden, CancellationToken cancellationToken)
     {
-        var areaKey = BrainAreaKey(area.Folder);
-        var folder = Path.Combine(brainRoot, area.Folder);
+        var tabKey = PersonalTabKey(tab.Folder);
+        var folder = Path.Combine(root, tab.Folder);
 
         if (!tree.DirectoryExists(folder))
         {
             return new DevbookMenuNode(
-                areaKey,
-                area.Name,
-                area.Folder,
+                tabKey,
+                tab.Label,
+                tab.Folder,
                 DevbookMenuNodeKind.Folder,
-                areaKey,
+                tabKey,
                 [],
                 false,
-                $"There is no {area.Folder} folder in the Brain yet.");
+                $"There is no {tab.Folder} folder in the Brain yet.");
         }
 
-        var children = EnumerateChildren(tree, folder, folder, areaKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: !showHidden);
-        IEnumerable<DevbookMenuNode> rebased = children.Select(child => RebaseOnBrain(child, area.Folder, areaKey));
-        if (BrainConventions.IsDated(area)) rebased = NewestFirst(rebased);
+        var children = EnumerateChildren(tree, folder, folder, tabKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: !showHidden);
+        IEnumerable<DevbookMenuNode> rebased = children.Select(child => RebaseOnRoot(child, tab.Folder, tabKey));
+        if (tab.NewestFirst) rebased = NewestFirst(rebased);
 
         return new DevbookMenuNode(
-            areaKey,
-            area.Name,
-            area.Folder,
+            tabKey,
+            tab.Label,
+            tab.Folder,
             DevbookMenuNodeKind.Folder,
-            areaKey,
+            tabKey,
             [.. rebased],
             true);
     }
 
     /// <summary>
-    /// A dated area's rows, newest first at every level ("Journal sorts newest
+    /// A newest-first tab's rows, newest first at every level ("Journal sorts newest
     /// first", the Devbook vs Brain board). A journal names its entries by date —
     /// <c>2026-10-13.md</c>, or <c>2026/10/13.md</c> — so the name on disk,
     /// descending, is the date descending; nothing is read from the files.
@@ -158,13 +158,13 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             .OrderByDescending(node => node.Key[(node.Key.LastIndexOf('/') + 1)..], StringComparer.OrdinalIgnoreCase)
             .Select(node => node.Children.Count == 0 ? node : node with { Children = [.. NewestFirst(node.Children)] });
 
-    /// <summary>A node listed relative to its area folder, re-keyed under the
-    /// area's key and re-pathed relative to the Brain's root.</summary>
-    private static DevbookMenuNode RebaseOnBrain(DevbookMenuNode node, string areaFolder, string areaKey) => node with
+    /// <summary>A node listed relative to its tab's folder, re-keyed under the
+    /// tab's key and re-pathed relative to the devbook's root.</summary>
+    private static DevbookMenuNode RebaseOnRoot(DevbookMenuNode node, string tabFolder, string tabKey) => node with
     {
-        Key = areaKey + "/" + node.Key,
-        Path = areaFolder + "/" + node.Path,
-        Children = [.. node.Children.Select(child => RebaseOnBrain(child, areaFolder, areaKey))]
+        Key = tabKey + "/" + node.Key,
+        Path = tabFolder + "/" + node.Path,
+        Children = [.. node.Children.Select(child => RebaseOnRoot(child, tabFolder, tabKey))]
     };
 
     private async Task<DevbookMenuNode> ReadFolderAsync(DevbookFolderSetting folder, string? repositoryAlias, CancellationToken cancellationToken)

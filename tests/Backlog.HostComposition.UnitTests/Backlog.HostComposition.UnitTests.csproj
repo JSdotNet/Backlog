@@ -42,6 +42,15 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The Brain's ports (local ADR 0040), which the composition rule resolves. -->
+    <ProjectReference Include="..\..\src\Modules\Brain\Backlog.Modules.Brain.Abstractions\Backlog.Modules.Brain.Abstractions.csproj" />
+    <!-- And the Brain's adapters, the concrete types the composition rule checks
+         it resolved. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Backlog.Modules.Brain.Abstractions" />
+    <Using Include="Backlog.Infrastructure.Brain" />
   </ItemGroup>
 
   <ItemGroup>

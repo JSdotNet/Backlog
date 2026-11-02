@@ -4,14 +4,14 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Inbox.Abstractions.Services;
 
 /// <summary>
-/// The Devbook context, as the Inbox is allowed to see it: the person's Brain
-/// (local ADR 0026), a place that takes a routed item as a new note and says
-/// where it put it — the <c>ItemTriaged</c> knowledge route of
-/// <c>.devbook/domain/devbook/dependencies.md</c>, realised as a call rather than
+/// The Brain context, as the Inbox is allowed to see it: the person's Brain
+/// (local ADR 0026, ADR 0040), a place that takes a routed item as a new note and
+/// says where it put it — the <c>ItemTriaged</c> knowledge route of
+/// <c>.devbook/domain/brain/context.md#dependencies</c>, realised as a call rather than
 /// an event, as <see cref="IInboxBacklogTarget"/> realises the route to Tasks.
 /// <para>
 /// A port declared here and answered in <c>src/Infrastructure</c>, never a
-/// reference to Devbook, for the reason the backlog target gives. A host may
+/// reference to the Brain, for the reason the backlog target gives. A host may
 /// leave it out — the mobile head has no Brain — and then To Brain answers
 /// <see cref="InboxErrors.BrainUnavailableCode"/> and routes nothing.
 /// </para>

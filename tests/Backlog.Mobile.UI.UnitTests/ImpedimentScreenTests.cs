@@ -271,6 +271,84 @@ public sealed class ImpedimentScreenTests
              "holdsBack":["{{StandupFixture.StatementId}}","{{StandupFixture.ReconcileId}}"],"createdAt":"2026-10-14T09:00:00+00:00"}
             """);
 
+    private static ScriptedTaskService WithReady()
+    {
+        var service = StandupFixture.Service();
+        service.Append(StandupFixture.ReadyImpediment());
+        return service;
+    }
+
+    /// <summary>An impediment holding back one task, one pull request and one plan, each
+    /// settled: the page lists all three under their kind, in link order, and reads Ready to
+    /// resolve by the stand-up reading's rule.</summary>
+    [Fact]
+    public void The_page_lists_the_tasks_pull_requests_and_plans_it_holds_back_and_reads_ready_to_resolve()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: WithReady());
+
+        var app = host.Open(Route(StandupFixture.ReadyId));
+
+        app.WaitForAssertion(() => Assert.Equal("Ready to resolve", app.Find("[data-testid='impediment-ready']").TextContent.Trim()));
+        Assert.Contains("badge--tone-settled", app.Find("[data-testid='impediment-ready']").ClassList);
+
+        var held = app.FindAll("[data-testid='impediment-held']");
+        Assert.Equal(["Task", "PR", "Plan"], held.Select(row => row.GetAttribute("data-kind")));
+        Assert.Equal(
+            ["VAT rate per line item", "#1338 Invoice PDF export", "Devbook search"],
+            held.Select(row => row.QuerySelector(".standup-detail__item-title")!.TextContent));
+        Assert.All(held, row => Assert.Contains("status-dot--done", row.QuerySelector(".status-dot")!.ClassList));
+        Assert.All(held, row => Assert.Equal("Settled:", row.QuerySelector(".sr-only")!.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void An_impediment_with_an_open_item_is_not_ready_to_resolve()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service());
+
+        var app = host.Open(Route(StandupFixture.EscalatedId));
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='impediment-holds']")));
+        Assert.Empty(app.FindAll("[data-testid='impediment-ready']"));
+    }
+
+    /// <summary>The phone shows what an impediment holds back and nothing more: no raise, no
+    /// Link…, no Unlink, on the stand-up or the impediment's page.</summary>
+    [Fact]
+    public void The_phone_offers_no_raise_link_or_unlink()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: WithReady());
+
+        var standUp = host.Open("standup");
+        standUp.WaitForAssertion(() => Assert.NotEmpty(standUp.FindAll("[data-testid='standup-impediment']")));
+        var standUpMarkup = standUp.Markup;
+        var page = host.Open(Route(StandupFixture.ReadyId));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-testid='impediment-held']")));
+
+        foreach (var markup in new[] { standUpMarkup, page.Markup })
+        {
+            Assert.DoesNotContain("Raise impediment", markup, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Link…", markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Unlink", markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("work-item-search", markup, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void The_stand_up_card_of_an_impediment_ready_to_resolve_says_so()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: WithReady());
+
+        var app = host.Open("standup");
+
+        app.WaitForAssertion(() =>
+        {
+            var cards = app.FindAll("[data-testid='standup-impediment']");
+            var ready = Assert.Single(cards, card => card.GetAttribute("href") == $"standup/impediments/{StandupFixture.ReadyId}");
+            Assert.Equal("Ready to resolve", ready.QuerySelector("[data-testid='standup-impediment-ready']")!.TextContent.Trim());
+            Assert.Single(app.FindAll("[data-testid='standup-impediment-ready']"));
+        });
+    }
+
     [Fact]
     public void An_impediment_this_phone_does_not_hold_says_so_and_leads_back()
     {

@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// shell handed the Devbook pane as <c>TaskTitleFor</c> before the Devbook became a
 /// registered surface (local ADR 0043 §1).
 /// </summary>
-public sealed class ShellBrainTaskTitles(TasksDesktopState state) : IBrainTaskTitles
+public sealed class ShellBrainTaskTitles(TasksDesktopState state) : IDevbookTaskTitles
 {
     public string? TitleFor(string taskId) =>
         Guid.TryParse(taskId, out var id) && state.Rows.FirstOrDefault(row => row.Id == id) is { } row

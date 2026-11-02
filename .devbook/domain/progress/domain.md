@@ -137,8 +137,10 @@ the last day of the last of them.
 
 A goal is **At risk** when its landing date falls after its due date, or, for a goal
 without one, after the last day of [next](#iteration). It is also At risk when an open
-[Impediment](#impediment) holds back one of its items. Otherwise it is **On track**.
-A goal with no open item is On track. A goal that did no item in the last four
+[Impediment](#impediment) [holds it back](#holds-back), even one that reads
+[Ready to resolve](#ready-to-resolve): only the person's Resolve lifts it. Otherwise
+it is **On track**.
+A goal with no open item is On track unless an open impediment holds it back. A goal that did no item in the last four
 iterations has no landing date, and is At risk while it has open items.
 
 ## Goal Assignment
@@ -183,10 +185,18 @@ resolved. An impediment holds:
 - an optional `check again` date, the day the person means to look at it next;
 - an optional `note`;
 - its history of [State Changes](#state-change);
-- the tasks it [Holds Back](#holds-back), and through them their goals.
+- the tasks, pull requests and plans it [Holds Back](#holds-back), and through them
+  the goals it holds back.
 
-An impediment is open until it is Resolved. Its age is the working days since it was
-raised, counted in the person's
+A person raises an impediment and links the work it holds back. Nothing raises one
+for them: a task's [blocked mark](../tasks/features.md#marking-a-task-blocked) is Tasks'
+alone and raises nothing here (local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
+
+An impediment is open until it is Resolved, and only a person resolves it. Once every
+item it holds back is [settled](#settled), it reads
+[Ready to resolve](#ready-to-resolve), which tells the person it may go and changes
+nothing on it. Its age is the working days since it was raised, counted in the person's
 [working week](../roadmap/domain.md#working-week). The rules it holds are in
 [its invariants](domain.invariants.md#impediment).
 
@@ -237,46 +247,58 @@ in the order the steps happened, and the first step is always `New`.
 ```meta
 type: value-object
 status: draft
-aliases: [holds back, blocks, HoldsBack]
-related: [.devbook/domain/tasks/domain.md#task]
+aliases: [holds back, held-back item, blocks, HoldsBack]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.invariants.md#impediment]
 ```
 
-A link from an impediment to one task it holds back, by the task's id. Equality is by
-the task id. The goal an impediment holds back is read through the task: the goal
-that counts the task, if any.
+A link from an impediment to one piece of work it holds back. A held-back item is one
+of three kinds, each named the way a [Goal Attachment](#goal-attachment) names it:
+
+| Kind | Named by | The goal it holds back |
+|---|---|---|
+| Task | its task id | the goal that counts the task |
+| Pull request | its repository and number | the goal that counts the pull request: attached directly, linked by a task the goal counts, or on the branch of a session the goal counts |
+| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts one of the entries the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), including entries filed later |
+
+A pull request is named by its own identity, not reached through a task, so one that
+no task links can be held back too. A plan is named by its tag, not by the entries it
+had when it was linked, so an entry filed later is held back as well. A session is not
+a kind an impediment holds back.
+
+Equality is by kind and identity. Linking or unlinking an item changes nothing on the
+work it names. The goals an impediment holds back are the goals of its items, read
+afresh on every reading. An item stays held back once its work is
+[settled](#settled), until the person unlinks it or resolves the impediment.
 
 ## Blocked Task Policy
 
 ```meta
 type: domain-service
-status: draft
-related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task]
+status: deprecated
+related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 aliases: [BlockedTaskPolicy]
 ```
 
-Raises an impediment when a task is marked blocked. When a task gains the mark, by its
-`blocked:` token or a `set_blocked` call, and no impediment tracks that block, the
-policy raises a `New` impediment titled with the task's title that holds the task
-back. An impediment tracks a task's block when it holds the task back and is open, or
-was raised on or after the day the task was marked blocked. The second half keeps a
-person's Resolve from being undone while the task is still marked, and lets a task
-marked blocked again later raise a new one. Tasks knows nothing of it: the policy
-reads the mark from the task, and stores nothing on the task.
+Retired. The policy raised a `New` impediment, titled with the task's title, whenever
+a task gained the blocked mark and no impediment tracked that block. It raised them
+and never resolved one, so the stand-up filled with impediments whose tasks were long
+done. A person now [raises an impediment](features.md#raising-an-impediment) and links
+what it holds back, and a task's blocked mark raises nothing (local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
 
-Invocation semantics: event-triggered policy. Tasks' change signal names no task, so
-an adapter beside Progress hears every task written on this device and runs the
-policy, which reads every blocked task that is not finished and asks each whether
-its block is tracked. A task copy pulled by sync is not heard: the device that marked
-the task raised the impediment, and it arrives as its own document. What the policy
-promises is a requirement of
-[Tracking an impediment](requirements.md#tracking-an-impediment).
+The impediments it raised are kept as they are. Each holds back the one task it was
+raised for, so it reads [Ready to resolve](#ready-to-resolve) once that task is
+[settled](#settled), and the person resolves it.
+
+Invocation semantics: it was an event-triggered policy, run by an adapter beside
+Progress that heard every task written on the device. Nothing runs it now.
 
 ## Stand-up Reading
 
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
+related: [.devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
 aliases: [StandUpReading]
 ```
 
@@ -287,7 +309,14 @@ over one [Iteration](#iteration). It resolves each goal's items, decides which a
 [stand-up](#stand-up): the goals, what was finished in the last window, what is
 [planned](#planned) for the next, and the open impediments.
 
-Invocation semantics: query/composition-oriented. It stores nothing.
+For each open impediment it also reads whether every item the impediment holds back
+is [settled](#settled), and so whether it is [Ready to resolve](#ready-to-resolve).
+A task's status comes from Tasks, a plan's entries from the tasks gathered by its tag,
+and a pull request's state from GitHub as a desktop last read it. The rules of that
+reading are in [its invariants](domain.invariants.md#stand-up-reading).
+
+Invocation semantics: query/composition-oriented. It stores nothing, and it moves no
+impediment.
 
 ## Shared Value Objects
 
@@ -351,6 +380,54 @@ tasks and every one of them is done. Either is enough. Its
 [state](../sessions/domain.md#session-state) never makes it done: a finished session
 may have shipped nothing. It was done on the earlier of the day that pull request merged
 and the day its last linked task was done.
+
+### Settled
+
+```meta
+type: term
+status: draft
+aliases: [settled]
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
+```
+
+A [held-back item](#holds-back) is settled when the work it names is over, one way or
+the other:
+
+| Kind | Settled when | Not settled while |
+|---|---|---|
+| Task | its status is `done` or `archived` | it is in any other status, or no task has its id any more |
+| Pull request | it is merged or closed | it is open or a draft, or its state cannot be read |
+| Plan | it gathers at least one entry, and every entry it gathers is `done` or `archived` | one entry is in any other status, or it gathers none |
+
+Settled is not [done](#done). A closed pull request and an archived task are settled
+and not done, and a task whose pull requests all merged is done but settled only once
+its status says so. The stand-up's Finished block lists what is done, never what is
+settled.
+
+What cannot be read is never settled. A deleted task, a pull request in an archived or
+unconfigured repository, and any pull request while no GitHub answers keep their
+impediment from reading [Ready to resolve](#ready-to-resolve). The person unlinks such
+an item, or resolves the impediment, by hand.
+
+### Ready to resolve
+
+```meta
+type: term
+status: draft
+aliases: [Ready to resolve, ready to resolve, resolvable]
+related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+```
+
+An open [Impediment](#impediment) is ready to resolve when it holds back at least one
+item and every item it holds back is [settled](#settled). It is a reading, not a
+state. [Stand-up Reading](#stand-up-reading) decides it afresh on every reading and
+stores nothing, so it appears when the last item settles and goes again when one
+comes back, such as a task reopened from `done`.
+
+Ready to resolve moves nothing. The impediment keeps its
+[state](#impediment-state) and its history, and it keeps showing among the open
+impediments until the person resolves it. An impediment that holds back nothing is
+never ready to resolve: nothing it names can tell it is out of the way.
 
 ### Stand-up
 

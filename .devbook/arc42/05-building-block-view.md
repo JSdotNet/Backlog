@@ -361,7 +361,7 @@ flowchart LR
 - **The Lobes atlas.** `DevbookAtlasService.ReadLobesAsync` reads the Brain's
   database and the devbook database of every repository alias it is handed, and
   nothing else. `DevbookLobesReader` gives each node a scope, a region and a kind,
-  by the mappings of [Lobes atlas](../domain/devbook/features.md#lobes-atlas). A
+  by the mappings of [Lobes atlas](../domain/brain/features.md#lobes-atlas). A
   `repo:` link resolves through `BrainRepoLinkResolver` to that devbook's own
   chapter node, both spellings folded. A link it cannot follow is a ghost chapter;
   an alias not handed in is a ghost scope. Each scope counts its nodes per region

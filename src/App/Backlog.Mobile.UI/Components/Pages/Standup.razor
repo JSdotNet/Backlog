@@ -208,6 +208,7 @@ else
                                                State="StandupText.State(impediment.State)"
                                                Meta="@OpenMeta(impediment)"
                                                Goal="@impediment.GoalTitle"
+                                               ReadyToResolve="impediment.ReadyToResolve"
                                                Href="@StandupText.ImpedimentHref(impediment.Id)"
                                                TestId="standup-impediment" />
                     }

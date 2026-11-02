@@ -33,7 +33,14 @@ public static class ImpedimentMapper
             impediment.CheckAgain,
             impediment.Note,
             [.. impediment.History.Select(step => new ImpedimentStateChangeDto(step.State, step.On, step.With))],
-            [.. impediment.HoldsBack]);
+            [.. impediment.HoldsBack.Select(ToDto)]);
+    }
+
+    public static HeldBackItemDto ToDto(this HeldBackItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return new HeldBackItemDto(item.Kind, item.TaskId, item.Repository, item.Number, item.PlanTag);
     }
 }
 
@@ -76,33 +83,6 @@ public sealed class ImpedimentChanges(IImpedimentRepository repository, Progress
         held.Dispose();
         saved.Raise();
         return impediment.ToDto();
-    }
-
-    /// <summary>
-    /// Reads every impediment and saves the new ones <paramref name="raise"/> answers, in
-    /// one hold of the gate, so two runs of the blocked-task policy can never both decide
-    /// that a task needs one. Announces once when it saved anything.
-    /// </summary>
-    public async Task<IReadOnlyList<ImpedimentDto>> RaiseAllAsync(
-        Func<IReadOnlyList<Impediment>, IReadOnlyList<Impediment>> raise,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(raise);
-
-        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
-
-        var all = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
-        var raised = raise(all);
-
-        foreach (var impediment in raised)
-        {
-            await repository.SaveAsync(impediment, cancellationToken).ConfigureAwait(false);
-        }
-
-        held.Dispose();
-        if (raised.Count > 0) saved.Raise();
-
-        return [.. raised.Select(impediment => impediment.ToDto())];
     }
 
     /// <summary>Every impediment, read under the gate.</summary>

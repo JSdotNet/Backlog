@@ -50,21 +50,24 @@ public sealed record PullRequestRefDto(string Repository, string Number);
 /// <summary>What a linked pull request says about itself, as the counting rules read it:
 /// its state and when it merged. <see cref="LinkedPullRequestState.Unknown"/> until
 /// something reads it.</summary>
+/// <param name="InArchivedRepository">Whether its repository is archived, so its answer was
+/// kept rather than read (<see cref="GoalPullRequestDto.InArchivedRepository"/>). Defaulted.</param>
 public sealed record LinkedPullRequestDto(
     string Repository,
     string Number,
     LinkedPullRequestState State,
-    DateOnly? MergedOn)
+    DateOnly? MergedOn,
+    bool InArchivedRepository = false)
 {
     public static LinkedPullRequestDto Unread(PullRequestRefDto pullRequest) =>
         new(pullRequest.Repository, pullRequest.Number, LinkedPullRequestState.Unknown, null);
 
-    /// <summary>The goals reader's answer as the counting rules read it: the state and the
-    /// merge day. The checks and the approvals are the Goals view's, read from the answer
-    /// itself.</summary>
+    /// <summary>The goals reader's answer as the counting rules read it: the state, the
+    /// merge day and whether its repository is archived. The checks and the approvals are
+    /// the Goals view's, read from the answer itself.</summary>
     public static LinkedPullRequestDto Of(GoalPullRequestDto pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
-        return new(pull.Repository, pull.Number, pull.State, pull.MergedOn);
+        return new(pull.Repository, pull.Number, pull.State, pull.MergedOn, pull.InArchivedRepository);
     }
 }

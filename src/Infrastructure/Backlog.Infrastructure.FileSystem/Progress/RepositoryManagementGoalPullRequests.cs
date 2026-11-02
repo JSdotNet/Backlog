@@ -24,11 +24,17 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// repository registered, a repository that refused, a number that is not a pull
 /// request — answers <see cref="LinkedPullRequestState.Unknown"/> with no checks, no
 /// approvals and no merge day, the module's own answer, so a task is then done by its
-/// status alone. It never throws for GitHub's sake.
+/// status alone. A pull request in an archived repository answers what was kept for it,
+/// flagged <see cref="GoalPullRequestDto.InArchivedRepository"/> so a held-back pull
+/// request there is never settled. It never throws for GitHub's sake.
 /// </para>
 /// </summary>
 /// <param name="pullRequests">The contract, resolved per call; null reads nothing.</param>
-public sealed class RepositoryManagementGoalPullRequests(Func<IPullRequests?> pullRequests) : IGoalPullRequestReader
+/// <param name="repositories">The registry, resolved per call; null flags none archived.</param>
+public sealed class RepositoryManagementGoalPullRequests(
+    Func<IPullRequests?> pullRequests,
+    Func<IRegisteredRepositories?>? repositories = null)
+    : IGoalPullRequestReader
 {
     public async Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(
         IReadOnlyList<PullRequestRefDto> pullRequests,
@@ -62,10 +68,12 @@ public sealed class RepositoryManagementGoalPullRequests(Func<IPullRequests?> pu
         }
 
         // The task's own spelling of the repository and number, so a caller matching its
-        // answers back to its links finds them.
-        return [.. pullRequests.Select(pull => Reference(pull) is { } reference && answers.TryGetValue(reference.Key, out var answer)
+        // answers back to its links finds them; one from an archived repository says so,
+        // since its answer was kept, not read.
+        var registry = repositories?.Invoke();
+        return [.. pullRequests.Select(pull => (Reference(pull) is { } reference && answers.TryGetValue(reference.Key, out var answer)
             ? answer with { Repository = pull.Repository, Number = pull.Number }
-            : GoalPullRequestDto.Unread(pull))];
+            : GoalPullRequestDto.Unread(pull)) with { InArchivedRepository = registry?.IsArchived(pull.Repository.Trim()) ?? false })];
     }
 
     /// <summary>

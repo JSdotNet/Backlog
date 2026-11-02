@@ -55,10 +55,10 @@ public class BrainFolderSourceTests : IDisposable
     {
         _setting = null;
 
-        Assert.Same(BrainConventions.Folder, BrainFolderSource.Folder);
-        Assert.Same(BrainConventions.Folder, Assert.Single(Source().Folders(null)));
+        Assert.Equal(new DevbookFolderSetting(BrainConventions.FolderKey, BrainConventions.ScopeLabel, string.Empty, SupportsPathOverride: false), BrainFolderSource.Folder);
+        Assert.Same(BrainFolderSource.Folder, Assert.Single(Source().Folders(null)));
         Assert.Equal(BrainConventions.ScopeLabel, BrainFolderSource.ScopeLabel);
-        Assert.Equal(BrainConventions.Folder, Source().Resolve(BrainConventions.FolderKey).Folder);
+        Assert.Equal(BrainFolderSource.Folder, Source().Resolve(BrainConventions.FolderKey).Folder);
     }
 
     [Fact]
@@ -88,8 +88,8 @@ public class BrainFolderSourceTests : IDisposable
 
         Source().Resolve(BrainConventions.FolderKey);
 
-        Assert.True(DevbookDatabaseLocation.IsBrainRoot(Brain));
-        Assert.Equal(DevbookCorpusKind.Brain, DevbookDatabaseLocation.KindFor(Brain));
+        Assert.True(BrainDatabaseLocation.IsBrainRoot(Brain));
+        Assert.Same(BrainCorpusProfile.Instance, DevbookDatabaseLocation.ProfileFor(Brain));
     }
 
     [Fact]
@@ -127,8 +127,8 @@ public class BrainFolderSourceTests : IDisposable
         _setting = Brain;
         Source().Resolve(BrainConventions.FolderKey);
 
-        Assert.True(DevbookDatabaseLocation.IsBrainRoot(Brain));
-        Assert.False(DevbookDatabaseLocation.IsBrainRoot(old));
+        Assert.True(BrainDatabaseLocation.IsBrainRoot(Brain));
+        Assert.False(BrainDatabaseLocation.IsBrainRoot(old));
     }
 
     [Theory]

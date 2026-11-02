@@ -218,8 +218,8 @@ public sealed class DevbookMenuBrainTests : IDisposable
     [InlineData(null, false)]
     public void A_brain_area_key_is_told_apart_from_a_repository_one(string? key, bool brain)
     {
-        Assert.Equal(brain, DevbookMenu.IsBrainAreaKey(key));
-        Assert.Equal("brain/work", DevbookMenu.BrainAreaKey("Work"));
+        Assert.Equal(brain, DevbookMenu.IsPersonalTabKey(key));
+        Assert.Equal("brain/work", DevbookMenu.PersonalTabKey("Work"));
     }
 
     private void Write(string relativePath, string text)

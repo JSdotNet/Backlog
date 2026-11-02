@@ -53,155 +53,17 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     }
 
     /// <summary>
-    /// The Brain's atlas (local ADR 0027 §6): its notes and the links between
-    /// them, read from the Brain's own database in the app's storage, with every
-    /// <c>repo:</c> link drawn as an edge to a node for the repository chapter it
-    /// names — labelled with the repository alias, and dashed where this machine
-    /// cannot follow it (<see cref="BrainRepoLinkResolver"/>, asked of the
-    /// repositories configured here through the same folder source the
-    /// repository atlas reads).
-    /// <para>
-    /// No Brain set, no database built yet, or one that will not open all say so
-    /// rather than drawing an empty map, for the reason the repository atlas does:
-    /// a map of links cannot be drawn from the note on screen. Nothing is read
-    /// from or written to a repository; the repository nodes are the links' own
-    /// words.
-    /// </para>
+    /// One registered repository's devbook out of its database, as the Lobes
+    /// atlas (<c>.devbook/domain/brain/features.md#lobes-atlas</c>) draws it
+    /// beside the personal devbook that links into it — or its absence in words.
+    /// A registered repository with no index yet is still a scope, unavailable,
+    /// holding only the chapters the links name.
     /// </summary>
-    public Task<DevbookAtlasGraph> ReadBrainAsync(IBrainFolderSource brain, CancellationToken cancellationToken = default) =>
-        ReadBrainAsync(brain, BrainDatabaseFor, cancellationToken);
-
-    /// <summary>Where a Brain folder's database is: the app's storage, unless a
-    /// test points it at a scratch folder.</summary>
-    internal Func<string, string?> BrainDatabaseFor { get; init; } = DevbookDatabaseLocation.ForBrainFolder;
-
-    /// <param name="brain">The Brain, asked for its folder on every read so a
-    /// moved setting is followed at once.</param>
-    /// <param name="databaseFor">Where that folder's database is.</param>
-    /// <param name="cancellationToken">Cancels the read.</param>
-    internal Task<DevbookAtlasGraph> ReadBrainAsync(IBrainFolderSource brain, Func<string, string?> databaseFor, CancellationToken cancellationToken = default)
+    /// <param name="alias">The repository alias as registered.</param>
+    public DevbookLobesDevbookSource ReadLobesDevbook(string alias)
     {
-        ArgumentNullException.ThrowIfNull(brain);
-        ArgumentNullException.ThrowIfNull(databaseFor);
+        ArgumentException.ThrowIfNullOrWhiteSpace(alias);
 
-        var scope = DevbookAtlasScope.Brain;
-        if (brain.BrainRoot is not { Length: > 0 } root)
-        {
-            return Task.FromResult(DevbookAtlasGraph.Unavailable(scope, NoBrainFolder));
-        }
-
-        return Task.Run(() => ReadBrain(scope, root, databaseFor), cancellationToken);
-    }
-
-    private DevbookAtlasGraph ReadBrain(DevbookAtlasScope scope, string root, Func<string, string?> databaseFor)
-    {
-        try
-        {
-            using var database = DevbookDatabase.TryOpen(databaseFor(root));
-            if (database is null) return DevbookAtlasGraph.Unavailable(scope, BrainIndexMissing);
-
-            var nodes = database.Nodes()
-                .Select(node => new DevbookAtlasSourceNode(
-                    node.Id,
-                    node.Label ?? string.Empty,
-                    node.Folder ?? string.Empty,
-                    node.Type,
-                    node.Status ?? string.Empty,
-                    node.Path ?? string.Empty,
-                    node.OutOfScope))
-                .ToList();
-
-            var edges = database.Edges()
-                .Select(edge => new DevbookAtlasSourceEdge(edge.Type, edge.Source, edge.Target))
-                .ToList();
-
-            var resolver = new BrainRepoLinkResolver(source);
-            return DevbookAtlasReader.ReadBrain(scope, nodes, edges, resolver.Resolve);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
-        {
-            // Busy, or replaced by a rebuild under the read. The next change asks
-            // again.
-            return DevbookAtlasGraph.Unavailable(scope, $"The Brain atlas could not be read: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// The Lobes atlas (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>):
-    /// the Brain and the devbook of every registered repository in one graph,
-    /// read from the Brain's database and each repository's devbook database and
-    /// nothing else. Each node carries its scope, its region and its kind; each
-    /// <c>repo:</c> link is resolved as the Brain atlas resolves it
-    /// (<see cref="BrainRepoLinkResolver"/>) and drawn to that repository's
-    /// chapter node, or into a ghost devbook when its alias is not registered.
-    /// <para>
-    /// No Brain folder, or no Brain index yet, says so rather than drawing a map
-    /// without the Brain. A registered repository with no index yet is still a
-    /// scope, unavailable, holding only the chapters the notes name.
-    /// </para>
-    /// </summary>
-    /// <param name="brain">The Brain, asked for its folder on every read.</param>
-    /// <param name="repositoryAliases">The registered repositories that have a
-    /// devbook, in the order their scopes are offered.</param>
-    /// <param name="cancellationToken">Cancels the read.</param>
-    public Task<DevbookLobesGraph> ReadLobesAsync(IBrainFolderSource brain, IReadOnlyList<string> repositoryAliases, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(brain);
-        ArgumentNullException.ThrowIfNull(repositoryAliases);
-
-        if (brain.BrainRoot is not { Length: > 0 } root)
-        {
-            return Task.FromResult(DevbookLobesGraph.Unavailable(NoBrainFolder));
-        }
-
-        return Task.Run(() => ReadLobes(root, brain.Areas(), repositoryAliases, BrainDatabaseFor, cancellationToken), cancellationToken);
-    }
-
-    private DevbookLobesGraph ReadLobes(string root, IReadOnlyList<BrainArea> declared, IReadOnlyList<string> repositoryAliases, Func<string, string?> databaseFor, CancellationToken cancellationToken)
-    {
-        try
-        {
-            DevbookLobesBrainSource brain;
-            using (var database = DevbookDatabase.TryOpen(databaseFor(root)))
-            {
-                if (database is null) return DevbookLobesGraph.MissingBrainIndex(BrainIndexMissing);
-
-                var para = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (var values in database.Attributes("para"))
-                {
-                    if (values.FirstOrDefault() is { Length: > 0 } value) para[values.Key] = value;
-                }
-
-                brain = new DevbookLobesBrainSource(
-                    SourceNodes(database.Nodes()),
-                    SourceEdges(database.Edges()),
-                    para,
-                    [.. database.Outline(DevbookDatabaseSchema.RepositoryScope)
-                        .Where(row => row.Type == "area")
-                        .Select(row => row.Path)],
-                    declared,
-                    IndexedAt(database));
-            }
-
-            var devbooks = new List<DevbookLobesDevbookSource>();
-            foreach (var alias in repositoryAliases.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                devbooks.Add(ReadDevbook(alias));
-            }
-
-            return DevbookLobesReader.Read(brain, devbooks, new BrainRepoLinkResolver(source).Resolve);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
-        {
-            return DevbookLobesGraph.Unavailable($"The Lobes atlas could not be read: {ex.Message}");
-        }
-    }
-
-    /// <summary>One registered repository's devbook out of its database, or its
-    /// absence in words.</summary>
-    private DevbookLobesDevbookSource ReadDevbook(string alias)
-    {
         try
         {
             using var database = DevbookDatabaseSource.TryOpen(source, alias);
@@ -222,10 +84,14 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 
     /// <summary>When a database was built, as it records it; null when it
     /// recorded nothing readable.</summary>
-    private static DateTimeOffset? IndexedAt(DevbookDatabase database) =>
-        database.GeneratedUtc == DateTime.MinValue ? null : new DateTimeOffset(DateTime.SpecifyKind(database.GeneratedUtc, DateTimeKind.Utc));
+    public static DateTimeOffset? IndexedAt(DevbookDatabase database)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+        return database.GeneratedUtc == DateTime.MinValue ? null : new DateTimeOffset(DateTime.SpecifyKind(database.GeneratedUtc, DateTimeKind.Utc));
+    }
 
-    private static List<DevbookAtlasSourceNode> SourceNodes(IEnumerable<DevbookNodeRow> rows) =>
+    /// <summary>A devbook database's <c>node</c> rows as the atlas readers take them.</summary>
+    public static List<DevbookAtlasSourceNode> SourceNodes(IEnumerable<DevbookNodeRow> rows) =>
         [.. rows.Select(node => new DevbookAtlasSourceNode(
             node.Id,
             node.Label ?? string.Empty,
@@ -235,15 +101,9 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
             node.Path ?? string.Empty,
             node.OutOfScope))];
 
-    private static List<DevbookAtlasSourceEdge> SourceEdges(IEnumerable<DevbookEdgeRow> rows) =>
+    /// <summary>A devbook database's <c>edge</c> rows as the atlas readers take them.</summary>
+    public static List<DevbookAtlasSourceEdge> SourceEdges(IEnumerable<DevbookEdgeRow> rows) =>
         [.. rows.Select(edge => new DevbookAtlasSourceEdge(edge.Type, edge.Source, edge.Target))];
-
-    /// <summary>What the Brain atlas says while no Brain folder is set.</summary>
-    internal const string NoBrainFolder = "No Brain folder is set, so there is no Brain to map.";
-
-    /// <summary>What the Brain atlas says before the Brain's index exists.</summary>
-    internal const string BrainIndexMissing =
-        "The Brain atlas needs the Brain's index, which has not been built yet. Backlog builds it in the background when the Brain is opened — try again in a moment.";
 
     /// <summary>
     /// The graph files a branch may carry, fetched before the read looks for
@@ -522,7 +382,7 @@ public sealed record DevbookAtlasGraph(
 /// <c>data</c> object out of a scoped <c>graph.json</c>. Deliberately the smaller
 /// of the two vocabularies — what the map draws with, not everything the graph
 /// carries.</summary>
-internal sealed record DevbookAtlasSourceNode(
+public sealed record DevbookAtlasSourceNode(
     string Id,
     string Label,
     string Folder,
@@ -533,9 +393,15 @@ internal sealed record DevbookAtlasSourceNode(
 
 /// <summary>One edge as either source hands it over, before the atlas decides
 /// whether it is drawn.</summary>
-internal sealed record DevbookAtlasSourceEdge(string Type, string Source, string Target, string? Label = null, bool Dashed = false);
+public sealed record DevbookAtlasSourceEdge(string Type, string Source, string Target, string? Label = null, bool Dashed = false);
 
-internal static class DevbookAtlasReader
+/// <summary>
+/// Draws an atlas from graph rows. Public, with the two source records, because
+/// a devbook another context supplies draws its map through
+/// <see cref="Read(DevbookAtlasScope, IReadOnlyList{DevbookAtlasSourceNode}, IReadOnlyList{DevbookAtlasSourceEdge})"/>
+/// once it has added nodes of its own (local ADR 0040 §2).
+/// </summary>
+public static class DevbookAtlasReader
 {
     /// <summary>
     /// The edge kinds the atlas draws.
@@ -566,95 +432,6 @@ internal static class DevbookAtlasReader
     /// shown, so the group it falls in is the alias as written rather than the
     /// alias titleised.</summary>
     private const string RepositoryFolderPrefix = "repo:";
-
-    /// <summary>
-    /// The Brain's atlas from its graph rows: the notes and the links between
-    /// them, and one node per repository chapter a <c>repo:</c> link names, the
-    /// link drawn to it as an edge labelled with the repository alias and dashed
-    /// where <paramref name="resolve"/> says this machine cannot follow it.
-    /// <para>
-    /// The builder stores a <c>repo:</c> link as an edge with no node behind its
-    /// target — <c>related</c> from a note's or chapter's <c>meta</c>,
-    /// <c>repo-link</c> from its prose (local ADR 0027 §6). Here each target gets
-    /// its node: one per alias and chapter, whichever layout's spelling a note
-    /// used and whatever case it wrote the alias in, grouped by alias so each
-    /// repository reads as one region of the map. A link that does not parse names
-    /// nothing to draw it to and is dropped.
-    /// </para>
-    /// </summary>
-    public static DevbookAtlasGraph ReadBrain(
-        DevbookAtlasScope scope,
-        IReadOnlyList<DevbookAtlasSourceNode> sourceNodes,
-        IReadOnlyList<DevbookAtlasSourceEdge> rawEdges,
-        Func<BrainRepoLink, BrainRepoLinkResolution> resolve)
-    {
-        ArgumentNullException.ThrowIfNull(resolve);
-
-        var nodes = new List<DevbookAtlasSourceNode>(sourceNodes);
-        var edges = new List<DevbookAtlasSourceEdge>(rawEdges.Count);
-        var repositoryIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // One group per repository, named as the first link to it wrote the
-        // alias, so backlog/… and Backlog/… do not split it in two.
-        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var repositoryNodes = new Dictionary<string, DevbookAtlasRepositoryLink>(StringComparer.Ordinal);
-
-        foreach (var edge in rawEdges)
-        {
-            if (!BrainRepoLink.IsRepoLink(edge.Target))
-            {
-                edges.Add(edge);
-                continue;
-            }
-
-            if (BrainRepoLink.Parse(edge.Target) is not { } link) continue;
-
-            // The first spelling seen names the node, and every later one is
-            // pointed at that id exactly: the renderer joins edges to nodes by
-            // ordinal id, so a target differing only in case would draw nothing.
-            var key = RepositoryNodeId(link);
-            if (!repositoryIds.TryGetValue(key, out var id))
-            {
-                id = key;
-                repositoryIds[key] = id;
-
-                var resolution = resolve(link);
-                repositoryNodes[id] = new DevbookAtlasRepositoryLink(link.Alias, $"{BrainRepoLink.Scheme}{link.Alias}/{link.Reference}", resolution.Resolved, resolution.Problem);
-                var alias = aliases.TryGetValue(link.Alias, out var seen) ? seen : aliases[link.Alias] = link.Alias;
-                nodes.Add(new DevbookAtlasSourceNode(id, resolution.Label, RepositoryFolderPrefix + alias, RepositoryChapterKind, string.Empty, link.Path, true));
-            }
-
-            var repository = repositoryNodes[id];
-
-            edges.Add(new DevbookAtlasSourceEdge(RepoLinkEdgeKind, edge.Source, id, link.Alias, !repository.Resolved));
-        }
-
-        var graph = Read(scope, nodes, edges);
-        if (!graph.Available || repositoryNodes.Count == 0) return graph;
-
-        return graph with
-        {
-            Nodes =
-            [
-                .. graph.Nodes.Select(node => repositoryNodes.TryGetValue(node.Id, out var repository)
-                    // Filled where it can be followed and a hollow ring where it
-                    // cannot: the same two marks a status draws, so the dashed
-                    // edge is not the only thing saying it.
-                    ? node with { ToneSlug = repository.Resolved ? "active" : string.Empty, RepositoryLink = repository }
-                    : node)
-            ]
-        };
-    }
-
-    /// <summary>One id per repository chapter: the alias, the path in the root
-    /// layout's spelling, and the heading.</summary>
-    private static string RepositoryNodeId(BrainRepoLink link)
-    {
-        var path = DevbookLayout.ConventionalPath(link.Path);
-        return link.Slug is null
-            ? $"{BrainRepoLink.Scheme}{link.Alias}/{path}"
-            : $"{BrainRepoLink.Scheme}{link.Alias}/{path}#{link.Slug}";
-    }
 
     /// <summary>
     /// The atlas from a scoped <c>_meta/graph.json</c> — the fallback rung, for a

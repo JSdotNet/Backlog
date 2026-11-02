@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// <see cref="Interval"/> it publishes the waiting questions whose notify delay has passed
 /// while they are still InSession — a dialog left open in the session included.
 /// <para>
-/// A plain singleton the head resolves once at startup, as <c>BlockedTaskWatcher</c> is:
+/// A plain singleton the head resolves once at startup, as <c>SpecManagerQuestionSource</c> is:
 /// neither desktop head has a generic host to start an <c>IHostedService</c>. A tick that
 /// finds the previous one still running is skipped, and a tick that fails is logged and
 /// never stops the timer.
