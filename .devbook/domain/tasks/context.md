@@ -54,6 +54,18 @@ related: [".devbook/domain/tasks/features.md#hand-off-to-copilot-cli"]
 
 Turning it on offers to start GitHub Copilot CLI from an entry, and from a devbook chapter in Devbook. Two contexts read this one key, which is why it sits in the shared kernel's `AppFeatureKeys` rather than in either context. It is on by default and marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the hand-off leaves `DEV`.
 
+## Copy entries
+
+```meta
+status: draft
+type: feature-flag
+key: copy-entries
+default: on
+related: [".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/roadmap/features.md#tagging-planned-work", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry"]
+```
+
+Turning it on shows the copy-to-clipboard button on a task's row, a board card, the open entry and the pressed plan chip, and beside the Tag field of a planned item's dialog on the roadmap. Off, those buttons are hidden, and the [queue icon](../sessions/features.md#start-a-session-from-an-entry) beside each is untouched. Tasks and Roadmap read this one key, so it sits in the shared kernel's `AppFeatureKeys` as `CopyEntries`, and it is recorded here because four of its five places are Tasks'. It is on by default and listed under Cross-cutting. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired, with the copy, once queueing a session does the copy's job.
+
 ## AI assistant
 
 ```meta

@@ -184,10 +184,12 @@ settles the two spellings.
 
 A saved item's dialog offers a copy button beside the Tag field. It copies the tag
 with its plan sigil, `+release-q4`: the spelling a Task is filed under, which the
-Tasks filter bar's plan chip copies too. The copy button is there whether or not the
-[`session-requests`](../sessions/context.md#session-requests) flag is on; with it on, the plan's
-[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it.
-A new item, or one without a tag, has no copy button.
+Tasks filter bar's plan chip copies too. The copy button is there while the
+[`copy-entries`](../tasks/context.md#copy-entries) flag is on, which it is by default,
+whether or not the [`session-requests`](../sessions/context.md#session-requests) flag is
+on; with that one on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it and
+stays when `copy-entries` is off. A new item, or one without a tag, has no copy button.
 
 ## Gathering work under an item and totalling its effort
 
