@@ -664,7 +664,9 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-.filter-bar__plan-pair > .chip--active {
+/* Only while a fused segment follows: with copy switched off and no queue icon
+   offered — or the waiting chip, which sits apart — the chip keeps its rounded end. */
+.filter-bar__plan-pair > .chip--active:has(+ .filter-bar__plan-copy, + .filter-bar__plan-queue) {
     border-start-end-radius: 0;
     border-end-end-radius: 0;
 }
@@ -709,8 +711,9 @@ h1, h2, h3 {
 
 /*
    The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
-   after the copy. It wears the copy segment's class, so it takes the same fill,
-   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
+   after the copy, or straight after the chip with the copy-entries switch off. It
+   wears the copy segment's class, so it takes the same fill, border, hairline and
+   hover, and the copy, when there, hands it the pair's rounded end. Like the
    copy it stays inside the strip's one-row clip, which cuts anything taller than a
    chip, so its target is the segment itself.
 
