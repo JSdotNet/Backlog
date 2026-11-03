@@ -961,6 +961,7 @@ The system SHALL let the reader change a technology's status from the inspector 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_on_All_layers_is_a_button_that_selects_its_technology_and_opens_its_layer]
 ```
 
 The system SHALL draw each technology on the Clusters map and the Complexity scatter as a button that selects it.
@@ -976,6 +977,12 @@ The system SHALL draw each technology on the Clusters map and the Complexity sca
 - **Given** the reader opens a layer in Clusters
 - **When** the reader tabs to one of its technologies and presses Enter
 - **Then** that technology is selected
+
+#### Scenario: A dot on All layers
+
+- **Given** the reader opens Clusters on All layers
+- **When** the reader moves to bUnit's dot in the Testing cluster and presses Enter
+- **Then** bUnit is selected
 
 ### Requirement: Every pointer view has a list companion
 
@@ -1195,6 +1202,85 @@ The system SHALL keep the last 6 technologies the reader followed in Clusters as
 - **Given** the trail ends Razor Components, then ASP.NET Core
 - **When** the reader presses Back
 - **Then** Razor Components is in focus and ends the trail
+
+### Requirement: An open layer groups its technologies by type family
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.An_open_layer_groups_its_pills_by_family_under_a_heading]
+```
+
+The system SHALL draw an open layer's technologies in Clusters as one group per type family, each under a heading naming its family, in family order.
+
+#### Scenario: Two families in one layer
+
+- **Given** the Shared layer holds .NET Runtime, a runtime, and Razor Components, a framework
+- **When** the reader opens the Shared layer in Clusters
+- **Then** a Framework heading over Razor Components comes first
+- **And** a Runtime heading over .NET Runtime follows it
+
+### Requirement: Each cluster on All layers is one tab stop
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.Each_cluster_is_one_tab_stop_its_button_first_and_the_browser_roves_it, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_answers_the_arrows_home_and_end_unmodified_on_its_own_buttons, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_moves_its_one_stop_and_the_focus_wrapping_and_skipping_disabled]
+```
+
+The system SHALL make each cluster on the All layers map one tab stop, its open-layer button first and then its dots, across which the arrow keys, Home and End move the stop and wrap at either end.
+
+#### Scenario: Tabbing into a cluster
+
+- **Given** the reader opens Clusters on All layers, and the Desktop cluster holds Blazor and Playwright
+- **When** the reader tabs to the Desktop cluster
+- **Then** its open-layer button has the focus
+- **And** the next Tab leaves the cluster without stopping on Blazor or Playwright
+
+#### Scenario: Moving across the dots
+
+- **Given** the Desktop cluster's open-layer button has the focus
+- **When** the reader presses the right arrow, then End, then the right arrow again
+- **Then** the focus moves to Blazor, then to Playwright, then back to the open-layer button
+
+### Requirement: A dot on All layers opens its layer on its technology
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_on_All_layers_is_a_button_that_selects_its_technology_and_opens_its_layer]
+```
+
+The system SHALL open a dot's layer on its technology when the reader presses the dot on All layers, and move the focus to that technology in the breadcrumb.
+
+#### Scenario: Pressing bUnit's dot
+
+- **Given** the reader opens Clusters on All layers
+- **When** the reader presses bUnit's dot in the Testing cluster
+- **Then** the Testing layer is open with bUnit in focus
+- **And** the focus is on bUnit in the breadcrumb
+
+### Requirement: A cluster keeps one tab stop across a re-read
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_keeps_its_own_button_when_a_reread_takes_away_a_technology_before_it, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_left_without_one_stop_gets_one_back]
+```
+
+The system SHALL keep exactly one tab stop in each cluster on All layers when a re-read of the folder changes the cluster's technologies.
+
+#### Scenario: A technology before the stop is taken away
+
+- **Given** the reader has moved the Desktop cluster's stop to Playwright
+- **When** a re-read takes Blazor away
+- **Then** the stop stays on Playwright
+
+#### Scenario: The technology holding the stop is taken away
+
+- **Given** the reader has moved the Desktop cluster's stop to Playwright
+- **When** a re-read takes Playwright away
+- **Then** the cluster's open-layer button is its one tab stop
 
 ### Requirement: Type lenses shows one card per type in use
 

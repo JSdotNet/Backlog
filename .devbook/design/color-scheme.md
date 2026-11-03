@@ -767,6 +767,7 @@ Review surface: storybook → *Progress* → **Pull request status**.
 ### Chart roles
 
 ```meta
+related: [".devbook/domain/devbook/requirements.md#requirement-colour-follows-the-type-family"]
 ```
 
 Measured on `color-background-alt`, which is the card a chart sits on.
@@ -804,10 +805,50 @@ Rules:
   repository's would read as one more repository. The legend names every band, so
   the hue is never the sole carrier. Consumer: the dashboard's Sessions part
   (`MetricStackedBars` with `Categorical`).
+- **Deviation: category hues on a map and a scatter.** The Technology views
+  colour each technology by its type family, which is a kind and not a measure.
+  The Clusters map and the Complexity scatter draw many families side by side,
+  and shades of one hue cannot tell nine of them apart. Nine `--tech-family-*`
+  aliases name the family hues, measured in the table after these rules.
+  `app.css` declares them once, on
+  `.tech-devbook-pane`, and every Technology view takes its family colour from
+  them. Each alias derives from a chart role and never from a semantic token, so
+  a framework never reads as an error or as primary. Five category hues cannot
+  cover nine families. Three families therefore take a 50% `color-mix()` of two
+  category hues, Protocol takes the muted ink and Other takes the axis grey.
+  The palette gains nothing.
+- On the Clusters map, the lines from a picked technology to what it sits on
+  take `chart-series`, and the lines to what uses it take `chart-category-5`.
+- Colour is never the sole carrier on the Technology views. A technology that is
+  not adopted is drawn hollow, as a ring of its family hue. The map's legend
+  names every family and the hollow dot in text.
+  `TechnologyFamilyPaletteTests` fails when an alias is declared anywhere but on
+  `.tech-devbook-pane`, derives from anything but a `chart-*` role, or a view
+  grows a family set of its own.
 - Every ramp step clears the 3:1 a non-text mark owes its background. The track
   is deliberately below it, because it is the absence of data rather than data.
 - The baseline takes `chart-axis` rather than `chart-grid`, because a baseline
   carries meaning and a gridline does not.
+
+The Technology family hues, measured on `color-background-alt` like the roles
+above. A blend's value is the 50/50 sRGB mix of its two band hues. Every hue is
+a non-text mark and clears the 3:1 it owes.
+
+| Alias | Derivation | sRGB | Measured |
+|---|---|---|---|
+| `tech-family-framework` | `chart-category-2` | `#7FD1C1` | 9.13:1 |
+| `tech-family-platform` | `chart-category-3` | `#9BD17F` | 9.15:1 |
+| `tech-family-runtime` | `chart-category-4` | `#F0A868` | 8.13:1 |
+| `tech-family-language-package` | `chart-category-3` and `-4`, 50% each | `#C6BD74` | 8.41:1 |
+| `tech-family-library-tool-plugin` | `chart-category-5` | `#8595AD` | 5.34:1 |
+| `tech-family-skill` | `chart-category-4` and `-5`, 50% each | `#BB9F8B` | 6.50:1 |
+| `tech-family-agent-service-format` | `chart-category-2` and `-5`, 50% each | `#82B3B7` | 7.03:1 |
+| `tech-family-protocol` | `chart-ink-muted` | `#CED4DA` | 10.88:1 |
+| `tech-family-other` | `chart-axis` | `#737379` | 3.45:1 |
+
+The binding pair is Other at 3.45:1. The weakest blend is Skill at 6.50:1. A
+blend's sRGB value rounds each channel's half up, and its ratio is measured
+before that rounding.
 
 ### Integration roles
 
