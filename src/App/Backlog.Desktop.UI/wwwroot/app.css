@@ -387,18 +387,18 @@ h1, h2, h3 {
 }
 
 /*
-  The shared Toggle standing in the header rather than in a settings row.
+  The shared Toggle in the header's gear menu rather than in a settings row.
 
   The component is laid out for that row: the track aligns to the top of a text
   block that may carry a description under the name, and the name is set at the
-  weight a section heading needs. A header has neither a second line to align to
+  weight a section heading needs. The panel has neither a second line to align to
   nor room for a heading, so the parts are re-centred and the name steps down to
-  the type the chips beside it use. Nothing about the switch itself is touched —
+  the type the chips use. Nothing about the switch itself is touched —
   the track, the thumb, the on state, focus and the reduced-motion rule are all
   still the component's own, which is the whole reason for reaching for it.
 
   It does not shrink. A switch narrowed to nothing is a switch nobody can read
-  the name of, and the header already wraps rather than squeezing its regions.
+  the name of.
 */
 .toggle.header-switch {
     align-items: center;
@@ -415,6 +415,42 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     white-space: nowrap;
+}
+
+/* The note under Show archived while nothing is archived: why it is greyed out. */
+.header-switch__description {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The gear reads pressed while its menu is out, as a hovered icon link does. */
+.icon-link.icon-link--open {
+    background: var(--color-background-alt);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+/* Settings, last in the gear menu: a link to the page, set apart from the
+   switches above it by a hairline. */
+.header-menu__link {
+    display: block;
+    margin-inline: calc(-1 * var(--spacing-md));
+    margin-bottom: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+}
+
+.header-menu__link:hover {
+    color: var(--color-text-link);
+    text-decoration: underline;
+}
+
+.header-menu__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The version control wears `.header-util` for its shape, so only the version
@@ -4002,15 +4038,6 @@ h1, h2, h3 {
 .app-header--fold-2 .header-group__option:has(> .header-nav-label--tier-2),
 .app-header--fold-3 .header-group__option:has(> .header-nav-label--tier-3),
 .app-header--fold-4 .header-group__option:has(> .header-nav-label--tier-4) {
-    padding-inline: var(--spacing-sm);
-}
-
-/* An option that never had a word — Show archived beside Colors — is a glyph in
-   a box from the start, so it takes the folded sides permanently. The height is
-   the option's own, so it lines up with the loose options it borrows the shape
-   from and the header grows no taller for it. */
-.header-group__option--icon-only {
-    flex: 0 0 auto;
     padding-inline: var(--spacing-sm);
 }
 

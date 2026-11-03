@@ -172,77 +172,6 @@
                         </ToggleButton>
                     }
                 </ButtonGroup>
-
-                @* Whether the identity hues are drawn at all — here, beside the chips
-                   that wear the most visible ones, rather than buried in Settings with
-                   the choice of which hue each repository gets. Those are two different
-                   questions asked by two different people at two different moments: one
-                   is "this project is green", set once and left alone, and this one is
-                   "not right now", which is a decision about the screen in front of you
-                   and belongs on it.
-
-                   Outside the scope group on purpose. Inside it this would read as a
-                   sixth repository, and it is not a scope — using it narrows nothing.
-
-                   A switch rather than a chip, and the difference is what it is about.
-                   Every other control in this strip answers "which of these am I looking
-                   at" and holds a selection; this one answers "is this layer on", which
-                   is the one question a switch is for. So the shared Toggle in its
-                   default shape: role="switch" and aria-checked on a real button, with
-                   the name written beside the track instead of on it — which is also why
-                   there is no aria-label here. Toggle labels itself from that text
-                   through aria-labelledby, and a second accessible name would displace
-                   the one the reader can actually see.
-
-                   It renders with the chips or not at all. With nothing configured there
-                   is no repository to be an identity for, and a control governing the
-                   look of an empty set is a control with nothing to do — the same reason
-                   the takeover group below hides itself when no takeover is
-                   offered. The Brain's edge is not one of those hues, so it does not
-                   keep the switch on screen. *@
-                if (State.Repositories.Count > 0)
-                {
-                    <Toggle CssClass="header-switch"
-                            LabelCssClass="header-switch__label"
-                            ControlCssClass="toggle__track header-switch__track"
-                            Label="Colors"
-                            Id="repository-colours-switch"
-                            TestId="repository-colours-toggle"
-                            Checked="State.RepositoryColoursVisible"
-                            CheckedChanged="ShowRepositoryColours" />
-                }
-
-                @* Show archived (local ADR 0029, §3): whether the archived repositories
-                   are offered in the scope, the Board's columns and the pickers, and
-                   their tasks in the list. It asks the question Colors asks — "is this
-                   layer on" — and narrows nothing itself, so it is outside the scope
-                   group for the same reason.
-
-                   A glyph that stays pressed rather than a second switch, and the
-                   reason is room. Colors is the setting everyone meets; this one only
-                   exists once a repository is archived, and a track plus its words
-                   beside Colors cost the header more width than an occasional choice
-                   earns. One on-or-off of its own is the loose standalone option the
-                   Inbox and Devbook toggles already wear, so it takes that shape and
-                   that size. With no word on screen the name goes on aria-label, and
-                   the tooltip says what the next press does; aria-pressed carries the
-                   state a switch's aria-checked carried.
-
-                   Kept per device, and read from that choice on every render, so a
-                   shell the Router built afresh draws what was left. Only while a
-                   repository is archived: with none there is nothing for it to show. *@
-                if (State.HasArchivedRepositories)
-                {
-                    <ToggleButton BaseClass="header-group__option header-group__option--loose header-group__option--icon-only"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="State.ShowArchivedRepositories"
-                                  PressedChanged="State.SetShowArchivedRepositories"
-                                  TestId="show-archived-toggle"
-                                  AriaLabel="Show archived repositories"
-                                  Title="@(State.ShowArchivedRepositories ? "Hide archived repositories" : "Show archived repositories")">
-                        <ArchiveIcon />
-                    </ToggleButton>
-                }
             }
         </div>
 
@@ -645,11 +574,65 @@
             }
 
             @* Two utilities left, and they are the two that are still about this
-               screen: Ask AI opens a panel beside its content, and settings is
+               screen: Ask AI opens a panel beside its content, and the gear is
                where this screen's own configuration lives. The version control
                and the Report issue button were neither, and they are now in the
-               app-shell footer MainLayout mounts below every route. *@
-            <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
+               app-shell footer MainLayout mounts below every route.
+
+               The gear opens a small menu rather than going straight to Settings,
+               because two choices about this screen that are made now and then
+               live in it too: whether the repositories' identity hues are drawn
+               (Colors), and whether archived repositories are offered in the
+               scope, the Board's columns and the pickers (Show archived, local ADR
+               0029 §3). Both ask "is this layer on" and narrow nothing, so they are
+               switches, and neither earns a place in the row it would widen. The
+               Settings page is the last entry, one click further than it was.
+
+               The PopoverButton is a disclosure: aria-expanded on the trigger, a
+               role="group" panel drawn straight after it so Tab walks in, closed by
+               Escape, an outside click or a second press, and left open while a
+               switch is flipped. Inside, both switches are the shared Toggle,
+               named by the words beside the track through aria-labelledby.
+
+               Colors only while a repository is configured: with none there is no
+               hue to draw, and the Brain's edge is not one of them. Show archived
+               is always listed, so it can be found, and disabled with a note while
+               nothing is archived, since it would have nothing to show. It is kept
+               per device and read from that choice on every render, so a shell the
+               Router built afresh draws what was left. *@
+            <PopoverButton TestId="settings-menu"
+                           Id="settings-menu"
+                           AriaLabel="Settings"
+                           AlignEnd="true"
+                           TriggerBaseClass="icon-link"
+                           TriggerOpenCssClass="icon-link--open">
+                <Trigger>⚙</Trigger>
+                <ChildContent>
+                    @if (State.Repositories.Count > 0)
+                    {
+                        <Toggle CssClass="header-switch"
+                                LabelCssClass="header-switch__label"
+                                ControlCssClass="toggle__track header-switch__track"
+                                Label="Colors"
+                                Id="repository-colours-switch"
+                                TestId="repository-colours-toggle"
+                                Checked="State.RepositoryColoursVisible"
+                                CheckedChanged="ShowRepositoryColours" />
+                    }
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            DescriptionCssClass="header-switch__description"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Show archived"
+                            Description="@(State.HasArchivedRepositories ? null : "No archived repositories")"
+                            Disabled="!State.HasArchivedRepositories"
+                            Id="show-archived-switch"
+                            TestId="show-archived-toggle"
+                            Checked="State.ShowArchivedRepositories"
+                            CheckedChanged="State.SetShowArchivedRepositories" />
+                    <a class="header-menu__link" href="settings" id="settings-link" data-testid="settings-link">Settings</a>
+                </ChildContent>
+            </PopoverButton>
         </div>
     </header>
 

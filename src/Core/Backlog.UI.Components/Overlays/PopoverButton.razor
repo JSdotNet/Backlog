@@ -1,0 +1,151 @@
+@*
+    A button that shows a small panel of the host's own controls under it — a
+    disclosure, not a menu. The panel holds switches and buttons rather than
+    menu items, so it carries role="group" and the trigger aria-expanded, and the
+    arrow keys stay the controls' own.
+
+    The panel is drawn straight after the trigger in the DOM, so Tab walks from
+    the trigger into it and out the other side with no focus handling here.
+    Escape anywhere inside closes it and puts the focus back on the trigger.
+
+    Outside-click is a transparent full-screen backdrop, as ContextMenu does it:
+    it goes when the panel goes, so no document listener is left behind. It
+    covers the trigger too, which is how a second press closes the panel. Like
+    the context menu's, it takes the click it catches: a click on a control
+    outside only closes the panel, and focus is left where the click put it.
+    Only Escape hands the focus back to the trigger.
+*@
+
+<span class="@ClassValue" data-testid="@TestId" @onkeydown="OnKeyDownAsync" @attributes="AdditionalAttributes">
+    <button type="button"
+            class="@TriggerClassValue"
+            @ref="_trigger"
+            aria-label="@AriaLabel"
+            title="@TitleValue"
+            aria-expanded="@(_open ? "true" : "false")"
+            aria-controls="@PanelId"
+            data-testid="@($"{TestId}-button")"
+            @onclick="ToggleAsync">
+        <span class="popover-button__glyph" aria-hidden="true">@Trigger</span>
+    </button>
+    @if (_open)
+    {
+        <span class="popover-button__backdrop" data-testid="@($"{TestId}-backdrop")" @onclick="CloseAsync"></span>
+        <div class="@PanelClassValue"
+             id="@PanelId"
+             role="group"
+             aria-label="@AriaLabel"
+             data-testid="@($"{TestId}-panel")">
+            @ChildContent
+        </div>
+    }
+</span>
+
+@code {
+    private readonly string _panelId = $"popover-{Guid.NewGuid():n}";
+    private ElementReference _trigger;
+    private bool _open;
+
+    /// <summary>The control's name: the trigger's aria-label and the panel's.</summary>
+    [Parameter, EditorRequired]
+    public string AriaLabel { get; set; } = string.Empty;
+
+    /// <summary>The tooltip. Falls back to <see cref="AriaLabel"/>.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>What the trigger shows — usually one glyph. Hidden from assistive
+    /// technology, since the name is on the button.</summary>
+    [Parameter]
+    public RenderFragment? Trigger { get; set; }
+
+    /// <summary>The panel's content: the host's own controls.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Raised when the panel opens or closes.</summary>
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>Replaces the trigger's <c>btn btn--icon</c>.</summary>
+    [Parameter]
+    public string TriggerBaseClass { get; set; } = "btn btn--icon";
+
+    /// <summary>Appended to the trigger while the panel is open.</summary>
+    [Parameter]
+    public string? TriggerOpenCssClass { get; set; }
+
+    /// <summary>Lines the panel's end edge up with the trigger's, so it opens
+    /// inward from the end of a row. Off, its start edges line up.</summary>
+    [Parameter]
+    public bool AlignEnd { get; set; }
+
+    /// <summary>Appended to the panel's <c>popover-button__panel</c>.</summary>
+    [Parameter]
+    public string? PanelCssClass { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Seeds the panel's id as <c>{Id}-panel</c>, the target of the
+    /// trigger's aria-controls. Left unset, the panel gets a generated one.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "popover-button";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string PanelId => string.IsNullOrWhiteSpace(Id) ? _panelId : $"{Id}-panel";
+
+    private string TitleValue => string.IsNullOrWhiteSpace(Title) ? AriaLabel : Title;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "popover-button" : $"popover-button {CssClass}";
+
+    private string TriggerClassValue => _open && !string.IsNullOrWhiteSpace(TriggerOpenCssClass)
+        ? $"{TriggerBaseClass} {TriggerOpenCssClass}"
+        : TriggerBaseClass;
+
+    private string PanelClassValue
+    {
+        get
+        {
+            var value = AlignEnd ? "popover-button__panel popover-button__panel--end" : "popover-button__panel";
+            return string.IsNullOrWhiteSpace(PanelCssClass) ? value : $"{value} {PanelCssClass}";
+        }
+    }
+
+    private Task ToggleAsync() => _open ? CloseAsync() : OpenAsync();
+
+    private Task OpenAsync()
+    {
+        _open = true;
+        return OpenChanged.InvokeAsync(true);
+    }
+
+    private Task CloseAsync()
+    {
+        _open = false;
+        return OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape" || !_open) return;
+
+        await CloseAsync();
+
+        try
+        {
+            await _trigger.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}

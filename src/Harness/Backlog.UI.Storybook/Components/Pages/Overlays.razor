@@ -3,7 +3,7 @@
 <PageTitle>Overlays — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Overlays"
-           Summary="The two things that take over the screen: a modal you put content in, and a confirm dialog that asks one question."
+           Summary="The things that sit over the screen: a modal you put content in, a confirm dialog that asks one question, a popover of a few occasional controls, and a detail sheet."
            Guidelines="@Rules">
 
     <Story Name="Modal"
@@ -127,6 +127,23 @@ Confirm stays open with its button busy until the host's OnConfirm has finished,
                        OnCancel="CancelDelete" />
     </Story>
 
+    <Story Name="PopoverButton"
+           Description="A small panel of the host's own controls under a button, for settings somebody flips now and then and would rather not see all day. A disclosure rather than a menu: the trigger carries `aria-expanded` and `aria-controls`, and the panel is a `role=group` holding switches and buttons, not menu items. It is drawn straight after the trigger, so Tab walks into it.
+
+Escape closes it and puts the focus back on the trigger; so does a click anywhere outside, and a second press of the trigger. Flipping a control inside leaves it open. The desktop header puts its Colors and Show archived switches in one."
+           Code="@PopoverCode">
+        <div class="sb-row">
+            <PopoverButton AriaLabel="Display options" TestId="story-popover">
+                <Trigger><EllipsisIcon /></Trigger>
+                <ChildContent>
+                    <Toggle Label="Colors" TestId="story-popover-colours" Checked="_popoverColours" CheckedChanged="v => _popoverColours = v" />
+                    <Toggle Label="Show archived" TestId="story-popover-archived" Checked="_popoverArchived" CheckedChanged="v => _popoverArchived = v" />
+                </ChildContent>
+            </PopoverButton>
+        </div>
+        <p class="sb-state" data-testid="popover-state">Colors: @(_popoverColours ? "on" : "off") &nbsp;|&nbsp; Show archived: @(_popoverArchived ? "on" : "off")</p>
+    </Story>
+
     @*
         The sheet is the third thing here and the one that is not a takeover. A
         modal stops the page to ask something; a sheet sits beside a surface and
@@ -203,6 +220,19 @@ Confirm stays open with its button busy until the host's OnConfirm has finished,
 </StoryPage>
 
 @code {
+    private bool _popoverColours;
+    private bool _popoverArchived;
+
+    private const string PopoverCode = """
+        <PopoverButton AriaLabel="Display options">
+            <Trigger><EllipsisIcon /></Trigger>
+            <ChildContent>
+                <Toggle Label="Colors" @bind-Checked="_colours" />
+                <Toggle Label="Show archived" @bind-Checked="_archived" />
+            </ChildContent>
+        </PopoverButton>
+        """;
+
     private bool _sheetOpen;
 
     private void OpenSheet() => _sheetOpen = true;
