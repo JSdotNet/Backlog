@@ -1,7 +1,7 @@
 # ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
-date: 2026-10-27
+date: 2026-11-02
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
 ```
 
@@ -18,11 +18,15 @@ sits behind the flag `session-requests`, off by default.
 ```meta
 ```
 
-Proposed, 2026-10-22, and amended on 2026-10-27 ([History](#history)), by the flow-spec run `run-mviose3i-v0k24o` that drafted it, the
-`record-decision` item of the `session-dispatch` plan, run unattended. It awaits
-acceptance at the Personal Validation gate of that run's draft pull request. Not yet
-built: the plan's later items build the record, the endpoint, the tools and the
-Manager skill.
+Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
+`run-mvzp51dk-5wwl1p`, which made the second amendment. Proposed 2026-10-22 by the
+flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
+`session-dispatch` plan, run unattended. Amended on 2026-10-27 and 2026-11-02
+([History](#history)).
+
+Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
+wait route, the dispatcher tools, the Start session and Start plan session actions, and
+the `dispatch-sessions` skill that is the Manager.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It adds a route and a tool group to the listener ADR 0012 built,
@@ -129,8 +133,8 @@ dispatching the same request twice does no harm.
 stateDiagram-v2
   [*] --> Requested: a click on an entry or plan
   Requested --> Claimed: a dispatcher claims it
-  Claimed --> Requested: the 2-minute lease runs out
-  Claimed --> Started: the dispatcher reports the session
+  Claimed --> Requested: the 2-minute lease runs out, for every other dispatcher
+  Claimed --> Started: the holder reports the session, until another dispatcher claims it
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
@@ -140,15 +144,31 @@ stateDiagram-v2
 
 - **Requested.** Waiting for a dispatcher.
 - **Claimed.** One dispatcher holds it under a lease of two minutes. A claim on a
-  request that is not Requested is refused, so two dispatchers never start the same
-  request. A lease that runs out returns the request to Requested.
-- **Started.** The dispatcher reported the session it started, by its session id.
+  request that is not Requested is refused, so two dispatchers never hold the same
+  request at once. A lease that runs out returns the request to Requested for every
+  other dispatcher.
+- **Started.** The holder of the claim reported the session it started, by its
+  session id.
 - **Linked.** That session called `link_session` on the entry. A plan request is
   Linked when its session links any entry of the plan.
 - **Cancelled.** The person cancelled it.
 
 **Requests never expire.** A request made while no dispatcher runs waits until one
 does, or until the person cancels it. Linked and Cancelled are final.
+
+**Amended 2026-11-02: the holder's late report still counts.** Claude Desktop's
+`start_session` can return after the two-minute lease ran out. The session exists by
+then, so the holder's `started` report is still accepted while the request is stored
+Claimed by that holder. Once another dispatcher claims the request, the late report is
+refused with "Another dispatcher holds the claim". A holder whose lease ran out still
+cannot release the request, because it already reads Requested. Answer deliveries follow
+the same rule
+([Only one Manager holds a delivery](../../domain/sessions/domain.invariants.md#invariant-only-one-manager-holds-a-delivery)).
+
+The rule closes a race in which one Manager dispatched its own request twice. Before it,
+the refused report left the request reading Requested, and the next wait handed it back.
+A second session can still start when another dispatcher claims the request first. The
+refused report then tells the holder so, and the Manager names both sessions.
 
 ### 4. Dispatchers wait on a long poll and act through MCP tools
 
@@ -244,5 +264,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-02 | §3 amended: a lapsed lease returns the request to Requested for every other dispatcher, while the holder's late `started` report still counts until another dispatcher claims it. | `start_session` can outlast the lease, and the refused report let one Manager dispatch its own request twice. |
+| 2026-11-02 | Accepted at the gate of `run-mvzp51dk-5wwl1p`. Status: built and merged in PR #1491 on 2026-10-26. | The Status still said the plan's later items would build it, and the person accepted the record. |
 | 2026-10-27 | §1 amended: an Approve + follow-up answer to a Personal Validation question, from any paired device, files one ready prompt entry `after:` the gated entry in the same plan and repository, which an attended `execute-plan` dispatches; it never creates a session request. | A paired device already approves the gate, so it may queue the next step; only a click still starts a session. |
 | 2026-10-22 | Proposed: a click queues a session request, and a Manager session dispatches it through a long poll on the MCP listener. | A person wants a button that starts the work, and only a session inside Claude Desktop can start one there. |

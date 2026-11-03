@@ -16065,6 +16065,19 @@ select.field__input {
 }
 
 /*
+  Waiting: something the host asked for on the bar's behalf has not come yet — a
+  session queued for the plan. News, not an alert, so no tone of its own: the queue
+  glyph in the bar's own ink, after the title and after an overdue marker or a tick
+  when the bar is that too. The bar's fill and outline stay whatever its other states
+  make them. The glyph is a shape, and the caller says what is awaited in the detail.
+*/
+.roadmap-bar__waiting {
+    position: relative;
+    flex: none;
+    color: currentColor;
+}
+
+/*
   The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
   end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
   action's own included, so a keyboard reader tabbing onto it sees what they reached;

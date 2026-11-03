@@ -1244,7 +1244,7 @@ by waiting on the listener's long poll.
 | --- | --- |
 | `GET /session-requests/wait` | Answers one item at once — an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`) — or holds the call up to 50 seconds and answers `204`. It hands the item out without claiming it. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
-| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
+| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
 
 Every answer carries the request's brief, built by the server from its kind and id. A
@@ -1286,6 +1286,7 @@ stateDiagram-v2
   Requested --> Claimed: a dispatcher claims it
   Claimed --> Requested: the lease runs out
   Claimed --> Started: the dispatcher reports the session
+  Requested --> Started: the lapsed holder reports, nobody else claimed it
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
@@ -1304,8 +1305,13 @@ stateDiagram-v2
 - **Cancelled.** The person cancelled it.
 
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
-returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested),
-so a dispatcher that stopped mid-dispatch does not keep it.
+returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested)
+for every other dispatcher, so a dispatcher that stopped mid-dispatch does not keep it.
+The dispatcher whose lease ran out may still report the session it started, as long as
+no other dispatcher has claimed the request since. A slow start is then recorded as
+Started rather than dispatched again. Once another dispatcher claims the request, the
+late report is refused. A lapsed holder cannot release the request, because it already
+reads Requested.
 
 **One open request per target.** [A second ask returns the open
 request](domain.invariants.md#invariant-one-open-request-per-entry-or-plan): an entry or plan

@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Data;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -12,7 +13,8 @@ namespace Backlog.Desktop.UI.Tasks;
 /// while the action is offered the open requests are read again every
 /// <see cref="PollInterval"/>. It is one small read of a local table, and
 /// <see cref="Changed"/> is raised only when the answer differs, so a quiet queue
-/// redraws nothing.
+/// redraws nothing. The library's <see cref="PolledSnapshot{TKey, TValue}"/> keeps the
+/// answer and its guard.
 /// </para>
 /// <para>
 /// Held by the pane rather than by <c>TasksDesktopState</c>: a request is the Sessions
@@ -26,25 +28,19 @@ public sealed class TasksSessionRequests : IDisposable
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private readonly IEntrySessionRequests? _port;
-    private readonly ITimer? _poll;
+    private readonly PolledSnapshot<Guid, EntrySessionRequest> _open;
     private readonly HashSet<Guid> _busy = [];
-    private IReadOnlyDictionary<Guid, EntrySessionRequest> _open = new Dictionary<Guid, EntrySessionRequest>();
-    private volatile bool _disposed;
-
-    /// <summary>Moved on by every press, so a poll that set out before it cannot land
-    /// after it and put back the answer the press replaced.</summary>
-    private int _version;
 
     /// <param name="port">The queue's port, or null when the host composed none.</param>
     /// <param name="clock">What the poll waits on; the system clock when null.</param>
     public TasksSessionRequests(IEntrySessionRequests? port, TimeProvider? clock = null)
     {
         _port = port;
-
-        if (_port is not null)
-        {
-            _poll = (clock ?? TimeProvider.System).CreateTimer(_ => _ = RefreshAsync(), null, PollInterval, PollInterval);
-        }
+        _open = new PolledSnapshot<Guid, EntrySessionRequest>(
+            () => _port!.OpenAsync(),
+            _port is null ? null : RefreshAsync,
+            PollInterval,
+            clock: clock);
     }
 
     /// <summary>Raised when what an entry is waiting for changed, or a press started
@@ -61,7 +57,7 @@ public sealed class TasksSessionRequests : IDisposable
     /// <summary>The request <paramref name="entryId"/> is waiting on, or null — none
     /// open, or the action is not offered.</summary>
     public EntrySessionRequest? OpenFor(Guid? entryId) =>
-        IsOffered && entryId is { } id && _open.TryGetValue(id, out var request) ? request : null;
+        IsOffered && entryId is { } id && _open.TryGet(id, out var request) ? request : null;
 
     /// <summary>Whether a press for <paramref name="entryId"/> is still on its way.</summary>
     public bool IsBusy(Guid? entryId) => entryId is { } id && _busy.Contains(id);
@@ -69,24 +65,9 @@ public sealed class TasksSessionRequests : IDisposable
     /// <summary>Reads the open requests again, and redraws when they changed.</summary>
     public async Task RefreshAsync()
     {
-        if (_port is null || _disposed || !_port.IsOffered) return;
+        if (_port is null || _open.IsDisposed || !_port.IsOffered) return;
 
-        var version = Volatile.Read(ref _version);
-
-        IReadOnlyDictionary<Guid, EntrySessionRequest> read;
-        try
-        {
-            read = await _port.OpenAsync();
-        }
-        catch (Exception)
-        {
-            return;
-        }
-
-        if (_disposed || version != Volatile.Read(ref _version) || Same(read, _open)) return;
-
-        _open = read;
-        Changed?.Invoke();
+        if (await _open.RefreshAsync()) Changed?.Invoke();
     }
 
     /// <summary>Queues a request for <paramref name="entryId"/> in
@@ -97,14 +78,14 @@ public sealed class TasksSessionRequests : IDisposable
 
         if (_port is null || !target.HasCloneFolder || !_busy.Add(entryId)) return false;
 
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
         try
         {
             var request = await _port.RequestAsync(entryId, target.Repository, target.CloneFolder!);
-            _open = new Dictionary<Guid, EntrySessionRequest>(_open) { [entryId] = request };
+            _open.Put(entryId, request);
             return true;
         }
         catch (Exception)
@@ -125,7 +106,7 @@ public sealed class TasksSessionRequests : IDisposable
     {
         if (_port is null || OpenFor(entryId) is not { State: EntrySessionRequestState.Requested } request || !_busy.Add(entryId)) return false;
 
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
@@ -146,32 +127,11 @@ public sealed class TasksSessionRequests : IDisposable
 
             // Read back rather than assumed: a refused cancel means a dispatcher moved
             // it on, and the chip should say where to.
-            await ReadAfterPressAsync();
+            await _open.ReadBackAsync();
+
+            if (!_open.IsDisposed) Changed?.Invoke();
         }
     }
 
-    public void Dispose()
-    {
-        _disposed = true;
-        _poll?.Dispose();
-    }
-
-    private async Task ReadAfterPressAsync()
-    {
-        if (_port is null || _disposed) return;
-
-        try
-        {
-            _open = await _port.OpenAsync();
-        }
-        catch (Exception)
-        {
-            // The poll will try again.
-        }
-
-        if (!_disposed) Changed?.Invoke();
-    }
-
-    private static bool Same(IReadOnlyDictionary<Guid, EntrySessionRequest> a, IReadOnlyDictionary<Guid, EntrySessionRequest> b) =>
-        a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var other) && other == pair.Value);
+    public void Dispose() => _open.Dispose();
 }

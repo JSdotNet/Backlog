@@ -302,15 +302,28 @@ The system SHALL let only one dispatcher claim a request at a time.
 ```meta
 status: draft
 type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_from_the_lapsed_holder_writes_Started_while_nobody_else_claimed, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_is_refused_once_another_dispatcher_claimed_in_between]
 ```
 
-The system SHALL return a Claimed request to Requested when two minutes pass without its dispatcher reporting a session.
+The system SHALL hand a Claimed request to the next dispatcher once two minutes pass without a reported session, and accept the late report of the dispatcher that claimed it until another dispatcher claims it.
 
 #### Scenario: A dispatcher stops mid-dispatch
 
 - **Given** a dispatcher claimed a request
 - **When** two minutes pass without it reporting a session
-- **Then** the request is Requested again and the next waiting dispatcher receives it
+- **Then** the request is Requested again, and the next waiting dispatcher receives and claims it
+
+#### Scenario: A slow start is reported after the lease ran out
+
+- **Given** a dispatcher claimed a request and no other dispatcher claimed it since
+- **When** it reports its started session more than two minutes after the claim
+- **Then** the request is Started with that session
+
+#### Scenario: A late report after another dispatcher claimed
+
+- **Given** a dispatcher's claim lapsed and a second dispatcher claimed the request
+- **When** the first dispatcher reports its started session
+- **Then** the report is refused and the request stays Claimed by the second dispatcher
 
 ### Requirement: A request waits until it is answered or cancelled
 
