@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Backlog.Infrastructure.GitHub;
 
@@ -8,7 +9,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// adds to the three merge acts: updating a branch that fell behind its base, and
 /// taking a draft out of draft.
 /// <para>
-/// The list is one GraphQL query for the reason the status is: the check roll-up, the
+/// The list is GraphQL, a page per request, for the reason the status is: the check roll-up, the
 /// auto-merge request and the merge state live nowhere in REST together. The update is
 /// REST, because that endpoint is the one GitHub documents <c>expected_head_sha</c> on.
 /// </para>
@@ -141,6 +142,113 @@ public sealed class GitHubClientOpenPullRequestsTests
         Assert.DoesNotContain("JSdotNet", query, StringComparison.Ordinal);
     }
 
+    /// <summary>Fifty rows in one request ran into GitHub's GraphQL timeout on a
+    /// repository with a long queue, so the list is two pages of twenty-five, the
+    /// second asked for after the first's cursor, and no third even when GitHub has
+    /// more.</summary>
+    [Fact]
+    public async Task The_list_is_read_in_pages_of_twenty_five_up_to_fifty()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            ListPage("cursor-1", Nodes(1, GitHubClient.OpenPullRequestPageSize)),
+            ListPage("cursor-2", Nodes(26, GitHubClient.OpenPullRequestPageSize)));
+
+        var pulls = await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GitHubClient.OpenPullRequestLimit, pulls.Count);
+        Assert.Equal(Enumerable.Range(1, 50), pulls.Select(pull => pull.Number));
+
+        var pages = ListRequests(transport);
+        Assert.Equal(2, pages.Count);
+        Assert.Equal(25, pages[0].GetProperty("first").GetInt32());
+        Assert.Equal(JsonValueKind.Null, pages[0].GetProperty("after").ValueKind);
+        Assert.Equal("cursor-1", pages[1].GetProperty("after").GetString());
+    }
+
+    [Fact]
+    public async Task A_list_without_a_next_page_is_one_request()
+    {
+        var transport = new RoutingTransport().Returns("graphql", ListPage(next: null, Nodes(1, 3)));
+
+        var pulls = await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, pulls.Count);
+        Assert.Single(ListRequests(transport));
+    }
+
+    /// <summary>The list is ordered by last update, so a pull request updated between
+    /// the two pages moves up and can be read on both; it is one row.</summary>
+    [Fact]
+    public async Task A_pull_request_read_on_both_pages_is_one_row()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            ListPage("cursor-1", Nodes(1, 25)),
+            ListPage(next: null, [Node(number: 25, id: "PR_25"), Node(number: 26, id: "PR_26")]));
+
+        var pulls = await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Enumerable.Range(1, 26), pulls.Select(pull => pull.Number));
+    }
+
+    [Fact]
+    public async Task An_answer_that_names_a_next_page_without_new_rows_is_followed_only_up_to_the_cap()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            ListPage("cursor-1", Nodes(1, 3)),
+            ListPage("cursor-2", Nodes(1, 3)));
+
+        var pulls = await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, pulls.Count);
+        Assert.Equal(GitHubClient.OpenPullRequestPageCap, ListRequests(transport).Count);
+    }
+
+    /// <summary>GitHub's time per page varies, so a page it gave up on is asked for once
+    /// more at half the size, and the pages after it go back to the full size.</summary>
+    [Theory]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.GatewayTimeout)]
+    public async Task A_page_github_gave_up_on_is_asked_again_at_half_the_size(HttpStatusCode status)
+    {
+        var transport = new RoutingTransport().RefusesOnceThenReturnsInTurn(
+            "graphql",
+            status,
+            ListPage("cursor-1", Nodes(1, 13)),
+            ListPage(next: null, Nodes(14, 25)));
+
+        var pulls = await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Enumerable.Range(1, 38), pulls.Select(pull => pull.Number));
+        Assert.Equal([25, 13, 25], ListRequests(transport).Select(page => page.GetProperty("first").GetInt32()));
+        Assert.Equal("cursor-1", ListRequests(transport)[2].GetProperty("after").GetString());
+    }
+
+    [Fact]
+    public async Task A_page_github_gives_up_on_twice_fails_the_list()
+    {
+        var transport = new RoutingTransport().Refuses(HttpMethod.Post, "graphql", HttpStatusCode.GatewayTimeout);
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.GatewayTimeout, refused.Status);
+        Assert.Equal([25, 13], ListRequests(transport).Select(page => page.GetProperty("first").GetInt32()));
+    }
+
+    [Fact]
+    public async Task A_page_refused_for_another_reason_is_not_asked_again()
+    {
+        var transport = new RoutingTransport().Refuses(HttpMethod.Post, "graphql", HttpStatusCode.Forbidden);
+
+        await Assert.ThrowsAsync<GitHubException>(() =>
+            new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken));
+
+        Assert.Single(ListRequests(transport));
+    }
+
     /// <summary>A token that may not see checks is refused the roll-up once per pull
     /// request; the list is still the list, with no checks on any row.</summary>
     [Fact]
@@ -231,6 +339,34 @@ public sealed class GitHubClientOpenPullRequestsTests
           }
         }
         """;
+
+    private static string ListPage(string? next, string[] nodes) => $$"""
+        {
+          "data": {
+            "repository": {
+              "mergeCommitAllowed": true,
+              "squashMergeAllowed": true,
+              "rebaseMergeAllowed": false,
+              "pullRequests": {
+                "pageInfo": { "hasNextPage": {{Bool(next is not null)}}, "endCursor": {{(next is null ? "null" : $"\"{next}\"")}} },
+                "nodes": [ {{string.Join(",", nodes)}} ]
+              }
+            }
+          }
+        }
+        """;
+
+    private static string[] Nodes(int from, int count) =>
+        [.. Enumerable.Range(from, count).Select(number => Node(number: number, id: $"PR_{number}"))];
+
+    /// <summary>The variables of each list request the transport saw, in order —
+    /// leaving out the distance query that follows the list.</summary>
+    private static List<JsonElement> ListRequests(RoutingTransport transport) =>
+    [
+        .. transport.Bodies
+            .Where(sent => sent!.Contains("pullRequests(states: OPEN", StringComparison.Ordinal))
+            .Select(sent => JsonDocument.Parse(sent!).RootElement.GetProperty("variables").Clone())
+    ];
 
     private static string Node(
         int number = 712,
