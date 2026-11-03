@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;

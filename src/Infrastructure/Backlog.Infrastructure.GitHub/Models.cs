@@ -262,6 +262,12 @@ public sealed record GitHubOpenPullRequest(
     /// <summary>The issues this pull request closes when it merges.</summary>
     public IReadOnlyList<GitHubIssueReference> ClosingIssues { get; init; } = [];
 
+    /// <summary>A pending review request names the account this repository is read as —
+    /// GitHub's own <c>isViewer</c>, per repository, the way <see cref="ViewerDidAuthor"/>
+    /// is. A request made to a team the viewer is in is not one. False where the token was
+    /// refused the requests.</summary>
+    public bool ViewerReviewRequested { get; init; }
+
     /// <summary>The same pull request as the merge acts take it, so
     /// <see cref="GitHubIntegration.MergePullRequestAsync"/> and its two siblings act
     /// on a listed pull request exactly as they act on a recorded one.</summary>

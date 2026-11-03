@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.Goals;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Progress.Abstractions;

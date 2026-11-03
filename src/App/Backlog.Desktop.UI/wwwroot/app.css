@@ -3639,7 +3639,7 @@ h1, h2, h3 {
   fused — a single border around the group, members flush inside it, hairlines
   between them — and it says "these are siblings, read as one control": the
   repository scope, where Ctrl takes a second repository; the view switch, where
-  exactly one view is always on; and the work in progress, Sessions and Pull
+  exactly one view is always on; and the Goals group, Sessions and Pull
   requests, one context's two lists. The pressed state, not the shape, says how
   many are on. The `--loose` modifiers below say "related only by kind": the
   Dashboard and Tools, two takeovers from two contexts.

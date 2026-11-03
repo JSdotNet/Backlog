@@ -513,10 +513,16 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// in so Re-run failed sees every failed run.
     /// </para>
     /// <para>
-    /// Twenty labels, twenty reviews and ten closing issues per pull request: a
-    /// list row shows a handful of each, and fifty rows of these stay well inside
-    /// GitHub's node limit. <c>writersOnly</c> keeps the reviews to people whose
-    /// review counts towards the merge.
+    /// Twenty labels, twenty reviews, twenty review requests and ten closing issues per
+    /// pull request: a list row shows a handful of each, and fifty rows of these —
+    /// 50 × (20 + 20 + 20 + 10 + 50 checks) nodes — stay well inside GitHub's node
+    /// limit. <c>writersOnly</c> keeps the reviews to people whose review counts
+    /// towards the merge.
+    /// </para>
+    /// <para>
+    /// The review requests are read only for whether one names the viewer as a
+    /// <c>User</c> (<c>isViewer</c>); a request to a team carries no <c>isViewer</c>, so
+    /// a team the viewer is in does not count.
     /// </para>
     /// </summary>
     private const string ListedPullRequestFields = $$"""
@@ -541,6 +547,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
                 reviewDecision
                 latestOpinionatedReviews(first: 20, writersOnly: true) { nodes { state } }
                 closingIssuesReferences(first: 10) { nodes { number repository { nameWithOwner } } }
+                reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { isViewer } } } }
                 commits(last: 1) {
                   nodes {
                     commit {
@@ -1282,7 +1289,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// refusal, once per pull request, and the same reason to read around it — a
     /// token that cannot see checks can still see which pull requests are open.
     /// Widened to the other facts a narrower token is refused one by one: the check
-    /// counts, the reviews and the closing references. Each comes back null and reads
+    /// counts, the reviews, the review requests and the closing references. Each comes back null and reads
     /// as that fact missing, never as the row missing.
     /// </summary>
     private static bool OnlyTheListsExtraFactsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
@@ -1297,7 +1304,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     private static readonly string[] RefusableFacts =
     [
         "statusCheckRollup", "checkCounts", "contexts", "latestOpinionatedReviews", "closingIssuesReferences",
-        "reviewDecision", "labels"
+        "reviewDecision", "labels", "reviewRequests"
     ];
 
     private static bool IsARefusedExtraFact(JsonElement error) =>
@@ -1745,10 +1752,21 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
             IsCrossRepository = pull.TryGetProperty("isCrossRepository", out var fork) && fork.ValueKind == JsonValueKind.True,
             Reviews = ReadReviews(pull),
             ClosingIssues = ReadClosingIssues(pull),
+            ViewerReviewRequested = ReadViewerReviewRequested(pull),
             Additions = Count(pull, "additions"),
             Deletions = Count(pull, "deletions")
         };
     }
+
+    /// <summary>Whether a pending review request names the viewer as a user; absent,
+    /// refused or only other reviewers is no.</summary>
+    private static bool ReadViewerReviewRequested(JsonElement pull) =>
+        Nodes(pull, "reviewRequests").Any(request =>
+            request.TryGetProperty("requestedReviewer", out var reviewer)
+            && reviewer.ValueKind == JsonValueKind.Object
+            && string.Equals(String(reviewer, "__typename"), "User", StringComparison.Ordinal)
+            && reviewer.TryGetProperty("isViewer", out var viewer)
+            && viewer.ValueKind == JsonValueKind.True);
 
     /// <summary>A non-negative whole number under <paramref name="name"/>, or null
     /// where it is absent or not one.</summary>

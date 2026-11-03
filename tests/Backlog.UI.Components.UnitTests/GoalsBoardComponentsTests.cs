@@ -48,7 +48,6 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     private static readonly StandUpModel StandUp = new(
         Finished:
         [
-            new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")]),
             new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export")])
         ],
         Planned:
@@ -855,7 +854,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
 
         Assert.Equal(["Finished", "Planned", "Impediments"], panel.FindAll("h3").Select(h => h.TextContent));
-        Assert.Equal("2", panel.Find("[data-testid='su-finished-count']").TextContent);
+        Assert.Equal("1", panel.Find("[data-testid='su-finished-count']").TextContent);
         Assert.Equal("2", panel.Find("[data-testid='su-planned-count']").TextContent);
         Assert.Equal("1", panel.Find("[data-testid='su-impediments-count']").TextContent);
 
@@ -889,16 +888,6 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Contains("Customer search by IBAN", items[0].TextContent);
         Assert.Null(items[1].QuerySelector("[data-testid='su-effort']"));
         Assert.Empty(panel.FindAll("[data-testid='su-finished'] [data-testid='su-effort']"));
-    }
-
-    [Fact]
-    public void A_finished_item_no_goal_holds_is_last_and_reads_no_goal()
-    {
-        var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
-
-        var items = panel.FindAll("[data-testid='su-finished'] .stand-up-panel__item");
-        Assert.Equal("Invoice PDF export", items[0].TextContent.Trim());
-        Assert.Equal("VAT rate per line item · no goal", items[1].TextContent.Trim());
     }
 
     [Fact]

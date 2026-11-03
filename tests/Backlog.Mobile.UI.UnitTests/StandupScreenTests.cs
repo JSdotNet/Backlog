@@ -133,6 +133,7 @@ public sealed class StandupScreenTests
         Assert.Equal("13 / 18 pts", points.TextContent);
         Assert.Equal("13 points planned, you usually finish 18 a week", points.GetAttribute("title"));
         Assert.Equal("14 of 14 checks passed", app.Find("[data-testid='standup-planned-pr-checks'] .sr-only").TextContent);
+        Assert.Equal("your review is requested", app.Find("[data-testid='standup-planned-pr-your-review'] .sr-only").TextContent);
         Assert.Contains("8 pts", app.FindAll("[data-testid='standup-planned-list-item']")[1].TextContent, StringComparison.Ordinal);
 
         // Impediments: the open ones, oldest first, and the one resolved last week folded away.

@@ -29,7 +29,7 @@ public static class SessionsSurfaceRegistration
     public const string SessionKey = "session";
 
     /// <summary>The session list's place among the takeovers: after the Inbox and the
-    /// Devbook, leading the work in progress it sits in in the header.</summary>
+    /// Devbook, after Goals in the header's Goals group.</summary>
     public const int Order = 30;
 
     public static IServiceCollection AddSessionsSurface(this IServiceCollection services)

@@ -253,7 +253,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// Every header item the window draws for a catalog surface pops out, not the
     /// Devbook alone (local ADR 0043 §4, "each shell header item"): the Inbox, the
-    /// views, the work in progress and the other takeovers each stand in an item of
+    /// views, the Goals group and the other takeovers each stand in an item of
     /// their own beside a ⧉ named as the option is. A press opens a window on that
     /// surface with no query — only the Devbook hands a scope over — and this window
     /// keeps its view, with nothing taking its screen.
@@ -657,7 +657,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The header's nav, left to right, as the design draws it: the Inbox toggle, the
-    /// fused view switch, the Devbook toggle; then the fused work in progress —
+    /// fused view switch, the Devbook toggle; then the fused Goals group —
     /// Goals, Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
     /// toggle, and no "Workspace" option anywhere.
     /// </summary>
@@ -671,7 +671,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var nav = component.Find(".app-header__nav");
             var groups = nav.Children.Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["workspace-navigation", "work-in-progress-switcher", "workspace-surface-switcher"], groups);
+            Assert.Equal(["workspace-navigation", "goals-switcher", "workspace-surface-switcher"], groups);
 
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
@@ -688,14 +688,14 @@ public sealed class HomeWorkspaceSurfaceTests
                 GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                GroupOptionIds(component, "work-in-progress-switcher"));
+                GroupOptionIds(component, "goals-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
                 GroupOptionIds(component, "workspace-surface-switcher"));
 
             // Fused where the design fuses, loose where it does not.
             Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='view-switch']").ClassName);
-            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='work-in-progress-switcher']").ClassName);
+            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='goals-switcher']").ClassName);
             Assert.Contains("header-group--loose", component.Find("[data-testid='workspace-surface-switcher']").ClassName);
             Assert.Contains("header-group__option--loose", component.Find("[data-testid='inbox-pane-option']").ClassName);
             Assert.Contains("header-group__option--loose", component.Find("[data-testid='devbook-pane-option']").ClassName);
@@ -1626,7 +1626,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Every view option and every work-in-progress option leads with a glyph. The
+    /// Every view option and every Goals group option leads with a glyph. The
     /// glyph is decoration, hidden from assistive technology and out of the tab
     /// order, so the option's name is still its word alone
     /// (accessibility.md#iconography-accessibility).
@@ -1667,7 +1667,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The header stays one row by folding the options' words away in tiers: the
-    /// Dashboard first, then the work in progress, then the Inbox, then the view
+    /// Dashboard first, then the Goals group, then the Inbox, then the view
     /// switch. Each word wears its tier, and the option's title names it, so a
     /// folded option still says what it is on hover.
     /// </summary>
@@ -2336,8 +2336,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Single(component.FindAll("main"));
             Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
 
-            // Next to Sessions in the work in progress, as the same context's second list.
-            var options = GroupOptionIds(component, "work-in-progress-switcher");
+            // Next to Sessions in the Goals group, as the same context's second list.
+            var options = GroupOptionIds(component, "goals-switcher");
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
@@ -2886,7 +2886,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Goals leads the work in progress group, always offered: its word and title are
+    /// Goals leads the Goals group, always offered: its word and title are
     /// Goals, a target leads it, it carries no feature badge, and a press shows the Goals
     /// view, with no Now board, and remembers it as <c>Goals</c>.
     /// </summary>
@@ -2899,7 +2899,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                GroupOptionIds(component, "work-in-progress-switcher")));
+                GroupOptionIds(component, "goals-switcher")));
 
         var option = component.Find("[data-testid='goals-view-option']");
         Assert.Equal("Goals", option.GetAttribute("title"));
@@ -2937,7 +2937,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
-            Assert.Equal(["goals-view-option"], GroupOptionIds(component, "work-in-progress-switcher")));
+            Assert.Equal(["goals-view-option"], GroupOptionIds(component, "goals-switcher")));
 
         component.Find("[data-testid='goals-view-option']").Click();
 

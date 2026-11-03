@@ -1,6 +1,6 @@
 using Backlog.UI.Components.Integrations;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// A running session or an open pull request no task links: what a task's "Link a

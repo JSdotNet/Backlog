@@ -3,7 +3,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// The sessions and the open pull requests the Goals view and a task's

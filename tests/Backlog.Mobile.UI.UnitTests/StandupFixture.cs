@@ -108,7 +108,7 @@ internal static class StandupFixture
         Whole(ProgressViewProjection.StandUpContextId, "stand-up-context", "Stand-up context", Now.AddHours(-1), ProgressDocuments.WriteContext(new StandUpContextDto(
             Now.AddHours(-1),
             [
-                new GoalPullRequestDto(Repository, "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2)),
+                new GoalPullRequestDto(Repository, "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true),
                 new GoalPullRequestDto(Repository, "1338", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 14), new GoalPullRequestChecksDto(12, 0, 0, []), new GoalPullRequestApprovalsDto(2, 2)),
                 new GoalPullRequestDto(Repository, "1352", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 13), new GoalPullRequestChecksDto(9, 0, 5, []), new GoalPullRequestApprovalsDto(2, 2)),
             ],

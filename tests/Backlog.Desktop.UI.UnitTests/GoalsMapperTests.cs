@@ -84,7 +84,7 @@ public sealed class GoalsMapperTests
 
     private static readonly IReadOnlyList<GoalPullRequestDto> Pulls =
     [
-        new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2)),
+        new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true),
         new("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, Oct(14), null, null),
         new("JSdotNet/Backlog", "1357", LinkedPullRequestState.Draft, null, new GoalPullRequestChecksDto(9, 0, 5, []), null)
     ];
@@ -194,6 +194,8 @@ public sealed class GoalsMapperTests
         Assert.Equal(new PullRequestApprovals(1, 2), linked.Approvals);
         Assert.Equal("Invoice PDF export", linked.Title);
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1341", linked.Url);
+        Assert.True(linked.ShowsYourReview);
+        Assert.False(pulls[0].ShowsYourReview);
     }
 
     [Fact]
