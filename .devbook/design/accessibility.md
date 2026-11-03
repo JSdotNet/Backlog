@@ -111,6 +111,39 @@ and SHALL leave a repeated or modified arrow alone.
 - **When** the person presses Alt+ArrowLeft
 - **Then** the block's direction is unchanged
 
+### Roving Button Groups
+
+```meta
+related: [".devbook/domain/devbook/requirements.md#requirement-clusters-opens-on-the-selections-layer", ".devbook/design/accessibility.md#target-sizes-and-text"]
+```
+
+An element marked `data-roving-buttons` makes its direct-child buttons one tab
+stop. The shared script in `components.js` moves the stop among them, so every
+host gets the same keys without writing its own handler. The first host is the
+Technology Clusters map: each cluster is one group of its open-layer button and
+its dots.
+
+| Key | Moves the focus and the stop to |
+|---|---|
+| ArrowRight / ArrowDown | the next button, wrapping from the last to the first |
+| ArrowLeft / ArrowUp | the previous button, wrapping from the first to the last |
+| Home | the first button |
+| End | the last button |
+| Enter / Space | nothing: the button's own click runs |
+
+- The host renders the starting stop: `tabindex="0"` on one button and `"-1"` on
+  the rest. Tab enters the group on that button and leaves it on the next press.
+- A disabled button is skipped.
+- The script refuses each of these keys' default, so the arrows do not scroll
+  the page and Home and End do not jump it to an end. It changes nothing else
+  the keys do.
+- A key held with Alt, Ctrl, Meta or Shift is not the group's and passes through
+  untouched.
+- A group always keeps exactly one stop. When a re-render removes or disables the
+  stop's button, the script gives the stop back to the first enabled button. When
+  a group ends up with two stops, the script keeps the focused one, else the
+  first.
+
 ## Screen Reader / Announcements
 
 ```meta
@@ -221,6 +254,20 @@ heading the pad sits on. It is bounded:
 - The exception covers this pad only. Any other control below 44 × 44 px needs
   its own exception here.
 
+**Exception — the dots on the Technology Clusters map.** On All layers each
+technology is a dot button that opens its layer on it. A dot's press area is its
+own cell in the cluster's grid, and the dot is drawn at 0.8 of that cell. The
+cell is at most 2% of the map's width, and smaller in a crowded cluster. Press areas tile the cluster and never
+overlap a neighbour's. The exception holds under WCAG 2.2's 2.5.8 equivalent-control
+clause, because the side panel offers the same action at full size. It is bounded:
+
+- The side panel's layer list opens any layer, and its technology list picks any
+  technology in the open layer.
+- Every dot is reachable without a pointer, through its cluster's
+  [roving button group](#roving-button-groups).
+- The exception covers these dots only. The cluster circles, pills and
+  satellites on the same map are not covered by it.
+
 ## Iconography Accessibility
 
 ```meta
@@ -299,7 +346,8 @@ Gaps, tracked rather than assumed:
   `typography-and-layout.md#materialization`.
 - **Target sizes are unverified.** No test asserts the ≥ 44 × 44 px minimum, and
   dense rows are exactly where it tends to fail. The sync arrow pad's 24 px keys
-  are the one recorded exception (`#target-sizes-and-text`), not a gap.
+  and the Clusters map's dots are the two recorded exceptions
+  (`#target-sizes-and-text`), not gaps.
 - **Both app channels are web-rendered.** The desktop and the Android head each
   host Razor components in a WebView; the phone's come from `Backlog.Mobile.UI`
   over the shared library. Every rule above applies to both as written, and MAUI's
