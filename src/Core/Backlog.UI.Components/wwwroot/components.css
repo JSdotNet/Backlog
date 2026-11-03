@@ -22524,6 +22524,33 @@ select.field__input {
     min-width: 0;
 }
 
+/* A No goal row's state leads its title, drawn as the open goal's columns draw it: the
+   task's dot at the Tasks column's size, the pull request's status line unbroken. */
+.goals-board__no-goal-row .status-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goals-board__no-goal-pull {
+    flex: 0 0 auto;
+}
+
+/* The row carried onto a goal stays where it is, set back, so the outlined goal reads as
+   where it is going. */
+.goals-board__no-goal-row--carried {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* While a carried row is over no goal, nothing in the column takes the drop: the cursor
+   says so (interaction-guidelines.md#drop-indicators), the grip under it included. */
+.goals-board__goals--no-drop,
+.goals-board__goals--no-drop * {
+    cursor: not-allowed;
+}
+
 .goals-board__number,
 .goal-card__number,
 .work-item-search__number {
@@ -22569,9 +22596,11 @@ select.field__input {
     transform: none;
 }
 
-/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
-   row's grip is, with a target as tall as the guideline's drag affordance. */
-.goal-card__grip {
+/* The grip leads the head row, and a No goal row that can be carried onto a goal: a press
+   origin for the shared pointer reorder, as a task row's grip is, with a target as tall as
+   the guideline's drag affordance. */
+.goal-card__grip,
+.goals-board__no-goal-grip {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -22584,7 +22613,8 @@ select.field__input {
     touch-action: none;
 }
 
-.goal-card__grip:hover {
+.goal-card__grip:hover,
+.goals-board__no-goal-grip:hover {
     color: var(--color-text-secondary);
 }
 
@@ -22609,6 +22639,13 @@ select.field__input {
 .goal-card--dragging {
     opacity: 0.6;
     outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The goal a carried No goal row would attach to on a drop: the whole card, folded or
+   open, outlined in the primary ink (interaction-guidelines.md#drop-indicators). */
+.goal-card--drop-target {
+    outline: var(--border-width-2) solid var(--color-primary);
     outline-offset: 2px;
 }
 
