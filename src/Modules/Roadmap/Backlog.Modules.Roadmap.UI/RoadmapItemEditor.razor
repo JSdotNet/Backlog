@@ -535,13 +535,9 @@
     [Parameter]
     public EventCallback OnCancelPlanSession { get; set; }
 
-    /// <summary>The waiting chip's sentence for each open state.</summary>
-    private static string WaitingTitle(PlanSessionRequest request) => request.State switch
-    {
-        PlanSessionRequestState.Claimed => $"Waiting for a session in {request.Repository} — a dispatcher is starting it",
-        PlanSessionRequestState.Started => $"Waiting for a session in {request.Repository} — started, not yet linked to the plan",
-        _ => $"Waiting for a session in {request.Repository} — no dispatcher has picked the request up yet"
-    };
+    /// <summary>The waiting chip's sentence for each open state — the line the plan's bar
+    /// says too.</summary>
+    private static string WaitingTitle(PlanSessionRequest request) => RoadmapPlanView.SessionWait(request);
 
     /// <summary>Whether tasks carry the item and whether it was completed by hand, read
     /// from the item and what it gathered — the same answer its bar is drawn from.</summary>

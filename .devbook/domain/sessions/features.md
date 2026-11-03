@@ -1589,9 +1589,7 @@ answered twice, or late, does no harm.
 
 Local
 [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
-decides it, and it sits behind the `session-requests` flag, off by default. The
-actions and the waiting chip are built; the dispatcher that answers a request is a
-later item of the `session-dispatch` plan.
+decides it, and it sits behind the `session-requests` flag, off by default.
 
 - **Queue a session for this entry** is a queue icon on a saved prompt entry. It sits
   beside the copy button, both on the entry's row and in the open entry's header. A task,
@@ -1617,12 +1615,17 @@ later item of the `session-dispatch` plan.
   [plan chip on the Tasks filter bar](../tasks/features.md#search-filter-and-organize),
   on the same terms and with the same name. A plan that no roadmap item carries has no
   icon there, because the session starts in the item's repositories.
+- A request that is queued says so in a toast, "Asked for a session in" its repository,
+  from the Tasks pane and from the roadmap alike.
 - While the request is Requested, Claimed or Started, a **Waiting for a session** chip
   stands on the entry's row, in the open entry, in the item's dialog and beside the
-  pressed plan chip, and the queue icon is gone. The chip's tooltip says which of the three it is. Cancel is offered only
+  pressed plan chip, and the queue icon is gone. The chip's tooltip says which of the three it is.
+  On the roadmap, the item's bar that ends last shows a waiting mark after its title, among
+  its other marks, and that bar's tooltip gains a line saying which of the three it is.
+  Cancel is offered only
   while it is Requested: the queue would also cancel a Claimed request, but by then a
   dispatcher is already starting the session, so the screen does not offer it.
-- Once the session links itself the chip goes, and the entry shows the linked session as
+- Once the session links itself the chip and the bar's mark go, and the entry shows the linked session as
   a pasted run's does. The app reads the queue again every five seconds while the flag
   is on, because a dispatcher moves a request without the app hearing it.
 

@@ -135,6 +135,21 @@ public class SessionRequestToolsTests
     }
 
     [Fact]
+    public async Task Marking_started_after_the_lease_ran_out_still_records_the_session_while_nobody_else_claimed()
+    {
+        var request = Entry();
+        await _tools.ClaimSessionRequestAsync(request.Id, "manager-1", TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMinutes(3));
+
+        var answer = await _tools.MarkSessionRequestAsync(request.Id, "started", "manager-1", "session-a", TestContext.Current.CancellationToken);
+
+        Assert.True(answer.Marked);
+        Assert.Null(answer.Refusal);
+        Assert.Equal("started", answer.Request.State);
+        Assert.Equal("session-a", answer.Request.SessionId);
+    }
+
+    [Fact]
     public async Task Marking_started_without_a_session_id_is_refused_and_moves_nothing()
     {
         var request = Entry();

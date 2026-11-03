@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Data;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -9,7 +10,8 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <para>
 /// The requests move where the pane cannot hear it, so while the action is offered they
 /// are read again every <see cref="PollInterval"/>, and <see cref="Changed"/> is raised
-/// only when the answer differs — <see cref="TasksSessionRequests"/>' terms. The plan's
+/// only when the answer differs — <see cref="TasksSessionRequests"/>' terms, kept by the
+/// library's <see cref="PolledSnapshot{TKey, TValue}"/>. The plan's
 /// repositories change only when the roadmap is edited, so they are read once and again
 /// on the port's <see cref="IPlanTagSessionRequests.PlanChanged"/>, not on the poll.
 /// </para>
@@ -20,23 +22,15 @@ public sealed class TasksPlanSessionRequests : IDisposable
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private readonly IPlanTagSessionRequests? _port;
-    private readonly ITimer? _poll;
-    private IReadOnlyDictionary<string, EntrySessionRequest> _open =
-        new Dictionary<string, EntrySessionRequest>(StringComparer.OrdinalIgnoreCase);
+    private readonly PolledSnapshot<string, EntrySessionRequest> _open;
     private IReadOnlyDictionary<string, PlanFiling> _repositories =
         new Dictionary<string, PlanFiling>(StringComparer.OrdinalIgnoreCase);
-    private volatile bool _disposed;
 
     /// <summary>Whether the repositories read are current: until they are, every
     /// refresh reads them. False before the first read, after a read that failed, and
     /// after a plan change heard while the action was not offered — so a switch turned
     /// on later reads the plan as it is now, not as it was when the switch went off.</summary>
     private volatile bool _repositoriesRead;
-
-    /// <summary>Moved on by every press, before it and again once its answer is in, so a
-    /// poll that set out before either cannot land after it and put back the answer the
-    /// press replaced.</summary>
-    private int _version;
 
     /// <summary>Moved on by every repositories read, so of two that overlap — back-to-back
     /// roadmap saves — the one that set out last is the one kept.</summary>
@@ -47,12 +41,14 @@ public sealed class TasksPlanSessionRequests : IDisposable
     public TasksPlanSessionRequests(IPlanTagSessionRequests? port, TimeProvider? clock = null)
     {
         _port = port;
+        _open = new PolledSnapshot<string, EntrySessionRequest>(
+            () => _port!.OpenAsync(),
+            _port is null ? null : () => RefreshAsync(),
+            PollInterval,
+            StringComparer.OrdinalIgnoreCase,
+            clock);
 
-        if (_port is not null)
-        {
-            _port.PlanChanged += OnPlanChanged;
-            _poll = (clock ?? TimeProvider.System).CreateTimer(_ => _ = RefreshAsync(), null, PollInterval, PollInterval);
-        }
+        if (_port is not null) _port.PlanChanged += OnPlanChanged;
     }
 
     /// <summary>Raised when a plan's wait or repositories changed, or a press started or
@@ -75,7 +71,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
     {
         var key = Bare(tag);
 
-        return IsOffered && key.Length > 0 && _open.TryGetValue(key, out var request) ? request : null;
+        return IsOffered && key.Length > 0 && _open.TryGet(key, out var request) ? request : null;
     }
 
     /// <summary>Where the plan tagged <paramref name="tag"/> is filed — its roadmap item's
@@ -92,7 +88,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
     /// <paramref name="withRepositories"/> or never yet read — and redraws when either changed.</summary>
     public async Task RefreshAsync(bool withRepositories = false)
     {
-        if (_port is null || _disposed) return;
+        if (_port is null || _open.IsDisposed) return;
 
         if (!_port.IsOffered)
         {
@@ -102,7 +98,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
             return;
         }
 
-        var version = Volatile.Read(ref _version);
+        var version = _open.Version;
         var changed = false;
 
         if (withRepositories || !_repositoriesRead)
@@ -111,7 +107,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
             try
             {
                 var repositories = await _port.RepositoriesAsync();
-                if (!_disposed && repositoriesVersion == Volatile.Read(ref _repositoriesVersion))
+                if (!_open.IsDisposed && repositoriesVersion == Volatile.Read(ref _repositoriesVersion))
                 {
                     _repositoriesRead = true;
                     if (!SameRepositories(repositories, _repositories))
@@ -131,24 +127,12 @@ public sealed class TasksPlanSessionRequests : IDisposable
             }
         }
 
-        try
-        {
-            var read = await _port.OpenAsync();
+        // Not while a press is on its way, nor after one landed since this refresh set
+        // out: either would put back the answer the press replaced. A failed read is
+        // tried again by the poll.
+        if (await _open.RefreshAsync(version, () => Busy)) changed = true;
 
-            // Not while a press is on its way, nor after one landed since this read set
-            // out: either would put back the answer the press replaced.
-            if (!_disposed && !Busy && version == Volatile.Read(ref _version) && !SameOpen(read, _open))
-            {
-                _open = new Dictionary<string, EntrySessionRequest>(read, StringComparer.OrdinalIgnoreCase);
-                changed = true;
-            }
-        }
-        catch (Exception)
-        {
-            // The poll will try again.
-        }
-
-        if (changed && !_disposed) Changed?.Invoke();
+        if (changed && !_open.IsDisposed) Changed?.Invoke();
     }
 
     /// <summary>Queues a plan request on the terms of <paramref name="offer"/>. Answers
@@ -159,16 +143,18 @@ public sealed class TasksPlanSessionRequests : IDisposable
 
         if (_port is null || !offer.IsEnabled || Busy) return false;
 
+        // Moved on before the press and again once its answer is in, so a poll that set
+        // out before either cannot land after it.
         Busy = true;
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
         try
         {
             var request = await _port.RequestAsync(offer.Tag, offer.Repository!, offer.CloneFolder!);
-            _open = new Dictionary<string, EntrySessionRequest>(_open, StringComparer.OrdinalIgnoreCase) { [offer.Tag] = request };
-            Interlocked.Increment(ref _version);
+            _open.Put(offer.Tag, request);
+            _open.Supersede();
             return true;
         }
         catch (Exception)
@@ -190,7 +176,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
         if (_port is null || Busy || OpenFor(tag) is not { State: EntrySessionRequestState.Requested } request) return false;
 
         Busy = true;
-        Interlocked.Increment(ref _version);
+        _open.Supersede();
         Error = null;
         Changed?.Invoke();
 
@@ -211,32 +197,21 @@ public sealed class TasksPlanSessionRequests : IDisposable
 
             // Read back rather than assumed: a refused cancel means a dispatcher moved
             // it on, and the chip should say where to.
-            try
-            {
-                if (!_disposed) _open = new Dictionary<string, EntrySessionRequest>(await _port.OpenAsync(), StringComparer.OrdinalIgnoreCase);
-            }
-            catch (Exception)
-            {
-                // The poll will try again.
-            }
+            await _open.ReadBackAsync();
 
-            if (!_disposed) Changed?.Invoke();
+            if (!_open.IsDisposed) Changed?.Invoke();
         }
     }
 
     public void Dispose()
     {
-        _disposed = true;
-        _poll?.Dispose();
+        _open.Dispose();
         if (_port is not null) _port.PlanChanged -= OnPlanChanged;
     }
 
     private void OnPlanChanged() => _ = RefreshAsync(withRepositories: true);
 
     private static string Bare(string? tag) => (tag ?? string.Empty).Trim().TrimStart('+', '#').Trim();
-
-    private static bool SameOpen(IReadOnlyDictionary<string, EntrySessionRequest> a, IReadOnlyDictionary<string, EntrySessionRequest> b) =>
-        a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var other) && other == pair.Value);
 
     private static bool SameRepositories(IReadOnlyDictionary<string, IReadOnlyList<string>> a, IReadOnlyDictionary<string, PlanFiling> b) =>
         a.Count == b.Count && a.All(pair =>
