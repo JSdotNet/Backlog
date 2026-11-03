@@ -22,7 +22,7 @@ tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, u
 ```
 
 Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is
-the first option of the work in progress group in the header, a main view rather than
+the first option of the Goals group in the header, a main view rather than
 a takeover, so the Devbook still opens beside it. It replaced the
 [In progress](../sessions/features.md#in-progress-by-task) view, and has no board of
 sessions and pull requests by task. It is offered whether or not the Sessions and Pull
@@ -339,8 +339,9 @@ tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManage
 Goal rows show the status Repository Management publishes. Every pull request row in
 Progress carries its number and the checks and approvals marks of
 [Pull request status](../repository-management/features.md#pull-request-status), and
-a merged one reads "merged" instead of both. So a pull request reads the same on a
-goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
+a merged one reads "merged" instead of both. An open or draft one that asks for your
+review ends on "your review", on a goal and in the phone's stand-up alike. So a pull
+request reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
 
 Progress defines neither mark. It names a pull request by its repository and number,
 and Repository Management answers with its status. The marks used to be defined here

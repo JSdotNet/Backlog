@@ -45,7 +45,7 @@ The badge's read:
 The side panel's read:
 
 - `WorkInProgressReader` takes `IAgentSessionSource` as a constructor parameter
-  (`src/App/Backlog.Desktop.UI/InProgress/WorkInProgressReader.cs:40-44`), and `From`
+  (`src/App/Backlog.Desktop.UI/Goals/WorkInProgressReader.cs:40-44`), and `From`
   resolves it from the container (`:55-65`).
 - It reads every session at full depth through `sessions.GetSessionsAsync()` (`:188-198`).
 - `LinkedWorkSection.razor:99-108` builds `WorkLinksProjection` from the reader's
@@ -72,7 +72,7 @@ that ADR left it so, naming it as a follow-up.
 | `Backlog.Modules.Tasks.Abstractions` | Publishes `ILinkedSessionStates`. |
 | `Backlog.Infrastructure.FileSystem/Tasks/LinkedSessionStates.cs` | Answers the port from the session record. |
 | `Backlog.Modules.Tasks.UI/TasksDesktopState.cs` | Reads the port for the task row's badge. |
-| `Backlog.Desktop.UI/InProgress/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |
+| `Backlog.Desktop.UI/Goals/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |
 
 ## Impact
 

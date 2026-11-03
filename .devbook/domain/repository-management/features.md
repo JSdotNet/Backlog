@@ -290,7 +290,8 @@ request it reads, and every screen that shows a pull request draws from it:
 - each pull request row of a goal in [Progress](../progress/features.md#pull-request-status);
 - each open pull request card among a task's linked work in its side panel.
 
-Each of them carries the pull request's number and two marks:
+Each of them carries the pull request's number, two marks and, when the pull
+request asks for your review, a "your review" label after them:
 
 - **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
   (`9/14`, still running) and a failing one (`2/14`, failing);
@@ -304,6 +305,11 @@ The words "checks" and "approvals" are screen-reader labels only, so the row sta
 short. A merged pull request reads "merged" instead of both marks. Checks that have
 not run draw no checks mark. With no required total, the approvals read as the
 number received alone.
+
+"your review" shows while the pull request is open or a draft and a pending review
+request names you yourself, not a team you belong to. It is muted, so the words
+carry it, and a screen reader hears "your review is requested". A pull request in an
+archived repository never asks for it.
 
 The pull requests pane reads each base branch's rules once, beside its list, and
 keeps the answer for ten minutes, so its rows carry the required total too. A

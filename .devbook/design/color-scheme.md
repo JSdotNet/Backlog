@@ -722,7 +722,8 @@ related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/
 
 Every pull request row carries two [status marks](../domain/progress/features.md#pull-request-status):
 its checks and its approvals. Each mark is a Lucide glyph followed by a count,
-and both take the mark's ink.
+and both take the mark's ink. A pull request that asks for the reader's review
+follows the marks with a "your review" label.
 
 | Mark | Variant | Glyph | Count | Ink |
 |---|---|---|---|---|
@@ -758,6 +759,11 @@ Rules:
 - Approvals not read at all draw no approvals mark.
 - A merged pull request reads "merged" in `color-text-secondary` in place of
   both marks.
+- An open or draft pull request whose review is requested of the reader ends on
+  "your review" in `color-text-secondary`, after the approvals mark or where it
+  would stand. It carries no glyph and no tone of its own, so the words carry
+  the request; a screen reader hears "your review is requested". A merged,
+  closed or unknown pull request never shows it.
 - The line leads with the pull request's `#n` pill in the `gh` badge family
   ([badge tones](#badge-and-chip-tones)). A row that already names the number
   shows the marks alone.
