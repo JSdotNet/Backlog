@@ -17,7 +17,7 @@ related: [.devbook/domain/sessions/domain.md#session-log]
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
-The list opens from **Sessions** in the header's work in progress group. It sits
+The list opens from **Sessions** in the header's Goals group. It sits
 between [Goals](../progress/features.md#the-goals-view) and **Pull requests**, the
 open pull requests the sessions shipped. Each of the two lists takes the whole screen
 while it is open. Escape, its close button or a second press of its option returns to

@@ -531,3 +531,37 @@ The system SHALL name the checks and approvals marks with the words "checks" and
 - **Given** #1341's row shows `14/14` and `1/2`
 - **When** a screen reader reads the row
 - **Then** it hears "14 of 14 checks passed" and "1 of 2 approvals", and the visible text holds neither word
+
+### Requirement: A pull request asking for your review says so
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientPullRequestFactsTests.A_pending_request_naming_the_viewer_is_a_request_for_their_review, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests.An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Your_review_shows_on_an_open_or_draft_pull_request_that_asks_for_it, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_pull_request_asking_for_your_review_ends_on_your_review_after_the_approvals]
+```
+
+The system SHALL end an open or draft pull request's marks with "your review" when a pending review request names the viewer directly, and SHALL NOT show it for a team request, a merged or closed pull request, or a pull request in an archived repository.
+
+#### Scenario: The viewer is asked
+
+- **Given** #1363 is open and a pending review request names the viewer
+- **When** its row is drawn
+- **Then** it ends on "your review" after the approvals mark, and a screen reader hears "your review is requested"
+
+#### Scenario: Only a team or another person is asked
+
+- **Given** #1350 is open and its pending review requests name a team and another person
+- **When** its row is drawn
+- **Then** it shows no "your review"
+
+#### Scenario: The pull request has merged
+
+- **Given** #1355 merged while its review request named the viewer
+- **When** its row is drawn
+- **Then** it reads "merged" and shows no "your review"
+
+#### Scenario: The repository is archived
+
+- **Given** an open pull request asking for the viewer's review sits in an archived repository
+- **When** its status is read
+- **Then** it asks for no review

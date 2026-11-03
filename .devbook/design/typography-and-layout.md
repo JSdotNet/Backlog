@@ -272,7 +272,7 @@ Rules:
 - Icon-only controls require an `aria-label`/automation name and a ≥ 44 × 44 px
   target (see `accessibility.md#target-sizes-and-text`).
 - A glyph leading a header option's label is `icon-sm`, 16 px. This covers the
-  view switch and the work in progress group
+  view switch and the Goals group
   (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
   label's text, so the nav-item default does not apply.
 - A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks: before
