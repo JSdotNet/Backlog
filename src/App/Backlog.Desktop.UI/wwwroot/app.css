@@ -6935,6 +6935,15 @@ a.pull-request-detail-checks__name:hover {
     its area — so the scroll sits on the tab panel, not on the pane.
 */
 .tech-devbook-pane {
+    --tech-family-framework: var(--chart-category-2);
+    --tech-family-platform: var(--chart-category-3);
+    --tech-family-runtime: var(--chart-category-4);
+    --tech-family-language-package: color-mix(in srgb, var(--chart-category-3) 50%, var(--chart-category-4));
+    --tech-family-library-tool-plugin: var(--chart-category-5);
+    --tech-family-skill: color-mix(in srgb, var(--chart-category-4) 50%, var(--chart-category-5));
+    --tech-family-agent-service-format: color-mix(in srgb, var(--chart-category-2) 50%, var(--chart-category-5));
+    --tech-family-protocol: var(--chart-ink-muted);
+    --tech-family-other: var(--chart-axis);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -6942,6 +6951,31 @@ a.pull-request-detail-checks__name:hover {
     max-height: 100%;
     min-height: 0;
     overflow: hidden;
+}
+
+/* The type families' hues, one palette for every Technology view
+   (.devbook/domain/devbook/requirements.md#requirement-colour-follows-the-type-family).
+   Declared above on the pane root as aliases of the chart roles — the category
+   hues, a two-way mix of them, the muted ink, the axis grey for Other — and never
+   of a semantic token, so a family's colour never reads as error or primary.
+   An element wears its family's mark (TechnologyTypeFamilies.Mark) and colours
+   itself from --tech-family. TechnologyFamilyPaletteTests holds all of this. */
+.tech-devbook-pane .tech-family--framework { --tech-family: var(--tech-family-framework); }
+.tech-devbook-pane .tech-family--platform { --tech-family: var(--tech-family-platform); }
+.tech-devbook-pane .tech-family--runtime { --tech-family: var(--tech-family-runtime); }
+.tech-devbook-pane .tech-family--language-package { --tech-family: var(--tech-family-language-package); }
+.tech-devbook-pane .tech-family--library-tool-plugin { --tech-family: var(--tech-family-library-tool-plugin); }
+.tech-devbook-pane .tech-family--skill { --tech-family: var(--tech-family-skill); }
+.tech-devbook-pane .tech-family--agent-service-format { --tech-family: var(--tech-family-agent-service-format); }
+.tech-devbook-pane .tech-family--protocol { --tech-family: var(--tech-family-protocol); }
+.tech-devbook-pane .tech-family--other { --tech-family: var(--tech-family-other); }
+
+/* A type code or type badge takes its family's hue; the inspector's and the lens
+   cards' badges carry it as their ring too, as the dots do. */
+.tech-inspector__kicker .badge,
+.tech-lens-card__kicker .badge {
+    color: var(--tech-family, var(--color-text-secondary));
+    box-shadow: inset 0 0 0 var(--border-width) var(--tech-family, transparent);
 }
 
 /* The pane clips at its own height, so the section around it has nothing left to
@@ -7161,7 +7195,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .tech-deps__code {
-    color: var(--color-text-secondary);
+    color: var(--tech-family, var(--color-text-secondary));
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     letter-spacing: 0.05em;
@@ -7322,7 +7356,7 @@ a.pull-request-detail-checks__name:hover {
 
 .tech-chip__code,
 .tech-overview__code {
-    color: var(--color-text-secondary);
+    color: var(--tech-family, var(--color-text-secondary));
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     letter-spacing: 0.05em;
@@ -7767,8 +7801,9 @@ a.pull-request-detail-checks__name:hover {
     background: none;
 }
 
-/* The hues. A quadrant takes the design's; a family one of the band, brand or
-   semantic hues; a layer the band hues in reading order, repeating after six. */
+/* The hues. A quadrant takes the design's; a family the shared family hue its
+   mark sets on the pane root; a layer the band hues in reading order, repeating
+   after six. */
 .tech-complexity__point--deep-leaves,
 .tech-complexity__swatch--deep-leaves { --point-colour: var(--color-error-text); }
 .tech-complexity__point--hubs,
@@ -7778,24 +7813,8 @@ a.pull-request-detail-checks__name:hover {
 .tech-complexity__point--leaves,
 .tech-complexity__swatch--leaves { --point-colour: var(--color-success-text); }
 
-.tech-complexity__point--family-framework,
-.tech-complexity__swatch--family-framework { --point-colour: var(--color-band-2); }
-.tech-complexity__point--family-platform,
-.tech-complexity__swatch--family-platform { --point-colour: var(--color-band-5); }
-.tech-complexity__point--family-runtime,
-.tech-complexity__swatch--family-runtime { --point-colour: var(--color-band-4); }
-.tech-complexity__point--family-languageandpackage,
-.tech-complexity__swatch--family-languageandpackage { --point-colour: var(--color-band-3); }
-.tech-complexity__point--family-librarytoolandplugin,
-.tech-complexity__swatch--family-librarytoolandplugin { --point-colour: var(--color-primary); }
-.tech-complexity__point--family-skill,
-.tech-complexity__swatch--family-skill { --point-colour: var(--color-error-text); }
-.tech-complexity__point--family-agentserviceandformat,
-.tech-complexity__swatch--family-agentserviceandformat { --point-colour: var(--color-text-primary); }
-.tech-complexity__point--family-protocol,
-.tech-complexity__swatch--family-protocol { --point-colour: var(--color-primary-light); }
-.tech-complexity__point--family-other,
-.tech-complexity__swatch--family-other { --point-colour: var(--color-text-disabled); }
+.tech-complexity__point--family,
+.tech-complexity__swatch--family { --point-colour: var(--tech-family, var(--tech-family-other)); }
 
 .tech-complexity__point--layer-1,
 .tech-complexity__swatch--layer-1 { --point-colour: var(--color-band-1); }
@@ -8353,39 +8372,22 @@ a.pull-request-detail-checks__name:hover {
    line's angle holds at any width. A line is a border on a box turned about
    its left end.
 
-   The eight type families take a hue each, derived from the chart category
-   hues and the neutrals as color-scheme.md#role-tokens requires, and never from
-   a semantic token; a technology not adopted is hollow, so status never rests on
-   colour alone. What it sits on is gold, what uses it the primary ink.
+   The type families take the pane's family hues (.tech-devbook-pane); a
+   technology not adopted is hollow, so status never rests on colour alone. What
+   it sits on is gold, what uses it the palette's blue, chart-category-5.
    -------------------------------------------------------------------------- */
 
 .tech-clusters {
     --tech-clusters-sits-on: var(--chart-series);
-    --tech-clusters-used-by: var(--chart-ink);
-    --tech-family-framework: var(--chart-category-2);
-    --tech-family-platform: var(--chart-category-3);
-    --tech-family-runtime: var(--chart-category-4);
-    --tech-family-language-package: color-mix(in srgb, var(--chart-category-3) 50%, var(--chart-category-4));
-    --tech-family-library-tool-plugin: var(--chart-category-5);
-    --tech-family-skill: color-mix(in srgb, var(--chart-category-4) 50%, var(--chart-category-5));
-    --tech-family-agent-service-format: color-mix(in srgb, var(--chart-category-2) 50%, var(--chart-category-5));
-    --tech-family-protocol: var(--chart-ink-muted);
-    --tech-family-other: var(--chart-axis);
+    --tech-clusters-used-by: var(--chart-category-5);
+    /* The open layer's surface: the halo, and the backing of the family headings
+       drawn on it, which must match it to hide a line and nothing else. */
+    --tech-clusters-halo-surface: var(--color-background-alt);
     display: grid;
     gap: var(--spacing-sm);
     align-content: start;
     padding-top: var(--spacing-md);
 }
-
-.tech-clusters .tech-family--framework { --tech-family: var(--tech-family-framework); }
-.tech-clusters .tech-family--platform { --tech-family: var(--tech-family-platform); }
-.tech-clusters .tech-family--runtime { --tech-family: var(--tech-family-runtime); }
-.tech-clusters .tech-family--language-package { --tech-family: var(--tech-family-language-package); }
-.tech-clusters .tech-family--library-tool-plugin { --tech-family: var(--tech-family-library-tool-plugin); }
-.tech-clusters .tech-family--skill { --tech-family: var(--tech-family-skill); }
-.tech-clusters .tech-family--agent-service-format { --tech-family: var(--tech-family-agent-service-format); }
-.tech-clusters .tech-family--protocol { --tech-family: var(--tech-family-protocol); }
-.tech-clusters .tech-family--other { --tech-family: var(--tech-family-other); }
 
 /* Where you are: Back, All layers › layer › technology, then the trail. */
 .tech-clusters__crumbs {
@@ -8496,9 +8498,40 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
-.tech-clusters__stage > * {
+.tech-clusters__stage > *,
+.tech-clusters__stage > .tech-clusters__cluster-group > *,
+.tech-clusters__stage > .tech-clusters__family > * {
     position: absolute;
     box-sizing: border-box;
+}
+
+/* A cluster's controls and a family's heading and pills are grouped for assistive
+   technology only: the group draws no box, so each control keeps the place on the
+   stage the layout gave it. */
+.tech-clusters__stage > .tech-clusters__cluster-group,
+.tech-clusters__stage > .tech-clusters__family {
+    display: contents;
+}
+
+/* Above the lines, and backed by the halo's own surface, so a line running under a
+   family's name never crosses its words. */
+.tech-clusters__family-heading {
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-right: var(--spacing-xs);
+    background: var(--tech-clusters-halo-surface);
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
 }
 
 .tech-clusters__line {
@@ -8575,6 +8608,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .tech-clusters__cluster:focus-visible,
+.tech-clusters__dot--button:focus-visible,
 .tech-clusters__satellite:focus-visible,
 .tech-clusters__pill:focus-visible,
 .tech-clusters__back:focus-visible,
@@ -8632,7 +8666,7 @@ a.pull-request-detail-checks__name:hover {
 .tech-clusters__halo {
     border: var(--border-width) solid var(--color-border);
     border-radius: 1.75rem;
-    background: var(--color-background-alt);
+    background: var(--tech-clusters-halo-surface);
     box-shadow: 0 0 7.5rem color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
@@ -8709,6 +8743,29 @@ a.pull-request-detail-checks__name:hover {
 
 .tech-clusters__dot--hollow {
     background: transparent;
+}
+
+/* On All layers a dot is a button of its own, pressed to open its layer on it.
+   The dot fills 0.8 of its cell (TechnologyClustersLayout.DotFill), so a
+   transparent square centred on it grows the press area back to the whole cell —
+   1.25 times the dot's border box — and no further: press areas tile without
+   overlapping a neighbour's. Where a cell is under 24px, the companion's layer
+   and technology lists are the equivalent control WCAG 2.5.8 allows. */
+.tech-clusters__dot--button {
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.tech-clusters__dot--button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc((100% + 2 * var(--border-width-2)) * 1.25);
+    height: calc((100% + 2 * var(--border-width-2)) * 1.25);
+    transform: translate(-50%, -50%);
 }
 
 .tech-clusters__dot--selected {

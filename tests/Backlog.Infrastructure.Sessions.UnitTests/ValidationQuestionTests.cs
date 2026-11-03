@@ -87,6 +87,19 @@ public sealed class ValidationQuestionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_long_run_title_is_cut_on_a_whole_character_to_fit_the_question()
+    {
+        var surface = Surface();
+        var run = await Start(surface, title: new string('x', 51) + "\U0001F600" + " and the rest of the run title");
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var title = Assert.Single(_notifications.Published).Draft.Title;
+        Assert.Equal("Approve the validation of " + new string('x', 51) + "…?", title);
+        Assert.True(title.Length <= 80);
+    }
+
+    [Fact]
     public async Task A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so()
     {
         var surface = Surface();
@@ -452,9 +465,9 @@ public sealed class ValidationQuestionTests : IDisposable
     private SessionValidationAnswers Answers(LocalDeliverySurfaceLifecycle surface) =>
         new(surface, followUps: _followUps);
 
-    private static async Task<string> Start(LocalDeliverySurfaceLifecycle surface, string? repository = null, string skill = "flow-code", string? prompt = null)
+    private static async Task<string> Start(LocalDeliverySurfaceLifecycle surface, string? repository = null, string skill = "flow-code", string? prompt = null, string title = "notifications:11 - Raise notifications")
     {
-        var run = (await surface.StartRunAsync(Worktree, skill, "notifications:11 - Raise notifications", Stages, repository: repository, cancellationToken: Cancellation)).RunId;
+        var run = (await surface.StartRunAsync(Worktree, skill, title, Stages, repository: repository, cancellationToken: Cancellation)).RunId;
 
         if (prompt is not null) await surface.RecordPromptAsync(Worktree, run, prompt, cancellationToken: Cancellation);
 

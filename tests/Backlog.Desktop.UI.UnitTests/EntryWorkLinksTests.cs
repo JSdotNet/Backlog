@@ -484,6 +484,7 @@ public sealed class EntryWorkLinksTests
     [InlineData(LinkedSessionState.Stalled, "stalled", "Quiet 30 min")]
     [InlineData(LinkedSessionState.Running, "running", "running")]
     [InlineData(LinkedSessionState.Finished, "finished", "finished")]
+    [InlineData(LinkedSessionState.Waiting, "waiting", "waiting")]
     public async Task A_session_badge_wears_its_state(LinkedSessionState state, string slug, string words)
     {
         var sessions = new FakeSessionStates { ["e711d47d-3e09-4254"] = new LinkedSession(state, Archived: null) };

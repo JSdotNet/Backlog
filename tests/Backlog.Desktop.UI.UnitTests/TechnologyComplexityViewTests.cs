@@ -188,10 +188,19 @@ public sealed class TechnologyComplexityViewTests : IDisposable
         ColourButton(component, "type").Click();
 
         Assert.Equal("true", ColourButton(component, "type").GetAttribute("aria-pressed"));
-        Assert.Contains("tech-complexity__point--family-runtime", Point(component, 4, 0).ClassName, StringComparison.Ordinal);
-        Assert.Contains("tech-complexity__point--family-librarytoolandplugin", Point(component, 0, 1).ClassName, StringComparison.Ordinal);
+        // By type the point wears the family mark every Technology view shares, and
+        // so do the legend's swatches; the view keeps no family hues of its own.
+        Assert.Contains("tech-complexity__point--family", Point(component, 4, 0).ClassList);
+        Assert.Contains("tech-family--runtime", Point(component, 4, 0).ClassList);
+        Assert.Contains("tech-family--library-tool-plugin", Point(component, 0, 1).ClassList);
+        var swatches = component.FindAll("[data-testid='technology-complexity-legend'] .tech-complexity__swatch--family");
+        Assert.Contains(swatches, swatch => swatch.ClassList.Contains("tech-family--runtime"));
+        Assert.Contains(swatches, swatch => swatch.ClassList.Contains("tech-family--library-tool-plugin"));
+        Assert.DoesNotContain("--family-", component.Markup, StringComparison.Ordinal);
 
         ColourButton(component, "layer").Click();
+
+        Assert.DoesNotContain("tech-family--", Point(component, 4, 0).ClassName, StringComparison.Ordinal);
 
         Assert.Contains("tech-complexity__point--layer-1", Point(component, 4, 0).ClassName, StringComparison.Ordinal);
         Assert.Contains("tech-complexity__point--layer-2", Point(component, 0, 6).ClassName, StringComparison.Ordinal);

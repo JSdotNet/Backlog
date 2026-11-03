@@ -300,6 +300,7 @@ public sealed class WorkLinksProjection
     {
         LinkedSessionState.Running => IntegrationSessionState.Running,
         LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+        LinkedSessionState.Waiting => IntegrationSessionState.Waiting,
         _ => IntegrationSessionState.Finished
     };
 

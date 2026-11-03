@@ -699,6 +699,31 @@ public sealed class TechnologyGraphMeasuresTests : IDisposable
     public void Each_of_the_thirteen_types_falls_into_its_family(string type, TechnologyTypeFamily family) =>
         Assert.Equal(family, TechnologyTypeFamilies.Of(type));
 
+    /// <summary>One slug per family, the one app.css declares the family's hue
+    /// under, so every view marks a technology the same way.</summary>
+    [Theory]
+    [InlineData(TechnologyTypeFamily.Framework, "framework")]
+    [InlineData(TechnologyTypeFamily.Platform, "platform")]
+    [InlineData(TechnologyTypeFamily.Runtime, "runtime")]
+    [InlineData(TechnologyTypeFamily.LanguageAndPackage, "language-package")]
+    [InlineData(TechnologyTypeFamily.LibraryToolAndPlugin, "library-tool-plugin")]
+    [InlineData(TechnologyTypeFamily.Skill, "skill")]
+    [InlineData(TechnologyTypeFamily.AgentServiceAndFormat, "agent-service-format")]
+    [InlineData(TechnologyTypeFamily.Protocol, "protocol")]
+    [InlineData(TechnologyTypeFamily.Other, "other")]
+    public void Each_family_has_one_slug_and_one_mark(TechnologyTypeFamily family, string slug)
+    {
+        Assert.Equal(slug, TechnologyTypeFamilies.Slug(family));
+        Assert.Equal("tech-family--" + slug, TechnologyTypeFamilies.Mark(family));
+    }
+
+    [Fact]
+    public void A_type_marks_with_its_family()
+    {
+        Assert.Equal("tech-family--language-package", TechnologyTypeFamilies.MarkFor("package"));
+        Assert.Equal("tech-family--other", TechnologyTypeFamilies.MarkFor(null));
+    }
+
     [Fact]
     public void Each_node_carries_its_family_and_whether_it_is_adopted()
     {

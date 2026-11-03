@@ -18,7 +18,7 @@
     <aside class="tech-inspector" aria-labelledby="@IdFor("title")" data-testid="technology-inspector">
         <header class="tech-inspector__head">
             <p class="tech-inspector__kicker">
-                <Badge Kind="" Title="@TechnologyTypeCodes.Label(node.Kind)">@TechnologyTypeCodes.Code(node.Kind)</Badge>
+                <Badge Kind="" CssClass="@TechnologyTypeFamilies.Mark(node.Family)" Title="@TechnologyTypeCodes.Label(node.Kind)">@TechnologyTypeCodes.Code(node.Kind)</Badge>
                 <span>@TechnologyViews.LayerLabel(node.Layer)</span>
             </p>
             <h3 id="@IdFor("title")" class="tech-inspector__title" tabindex="-1" @ref="_title">@node.Label</h3>

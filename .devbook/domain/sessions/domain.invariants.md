@@ -943,13 +943,14 @@ Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.Cl
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_claim_reads_as_Claimed_until_its_lease_ends_and_as_Requested_from_then, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_can_be_claimed_by_the_next_dispatcher, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_claim_reads_as_Claimed_until_its_lease_ends_and_as_Requested_from_then, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_can_be_claimed_by_the_next_dispatcher, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_holder_still_reports_its_session_while_nobody_else_claimed, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_holder_cannot_report_after_another_dispatcher_claimed]
 ```
 
-A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested again, and its claim is no longer the dispatcher's.
-A dispatcher that stopped mid-dispatch does not keep the request from the next one.
+A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested to every other dispatcher, and the next one may claim it.
+The dispatcher whose lease ran out may still report its `started` session while nobody else claimed the request since, because that session was started; once another dispatcher claims it, the late report is refused, and a lapsed holder can never release it.
+A dispatcher that stopped mid-dispatch does not keep the request from the next one, and a slow start is not dispatched a second time by the same dispatcher.
 
-Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks (ADR 0038 §3)
+Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks, and `SessionRequests.Report()`, applied by `SqliteSessionRequestStore.ReportStartedAsync()` inside one immediate transaction (ADR 0038 §3)
 
 ### Invariant: A request never expires
 

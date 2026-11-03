@@ -909,6 +909,21 @@ public sealed class DevToolService : IDevToolService
     /// <summary>Claude's user settings, where the question hooks are installed.</summary>
     private static string ClaudeSettingsPath => Path.Combine(ClaudeConfigDirectory, "settings.json");
 
+    /// <summary>
+    /// The absolute path of the question hook script this build writes, which every installed
+    /// hook command names (local ADR 0041). The desktop head sets it to the script under its own
+    /// app data folder, so a Debug build installs hooks that run the Debug build's script; a host
+    /// that sets none gets the release build's folder.
+    /// </summary>
+    public string? QuestionHookScriptPath { get; init; }
+
+    private string QuestionHookScript => QuestionHookScriptPath
+        ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog",
+            "hooks",
+            DevToolClaudeQuestionHooks.ScriptFileName);
+
     /// <summary>The versions of one plugin sitting in Claude's cache, read
     /// against what the listing said is installed. Empty for a plugin with no
     /// cache folder, and empty — rather than a failed listing — when the folder
@@ -2314,14 +2329,14 @@ public sealed class DevToolService : IDevToolService
     /// registration itself succeeded at user scope — a server left alone at another scope
     /// is somebody else's arrangement, and its hooks are too.
     /// </summary>
-    private static async Task<DevToolActionResult> WithQuestionHooksAsync(string name, bool enabled, DevToolActionResult registration, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> WithQuestionHooksAsync(string name, bool enabled, DevToolActionResult registration, CommandLog log, CancellationToken ct)
     {
         if (!DevToolClaudeQuestionHooks.IsBacklogServer(name))
         {
             return registration;
         }
 
-        var hooks = await DevToolClaudeQuestionHooks.ApplyAsync(ClaudeSettingsPath, enabled, ct).ConfigureAwait(false);
+        var hooks = await DevToolClaudeQuestionHooks.ApplyAsync(ClaudeSettingsPath, enabled, QuestionHookScript, ct).ConfigureAwait(false);
 
         // Nothing ran, so nothing reached the command log; without this line the pane's
         // account of the action would be silent about a file it changed.

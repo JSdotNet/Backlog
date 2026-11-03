@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Backlog.Modules.Notifications.Abstractions;
@@ -24,8 +25,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// <b>The origin is the calling client.</b> What a person reads as where it came from is the MCP
-/// client's own name — "Claude Code" for <c>claude-code</c> — asked "MCP ask"
-/// (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
+/// client's own name — "Claude Code" for <c>claude-code</c> — via "MCP ask" for <c>ask</c> and
+/// "MCP notify" for <c>notify</c> (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
 /// falls back on where the stateless endpoint cannot name the client.
 /// </para>
 /// <para>
@@ -145,7 +146,7 @@ public sealed class NotificationTools(
             title,
             summary ?? string.Empty,
             body ?? string.Empty,
-            Origin: Origin(server?.ClientInfo, sessionId));
+            Origin: Origin(server?.ClientInfo, sessionId, NotificationOrigins.McpNotify));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -222,13 +223,14 @@ public sealed class NotificationTools(
         return new NotificationPublishedPayload(id);
     }
 
-    [McpServerTool(Name = GetAnswer, Title = "Read the answer to a question", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = GetAnswer, Title = "Read the answer to a question", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
         "Where a notification you published stands: pending while nobody has answered, answered with the chosen "
         + "choices and the open answer's text, closed with the reason it was closed with, or acknowledged for an "
         + "alert the person saw. Poll it after ask; once it is not pending it never changes again. "
         + "For a waiting question's id it answers open, answered with answers keyed by question text (several picked "
-        + "labels comma-joined), or closed with its reason; waitSeconds holds the call until then, at most 55 seconds. "
+        + "labels comma-joined, and as an array per multi-select in selections), or closed with its reason; "
+        + "waitSeconds holds the call until then, at most 55 seconds. "
         + "Every call tells Backlog the asking hook is still waiting.")]
     public async Task<NotificationAnswerPayload> GetAnswerAsync(
         [Description("The notification's id, as ask or notify answered it, or the waiting question's id.")]
@@ -267,8 +269,8 @@ public sealed class NotificationTools(
         string? reason = null,
         [Description("Your Claude session id, when you passed one to ask or notify; required then.")]
         string? sessionId = null,
-        [Description("With answered-in-session: the answers the person gave in the session, keyed by question text, several picked labels comma-joined - as the question dialog answers.")]
-        Dictionary<string, string>? answers = null,
+        [Description("With answered-in-session: the answers the person gave in the session, keyed by question text - as the question dialog answers: a string, or for several picked labels an array of them or the labels comma-joined.")]
+        Dictionary<string, JsonElement>? answers = null,
         CancellationToken cancellationToken = default)
     {
         if (await OwnWaitingQuestionAsync(id, sessionId, cancellationToken).ConfigureAwait(false) is { } waiting)
@@ -307,8 +309,8 @@ public sealed class NotificationTools(
 
     /// <summary>
     /// Where a <c>notify</c> or <c>ask</c> came from: the calling MCP client as it names itself —
-    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — asked
-    /// "MCP ask".
+    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — via
+    /// <paramref name="via"/>: "MCP ask" for <c>ask</c>, "MCP notify" for <c>notify</c>.
     /// <para>
     /// The endpoint is stateless, so a client on a revision with the <c>initialize</c> handshake
     /// is not named on a later <c>tools/call</c>: only the 2026-07-28 revision carries the
@@ -317,7 +319,7 @@ public sealed class NotificationTools(
     /// <see cref="UnnamedClient"/>.
     /// </para>
     /// </summary>
-    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null)
+    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null, string via = NotificationOrigins.McpAsk)
     {
         var title = client?.Title;
         var name = string.IsNullOrWhiteSpace(title) ? client?.Name : title;
@@ -325,7 +327,7 @@ public sealed class NotificationTools(
             ? string.IsNullOrWhiteSpace(sessionId) ? UnnamedClient : NotificationOrigins.ClaudeCode
             : KnownClients.TryGetValue(name.Trim(), out var known) ? known : name;
 
-        return NotificationOrigin.Fit(system, via: NotificationOrigins.McpAsk);
+        return NotificationOrigin.Fit(system, via: via);
     }
 
     /// <summary>The system an MCP client that sent no name is shown as.</summary>
@@ -365,22 +367,118 @@ public sealed class NotificationTools(
     }
 
     /// <summary>
-    /// One answer given in the session, as <c>close</c> receives it, read against its question:
-    /// the option label when the whole text names one, the labels of a multi-select when every
-    /// comma-joined part names one, and otherwise the open text.
+    /// The picked labels of each answered multi-select of an answered waiting question, keyed by
+    /// question text: what the hook hands Claude's dialog as an array, so a label holding a comma
+    /// reaches it intact. Null when no multi-select was answered with labels — the comma-joined
+    /// <see cref="DialogAnswers"/> then says all there is.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, IReadOnlyList<string>>? DialogSelections(WaitingQuestion question)
+    {
+        Dictionary<string, IReadOnlyList<string>>? selections = null;
+
+        for (var i = 0; i < question.Questions.Count; i++)
+        {
+            if (question.Questions[i].MultiSelect && question.Answers.ElementAtOrDefault(i) is { Choices.Count: > 0 } given)
+            {
+                selections ??= new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                selections[question.Questions[i].Question] = [.. given.Choices];
+            }
+        }
+
+        return selections;
+    }
+
+    /// <summary>
+    /// One answer given in the session, as <c>close</c> receives it — a string, or an array of
+    /// picked labels — read against its question. Null for an empty answer, or a value that is
+    /// neither.
+    /// <para>
+    /// An array is the picked labels when every item names one of the question's — refused as
+    /// <c>relay.answers_invalid</c> when there are several and the question is a single choice;
+    /// a single item that does not is read as a string, and several are the person's own text joined.
+    /// </para>
+    /// </summary>
+    internal static RelayAnswer? ReadAnswer(RelayQuestion question, JsonElement answer)
+    {
+        switch (answer.ValueKind)
+        {
+            case JsonValueKind.String:
+                return answer.GetString() is { } text && !string.IsNullOrWhiteSpace(text) ? ReadAnswer(question, text) : null;
+
+            case JsonValueKind.Array:
+                var items = answer.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!.Trim())
+                    .Where(item => item.Length > 0)
+                    .ToList();
+
+                if (items.Count == 0) return null;
+                if (items.Count == 1) return ReadAnswer(question, items[0]);
+
+                var labels = Labels(question);
+
+                if (!items.All(item => labels.Contains(item, StringComparer.Ordinal))) return RelayAnswer.Open(string.Join(", ", items));
+
+                // Several labels answer a multi-select only; a single choice given them is an
+                // invalid answer, refused like any other rather than recorded as picked.
+                if (!question.MultiSelect)
+                {
+                    throw RepositoryScope.Failure(Error.Validation(
+                        "relay.answers_invalid", $"'{question.Question}' is a single choice and takes one label, not {items.Count}."));
+                }
+
+                return new RelayAnswer(items);
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// One answer given in the session as text, read against its question: the option label when
+    /// the whole text names one; for a multi-select, the labels when the text is the question's
+    /// own labels joined with commas — matched against those labels, longest first, so a label
+    /// holding a comma is one label, never two; otherwise the open text.
     /// </summary>
     internal static RelayAnswer ReadAnswer(RelayQuestion question, string answer)
     {
         var text = answer.Trim();
-        var labels = question.Choices.Select(option => option.Label.Trim()).ToList();
+        var labels = Labels(question);
 
         if (labels.Contains(text, StringComparer.Ordinal)) return new RelayAnswer([text]);
 
-        var parts = text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        return question.MultiSelect && parts.Length > 0 && parts.All(part => labels.Contains(part, StringComparer.Ordinal))
-            ? new RelayAnswer(parts)
+        return question.MultiSelect && Segment(text, 0, [.. labels.OrderByDescending(label => label.Length)]) is { Count: > 0 } picked
+            ? new RelayAnswer(picked)
             : RelayAnswer.Open(text);
+    }
+
+    private static List<string> Labels(RelayQuestion question) =>
+        [.. question.Choices.Select(option => option.Label.Trim()).Where(label => label.Length > 0)];
+
+    /// <summary>The labels <paramref name="text"/> is joined from, from <paramref name="at"/> on,
+    /// each followed by the end or a comma and spaces; null when it is not such a join. Tries the
+    /// longest label first and backs off, so "A, B" beside "A" and "B, C" still reads "A, B, C".</summary>
+    private static List<string>? Segment(string text, int at, IReadOnlyList<string> labels)
+    {
+        foreach (var label in labels)
+        {
+            if (at + label.Length > text.Length || string.CompareOrdinal(text, at, label, 0, label.Length) != 0) continue;
+
+            var next = at + label.Length;
+            if (next == text.Length) return [label];
+            if (text[next] != ',') continue;
+
+            next++;
+            while (next < text.Length && char.IsWhiteSpace(text[next])) next++;
+
+            if (next < text.Length && Segment(text, next, labels) is { } rest)
+            {
+                rest.Insert(0, label);
+                return rest;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The <c>waitSeconds</c> a <c>get_answer</c> holds for: none when omitted, refused
@@ -433,7 +531,7 @@ public sealed class NotificationTools(
     private async Task<NotificationAnswerPayload> RelayCloseAsync(
         WaitingQuestion waiting,
         string? reason,
-        Dictionary<string, string>? answers,
+        Dictionary<string, JsonElement>? answers,
         CancellationToken cancellationToken)
     {
         if (WaitingQuestions.ParseReason(reason) is not { } because)
@@ -451,8 +549,8 @@ public sealed class NotificationTools(
 
             foreach (var question in waiting.Questions)
             {
-                if (answers is not null && answers.TryGetValue(question.Question, out var answer) && !string.IsNullOrWhiteSpace(answer))
-                    read.Add(ReadAnswer(question, answer));
+                if (answers is not null && answers.TryGetValue(question.Question, out var answer) && ReadAnswer(question, answer) is { } answered)
+                    read.Add(answered);
             }
 
             given = read;
@@ -536,6 +634,10 @@ public sealed record AskOption(string Label, string? Description = null);
 /// question: answered-in-session, timed-out or session-ended.</param>
 /// <param name="Answers">For an answered waiting question: the answers keyed by question text, several
 /// picked labels comma-joined. Absent otherwise.</param>
+/// <param name="Selections">For an answered waiting question with a multi-select answered with
+/// labels: the picked labels as an array, keyed by question text, so a label holding a comma
+/// survives; additive beside <paramref name="Answers"/>, which keeps its comma-joined meaning.
+/// Absent otherwise.</param>
 /// <param name="Note">The note the person wrote beside the answer, or null.</param>
 public sealed record NotificationAnswerPayload(
     Guid Id,
@@ -545,7 +647,8 @@ public sealed record NotificationAnswerPayload(
     DateTimeOffset? AnsweredAt,
     string? Reason,
     string? Note = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, string>? Answers = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, string>? Answers = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, IReadOnlyList<string>>? Selections = null)
 {
     internal static NotificationAnswerPayload From(WaitingQuestion question) =>
         new(
@@ -555,7 +658,8 @@ public sealed record NotificationAnswerPayload(
             null,
             question.State == WaitingQuestionState.Answered ? question.EndedAt : null,
             question.CloseReason is { } reason ? WaitingQuestions.Spelling(reason) : null,
-            Answers: question.State == WaitingQuestionState.Answered ? NotificationTools.DialogAnswers(question) : null);
+            Answers: question.State == WaitingQuestionState.Answered ? NotificationTools.DialogAnswers(question) : null,
+            Selections: question.State == WaitingQuestionState.Answered ? NotificationTools.DialogSelections(question) : null);
 
     internal static NotificationAnswerPayload From(NotificationStatus status) =>
         new(

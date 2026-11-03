@@ -37,6 +37,20 @@ public sealed class AskBacklogHookTests : IDisposable
         Assert.Single(Directory.GetFiles(Path.Combine(_appData, "hooks")));
     }
 
+    /// <summary>
+    /// The path the hooks are installed with is the one this build writes its script to —
+    /// under its own app data folder, so a Debug build's hooks name
+    /// <c>Backlog.Debug\hooks\ask-backlog.mjs</c> and never the release build's.
+    /// </summary>
+    [Fact]
+    public void The_installed_path_is_the_script_under_the_builds_own_app_data_folder()
+    {
+        var debug = Path.Combine(_appData, "Backlog.Debug");
+
+        Assert.Equal(Path.Combine(debug, "hooks", "ask-backlog.mjs"), AskBacklogHook.PathUnder(debug));
+        Assert.Equal(AskBacklogHook.PathUnder(debug), AskBacklogHook.Install(debug));
+    }
+
     /// <summary>An older app's script is replaced on the next start.</summary>
     [Fact]
     public void Install_replaces_a_script_an_earlier_version_left()

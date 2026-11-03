@@ -108,8 +108,9 @@ public interface INotificationAnswerReplay
 /// <summary>
 /// Registered by each context that owns subjects, so the owner can catch a subject end it
 /// missed: at startup it asks the probe for <see cref="Context"/> about every open
-/// notification's subject, and closes the ones that are no longer live. Notifications never
-/// reads the context's data itself.
+/// notification's subject, and closes the ones that are no longer live — with the reason
+/// <see cref="EndReasonAsync"/> names, else a generic one. Notifications never reads the
+/// context's data itself.
 /// </summary>
 public interface INotificationSubjectProbe
 {
@@ -117,4 +118,13 @@ public interface INotificationSubjectProbe
     string Context { get; }
 
     Task<bool> IsLiveAsync(NotificationSubject subject, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Why a subject <see cref="IsLiveAsync"/> reported ended has ended, in words its
+    /// notifications close with — "Answered in spec-manager by Kees: No" — or null when the
+    /// context has nothing more to say than that it ended. Asked only after
+    /// <see cref="IsLiveAsync"/> answered false. A probe that does not override it names none.
+    /// </summary>
+    Task<string?> EndReasonAsync(NotificationSubject subject, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
 }

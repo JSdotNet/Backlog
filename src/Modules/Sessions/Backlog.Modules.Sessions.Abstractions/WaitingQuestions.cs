@@ -480,6 +480,30 @@ public static class WaitingQuestions
             : WaitingQuestionOutcome.Refused(question, $"The question is {question.State}, and only an InSession question waits to be published.");
     }
 
+    /// <summary>How long a publisher's claim holds a due question before another publisher
+    /// may take it: well past the few Notifications writes a publish takes.</summary>
+    public static readonly TimeSpan PublishLease = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Claims a due InSession question for publishing by moving its escalate at to
+    /// <paramref name="leaseEnds"/>: written in one store transition, so of every publisher
+    /// sharing the store — the desktop app and the harnesses on one <c>backlog.db</c> — only
+    /// the first finds it due, and the rest leave it alone. Refused unless the question
+    /// <see cref="WaitingQuestion.IsDueAt">is due</see> at <paramref name="now"/>. A claim
+    /// lapses by itself: once <paramref name="leaseEnds"/> passes, the question is due again,
+    /// so a publisher that crashed holding it does not strand it.
+    /// </summary>
+    public static WaitingQuestionOutcome ClaimPublish(WaitingQuestion question, DateTimeOffset now, DateTimeOffset leaseEnds)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        return question.IsDueAt(now)
+            ? WaitingQuestionOutcome.Done(question with { EscalateAt = leaseEnds })
+            : WaitingQuestionOutcome.Refused(question, question.State == WaitingQuestionState.InSession
+                ? $"The question is not due until {question.EscalateAt:O}; another publisher may hold it."
+                : $"The question is {question.State}, and only an InSession question is published.");
+    }
+
     /// <summary>Records that the dialog's hook asked for the answer at <paramref name="now"/>.</summary>
     public static WaitingQuestion Polled(WaitingQuestion question, DateTimeOffset now)
     {

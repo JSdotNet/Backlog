@@ -59,6 +59,13 @@ namespace Backlog.UI.Components.Roadmap;
 /// <param name="Action">The one thing the bar offers to be done to it in place, or null
 /// for none. Drawn only while the timeline listens for it
 /// (<c>RoadmapTimeline.OnBarAction</c>).</param>
+/// <param name="Waiting">Whether the bar's work is waiting on something the host asked
+/// for and has not had yet — a session queued for it, say. Not an alert: drawn as a queue
+/// glyph after the title, in the bar's own ink, beside an overdue marker or a tick when
+/// the bar is that as well. Only the caller knows what is awaited, so as with the other
+/// states say it in <paramref name="Detail"/> too, because the glyph is hidden from a
+/// screen reader — straight after any overdue line, so the tooltip puts it ahead of the
+/// progress figures with the warning.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -74,7 +81,8 @@ public sealed record RoadmapBar(
     bool Tentative = false,
     bool Overdue = false,
     bool Done = false,
-    RoadmapBarAction? Action = null)
+    RoadmapBarAction? Action = null,
+    bool Waiting = false)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 

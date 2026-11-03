@@ -93,6 +93,16 @@
                                   OnClick="ToggleLabels">
                         Labels
                     </ToggleButton>
+                    @* The brains turn on their own after a few quiet seconds, so
+                       the reader can stop them (WCAG 2.2.2). Held while the atlas
+                       is open; a fling, a drag and the zoom still move it. *@
+                    <ToggleButton BaseClass="btn btn--toggle"
+                                  Pressed="_paused"
+                                  TestId="lobes-atlas-motion"
+                                  Title="@(_paused ? "Let the brains turn on their own again" : "Stop the brains turning on their own")"
+                                  OnClick="TogglePause">
+                        Pause
+                    </ToggleButton>
                     @* All's chips act on scopes, not regions, so every devbook's
                        technology — hidden in All to start with — has a toggle of
                        its own here. It acts on All alone: each devbook scope's
@@ -434,6 +444,7 @@
     private string? _appliedScope;
     private string? _selectedId;
     private bool _showLabels = true;
+    private bool _paused;
     private bool _sheetOpen;
     private readonly string _sheetId = "lobes-atlas-sheet-" + Guid.NewGuid().ToString("N");
     private bool _building;
@@ -687,6 +698,14 @@
         Project();
     }
 
+    /// <summary>Pause: the idle turn held, or let go again. It lasts while the
+    /// atlas is open; the renderer waits its delay before turning again.</summary>
+    private void TogglePause()
+    {
+        _paused = !_paused;
+        Project();
+    }
+
     /// <summary>Each devbook's Parietal — its <c>tech/</c> chapters, a ghost
     /// devbook's included — starts hidden in that scope, the first time the
     /// atlas reads it.</summary>
@@ -755,7 +774,7 @@
         }
 
         IReadOnlyList<LobesAtlasRegionKey> hiddenAll = _showTech ? [] : DevbookLobesAtlas.TechRegions(_graph);
-        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels, hiddenAll);
+        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels, hiddenAll, idleMotion: !_paused);
         _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes, hiddenAll);
         if (_selectedId is not null && _nodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal))) _selectedId = null;
     }

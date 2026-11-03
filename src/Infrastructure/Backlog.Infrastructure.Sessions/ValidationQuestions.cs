@@ -331,7 +331,7 @@ internal static class ValidationQuestions
         const string Before = "Approve the validation of ";
         var room = MaxTitleLength - Before.Length - 1;
 
-        return $"{Before}{(run.Length <= room ? run : run[..(room - 1)] + "…")}?";
+        return $"{Before}{NotificationText.Cut(run, room)}?";
     }
 
     private static bool Waiting(JsonObject run, NotificationAnswer answer, out JsonObject asked)
@@ -355,8 +355,7 @@ internal static class ValidationQuestions
     private static bool Chose(NotificationAnswer answer, string choice) =>
         answer.ChoiceIds.Contains(choice, StringComparer.Ordinal);
 
-    private static string OneLine(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    private static string OneLine(string? text) => NotificationText.OneLine(text);
 
     private static string? Decided(JsonObject run) =>
         run["approval"] is JsonObject approval ? Text(approval, "personalValidation") : null;

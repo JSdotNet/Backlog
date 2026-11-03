@@ -60,7 +60,7 @@
                               PressedChanged="_ => _type = type"
                               TestId="technology-type-chip"
                               data-type="@type">
-                    <span class="tech-chip__code">@TechnologyTypeCodes.Code(type)</span>
+                    <span class="@($"tech-chip__code {TechnologyTypeFamilies.MarkFor(type)}")">@TechnologyTypeCodes.Code(type)</span>
                     <span>@TechnologyTypeCodes.Label(type)</span>
                     <span class="tech-chip__tally">@total</span>
                 </ToggleButton>
@@ -108,7 +108,7 @@
                                       PressedChanged="_ => SelectAsync(node.Id)"
                                       Title="@TechnologyTypeCodes.Label(node.Kind)"
                                       TestId="technology-row">
-                            <span class="tech-overview__code">@TechnologyTypeCodes.Code(node.Kind)</span>
+                            <span class="@($"tech-overview__code {TechnologyTypeFamilies.Mark(node.Family)}")">@TechnologyTypeCodes.Code(node.Kind)</span>
                             <span class="tech-overview__name">@node.Label</span>
                         </ToggleButton>
                     </td>

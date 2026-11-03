@@ -293,4 +293,16 @@ public sealed class NotificationInvariantTests
 
         Assert.Equal("notification.title_required", result.Error.Code);
     }
+
+    [Theory]
+    [InlineData("Two\rlines")]
+    [InlineData("Two\u0085lines")]
+    [InlineData("Two\u2028lines")]
+    [InlineData("Two\u2029lines")]
+    public void A_title_broken_by_any_line_break_is_refused(string title)
+    {
+        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = title }, Now);
+
+        Assert.Equal("notification.title_required", result.Error.Code);
+    }
 }
