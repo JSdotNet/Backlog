@@ -574,7 +574,7 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -604,7 +604,11 @@ The tabs are:
 - **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet
   over the screen it was opened from, not a tab. It sends one thought to the
   Inbox as a capture, creates it as a note through the note view, or adds it to
-  today through `task_view`. It offers dictation and a photo.
+  today through `task_view`. It offers dictation and a photo. The Android
+  launcher shortcut **Capture** opens it too, at `capture?from=inbox`: the head
+  publishes a dynamic shortcut, `MainActivity` raises the buffered, consume-once
+  `CaptureOpenRequests`, and the shell follows it, as it follows a notification
+  tap (local ADR 0039). A restored activity raises nothing.
 - **Notes** — every note in `note_view`, newest first and searched on the phone,
   and an editor for one. A note has a title, a dictated Markdown body, and
   attached pictures and files. It saves on its own a second after typing stops,
@@ -656,6 +660,7 @@ graph TB
     Picker["Attachment picker\n(camera, pictures, files)"]
     Speech["Speech transcriber"]
     Share["Share target"]
+    Shortcut["Launcher shortcut (Capture)"]
     Creds["Secure storage\n(device credential)"]
     Installer["APK installer\n(PackageInstaller)"]
   end
@@ -680,6 +685,8 @@ graph TB
   InboxTab --> Speech
   Share -->|captured on arrival| Shell
   Shell -->|shared capture| Outbox
+  Shortcut -->|"open capture sheet, once"| Shell
+  Shell --> CaptureSheet
   TasksTab --> TaskView
   TasksTab --> Outbox
   Files -->|"PUT /api/sync/attachments/{id}"| API
