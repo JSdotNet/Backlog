@@ -85,6 +85,12 @@ public class MainActivity : MauiAppCompatActivity
     {
         var services = IPlatformApplication.Current?.Services;
 
+        // Every branch below clears what it read, but that clearing lives only in this process:
+        // after process death, or from Recents, Android hands the original intent back whole.
+        // A restored activity follows none of them — a share would land in the Inbox twice, a
+        // notification's detail would reopen on its own.
+        if (restored) return;
+
         services?.GetService<AndroidShareTargetReceiver>()?.Receive(intent);
 
         // A tap on a notification in the tray (PushTrayPresenter): the layout opens its
@@ -100,13 +106,11 @@ public class MainActivity : MauiAppCompatActivity
         // A tap on the Capture shortcut of the launcher icon (CaptureShortcut): the layout opens
         // the capture sheet over the Inbox. An action cannot be removed like an extra, so it is
         // set back to MAIN once read — a recreated activity handed the same intent does not
-        // open the sheet over wherever the person has gone since. That reset lives only in this
-        // process: after process death, or from Recents, Android hands the original intent back,
-        // so a restored activity does not follow it either.
+        // open the sheet over wherever the person has gone since.
         if (intent?.Action == CaptureShortcut.Action)
         {
             intent.SetAction(Intent.ActionMain);
-            if (!restored) services?.GetService<CaptureOpenRequests>()?.Request();
+            services?.GetService<CaptureOpenRequests>()?.Request();
         }
     }
 
