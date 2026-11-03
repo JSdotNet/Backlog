@@ -143,9 +143,10 @@ it can have any number of windows: each ⧉ click opens another one. The main wi
 header does not change when a surface is popped out.
 
 A popped-out window has a slim header and no view switch. The header shows the surface
-title, the repository scope chips, a **Show in main window** control, which switches the
-main window to this surface and closes this window, and the OS close button. The window
-has no Ask AI; Ask AI stays in the main window only.
+title, the repository scope chips, a **Keep on top** pin, a **Show in main window**
+control, which switches the main window to this surface and closes this window, and the
+OS close button. The window has no Ask AI; Ask AI stays in the main window only. Only the
+desktop head draws the pin, because a browser tab cannot stay on top of other windows.
 
 ### 5. Each window has its own view state; the main window owns the app's life
 
@@ -158,7 +159,8 @@ so a task saved in one window reloads in the others.
 
 Closing the main window quits the app and closes every popped-out window. The layout is
 not restored on the next start. Each surface remembers the size and position of its last
-popped-out window, and the next pop-out of that surface opens there.
+popped-out window, and the next pop-out of that surface opens there. It also remembers
+whether its windows were kept on top, so the next one opens kept on top too.
 
 ### 6. The route is `/window/{surfaceId}`, with the query keys the surface registered
 
@@ -233,7 +235,8 @@ Negative:
 
 Neutral:
 
-- **Nothing reopens at start.** Only each surface's last window bounds are remembered.
+- **Nothing reopens at start.** Only each surface's last window bounds, and whether its
+  window was kept on top, are remembered.
 - **The phone is unchanged.** This record is about the desktop shell and the pages it
   serves.
 
@@ -266,6 +269,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-04 | §4's header gains a **Keep on top** pin, and §5 remembers it per surface: `ShellWindowStore` keeps an `onTop` list beside the bounds in `shell-windows.json`, and `ShellWindows` sets the window's `OverlappedPresenter.IsAlwaysOnTop` and sets it again on the surface's next window. `IShellWindows` answers `CanKeepOnTop`, false by default, so the web harness and a browser tab draw no pin. Below 40rem a popped-out window is laid out as a docked list (`interaction-guidelines.md#shell-header`). | A Tasks window docked on a side monitor as the day's list was covered by other windows and spent its width on chrome. |
 | 2026-10-30 | Renumbered from 0042 to 0043: the file, its title, its entries in the ADR index and `09-architecture-decisions.md`, and every citation of it in the code, tests, plugins and devbook. | `main` took local ADR 0042 for the pull-request-state record while this one was in flight on `plan/shell-pop-out-windows`, so the closing merge would have landed two records numbered 0042. |
 | 2026-10-29 | §7's link-token cookie is set `Secure` as well as HttpOnly and SameSite=Strict. The listener is plain `http://localhost`, and a browser holds loopback to be a secure context, so Chromium, WebView2, Firefox and Safari keep the cookie and send it back there; the headless-Chromium circuit test is the proof. The HttpClient tests read their cookie jar under the address's `https` form, since `CookieContainer` sends a `Secure` cookie only to `https`. | CodeQL flagged the cookie for lacking `Secure` on the plan's closing pull request. |
 | 2026-10-29 | Renumbered from 0041 to 0042: the file, its title, its entries in the ADR index and `09-architecture-decisions.md`, and every citation of it in the code, tests, plugins and devbook. | `main` took local ADR 0041 for the agent-questions record while this one was in flight on `plan/shell-pop-out-windows`, so the closing merge would have landed two records numbered 0041. |

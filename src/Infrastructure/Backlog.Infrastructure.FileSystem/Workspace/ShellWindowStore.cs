@@ -4,8 +4,9 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// Remembers, per surface id, where that surface's last popped-out window stood, so the
-/// next one opens there (local ADR 0043 §5). Only the bounds: no window reopens at
-/// start, and nothing here says which windows were open.
+/// next one opens there (local ADR 0043 §5), and whether it was kept on top of other
+/// windows. Only that: no window reopens at start, and nothing here says which windows
+/// were open.
 /// <para>
 /// Its own file, <c>shell-windows.json</c>, beside <c>shell-navigation.json</c>: a
 /// window being dragged writes far more often than anything the navigation file holds,
@@ -33,6 +34,7 @@ public sealed class ShellWindowStore
     private readonly string _path;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, ShellWindowBounds> _bounds;
+    private readonly HashSet<string> _onTop = new(StringComparer.Ordinal);
 
     /// <summary>The file in <see cref="WorkspaceSettingsStore.DefaultAppDataDirectory"/>,
     /// beside <see cref="ShellNavigationStore.FileName"/>: <c>Backlog.Debug</c> for a
@@ -95,6 +97,34 @@ public sealed class ShellWindowStore
         }
     }
 
+    /// <summary>Whether the last popped-out window of <paramref name="surfaceId"/> was
+    /// kept on top of other windows, so the next one opens kept on top too.</summary>
+    public bool IsOnTop(string surfaceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
+
+        lock (_gate)
+        {
+            return _onTop.Contains(surfaceId);
+        }
+    }
+
+    /// <summary>Remembers whether <paramref name="surfaceId"/>'s windows are kept on top,
+    /// apart from its bounds, and returns before the file is written. The same value as
+    /// kept writes nothing.</summary>
+    public void SetOnTop(string surfaceId, bool onTop)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
+
+        lock (_gate)
+        {
+            var changed = onTop ? _onTop.Add(surfaceId) : _onTop.Remove(surfaceId);
+            if (!changed) return;
+
+            QueuedFileWrites.Enqueue(_path, Serialize());
+        }
+    }
+
     /// <summary>Waits until every set so far is on disk: for the app closing, or a test
     /// reading the file itself.</summary>
     public void Flush() => QueuedFileWrites.WaitFor(_path);
@@ -104,6 +134,7 @@ public sealed class ShellWindowStore
         JsonSerializer.Serialize(
             new ShellWindowsDto
             {
+                OnTop = _onTop.Count == 0 ? null : [.. _onTop.Order(StringComparer.Ordinal)],
                 Surfaces = _bounds
                     .OrderBy(pair => pair.Key, StringComparer.Ordinal)
                     .ToDictionary(
@@ -139,22 +170,33 @@ public sealed class ShellWindowStore
                 var read = new ShellWindowBounds(window.X, window.Y, window.Width, window.Height, window.Maximized);
                 if (read.HasArea) bounds[surfaceId] = read;
             }
+
+            foreach (var surfaceId in dto?.OnTop ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(surfaceId)) _onTop.Add(surfaceId);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             // A corrupt or unreachable file must never stop a window from opening —
             // it opens where the system puts a new one.
             bounds.Clear();
+            _onTop.Clear();
         }
 
         return bounds;
     }
 
-    /// <summary>The file: <c>{ "surfaces": { "devbook": { "x": …, … } } }</c>. Every key
+    /// <summary>The file: <c>{ "surfaces": { "devbook": { "x": …, … } }, "onTop": [ "tasks" ] }</c>. Every key
     /// is a stored name: never rename one without reading the old.</summary>
     private sealed class ShellWindowsDto
     {
         public Dictionary<string, WindowDto?>? Surfaces { get; init; }
+
+        /// <summary>The surfaces whose windows are kept on top of other windows.
+        /// Absent in a file written before the pin existed, and when none is.</summary>
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public string?[]? OnTop { get; init; }
     }
 
     private sealed class WindowDto

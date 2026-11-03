@@ -84,9 +84,11 @@ node_modules/
 !.qa-workspace/backlog.db
 !.qa-workspace/config/
 
-# Playwright MCP browser output (screenshots, page snapshots, console logs),
-# written to the working directory of whichever session drove the browser.
+# Playwright MCP and Playwright CLI browser output (screenshots, page snapshots,
+# console logs), written to the working directory of whichever session drove the
+# browser.
 .playwright-mcp/
+.playwright-cli/
 
 # Claude Code worktree sessions. The rest of .claude/ (rules/, skills/,
 # settings.json, hooks/) is tracked team configuration.
