@@ -13,7 +13,8 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 > - feedback and toasts, motion and reduced motion;
 > - the empty, loading and error state patterns;
 > - the desktop shell's header, panes and group shapes;
-> - the combobox, action density and overflow, and timelines.
+> - the combobox, the popover button, action density and overflow, and
+>   timelines.
 >
 > Motion tokens and interaction patterns were adapted from the JSdotNet design
 > style guide (`04-motion-and-interaction`, `09-interaction-patterns`). Conflict
@@ -535,7 +536,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -544,10 +545,10 @@ question. Below it the workspace shows exactly one **main view**, unless a
 
 | Region | Answers | Holds |
 |---|---|---|
-| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), led by the **Brain** chip, then the **Colors** switch beside it, then the **Show archived** toggle. The scope renders always, with the Brain chip alone when no repository is configured; the Colors switch renders only while a repository is configured (local ADR 0027), and the Show archived toggle only while a repository is archived (local ADR 0029). |
+| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), led by the **Brain** chip, then the repository chips, and nothing else. The scope renders always, with the Brain chip alone when no repository is configured (local ADR 0027). |
 | Navigation | What am I looking at? | Left to right: the **Inbox** toggle, the view switch, the **Devbook** toggle, the Goals group, then the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. Ambient, the quietest region; its auto margin carries it and the utilities to the right edge. |
-| Utilities | What cuts across all of it? | **Ask AI**, the one accented control in the header, while an area with something to ask about is on screen; then the settings link. |
+| Utilities | What cuts across all of it? | **Ask AI**, the one accented control in the header, while an area with something to ask about is on screen; then the **Settings** gear, last in the header, which opens a menu of **Colors**, **Show archived** and a **Settings** link (*The gear holds the occasional switches*). |
 
 The navigation region holds three kinds of control, and each MUST look and act
 as its kind:
@@ -575,7 +576,7 @@ as its kind:
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the Inbox and Devbook toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
 | The shell reopens where it was left | The main view, any open takeover, the Inbox or the Devbook, and the repository scope MUST be restored on a fresh shell instance, including after Settings and back. The scope comes back in its order, so the anchor is still first, Brain in its place when it was pressed, and a repository no longer configured is dropped from it. |
 | The Brain chip leads the scope | The repository scope MUST start with the **Brain** chip, then a divider, then the repository chips. The chip MUST offer no remove control, MUST wear `color-band-2` as its identity edge (`color-scheme.md#the-brains-accent`) whether or not the Colors switch is on, and MUST lead with a decorative brain glyph before its word. It presses as a repository chip does, Ctrl included, and pressed alone it scopes every view to the tasks filed against no repository. Until a Brain folder is set it reads **Set up your Brain**, still scopes, and its tooltip says where the folder is set. No *No repo* chip appears anywhere else: Brain is the one place that says "no repository". |
-| Show archived is an icon toggle | The **Show archived** toggle MUST be an icon-only loose option standing alone after Colors, outside the scope group: the Lucide `archive` glyph at `icon-sm`, hidden from assistive technology, with the name **Show archived repositories** on the control itself. It reads pressed while archived repositories are offered, and its tooltip says what the next press does — **Show archived repositories** or **Hide archived repositories** (local ADR 0029 §3). Its target is about 34 × 36 px, the height and width of the header options beside it, under `accessibility.md#target-sizes-and-text`'s 44 px: accepted so the identity row stays one height, as its neighbours already are. |
+| The gear holds the occasional switches | The **Settings** gear MUST be a `#popover-button` named **Settings**, its panel lined up with the gear's end edge, and MUST list, in order: the **Colors** switch, the **Show archived** switch, and a **Settings** link to the Settings page. Both switches are the shared `Toggle`, named by the visible word beside the track. **Colors** is listed only while a repository is configured (local ADR 0027); the Brain's edge is not one of its hues. **Show archived** is always listed, so it can be found, and while no repository is archived it is disabled and carries the note **No archived repositories** (local ADR 0029 §3). Flipping either switch leaves the menu open. Neither switch stands in the header row: both ask "is this layer on", narrow nothing, and are flipped too rarely to earn the width. |
 | Views and work lead with a glyph | Each view-switch option and each member of the Goals group MUST lead with a decorative glyph before its word: a list for Tasks, three columns for Board, a calendar for Calendar, staggered bars for Roadmap, a target (Lucide `target`) for Goals, a terminal prompt for Sessions and a pull-request branch for Pull requests. Each glyph is a Lucide outline per `typography-and-layout.md#iconography`, hidden from assistive technology per `accessibility.md#iconography-accessibility`, so every option's name stays its word. The Inbox toggle, the Devbook toggle and the remaining takeovers carry none. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
@@ -640,7 +641,7 @@ is the pressed state's to say, not the shape's.
 |---|---|
 | Fused means one set | A group whose options are siblings read as one control MUST draw its members flush inside one border with hairlines between them: the desktop header's repository scope (several on with Ctrl, its leading Brain chip set off by a divider inside the same border), the view switch (exactly one on), and the Goals group (the Goals view and two lists). |
 | Loose means related only by kind | A group whose options merely share a kind MUST draw them as standalone bordered controls with a gap between them, and MUST NOT fuse them: the desktop header's Dashboard and Tools, two takeovers from two contexts. |
-| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles, and its Show archived toggle — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
+| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
 | Selected on the edge it has | A fused option carries its selected state on the group's shared bottom edge (an underline beside the tint); a loose option, having no group edge, carries it on its own border. Neither is colour alone. |
 
@@ -671,6 +672,32 @@ planned-hours figure is its first use.
 
 Review surface: storybook → *Inputs* → **Combobox** (empty, a suggestion taken, a
 figure typed, a figure refused).
+
+## Popover Button
+
+```meta
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/design-principles.md#low-chrome-content-first"]
+```
+
+A popover button shows a small panel of the host's own controls under a button:
+settings a reader flips now and then and would rather not see all day. It is a
+disclosure, not a menu. The panel holds switches, buttons and links, not menu
+items, so the arrow keys stay those controls' own. The desktop header's
+**Settings** gear is its first use (`#shell-header`). `PopoverButton` in the
+shared library builds it.
+
+| Rule | Requirement |
+|---|---|
+| A disclosure, not a menu | The trigger MUST carry `aria-expanded` and `aria-controls` naming the panel, and the panel MUST be a `role="group"` under the trigger's name. Neither carries a menu role. |
+| Named on the trigger | A trigger that shows only a glyph MUST carry its name in `aria-label`, keep the glyph hidden from assistive technology, and show the name as its tooltip unless the host gives another. |
+| Tab walks in | The panel MUST follow the trigger in the DOM, so Tab moves from the trigger into the panel's controls and out past them, with no focus moved by the component. Opening the panel leaves the focus on the trigger. |
+| Escape returns to the trigger | Escape anywhere in the open popover MUST close it and put the focus back on the trigger. |
+| Outside click only closes | A click outside the open panel MUST close it and do nothing else: the control under the click does not act, and the focus stays where the click left it. A second press of the trigger closes it the same way. |
+| It stays open while used | Pressing a control inside the panel, such as flipping a switch, MUST leave it open. A link that leaves the page closes it by leaving. |
+| Lined up with its trigger | The panel MUST line its start edge up with the trigger's, or its end edge when the trigger ends a row, so it opens inward from that row's end. |
+
+Review surface: storybook → *Overlays* → **PopoverButton** (closed, open, a switch
+flipped with the panel still open).
 
 ## Action Density and Overflow
 
@@ -774,6 +801,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
+| Popover button | `PopoverButton` in `Backlog.UI.Components/Overlays`: the outside click is a transparent full-screen backdrop drawn only while the panel is open, as `ContextMenu` does it, so no document listener outlives the panel; it covers the trigger too, which is how a second press closes it | Storybook → *Overlays* → **PopoverButton** |
 | Press feedback, busy actions, scoped loading | In `src/Core/Backlog.UI.Components`: `AppButton` (`Busy` keeps the button focusable through `aria-disabled`), `TaskAction` (`Busy`, `Blocked`), `ConfirmDialog` (busy until its act lands), `Modal.CloseDisabled`, `FileView.Refreshing`, `Spinner` and `Skeleton`; the generic `:active` and `[aria-busy]` rules in `components.css`. Hosts copy the dashboard's pattern: each part loads on its own, and a refresh keeps its figures under the frame's busy mark | Storybook → *Buttons*, *Overlays*, *Feedback* → **A region refreshing in place**, *File view* |
 | Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it, the calendar through `window.backlogDragAutoscroll`, rather than each carrying its own edge zones and speed cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
