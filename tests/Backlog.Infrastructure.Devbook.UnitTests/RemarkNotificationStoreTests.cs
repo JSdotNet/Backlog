@@ -122,6 +122,19 @@ public sealed class RemarkNotificationStoreTests
     }
 
     [Fact]
+    public async Task A_long_remark_is_cut_on_a_whole_character_in_the_alerts_summary()
+    {
+        var store = Store();
+        var remark = Remark() with { Body = new string('w', 178) + "\U0001F600" + " and more words after it" };
+
+        store.Apply(remark);
+        await store.LastAlert;
+
+        var summary = Assert.Single(_notifications.Published).Draft.Summary;
+        Assert.Equal(new string('w', 178) + "…", summary);
+    }
+
+    [Fact]
     public async Task A_remark_typed_here_a_draft_or_one_already_known_raises_no_alert()
     {
         var store = Store();

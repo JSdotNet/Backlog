@@ -1,7 +1,7 @@
 # ADR 0039: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
 
 ```meta
-date: 2026-10-26
+date: 2026-11-02
 related: [".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/notifications/context.md", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
@@ -18,12 +18,14 @@ shows.
 ```meta
 ```
 
-Proposed, 2026-10-22. Drafted by an unattended `execute-plan` run of the
-`+notifications` plan from the agreed proposal *Notifications that ask, and wait
-for your answer* (21 October 2026), including its "Settled" list. It waits for the
-repository owner's Personal Validation on the draft pull request. Every section is
-now built, and the Azure resources are declared in Bicep. None of it is deployed,
-and the hub has no FCM credential yet, so no push has reached a phone.
+Accepted, 2026-11-02, by the repository owner at the Personal Validation gate of
+flow-spec run `run-mvzoobww-d5511o`. Proposed 2026-10-22 by an unattended
+`execute-plan` run of the `+notifications` plan from the agreed proposal
+*Notifications that ask, and wait for your answer* (21 October 2026), including its
+"Settled" list. Built by PR #1499, which merged the `plan/notifications` branch and
+the sub-PRs under it, followed by #1537, #1561 and #1601. The Azure resources are
+declared in Bicep and not deployed, and the hub has no FCM credential yet, so no
+push has reached a phone.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It **extends** ADR 0005 with a fourth replica container,
@@ -272,6 +274,7 @@ phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-02 | Accepted. | Built on main by PR #1499 and its follow-ups #1537, #1561 and #1601; the owner accepted it at the gate of flow-spec run `run-mvzoobww-d5511o`. |
 | 2026-10-26 | §4 amended: the push adds an `origin` value, the notification's "System · Place" cut to 60 characters, sent for a private notification too. | Every notification now says where it came from (`domain.md#origin`), and the tray shows it as the subtitle before the phone has pulled. |
 | 2026-10-26 | §5 amended: Bicep declares two hub rules, `sync-send` (Send) and `sync-manage` (Listen, Manage, Send), each into its own container app secret, in place of one Send-only key. | The service registers each phone's installation itself, and a Send-only rule cannot: an installation needs Manage. |
 | 2026-10-26 | §4 amended: the Android push is built. Its payload adds kind, severity and state to the id, title and summary; the owner writes them as a push preview on the `NotificationChange` envelope; only a transition pushes; a phone registers through `PUT /api/sync/notifications/push`. | The service never reads the opaque document, and the owner's 10-minute presence re-push must not buzz the phone. |

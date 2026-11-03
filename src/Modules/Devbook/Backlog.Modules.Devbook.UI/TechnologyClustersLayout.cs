@@ -79,6 +79,11 @@ public enum ClustersSatelliteState
 /// <summary>Another layer, beside the open one, centred on (<see cref="X"/>, <see cref="Y"/>).</summary>
 public sealed record ClustersSatellite(ClustersLayer Layer, double X, double Y, int Links, ClustersSatelliteState State);
 
+/// <summary>One type family's technologies in the open layer: its heading's
+/// top-left corner at (<see cref="X"/>, <see cref="Y"/>), <see cref="Width"/> across,
+/// and its pills in rows under it.</summary>
+public sealed record ClustersFamilyGroup(TechnologyTypeFamily Family, double X, double Y, double Width, IReadOnlyList<ClustersPill> Pills);
+
 /// <summary>A rectangle, by its top-left corner and size.</summary>
 public sealed record ClustersRect(double X, double Y, double Width, double Height);
 
@@ -87,6 +92,7 @@ public sealed record ClustersLayerLayout(
     double Height,
     ClustersLayer Layer,
     ClustersRect Halo,
+    IReadOnlyList<ClustersFamilyGroup> Families,
     IReadOnlyList<ClustersPill> Pills,
     IReadOnlyList<ClustersSatellite> Satellites,
     IReadOnlyList<ClustersLine> Lines);
@@ -122,6 +128,18 @@ public static class TechnologyClustersLayout
     public const double RowStep = 48;
 
     public const int MaxColumns = 4;
+
+    /// <summary>How much of its cell a dot on All layers fills. app.css grows a dot
+    /// button's press area back to the whole cell — 1 / 0.8 of the dot — so press
+    /// areas tile without overlapping.</summary>
+    public const double DotFill = 0.8;
+
+    /// <summary>From the top of a family group to the top of its first row of pills:
+    /// the heading's line.</summary>
+    public const double FamilyHeadingHeight = 24;
+
+    /// <summary>The space between one family's last row and the next family's heading.</summary>
+    public const double FamilyGap = 14;
 
     private const double RingRadiusX = 340;
 
@@ -223,8 +241,9 @@ public static class TechnologyClustersLayout
         return new ClustersOverviewLayout(Width, OverviewHeight, clusters, lines, badges);
     }
 
-    /// <summary>One layer opened: its pills in a grid of at most four columns, the
-    /// other layers as satellites on a ring around it, and the lines.
+    /// <summary>One layer opened: its pills in one group per type family, in the
+    /// families' order, each a heading over rows of at most four columns; the other
+    /// layers as satellites on a ring around it; and the lines.
     ///
     /// <para>With nothing selected the lines are the layer's own <c>depends-on</c>
     /// edges, quiet, and one weighted line to each satellite it links to. With
@@ -240,9 +259,18 @@ public static class TechnologyClustersLayout
     {
         var count = layer.Technologies.Count;
         var columns = Math.Max(1, Math.Min(MaxColumns, count));
-        var rows = Math.Max(1, (int)Math.Ceiling(count / (double)columns));
         var gridWidth = (columns * ColumnStep) - (ColumnStep - PillWidth);
-        var gridHeight = (rows * RowStep) - (RowStep - PillHeight);
+
+        // One group per family, in the families' order; each is a heading line and
+        // its own rows, so a family never shares a row with the next.
+        var families = layer.Technologies
+            .GroupBy(node => node.Family)
+            .OrderBy(group => group.Key)
+            .Select(group => group.ToList())
+            .ToList();
+        var gridHeight = families.Count == 0
+            ? PillHeight
+            : families.Sum(group => FamilyHeadingHeight + BlockHeight(group.Count, columns)) + (FamilyGap * (families.Count - 1));
 
         // The halo is the grid plus a margin and a title line; the satellite ring
         // clears it with a satellite's own width to spare.
@@ -261,15 +289,25 @@ public static class TechnologyClustersLayout
         var usedBy = focus?.UserIds.ToHashSet(StringComparer.Ordinal) ?? [];
 
         var pills = new List<ClustersPill>(count);
-        for (var index = 0; index < count; index++)
+        var groups = new List<ClustersFamilyGroup>(families.Count);
+        var top = gridTop;
+        foreach (var family in families)
         {
-            var node = layer.Technologies[index];
-            var state = focus is null ? ClustersPillState.Plain
-                : SameId(node.Id, focus.Id) ? ClustersPillState.Selected
-                : sitsOn.Contains(node.Id) ? ClustersPillState.SitsOn
-                : usedBy.Contains(node.Id) ? ClustersPillState.UsedBy
-                : ClustersPillState.Dimmed;
-            pills.Add(new ClustersPill(node, gridLeft + (index % columns * ColumnStep), gridTop + (index / columns * RowStep), state));
+            var groupPills = new List<ClustersPill>(family.Count);
+            for (var index = 0; index < family.Count; index++)
+            {
+                var node = family[index];
+                var state = focus is null ? ClustersPillState.Plain
+                    : SameId(node.Id, focus.Id) ? ClustersPillState.Selected
+                    : sitsOn.Contains(node.Id) ? ClustersPillState.SitsOn
+                    : usedBy.Contains(node.Id) ? ClustersPillState.UsedBy
+                    : ClustersPillState.Dimmed;
+                groupPills.Add(new ClustersPill(node, gridLeft + (index % columns * ColumnStep), top + FamilyHeadingHeight + (index / columns * RowStep), state));
+            }
+
+            groups.Add(new ClustersFamilyGroup(family[0].Family, gridLeft, top, gridWidth, groupPills));
+            pills.AddRange(groupPills);
+            top += FamilyHeadingHeight + BlockHeight(family.Count, columns) + FamilyGap;
         }
 
         var pillById = pills.ToDictionary(pill => pill.Node.Id, StringComparer.Ordinal);
@@ -372,7 +410,7 @@ public static class TechnologyClustersLayout
             satellites.Add(new ClustersSatellite(other, x, y, links, state));
         }
 
-        return new ClustersLayerLayout(Width, height, layer, halo, pills, satellites, lines);
+        return new ClustersLayerLayout(Width, height, layer, halo, groups, pills, satellites, lines);
     }
 
     /// <summary>A number as CSS reads it: invariant, at most two decimals.</summary>
@@ -382,6 +420,10 @@ public static class TechnologyClustersLayout
     public static string Percent(double value, double extent) => Css(value / extent * 100) + "%";
 
     private static bool SameId(string a, string b) => string.Equals(a, b, StringComparison.Ordinal);
+
+    /// <summary>The height of <paramref name="count"/> pills in rows of <paramref name="columns"/>.</summary>
+    private static double BlockHeight(int count, int columns) =>
+        (Math.Max(1, (int)Math.Ceiling(count / (double)columns)) * RowStep) - (RowStep - PillHeight);
 
     private static double Round(double value) => Math.Round(value, 2);
 
@@ -395,7 +437,7 @@ public static class TechnologyClustersLayout
         var columns = (int)Math.Ceiling(Math.Sqrt(count));
         var rows = (int)Math.Ceiling(count / (double)columns);
         var cell = Math.Min(20, diameter * 0.68 / Math.Max(columns, rows));
-        var size = Round(cell * 0.8);
+        var size = Round(cell * DotFill);
         var top = centreY - (rows * cell / 2);
 
         var dots = new List<ClustersDot>(count);

@@ -352,6 +352,34 @@ public sealed class NotificationsTests
     }
 
     [Fact]
+    public async Task At_startup_a_subject_whose_probe_names_why_it_ended_closes_with_that_reason()
+    {
+        var owner = Owner_();
+        var ended = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+
+        var probe = new SetProbe("sessions", "sess-91") { Reasons = { ["sess-91"] = "Answered in spec-manager by Kees de Vries: No" } };
+        await Startup(owner, [], probe).RunAsync(TestContext.Current.CancellationToken);
+
+        var closed = (await _store.GetAsync(ended, TestContext.Current.CancellationToken))!;
+        Assert.Equal(NotificationState.Closed, closed.State);
+        Assert.Equal("Answered in spec-manager by Kees de Vries: No", closed.CloseReason);
+    }
+
+    [Fact]
+    public async Task At_startup_a_subject_whose_probe_fails_to_name_why_it_ended_closes_as_subject_ended()
+    {
+        var owner = Owner_();
+        var ended = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+
+        var probe = new SetProbe("sessions", "sess-91") { Reasons = { ["sess-91"] = "Never read" }, ReasonThrows = true };
+        await Startup(owner, [], probe).RunAsync(TestContext.Current.CancellationToken);
+
+        var closed = (await _store.GetAsync(ended, TestContext.Current.CancellationToken))!;
+        Assert.Equal(NotificationState.Closed, closed.State);
+        Assert.Equal(NotificationsStartup.SubjectEndedReason, closed.CloseReason);
+    }
+
+    [Fact]
     public async Task At_startup_a_subject_is_asked_about_once_and_only_by_its_own_contexts_probe()
     {
         var owner = Owner_();

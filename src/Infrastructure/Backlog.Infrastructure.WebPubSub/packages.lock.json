@@ -4,9 +4,9 @@
     "net10.0": {
       "Aspire.Azure.Messaging.WebPubSub": {
         "type": "Direct",
-        "requested": "[13.6.1, )",
-        "resolved": "13.6.1",
-        "contentHash": "HDLLyW9cSalwmpNGISuHtg52ofwo+HHbnRM630+pOUOez4kz5j5/MCE+R1VLbZp+jnyJfm3pOQ9jG1oEWmruhA==",
+        "requested": "[13.6.4, )",
+        "resolved": "13.6.4",
+        "contentHash": "mBL70zc/nF6LRVyRL+FaO2wAdsm8Dkz0X1ieD92/+3E7UIfi4YAtSAkoXqV1yH6547STl4PKlTQ9z1eARzsTYA==",
         "dependencies": {
           "Azure.Core": "1.62.0",
           "Azure.Messaging.WebPubSub": "1.6.0",

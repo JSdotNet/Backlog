@@ -119,6 +119,16 @@ public sealed class SpecManagerQuestionMappingTests
     }
 
     [Fact]
+    public void A_long_question_is_cut_on_a_whole_character_in_its_title()
+    {
+        var question = OnItem with { Text = new string('q', 78) + "\U0001F600" + " is the rest of the question" };
+
+        var draft = SpecManagerQuestionMapper.ToDraft(question, Product, Root, true, "me", null);
+
+        Assert.Equal(new string('q', 78) + "…", draft.Title);
+    }
+
+    [Fact]
     public void An_unassigned_question_is_info_and_one_on_a_change_names_the_change()
     {
         var draft = SpecManagerQuestionMapper.ToDraft(OnChange, Product, Root, true, "me", null);

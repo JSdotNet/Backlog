@@ -78,6 +78,89 @@ public sealed class ToggleTests
         Assert.Equal(label.Id, toggle.Find("[role='switch']").GetAttribute("aria-labelledby"));
     }
 
+    /// <summary>Extra text in the text block describes the control as much as the
+    /// description does, so a screen reader must hear it too: the control names an
+    /// element holding it, beside the description.</summary>
+    [Fact]
+    public void The_switch_is_described_by_its_description_and_its_extra_content()
+    {
+        using var context = new BunitContext();
+
+        var toggle = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.Label, "Only questions assigned to me")
+            .Add(t => t.Description, "Off also brings the rest.")
+            .Add(t => t.TextContent, Hint("Switch off the phone's own push.")));
+
+        var ids = DescribedBy(toggle.Find("[role='switch']"));
+
+        Assert.Equal(2, ids.Length);
+        Assert.Equal(toggle.Find(".toggle__description").Id, ids[0]);
+        Assert.Contains("Switch off the phone's own push.", toggle.Find($"#{ids[1]}").TextContent);
+    }
+
+    [Fact]
+    public void Extra_content_alone_still_describes_the_switch()
+    {
+        using var context = new BunitContext();
+
+        var toggle = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.Label, "Backlog")
+            .Add(t => t.TextContent, Hint("Always available")));
+
+        var ids = DescribedBy(toggle.Find("[role='switch']"));
+
+        Assert.Single(ids);
+        Assert.Contains("Always available", toggle.Find($"#{ids[0]}").TextContent);
+    }
+
+    [Fact]
+    public void The_native_checkbox_is_described_by_its_extra_content_too()
+    {
+        using var context = new BunitContext();
+
+        var toggle = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.NativeCheckbox, true)
+            .Add(t => t.Label, "Show archived")
+            .Add(t => t.Description, "Includes finished entries")
+            .Add(t => t.TextContent, Hint("Kept for 30 days")));
+
+        var ids = DescribedBy(toggle.Find("input[type='checkbox']"));
+
+        Assert.Equal(2, ids.Length);
+        Assert.Equal(toggle.Find(".toggle__description").Id, ids[0]);
+        Assert.Contains("Kept for 30 days", toggle.Find($"#{ids[1]}").TextContent);
+    }
+
+    /// <summary>The content wrapper is conditional, like the label row: a toggle
+    /// with no extra content renders what it did, and one with neither a
+    /// description nor content names nothing.</summary>
+    [Fact]
+    public void A_toggle_with_no_extra_content_keeps_the_markup_it_had()
+    {
+        using var context = new BunitContext();
+
+        var bare = context.Render<Toggle>(parameters => parameters.Add(t => t.Label, "Show archived"));
+        var native = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.NativeCheckbox, true)
+            .Add(t => t.Label, "Show archived"));
+
+        Assert.Null(bare.Find("[role='switch']").GetAttribute("aria-describedby"));
+        Assert.Null(native.Find("input[type='checkbox']").GetAttribute("aria-describedby"));
+        Assert.Empty(bare.FindAll(".toggle__content"));
+        Assert.Empty(native.FindAll(".toggle__content"));
+    }
+
+    private static string[] DescribedBy(AngleSharp.Dom.IElement control) =>
+        (control.GetAttribute("aria-describedby") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    private static RenderFragment Hint(string text) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddContent(1, text);
+        builder.CloseElement();
+    };
+
     [Fact]
     public void The_on_modifier_belongs_to_the_switch_only()
     {

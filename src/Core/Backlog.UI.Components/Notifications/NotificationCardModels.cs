@@ -43,7 +43,7 @@ public sealed record NotificationCardModel(
 /// <param name="System">The system that raised it — "Claude Code", "spec-manager".</param>
 /// <param name="Place">Where in that system, or null.</param>
 /// <param name="AskedBy">The person who asked, or null.</param>
-/// <param name="Via">How it was asked — "Agent session", "MCP ask" — or null.</param>
+/// <param name="Via">How it was asked — "Agent session", "MCP ask", "MCP notify" — or null.</param>
 /// <param name="OpenLink">An absolute http or https link that opens it at its origin, or null.</param>
 public sealed record NotificationCardOrigin(
     string System,

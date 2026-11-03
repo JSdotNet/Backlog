@@ -1,7 +1,7 @@
 # Domain
 
 ```meta
-status: proposed
+status: draft
 type: domain
 ```
 
@@ -57,7 +57,7 @@ The rules it holds are `### Invariant:` chapters in
 ### Source
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationSource]
 ```
@@ -71,7 +71,7 @@ The source routes; it is never shown. What a person reads is the
 ### Origin
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationOrigin]
 related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin-stays-within-its-bounds]
@@ -85,7 +85,7 @@ notification without one is drawn by its source, as before.
 | System | The system that raised it: "Claude Code", "Backlog", "spec-manager". Required. | 40 characters |
 | Place | Where in that system: a repository and run title, a product and item, a chapter. | 120 characters |
 | Asked by | The person who asked, when known. | 80 characters |
-| Via | How it was asked: "Agent session", "MCP ask". | 40 characters |
+| Via | How it was asked: "Agent session", "MCP ask", "MCP notify". | 40 characters |
 | Open link | An `http` or `https` link that opens it at its origin, or none. | |
 
 Every part is one line of plain text. The origin holds no content, so it
@@ -103,14 +103,14 @@ The sources inside Backlog fill it:
 | A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
-| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask |
+| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |
 | A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", with the session's title when the item's linked task names exactly one session, or "typed in spec-manager"; the asker as asked by |
 | Another spec-manager notification | spec-manager, with the host as above | The product, when the notification is about one | The category in words: "Mention", "Reply", "Change proposal", "Input", "Review work", "Administration" |
 
 ### Subject
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationSubject]
 ```
@@ -128,7 +128,7 @@ The subjects a notification can be about, and when each ends:
 | --- | --- | --- | --- |
 | `sessions` / `session` / session id | Sessions | archived or deleted in the Claude desktop app | "Session archived" |
 | `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, or no run file holds it any more | "Run finished" |
-| `sessions` / `pull-request` / `owner/name#number` | Sessions | merged or closed | "Pull request merged" |
+| `sessions` / `pull-request` / `owner/name#number` | Sessions | merged, or closed without merging | "Pull request merged", or "Pull request closed" |
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
@@ -138,14 +138,16 @@ A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
-about each subject at startup for the ends it missed. An end made on another
-device reaches the owner instance as that context's own change, and closes there
-the same way.
+about each subject at startup for the ends it missed. The probe may also name
+why a subject ended, and its notifications close with that reason, the same one
+the table gives; without one they close as "Subject ended". An end made on
+another device reaches the owner instance as that context's own change, and
+closes there the same way.
 
 ### Answer Spec
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [AnswerSpec, AnswerChoice, OpenAnswer]
 ```
@@ -183,7 +185,7 @@ questions included.
 ### Notification Kind
 
 ```meta
-status: proposed
+status: draft
 type: enum
 aliases: [NotificationKind]
 ```
@@ -194,7 +196,7 @@ aliases: [NotificationKind]
 ### Severity
 
 ```meta
-status: proposed
+status: draft
 type: enum
 aliases: [NotificationSeverity]
 ```
@@ -206,7 +208,7 @@ informational. Severity never limits who may answer.
 ### Notification State
 
 ```meta
-status: proposed
+status: draft
 type: enum
 related: [.devbook/arc42/08-crosscutting-concepts.md#notifications]
 ```
@@ -237,7 +239,7 @@ spec-manager, and the publisher closes one read there.
 ## Reply
 
 ```meta
-status: proposed
+status: draft
 type: aggregate
 related: [.devbook/domain/notifications/domain.invariants.md#reply, .devbook/arc42/06-runtime-view.md#notification-reply]
 aliases: [ReplyOutboxKind]
@@ -262,7 +264,7 @@ words of a choice that takes text; the note stays apart from them.
 ## Answer
 
 ```meta
-status: proposed
+status: draft
 type: value-object
 aliases: [NotificationAnswer]
 ```
@@ -275,7 +277,7 @@ once and treats a second delivery for the same notification as the same answer.
 ## Ubiquitous Language
 
 ```meta
-status: proposed
+status: draft
 type: ubiquitous-language
 ```
 

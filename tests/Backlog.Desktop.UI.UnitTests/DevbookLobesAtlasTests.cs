@@ -107,6 +107,15 @@ public sealed class DevbookLobesAtlasTests
         Assert.False(model.ShowLabels);
     }
 
+    /// <summary>The brains turn on their own unless the reader paused them
+    /// (WCAG 2.2.2, <c>.devbook/design/interaction-guidelines.md#motion-and-reduced-motion</c>).</summary>
+    [Fact]
+    public void The_idle_turn_is_on_unless_paused_and_passes_through()
+    {
+        Assert.True(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout).IdleMotion);
+        Assert.False(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout, idleMotion: false).IdleMotion);
+    }
+
     [Fact]
     public void A_blank_layout_is_all()
     {

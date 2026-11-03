@@ -204,11 +204,9 @@ internal static class SpecManagerQuestionMapper
         return CutBytes(body.ToString(), 32 * 1024);
     }
 
-    internal static string OneLine(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    internal static string OneLine(string? text) => NotificationText.OneLine(text);
 
-    internal static string Cut(string text, int length) =>
-        text.Length <= length ? text : text[..(length - 1)] + "…";
+    internal static string Cut(string text, int length) => NotificationText.Cut(text, length);
 
     /// <summary>Text cut to at most <paramref name="bytes"/> bytes of UTF-8, on a character
     /// boundary, an ellipsis marking the cut.</summary>

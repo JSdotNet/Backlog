@@ -32,8 +32,11 @@ public static class SessionNotificationSubjects
     /// <summary>Why a notification about a run closes: it finished or was abandoned.</summary>
     public const string RunEndedReason = "Run finished";
 
-    /// <summary>Why a notification about a pull request closes: it merged or closed.</summary>
-    public const string PullRequestEndedReason = "Pull request merged";
+    /// <summary>Why a notification about a pull request closes: it merged.</summary>
+    public const string PullRequestMergedReason = "Pull request merged";
+
+    /// <summary>Why a notification about a pull request closes: it closed without merging.</summary>
+    public const string PullRequestClosedReason = "Pull request closed";
 
     /// <summary>Why the Personal Validation question about a run closes unanswered: the
     /// gate was decided at the desktop, so the stage moved on without it.</summary>

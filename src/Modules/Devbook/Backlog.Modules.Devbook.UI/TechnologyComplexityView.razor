@@ -94,9 +94,9 @@
             </div>
 
             <ul class="tech-complexity__legend" aria-label="Colours" data-testid="technology-complexity-legend">
-                @foreach (var (slug, label) in LegendEntries)
+                @foreach (var (colour, label) in LegendEntries)
                 {
-                    <li><span class="tech-complexity__swatch tech-complexity__swatch--@slug" aria-hidden="true"></span>@label</li>
+                    <li><span class="@($"tech-complexity__swatch {colour}")" aria-hidden="true"></span>@label</li>
                 }
                 <li><span class="tech-complexity__swatch tech-complexity__swatch--hollow" aria-hidden="true"></span>Not yet adopted</li>
             </ul>
@@ -180,7 +180,7 @@
                                   PressedChanged="_ => SelectAsync(node.Id)"
                                   Title="@TechnologyTypeCodes.Label(node.Kind)"
                                   TestId="technology-complexity-row">
-                        <span class="tech-overview__code">@TechnologyTypeCodes.Code(node.Kind)</span>
+                        <span class="@($"tech-overview__code {TechnologyTypeFamilies.Mark(node.Family)}")">@TechnologyTypeCodes.Code(node.Kind)</span>
                         <span class="tech-overview__name">@node.Label</span>
                     </ToggleButton>
                 </td>
@@ -274,33 +274,39 @@
     /// that the label would run off the plot.</summary>
     private string PointClass(TechnologyComplexityPoint point, double x)
     {
-        var classes = $"tech-complexity__point tech-complexity__point--{ColourSlug(point.Members[0], point.Quadrant)}";
+        var classes = $"tech-complexity__point {ColourClass(Point, point.Members[0], point.Quadrant)}";
         if (!point.IsAdopted) classes += " tech-complexity__point--hollow";
         if (x > TechnologyComplexityBoard.LabelStartFrom) classes += " tech-complexity__point--label-start";
         return classes;
     }
 
-    private string ColourSlug(TechnologyGraphNode node, TechnologyQuadrant quadrant) => _colour switch
+    private const string Point = "tech-complexity__point";
+
+    private const string Swatch = "tech-complexity__swatch";
+
+    private string ColourClass(string block, TechnologyGraphNode node, TechnologyQuadrant quadrant) => _colour switch
     {
-        ColourBy.Type => FamilySlug(node.Family),
-        ColourBy.Layer => LayerSlug(node.LayerIndex),
-        _ => TechnologyQuadrants.Slug(quadrant),
+        ColourBy.Type => FamilyClass(block, node.Family),
+        ColourBy.Layer => $"{block}--{LayerSlug(node.LayerIndex)}",
+        _ => $"{block}--{TechnologyQuadrants.Slug(quadrant)}",
     };
 
-    private static string FamilySlug(TechnologyTypeFamily family) => "family-" + family.ToString().ToLowerInvariant();
+    /// <summary>By type a point or swatch wears the family mark every Technology view
+    /// shares, and takes its hue from it; this board keeps no family hues of its own.</summary>
+    private static string FamilyClass(string block, TechnologyTypeFamily family) => $"{block}--family {TechnologyTypeFamilies.Mark(family)}";
 
     private static string LayerSlug(int layerIndex) => "layer-" + ((Math.Max(layerIndex, 0) % LayerHues) + 1).ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>The legend for the chosen mode: the four quadrants, the families
-    /// on the board, or the layers in reading order.</summary>
-    private IEnumerable<(string Slug, string Label)> LegendEntries => _colour switch
+    /// <summary>The legend for the chosen mode, as each swatch's colour classes: the
+    /// four quadrants, the families on the board, or the layers in reading order.</summary>
+    private IEnumerable<(string Colour, string Label)> LegendEntries => _colour switch
     {
         ColourBy.Type => Enum.GetValues<TechnologyTypeFamily>()
             .Where(family => Technologies.Any(node => node.Family == family))
-            .Select(family => (FamilySlug(family), TechnologyTypeFamilies.Label(family))),
+            .Select(family => (FamilyClass(Swatch, family), TechnologyTypeFamilies.Label(family))),
         ColourBy.Layer => View.Layers
-            .Select((layer, index) => (LayerSlug(index), TechnologyViews.LayerLabel(layer.Title))),
-        _ => TechnologyQuadrants.All.Select(quadrant => (TechnologyQuadrants.Slug(quadrant), TechnologyQuadrants.Label(quadrant))),
+            .Select((layer, index) => ($"{Swatch}--{LayerSlug(index)}", TechnologyViews.LayerLabel(layer.Title))),
+        _ => TechnologyQuadrants.All.Select(quadrant => ($"{Swatch}--{TechnologyQuadrants.Slug(quadrant)}", TechnologyQuadrants.Label(quadrant))),
     };
 
     private RenderFragment HotspotRow(TechnologyGraphNode node, int value, int max, string tone) => __builder =>

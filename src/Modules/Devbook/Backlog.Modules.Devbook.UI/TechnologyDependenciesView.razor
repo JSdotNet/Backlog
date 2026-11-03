@@ -101,7 +101,7 @@
                     <div class="tech-deps__focus-card">
                         <div class="tech-deps__card-title">
                             <span class="tech-deps__focus-name">@focus.Label</span>
-                            <span class="tech-deps__code" title="@TechnologyTypeCodes.Label(focus.Kind)">@TechnologyTypeCodes.Code(focus.Kind)</span>
+                            <span class="@($"tech-deps__code {TechnologyTypeFamilies.Mark(focus.Family)}")" title="@TechnologyTypeCodes.Label(focus.Kind)">@TechnologyTypeCodes.Code(focus.Kind)</span>
                         </div>
                         <div class="tech-deps__focus-meta">
                             <MetadataStatusBadge Status="@focus.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
@@ -324,7 +324,7 @@
                                        data-id="@reach.Node.Id">
                                 <span class="tech-deps__card-title">
                                     <span class="tech-deps__card-name">@reach.Node.Label</span>
-                                    <span class="tech-deps__code" title="@TechnologyTypeCodes.Label(reach.Node.Kind)">@TechnologyTypeCodes.Code(reach.Node.Kind)</span>
+                                    <span class="@($"tech-deps__code {TechnologyTypeFamilies.Mark(reach.Node.Family)}")" title="@TechnologyTypeCodes.Label(reach.Node.Kind)">@TechnologyTypeCodes.Code(reach.Node.Kind)</span>
                                 </span>
                                 <span class="tech-deps__card-detail" data-testid="technology-dependencies-card-detail">@CardDetail(reach)</span>
                             </AppButton>

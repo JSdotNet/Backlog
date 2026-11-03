@@ -88,6 +88,20 @@ public sealed class PairingSubjectsTests
     }
 
     [Fact]
+    public async Task A_long_device_name_is_cut_on_a_whole_character_in_the_question()
+    {
+        using var pairings = Pairings();
+        pairings.Issued(new PairingCodeResponse("K7MN9PQR", Nine.AddMinutes(10)));
+        _roster.Devices.Add(new DeviceSummary(Phone, new string('x', 72) + "\U0001F600" + " phone", Nine.AddMinutes(1), PairedBy: ThisDesktop));
+
+        _clock.Advance(PairingSubjects.PollInterval);
+        await pairings.LastPoll;
+        await pairings.LastAsk;
+
+        Assert.Equal("Pair " + new string('x', 72) + "…?", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
+    [Fact]
     public async Task A_code_redeemed_in_its_last_seconds_is_still_asked_about()
     {
         using var pairings = Pairings();

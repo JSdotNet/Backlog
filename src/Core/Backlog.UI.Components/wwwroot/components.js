@@ -2646,6 +2646,82 @@
         event.preventDefault();
     });
 
+    // A roving group of buttons: an element marked `data-roving-buttons` whose
+    // direct-child buttons are one tab stop, the keys moving it among them. The
+    // contract, for any host:
+    //   - the host renders the group's starting stop (tabindex="0" on one button,
+    //     "-1" on the rest) and keeps writing the same values on every render, so a
+    //     re-render never takes back a stop moved here;
+    //   - the arrows step and wrap, Home and End go to either end, a disabled button
+    //     is skipped, and the button reached becomes the only tabindex="0" and takes
+    //     the focus — here, synchronously, because a server handler sees each key
+    //     with the stop as it was when the key left and drops quick presses;
+    //   - each key's default is refused, so the arrows do not scroll the page and
+    //     Home and End do not throw it to an end; Enter and Space are left to the
+    //     button's own click; a key held with a modifier is not the group's;
+    //   - a group left with no enabled stop — its stop button removed or disabled by
+    //     a re-render — gets its first enabled button back as the stop, and one left
+    //     with two keeps the focused one, else the first.
+    // The Technology Clusters map is one host: each cluster is a group of its
+    // open-layer button and its dots.
+    const ROVING_BUTTONS_GROUP = '[data-roving-buttons]';
+    const ROVING_BUTTONS_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+    const rovingButtons = group => Array.from(group.children)
+        .filter(child => child.matches('button') && !child.disabled);
+
+    const restoreRovingStop = group => {
+        const buttons = rovingButtons(group);
+        const stops = buttons.filter(button => button.tabIndex === 0);
+        if (buttons.length === 0 || stops.length === 1) return;
+
+        const keep = stops.find(button => button === document.activeElement) ?? stops[0] ?? buttons[0];
+        buttons.forEach(button => { button.tabIndex = button === keep ? 0 : -1; });
+    };
+
+    // Checked at most once a frame after the page changes — one query, which finds
+    // nothing on a page without a group — so a re-render that removed or disabled a
+    // group's stop is caught before the reader can Tab past a group that has none.
+    let rovingCheckPending = false;
+    const restoreRovingStops = () => {
+        rovingCheckPending = false;
+        document.querySelectorAll(ROVING_BUTTONS_GROUP).forEach(restoreRovingStop);
+    };
+    const rovingObserver = new MutationObserver(() => {
+        if (rovingCheckPending) return;
+        rovingCheckPending = true;
+        requestAnimationFrame(restoreRovingStops);
+    });
+    rovingObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['disabled'],
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (!ROVING_BUTTONS_KEYS.has(event.key)) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches(`${ROVING_BUTTONS_GROUP} > button`)) return;
+
+        event.preventDefault();
+
+        const buttons = rovingButtons(target.parentElement);
+        const from = buttons.indexOf(target);
+        if (from < 0) return;
+
+        const count = buttons.length;
+        const to = event.key === 'Home' ? 0
+            : event.key === 'End' ? count - 1
+            : event.key === 'ArrowRight' || event.key === 'ArrowDown' ? (from + 1) % count
+            : (from - 1 + count) % count;
+
+        buttons.forEach((button, index) => { button.tabIndex = index === to ? 0 : -1; });
+        buttons[to].focus();
+    });
+
     // A tab that takes the focus is shown whole in a strip that scrolls. The
     // browser's own reveal on focus leaves a tab that is already partly in view
     // where it is, which at phone width cut the last tab off by most of its width.
@@ -4673,7 +4749,6 @@
             occipital: '--color-text-secondary',
             cerebellum: '--color-text-secondary',
             stem: '--color-text-secondary',
-            dust: '--color-border-strong',
             accent: '--color-text-secondary'
         },
         ink: '--color-text-primary',
@@ -4682,7 +4757,7 @@
         focus: '--color-border-focus'
     };
 
-    const BACKLOG_LOBES_DUST = { brain: 170, devbook: 120, ghost: 120 };
+    const BACKLOG_LOBES_DUST = { brain: 170, devbook: 120 };
     const BACKLOG_LOBES_PERSPECTIVE = 1500;
     const BACKLOG_LOBES_SATELLITE = [520, -300, 160];
 
@@ -4761,6 +4836,39 @@
             x: Math.sin(v) * Math.cos(u) * BACKLOG_LOBES_SHELL.x * k,
             y: Math.cos(v) * BACKLOG_LOBES_SHELL.y * k + BACKLOG_LOBES_SHELL.lift,
             z: Math.sin(v) * Math.sin(u) * BACKLOG_LOBES_SHELL.z * k
+        };
+    }
+
+    // The edge of the shell as the camera sees it at `yaw` and `pitch`, in
+    // world units: an ellipse with radii `rx` and `ry`, turned by `rotation`
+    // radians, the shape a ghost scope draws in place of dust. Seen without
+    // perspective the shell's silhouette is the ellipse whose matrix is
+    // P·diag(x², y², z²)·Pᵀ, P the two screen rows of the turn project() makes;
+    // its axes are that matrix's eigenvectors, the radii the roots of their
+    // eigenvalues. The axis nearer the screen's x is rx.
+    function backlogLobesOutline(yaw, pitch) {
+        const a = BACKLOG_LOBES_SHELL.x * BACKLOG_LOBES_SHELL.x;
+        const b = BACKLOG_LOBES_SHELL.y * BACKLOG_LOBES_SHELL.y;
+        const c = BACKLOG_LOBES_SHELL.z * BACKLOG_LOBES_SHELL.z;
+        const cy = Math.cos(yaw);
+        const sy = Math.sin(yaw);
+        const cp = Math.cos(pitch);
+        const sp = Math.sin(pitch);
+
+        // Screen x is (cy, 0, sy)·world; screen y is (sy·sp, cp, −cy·sp)·world.
+        const xx = a * cy * cy + c * sy * sy;
+        const yy = a * sy * sy * sp * sp + b * cp * cp + c * cy * cy * sp * sp;
+        const xy = (a - c) * cy * sy * sp;
+
+        const d = xx - yy;
+        const rotation = d === 0 ? (xy === 0 ? 0 : Math.sign(xy) * Math.PI / 4) : 0.5 * Math.atan(2 * xy / d);
+        const cr = Math.cos(rotation);
+        const sr = Math.sin(rotation);
+
+        return {
+            rx: Math.sqrt(Math.max(0, xx * cr * cr + 2 * xy * cr * sr + yy * sr * sr)),
+            ry: Math.sqrt(Math.max(0, xx * sr * sr - 2 * xy * cr * sr + yy * cr * cr)),
+            rotation
         };
     }
 
@@ -5019,6 +5127,15 @@
         return backlogLobesEaseInOut(Math.min(1, (sinceInputMs - motion.idleDelayMs) / motion.idleRampMs));
     }
 
+    // The last input a re-rendered atlas carries on from. A camera kept while
+    // the reader had paused the idle turn, now handed over with it on again,
+    // counts the resume as input: the turn waits its delay and eases in rather
+    // than starting at full speed. Anything else keeps the input it remembers.
+    function backlogLobesResumedInput(saved, idleMotion, now) {
+        if (saved?.idleMotion === false && idleMotion) return now;
+        return saved?.lastInput ?? now;
+    }
+
     // `angle` moved by whole turns to the one nearest `toward`, so easing to a
     // view never spins the long way round after an idle rotation wound it up.
     function backlogLobesNearestTurn(angle, toward) {
@@ -5099,11 +5216,18 @@
         const byId = new Map(points.map((point) => [point.mark.id, point]));
 
         // The outline dust of each drawn brain: decoration, so a fixed count per
-        // scope seeded by its key, never picked.
+        // scope seeded by its key, never picked. A ghost has no index to dust
+        // its brain with, so it is drawn as one dashed outline instead.
         const dust = [];
+        const outlines = [];
         for (const [key] of seats) {
             const scope = scopes.get(key);
             const kind = scope?.kind || 'devbook';
+            if (kind === 'ghost') {
+                outlines.push(key);
+                continue;
+            }
+
             const random = backlogLobesRandom('dust:' + key);
             for (let i = 0; i < (BACKLOG_LOBES_DUST[kind] || 120); i++) {
                 dust.push({ scope: key, kind, ...backlogLobesShellPoint(random) });
@@ -5174,11 +5298,17 @@
             view = cameraOf(saved);
             target = cameraOf(saved.target ?? saved);
             velocity = { yaw: saved.velocity?.yaw ?? 0, pitch: saved.velocity?.pitch ?? 0 };
-            lastInput = saved.lastInput ?? now0;
+            lastInput = backlogLobesResumedInput(saved, idleMotion, now0);
             if (reduced()) {
                 velocity = { yaw: 0, pitch: 0 };
                 view = { ...target };
             }
+
+            // Pause and resume hand over a model and nothing else moves, so no
+            // frame calls remember(): the kept camera is told now, or the next
+            // hand-over would not know the turn was held.
+            saved.idleMotion = idleMotion;
+            saved.lastInput = lastInput;
         } else if (saved && !reduced()) {
             // A new layout: from the view the last one was left at, eased home.
             const from = cameraOf(saved);
@@ -5426,6 +5556,7 @@
             taken = [];
 
             drawDust();
+            drawOutlines();
             drawLinks(satellitePoint);
 
             painted = points.slice().sort((left, right) => right.projected.z - left.projected.z);
@@ -5442,12 +5573,39 @@
         function drawDust() {
             for (const grain of dust) {
                 const q = project(seats.get(grain.scope), grain.x, grain.y, grain.z);
-                context.globalAlpha = Math.max(0.1, (grain.kind === 'ghost' ? 0.3 : 0.42) - q.z / 1600);
+                context.globalAlpha = Math.max(0.1, 0.42 - q.z / 1600);
                 context.fillStyle = (palette[grain.kind] || palette.devbook).dust;
                 context.fillRect(q.x - 0.8, q.y - 0.8, 1.6, 1.6);
             }
 
             context.globalAlpha = 1;
+        }
+
+        // A ghost scope's brain: the shell's silhouette round its centre, dashed
+        // in the ghost's muted ink. The outline is the shell seen without
+        // perspective, scaled by the perspective at its centre — close enough at
+        // the camera's distance, and it keeps one ellipse per scope.
+        function drawOutlines() {
+            if (outlines.length === 0) return;
+            const shape = backlogLobesOutline(view.yaw, view.pitch);
+
+            context.save();
+            context.strokeStyle = backlogLobesAlpha(palette.ghost.accent, 0.65);
+            context.lineWidth = 1;
+
+            for (const key of outlines) {
+                const seat = seats.get(key);
+                const c = project(seat, 0, BACKLOG_LOBES_SHELL.lift, 0);
+                const k = seat.scale * c.s;
+                const dash = Math.max(0.55, seat.scale);
+                context.setLineDash([5 * dash, 5 * dash]);
+                context.beginPath();
+                context.ellipse(c.x, c.y, shape.rx * k, shape.ry * k, shape.rotation, 0, Math.PI * 2);
+                context.stroke();
+            }
+
+            context.setLineDash([]);
+            context.restore();
         }
 
         function emphasis(markId) {
@@ -5738,7 +5896,8 @@
                 panY: view.panY,
                 target: { ...(tween ? tween.to : target) },
                 velocity: { ...velocity },
-                lastInput
+                lastInput,
+                idleMotion
             });
             // Every mounted atlas has an id of its own, so the oldest are let go
             // rather than kept for atlases long since closed.
@@ -6036,6 +6195,7 @@
                         : null,
                     marks: points.length,
                     links: links.length + satelliteLinks.length,
+                    outlines: outlines.length,
                     satellite: !!satellite,
                     selected: selectedId
                 };
