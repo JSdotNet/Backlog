@@ -179,8 +179,9 @@ public static class StandupText
 
     /// <summary>
     /// What a desktop last said about a pull request, as the shared status line draws it
-    /// (<see cref="PullRequestStatusModel"/>): its number, its state word, its checks and its
-    /// approvals against what the base branch requires. The phone has no address for it, so
+    /// (<see cref="PullRequestStatusModel"/>): its number, its state word, its checks, its
+    /// approvals against what the base branch requires, and whether it asks for the reader's
+    /// review. The phone has no address for it, so
     /// the pill leads nowhere; <paramref name="title"/>, when a synced task gives one, is the
     /// pill's tooltip.
     /// </summary>
@@ -193,7 +194,8 @@ public static class StandupText
             Word(pull.State),
             pull.Checks is { } checks ? new PullRequestChecks(checks.Passed, checks.Failed, checks.Pending) : null,
             pull.Approvals is { } approvals ? new PullRequestApprovals(approvals.Received, approvals.Required) : null,
-            title);
+            title,
+            ReviewRequested: pull.ReviewRequested);
     }
 
     /// <summary>A pull request's number without its <c>#</c>.</summary>

@@ -4,7 +4,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// The window's answer to the Goals view's <see cref="IGoalsViewSource"/>: the window's

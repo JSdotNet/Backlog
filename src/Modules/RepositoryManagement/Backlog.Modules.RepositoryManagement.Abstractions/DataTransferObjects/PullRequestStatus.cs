@@ -148,6 +148,12 @@ public sealed record PullRequestStatus(
     /// <summary>The head branch lives in another repository — a fork.</summary>
     public bool IsCrossRepository { get; init; }
 
+    /// <summary>A pending review request names the account this repository is read as,
+    /// directly — GitHub's own answer, per repository, like <see cref="ViewerDidAuthor"/>.
+    /// A request to a team the viewer is in is not one. False where the read did not ask:
+    /// a settled fact or a fallback read.</summary>
+    public bool ViewerReviewRequested { get; init; }
+
     /// <summary>What a command names the pull request by, or null where the read that
     /// answered carried none.</summary>
     public PullRequestHandle? Handle { get; init; }

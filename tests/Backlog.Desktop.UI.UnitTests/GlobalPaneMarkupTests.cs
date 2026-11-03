@@ -49,7 +49,7 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The nav, left to right, as the design draws it: the Inbox toggle, the view
-    /// switch, the Devbook toggle, the work in progress, and the other takeovers.
+    /// switch, the Devbook toggle, the Goals group, and the other takeovers.
     /// Every takeover is named here rather than counted, so adding one to the header
     /// without adding it to a group cannot pass. They are pressed states, not
     /// disclosures: the takeover on screen is one field with one state at a time.
@@ -69,7 +69,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"calendar-view-option\"",
             "TestId=\"roadmap-view-option\"",
             "@foreach (var surface in RegisteredTakeoversOffered)",
-            "TestId=\"work-in-progress-switcher\"",
+            "TestId=\"goals-switcher\"",
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
             "TestId=\"workspace-surface-switcher\"",
@@ -100,7 +100,7 @@ public sealed class GlobalPaneMarkupTests
 
         // Each takeover group renders only when one of its takeovers is offered; the
         // view switch always renders, because it is the way back from a takeover, and so
-        // does the work in progress group, because Goals leads it and is always offered.
+        // does the Goals group, because Goals leads it and is always offered.
         Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
         Assert.DoesNotContain("GoalsOffered", home, StringComparison.Ordinal);
         var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
@@ -122,7 +122,7 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// The shape of a header group says how its options belong together: fused where
     /// they are siblings read as one control — the repository scope, the view switch,
-    /// and the work in progress — loose where they are related only by kind, the
+    /// and the Goals group — loose where they are related only by kind, the
     /// Dashboard and Tools. The Inbox and Devbook toggles stand alone, each wearing
     /// the loose option shape with no group around it. The markup carries the
     /// modifier and the stylesheet keys on it, so both halves are pinned here.
@@ -202,7 +202,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(nav < status && status < utilities);
 
         Assert.InRange(home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal), nav, status);
-        Assert.InRange(home.IndexOf("TestId=\"work-in-progress-switcher\"", StringComparison.Ordinal), nav, status);
+        Assert.InRange(home.IndexOf("TestId=\"goals-switcher\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
 
         Assert.True(home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal) > utilities);

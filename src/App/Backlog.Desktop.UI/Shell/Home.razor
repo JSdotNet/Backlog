@@ -84,7 +84,7 @@
 
        One row at every width. When the row runs out of room the navigation
        options give up their words before anything wraps, in tiers — the
-       Dashboard first, then the work in progress, then the Inbox, then the view
+       Dashboard first, then the Goals group, then the Inbox, then the view
        switch — and keep their glyphs. backlogHeaderFit in app.js measures the row
        and picks the fewest tiers that fit; the word stays in the button as a
        visually hidden span, so the option's name does not change, and its title
@@ -248,7 +248,7 @@
 
         @* Region B — navigation, and nothing else. Left to right: the Inbox
            toggle, the view switch, the Devbook toggle, then the takeovers in two
-           groups — the work in progress, and the rest.
+           groups — the Goals group, and the rest.
 
            The view switch is the one question every screen answers: which main
            view the workspace shows. Exactly one is always showing, so the switch has
@@ -264,7 +264,7 @@
            pane is left at all.
 
            The shapes. A fused group is a set of sibling destinations read as one
-           control — the view switch, and the work in progress (In progress,
+           control — the view switch, and the Goals group (Goals,
            Sessions and Pull requests) — and the pressed
            state says which is on. A standalone option is one on-or-off of its own:
            the Inbox and the Devbook. The loose group is the remaining takeovers,
@@ -301,8 +301,8 @@
 
                 @* The view switch. Tasks, Board and Calendar are always offered; the
                    Roadmap while its flag is on. Tasks' option is still the way back
-                   from a takeover. In progress is a view too, but its option is the
-                   first of the work in progress group further along, not one of these.
+                   from a takeover. Goals is a view too, but its option is the
+                   first of the Goals group further along, not one of these.
                    Each option, and each of that group's, leads with a glyph from
                    the library's Icons folder: decorative, hidden from assistive
                    technology by the glyph itself, so every option's name is still
@@ -401,7 +401,7 @@
                 }
             </div>
 
-            @* The work in progress: the goals, and what the assistants are running
+            @* The Goals group: the goals, and what the assistants are running
                and what they shipped. Goals leads, always offered (local ADR 0035
                §10); then two takeovers, each under its own flag: the Sessions
                context's session list, and the pull requests — Repository
@@ -410,8 +410,8 @@
                takeover, so pressing the pressed one, Escape, or the surface's own
                close button returns to the workspace. *@
             <ButtonGroup CssClass="header-group header-group--work"
-                         AriaLabel="Work in progress"
-                         TestId="work-in-progress-switcher">
+                         AriaLabel="Goals"
+                         TestId="goals-switcher">
                 @* A main view, not a takeover, though it sits with two: pressing
                    it shows the view as a view-switch option does, and nothing
                    closes it. First, because it is what the work is for. *@

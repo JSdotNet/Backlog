@@ -22226,8 +22226,8 @@ select.field__input {
   the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
   a count in the mark's ink. Running and Short share the live ink; a different glyph tells
   them apart. A received count with no required total keeps the secondary ink: it is
-  information, not a verdict. Each mark is positioned because it holds an sr-only phrase,
-  for the reason .status-editor gives.
+  information, not a verdict. Each mark, and "your review", is positioned because it holds
+  an sr-only phrase, for the reason .status-editor gives.
 */
 .pull-request-status {
     display: inline-flex;
@@ -22274,6 +22274,14 @@ select.field__input {
 .pull-request-status__mark--received,
 .pull-request-status__merged {
     color: var(--color-text-secondary);
+}
+
+/* "your review" closes the line in the muted ink: the words carry the request, never
+   the colour (color-scheme.md#pull-request-status-marks). */
+.pull-request-status__your-review {
+    position: relative;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /*
@@ -22913,10 +22921,6 @@ select.field__input {
     color: var(--color-primary-light);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-.stand-up-panel__item--no-goal {
-    color: var(--color-text-secondary);
 }
 
 /* A planned item's effort sits at the row's end, in the points tag's figures. */

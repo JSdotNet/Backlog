@@ -71,10 +71,17 @@ public sealed class RepositoryManagementGoalPullRequests(
         // answers back to its links finds them; one from an archived repository says so,
         // since its answer was kept, not read.
         var registry = repositories?.Invoke();
-        return [.. pullRequests.Select(pull => (Reference(pull) is { } reference && answers.TryGetValue(reference.Key, out var answer)
-            ? answer with { Repository = pull.Repository, Number = pull.Number }
-            : GoalPullRequestDto.Unread(pull)) with { InArchivedRepository = registry?.IsArchived(pull.Repository.Trim()) ?? false })];
+        return [.. pullRequests.Select(pull => Archived(
+            Reference(pull) is { } reference && answers.TryGetValue(reference.Key, out var answer)
+                ? answer with { Repository = pull.Repository, Number = pull.Number }
+                : GoalPullRequestDto.Unread(pull),
+            registry?.IsArchived(pull.Repository.Trim()) ?? false))];
     }
+
+    // A kept request for the viewer's review is a call to action an archived repository can
+    // never clear, since it is not read again; the checks and approvals stay as kept facts.
+    private static GoalPullRequestDto Archived(GoalPullRequestDto answer, bool archived) =>
+        archived ? answer with { InArchivedRepository = true, ReviewRequested = false } : answer;
 
     /// <summary>
     /// One pull request the contract answered, as Progress reads it: the state; the merge
@@ -82,7 +89,8 @@ public sealed class RepositoryManagementGoalPullRequests(
     /// the head commit has none or they were refused; and the approvals received and the
     /// approvals the base branch requires, null where no rule requires one. A pull request
     /// whose status was not read — remembered merged across a restart, or answered over
-    /// REST — has neither checks nor approvals: nothing read says them.
+    /// REST — has neither checks nor approvals: nothing read says them. The viewer's review
+    /// is requested only on a read status of an open or draft pull request.
     /// </summary>
     public static GoalPullRequestDto Map(PullRequestStatus pull)
     {
@@ -96,7 +104,8 @@ public sealed class RepositoryManagementGoalPullRequests(
             pull.StatusRead && pull.CheckCounts is { } checks
                 ? new GoalPullRequestChecksDto(checks.Passed, checks.Failed, checks.Pending, pull.FailingCheckNames)
                 : null,
-            pull.StatusRead ? new GoalPullRequestApprovalsDto(pull.Approvals.Approvals, pull.Approvals.Required) : null);
+            pull.StatusRead ? new GoalPullRequestApprovalsDto(pull.Approvals.Approvals, pull.Approvals.Required) : null,
+            ReviewRequested: pull.StatusRead && pull.IsOpen && pull.ViewerReviewRequested);
     }
 
     private IPullRequests? Contract() => pullRequests();

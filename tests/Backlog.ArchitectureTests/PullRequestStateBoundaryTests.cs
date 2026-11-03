@@ -187,7 +187,7 @@ public sealed class PullRequestStateBoundaryTests
     [Fact]
     public void The_side_panels_reader_lists_the_linked_pull_requests_through_Tasks()
     {
-        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "InProgress", "WorkInProgressReader.cs"));
+        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Goals", "WorkInProgressReader.cs"));
 
         Assert.DoesNotContain("TasksDesktopState", reader, StringComparison.Ordinal);
         Assert.DoesNotContain("EntryRow", reader, StringComparison.Ordinal);

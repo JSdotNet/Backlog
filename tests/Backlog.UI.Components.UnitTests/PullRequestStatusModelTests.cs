@@ -142,4 +142,24 @@ public sealed class PullRequestStatusModelTests
         Assert.Equal(slug, pr.Slug);
         Assert.Equal(merged, pr.IsMerged);
     }
+
+    /// <summary>"your review" shows only while the pull request can still be reviewed and
+    /// asks for the reader's review.</summary>
+    [Theory]
+    [InlineData("open", true, true)]
+    [InlineData("draft", true, true)]
+    [InlineData("merged", true, false)]
+    [InlineData("closed", true, false)]
+    [InlineData("unknown", true, false)]
+    [InlineData("open", false, false)]
+    public void Your_review_shows_on_an_open_or_draft_pull_request_that_asks_for_it(string state, bool requested, bool shows)
+    {
+        Assert.Equal(shows, new PullRequestStatusModel(1341, state, ReviewRequested: requested).ShowsYourReview);
+    }
+
+    [Fact]
+    public void A_pull_request_asks_for_no_review_by_default()
+    {
+        Assert.False(Pr().ShowsYourReview);
+    }
 }

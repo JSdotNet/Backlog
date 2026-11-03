@@ -148,7 +148,7 @@ internal static class StandupSeed
             now,
             [
                 Pull(1341, LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2)),
-                Pull(1358, LinkedPullRequestState.Draft, null, new GoalPullRequestChecksDto(9, 0, 5, []), new GoalPullRequestApprovalsDto(0, 2)),
+                Pull(1358, LinkedPullRequestState.Draft, null, new GoalPullRequestChecksDto(9, 0, 5, []), new GoalPullRequestApprovalsDto(0, 2)) with { ReviewRequested = true },
                 Pull(1338, LinkedPullRequestState.Merged, LastWeek(1), new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(2, 2)),
                 Pull(1335, LinkedPullRequestState.Merged, LastWeek(2), new GoalPullRequestChecksDto(12, 0, 0, []), new GoalPullRequestApprovalsDto(2, 2)),
                 Pull(1346, LinkedPullRequestState.Merged, LastWeek(0), new GoalPullRequestChecksDto(11, 0, 0, []), new GoalPullRequestApprovalsDto(1, 1)),

@@ -50,7 +50,8 @@ public static class GoalsMapper
                     read.Checks is { } checks ? new PullRequestChecks(checks.Passed, checks.Failed, checks.Pending) : null,
                     read.Approvals is { } approvals ? new PullRequestApprovals(approvals.Received, approvals.Required) : null,
                     candidate?.Title ?? title,
-                    candidate?.Url ?? Url(repository, number))
+                    candidate?.Url ?? Url(repository, number),
+                    read.ReviewRequested)
                 : new PullRequestStatusModel(number, "unknown", Title: candidate?.Title ?? title, Url: candidate?.Url ?? Url(repository, number));
         }
 

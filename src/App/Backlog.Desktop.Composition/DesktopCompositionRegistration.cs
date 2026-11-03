@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
