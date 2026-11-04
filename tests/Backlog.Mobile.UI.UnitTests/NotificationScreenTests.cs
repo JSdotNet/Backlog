@@ -10,7 +10,8 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// The phone's Notifications view (<c>.devbook/domain/notifications/features.md#answering-from-another-device</c>):
 /// the feed pulled when it opens, a card per notification with its kind, severity, age, owner
 /// and whether the owner is running, the answer controls a question's shape asks for, the reply
-/// queued through the outbox, and the owner's verdict once the feed brings it back.
+/// queued through the outbox, and the owner's verdict once the feed brings it back. These are
+/// the list view (<c>?view=list</c>); the default pager is <see cref="NotificationPagerScreenTests"/>.
 /// </summary>
 public sealed class NotificationScreenTests
 {
@@ -66,7 +67,7 @@ public sealed class NotificationScreenTests
         var (host, service, _) = Phone(Migration());
         using var disposing = host;
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
         Assert.Equal("Question", app.Find("[data-testid='notification-kind']").TextContent);
@@ -90,7 +91,7 @@ public sealed class NotificationScreenTests
         var (host, _, _) = Phone(question);
         using var disposing = host;
 
-        var app = host.Open(detail ? $"notifications/{question.Id}" : "notifications");
+        var app = host.Open(detail ? $"notifications/{question.Id}" : "notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").TextContent));
         Assert.Equal("JSdotNet/Backlog · Notification origin", app.Find("[data-testid='notification-origin-place']").TextContent);
@@ -102,7 +103,7 @@ public sealed class NotificationScreenTests
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
         Assert.Empty(app.FindAll("[data-testid='notification-origin']"));
@@ -117,7 +118,7 @@ public sealed class NotificationScreenTests
             Now.AddMinutes(-31), ownerName: "LAPTOP-JS");
         using var host = ShellHost.Paired(clock: clock, notifications: service);
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal(
             "Owned by LAPTOP-JS · offline since 09:10, delivers on wake",
@@ -131,7 +132,7 @@ public sealed class NotificationScreenTests
         var question = Migration();
         var (host, service, _) = Phone(question);
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
 
         Assert.Contains("btn--primary", app.Find("[data-testid='notification-choice-yes']").ClassList);
@@ -156,7 +157,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(Migration());
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-no']")));
         service.State = InboxServiceState.Unreachable;
 
@@ -177,7 +178,7 @@ public sealed class NotificationScreenTests
         var question = Migration();
         var (host, service, clock) = Phone(question);
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
         app.Find("[data-testid='notification-choice-yes']").Click();
         app.WaitForAssertion(() => Assert.Single(service.Replies));
@@ -201,7 +202,7 @@ public sealed class NotificationScreenTests
         using var disposing = host;
         service.Publish(TestNotifications.Answered(question, Guid.NewGuid(), Guid.NewGuid(), Now, "no"), Now);
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal(
             "Answered elsewhere · Not now",
@@ -215,7 +216,7 @@ public sealed class NotificationScreenTests
         var question = Migration();
         var (host, service, _) = Phone(question);
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
         app.Find("[data-testid='notification-choice-yes']").Click();
         app.WaitForAssertion(() => Assert.Single(service.Replies));
@@ -238,7 +239,7 @@ public sealed class NotificationScreenTests
         var (host, _, _) = Phone(Migration(TestNotifications.YesNo with { AnswerOn = AnswerOn.Owner }));
         using var disposing = host;
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal(
             "Only WORKSTATION-01 takes an answer to this one.",
@@ -252,7 +253,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(TestNotifications.Question("Which journeys should QA rerun?", Now.AddMinutes(-1), TestNotifications.Journeys));
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-checkboxes']")));
 
         Assert.True(app.Find("[data-testid='notification-submit']").HasAttribute("disabled"));
@@ -271,7 +272,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(TestNotifications.Question("What should the release note say?", Now.AddMinutes(-14), TestNotifications.ReleaseNote));
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-text'] textarea")));
 
         Assert.Equal("Write an answer…", app.Find("[data-testid='notification-text'] textarea").GetAttribute("placeholder"));
@@ -289,7 +290,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
 
         app.Find("[data-testid='notification-choice-revise']").Click();
@@ -314,7 +315,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
 
         app.Find("[data-testid='notification-choice-revise']").Click();
@@ -335,7 +336,7 @@ public sealed class NotificationScreenTests
             Note: new OpenAnswer("Why, or anything the asker should know", 4000));
         var (host, service, _) = Phone(TestNotifications.Question("Which rounding rule applies to invoice totals?", Now.AddMinutes(-4), spec));
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-note-text'] textarea")));
 
         Assert.Equal(8, app.FindAll("button[data-testid^='notification-choice-']").Count);
@@ -355,7 +356,7 @@ public sealed class NotificationScreenTests
     {
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
 
         Assert.Empty(app.FindAll("[data-testid='notification-note']"));
@@ -368,7 +369,7 @@ public sealed class NotificationScreenTests
         var (host, _, _) = Phone(TestNotifications.Alert("Remark left on “Storage and sync”", Now.AddHours(-1)));
         using var disposing = host;
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal("Alert", app.Find("[data-testid='notification-kind']").TextContent));
         Assert.Equal("Info", app.Find("[data-testid='notification-severity']").TextContent);
@@ -400,10 +401,10 @@ public sealed class NotificationScreenTests
         var (host, _, _) = Phone(question);
         using var disposing = host;
 
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
 
         app.WaitForAssertion(() => Assert.Equal(
-            $"notifications/{question.Id}",
+            $"notifications/{question.Id}?view=list",
             app.Find("[data-testid='notification-open']").GetAttribute("href")));
     }
 
@@ -412,7 +413,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone(Migration());
         using var disposing = host;
-        var app = host.Open("notifications");
+        var app = host.Open("notifications?view=list");
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
         var before = service.Pulls;
 
