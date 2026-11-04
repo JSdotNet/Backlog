@@ -679,11 +679,16 @@ that it is reached through ("via ASP.NET Core"). Below the board, the view lists
 running through the selected technology.
 
 **Clusters.** The view opens on the selected technology's layer, with that technology
-in focus. With nothing selected, it opens on All layers. Each technology followed from
-the open layer joins a trail of the last 6 visited, and pressing a step goes back to it.
-Back steps to the previous technology on the trail, then out to its layer, then to All
-layers. The breadcrumb reads All layers, the open layer and the technology in focus, and
-its layer step takes the technology out of focus without clearing the shared selection.
+in focus. With nothing selected, it opens on All layers. An open layer groups its
+technologies in one headed group per type family, in the family order listed below. Each
+technology followed from the open layer joins a trail of the last 6 visited, and pressing
+a step goes back to it. Back steps to the previous technology on the trail, then out to
+its layer, then to All layers. The breadcrumb reads All layers, the open layer and the
+technology in focus, and its layer step takes the technology out of focus without
+clearing the shared selection.
+
+On All layers every dot is a button. A reader moves through a cluster from the keyboard,
+one cluster per Tab, and pressing a dot opens its layer with that technology in focus.
 
 **Type lenses.** The board shows one card per type in use, the types with the most
 technologies first. A card shows its type's lens for the selected technology when that

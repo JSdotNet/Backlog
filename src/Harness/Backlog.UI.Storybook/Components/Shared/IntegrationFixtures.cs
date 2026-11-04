@@ -387,7 +387,7 @@ internal static class IntegrationFixtures
             $"Session {id} · {words} — open in Sessions",
             SessionState: state);
 
-    // --- Work in progress ---------------------------------------------------
+    // --- Work cards ----------------------------------------------------------
 
     /// <summary>
     /// The sessions the work cards are drawn from, one per

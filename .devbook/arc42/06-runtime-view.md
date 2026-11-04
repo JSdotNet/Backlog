@@ -742,14 +742,13 @@ sequenceDiagram
 ## Notification Reply
 
 ```meta
-status: proposed
 related: [".devbook/domain/notifications/domain.md#reply", ".devbook/domain/notifications/requirements.md#answering-from-another-device", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync"]
 ```
 
 A question raised on a desktop is answered from the phone. Desktop A owns the
 notification, so the phone's reply only proposes an answer, and Desktop A decides.
-Local ADR 0039 records the decision. The scenario is built; the Android push is not
-deployed, and no push reaches a phone until the hub has its FCM credential.
+Local ADR 0039 records the decision. The scenario is built; the Android push was
+deployed on 2026-11-04, and no push reaches a phone until the hub has its FCM credential.
 
 ```mermaid
 sequenceDiagram

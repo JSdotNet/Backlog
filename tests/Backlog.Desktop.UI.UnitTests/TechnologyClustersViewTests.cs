@@ -1,5 +1,7 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
+using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Devbook;
 
 using Bunit;
@@ -73,6 +75,204 @@ public sealed class TechnologyClustersViewTests : IDisposable
         // A satellite opens its layer.
         component.Find("[data-testid='technology-clusters-satellite'][data-layer='testing.md']").Click();
         Assert.Equal(["bUnit"], PillNames(component));
+    }
+
+    /// <summary>Inside an open layer the technologies sit in one labelled group per
+    /// family, in the families' order: Shared holds a framework and a runtime.</summary>
+    [Fact]
+    public async Task An_open_layer_groups_its_pills_by_family_under_a_heading()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='shared.md']").Click();
+
+        var groups = component.FindAll("[data-testid='technology-clusters-family']");
+        Assert.Equal(["framework", "runtime"], groups.Select(group => group.GetAttribute("data-family")).ToArray());
+
+        foreach (var group in groups)
+        {
+            Assert.Equal("group", group.GetAttribute("role"));
+            var heading = component.Find($"#{group.GetAttribute("aria-labelledby")}");
+            Assert.Contains("tech-clusters__family-heading", heading.ClassName, StringComparison.Ordinal);
+
+            // The companion's title is an h3 under the panel's h2; the map comes
+            // first, so its headings are h3 too and no level is skipped.
+            Assert.Equal("H3", heading.TagName);
+        }
+
+        Assert.Equal(["Framework", "Runtime"], groups.Select(group => component.Find($"#{group.GetAttribute("aria-labelledby")}").TextContent.Trim()).ToArray());
+        Assert.Equal(["Razor"], groups[0].QuerySelectorAll("[data-testid='technology-clusters-pill'] .tech-clusters__pill-label").Select(label => label.TextContent.Trim()).ToArray());
+        Assert.Equal([".NET"], groups[1].QuerySelectorAll("[data-testid='technology-clusters-pill'] .tech-clusters__pill-label").Select(label => label.TextContent.Trim()).ToArray());
+    }
+
+    /// <summary>On All layers every dot is a button named for its technology;
+    /// pressing one selects it and opens its layer on it.</summary>
+    [Fact]
+    public async Task A_dot_on_All_layers_is_a_button_that_selects_its_technology_and_opens_its_layer()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+
+        var dots = component.FindAll("[data-testid='technology-clusters-dot']");
+        Assert.All(dots, dot =>
+        {
+            Assert.Equal("BUTTON", dot.TagName);
+            Assert.False(string.IsNullOrWhiteSpace(dot.GetAttribute("aria-label")));
+            Assert.Null(dot.GetAttribute("aria-hidden"));
+        });
+        Assert.StartsWith("Playwright", Dot(component, "desktop.md#playwright").GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.Contains("not adopted", Dot(component, "desktop.md#playwright").GetAttribute("aria-label"), StringComparison.Ordinal);
+
+        var focusCalls = FocusCalls(harness);
+
+        // Enter or Space on a focused button is its click.
+        Dot(component, "testing.md#bunit").Click();
+
+        Assert.Equal("Testing", component.Find("[data-testid='technology-clusters-crumb-layer']").TextContent.Trim());
+        Assert.Equal("bUnit", component.Find("[data-testid='technology-clusters-crumb-technology']").TextContent.Trim());
+        Assert.Equal("true", Pill(component, "testing.md#bunit").GetAttribute("aria-pressed"));
+
+        // The pressed dot left with the map it sat on, so focus goes to where the
+        // reader now is, the technology in the breadcrumb, never to the page.
+        component.WaitForAssertion(() => Assert.Equal(focusCalls + 1, FocusCalls(harness)));
+        Assert.Equal("-1", component.Find("[data-testid='technology-clusters-crumb-technology']").GetAttribute("tabindex"));
+    }
+
+    /// <summary>Each cluster is one tab stop: its open-layer button first, then its
+    /// dots. The arrows, Home and End are the browser's — components.js moves the stop
+    /// and the focus across a <c>data-roving-buttons</c> group's buttons, which
+    /// RovingButtonsScriptTests reads — so the view writes the starting stop only,
+    /// handles no key itself, and writes the same stop on every render, leaving the
+    /// stop the browser moved where it is.</summary>
+    [Fact]
+    public async Task Each_cluster_is_one_tab_stop_its_button_first_and_the_browser_roves_it()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+
+        var groups = component.FindAll("[data-testid='technology-clusters-cluster-group']");
+        Assert.Equal(3, groups.Count);
+        Assert.All(groups, group =>
+        {
+            Assert.Equal("group", group.GetAttribute("role"));
+            Assert.True(group.HasAttribute("data-roving-buttons"));
+
+            // The open-layer button is the stop; every dot waits at -1. Each is a
+            // direct child, as the script's `[data-roving-buttons] > button` needs.
+            var buttons = group.Children.Where(child => child.TagName == "BUTTON").ToList();
+            Assert.Equal(buttons.Count, group.QuerySelectorAll("button").Length);
+            Assert.Equal("technology-clusters-cluster", buttons[0].GetAttribute("data-testid"));
+            Assert.Equal(["0", .. Enumerable.Repeat("-1", buttons.Count - 1)], buttons.Select(button => button.GetAttribute("tabindex")).ToArray());
+
+            // No server round trip per key: the stop it would carry is stale by the next press.
+            Assert.All(buttons, button => Assert.Null(button.GetAttribute("blazor:onkeydown")));
+        });
+
+        // Desktop: the cluster, then Blazor and Playwright, family order.
+        Assert.Equal(
+            [".tech/desktop.md#blazor", ".tech/desktop.md#playwright"],
+            Group(component, "desktop.md").QuerySelectorAll("[data-testid='technology-clusters-dot']").Select(dot => dot.GetAttribute("data-id")).ToArray());
+
+        // A render writes the same stops again, so it never takes back a stop the browser moved.
+        string?[] Stops() => [.. Group(component, "desktop.md").QuerySelectorAll("button").Select(button => button.GetAttribute("tabindex"))];
+        var before = Stops();
+        component.Find("[data-testid='technology-clusters-crumb-all']").Click();
+        Assert.Equal(before, Stops());
+    }
+
+    /// <summary>A re-read that takes a technology away must not hand its dot's button
+    /// to the next technology: that button may hold the cluster's tab stop, which the
+    /// browser moved there. Keyed by id, every remaining dot keeps its own button —
+    /// Playwright's survives Blazor, before it in the cluster, being taken away.</summary>
+    [Fact]
+    public async Task A_dot_keeps_its_own_button_when_a_reread_takes_away_a_technology_before_it()
+    {
+        await using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = context.Render<TechnologyClustersView>(parameters => parameters.Add(view => view.View, KeyedFixture(withBlazor: true)));
+        var playwright = DotButton(component, ".tech/desktop.md#playwright");
+        var razor = DotButton(component, ".tech/shared.md#razor");
+
+        component.Render(parameters => parameters.Add(view => view.View, KeyedFixture(withBlazor: false)));
+
+        Assert.Empty(component.FindAll("[data-testid='technology-clusters-dot'][data-id='.tech/desktop.md#blazor']"));
+        Assert.Same(playwright, DotButton(component, ".tech/desktop.md#playwright"));
+        Assert.Same(razor, DotButton(component, ".tech/shared.md#razor"));
+    }
+
+    private static ToggleButton DotButton(IRenderedComponent<TechnologyClustersView> component, string id) =>
+        component.FindComponents<ToggleButton>()
+            .Single(button => button.Instance.AdditionalAttributes?.TryGetValue("data-id", out var value) == true && Equals(value, id))
+            .Instance;
+
+    /// <summary>Shared holds Razor; Desktop holds Blazor, a framework, then Playwright,
+    /// a tool, which uses it — or Playwright alone once Blazor is taken away.</summary>
+    private static TechnologyDevbookView KeyedFixture(bool withBlazor)
+    {
+        List<TechnologyGraphNode> nodes =
+        [
+            new(".tech/shared.md#razor", "Razor", "Shared Technologies", "framework", "adopted", string.Empty, "shared.md", 0, 0),
+            new(".tech/desktop.md#playwright", "Playwright", "Desktop Stack", "tool", "candidate", string.Empty, "desktop.md", 1, 1),
+        ];
+        List<TechnologyGraphEdge> edges = [];
+        if (withBlazor)
+        {
+            nodes.Insert(1, new(".tech/desktop.md#blazor", "Blazor", "Desktop Stack", "framework", "trial", string.Empty, "desktop.md", 1, 0));
+            edges.Add(new("p->b", ".tech/desktop.md#playwright", ".tech/desktop.md#blazor", "depends on"));
+        }
+
+        return new TechnologyDevbookView(
+            new DevbookFolderLocation("tech", true, null, "JSdotNet/Backlog", null, null),
+            "Technology",
+            string.Empty,
+            [
+                new TechnologyLayer("shared.md", "Shared Technologies", DevbookMetadata.Empty, []),
+                new TechnologyLayer("desktop.md", "Desktop Stack", DevbookMetadata.Empty, []),
+            ],
+            [],
+            [],
+            TechnologyGraphMeasures.Apply(nodes, edges),
+            TechnologyGraphStats.Empty);
+    }
+
+    /// <summary>Every view marks a technology with its family, so its type code or
+    /// badge takes the family's hue: Razor is a framework, Blazor a framework, bUnit
+    /// a package.</summary>
+    [Fact]
+    public async Task Every_view_marks_a_technology_with_its_family()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+
+        // Clusters' own inspector badge.
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+        Pill(component, "desktop.md#blazor").Click();
+        Assert.Contains("tech-family--framework", component.Find("[data-testid='technology-clusters-side'] .tech-inspector__kicker .badge").ClassName, StringComparison.Ordinal);
+
+        // Overview: the row's type code and the inspector's badge.
+        component.Find("[data-testid='technology-overview-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-row']")));
+        var bunit = component.FindAll("[data-testid='technology-row']").Single(row => row.QuerySelector(".tech-overview__name")!.TextContent.Trim() == "bUnit");
+        Assert.Contains("tech-family--language-package", bunit.QuerySelector(".tech-overview__code")!.ClassName, StringComparison.Ordinal);
+        Assert.Contains("tech-family--framework", component.Find("[data-testid='technology-overview-panel'] .tech-inspector__kicker .badge").ClassName, StringComparison.Ordinal);
+
+        // Dependencies: the focus card and every reached card carry their family on the code.
+        component.Find("[data-testid='technology-dependencies-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-dependencies-card']")));
+        Assert.Contains("tech-family--framework", component.Find("[data-testid='technology-dependencies-selected'] .tech-deps__code").ClassName, StringComparison.Ordinal);
+        var razor = component.Find("[data-testid='technology-dependencies-card'][data-id='.tech/shared.md#razor'] .tech-deps__code");
+        Assert.Contains("tech-family--framework", razor.ClassName, StringComparison.Ordinal);
+        var playwright = component.Find("[data-testid='technology-dependencies-card'][data-id='.tech/desktop.md#playwright'] .tech-deps__code");
+        Assert.Contains("tech-family--library-tool-plugin", playwright.ClassName, StringComparison.Ordinal);
+
+        // Type lenses: each card's badge carries its type's family.
+        component.Find("[data-testid='technology-type-lenses-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-lens-card']")));
+        Assert.Contains("tech-family--runtime", LensBadge(component, "runtime").ClassName, StringComparison.Ordinal);
+        Assert.Contains("tech-family--language-package", LensBadge(component, "package").ClassName, StringComparison.Ordinal);
+        Assert.Contains("tech-family--library-tool-plugin", LensBadge(component, "tool").ClassName, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -378,6 +578,15 @@ public sealed class TechnologyClustersViewTests : IDisposable
 
     private static AngleSharp.Dom.IElement Dot(IRenderedComponent<TechnologyDevbookPanel> component, string id) =>
         component.Find($"[data-testid='technology-clusters-dot'][data-id='.tech/{id}']");
+
+    private static AngleSharp.Dom.IElement Cluster(IRenderedComponent<TechnologyDevbookPanel> component, string layer) =>
+        component.Find($"[data-testid='technology-clusters-cluster'][data-layer='{layer}']");
+
+    private static AngleSharp.Dom.IElement LensBadge(IRenderedComponent<TechnologyDevbookPanel> component, string type) =>
+        component.Find($"[data-testid='technology-lens-card'][data-type='{type}'] .tech-lens-card__kicker .badge");
+
+    private static AngleSharp.Dom.IElement Group(IRenderedComponent<TechnologyDevbookPanel> component, string layer) =>
+        component.Find($"[data-testid='technology-clusters-cluster-group'][data-layer='{layer}']");
 
     private static AngleSharp.Dom.IElement Pill(IRenderedComponent<TechnologyDevbookPanel> component, string id) =>
         component.Find($"[data-testid='technology-clusters-pill'][data-id='.tech/{id}']");

@@ -9,7 +9,7 @@
     <Story Name="At risk"
            Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows, each ending in a chevron that points down; press anywhere on a row — its title, its bar, its line or the space between — to open that goal, and the open one folds. A press on the open goal's head folds it; nothing in its body does.
 
-No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+No goal lists the work in progress no goal holds, each saying how it stands — a task's status dot, a pull request's status line — and each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Each row's grip carries it onto a goal instead. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
         <div class="sb-board">
             <GoalsBoard Model="@Board"
@@ -139,6 +139,19 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
                         TestId="goals-view-no-goal-board"
                         OnAttach="@(request => _noGoalSaid = $"Attach {request.Subject.Key} to {request.GoalId}")" />
             <p class="sb-state" data-testid="goals-view-no-goal-said">@(_noGoalSaid ?? "Type in the No goal search.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Dragging work onto a goal"
+           Description="Each No goal row says how its work stands, drawn as the open goal's columns draw it: a task's status dot, in progress or blocked, with the words after its title for a screen reader; a pull request's status line, its gh pill carrying the number, then the checks and approvals marks and your review. One the read could not answer for draws unknown, with no marks.
+
+With a host listening on OnAttach and at least one goal, each row leads with a grip. Press it and move: the row is set back, and the goal under the pointer — open or folded, anywhere on its card — is outlined as the drop target. Release over it and the row's work is attached to that goal, the path Attach… takes, and said in the live region, Attached ‹title› to ‹goal›. Release anywhere else, or press Escape, and nothing is attached. Attach… stays the keyboard's way in. The drag is the library's one pointer reorder, because a native drag is aborted in the desktop head's WebView2."
+           Code="@DropAttachCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@_dropBoard"
+                        TestId="goals-view-drop-board"
+                        OnAttach="DropAttachSample" />
+            <p class="sb-state" data-testid="goals-view-drop-said">@(_dropSaid ?? "Drag a No goal row by its grip onto a goal.")</p>
         </div>
     </Story>
 
@@ -286,6 +299,8 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
         new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the open goal's fields have no Save button, and how a refused edit is put back."),
         new("interaction-guidelines.md#keyboard-accessible-reordering", "Why every goal can be moved without a pointer, and what a move says."),
+        new("interaction-guidelines.md#drop-indicators", "Why the goal a No goal row would land on is outlined while it is carried."),
+        new("accessibility.md#screen-reader--announcements", "Why a drop on a goal is said in the board's live region."),
         new("typography-and-layout.md#iconography", "The glyphs the view draws, and the size they are drawn at.")
     ];
 
@@ -457,9 +472,13 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
         new GoalsWindow(Oct(19), Oct(23)),
         [Paid, Search, Phone],
         [
-            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
-            new GoalsItem(GoalSubject.ForTask(Vat), "VAT rate per line item"),
+            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes") { Status = GoalTaskStatus.Blocked },
+            new GoalsItem(GoalSubject.ForTask(Vat), "VAT rate per line item") { Status = GoalTaskStatus.Doing },
             new GoalsItem(Pr(1357), "Payment status webhook")
+            {
+                PullRequest = new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2),
+                    "Payment status webhook", "https://github.com/JSdotNet/Backlog/pull/1357", ReviewRequested: true)
+            }
         ],
         StandUp,
         [
@@ -614,11 +633,48 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
         NoGoal =
         [
             .. Board.NoGoal,
-            new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget"),
-            new GoalsItem(Pr(1362), "Payment retries back off"),
-            new GoalsItem(Pr(1370), "VAT export as CSV")
+            new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget") { Status = GoalTaskStatus.Doing },
+            new GoalsItem(Pr(1362), "Payment retries back off")
+            {
+                PullRequest = new PullRequestStatusModel(1362, "draft", new PullRequestChecks(3, 1, 0), null, "Payment retries back off")
+            },
+            // One the read could not answer for: unknown, with no marks.
+            new GoalsItem(Pr(1370), "VAT export as CSV") { PullRequest = new PullRequestStatusModel(1370, "unknown", Title: "VAT export as CSV") }
         ]
     };
+
+    private GoalsBoardModel _dropBoard = NoGoalBoard;
+    private string? _dropSaid;
+
+    /// <summary>The host's part, stubbed: the work leaves No goal and the goal holds it, as
+    /// the reading after the attach would show it.</summary>
+    private void DropAttachSample(GoalAttachRequest request)
+    {
+        var item = _dropBoard.NoGoal.First(row => row.Subject == request.Subject);
+        var goals = _dropBoard.Goals.Select(goal => goal.Id != request.GoalId ? goal : goal with
+        {
+            Tasks = item.Status is { } status
+                ? [.. goal.Tasks, new GoalTaskModel(item.Subject.Key, item.Title, status, item.Subject)]
+                : goal.Tasks,
+            PullRequests = item.PullRequest is { } pull ? [.. goal.PullRequests, pull] : goal.PullRequests,
+            PullRequestSubjects = item.PullRequest is not null
+                ? [.. goal.PullRequestSubjects ?? goal.PullRequests.Select(_ => (GoalSubject?)null), item.Subject]
+                : goal.PullRequestSubjects
+        }).ToList();
+
+        _dropBoard = _dropBoard with { Goals = goals, NoGoal = [.. _dropBoard.NoGoal.Where(row => row.Subject != request.Subject)] };
+        _dropSaid = $"Attached {item.Title} to {goals.First(goal => goal.Id == request.GoalId).Title}";
+    }
+
+    private const string DropAttachCode = """
+        @* Each No goal row as the host hands it in, with its state. *@
+        new GoalsItem(GoalSubject.ForTask(vat), "VAT rate per line item") { Status = GoalTaskStatus.Doing }
+        new GoalsItem(pr1357, "Payment status webhook") { PullRequest = status }
+
+        @* OnAttach and a goal give each row its grip; a drop on a goal attaches it there. *@
+        <GoalsBoard Model="@board"
+                    OnAttach="request => AttachAsync(request.GoalId, request.Subject)" />
+        """;
 
     private string? _noGoalSaid;
 

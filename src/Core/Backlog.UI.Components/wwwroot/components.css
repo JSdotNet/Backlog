@@ -9887,6 +9887,13 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
+/* The extra content's wrapper is there for its id, which the control's
+   aria-describedby names; it takes no box, so the content stays a direct item
+   of the text block's grid as it was before the wrapper. */
+.toggle__content {
+    display: contents;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .toggle__track,
     .toggle__thumb {
@@ -10368,6 +10375,47 @@ select.field__input {
     border-radius: var(--border-radius-md);
     background: var(--color-background-raised);
     box-shadow: var(--shadow-lg);
+}
+
+/* PopoverButton: a trigger with a small panel of the host's controls under it,
+   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
+   opens inward from the end of a row. The
+   backdrop is the context menu's, for the same reason: it catches the closing
+   click, and it covers the trigger so a second press closes the panel too. */
+.popover-button {
+    position: relative;
+    display: inline-flex;
+}
+
+.popover-button__glyph {
+    display: inline-flex;
+}
+
+.popover-button__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: transparent;
+}
+
+.popover-button__panel {
+    position: absolute;
+    top: calc(100% + var(--spacing-xs));
+    left: 0;
+    z-index: 26;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 12rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.popover-button__panel--end {
+    right: 0;
+    left: auto;
 }
 
 .nav-list__items {
@@ -16058,6 +16106,19 @@ select.field__input {
 }
 
 /*
+  Waiting: something the host asked for on the bar's behalf has not come yet — a
+  session queued for the plan. News, not an alert, so no tone of its own: the queue
+  glyph in the bar's own ink, after the title and after an overdue marker or a tick
+  when the bar is that too. The bar's fill and outline stay whatever its other states
+  make them. The glyph is a shape, and the caller says what is awaited in the detail.
+*/
+.roadmap-bar__waiting {
+    position: relative;
+    flex: none;
+    color: currentColor;
+}
+
+/*
   The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
   end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
   action's own included, so a keyboard reader tabbing onto it sees what they reached;
@@ -20264,11 +20325,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     cursor: default;
 }
 
+/* The panel takes the whole screen below the status bar, leaving a strip of
+   the dimmed screen to tap out on, and the field grows into what the controls
+   leave: a thought rarely fits four rows. A keyboard that shrinks the screen
+   makes the panel scroll rather than squeeze the controls. */
 .capture-sheet__panel {
     position: relative;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     gap: var(--spacing-md);
-    max-height: 92dvh;
+    min-height: 0;
+    margin-top: calc(env(safe-area-inset-top, 0px) + var(--spacing-xl));
     overflow-y: auto;
     padding: var(--spacing-xs) var(--spacing-md) calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
     border-radius: 1.5rem 1.5rem 0 0;
@@ -20283,8 +20351,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     outline: none;
 }
 
+.capture-sheet__panel > * {
+    flex: none;
+}
+
 .capture-sheet__grip {
-    justify-self: center;
+    align-self: center;
     width: 40px;
     height: 5px;
     border-radius: var(--border-radius-full);
@@ -20340,9 +20412,23 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     outline-offset: -2px;
 }
 
+/* The field, its box and the textarea in it stretch down the panel together. */
+.capture-sheet__panel > .capture-sheet__field {
+    flex: 1 0 8rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.capture-sheet__field > div {
+    flex: 1;
+    display: flex;
+}
+
 /* Prose, not Markdown source: the field takes the UI face the rest of the sheet
    uses rather than the editor's monospace. */
 .capture-sheet__field .field__input {
+    flex: 1;
+    resize: none;
     font-family: var(--font-family-base);
     font-size: var(--font-size-lg);
 }
@@ -23452,8 +23538,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
   the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
   a count in the mark's ink. Running and Short share the live ink; a different glyph tells
   them apart. A received count with no required total keeps the secondary ink: it is
-  information, not a verdict. Each mark is positioned because it holds an sr-only phrase,
-  for the reason .status-editor gives.
+  information, not a verdict. Each mark, and "your review", is positioned because it holds
+  an sr-only phrase, for the reason .status-editor gives.
 */
 .pull-request-status {
     display: inline-flex;
@@ -23500,6 +23586,14 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .pull-request-status__mark--received,
 .pull-request-status__merged {
     color: var(--color-text-secondary);
+}
+
+/* "your review" closes the line in the muted ink: the words carry the request, never
+   the colour (color-scheme.md#pull-request-status-marks). */
+.pull-request-status__your-review {
+    position: relative;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /*
@@ -23742,6 +23836,33 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-width: 0;
 }
 
+/* A No goal row's state leads its title, drawn as the open goal's columns draw it: the
+   task's dot at the Tasks column's size, the pull request's status line unbroken. */
+.goals-board__no-goal-row .status-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goals-board__no-goal-pull {
+    flex: 0 0 auto;
+}
+
+/* The row carried onto a goal stays where it is, set back, so the outlined goal reads as
+   where it is going. */
+.goals-board__no-goal-row--carried {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* While a carried row is over no goal, nothing in the column takes the drop: the cursor
+   says so (interaction-guidelines.md#drop-indicators), the grip under it included. */
+.goals-board__goals--no-drop,
+.goals-board__goals--no-drop * {
+    cursor: not-allowed;
+}
+
 .goals-board__number,
 .goal-card__number,
 .work-item-search__number {
@@ -23787,9 +23908,11 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     transform: none;
 }
 
-/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
-   row's grip is, with a target as tall as the guideline's drag affordance. */
-.goal-card__grip {
+/* The grip leads the head row, and a No goal row that can be carried onto a goal: a press
+   origin for the shared pointer reorder, as a task row's grip is, with a target as tall as
+   the guideline's drag affordance. */
+.goal-card__grip,
+.goals-board__no-goal-grip {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -23802,7 +23925,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     touch-action: none;
 }
 
-.goal-card__grip:hover {
+.goal-card__grip:hover,
+.goals-board__no-goal-grip:hover {
     color: var(--color-text-secondary);
 }
 
@@ -23827,6 +23951,13 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .goal-card--dragging {
     opacity: 0.6;
     outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The goal a carried No goal row would attach to on a drop: the whole card, folded or
+   open, outlined in the primary ink (interaction-guidelines.md#drop-indicators). */
+.goal-card--drop-target {
+    outline: var(--border-width-2) solid var(--color-primary);
     outline-offset: 2px;
 }
 
@@ -24139,10 +24270,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-primary-light);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-.stand-up-panel__item--no-goal {
-    color: var(--color-text-secondary);
 }
 
 /* A planned item's effort sits at the row's end, in the points tag's figures. */
@@ -24579,6 +24706,34 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: transparent;
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: var(--border-radius-full);
+}
+
+/* NotificationAskerBadge: who raised it, a glyph then the word. The three kinds differ
+   in fill as well as glyph — an agent's filled in the info tone, a person's outlined,
+   the app's own the plain raised face — so they part at a glance in a list. */
+.badge--notification-asker {
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-asker > svg {
+    flex: none;
+}
+
+.badge--notification-asker-agent {
+    background: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-person {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-system {
+    color: var(--color-text-secondary);
 }
 
 .notification-card__body {

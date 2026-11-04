@@ -8,8 +8,10 @@
     All layers: one cluster per layer file, sized by its technologies, one
     dot per technology coloured by its type family and hollow when not adopted,
     and a weighted line with its count between every two layers whose technologies
-    name each other in depends-on. Open a layer and its technologies become pills,
-    the other layers satellites; select one and its links light up — gold to what
+    name each other in depends-on. Every dot is a button that opens its layer on
+    its technology; a cluster is one tab stop, its open-layer button first, and the
+    arrows move across its dots. Open a layer and its technologies become pills,
+    grouped by type family under a heading each, the other layers satellites; select one and its links light up — gold to what
     it sits on, blue to what uses it — and following one moves the map with it,
     leaving a trail to step back along.
 
@@ -113,21 +115,45 @@
                                   style="@At(satellite.X + 18, satellite.Y - 44, map.Width, map.Height)">@satellite.Links</span>
                         }
                     }
-                    @foreach (var pill in map.Pills)
+                    @foreach (var group in map.Families)
                     {
-                        var node = pill.Node;
-                        <ToggleButton BaseClass="tech-clusters__pill"
-                                      PressedCssClass="tech-clusters__pill--selected"
-                                      CssClass="@PillClass(pill.State)"
-                                      Pressed="@(pill.State == ClustersPillState.Selected)"
-                                      PressedChanged="_ => FollowAsync(node.Id)"
-                                      Title="@node.Label"
-                                      style="@Box(pill.X, pill.Y, TechnologyClustersLayout.PillWidth, TechnologyClustersLayout.PillHeight, map.Width, map.Height)"
-                                      data-id="@node.Id"
-                                      TestId="technology-clusters-pill">
-                            @Dot(node)
-                            <span class="tech-clusters__pill-label">@node.Label</span>
-                        </ToggleButton>
+                        var slug = TechnologyTypeFamilies.Slug(group.Family);
+                        var headingId = $"{_id}-family-{slug}";
+                        @* A group draws no box of its own (display: contents), so its
+                           heading and pills keep their places on the stage. *@
+                        <div class="tech-clusters__family"
+                             role="group"
+                             aria-labelledby="@headingId"
+                             data-family="@slug"
+                             data-testid="technology-clusters-family">
+                            @* h3, as the companion's title is: both sit under the
+                               panel's h2, and the map comes first, so an h4 here
+                               would skip a level. *@
+                            @* As wide as its words, up to the group's width, so its
+                               backing hides the lines under the words and no more. *@
+                            <h3 id="@headingId"
+                                class="tech-clusters__family-heading"
+                                style="@($"{At(group.X, group.Y, map.Width, map.Height)}; max-width: {TechnologyClustersLayout.Percent(group.Width, map.Width)}")">
+                                <span class="@($"tech-clusters__dot {TechnologyTypeFamilies.Mark(group.Family)}")" aria-hidden="true"></span>
+                                @TechnologyTypeFamilies.Label(group.Family)
+                            </h3>
+                            @foreach (var pill in group.Pills)
+                            {
+                                var node = pill.Node;
+                                <ToggleButton BaseClass="tech-clusters__pill"
+                                              PressedCssClass="tech-clusters__pill--selected"
+                                              CssClass="@PillClass(pill.State)"
+                                              Pressed="@(pill.State == ClustersPillState.Selected)"
+                                              PressedChanged="_ => FollowAsync(node.Id)"
+                                              Title="@node.Label"
+                                              style="@Box(pill.X, pill.Y, TechnologyClustersLayout.PillWidth, TechnologyClustersLayout.PillHeight, map.Width, map.Height)"
+                                              data-id="@node.Id"
+                                              TestId="technology-clusters-pill">
+                                    @Dot(node)
+                                    <span class="tech-clusters__pill-label">@node.Label</span>
+                                </ToggleButton>
+                            }
+                        </div>
                     }
                 </div>
             }
@@ -149,21 +175,51 @@
                     @foreach (var cluster in map.Clusters)
                     {
                         var each = cluster.Layer;
-                        <AppButton BaseClass="tech-clusters__cluster"
-                                   Variant="ButtonVariant.None"
-                                   style="@Centred(cluster.X, cluster.Y, cluster.Diameter, cluster.Diameter, map.Width, map.Height)"
-                                   aria-label="@($"Open the {each.Label} layer, {TechnologyCount(each.Technologies.Count)}")"
-                                   data-layer="@each.FileName"
-                                   TestId="technology-clusters-cluster"
-                                   OnClick="() => OpenLayerAt(each.FileName)" />
-                        @foreach (var dot in cluster.Dots)
-                        {
-                            <span class="@DotClass(dot.Node, IsSelected(dot.Node.Id))"
-                                  aria-hidden="true"
-                                  data-id="@dot.Node.Id"
-                                  data-testid="technology-clusters-dot"
-                                  style="@Centred(dot.X, dot.Y, dot.Size, dot.Size, map.Width, map.Height)"></span>
-                        }
+                        @* One tab stop per cluster: its open-layer button, then its dots.
+                           data-roving-buttons hands the arrows, Home and End to
+                           components.js, which moves the stop and the focus in the
+                           browser — a server round trip per key carried a stale stop
+                           and dropped fast presses. The tabindex written here is only
+                           the starting stop and never changes between renders, so a
+                           re-render leaves the browser's stop alone. Keyed, the group
+                           and each dot keep their own element across a re-read, so the
+                           button holding the stop is never handed to another
+                           technology; one that is taken away takes the stop with it,
+                           and components.js gives the group its first button back.
+                           The group draws no box (display: contents), so every button
+                           keeps its place. *@
+                        <div @key="each.FileName"
+                             class="tech-clusters__cluster-group"
+                             role="group"
+                             aria-label="@($"{each.Label} layer")"
+                             data-layer="@each.FileName"
+                             data-roving-buttons
+                             data-testid="technology-clusters-cluster-group">
+                            <AppButton BaseClass="tech-clusters__cluster"
+                                       Variant="ButtonVariant.None"
+                                       style="@Centred(cluster.X, cluster.Y, cluster.Diameter, cluster.Diameter, map.Width, map.Height)"
+                                       aria-label="@($"Open the {each.Label} layer, {TechnologyCount(each.Technologies.Count)}")"
+                                       tabindex="0"
+                                       data-layer="@each.FileName"
+                                       TestId="technology-clusters-cluster"
+                                       OnClick="() => OpenLayerAt(each.FileName)" />
+                            @foreach (var dot in cluster.Dots)
+                            {
+                                var node = dot.Node;
+                                <ToggleButton @key="node.Id"
+                                              BaseClass="tech-clusters__dot"
+                                              PressedCssClass="tech-clusters__dot--selected"
+                                              CssClass="@DotButtonClass(node)"
+                                              Pressed="@IsSelected(node.Id)"
+                                              PressedChanged="_ => PressDotAsync(node.Id)"
+                                              AriaLabel="@DotName(node)"
+                                              Title="@node.Label"
+                                              tabindex="-1"
+                                              data-id="@node.Id"
+                                              TestId="technology-clusters-dot"
+                                              style="@Centred(dot.X, dot.Y, dot.Size, dot.Size, map.Width, map.Height)" />
+                            }
+                        </div>
                         <span class="tech-clusters__cluster-name"
                               aria-hidden="true"
                               style="@At(cluster.X - 90, cluster.Y + (cluster.Diameter / 2) + 8, map.Width, map.Height, 180)"><b>@each.Label</b> <span class="tech-clusters__muted">· @each.Technologies.Count</span></span>
@@ -246,7 +302,7 @@
             <ul class="tech-clusters__legend" aria-label="Colours">
                 @foreach (var family in Families)
                 {
-                    <li><span class="@($"tech-clusters__dot tech-family--{FamilySlug(family)}")" aria-hidden="true"></span>@TechnologyTypeFamilies.Label(family)</li>
+                    <li><span class="@($"tech-clusters__dot {TechnologyTypeFamilies.Mark(family)}")" aria-hidden="true"></span>@TechnologyTypeFamilies.Label(family)</li>
                 }
                 <li><span class="tech-clusters__dot tech-clusters__dot--hollow tech-family--other" aria-hidden="true"></span>Not adopted yet</li>
             </ul>
@@ -443,6 +499,15 @@
         await MoveToAsync(id);
     }
 
+    /// <summary>A dot on All layers opens its layer on its technology, and the map
+    /// it sat on gives way with it, so focus goes to where the reader now is — the
+    /// technology in the breadcrumb — as it does when a cluster opens its layer.</summary>
+    private Task PressDotAsync(string id)
+    {
+        _focusLocation = true;
+        return FollowAsync(id);
+    }
+
     /// <summary>Back to a step on the trail, dropping the steps after it.</summary>
     private async Task StepBackToAsync(int index)
     {
@@ -502,18 +567,24 @@
 
     private static string Links(int count) => count == 1 ? "1 link" : $"{count} links";
 
-    private static string FamilySlug(TechnologyTypeFamily family) => family switch
-    {
-        TechnologyTypeFamily.LanguageAndPackage => "language-package",
-        TechnologyTypeFamily.LibraryToolAndPlugin => "library-tool-plugin",
-        TechnologyTypeFamily.AgentServiceAndFormat => "agent-service-format",
-        _ => family.ToString().ToLowerInvariant(),
-    };
+    private static string DotClass(TechnologyGraphNode node) =>
+        $"tech-clusters__dot {DotModifiers(node)}";
 
-    private static string DotClass(TechnologyGraphNode node, bool selected = false) =>
-        $"tech-clusters__dot tech-family--{FamilySlug(node.Family)}"
-        + (node.IsAdopted ? string.Empty : " tech-clusters__dot--hollow")
-        + (selected ? " tech-clusters__dot--selected" : string.Empty);
+    /// <summary>A dot on All layers: the dot's classes past its base, and the
+    /// modifier that makes it pressable.</summary>
+    private static string DotButtonClass(TechnologyGraphNode node) =>
+        $"tech-clusters__dot--button {DotModifiers(node)}";
+
+    private static string DotModifiers(TechnologyGraphNode node) =>
+        TechnologyTypeFamilies.Mark(node.Family) + (node.IsAdopted ? string.Empty : " tech-clusters__dot--hollow");
+
+    /// <summary>A dot says what its colour and fill say: the technology, its family,
+    /// and whether it is adopted.</summary>
+    private static string DotName(TechnologyGraphNode node) =>
+        $"{node.Label}, {TechnologyTypeFamilies.Label(node.Family)}{(node.IsAdopted ? string.Empty : ", not adopted yet")}";
+
+    /// <summary>Unique to this view, so the ids it writes never meet another's.</summary>
+    private readonly string _id = "tech-clusters-" + Guid.NewGuid().ToString("n")[..8];
 
     private static RenderFragment Dot(TechnologyGraphNode node) => __builder =>
     {

@@ -95,6 +95,47 @@ public sealed class LobesCameraScriptTests
         Assert.Equal(1, shares[5]);
     }
 
+    /// <summary>Pause hands the renderer a model with the idle turn off, and the
+    /// camera it left carries the time of the last input. Resuming from that
+    /// would put the brains straight back at full speed; instead the turn waits
+    /// its four seconds from the resume and eases in, as after any input.</summary>
+    [Fact]
+    public void Resuming_after_a_pause_waits_the_delay_from_the_resume_then_eases_in()
+    {
+        var output = Run("""
+            const m = BACKLOG_LOBES_MOTION;
+            const now = 100000;
+            const lastInput = backlogLobesResumedInput({ lastInput: 0, idleMotion: false }, true, now);
+            console.log([lastInput, backlogLobesIdleRamp(now - lastInput), backlogLobesIdleRamp(now + m.idleDelayMs - 1 - lastInput),
+                backlogLobesIdleRamp(now + m.idleDelayMs + m.idleRampMs / 2 - lastInput), backlogLobesIdleRamp(now + m.idleDelayMs + m.idleRampMs - lastInput)]
+                .map((v) => v.toFixed(6)).join(' '));
+            """);
+
+        var values = Numbers(output);
+
+        Assert.Equal(100000, values[0]);
+        Assert.Equal(0, values[1]);
+        Assert.Equal(0, values[2]);
+        Assert.InRange(values[3], 0.01, 0.99);
+        Assert.Equal(1, values[4]);
+    }
+
+    /// <summary>Any other hand-over — a region or Labels toggle while turning,
+    /// a toggle while paused, a camera kept from before Pause existed — carries
+    /// on from the input it remembers, mid-turn included.</summary>
+    [Theory]
+    [InlineData("{ lastInput: 500, idleMotion: true }", true, 500)]
+    [InlineData("{ lastInput: 500, idleMotion: false }", false, 500)]
+    [InlineData("{ lastInput: 500, idleMotion: true }", false, 500)]
+    [InlineData("{ lastInput: 500 }", true, 500)]
+    [InlineData("{}", true, 100000)]
+    public void Any_other_hand_over_keeps_the_last_input_it_remembers(string saved, bool idleMotion, double expected)
+    {
+        var output = Run($"console.log(backlogLobesResumedInput({saved}, {(idleMotion ? "true" : "false")}, 100000).toFixed(3));");
+
+        Assert.Equal(expected, Numbers(output)[0]);
+    }
+
     [Fact]
     public void The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn()
     {

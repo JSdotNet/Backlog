@@ -199,6 +199,58 @@ public sealed class RepositoryManagementGoalPullRequestsTests
         Assert.Equal(LinkedPullRequestState.Closed, RepositoryManagementGoalPullRequests.Map(Pull(3, PullRequestState.Closed)).State);
     }
 
+    /// <summary>The viewer's review is asked for only while the pull request can still be
+    /// reviewed, and only on GitHub's word: a status that was not read says nothing of it.</summary>
+    [Theory]
+    [InlineData(PullRequestState.Open, true, true, true)]
+    [InlineData(PullRequestState.Draft, true, true, true)]
+    [InlineData(PullRequestState.Open, false, true, false)]
+    [InlineData(PullRequestState.Open, true, false, false)]
+    [InlineData(PullRequestState.Merged, true, true, false)]
+    [InlineData(PullRequestState.Closed, true, true, false)]
+    public void The_viewers_review_is_requested_only_on_a_read_open_pull_request_that_asks_for_it(
+        PullRequestState state, bool requested, bool statusRead, bool expected)
+    {
+        var mapped = RepositoryManagementGoalPullRequests.Map(Pull(5, state) with
+        {
+            ViewerReviewRequested = requested,
+            StatusRead = statusRead
+        });
+
+        Assert.Equal(expected, mapped.ReviewRequested);
+    }
+
+    [Fact]
+    public void A_pull_request_nothing_read_has_no_review_request()
+    {
+        Assert.False(GoalPullRequestDto.Unread(new(Backlog, "5")).ReviewRequested);
+    }
+
+    [Fact]
+    public async Task The_reading_carries_the_viewers_review_request_through_the_contract()
+    {
+        var contract = new InMemoryPullRequests().Holds(Pull(11) with { ViewerReviewRequested = true });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract);
+
+        var answer = Assert.Single(await reader.ReadAsync([new(Backlog, "#11")], TestContext.Current.CancellationToken));
+
+        Assert.True(answer.ReviewRequested);
+    }
+
+    /// <summary>An archived repository is never read again, so a kept request for the
+    /// viewer's review would stand for good on a pull request nobody can review: the
+    /// answer drops it and keeps the rest of what was kept.</summary>
+    [Fact]
+    public async Task An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review()
+    {
+        var contract = new InMemoryPullRequests().Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Archify", ViewerReviewRequested = true });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/archify"));
+
+        var answer = Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken));
+
+        Assert.Equal((LinkedPullRequestState.Open, true, false), (answer.State, answer.InArchivedRepository, answer.ReviewRequested));
+    }
+
     private static PullRequestStatus Pull(int number, PullRequestState state = PullRequestState.Open) =>
         new(Backlog, number, $"https://github.com/{Backlog}/pull/{number}", $"Pull request {number}", state, $"feature-{number}", "main", "octo", false, Noon);
 

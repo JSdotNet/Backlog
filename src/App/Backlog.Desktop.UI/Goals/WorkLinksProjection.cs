@@ -9,7 +9,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Integrations;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// What a task's "Sessions and pull requests" section is asked to draw, worked out from
@@ -300,6 +300,7 @@ public sealed class WorkLinksProjection
     {
         LinkedSessionState.Running => IntegrationSessionState.Running,
         LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+        LinkedSessionState.Waiting => IntegrationSessionState.Waiting,
         _ => IntegrationSessionState.Finished
     };
 

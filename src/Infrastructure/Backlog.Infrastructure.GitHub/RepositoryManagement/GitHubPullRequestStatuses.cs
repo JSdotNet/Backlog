@@ -51,6 +51,7 @@ public static class GitHubPullRequestStatuses
             Additions = pull.Additions,
             Deletions = pull.Deletions,
             IsCrossRepository = pull.IsCrossRepository,
+            ViewerReviewRequested = pull.ViewerReviewRequested,
             Handle = new PullRequestHandle(pull.NodeId, pull.HeadSha, Map(pull.PreferredMergeMethod))
         };
     }
@@ -170,6 +171,7 @@ public static class GitHubPullRequestStatuses
             HeadChecks = [.. pull.HeadChecks.Select(check => new GitHubCheck(check.Name, ToGitHub(check.State), check.Duration, check.Url, check.WorkflowRunId))],
             BehindBy = pull.BehindBy,
             IsCrossRepository = pull.IsCrossRepository,
+            ViewerReviewRequested = pull.ViewerReviewRequested,
             Additions = pull.Additions,
             Deletions = pull.Deletions,
             Reviews = new GitHubReviewSummary(ToGitHub(pull.Approvals.Decision), pull.Approvals.Approvals, pull.Approvals.ChangesRequested)

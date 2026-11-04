@@ -5,7 +5,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Integrations;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// Links one loose session or pull request to one entry, the act behind "Link a

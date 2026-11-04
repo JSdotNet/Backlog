@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 
 using Backlog.Desktop.UI.Mcp;
@@ -14,12 +13,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The long poll a dispatcher waits on (local ADR 0038 §4): it answers <c>200</c> with
 /// the oldest Requested request the moment there is one, <c>204</c> once the hold has
-/// passed without one, and <c>404</c> while <c>session-requests</c> is off. The hold
-/// and the poll are shortened here; the route uses <see cref="SessionRequestWaitEndpoint.Hold"/>.
+/// passed without one, and <c>404</c> while <c>session-requests</c> is off. A call that
+/// is held runs on a <see cref="FakeTimeProvider"/>, so the route's own
+/// <see cref="SessionRequestWaitEndpoint.Hold"/> and poll pass as advanced time, not wall-clock time.
 /// </summary>
 public class SessionRequestWaitEndpointTests
 {
-    private static readonly TimeSpan ShortPoll = TimeSpan.FromMilliseconds(20);
+    /// <summary>A hold a few polls long, for a case about what a held call hands out rather than how long it holds.</summary>
+    private static readonly TimeSpan ShortHold = TimeSpan.FromSeconds(5);
 
     private static SessionRequest Entry(Guid entryId, DateTimeOffset at) =>
         SessionRequests.ForEntry(entryId, "JSdotNet/Backlog", @"D:\Repos\Backlog", at);
@@ -75,22 +76,20 @@ public class SessionRequestWaitEndpointTests
     [Fact]
     public async Task A_held_call_answers_as_soon_as_a_request_arrives_well_before_the_hold_ends()
     {
-        var queue = new InMemorySessionRequestStore();
-        var hold = TimeSpan.FromSeconds(30);
-        var watch = Stopwatch.StartNew();
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var start = clock.GetUtcNow();
 
-        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, hold, ShortPoll);
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(150), TestContext.Current.CancellationToken);
         Assert.False(waiting.IsCompleted, "The call answered before any request existed.");
 
-        var request = queue.Add(Entry(Guid.NewGuid(), DateTimeOffset.UtcNow));
+        var request = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
 
-        var reply = await waiting.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        watch.Stop();
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
 
         Assert.Equal(200, reply.StatusCode);
-        Assert.True(watch.Elapsed < hold / 2, $"The call took {watch.Elapsed} to answer.");
+        Assert.True(clock.GetUtcNow() - start < SessionRequestWaitEndpoint.Hold / 2, $"The call took {clock.GetUtcNow() - start} to answer.");
 
         using var json = JsonDocument.Parse(reply.Body);
         Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
@@ -99,32 +98,40 @@ public class SessionRequestWaitEndpointTests
     [Fact]
     public async Task A_held_call_with_nothing_requested_answers_no_content_when_the_hold_ends()
     {
-        var queue = new InMemorySessionRequestStore();
-        var hold = TimeSpan.FromMilliseconds(250);
-        var watch = Stopwatch.StartNew();
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var start = clock.GetUtcNow();
 
-        var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, hold, ShortPoll);
-        watch.Stop();
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken);
+
+        clock.Advance(SessionRequestWaitEndpoint.Hold - SessionRequestWaitEndpoint.PollInterval);
+        await Task.Yield();
+        Assert.False(waiting.IsCompleted, $"The call answered after {clock.GetUtcNow() - start}, before the hold.");
+
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
 
         Assert.Equal(204, reply.StatusCode);
         Assert.Empty(reply.Body);
-        Assert.True(watch.Elapsed >= hold - TimeSpan.FromMilliseconds(20), $"The call answered after {watch.Elapsed}, before the hold.");
+        Assert.True(clock.GetUtcNow() - start >= SessionRequestWaitEndpoint.Hold, $"The call answered after {clock.GetUtcNow() - start}, before the hold.");
         Assert.True(queue.NextCalls > 1, "The queue was asked only once while the call was held.");
     }
 
     [Fact]
     public async Task Claimed_and_started_requests_are_not_handed_out()
     {
-        var queue = new InMemorySessionRequestStore();
-        var claimed = queue.Add(Entry(Guid.NewGuid(), DateTimeOffset.UtcNow));
-        var started = queue.Add(Entry(Guid.NewGuid(), DateTimeOffset.UtcNow));
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var claimed = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        var started = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
         Assert.True((await queue.ClaimAsync(claimed.Id, "manager-1", TestContext.Current.CancellationToken)).Succeeded);
         Assert.True((await queue.ClaimAsync(started.Id, "manager-1", TestContext.Current.CancellationToken)).Succeeded);
         Assert.True((await queue.ReportStartedAsync(started.Id, "manager-1", "session-a", TestContext.Current.CancellationToken)).Succeeded);
 
-        var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, TimeSpan.FromMilliseconds(60), ShortPoll);
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
 
         Assert.Equal(204, reply.StatusCode);
+        Assert.True(queue.NextCalls > 1, "The queue was asked only once while the call was held.");
     }
 
     /// <summary>A claim whose lease ran out reads as Requested, so the route hands the
@@ -153,17 +160,19 @@ public class SessionRequestWaitEndpointTests
     [Fact]
     public async Task A_held_call_answers_not_found_once_the_flag_goes_off()
     {
-        var queue = new InMemorySessionRequestStore();
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
         var flag = new SessionRequestFlag(on: true);
 
-        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, flag, TimeProvider.System, TestContext.Current.CancellationToken, TimeSpan.FromSeconds(30), ShortPoll);
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, flag, clock, TestContext.Current.CancellationToken);
 
         flag.On = false;
-        queue.Add(Entry(Guid.NewGuid(), DateTimeOffset.UtcNow));
+        queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
 
-        var reply = await waiting.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
 
         Assert.Equal(404, reply.StatusCode);
+        Assert.True(clock.GetUtcNow() - clock.Start < SessionRequestWaitEndpoint.Hold, "The call held to the end rather than answering on the next poll.");
     }
 
     /// <summary>A queue that cannot be read answers <c>503</c> with a retry delay and the
@@ -195,12 +204,18 @@ public class SessionRequestWaitEndpointTests
     [Fact]
     public async Task A_caller_that_goes_away_ends_the_wait()
     {
-        var queue = new InMemorySessionRequestStore();
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
         using var gone = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        gone.CancelAfter(TimeSpan.FromMilliseconds(100));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, gone.Token, TimeSpan.FromSeconds(30), ShortPoll));
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, gone.Token);
+
+        Assert.False(waiting.IsCompleted, "The call answered before the caller went away.");
+
+        await gone.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        Assert.Equal(clock.Start, clock.GetUtcNow());
     }
 
     [Fact]
@@ -278,12 +293,12 @@ public class SessionRequestWaitEndpointTests
         var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
 
         var held = await SessionRequestWaitEndpoint.WaitAsync(
-            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
 
         clock.Advance(WaitingQuestions.DeliveryLease);
 
         var lapsed = await SessionRequestWaitEndpoint.WaitAsync(
-            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
 
         Assert.Equal(204, held.StatusCode);
         Assert.Equal(200, lapsed.StatusCode);
@@ -305,12 +320,12 @@ public class SessionRequestWaitEndpointTests
         var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
 
         var held = await SessionRequestWaitEndpoint.WaitAsync(
-            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
 
         clock.Advance(WaitingQuestions.DeliveryLease);
 
         var again = await SessionRequestWaitEndpoint.WaitAsync(
-            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, ShortPoll, questions, sessions);
+            new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
 
         Assert.Equal(204, held.StatusCode);
         Assert.Equal(200, again.StatusCode);
@@ -319,19 +334,46 @@ public class SessionRequestWaitEndpointTests
     [Fact]
     public async Task One_held_call_reads_the_session_list_once_for_a_delivery_it_cannot_send()
     {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
         var questions = new HeldWaitingQuestions();
-        questions.AddPendingDelivery("cli-only", "A?", "a", DateTimeOffset.UtcNow);
+        questions.AddPendingDelivery("cli-only", "A?", "a", clock.GetUtcNow());
         var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-only", null));
 
-        var reply = await SessionRequestWaitEndpoint.WaitAsync(
-            new InMemorySessionRequestStore(), Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken,
-            TimeSpan.FromMilliseconds(200), ShortPoll, questions, sessions);
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold, questions: questions, sessions: sessions);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
 
         Assert.Equal(204, reply.StatusCode);
+        Assert.True(queue.NextCalls > 1, "The call was answered on its first poll, so it never polled again.");
         Assert.Equal(1, sessions.Reads);
     }
 
     private static IAppFeatureSettings Features(bool on) => new SessionRequestFlag(on);
+
+    /// <summary>A fake clock, so a held call runs on advanced time rather than the wall clock.</summary>
+    private static FakeTimeProvider Clock() => new(new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero));
+
+    /// <summary>
+    /// Advances <paramref name="clock"/> one <see cref="SessionRequestWaitEndpoint.PollInterval"/>
+    /// at a time until the held call answers. The yield between steps lets a poll that
+    /// resumed off this thread register its next delay before time moves on; the cap fails
+    /// a call that never answers rather than hanging the run.
+    /// </summary>
+    private static async Task<SessionRequestWaitEndpoint.Reply> AdvanceUntilAnsweredAsync(Task<SessionRequestWaitEndpoint.Reply> waiting, FakeTimeProvider clock)
+    {
+        var ceiling = clock.GetUtcNow() + SessionRequestWaitEndpoint.Hold * 2;
+
+        while (!waiting.IsCompleted)
+        {
+            Assert.True(clock.GetUtcNow() < ceiling, "The held call never answered.");
+
+            clock.Advance(SessionRequestWaitEndpoint.PollInterval);
+            await Task.Yield();
+        }
+
+        return await waiting;
+    }
 
     /// <summary>A queue whose database cannot be opened: every read throws.</summary>
     private sealed class UnreadableQueue : ISessionRequestStore

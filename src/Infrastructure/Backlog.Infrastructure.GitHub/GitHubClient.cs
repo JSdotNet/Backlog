@@ -472,19 +472,23 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// and the merge state's other answers. The merge settings ride along for the
     /// reason they do on <see cref="StatusQuery"/>.
     /// <para>
-    /// Fifty, most recently updated first, and no paging. A repository with more open
-    /// pull requests than that has a queue nobody reads row by row, and the ones at
-    /// the top are the ones that moved; a second page would be cost with no reader.
+    /// Fifty, most recently updated first, read as pages of
+    /// <see cref="OpenPullRequestPageSize"/>. A repository with more open pull requests
+    /// than that has a queue nobody reads row by row, and the ones at the top are the
+    /// ones that moved. The pages are for GitHub's sake, not the reader's: fifty rows of
+    /// these fields in one request take about ten seconds on a busy repository, which is
+    /// where GitHub gives up on a GraphQL query and answers 502 or 504.
     /// </para>
     /// </summary>
     private const string OpenPullRequestsQuery = $$"""
-        query($owner: String!, $name: String!) {
+        query($owner: String!, $name: String!, $first: Int!, $after: String) {
           repository(owner: $owner, name: $name) {
             mergeCommitAllowed
             squashMergeAllowed
             rebaseMergeAllowed
             defaultBranchRef { name }
-            pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
+            pullRequests(states: OPEN, first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
+              pageInfo { hasNextPage endCursor }
               nodes {
                 {{ListedPullRequestFields}}
               }
@@ -513,10 +517,16 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// in so Re-run failed sees every failed run.
     /// </para>
     /// <para>
-    /// Twenty labels, twenty reviews and ten closing issues per pull request: a
-    /// list row shows a handful of each, and fifty rows of these stay well inside
-    /// GitHub's node limit. <c>writersOnly</c> keeps the reviews to people whose
-    /// review counts towards the merge.
+    /// Twenty labels, twenty reviews, twenty review requests and ten closing issues per
+    /// pull request: a list row shows a handful of each, and a page of these —
+    /// 25 × (20 + 20 + 20 + 10 + 50 checks) nodes — stays well inside GitHub's node
+    /// limit. <c>writersOnly</c> keeps the reviews to people whose review counts
+    /// towards the merge.
+    /// </para>
+    /// <para>
+    /// The review requests are read only for whether one names the viewer as a
+    /// <c>User</c> (<c>isViewer</c>); a request to a team carries no <c>isViewer</c>, so
+    /// a team the viewer is in does not count.
     /// </para>
     /// </summary>
     private const string ListedPullRequestFields = $$"""
@@ -541,6 +551,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
                 reviewDecision
                 latestOpinionatedReviews(first: 20, writersOnly: true) { nodes { state } }
                 closingIssuesReferences(first: 10) { nodes { number repository { nameWithOwner } } }
+                reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { isViewer } } } }
                 commits(last: 1) {
                   nodes {
                     commit {
@@ -755,21 +766,88 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        var data = await GitHubGraphQl.SendAsync(
+        var pulls = new List<GitHubOpenPullRequest>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        string? after = null;
+        var page = 0;
+
+        do
+        {
+            var first = Math.Min(OpenPullRequestPageSize, OpenPullRequestLimit - pulls.Count);
+            JsonElement data;
+
+            try
+            {
+                data = await ReadOpenPullRequestsPageAsync(repository, first, after, cancellationToken).ConfigureAwait(false);
+            }
+            catch (GitHubException exception) when (GaveUpOnTheQuery(exception) && first > 1)
+            {
+                // GitHub's time for the same page varies by seconds from one request to
+                // the next, so a page it gave up on is asked for once more at half the
+                // size; the next page goes back to the full size.
+                data = await ReadOpenPullRequestsPageAsync(repository, (first + 1) / 2, after, cancellationToken).ConfigureAwait(false);
+            }
+
+            // Ordered by last update, so a pull request updated between two pages moves
+            // up: it can come back on the second as well, which is one row, or be
+            // missed from the second, which the next refresh reads.
+            pulls.AddRange(ReadOpenPullRequests(data, repository.FullName).Where(pull => seen.Add(pull.NodeId)));
+            after = OpenPullRequestsNextCursor(data);
+        }
+        while (after is not null && pulls.Count < OpenPullRequestLimit && ++page < OpenPullRequestPageCap);
+
+        var listed = await WithBehindCountsAsync(repository, pulls, cancellationToken).ConfigureAwait(false);
+        return await WithUnlistedFailuresAsync(repository, listed, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>How many open pull requests one request of the list asks for. Half of
+    /// <see cref="OpenPullRequestLimit"/>: measured on a repository with 89 open pull
+    /// requests, twenty-five answer in about six seconds where fifty reach GitHub's
+    /// ten-second GraphQL timeout.</summary>
+    public const int OpenPullRequestPageSize = 25;
+
+    /// <summary>How many open pull requests the list reads per repository at most.</summary>
+    public const int OpenPullRequestLimit = 50;
+
+    /// <summary>How many pages the list is followed for at most: room past the two
+    /// that hold <see cref="OpenPullRequestLimit"/> for pages read at half the size and
+    /// rows a page repeated, and a bound so an answer that keeps naming a next page
+    /// without new rows cannot hold the list.</summary>
+    public const int OpenPullRequestPageCap = 5;
+
+    private Task<JsonElement> ReadOpenPullRequestsPageAsync(
+        GitHubRepositoryRef repository,
+        int first,
+        string? after,
+        CancellationToken cancellationToken) =>
+        GitHubGraphQl.SendAsync(
             transport,
             repository,
             OpenPullRequestsQuery,
             new Dictionary<string, object?>
             {
                 ["owner"] = repository.Owner,
-                ["name"] = repository.Name
+                ["name"] = repository.Name,
+                ["first"] = first,
+                ["after"] = after
             },
             cancellationToken,
-            tolerate: OnlyTheListsExtraFactsWereRefused).ConfigureAwait(false);
+            tolerate: OnlyTheListsExtraFactsWereRefused);
 
-        var listed = await WithBehindCountsAsync(repository, ReadOpenPullRequests(data, repository.FullName), cancellationToken).ConfigureAwait(false);
-        return await WithUnlistedFailuresAsync(repository, listed, cancellationToken).ConfigureAwait(false);
-    }
+    /// <summary>Whether GitHub stopped the query rather than refusing it: the 502 or
+    /// 504 its gateway answers when a GraphQL query runs past its time.</summary>
+    private static bool GaveUpOnTheQuery(GitHubException exception) =>
+        exception.Status is System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.GatewayTimeout;
+
+    /// <summary>The list page's cursor for the next page, or null when GitHub has no
+    /// more.</summary>
+    private static string? OpenPullRequestsNextCursor(JsonElement data) =>
+        data.TryGetProperty("repository", out var repository) && repository.ValueKind == JsonValueKind.Object
+        && repository.TryGetProperty("pullRequests", out var connection) && connection.ValueKind == JsonValueKind.Object
+        && connection.TryGetProperty("pageInfo", out var pageInfo) && pageInfo.ValueKind == JsonValueKind.Object
+        && pageInfo.TryGetProperty("hasNextPage", out var more) && more.ValueKind == JsonValueKind.True
+            ? String(pageInfo, "endCursor")
+            : null;
 
     /// <summary>How many of the head commit's checks the list reads one by one. The
     /// list query's <c>contexts(first: 50)</c>; a test holds the two together.</summary>
@@ -1282,7 +1360,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// refusal, once per pull request, and the same reason to read around it — a
     /// token that cannot see checks can still see which pull requests are open.
     /// Widened to the other facts a narrower token is refused one by one: the check
-    /// counts, the reviews and the closing references. Each comes back null and reads
+    /// counts, the reviews, the review requests and the closing references. Each comes back null and reads
     /// as that fact missing, never as the row missing.
     /// </summary>
     private static bool OnlyTheListsExtraFactsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
@@ -1297,7 +1375,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     private static readonly string[] RefusableFacts =
     [
         "statusCheckRollup", "checkCounts", "contexts", "latestOpinionatedReviews", "closingIssuesReferences",
-        "reviewDecision", "labels"
+        "reviewDecision", "labels", "reviewRequests"
     ];
 
     private static bool IsARefusedExtraFact(JsonElement error) =>
@@ -1745,10 +1823,21 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
             IsCrossRepository = pull.TryGetProperty("isCrossRepository", out var fork) && fork.ValueKind == JsonValueKind.True,
             Reviews = ReadReviews(pull),
             ClosingIssues = ReadClosingIssues(pull),
+            ViewerReviewRequested = ReadViewerReviewRequested(pull),
             Additions = Count(pull, "additions"),
             Deletions = Count(pull, "deletions")
         };
     }
+
+    /// <summary>Whether a pending review request names the viewer as a user; absent,
+    /// refused or only other reviewers is no.</summary>
+    private static bool ReadViewerReviewRequested(JsonElement pull) =>
+        Nodes(pull, "reviewRequests").Any(request =>
+            request.TryGetProperty("requestedReviewer", out var reviewer)
+            && reviewer.ValueKind == JsonValueKind.Object
+            && string.Equals(String(reviewer, "__typename"), "User", StringComparison.Ordinal)
+            && reviewer.TryGetProperty("isViewer", out var viewer)
+            && viewer.ValueKind == JsonValueKind.True);
 
     /// <summary>A non-negative whole number under <paramref name="name"/>, or null
     /// where it is absent or not one.</summary>

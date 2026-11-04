@@ -35,6 +35,12 @@ public sealed class NotificationToolsRelayTests
         [new AskOption("ui"), new AskOption("api"), new AskOption("docs")],
         MultiSelect: true);
 
+    private static readonly AskQuestion Colours = new(
+        "Which colours?",
+        "Colours",
+        [new AskOption("Red, dark"), new AskOption("Blue")],
+        MultiSelect: true);
+
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly FakeNotifications _notifications = new();
     private readonly FakeQuestionRelay _relay;
@@ -309,11 +315,7 @@ public sealed class NotificationToolsRelayTests
             id,
             "answered-in-session",
             Session,
-            new Dictionary<string, string>
-            {
-                ["Which database should the cache use?"] = "SQLite",
-                ["Which tags apply?"] = "api, docs"
-            },
+            Given(("Which database should the cache use?", "SQLite"), ("Which tags apply?", "api, docs")),
             Cancellation);
 
         var (closed, reason, answers) = Assert.Single(_relay.Closes);
@@ -329,7 +331,7 @@ public sealed class NotificationToolsRelayTests
     {
         var id = await AskAsync(Database);
 
-        await Tools().CloseAsync(id, "answered-in-session", Session, new Dictionary<string, string> { ["Which database should the cache use?"] = "Neither, use Redis" }, Cancellation);
+        await Tools().CloseAsync(id, "answered-in-session", Session, Given(("Which database should the cache use?", "Neither, use Redis")), Cancellation);
 
         RelayAnswer[] expected = [RelayAnswer.Open("Neither, use Redis")];
         Assert.Equal(expected, Assert.Single(_relay.Closes).Answers!);
@@ -341,10 +343,95 @@ public sealed class NotificationToolsRelayTests
         var id = await AskAsync(Database, Tags);
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools().CloseAsync(
-            id, "answered-in-session", Session, new Dictionary<string, string> { ["Which tags apply?"] = "ui" }, Cancellation));
+            id, "answered-in-session", Session, Given(("Which tags apply?", "ui")), Cancellation));
 
         Assert.StartsWith("relay.answers_invalid", failure.Message, StringComparison.Ordinal);
         Assert.True(_relay.Questions[id].IsOpen);
+    }
+
+    /// <summary>
+    /// A multi-select whose label holds a comma comes back from the dialog intact either way
+    /// the dialog answers: as an array of labels, or joined with ", " — read against the
+    /// question's own labels rather than split blindly on every comma.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(CommaLabelAnswers))]
+    public async Task A_multi_select_label_holding_a_comma_survives_close(JsonElement given, string[] picked)
+    {
+        var id = await AskAsync(Colours);
+
+        await Tools().CloseAsync(id, "answered-in-session", Session, new Dictionary<string, JsonElement> { [Colours.Question] = given }, Cancellation);
+
+        RelayAnswer[] expected = [new(picked)];
+        Assert.Equal(expected, Assert.Single(_relay.Closes).Answers!);
+    }
+
+    public static TheoryData<JsonElement, string[]> CommaLabelAnswers() => new()
+    {
+        { JsonSerializer.SerializeToElement(new[] { "Red, dark", "Blue" }), ["Red, dark", "Blue"] },
+        { JsonSerializer.SerializeToElement("Red, dark, Blue"), ["Red, dark", "Blue"] },
+        { JsonSerializer.SerializeToElement("Blue, Red, dark"), ["Blue", "Red, dark"] }
+    };
+
+    /// <summary>A single choice takes one label: an array naming several is refused the way
+    /// any other invalid answer is, and the question stays open.</summary>
+    [Fact]
+    public async Task Several_labels_for_a_single_choice_are_refused()
+    {
+        var id = await AskAsync(Database);
+
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools().CloseAsync(
+            id,
+            "answered-in-session",
+            Session,
+            new Dictionary<string, JsonElement> { [Database.Question] = JsonSerializer.SerializeToElement(new[] { "SQLite", "Postgres" }) },
+            Cancellation));
+
+        Assert.StartsWith("relay.answers_invalid", failure.Message, StringComparison.Ordinal);
+        Assert.True(_relay.Questions[id].IsOpen);
+    }
+
+    /// <summary>A joined answer one of whose parts names no label is the person's own text.</summary>
+    [Fact]
+    public async Task A_joined_answer_that_is_not_all_labels_is_kept_as_open_text()
+    {
+        var id = await AskAsync(Colours);
+
+        await Tools().CloseAsync(id, "answered-in-session", Session, Given((Colours.Question, "Red, light")), Cancellation);
+
+        RelayAnswer[] expected = [RelayAnswer.Open("Red, light")];
+        Assert.Equal(expected, Assert.Single(_relay.Closes).Answers!);
+    }
+
+    /// <summary>
+    /// An answered multi-select also comes back as its picked labels in an array, beside the
+    /// comma-joined string every caller of <c>ask</c> reads, so the hook can hand the dialog
+    /// labels that hold a comma intact. A single choice has no array.
+    /// </summary>
+    [Fact]
+    public async Task Get_answer_of_an_answered_multi_select_carries_its_labels_as_an_array()
+    {
+        var id = await AskAsync(Database, Colours);
+        _relay.Answer(id, new RelayAnswer(["SQLite"]), new RelayAnswer(["Red, dark", "Blue"]));
+
+        var payload = await Tools().GetAnswerAsync(id, Session, cancellationToken: Cancellation);
+
+        Assert.Equal("Red, dark, Blue", payload.Answers![Colours.Question]);
+        var selections = Assert.Single(payload.Selections!);
+        Assert.Equal(Colours.Question, selections.Key);
+        Assert.Equal(["Red, dark", "Blue"], selections.Value);
+        Assert.Contains("\"selections\":{\"Which colours?\":[\"Red, dark\",\"Blue\"]}", JsonSerializer.Serialize(payload, ModelContextProtocol.McpJsonUtilities.DefaultOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Get_answer_without_a_multi_select_has_no_label_arrays()
+    {
+        var id = await AskAsync(Database);
+        _relay.Answer(id, new RelayAnswer(["SQLite"]));
+
+        var payload = await Tools().GetAnswerAsync(id, Session, cancellationToken: Cancellation);
+
+        Assert.Null(payload.Selections);
     }
 
     [Theory]
@@ -420,6 +507,9 @@ public sealed class NotificationToolsRelayTests
 
         Assert.Contains("\"answers\":{\"Which Tags apply?\":\"ui, docs\"}", json, StringComparison.Ordinal);
     }
+
+    private static Dictionary<string, JsonElement> Given(params (string Question, string Answer)[] answers) =>
+        answers.ToDictionary(given => given.Question, given => JsonSerializer.SerializeToElement(given.Answer), StringComparer.Ordinal);
 
     private async Task<Guid> AskAsync(params AskQuestion[] questions) =>
         (await Tools().AskAsync(

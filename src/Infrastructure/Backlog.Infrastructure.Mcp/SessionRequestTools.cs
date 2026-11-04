@@ -92,8 +92,9 @@ public sealed class SessionRequestTools(
     [Description(
         "Reports what this dispatcher did with a request it claimed. outcome 'started' with the sessionId of the "
         + "session it started moves the request to Started; outcome 'released' gives the claim back, so the request "
-        + "is Requested again for any dispatcher. Answers marked:false with the reason when this dispatcher no "
-        + "longer holds the claim - its lease ran out, or another dispatcher holds it.")]
+        + "is Requested again for any dispatcher. 'started' still counts after this dispatcher's lease ran out, as "
+        + "long as no other dispatcher claimed the request since; 'released' does not. Answers marked:false with the "
+        + "reason otherwise - another dispatcher holds the claim, or the request was cancelled.")]
     public async Task<SessionRequestMarkPayload> MarkSessionRequestAsync(
         [Description("The request's id.")]
         Guid id,

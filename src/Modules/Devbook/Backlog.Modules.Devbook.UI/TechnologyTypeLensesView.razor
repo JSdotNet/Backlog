@@ -37,7 +37,7 @@
                 <div class="tech-lens-card__body">
                     <div class="tech-lens-card__head">
                         <span class="tech-lens-card__kicker">
-                            <Badge Kind="" Title="@TechnologyTypeCodes.Label(type)">@TechnologyTypeCodes.Code(type)</Badge>
+                            <Badge Kind="" CssClass="@TechnologyTypeFamilies.MarkFor(type)" Title="@TechnologyTypeCodes.Label(type)">@TechnologyTypeCodes.Code(type)</Badge>
                             <span>@($"{TechnologyTypeCodes.Label(type)} lens")</span>
                             @if (selected)
                             {

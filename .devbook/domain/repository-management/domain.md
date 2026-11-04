@@ -411,9 +411,11 @@ related: [.devbook/domain/repository-management/features.md#pull-request-status,
 What this context publishes about one pull request of an
 [active repository](#active-repository): its state, its checks, its approvals,
 whether it can merge, how far it is behind its base, whether GitHub holds an
-auto-merge for it, and its [stack parent](#stack-parent). Local ADR 0042 §2 lists
-the fields. A screen shows two marks of it, checks and approvals, beside the pull
-request's number ([Pull request status](features.md#pull-request-status)).
+auto-merge for it, whether a pending review request names the viewer, and its
+[stack parent](#stack-parent). Local ADR 0042 §2 lists the fields. A screen shows
+two marks of it, checks and approvals, beside the pull request's number, and a
+"your review" label after them when the viewer's review is requested
+([Pull request status](features.md#pull-request-status)).
 
 It is the one reading every other context draws a pull request from. Tasks and
 Progress keep a smaller copy of their own, translated from this one, and never read

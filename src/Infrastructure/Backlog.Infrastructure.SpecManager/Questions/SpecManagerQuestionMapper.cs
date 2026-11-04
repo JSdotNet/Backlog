@@ -22,7 +22,7 @@ internal static class SpecManagerQuestionMapper
     public const string QuestionSubjectType = "question";
 
     /// <summary>The "Via" of a question a person typed in spec-manager.</summary>
-    public const string TypedInSpecManager = "typed in spec-manager";
+    public const string TypedInSpecManager = NotificationOrigins.TypedInSpecManager;
 
     /// <summary>How long the "Other" answer and the note may run: spec-manager's own
     /// bound on both.</summary>
@@ -204,11 +204,9 @@ internal static class SpecManagerQuestionMapper
         return CutBytes(body.ToString(), 32 * 1024);
     }
 
-    internal static string OneLine(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    internal static string OneLine(string? text) => NotificationText.OneLine(text);
 
-    internal static string Cut(string text, int length) =>
-        text.Length <= length ? text : text[..(length - 1)] + "…";
+    internal static string Cut(string text, int length) => NotificationText.Cut(text, length);
 
     /// <summary>Text cut to at most <paramref name="bytes"/> bytes of UTF-8, on a character
     /// boundary, an ellipsis marking the cut.</summary>

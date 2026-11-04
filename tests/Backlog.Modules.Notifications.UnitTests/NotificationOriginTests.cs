@@ -85,10 +85,25 @@ public sealed class NotificationOriginTests
         Assert.True(result.IsSuccess);
     }
 
-    [Fact]
-    public void A_part_that_runs_over_a_line_is_refused()
+    public static TheoryData<string, string> LineBreaksInEachPart =>
+        new MatrixTheoryData<string, string>(
+            ["\n", "\r", "\u0085", "\u2028", "\u2029"],
+            ["system", "place", "askedBy", "via"]);
+
+    [Theory]
+    [MemberData(nameof(LineBreaksInEachPart))]
+    public void A_part_that_runs_over_a_line_is_refused(string lineBreak, string part)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = new NotificationOrigin("Backlog", "Pairing\nnow") }, Now);
+        var broken = "Pairing" + lineBreak + "now";
+        var origin = part switch
+        {
+            "system" => new NotificationOrigin(broken),
+            "place" => new NotificationOrigin("Backlog", Place: broken),
+            "askedBy" => new NotificationOrigin("Backlog", AskedBy: broken),
+            _ => new NotificationOrigin("Backlog", Via: broken),
+        };
+
+        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now);
 
         Assert.Equal("notification.origin_invalid", result.Error.Code);
     }
@@ -137,6 +152,23 @@ public sealed class NotificationOriginTests
         Assert.DoesNotContain('\n', origin.Place);
         Assert.Equal(80, origin.AskedBy!.Length);
         Assert.Equal(40, origin.Via!.Length);
+        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).IsSuccess);
+    }
+
+    [Fact]
+    public void The_line_cut_inside_an_emoji_drops_the_whole_emoji()
+    {
+        var origin = new NotificationOrigin("spec-manager", "Billing \U0001F600 rounding");
+
+        Assert.Equal("spec-manager · Billing …", origin.LineWithin(25));
+    }
+
+    [Fact]
+    public void Fit_cuts_a_part_on_a_whole_character_and_the_owner_accepts_it()
+    {
+        var origin = NotificationOrigin.Fit(new string('s', 38) + "\U0001F600" + " more", "Billing")!;
+
+        Assert.Equal(new string('s', 38) + "…", origin.System);
         Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).IsSuccess);
     }
 

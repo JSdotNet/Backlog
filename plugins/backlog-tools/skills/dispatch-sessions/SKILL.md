@@ -33,11 +33,11 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
    - `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu>
      -MinFreeGb <memory>` prints `"fits":true`.
 6. **Dispatch** the oldest: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
-   `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`,
-   `prompt` its `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title
-   or the plan's `+tag` (under 60 characters), `background` "Started by dispatch-sessions for
-   Backlog session request <id>." Started → `mark_session_request` `started` with its session id,
-   else `released`; say what a `marked: false` answered. Back to step 5.
+   `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its
+   `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60
+   chars), `background` "Started by dispatch-sessions for Backlog session request <id>." Failed → `released`.
+   Started → `mark_session_request` `started` with its id, even past the lease; `marked: false`, another holds
+   the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 5.
 7. **Pace.** End the turn. `/loop` is only the fallback: 300 s if a limit held the queue, else 1800 s.
 
 ## Never

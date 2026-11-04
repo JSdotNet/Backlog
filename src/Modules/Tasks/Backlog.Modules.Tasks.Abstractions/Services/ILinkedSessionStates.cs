@@ -4,13 +4,12 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// Where an agent session a task links to stands now, in the words the Sessions
 /// context uses for it (<c>.devbook/domain/sessions/domain.md#session-state</c>).
 /// <para>
-/// Tasks' own copy of three states rather than a reference to Sessions: a screen asks
+/// Tasks' own copy of the four states rather than a reference to Sessions: a screen asks
 /// its own module, and an infrastructure adapter that may see both contexts translates
 /// (<c>ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface</c>).
-/// There is deliberately no waiting-for-input member, because nothing a session leaves
-/// on disk says whether a question was asked; <see cref="Stalled"/> is the closest
-/// fact there is — quiet for longer than the Sessions threshold — and it is the state
-/// that asks for the person.
+/// <see cref="Waiting"/> is not read from disk — nothing a session leaves there says
+/// whether a question was asked — but from the question relay's open Waiting Question
+/// (local ADR 0041), which Sessions folds into the session's state before it crosses.
 /// </para>
 /// </summary>
 public enum LinkedSessionState
@@ -23,14 +22,19 @@ public enum LinkedSessionState
     Stalled,
 
     /// <summary>Over; only its record is left.</summary>
-    Finished
+    Finished,
+
+    /// <summary>Live, and holding a question for the person that no answer has reached
+    /// yet (local ADR 0041). Last, so the members before it keep their values; Tasks
+    /// stores only the session id, never this state.</summary>
+    Waiting
 }
 
 /// <summary>
 /// What the Sessions record says about one session a task links to: where it stands
 /// (<see cref="State"/>), and whether the Claude desktop app still holds it open.
 /// </summary>
-/// <param name="State">Running, stalled or finished, as the Sessions context decided.</param>
+/// <param name="State">Running, stalled, finished or waiting, as the Sessions context decided.</param>
 /// <param name="Archived">
 /// Whether the desktop app has archived the session: true archived, false still open in
 /// its sidebar, and null where there is no desktop record to say — a CLI-only or Copilot

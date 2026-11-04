@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -22,11 +23,13 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
 
     private readonly FakePlanSessionRequests _queue = new();
     private readonly FakeTimeProvider _clock = new(DateTimeOffset.UtcNow);
+    private readonly ToastChannel _toasts = new();
 
     private IRenderedComponent<RoadmapBand> Band(BunitContext context)
     {
         context.Services.AddSingleton<IPlanSessionRequests>(_queue);
         context.Services.AddSingleton<TimeProvider>(_clock);
+        context.Services.AddSingleton<IToastChannel>(_toasts);
 
         var band = context.Render<RoadmapBand>();
         band.WaitForElement("[data-testid='roadmap-timeline']");
@@ -244,6 +247,86 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         _clock.Advance(RoadmapSessionRequests.PollInterval);
 
         band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid='roadmap-editor-session-request']")));
+    }
+
+    [Fact]
+    public async Task Queuing_says_so_in_a_toast_as_the_Tasks_pane_does()
+    {
+        var (id, _) = await PlannedAsync("backlog");
+        RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+
+        using var context = Context();
+        var band = Band(context);
+        await OpenAsync(band, id);
+
+        band.Find(Queue).Click();
+
+        band.WaitForAssertion(() =>
+        {
+            var toast = Assert.Single(_toasts.Visible);
+            Assert.Equal("Asked for a session in JSdotNet/Backlog.", toast.Message);
+            Assert.Equal(ToastSeverity.Info, toast.Severity);
+            Assert.Equal("plan-session-request-queued", toast.TestId);
+        });
+    }
+
+    [Theory]
+    [InlineData(PlanSessionRequestState.Requested, "no dispatcher has picked the request up yet")]
+    [InlineData(PlanSessionRequestState.Claimed, "a dispatcher is starting it")]
+    [InlineData(PlanSessionRequestState.Started, "started, not yet linked to the plan")]
+    public async Task A_plan_waiting_for_a_session_marks_its_bar_and_says_which_state_it_is_in(PlanSessionRequestState state, string said)
+    {
+        var (id, tag) = await PlannedAsync("backlog");
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), state, "JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = Band(context);
+
+        band.WaitForAssertion(() =>
+        {
+            var bar = band.Find($"[data-roadmap-bar='{id}']");
+            Assert.NotNull(bar.QuerySelector(".roadmap-bar__waiting"));
+
+            var line = $"Waiting for a session in JSdotNet/Backlog — {said}";
+            var body = bar.QuerySelector(".roadmap-bar__body")!;
+            Assert.Contains(line, body.GetAttribute("title"), StringComparison.Ordinal);
+            Assert.Contains(line, body.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task The_mark_comes_with_the_press_and_goes_within_a_poll_of_the_session_linking()
+    {
+        var (id, tag) = await PlannedAsync("backlog");
+        RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+        var waiting = $"[data-roadmap-bar='{id}'] .roadmap-bar__waiting";
+
+        using var context = Context();
+        var band = Band(context);
+        Assert.Empty(band.FindAll(waiting));
+
+        await OpenAsync(band, id);
+        band.Find(Queue).Click();
+        band.WaitForAssertion(() => Assert.NotEmpty(band.FindAll(waiting)));
+
+        _queue.Open.Remove(tag.TrimStart('+'));
+        _clock.Advance(RoadmapSessionRequests.PollInterval);
+
+        band.WaitForAssertion(() => Assert.Empty(band.FindAll(waiting)));
+    }
+
+    [Fact]
+    public async Task With_the_switch_off_no_bar_is_marked()
+    {
+        var (id, tag) = await PlannedAsync("backlog");
+        _queue.IsOffered = false;
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), PlanSessionRequestState.Requested, "JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = Band(context);
+
+        Assert.NotNull(band.Find($"[data-roadmap-bar='{id}']"));
+        Assert.Empty(band.FindAll(".roadmap-bar__waiting"));
     }
 
     [Fact]

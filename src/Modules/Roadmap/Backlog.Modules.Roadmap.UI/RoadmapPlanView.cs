@@ -2,6 +2,7 @@ using System.Globalization;
 
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.UI.Components.Roadmap;
 
 namespace Backlog.Modules.Roadmap.UI;
@@ -312,13 +313,7 @@ public static class RoadmapPlanView
     {
         ArgumentNullException.ThrowIfNull(view);
 
-        var carriers = view.Bars
-            .Select((bar, index) => (Bar: bar, Index: index, Node: NodeIdOf(bar.Id)))
-            .Where(entry => entry.Node is not null)
-            .GroupBy(entry => entry.Node!.Value)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderBy(entry => entry.Bar.End).ThenBy(entry => entry.Index).Last().Bar.Id);
+        var carriers = Carriers(view);
 
         List<RoadmapBar> bars =
         [
@@ -341,6 +336,87 @@ public static class RoadmapPlanView
 
         return view with { Bars = bars };
     }
+
+    /// <summary>
+    /// <paramref name="view"/> with the waiting mark on each item whose plan has a session
+    /// request open (local ADR 0038 §2): <see cref="RoadmapBar.Waiting"/>, and the line
+    /// <see cref="SessionWait"/> words for its state in the bar's detail — after the
+    /// overdue line on a late bar, first otherwise, so the tooltip leads with it.
+    /// <para>
+    /// On the bar <see cref="WithActions"/> gives the item's action, the one that ends
+    /// last, so an item split over three bands carries one mark. An item is matched to its
+    /// request by its tag; an item with none waits on nothing.
+    /// </para>
+    /// </summary>
+    /// <param name="items">The plan's items, for their tags.</param>
+    /// <param name="openFor">The request the plan tagged with the given tag is waiting on,
+    /// or null — null for every tag while the queue is not offered.</param>
+    public static RoadmapTimelineModel WithSessionWaits(
+        RoadmapTimelineModel view,
+        IEnumerable<RoadmapItemDto> items,
+        Func<string?, PlanSessionRequest?> openFor)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(openFor);
+
+        var waits = items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Tag))
+            .Select(item => (item.Id, Request: openFor(item.Tag)))
+            .Where(entry => entry.Request is not null)
+            .GroupBy(entry => entry.Id)
+            .ToDictionary(group => group.Key, group => group.First().Request!);
+
+        if (waits.Count == 0) return view;
+
+        var carriers = Carriers(view);
+
+        List<RoadmapBar> bars =
+        [
+            .. view.Bars.Select(bar =>
+                NodeIdOf(bar.Id) is { } node && carriers[node] == bar.Id && waits.TryGetValue(node, out var request)
+                    ? bar with { Waiting = true, Detail = WithWaitLine(bar, SessionWait(request)) }
+                    : bar)
+        ];
+
+        return view with { Bars = bars };
+    }
+
+    /// <summary>
+    /// What an open plan session request is waiting on, in a sentence: the line the bar's
+    /// detail carries and the item dialog's waiting chip says.
+    /// </summary>
+    public static string SessionWait(PlanSessionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return request.State switch
+        {
+            PlanSessionRequestState.Claimed => $"Waiting for a session in {request.Repository} — a dispatcher is starting it",
+            PlanSessionRequestState.Started => $"Waiting for a session in {request.Repository} — started, not yet linked to the plan",
+            _ => $"Waiting for a session in {request.Repository} — no dispatcher has picked the request up yet"
+        };
+    }
+
+    /// <summary>The bar's detail with <paramref name="line"/> put where a waiting bar's
+    /// line goes: straight after the overdue line on a late bar, first otherwise.</summary>
+    private static string WithWaitLine(RoadmapBar bar, string line)
+    {
+        var lines = (bar.Detail ?? string.Empty).Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        lines.Insert(bar.Overdue && lines.Count > 0 ? 1 : 0, line);
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>Each item's carrier bar, by item id: the one that ends last, the later in
+    /// the chart when two end together.</summary>
+    private static Dictionary<Guid, string> Carriers(RoadmapTimelineModel view) =>
+        view.Bars
+            .Select((bar, index) => (Bar: bar, Index: index, Node: NodeIdOf(bar.Id)))
+            .Where(entry => entry.Node is not null)
+            .GroupBy(entry => entry.Node!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(entry => entry.Bar.End).ThenBy(entry => entry.Index).Last().Bar.Id);
 
     /// <summary>Every item's state, by id - none when the plan was read without its gathered
     /// work, because whether tasks carry an item is then unknown and claiming either answer

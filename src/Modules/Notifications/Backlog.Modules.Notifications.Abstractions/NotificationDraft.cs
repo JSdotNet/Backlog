@@ -24,7 +24,7 @@ public sealed record NotificationSource(string Context, string Key);
 /// <param name="System">The system that raised it — "Claude Code", "Backlog", "spec-manager". Required.</param>
 /// <param name="Place">Where in that system — a repository and session title, a product and item.</param>
 /// <param name="AskedBy">The person who asked, when known.</param>
-/// <param name="Via">How it was asked — "Agent session", "MCP ask".</param>
+/// <param name="Via">How it was asked — "Agent session", "MCP ask", "MCP notify".</param>
 /// <param name="OpenLink">A link that opens it at its origin, or null.</param>
 public sealed record NotificationOrigin(
     string System,
@@ -56,8 +56,8 @@ public sealed record NotificationOrigin(
     public string Line => string.IsNullOrWhiteSpace(Place) ? System : System + Separator + Place;
 
     /// <summary><see cref="Line"/> cut to <paramref name="length"/> characters, the last one an
-    /// ellipsis when it was cut.</summary>
-    public string LineWithin(int length) => Cut(Line, length);
+    /// ellipsis when it was cut, by <see cref="NotificationText.Cut"/>.</summary>
+    public string LineWithin(int length) => NotificationText.Cut(Line, length);
 
     /// <summary>
     /// An origin built to fit: every part made one line, trimmed, and cut to its bound; a blank
@@ -87,12 +87,9 @@ public sealed record NotificationOrigin(
 
     private static string? Part(string? text, int length)
     {
-        var line = string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return line.Length == 0 ? null : Cut(line, length);
+        var line = NotificationText.OneLine(text);
+        return line.Length == 0 ? null : NotificationText.Cut(line, length);
     }
-
-    private static string Cut(string text, int length) =>
-        text.Length <= length ? text : text[..(length - 1)] + "…";
 }
 
 /// <summary>The words the sources inside Backlog put in a <see cref="NotificationOrigin"/>, so
@@ -111,8 +108,14 @@ public static class NotificationOrigins
     /// <summary>Asked by an agent in a session.</summary>
     public const string AgentSession = "Agent session";
 
-    /// <summary>Asked through the MCP <c>ask</c> or <c>notify</c> tool.</summary>
+    /// <summary>Asked through the MCP <c>ask</c> tool.</summary>
     public const string McpAsk = "MCP ask";
+
+    /// <summary>Told through the MCP <c>notify</c> tool.</summary>
+    public const string McpNotify = "MCP notify";
+
+    /// <summary>Typed by a person in spec-manager, not asked by an agent there.</summary>
+    public const string TypedInSpecManager = "typed in spec-manager";
 }
 
 /// <summary>

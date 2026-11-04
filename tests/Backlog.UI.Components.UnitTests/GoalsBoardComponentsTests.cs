@@ -48,7 +48,6 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     private static readonly StandUpModel StandUp = new(
         Finished:
         [
-            new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")]),
             new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export")])
         ],
         Planned:
@@ -642,6 +641,265 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", Webhook), request));
     }
 
+    // --- No goal rows' state, and carrying one onto a goal -------------------------
+
+    private static readonly GoalSubject Credit = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1362);
+
+    /// <summary>No goal as the host hands it in: each task row with its status, each pull
+    /// request row with its status line — one read, one the read could not answer for.</summary>
+    private static readonly GoalsBoardModel Stated = Board with
+    {
+        NoGoal =
+        [
+            new GoalsItem(Vat, "VAT rate per line item") { Status = GoalTaskStatus.Doing },
+            new GoalsItem(Terms, "Payment terms on quotes") { Status = GoalTaskStatus.Blocked },
+            new GoalsItem(Webhook, "Payment status webhook")
+            {
+                PullRequest = new PullRequestStatusModel(1357, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, 1),
+                    "Payment status webhook", "https://github.com/JSdotNet/Backlog/pull/1357", ReviewRequested: true)
+            },
+            new GoalsItem(Credit, "Credit notes") { PullRequest = new PullRequestStatusModel(1362, "unknown", Title: "Credit notes") }
+        ]
+    };
+
+    private IRenderedComponent<GoalsBoard> RenderCarriable(List<GoalAttachRequest> attached, GoalsBoardModel? model = null, bool busy = false) =>
+        RenderBoard(model ?? Stated, p => p
+            .Add(c => c.OnAttach, (GoalAttachRequest request) => attached.Add(request))
+            .Add(c => c.Busy, busy));
+
+    private static string RowId(GoalSubject subject) => $"nogoal:{subject.Key}";
+
+    [Fact]
+    public void A_no_goal_task_row_is_dotted_as_the_open_goals_tasks_are_and_says_its_status()
+    {
+        var board = RenderBoard(Stated);
+
+        var vat = board.Find($"[data-testid='goals-board-no-goal-row-{Vat.Key}']");
+        Assert.Equal("doing", vat.GetAttribute("data-status"));
+        Assert.Equal("active", vat.QuerySelector(".status-dot")!.GetAttribute("data-tone"));
+        Assert.Equal("VAT rate per line item, in progress", Normalise(vat.QuerySelector(".goals-board__no-goal-item")!.TextContent));
+        // Read unnormalised: a screen reader says "item , in progress" for a space before the comma.
+        Assert.Contains("VAT rate per line item, in progress", vat.QuerySelector(".goals-board__no-goal-item")!.TextContent, StringComparison.Ordinal);
+
+        var terms = board.Find($"[data-testid='goals-board-no-goal-row-{Terms.Key}']");
+        Assert.Equal("blocked", terms.GetAttribute("data-status"));
+        Assert.Equal("blocked", terms.QuerySelector(".status-dot")!.GetAttribute("data-tone"));
+        Assert.Contains(", blocked", terms.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_no_goal_pull_request_row_draws_its_status_line_in_place_of_the_plain_number()
+    {
+        var board = RenderBoard(Stated);
+
+        var webhook = board.Find($"[data-testid='goals-board-no-goal-row-{Webhook.Key}']");
+        var line = webhook.QuerySelector("[data-testid='goals-board-no-goal-pull-request-1357']")!;
+        Assert.Equal("draft", line.GetAttribute("data-state"));
+        Assert.Equal("#1357", line.QuerySelector("[data-testid='goals-board-no-goal-pull-request-1357-number']")!.TextContent.Trim());
+        Assert.NotNull(line.QuerySelector("[data-mark='checks']"));
+        Assert.NotNull(line.QuerySelector("[data-mark='approvals']"));
+        Assert.Contains(PullRequestStatusModel.YourReview, line.TextContent, StringComparison.Ordinal);
+        Assert.Null(webhook.QuerySelector(".goals-board__number"));
+        Assert.Null(webhook.GetAttribute("data-status"));
+
+        // A pull request the read could not answer for draws unknown, with no marks.
+        var credit = board.Find("[data-testid='goals-board-no-goal-pull-request-1362']");
+        Assert.Equal("unknown", credit.GetAttribute("data-state"));
+        Assert.Null(credit.QuerySelector("[data-mark]"));
+    }
+
+    [Fact]
+    public void The_no_goal_search_still_finds_a_stated_row_by_its_title_and_its_number()
+    {
+        var board = RenderBoard(Stated);
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("#136");
+        board.WaitForAssertion(() => Assert.Equal(["Credit notes"], NoGoalRows(board)));
+
+        board.Find("[data-testid='goals-board-no-goal-search'] input").Input("terms");
+        board.WaitForAssertion(() => Assert.Equal(["Payment terms on quotes, blocked"], NoGoalRows(board)));
+    }
+
+    [Fact]
+    public void With_a_host_listening_and_a_goal_each_no_goal_row_has_a_grip_and_every_goal_takes_a_drop()
+    {
+        var board = RenderCarriable([]);
+
+        var vat = board.Find($"[data-testid='goals-board-no-goal-row-{Vat.Key}']");
+        Assert.Equal(RowId(Vat), vat.GetAttribute("data-reorder-item"));
+        Assert.Equal("true", vat.GetAttribute("data-draggable"));
+        var grip = vat.QuerySelector("[data-reorder-grip]")!;
+        Assert.Equal("true", grip.GetAttribute("aria-hidden"));
+        Assert.Equal(4, board.FindAll(".goals-board__no-goal-row [data-reorder-grip]").Count);
+
+        // Every goal, open or folded, is an item the hit test finds; none moves itself.
+        foreach (var id in new[] { "paid", "search" })
+        {
+            var card = board.Find($"[data-testid='goals-board-goal-{id}']");
+            Assert.Equal(id, card.GetAttribute("data-reorder-item"));
+            Assert.Null(card.GetAttribute("data-draggable"));
+        }
+
+        Assert.Empty(board.FindAll(".goal-card [data-reorder-grip]"));
+        Assert.NotNull(board.Find(".goals-board__goals[data-list-owner]"));
+        Assert.Contains(_context.JSInterop.Invocations, call => call.Identifier == "backlogListReorder.register");
+    }
+
+    [Fact]
+    public void Without_a_host_listening_or_without_a_goal_no_row_can_be_carried()
+    {
+        var unheard = RenderBoard(Stated);
+        Assert.Empty(unheard.FindAll("[data-reorder-grip]"));
+        Assert.Null(unheard.Find($"[data-testid='goals-board-no-goal-row-{Vat.Key}']").GetAttribute("data-reorder-item"));
+        Assert.Empty(unheard.FindAll("[data-list-owner]"));
+
+        var goalless = RenderCarriable([], Stated with { Goals = [] });
+        Assert.Empty(goalless.FindAll("[data-reorder-grip]"));
+        Assert.Empty(goalless.FindAll("[data-list-owner]"));
+    }
+
+    /// <summary>The carry is the shared pointer reorder's (components.js): the row picked up
+    /// by its grip, the goal it is over outlined, and a drop on it attaches the row's work
+    /// there and says so.</summary>
+    [Fact]
+    public async Task A_no_goal_row_dropped_on_a_goal_attaches_to_it_and_says_so()
+    {
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderCarriable(attached);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Vat)));
+        Assert.Contains("goals-board__no-goal-row--carried", board.Find($"[data-testid='goals-board-no-goal-row-{Vat.Key}']").ClassList);
+
+        // The folded goal is as good a target as the open one.
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("search"));
+        Assert.Contains("goal-card--drop-target", board.Find("[data-testid='goals-board-goal-search']").ClassList);
+        Assert.DoesNotContain("goal-card--drop-target", board.Find("[data-testid='goals-board-goal-paid']").ClassList);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Equal([new GoalAttachRequest("search", Vat)], attached);
+        Assert.Equal("Attached VAT rate per line item to Devbook search ships.", board.Find("[data-testid='goals-board-move-announcement']").TextContent.Trim());
+        Assert.Empty(board.FindAll(".goal-card--drop-target"));
+        Assert.Empty(board.FindAll(".goals-board__no-goal-row--carried"));
+    }
+
+    /// <summary>Leaving the goal — for a gap, another No goal row, or the open goal — moves
+    /// the target with the pointer, so a drop lands where the outline says.</summary>
+    [Fact]
+    public async Task A_carried_row_follows_the_pointer_and_a_drop_off_every_goal_attaches_nothing()
+    {
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderCarriable(attached);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Webhook)));
+        Assert.Contains("goals-board__goals--no-drop", board.Find("[data-testid='goals-board-goals']").ClassList);
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("search"));
+        Assert.DoesNotContain("goals-board__goals--no-drop", board.Find("[data-testid='goals-board-goals']").ClassList);
+        await board.InvokeAsync(() => board.Instance.PointerDragOver(null));
+        Assert.Contains("goals-board__goals--no-drop", board.Find("[data-testid='goals-board-goals']").ClassList);
+        Assert.Empty(board.FindAll(".goal-card--drop-target"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver(RowId(Vat)));
+        Assert.Empty(board.FindAll(".goal-card--drop-target"));
+
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Empty(attached);
+        Assert.Empty(board.FindAll(".goals-board__no-goal-row--carried"));
+    }
+
+    /// <summary>A reading that lands during the carry and no longer lists the row under No
+    /// goal — attached elsewhere, finished — leaves the drop with nothing to attach.</summary>
+    [Fact]
+    public async Task A_row_a_reading_took_out_of_no_goal_during_the_carry_attaches_nothing()
+    {
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderCarriable(attached);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Vat)));
+        board.Render(p => p.Add(c => c.Model, Stated with { NoGoal = [.. Stated.NoGoal.Where(item => item.Subject != Vat)] }));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("search"));
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Empty(attached);
+        Assert.Equal(string.Empty, board.Find("[data-testid='goals-board-move-announcement']").TextContent.Trim());
+    }
+
+    /// <summary>The drop is said once the host has answered, and not when it refused: the
+    /// refusal is in Error, and the live region does not claim the attach happened.</summary>
+    [Fact]
+    public async Task A_drop_the_host_refuses_is_not_said()
+    {
+        var asked = 0;
+        IRenderedComponent<GoalsBoard>? board = null;
+        board = RenderBoard(Stated, p => p.Add(c => c.OnAttach, (GoalAttachRequest _) =>
+        {
+            asked++;
+            board!.Render(q => q.Add(c => c.Error, "The task is on another goal."));
+        }));
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Vat)));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("search"));
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Equal(1, asked);
+        Assert.Equal(string.Empty, board.Find("[data-testid='goals-board-move-announcement']").TextContent.Trim());
+        Assert.Contains("The task is on another goal.", board.Find("[data-testid='goals-board-error']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_cancelled_carry_attaches_nothing()
+    {
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderCarriable(attached);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Vat)));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragCancel());
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Empty(attached);
+        Assert.Empty(board.FindAll(".goal-card--drop-target"));
+        Assert.Empty(board.FindAll(".goals-board__no-goal-row--carried"));
+    }
+
+    [Fact]
+    public async Task While_the_host_writes_a_row_is_not_picked_up()
+    {
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderCarriable(attached, busy: true);
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(RowId(Vat)));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Empty(attached);
+        Assert.Empty(board.FindAll(".goals-board__no-goal-row--carried"));
+    }
+
+    /// <summary>A goal held in a reorder passes over a No goal row as over a gap: the last
+    /// goal it was over stays its target, and no row is ever a drop target.</summary>
+    [Fact]
+    public async Task A_goal_drag_passing_over_a_no_goal_row_still_reorders_and_attaches_nothing()
+    {
+        var moves = new List<GoalMoveRequest>();
+        var attached = new List<GoalAttachRequest>();
+        var board = RenderBoard(Three with { NoGoal = Stated.NoGoal }, p => p
+            .Add(c => c.OnMoveGoal, (GoalMoveRequest request) => moves.Add(request))
+            .Add(c => c.OnAttach, (GoalAttachRequest request) => attached.Add(request)));
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart("phone"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver("paid"));
+        await board.InvokeAsync(() => board.Instance.PointerDragOver(RowId(Vat)));
+        Assert.Equal(["goals-board-goal-phone", "goals-board-goal-paid", "goals-board-goal-search"], GoalOrder(board));
+        Assert.Empty(board.FindAll(".goal-card--drop-target"));
+
+        await board.InvokeAsync(() => board.Instance.PointerDragEnd());
+
+        Assert.Equal([new GoalMoveRequest("phone", 0)], moves);
+        Assert.Empty(attached);
+    }
+
     // --- Reordering the goals ---------------------------------------------------
 
     private static readonly GoalCardModel Phone = new(
@@ -855,7 +1113,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
 
         Assert.Equal(["Finished", "Planned", "Impediments"], panel.FindAll("h3").Select(h => h.TextContent));
-        Assert.Equal("2", panel.Find("[data-testid='su-finished-count']").TextContent);
+        Assert.Equal("1", panel.Find("[data-testid='su-finished-count']").TextContent);
         Assert.Equal("2", panel.Find("[data-testid='su-planned-count']").TextContent);
         Assert.Equal("1", panel.Find("[data-testid='su-impediments-count']").TextContent);
 
@@ -889,16 +1147,6 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Contains("Customer search by IBAN", items[0].TextContent);
         Assert.Null(items[1].QuerySelector("[data-testid='su-effort']"));
         Assert.Empty(panel.FindAll("[data-testid='su-finished'] [data-testid='su-effort']"));
-    }
-
-    [Fact]
-    public void A_finished_item_no_goal_holds_is_last_and_reads_no_goal()
-    {
-        var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
-
-        var items = panel.FindAll("[data-testid='su-finished'] .stand-up-panel__item");
-        Assert.Equal("Invoice PDF export", items[0].TextContent.Trim());
-        Assert.Equal("VAT rate per line item · no goal", items[1].TextContent.Trim());
     }
 
     [Fact]

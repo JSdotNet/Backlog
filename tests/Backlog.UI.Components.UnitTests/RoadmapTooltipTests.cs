@@ -194,4 +194,73 @@ public sealed class RoadmapTooltipTests
         Assert.Contains("roadmap-bar--tentative", guess.ClassList);
         Assert.Contains("roadmap-bar--overdue", guess.ClassList);
     }
+
+    // --- Waiting: a mark the host asks for, said by the caller's words -----------
+
+    private static IRenderedComponent<RoadmapTimeline> WaitingChart(BunitContext context)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<RoadmapBar> bars =
+        [
+            new("queued", "build", "Queued", On(1, 5), On(1, 9), Detail: "Session requested\nMedium priority", Waiting: true),
+            new("both", "build", "Both", On(1, 12), On(1, 16),
+                Detail: "Overdue: ended 16 Jan 2026\nSession started\nHigh priority", Steps: Steps, Overdue: true, Waiting: true),
+            new("idle", "build", "Idle", On(1, 19), On(1, 30))
+        ];
+
+        return context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, Plan)
+            .Add(timeline => timeline.Bars, bars)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.DateLabel, date => date.ToString("yyyy-MM-dd"))
+            .Add(timeline => timeline.TestId, "rm"));
+    }
+
+    [Fact]
+    public void A_waiting_bar_wears_a_mark_a_screen_reader_skips()
+    {
+        using var context = new BunitContext();
+        var view = WaitingChart(context);
+
+        var mark = view.Find("[data-roadmap-bar='queued'] .roadmap-bar__waiting");
+        Assert.Equal("true", mark.GetAttribute("aria-hidden"));
+
+        Assert.Null(view.Find("[data-roadmap-bar='idle']").QuerySelector(".roadmap-bar__waiting"));
+    }
+
+    [Fact]
+    public void A_waiting_bar_says_what_it_waits_for_in_its_tooltip_and_its_accessible_name()
+    {
+        using var context = new BunitContext();
+        var view = WaitingChart(context);
+
+        var body = view.Find("[data-roadmap-bar='queued'] .roadmap-bar__body");
+
+        Assert.Equal("Queued\n2026-01-05 to 2026-01-09\nSession requested\nMedium priority", body.GetAttribute("title"));
+        Assert.Contains("Session requested, Medium priority", body.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A late bar that waits shows both marks, and its tooltip puts the warning,
+    /// then the wait, ahead of the progress figures.</summary>
+    [Fact]
+    public void A_late_bar_that_waits_shows_both_marks_and_leads_with_both_lines()
+    {
+        using var context = new BunitContext();
+        var view = WaitingChart(context);
+
+        var both = view.Find("[data-roadmap-bar='both']");
+        Assert.NotNull(both.QuerySelector(".roadmap-bar__overdue"));
+        Assert.NotNull(both.QuerySelector(".roadmap-bar__waiting"));
+
+        Assert.Equal(
+            string.Join('\n',
+                "Both",
+                "2026-01-12 to 2026-01-16",
+                "Overdue: ended 16 Jan 2026",
+                "Session started",
+                "3 of 11 points done, 1 unestimated",
+                "High priority"),
+            both.QuerySelector(".roadmap-bar__body")!.GetAttribute("title"));
+    }
 }

@@ -33,6 +33,23 @@ public interface IShellWindows
 
     /// <summary>Brings the main window to the front.</summary>
     void ActivateMainWindow();
+
+    /// <summary>Whether a popped-out window can be kept on top of other windows here.
+    /// Only a head with OS windows can: a browser tab cannot, so a host that cannot
+    /// says no and its windows show no pin.</summary>
+    bool CanKeepOnTop => false;
+
+    /// <summary>Whether the popped-out window <paramref name="windowKey"/> names is kept
+    /// on top of other windows.</summary>
+    bool IsOnTop(string windowKey) => false;
+
+    /// <summary>Keeps the popped-out window <paramref name="windowKey"/> names on top of
+    /// other windows, or lets it go, and remembers that for its surface's next window.
+    /// One value per surface, so with two windows of a surface open the last press
+    /// wins. Does nothing where <see cref="CanKeepOnTop"/> is false.</summary>
+    void SetOnTop(string windowKey, bool onTop)
+    {
+    }
 }
 
 /// <summary>

@@ -423,7 +423,6 @@ flowchart TB
 ## Notifications
 
 ```meta
-status: proposed
 related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
@@ -439,8 +438,8 @@ replica containers, the sync routes and the owner desktop's exchange, and the
 desktops' Web PubSub nudge. So are the first publishers: a run's Personal
 Validation, the device that redeemed a pairing code, and a remark left on another
 device. So are the screens: the desktop's notification centre and the phone's
-list and answer screens. So is the Android phone push, declared in Bicep and not
-deployed; no push reaches a phone until the hub has its FCM credential.
+list and answer screens. So is the Android phone push, deployed on 2026-11-04;
+no push reaches a phone until the hub has its FCM credential.
 
 | Concern | How it works |
 |---|---|

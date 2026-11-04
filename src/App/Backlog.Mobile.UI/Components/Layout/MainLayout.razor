@@ -9,6 +9,7 @@
 @inject AppLifecycle Lifecycle
 @inject SyncCompatibility Compatibility
 @inject NotificationOpenRequests OpenRequests
+@inject CaptureOpenRequests CaptureRequests
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -51,7 +52,9 @@
     A tap on a notification in the Android tray lands here too (NotificationOpenRequests):
     the layout is the one component every tab sits inside, so it follows the tap to the
     notification's detail — after the first render, like a share, and including the tap
-    that launched the app before anything was drawn.
+    that launched the app before anything was drawn. A tap on the Capture shortcut of the
+    launcher icon (CaptureOpenRequests) is followed the same way, to the capture sheet over
+    the Inbox.
 *@
 
 <div class="page">
@@ -121,6 +124,7 @@
     private bool _pullingNotifications;
     private AppUpdateControl? _updates;
     private IDisposable? _openRequests;
+    private IDisposable? _captureRequests;
 
     private IReadOnlyList<NavItem> Tabs
     {
@@ -167,6 +171,9 @@
     // Raised on the platform's main thread by the Android head.
     private void OnOpenRequested(Guid id) => _ = InvokeAsync(() => Navigation.NavigateTo($"notifications/{id:D}"));
 
+    // Raised on the platform's main thread by the Android head.
+    private void OnCaptureRequested() => _ = InvokeAsync(() => Navigation.NavigateTo("capture?from=inbox"));
+
     /// <summary>
     /// Started after the first render rather than on initialisation: the browser
     /// harness prerenders on the server, and a share captured there would be
@@ -178,6 +185,7 @@
 
         SharedCapture.Start(work => InvokeAsync(work));
         _openRequests = OpenRequests.Subscribe(OnOpenRequested);
+        _captureRequests = CaptureRequests.Subscribe(OnCaptureRequested);
         await PullAllAsync();
     }
 
@@ -241,6 +249,7 @@
         Lifecycle.Resumed -= OnResumed;
         Compatibility.Changed -= OnCompatibilityChanged;
         _openRequests?.Dispose();
+        _captureRequests?.Dispose();
 
         // The capture is the scope's and may outlive this layout; it must not
         // dispatch through a component the renderer has let go.

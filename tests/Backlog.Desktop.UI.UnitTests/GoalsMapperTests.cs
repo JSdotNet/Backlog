@@ -84,7 +84,7 @@ public sealed class GoalsMapperTests
 
     private static readonly IReadOnlyList<GoalPullRequestDto> Pulls =
     [
-        new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2)),
+        new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true),
         new("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, Oct(14), null, null),
         new("JSdotNet/Backlog", "1357", LinkedPullRequestState.Draft, null, new GoalPullRequestChecksDto(9, 0, 5, []), null)
     ];
@@ -194,6 +194,8 @@ public sealed class GoalsMapperTests
         Assert.Equal(new PullRequestApprovals(1, 2), linked.Approvals);
         Assert.Equal("Invoice PDF export", linked.Title);
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1341", linked.Url);
+        Assert.True(linked.ShowsYourReview);
+        Assert.False(pulls[0].ShowsYourReview);
     }
 
     [Fact]
@@ -268,6 +270,49 @@ public sealed class GoalsMapperTests
         Assert.Equal(["VAT rate per line item"], noGoal.Select(item => item.Title));
     }
 
+    /// <summary>A No goal pull request row carries the status line the goals' own read, from
+    /// the same reading, so it draws the way the open goal's Pull requests column does.</summary>
+    [Fact]
+    public void A_no_goal_pull_request_row_carries_its_read_status()
+    {
+        var candidates = Candidates with
+        {
+            PullRequests = [.. Candidates.PullRequests, new GoalsPullRequestCandidate("JSdotNet/Backlog", 1362, "Credit notes", true, "https://github.com/JSdotNet/Backlog/pull/1362")]
+        };
+        var pulls = (IReadOnlyList<GoalPullRequestDto>)[.. Pulls, new("JSdotNet/Backlog", "1362", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(10, 1, 2, []), new GoalPullRequestApprovalsDto(0, 1), ReviewRequested: true)];
+
+        var row = Assert.Single(GoalsMapper.Map(StandUp, Summaries, pulls, candidates).NoGoal, item => item.Kind == GoalSubjectKind.PullRequest);
+
+        Assert.Equal(
+            new PullRequestStatusModel(1362, "open", new PullRequestChecks(10, 1, 2), new PullRequestApprovals(0, 1), "Credit notes", "https://github.com/JSdotNet/Backlog/pull/1362", true),
+            row.PullRequest);
+        Assert.Null(row.Status);
+    }
+
+    [Fact]
+    public void A_no_goal_pull_request_row_whose_status_was_not_read_draws_unknown_with_its_title_and_url()
+    {
+        var candidates = Candidates with
+        {
+            PullRequests = [.. Candidates.PullRequests, new GoalsPullRequestCandidate("JSdotNet/Backlog", 1362, "Credit notes", true)]
+        };
+
+        var row = Assert.Single(GoalsMapper.Map(StandUp, Summaries, Pulls, candidates).NoGoal, item => item.Kind == GoalSubjectKind.PullRequest);
+
+        Assert.Equal(
+            new PullRequestStatusModel(1362, "unknown", Title: "Credit notes", Url: "https://github.com/JSdotNet/Backlog/pull/1362"),
+            row.PullRequest);
+    }
+
+    [Fact]
+    public void A_no_goal_task_row_carries_its_status_through_the_board()
+    {
+        var row = Assert.Single(Map().NoGoal);
+
+        Assert.Equal(GoalTaskStatus.Doing, row.Status);
+        Assert.Null(row.PullRequest);
+    }
+
     [Fact]
     public void Every_pull_request_the_board_shows_is_read_once()
     {
@@ -275,6 +320,29 @@ public sealed class GoalsMapperTests
 
         Assert.Equal(
             ["1352", "1341", "1357"],
+            refs.Select(pull => pull.Number));
+    }
+
+    /// <summary>No goal's pull requests are read too, after the goals' and the stand-up's,
+    /// each once; one a goal holds or one outside the scope is not a No goal row.</summary>
+    [Fact]
+    public void The_pull_requests_no_goal_lists_are_read_after_the_goals_and_the_stand_ups()
+    {
+        var candidates = Candidates with
+        {
+            PullRequests =
+            [
+                .. Candidates.PullRequests,
+                new GoalsPullRequestCandidate("JSdotNet/Backlog", 1362, "Credit notes", true),
+                new GoalsPullRequestCandidate("JSdotNet/Backlog", 1357, "Payment status webhook", true),
+                new GoalsPullRequestCandidate("JSdotNet/Backlog", 1370, "Other repository work", false)
+            ]
+        };
+
+        var refs = GoalsMapper.PullRequestsToRead(StandUp, Summaries, candidates);
+
+        Assert.Equal(
+            ["1352", "1341", "1357", "1362"],
             refs.Select(pull => pull.Number));
     }
 

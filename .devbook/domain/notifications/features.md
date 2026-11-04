@@ -1,7 +1,7 @@
 # Features
 
 ```meta
-status: proposed
+status: draft
 type: features
 ```
 
@@ -12,7 +12,7 @@ type: features
 ## Publishing a notification
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#publishing-a-notification]
 ```
@@ -87,7 +87,7 @@ whether a phone showed it.
 ## Asking from the contexts
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
@@ -143,7 +143,8 @@ besides, and every two minutes while the stream is down. The answer goes back to
 spec-manager. If the product does not take answers from a connected app, or someone
 answered first, an alert says so. While the desktop is signed out, the answer
 waits, and the sign-in line asks the person to sign in. A question answered,
-deleted or reassigned away in spec-manager closes here. One that reaches the
+deleted or reassigned away in spec-manager closes here; one answered while the
+app was closed closes at the next start with who answered and what. One that reaches the
 person again, reassigned back or let in again by turning "Only questions assigned
 to me" off, arrives as a new question. The desktop that held it asks it again,
 under an id every desktop that held the same earlier rounds derives alike; one
@@ -160,7 +161,7 @@ spec-manager. One read in spec-manager closes here as "Read in spec-manager".
 ## Closing a notification
 
 ```meta
-status: proposed
+status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#closing-a-notification]
 ```

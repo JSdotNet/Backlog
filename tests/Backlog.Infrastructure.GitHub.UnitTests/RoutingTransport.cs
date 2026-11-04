@@ -60,6 +60,17 @@ internal sealed class RoutingTransport : IGitHubTransport
         return this;
     }
 
+    /// <summary>As <see cref="ReturnsInTurn"/>, with the first call refused with this
+    /// status — a GraphQL query GitHub gave up on before answering.</summary>
+    public RoutingTransport RefusesOnceThenReturnsInTurn(string fragment, System.Net.HttpStatusCode status, params string[] jsons)
+    {
+        var next = -1;
+        _routes.Add((null, fragment, () => ++next == 0
+            ? throw new GitHubException($"GitHub answered {(int)status}.") { Status = status }
+            : jsons[Math.Min(next - 1, jsons.Length - 1)]));
+        return this;
+    }
+
     /// <summary>As <see cref="Returns(string, string)"/>, for one method only —
     /// the Contents API is read and written at the same path.</summary>
     public RoutingTransport Returns(HttpMethod method, string fragment, string json)

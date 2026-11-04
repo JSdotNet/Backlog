@@ -86,6 +86,88 @@ public sealed class QuestionRelayTests : IDisposable
         Assert.Single(_notifications.Published);
     }
 
+    /// <summary>
+    /// Two relays over one store — the desktop app and a harness on the shared
+    /// <c>backlog.db</c>, each with its own in-process gate — escalate the same due question
+    /// while the first is still publishing it. The claim in the store lets only one publish.
+    /// </summary>
+    [Fact]
+    public async Task Two_relays_over_one_store_publish_a_due_question_once()
+    {
+        var gated = new GatedNotifications();
+        var first = new QuestionRelay(_store, _presence, () => NotifyAfter, () => gated, _clock);
+        var second = new QuestionRelay(_store, _presence, () => NotifyAfter, () => gated, _clock);
+        var asked = (await first.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+        _clock.Advance(NotifyAfter);
+
+        var publishing = first.EscalateDueAsync(Ct);
+        await gated.Entered.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        var racing = second.EscalateDueAsync(Ct);
+        await Task.WhenAny(racing, Task.Delay(TimeSpan.FromMilliseconds(200), Ct));
+        gated.Release();
+
+        Assert.Equal(1, await publishing + await racing);
+        Assert.Equal(1, gated.Attempts);
+        Assert.Equal(WaitingQuestionState.Notified, (await _store.GetAsync(asked.Id, Ct))!.State);
+    }
+
+    /// <summary>
+    /// A claim left by a publisher that crashed before it published holds the question
+    /// only until its lease runs out; then the next escalation publishes it.
+    /// </summary>
+    [Fact]
+    public async Task A_claim_left_by_a_crashed_publisher_lapses_and_the_question_is_published()
+    {
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+        _clock.Advance(NotifyAfter);
+        var now = _clock.GetUtcNow();
+        await _store.ChangeAsync(asked.Id, held => WaitingQuestions.ClaimPublish(held, now, now + WaitingQuestions.PublishLease), Ct);
+
+        Assert.Equal(0, await _relay.EscalateDueAsync(Ct));
+        Assert.Empty(_notifications.Published);
+
+        _clock.Advance(WaitingQuestions.PublishLease);
+
+        Assert.Equal(1, await _relay.EscalateDueAsync(Ct));
+        Assert.Single(_notifications.Published);
+    }
+
+    /// <summary>
+    /// A question with no header gets a title of its own — "A session asks", with its place
+    /// in a dialog of several — rather than repeating its text, which is the summary; both
+    /// stay within Notifications' bounds. A header stays the title.
+    /// </summary>
+    [Fact]
+    public void A_question_without_a_header_is_titled_apart_from_its_summary()
+    {
+        var bare = new RelayQuestion(new string('x', 400) + "?", Options: [new RelayOption("Yes"), new RelayOption("No")]);
+        var single = WaitingQuestions.Ask("session-1", "toolu_1", [bare], true, NotifyAfter, Noon);
+        var dialog = WaitingQuestions.Ask("session-1", "toolu_2", [Pick, bare], true, NotifyAfter, Noon);
+
+        var draft = QuestionRelay.Draft(single, 0);
+        Assert.Equal("A session asks", draft.Title);
+        Assert.NotEqual(draft.Summary, draft.Title);
+        Assert.InRange(draft.Title.Length, 1, 80);
+        Assert.InRange(draft.Summary.Length, 1, 180);
+
+        Assert.Equal("A session asks (2 of 2)", QuestionRelay.Draft(dialog, 1).Title);
+        Assert.Equal("Database", QuestionRelay.Draft(dialog, 0).Title);
+    }
+
+    /// <summary>
+    /// A relayed question says where it came from like every other agent's question: a
+    /// Claude Code session, asked by its agent — so the centre marks it an AI agent's.
+    /// </summary>
+    [Fact]
+    public void A_relayed_question_names_a_claude_code_agent_session_as_its_origin()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+
+        var origin = QuestionRelay.Draft(asked, 0).Origin;
+
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), origin);
+    }
+
     [Fact]
     public async Task A_question_answered_in_the_session_before_the_delay_is_never_published()
     {
@@ -479,6 +561,38 @@ public sealed class QuestionRelayTests : IDisposable
 
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Length));
+    }
+
+    /// <summary>Notifications whose publish holds until <see cref="Release"/>, so a test can
+    /// race a second publisher against one still publishing.</summary>
+    private sealed class GatedNotifications : INotifications
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _attempts;
+
+        public Task Entered => _entered.Task;
+
+        public int Attempts => Volatile.Read(ref _attempts);
+
+        public void Release() => _gate.TrySetResult();
+
+        public async Task<Backlog.SharedKernel.Results.Result<Guid>> PublishAsync(NotificationDraft draft, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _attempts);
+            _entered.TrySetResult();
+            await _gate.Task.WaitAsync(cancellationToken);
+            return Backlog.SharedKernel.Results.Result.Success(Guid.NewGuid());
+        }
+
+        public Task<Backlog.SharedKernel.Results.Result> CloseAsync(Guid notificationId, string? reason = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Backlog.SharedKernel.Results.Result.Success());
+
+        public Task<Backlog.SharedKernel.Results.Result<int>> CloseForSubjectAsync(NotificationSubject subject, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Backlog.SharedKernel.Results.Result.Success(0));
+
+        public Task<Backlog.SharedKernel.Results.Result<NotificationAnswer?>> GetAnswerAsync(Guid notificationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Backlog.SharedKernel.Results.Result.Success<NotificationAnswer?>(null));
     }
 
     private sealed class RefusingNotifications : INotifications

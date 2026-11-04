@@ -137,7 +137,8 @@ internal sealed class ConcurrentRecordingHandler : INotificationAnswerHandler
     }
 }
 
-/// <summary>A probe that answers from a set of ended subject ids.</summary>
+/// <summary>A probe that answers from a set of ended subject ids, and names why one ended from
+/// <see cref="Reasons"/>.</summary>
 internal sealed class SetProbe(string context, params string[] ended) : INotificationSubjectProbe
 {
     public string Context { get; } = context;
@@ -146,11 +147,23 @@ internal sealed class SetProbe(string context, params string[] ended) : INotific
 
     public bool Throws { get; set; }
 
+    /// <summary>The reason an ended subject id closes with; an id not in it names none.</summary>
+    public Dictionary<string, string> Reasons { get; } = [];
+
+    public bool ReasonThrows { get; set; }
+
     public Task<bool> IsLiveAsync(NotificationSubject subject, CancellationToken cancellationToken = default)
     {
         if (Throws) throw new InvalidOperationException("The context is not ready.");
 
         Asked.Add(subject);
         return Task.FromResult(!ended.Contains(subject.Id));
+    }
+
+    public Task<string?> EndReasonAsync(NotificationSubject subject, CancellationToken cancellationToken = default)
+    {
+        if (ReasonThrows) throw new InvalidOperationException("The context cannot say why.");
+
+        return Task.FromResult(Reasons.GetValueOrDefault(subject.Id));
     }
 }

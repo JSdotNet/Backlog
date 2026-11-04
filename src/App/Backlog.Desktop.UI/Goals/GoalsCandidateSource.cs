@@ -7,7 +7,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Progress;
 
-namespace Backlog.Desktop.UI.InProgress;
+namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// The shell's work as the Goals view reads it

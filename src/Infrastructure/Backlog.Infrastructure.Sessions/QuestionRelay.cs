@@ -32,8 +32,8 @@ public sealed class QuestionRelay : IQuestionRelay
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
 
-    // One publish at a time, so the escalation timer and an away ask never publish the
-    // same question twice: each re-reads the question under the gate before it publishes.
+    // One publish at a time in this process: a cheap guard in front of the claim in the
+    // store, which is what keeps processes sharing one backlog.db from publishing twice.
     private readonly SemaphoreSlim _publishing = new(1, 1);
 
     // What a held get_answer awaits: one completion source per question somebody is
@@ -339,7 +339,14 @@ public sealed class QuestionRelay : IQuestionRelay
         ArgumentNullException.ThrowIfNull(question);
 
         var asked = question.Questions[index];
-        var title = OneLine(string.IsNullOrWhiteSpace(asked.Header) ? asked.Question : asked.Header!, Limits.Title);
+
+        // Without a header the question's text is the summary, so the title says who asks
+        // rather than repeating it — with its place when the dialog holds several.
+        var title = !string.IsNullOrWhiteSpace(asked.Header)
+            ? OneLine(asked.Header!, Limits.Title)
+            : question.Questions.Count > 1
+                ? string.Create(CultureInfo.InvariantCulture, $"A session asks ({index + 1} of {question.Questions.Count})")
+                : "A session asks";
 
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SourceKey(question)),
@@ -349,7 +356,11 @@ public sealed class QuestionRelay : IQuestionRelay
             title,
             OneLine(asked.Question, Limits.Summary),
             Body(question, asked, index),
-            Spec(asked));
+            Spec(asked),
+            // Said the way a run's Personal Validation says it, so the centre reads the relay
+            // as an agent's question. The waiting question holds neither the repository nor
+            // the session's title, so the origin names no place.
+            Origin: NotificationOrigin.Fit(NotificationOrigins.ClaudeCode, via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>The answer spec of one question; see <see cref="Draft"/>.</summary>
@@ -448,6 +459,21 @@ public sealed class QuestionRelay : IQuestionRelay
             if (!question.IsDueAt(Now)) return question;
 
             if (_notifications() is not { } notifications) return NotAvailable();
+
+            // Claimed in the store before anything is published: the desktop app and the
+            // harnesses share one backlog.db, and each has its own gate, so only the publisher
+            // whose claim lands publishes. A publisher that crashes after publishing and before
+            // Notify below leaves the question InSession; once its lease lapses another
+            // publishes it again — a duplicate notification, accepted over a lost question.
+            var now = Now;
+            var claim = await _store.ChangeAsync(
+                id,
+                held => WaitingQuestions.ClaimPublish(held, now, now + WaitingQuestions.PublishLease),
+                cancellationToken).ConfigureAwait(false);
+
+            if (!claim.Succeeded) return claim.Question ?? question;
+
+            question = claim.Question!;
 
             var ids = new List<Guid>(question.Questions.Count);
 

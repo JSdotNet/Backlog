@@ -46,7 +46,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// how the reader last had a screen, kept on this device only. So is show archived
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
 /// otherwise hidden. Every key is additive and left out while at its default — the tools
-/// pane's two until it has been on a tab or a filter here — so a file
+/// pane's two until it has been on a tab or a filter here, the notification centre's Group by
+/// and filters until chosen — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
 /// </summary>
@@ -180,6 +181,10 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        NotificationsGroupBy = Blank(dto?.NotificationsGroupBy);
+        NotificationsAskedBy = Blank(dto?.NotificationsAskedBy);
+        NotificationsKind = Blank(dto?.NotificationsKind);
+        NotificationsFrom = Blank(dto?.NotificationsFrom);
         AtlasReturnSurface = AtlasReturnId(dto?.AtlasReturnSurface);
         AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
@@ -269,6 +274,20 @@ public sealed class ShellNavigationStore
     /// <summary>Whether the ways-to-move hint of the C4 zoom tab was dismissed on this
     /// device. Read through Devbook's <c>IDevbookViewPreferences</c>.</summary>
     public bool C4ZoomHintDismissed { get; private set; }
+
+    /// <summary>The notification centre's Group by when it was last chosen on this device, by
+    /// the centre's own slug; null until one was chosen. Read, with the three filters below,
+    /// through the Notifications UI's <c>INotificationCentrePreferences</c>.</summary>
+    public string? NotificationsGroupBy { get; private set; }
+
+    /// <summary>The centre's Asked by filter, by its slug; null for All.</summary>
+    public string? NotificationsAskedBy { get; private set; }
+
+    /// <summary>The centre's Kind filter, by its slug; null for All.</summary>
+    public string? NotificationsKind { get; private set; }
+
+    /// <summary>The centre's From filter, a system's name; null for anywhere.</summary>
+    public string? NotificationsFrom { get; private set; }
 
     /// <summary>The takeover the Lobes atlas was opened over, which its way back
     /// returns to, by its surface id; null for the workspace, and until the atlas was
@@ -493,6 +512,22 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>Replaces the notification centre's Group by and its three filters in one save;
+    /// a blank one is its default.</summary>
+    public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from)
+    {
+        (groupBy, askedBy, kind, from) = (Blank(groupBy), Blank(askedBy), Blank(kind), Blank(from));
+        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom) return;
+
+        NotificationsGroupBy = groupBy;
+        NotificationsAskedBy = askedBy;
+        NotificationsKind = kind;
+        NotificationsFrom = from;
+        Save();
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     /// <summary>Replaces both iteration choices in one save, so a first choice of two weeks
     /// writes its length and its start together. Kept for the files an earlier build wrote
     /// and the tests that write one; the app no longer calls it (local ADR 0036, §5).</summary>
@@ -598,6 +633,12 @@ public sealed class ShellNavigationStore
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
                 ToolsHostFilter = ToolsHostFilter,
+                // Left out while at their defaults. All four keys are stored names: never
+                // rename them without reading the old ones.
+                NotificationsGroupBy = NotificationsGroupBy,
+                NotificationsAskedBy = NotificationsAskedBy,
+                NotificationsKind = NotificationsKind,
+                NotificationsFrom = NotificationsFrom,
                 // Left out until the atlas has been opened here. Both keys are stored
                 // names: never rename them without reading the old ones.
                 AtlasReturnSurface = AtlasReturnSurface,
@@ -678,6 +719,22 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>notificationsGroupBy</c>, the centre's slug.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? NotificationsGroupBy { get; init; }
+
+        /// <summary>Written as <c>notificationsAskedBy</c>, the centre's slug.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? NotificationsAskedBy { get; init; }
+
+        /// <summary>Written as <c>notificationsKind</c>, the centre's slug.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? NotificationsKind { get; init; }
+
+        /// <summary>Written as <c>notificationsFrom</c>, a system's name.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? NotificationsFrom { get; init; }
 
         /// <summary>Written as <c>atlasReturnSurface</c>, a takeover's surface id.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
