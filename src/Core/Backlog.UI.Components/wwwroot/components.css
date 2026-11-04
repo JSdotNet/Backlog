@@ -19125,13 +19125,6 @@ select.field__input {
     outline-offset: -2px;
 }
 
-/* Prose, not Markdown source: the field takes the UI face the rest of the sheet
-   uses rather than the editor's monospace. */
-.capture-sheet__field .field__input {
-    font-family: var(--font-family-base);
-    font-size: var(--font-size-lg);
-}
-
 /* The field, its box and the textarea in it stretch down the panel together. */
 .capture-sheet__panel > .capture-sheet__field {
     flex: 1 0 8rem;
@@ -19144,9 +19137,13 @@ select.field__input {
     display: flex;
 }
 
+/* Prose, not Markdown source: the field takes the UI face the rest of the sheet
+   uses rather than the editor's monospace. */
 .capture-sheet__field .field__input {
     flex: 1;
     resize: none;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-lg);
 }
 
 .capture-sheet__chips {
