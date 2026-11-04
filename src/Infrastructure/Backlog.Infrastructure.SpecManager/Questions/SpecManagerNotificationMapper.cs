@@ -101,6 +101,14 @@ internal static class SpecManagerNotificationMapper
         var via = ViaOf(notification.Category);
         var link = DeepLinkOf(notification.Link, root);
         var subject = SpecManagerQuestionMapper.OneLine(notification.Subject);
+        var line = SpecManagerQuestionMapper.OneLine(notification.Text);
+        var summary = SpecManagerQuestionMapper.Cut(line, 180);
+
+        // Both cards draw the body under the summary: a text the summary holds whole leaves
+        // the body empty, and one the bound cut short is the body whole.
+        var body = string.Equals(summary, line, StringComparison.Ordinal)
+            ? string.Empty
+            : SpecManagerQuestionMapper.CutBytes(notification.Text ?? string.Empty, MaxBodyBytes);
 
         return new NotificationDraft(
             new NotificationSource(SpecManagerQuestionMapper.SourceContext, SourceKey(notification.Id)),
@@ -110,8 +118,8 @@ internal static class SpecManagerNotificationMapper
                 ? NotificationSeverity.Warning
                 : NotificationSeverity.Info,
             SpecManagerQuestionMapper.Cut(subject.Length > 0 ? subject : via ?? "spec-manager notification", 80),
-            SpecManagerQuestionMapper.Cut(SpecManagerQuestionMapper.OneLine(notification.Text), 180),
-            SpecManagerQuestionMapper.CutBytes(notification.Text ?? string.Empty, MaxBodyBytes),
+            summary,
+            body,
             DeepLink: link,
             Origin: NotificationOrigin.Fit(
                 SpecManagerQuestionMapper.SystemOf(root, defaultInstallation),
