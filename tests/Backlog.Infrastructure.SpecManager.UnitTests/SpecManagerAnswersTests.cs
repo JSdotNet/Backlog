@@ -152,25 +152,35 @@ public sealed class SpecManagerAnswersTests
         Assert.Contains("Which rounding rule applies to invoice totals?", alert.BodyMarkdown, StringComparison.Ordinal);
     }
 
+    /// <summary>The summary already holds the whole sentence, so the body under it on both
+    /// cards holds only the detail — the sentence is not shown twice.</summary>
+    [Fact]
+    public async Task The_connected_app_alert_body_holds_the_detail_without_repeating_the_summary()
+    {
+        using var scenario = new QuestionScenario();
+        await PublishQuestionAsync(scenario);
+        scenario.Connector.Server.Route(HttpMethod.Put, AnswerPath, (_, _) => StubSpecManager.Respond(
+            HttpStatusCode.Forbidden,
+            """{"message":"Answering questions from a connected app is switched off for this product."}"""));
+        var handler = Handler(scenario);
+
+        await handler.HandleAnswerAsync(Answer(["1"], null, null), Token);
+        await handler.Alerts;
+
+        var alert = Alert(scenario);
+        Assert.StartsWith(
+            "Your answer to 'Which rounding rule applies to invoice totals?' was not sent:",
+            alert.BodyMarkdown,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(alert.Summary, alert.BodyMarkdown, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Answered_by_someone_else_first_an_alert_says_who_and_what()
     {
         using var scenario = new QuestionScenario();
         await PublishQuestionAsync(scenario);
-        scenario.Questions("[]", $$"""
-            [ {
-              "id": "{{QuestionScenario.AssignedToMe}}", "itemId": null, "itemNumber": null, "itemTitle": null,
-              "text": "Which rounding rule applies to invoice totals?", "context": null,
-              "options": [ { "position": 1, "label": "Round half even" }, { "position": 2, "label": "Round half up" } ],
-              "assignee": null, "askedBy": { "id": "x", "name": "Kees de Vries" }, "askedAt": "2026-10-05T11:00:00+00:00",
-              "source": "spec-manager", "openSpecChange": "c",
-              "answer": { "option": 2, "optionLabel": "Round half up", "other": null, "note": null,
-                          "answeredBy": { "id": "ada", "name": "Ada Lovelace" }, "answeredAt": "2026-10-05T11:10:00+00:00" }
-            } ]
-            """);
-        scenario.Connector.Server.Route(HttpMethod.Put, AnswerPath, (_, _) => StubSpecManager.Respond(
-            HttpStatusCode.BadRequest,
-            """{"message":"This question was answered by someone else; only they can change the answer."}"""));
+        AnsweredFirstByAda(scenario, "\"option\": 2, \"optionLabel\": \"Round half up\", \"other\": null");
         var handler = Handler(scenario);
 
         await handler.HandleAnswerAsync(Answer(["1"], null, null), Token);
@@ -179,6 +189,46 @@ public sealed class SpecManagerAnswersTests
         Assert.Equal(
             "Your answer to 'Which rounding rule applies to invoice totals?' was not recorded: Ada Lovelace answered 'Round half up' first",
             Alert(scenario).Summary);
+    }
+
+    [Fact]
+    public async Task Answered_by_someone_else_first_the_body_holds_only_why()
+    {
+        using var scenario = new QuestionScenario();
+        await PublishQuestionAsync(scenario);
+        AnsweredFirstByAda(scenario, "\"option\": 2, \"optionLabel\": \"Round half up\", \"other\": null");
+        var handler = Handler(scenario);
+
+        await handler.HandleAnswerAsync(Answer(["1"], null, null), Token);
+        await handler.Alerts;
+
+        Assert.Equal(
+            "spec-manager keeps the first answer to a question, and only whoever gave it can change it.",
+            Alert(scenario).BodyMarkdown);
+    }
+
+    /// <summary>A sentence past the 180-character summary bound loses its tail in the
+    /// summary, so the body opens with the whole sentence before the detail.</summary>
+    [Fact]
+    public async Task A_sentence_cut_short_in_the_summary_opens_the_body_whole()
+    {
+        const string said = "Round half even on every line, then round the invoice total half up, "
+            + "unless the customer's contract names another rule for its invoices";
+        using var scenario = new QuestionScenario();
+        await PublishQuestionAsync(scenario);
+        AnsweredFirstByAda(scenario, $"\"option\": null, \"optionLabel\": null, \"other\": \"{said}\"");
+        var handler = Handler(scenario);
+
+        await handler.HandleAnswerAsync(Answer(["1"], null, null), Token);
+        await handler.Alerts;
+
+        var alert = Alert(scenario);
+        Assert.EndsWith("…", alert.Summary, StringComparison.Ordinal);
+        Assert.StartsWith(
+            $"Your answer to 'Which rounding rule applies to invoice totals?' was not recorded: Ada Lovelace answered '{said}' first\n\n"
+            + "spec-manager keeps the first answer to a question",
+            alert.BodyMarkdown,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -208,6 +258,24 @@ public sealed class SpecManagerAnswersTests
         var alert = Alert(scenario);
         Assert.Equal("Your answer to 'the question' was not recorded in spec-manager", alert.Summary);
         Assert.Contains("spec-manager refused it (403): MCP is switched off for this product.", alert.BodyMarkdown, StringComparison.Ordinal);
+    }
+
+    /// <summary>Whichever refusal it is, a summary that holds the whole sentence is not
+    /// repeated in the body.</summary>
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, """{"message":"Question not found."}""", "It was deleted in spec-manager before the answer reached it.")]
+    [InlineData(HttpStatusCode.Forbidden, """{"message":"MCP is switched off for this product."}""", "spec-manager refused it (403): MCP is switched off for this product.")]
+    public async Task A_refusal_alert_body_does_not_repeat_its_summary(HttpStatusCode status, string response, string detail)
+    {
+        using var scenario = new QuestionScenario();
+        await PublishQuestionAsync(scenario);
+        scenario.Connector.Server.Route(HttpMethod.Put, AnswerPath, (_, _) => StubSpecManager.Respond(status, response));
+        var handler = Handler(scenario);
+
+        await handler.HandleAnswerAsync(Answer(["1"], null, null), Token);
+        await handler.Alerts;
+
+        Assert.Equal(detail, Alert(scenario).BodyMarkdown);
     }
 
     [Fact]
@@ -256,6 +324,26 @@ public sealed class SpecManagerAnswersTests
     {
         await scenario.Sync.PullAsync(whole: true, Token);
         scenario.Ledger.Answer(scenario.IdOf(QuestionScenario.AssignedToMe));
+    }
+
+    /// <summary>spec-manager refuses the answer because Ada answered first, and reads her
+    /// answer back as <paramref name="answer"/> — the answer object's option fields.</summary>
+    private static void AnsweredFirstByAda(QuestionScenario scenario, string answer)
+    {
+        scenario.Questions("[]", $$"""
+            [ {
+              "id": "{{QuestionScenario.AssignedToMe}}", "itemId": null, "itemNumber": null, "itemTitle": null,
+              "text": "Which rounding rule applies to invoice totals?", "context": null,
+              "options": [ { "position": 1, "label": "Round half even" }, { "position": 2, "label": "Round half up" } ],
+              "assignee": null, "askedBy": { "id": "x", "name": "Kees de Vries" }, "askedAt": "2026-10-05T11:00:00+00:00",
+              "source": "spec-manager", "openSpecChange": "c",
+              "answer": { {{answer}}, "note": null,
+                          "answeredBy": { "id": "ada", "name": "Ada Lovelace" }, "answeredAt": "2026-10-05T11:10:00+00:00" }
+            } ]
+            """);
+        scenario.Connector.Server.Route(HttpMethod.Put, AnswerPath, (_, _) => StubSpecManager.Respond(
+            HttpStatusCode.BadRequest,
+            """{"message":"This question was answered by someone else; only they can change the answer."}"""));
     }
 
     private static NotificationDraft Alert(QuestionScenario scenario) =>
