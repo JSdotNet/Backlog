@@ -88,6 +88,22 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     }
 
     [Fact]
+    public async Task With_copy_switched_off_the_dialog_keeps_the_queue_icon_and_drops_the_copy()
+    {
+        var (id, _) = await PlannedAsync("backlog");
+        RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+
+        using var context = Context();
+        context.Services.AddSingleton<IAppFeatureSettings>(new CopyEntriesOff());
+        var band = Band(context);
+        await OpenAsync(band, id);
+
+        var plan = band.Find("[data-testid='roadmap-editor-plan']");
+        Assert.Null(plan.QuerySelector("[data-testid='roadmap-editor-copy-plan']"));
+        Assert.NotNull(plan.QuerySelector(Queue));
+    }
+
+    [Fact]
     public async Task Queuing_asks_for_the_plan_in_the_first_repository_with_a_clone_folder()
     {
         var (id, tag) = await PlannedAsync("fincent", "backlog");
@@ -344,6 +360,20 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
 
         Assert.Equal("plan", offer!.Tag);
         Assert.Equal(PlanSessionOffer.NoRepository, offer.DisabledReason);
+    }
+
+    /// <summary>The <c>copy-entries</c> switch off, and every other key on.</summary>
+    private sealed class CopyEntriesOff : IAppFeatureSettings
+    {
+        public event Action? Changed { add { } remove { } }
+
+        public AppFeatureSettings Current { get; } = new();
+
+        public string SettingsPath => "(in memory)";
+
+        public bool IsEnabled(string key) => !string.Equals(key, AppFeatureKeys.CopyEntries, StringComparison.Ordinal);
+
+        public string? SetEnabled(string key, bool enabled) => null;
     }
 
     /// <summary>The plan queue, in memory.</summary>

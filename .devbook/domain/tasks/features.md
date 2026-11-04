@@ -809,7 +809,8 @@ The tags on the filter bar sit in one strip, one row high, and the strip shows a
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader
 pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
-`+` and all, so the reader can paste the plan's name elsewhere. With the
+`+` and all, so the reader can paste the plan's name elsewhere, while the
+[`copy-entries`](context.md#copy-entries) flag is on. With the
 [`session-requests`](../sessions/context.md#session-requests) flag on, the plan's
 [queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
 copy, and the waiting chip takes its place while a request is open. **No plan** and
@@ -985,13 +986,16 @@ status: draft
 
 Copy a prompt's text to the clipboard in one click. Each copy or use is logged
 in the task's usage history, and a person can reopen earlier prompts from that
-log.
+log. The copy button sits on the task's row, on its board card and in the open
+entry while the [`copy-entries`](context.md#copy-entries) flag is on, which it is
+by default. Off, the button is gone and the queue icon beside it stays.
 
 ### Copy as a runnable paste
 
 ```meta
 type: sub-feature
 status: draft
+feature-flag: .devbook/domain/tasks/context.md#copy-entries
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#task-type]
 ```
 
