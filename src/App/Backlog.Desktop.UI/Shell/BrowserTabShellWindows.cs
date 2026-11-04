@@ -19,6 +19,10 @@ namespace Backlog.Desktop.UI.Shell;
 /// The window keys the interface passes are ignored: a circuit is one tab, and the
 /// only window it can retitle or close is its own.
 /// </para>
+/// <para>
+/// A tab is never remembered to reopen at start (local ADR 0043 §5): it keeps the
+/// interface's answer that it cannot be, so its page draws no pin.
+/// </para>
 /// </summary>
 public sealed class BrowserTabShellWindows(IJSRuntime js) : IShellWindows
 {

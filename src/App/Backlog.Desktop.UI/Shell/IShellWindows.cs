@@ -33,6 +33,28 @@ public interface IShellWindows
 
     /// <summary>Brings the main window to the front.</summary>
     void ActivateMainWindow();
+
+    /// <summary>Whether a popped-out window can be remembered to reopen on the next
+    /// start (local ADR 0043 §5): true in the desktop head only. A host that answers
+    /// false — a browser tab, a test — draws no pin.</summary>
+    bool CanRemember => false;
+
+    /// <summary>Whether the popped-out window <paramref name="windowKey"/> names is
+    /// remembered to reopen on the next start.</summary>
+    bool IsRemembered(string windowKey) => false;
+
+    /// <summary>Marks the popped-out window <paramref name="windowKey"/> names
+    /// remembered, so it reopens on the next start on what it shows then, or forgets
+    /// it. Changes that one window alone.</summary>
+    void SetRemembered(string windowKey, bool remembered)
+    {
+    }
+
+    /// <summary>What the popped-out window <paramref name="windowKey"/> names shows
+    /// now, after a jump or a scope change: what a remembered window reopens on.</summary>
+    void ReportShowing(string windowKey, string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+    }
 }
 
 /// <summary>

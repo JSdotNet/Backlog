@@ -531,6 +531,13 @@ html, body {
     gap: var(--spacing-xs);
 }
 
+/* The pin is a glyph in a box, so it takes the folded sides the app's icon-only
+   header option takes, and stands at the trailing end beside Show in main window. */
+.sb-window-header__pin {
+    margin-inline-start: auto;
+    padding-inline: var(--spacing-sm);
+}
+
 /* A phone's whole screen, for something that covers one — the capture sheet
    rises from the bottom edge over a dimmed screen. The transform makes this box
    the containing block of the sheet's fixed layers, so the sheet covers the

@@ -9,8 +9,9 @@
 
 @*
     A popped-out window (local ADR 0043 §4, §6): one registered surface, under the
-    slim header — the surface's title, the repository scope chips and Show in main
-    window. No view switch, and no Ask AI: Ask AI stays in the main window only. The
+    slim header — the surface's title, the repository scope chips, the Remember this
+    window pin where the window can be remembered (§5), and Show in main window. No
+    view switch, and no Ask AI: Ask AI stays in the main window only. The
     OS close button is the window's own.
 
     The surface comes from the catalog and renders through DynamicComponent, handed
@@ -57,6 +58,24 @@
                     </ToggleButton>
                 }
             </ButtonGroup>
+        }
+
+        @if (CanRemember)
+        {
+            @* The pin (§5): one on-or-off of its own, so the loose icon-only option
+               Show archived wears, at its size. No word on screen, so the name is on
+               aria-label and stays fixed; aria-pressed carries the state, and the
+               tooltip says what the next press does. *@
+            <ToggleButton BaseClass="header-group__option header-group__option--loose header-group__option--icon-only"
+                          CssClass="surface-window__pin"
+                          PressedCssClass="header-group__option--selected"
+                          Pressed="_remembered"
+                          PressedChanged="SetRemembered"
+                          TestId="surface-window-pin"
+                          AriaLabel="Remember this window"
+                          Title="@(_remembered ? "Forget this window" : "Remember this window")">
+                <PinIcon />
+            </ToggleButton>
         }
 
         @if (_surface is not null && CanShowInMainWindow)
@@ -108,10 +127,15 @@
     private IShellWindows? _windows;
     private MainWindowSurfaces? _mainWindow;
     private string? _routedId;
+    private bool _remembered;
 
     private string Title => _surface?.Title ?? "Not available";
 
     private bool CanShowInMainWindow => _mainWindow is not null;
+
+    /// <summary>Only a window the head names, on a surface it can show, in a host that
+    /// reopens windows: never a web harness tab or a loopback page.</summary>
+    private bool CanRemember => _surface is not null && WindowKey is not null && _windows is { CanRemember: true };
 
     protected override void OnInitialized()
     {
@@ -157,8 +181,23 @@
         if (string.Equals(_routedId, SurfaceId, StringComparison.Ordinal)) return;
 
         _routedId = SurfaceId;
+        if (WindowKey is { } key && _windows is not null) _remembered = _windows.IsRemembered(key);
         Switch(SurfaceId, SurfaceWindowRoute.QueryOf(Navigation.Uri));
         RestoreScope();
+    }
+
+    /// <summary>A press on the pin: this window alone is remembered, or forgotten.</summary>
+    private void SetRemembered(bool remembered)
+    {
+        _remembered = remembered;
+        if (WindowKey is { } key) _windows?.SetRemembered(key, remembered);
+    }
+
+    /// <summary>Tells the head what this window shows now, so a remembered window
+    /// reopens on what it showed last rather than on what it opened on (§5).</summary>
+    private void ReportShowing()
+    {
+        if (WindowKey is { } key && _surface is { } surface) _windows?.ReportShowing(key, surface.Id, _query);
     }
 
     /// <summary>
@@ -182,6 +221,7 @@
             .Where(pair => keys.Contains(pair.Key, StringComparer.Ordinal))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         WriteTitle();
+        ReportShowing();
     }
 
     /// <summary>The OS window's title follows the surface it shows.</summary>
@@ -248,6 +288,7 @@
         else query[ScopeKey] = BrainScope.Is(_state.AnchorRepositoryAlias) ? BrainScopeValue : _state.AnchorRepositoryAlias;
 
         _query = query;
+        ReportShowing();
     }
 
     /// <summary>What the surface's component is handed: its query, and the callback

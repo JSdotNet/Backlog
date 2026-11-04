@@ -47,9 +47,11 @@ The sample is live: pick a view, or press the Inbox, the Devbook or a takeover �
     </Story>
 
     <Story Name="Popped-out window header"
-           Description="A surface popped out into its own window wears a slim header of three things: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
+           Description="A surface popped out into its own window wears a slim header of four things: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, the Remember this window pin, and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
 
-There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. The sample is live: press a chip, or Show in main window, and the line under it says what the window would do."
+The pin is an icon-only toggle immediately before Show in main window. Its name stays Remember this window, it reads pressed while this window is remembered, and its tooltip says what the next press does; what remembering does is the shell header guideline's. The app dresses it as Show archived's loose option; here it wears the library toggle's pressed fill, as the chips do. The two headers below show it unpressed and pressed.
+
+There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. The sample is live: press a chip, the pin, or Show in main window, and the line under it says what the window would do."
            Code="@WindowHeaderCode">
         <header class="sb-window-header" data-testid="sb-window-header">
             <h3 class="sb-window-header__title">Roadmap</h3>
@@ -60,6 +62,7 @@ There is no view switch, no takeover option, no Ask AI — it stays in the main 
                     <ToggleButton Pressed="@_windowScope.Contains(repository)" OnClick="() => ScopeWindow(repository)">@repository</ToggleButton>
                 }
             </ButtonGroup>
+            @WindowPin(_windowRemembered, "sb-window-pin", remembered => { _shownInMain = false; _windowRemembered = remembered; })
             <AppButton TestId="sb-window-show-in-main"
                        Title="Show this in the main window and close this window"
                        OnClick="ShowInMainWindow">
@@ -67,6 +70,13 @@ There is no view switch, no takeover option, no Ask AI — it stays in the main 
             </AppButton>
         </header>
         <p class="sb-state" data-testid="sb-window-state">@WindowState</p>
+        @* The same header with the pin pressed, so both states are on the page at
+           once rather than one press apart. *@
+        <header class="sb-window-header" data-testid="sb-window-header-remembered">
+            <h3 class="sb-window-header__title">Devbook</h3>
+            @WindowPin(_rememberedSampleRemembered, "sb-window-pin-remembered", remembered => _rememberedSampleRemembered = remembered)
+            <AppButton Title="Show this in the main window and close this window">Show in main window</AppButton>
+        </header>
     </Story>
 
     <Story Name="Tab bar"
@@ -185,6 +195,21 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
 
     private List<string> _windowScope = [];
     private bool _shownInMain;
+    private bool _windowRemembered;
+    private bool _rememberedSampleRemembered = true;
+
+    /// <summary>The pin, its name fixed and its tooltip the next press. The app
+    /// dresses it as Show archived's loose icon-only option, whose classes live in the
+    /// app's stylesheet and not here; the sample wears the library toggle's own
+    /// pressed fill instead, as the scope chips beside it do, so the two states read
+    /// apart on this page.</summary>
+    private RenderFragment WindowPin(bool remembered, string testId, Action<bool> pressed) =>
+        @<ToggleButton CssClass="sb-window-header__pin"
+                       Pressed="remembered"
+                       PressedChanged="pressed"
+                       TestId="@testId"
+                       AriaLabel="Remember this window"
+                       Title="@(remembered ? "Forget this window" : "Remember this window")"><PinIcon /></ToggleButton>;
 
     /// <summary>A plain press scopes that one; a press on the only one in scope
     /// clears it.</summary>
@@ -194,10 +219,16 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
         _windowScope = _windowScope is [var only] && only == scope ? [] : [scope];
     }
 
-    private void ShowInMainWindow() => _shownInMain = true;
+    private void ShowInMainWindow()
+    {
+        _shownInMain = true;
+        _windowRemembered = false;
+    }
 
     private string WindowState => _shownInMain
-        ? "The main window switches to the Roadmap, and this window closes."
+        ? "The main window switches to the Roadmap, and this window closes; it is not remembered."
+        : _windowRemembered
+            ? "This window is remembered: it reopens on the Roadmap at the next start."
         : _windowScope is [var scope]
             ? $"This window shows {scope} alone; the main window's scope is unchanged."
             : "This window shows every repository in scope; the main window's scope is unchanged.";
@@ -292,6 +323,15 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
                     <ToggleButton Pressed="InScope(repository)" OnClick="() => ScopeRepository(repository.Alias)">@repository.Alias</ToggleButton>
                 }
             </ButtonGroup>
+            @if (CanRemember)
+            {
+                <ToggleButton BaseClass="header-group__option header-group__option--loose header-group__option--icon-only"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="_remembered"
+                              PressedChanged="SetRemembered"
+                              AriaLabel="Remember this window"
+                              Title="@(_remembered ? "Forget this window" : "Remember this window")"><PinIcon /></ToggleButton>
+            }
             <AppButton Title="Show this in the main window and close this window" OnClick="ShowInMainWindowAsync">Show in main window</AppButton>
         </header>
         """;
