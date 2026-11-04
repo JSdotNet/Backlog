@@ -761,16 +761,16 @@ related: [.devbook/domain/brain/features.md#lobes-atlas, .devbook/domain/brain/c
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Each_scope_counts_its_regions_its_items_and_the_notes_linking_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_atlas_offers_no_scope_switch_and_draws_the_shells_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_empty_shell_scope_draws_the_brain_and_every_registered_devbook_and_no_ghost, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Each_scope_counts_its_regions_its_items_and_the_notes_linking_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does]
 ```
 
 The system SHALL open one full-window atlas from the shell header that draws the Brain and the devbook of every registered repository as brains the reader rotates by dragging and zooms by scrolling.
 
 #### Scenario: Opening from the header
 
-- **Given** a Brain index and two registered repositories with devbooks
+- **Given** a Brain index, two registered repositories with devbooks, and nothing pressed in the header's repository scope
 - **When** the reader opens the atlas from the shell header
-- **Then** the atlas fills the window in the All scope, with the Brain and both devbooks drawn
+- **Then** the atlas fills the window in the All layout, with the Brain and both devbooks drawn
 
 #### Scenario: Rotating and zooming
 
@@ -792,7 +792,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_floats_every_part_over_a_full_bleed_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_parts_are_siblings_of_the_atlas_in_the_order_the_eye_meets_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_stacks_a_narrow_window_in_one_column_with_the_panel_in_a_sheet, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_panels_disclosure_names_the_panel_and_the_card_and_opens_the_sheet]
 ```
 
-The system SHALL draw the map across the whole atlas in a window wider than 60rem, with the title, the scope switch, the left panel, the scope card, the top-right controls, the chips, the list of marks and the foot floating over it, and SHALL stack them in one column in a window 60rem wide or narrower, with the panel and the scope card folded behind one disclosure, the map in view and nothing overlapping.
+The system SHALL draw the map across the whole atlas in a window wider than 60rem, with the title, the left panel, the scope card, the top-right controls, the chips, the list of marks and the foot floating over it, and SHALL stack them in one column in a window 60rem wide or narrower, with the panel and the scope card folded behind one disclosure, the map in view and nothing overlapping.
 
 #### Scenario: A wide window
 
@@ -810,55 +810,55 @@ The system SHALL draw the map across the whole atlas in a window wider than 60re
 
 - **Given** the atlas at 390 × 844
 - **When** the reader opens it
-- **Then** the scope switch and the chips each keep one sideways-scrolling row, the panel and the card sit behind one disclosure, the map is in view with its list under it, and nothing overlaps
+- **Then** the chips keep one sideways-scrolling row, the panel and the card sit behind one disclosure, the map is in view with its list under it, and nothing overlaps
 
-### Requirement: The atlas offers All, Brain and one scope per devbook
+### Requirement: The atlas draws the header's repository scope
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Switching_scope_hands_the_renderer_a_new_layout_which_resets_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_lets_the_scope_switch_scroll_rather_than_clip_or_squeeze_its_options]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_atlas_offers_no_scope_switch_and_draws_the_shells_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_new_shell_scope_hands_the_renderer_a_new_layout_which_resets_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Several_in_view_draw_all_with_only_those_scopes, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_empty_shell_scope_draws_the_brain_and_every_registered_devbook_and_no_ghost, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_shells_one_member_opens_its_scope_and_one_with_no_devbook_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_shell_scope_change_lays_out_live_and_keeps_region_hides_labels_pause_and_tech, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_header_chip_press_lays_the_open_atlas_out_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Opening_the_atlas_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it_while_it_has_the_screen, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.InView_keeps_the_scopes_their_nodes_and_the_edges_between_them]
 ```
 
-The system SHALL offer the scopes All, Brain and one per devbook, drawing the Brain in the middle of All with each devbook as a smaller brain around it.
+The system SHALL draw the members of the shell header's repository scope — one member as that scope alone, several or none pressed as All with only those scopes (the Brain in the middle when in view, each devbook a smaller brain around it) — re-laying out while open when the scope changes, and SHALL say in words when nothing in scope has a devbook.
 
 #### Scenario: All
 
-- **Given** the atlas is open with two registered devbooks
-- **When** the reader picks All
-- **Then** the Brain is drawn in the middle and each devbook as a smaller brain around it
+- **Given** the Brain and backlog pressed in the header's repository scope, with two registered devbooks
+- **When** the reader opens the atlas
+- **Then** it draws All with only those two: the Brain in the middle and backlog's devbook as a smaller brain beside it
 
 #### Scenario: One devbook
 
 - **Given** the atlas is open in All
-- **When** the reader picks a devbook's scope
-- **Then** only that devbook is drawn, by region
+- **When** the reader presses backlog's header chip alone
+- **Then** only that devbook is drawn, by region, without the atlas reopening
 
-#### Scenario: A narrow window
+#### Scenario: Nothing to draw
 
-- **Given** the atlas at 390 px wide with the Brain, eleven devbooks and a ghost devbook
-- **When** the reader looks for the last scope in the switch
-- **Then** the switch scrolls sideways to it, and no scope's name runs into its neighbour's
+- **Given** only a repository with no devbook pressed in the header's repository scope
+- **When** the reader opens the atlas
+- **Then** the atlas says none in scope has a devbook and draws no map
 
 ### Requirement: An unregistered alias is a ghost devbook
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.A_ghost_scope_makes_no_dust_and_its_outline_is_stroked_dashed_in_the_ghost_ink, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.At_any_angle_the_outline_hugs_the_turned_shell]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Ghosts_is_a_toggle_that_draws_every_ghost_in_all_and_is_absent_without_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_ghost_row_steps_into_the_ghost_and_back_ghosts_off_or_a_shell_change_leaves_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.A_ghost_scope_makes_no_dust_and_its_outline_is_stroked_dashed_in_the_ghost_ink, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.At_any_angle_the_outline_hugs_the_turned_shell]
 ```
 
-The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words.
+The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words, drawn in All while the Ghosts toggle (offered while a ghost exists) is on, and its panel row steps into it alone.
 
 #### Scenario: Another machine's repository
 
 - **Given** Brain notes linking three chapters of an alias not registered here
-- **When** the reader opens the atlas
-- **Then** the alias has a dashed scope of its own, and its brain is a dashed outline holding those three chapters, each named as its link wrote it
+- **When** the reader turns on Ghosts and presses the alias's row
+- **Then** its brain alone is a dashed outline holding those three chapters, each named as its link wrote it
 
 #### Scenario: Its tag in All
 
-- **Given** a ghost devbook and a registered devbook
+- **Given** a ghost devbook, a registered devbook, and Ghosts on
 - **When** the reader opens the atlas in All
 - **Then** the registered devbook's tag gives its name and its count, and the ghost's reads its alias and "· not registered"
 
@@ -1009,28 +1009,28 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_the_scopes_in_view_with_their_counts_and_a_row_asks_the_shell_for_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_there_are_no_chips_and_no_all_or_none, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_all_regions_and_starts_with_its_word, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Without_a_host_to_ask_alls_rows_are_a_plain_legend_and_its_card_offers_nothing]
 ```
 
-The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, Pause, All, None and one chip per region (per scope in All) at the top right, apply the chips, Labels, All and None to the current scope only, hide a scope's Archive dust with its regions on None and show it again on All, and name the top right's All apart from the scope switch's All with a name that starts with "All".
+The system SHALL list the scopes in view with their counts in the left panel in All, a row asking the header's scope for that scope alone, and the six regions with what each holds and its count in a single scope; offer Labels and Pause at the top right, with All, None and one chip per region in a single scope and none of them in All; apply the chips, Labels, All and None to the current scope only; hide a scope's Archive dust with its regions on None and show it again on All; and name the top right's All "All regions".
 
 #### Scenario: None in one scope
 
 - **Given** the atlas in the Brain scope with every region shown, and a devbook's regions all shown
-- **When** the reader presses None and then picks that devbook's scope
+- **When** the reader presses None and then presses that devbook's header chip
 - **Then** the Brain's regions are hidden and the devbook's regions are all still shown
 
 #### Scenario: The panel follows the scope
 
 - **Given** the atlas in All
-- **When** the reader picks the Brain scope
+- **When** the reader presses the header's Brain chip alone
 - **Then** the left panel, headed Anatomical regions, lists the six regions in place of the scopes, and the chips at the top right are the six regions'
 
 #### Scenario: A row opens a scope
 
 - **Given** the atlas in All
 - **When** the reader presses a devbook's row in the left panel
-- **Then** the atlas shows that devbook's scope
+- **Then** the header's scope becomes that devbook alone and the atlas shows its scope
 
 #### Scenario: None hides the Archive
 
@@ -1038,21 +1038,21 @@ The system SHALL list the scopes with their counts in the left panel in All and 
 - **When** the reader presses None, then All
 - **Then** None leaves no mark on the map and no row in the list, the archived note among them, and All brings the note back
 
-#### Scenario: Two buttons read All
+#### Scenario: No chips in All
 
-- **Given** the atlas in the Brain scope
-- **When** a screen reader reads the header
-- **Then** the scope switch's option is named "All" and the picture's tool "All regions"
+- **Given** the atlas in All
+- **When** the reader looks at the top right
+- **Then** there is no chip and no All or None
 
 ### Requirement: The scope card offers one action for its scope
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Step_into_the_brain_asks_the_shell_for_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_ghost_row_steps_into_the_ghost_and_back_ghosts_off_or_a_shell_change_leaves_it]
 ```
 
-The system SHALL show a scope card naming the scope with its counts, when its index was last built, and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
+The system SHALL show a scope card naming the scope with its counts, when its index was last built, and its action: Open in the pane for the Brain, Open devbook for a devbook, Register repository with Back to all scopes for a ghost devbook, and Step into the Brain for All, which asks the header's scope for the Brain.
 
 #### Scenario: A devbook
 
@@ -1064,7 +1064,7 @@ The system SHALL show a scope card naming the scope with its counts, when its in
 
 - **Given** the atlas in a ghost devbook's scope
 - **When** the reader reads its card
-- **Then** the card's one action is Register repository
+- **Then** the card offers Register repository and Back to all scopes
 
 #### Scenario: When it was indexed
 
@@ -1187,14 +1187,14 @@ The system SHALL open a mark's details when the reader selects it on the map or 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_on_the_atlas_button_opens_the_lobes_atlas_at_the_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_off_the_atlas_button_opens_todays_atlas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.On_the_brain_the_atlas_button_opens_the_lobes_atlas_at_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbooks_atlas_button_opens_the_atlas_at_its_scope_and_the_way_back_returns_to_the_devbook]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_on_the_atlas_button_opens_the_lobes_atlas_at_the_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_off_the_atlas_button_opens_todays_atlas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.On_the_brain_the_atlas_button_opens_the_lobes_atlas_at_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook]
 ```
 
-The system SHALL open the Lobes atlas at the pane's scope from the Devbook pane's Atlas button while `atlas-lobes` is on, and today's atlas while it is off, leaving the Technology section to its own views.
+The system SHALL open the Lobes atlas on the header's repository scope from the Devbook pane's Atlas button while `atlas-lobes` is on, and today's atlas while it is off, leaving the Technology section to its own views.
 
 #### Scenario: On a repository
 
-- **Given** `atlas-lobes` is on and the pane shows `backlog`
+- **Given** `atlas-lobes` is on, the header's scope is `backlog` alone, and the pane shows `backlog`
 - **When** the reader presses Atlas
 - **Then** the Lobes atlas opens in the `backlog` scope
 
@@ -1266,7 +1266,7 @@ The system SHALL zoom toward the point under the pointer when the reader scrolls
 - **When** the reader scrolls in again
 - **Then** the zoom stays at 2.4 times and the foot still reads 240%
 
-### Requirement: A scope switch eases the camera home
+### Requirement: A new layout eases the camera home
 
 ```meta
 type: requirement
@@ -1274,18 +1274,18 @@ status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_scope_curve_starts_at_rest_ends_at_rest_and_never_turns_back, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Easing_home_takes_the_short_way_round_however_far_the_idle_turn_wound]
 ```
 
-The system SHALL ease the camera from the last view to the default view, the short way round, when the reader switches scope.
+The system SHALL ease the camera from the last view to the default view, the short way round, when the header's scope or the Ghosts toggle changes what the atlas draws.
 
 #### Scenario: Switching scope
 
 - **Given** the reader has turned the brains in All
-- **When** the reader picks a devbook's scope
+- **When** the reader presses a devbook's header chip alone
 - **Then** the camera turns through the views in between and settles on the default view within a second
 
 #### Scenario: After a long idle turn
 
 - **Given** the brains have turned on their own for several minutes
-- **When** the reader switches scope
+- **When** the reader changes the header's scope
 - **Then** the camera turns less than half a turn on its way to the default view
 
 ### Requirement: A region or Labels toggle leaves the camera as it was
@@ -1344,12 +1344,12 @@ type: requirement
 status: draft
 ```
 
-The system SHALL, under reduced motion, turn the brains only while a drag lasts, land a scroll and a scope switch at once, and never turn the brains on their own.
+The system SHALL, under reduced motion, turn the brains only while a drag lasts, land a scroll and a new layout at once, and never turn the brains on their own.
 
 #### Scenario: Reduced motion
 
 - **Given** reduced motion is on
-- **When** the reader drags quickly and lets go, then scrolls, then switches scope
+- **When** the reader drags quickly and lets go, then scrolls, then changes the header's scope
 - **Then** the drag turns the brains only until the release, and the zoom and the default view arrive at once
 
 #### Scenario: Waiting under reduced motion
