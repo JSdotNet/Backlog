@@ -94,13 +94,27 @@ travels wherever the title does, a private notification's push included.
 subtitle of the phone's tray entry, and the push's `origin`, cut to 60
 characters there. The card draws the system as a badge with the place above
 the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
-a link. The centre filters by the system.
+a link.
+
+Who asked, as a kind, is read from the origin rather than stored, keyed on the
+words Backlog's own sources write (`NotificationOrigins`):
+
+| Asker kind | When |
+|---|---|
+| AI agent | Via starts with "Agent session", or is "MCP ask" or "MCP notify"; or there is no origin and the source is the Sessions context |
+| Person | Via is "typed in spec-manager"; or there is no Via but an Asked by, as a Devbook remark names its author |
+| Backlog | Anything else: pairing, the settings test |
+
+The card's asker badge draws the kind. The centre filters by the system, by the
+asker kind (AI agent or Person), and by kind: questions, alerts, or whatever is
+still open.
 
 The sources inside Backlog fill it:
 
 | Source | System | Place | Via |
 |---|---|---|---|
 | A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
+| A session question the relay raises (`QuestionRelay`) | Claude Code | | Agent session |
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
 | MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |

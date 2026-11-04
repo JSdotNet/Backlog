@@ -5,7 +5,7 @@ status: draft
 index: root
 type: context
 deployment: module
-related: [.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/08-crosscutting-concepts.md#notifications, .devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/06-runtime-view.md#notification-reply, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+related: [.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/08-crosscutting-concepts.md#notifications, .devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/06-runtime-view.md#notification-reply, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#focus-and-selection]
 ```
 
 Notifications lets a desktop instance tell the person something, or ask them
@@ -107,9 +107,8 @@ in two places:
 
 - **The notification centre**, a takeover the shell's **Notifications** option
   opens. The option wears the count of open questions. The centre lists the open
-  notifications, and those settled in the last seven days, grouped by
-  [Subject](domain.md#subject). The one picked is drawn whole beside the list as
-  the library's `NotificationCard`. Its Markdown body renders through
+  notifications, and those settled in the last seven days. The one picked is
+  drawn whole beside the list as the library's `NotificationCard`. Its Markdown body renders through
   `MarkdownView`, Mermaid through `DiagramView`. A single-choice question shows
   buttons, a multiple-choice one checkboxes, an open one a plain-text box, and an
   alert Acknowledge. A choice that takes text asks for its text in a plain-text box
@@ -121,6 +120,37 @@ in two places:
   and Send. A question whose answers do not fit, such as one with more than three
   choices or a choice that takes text, offers **Open in Backlog**, which opens the
   centre on it.
+
+The centre's list follows the header's repository scope, by the rule the
+Sessions list keeps (local ADR 0027): nothing pressed lists every notification,
+one repository — or several, pressed with Ctrl — lists those about them, and the
+Brain lists those about no repository. A notification carries no repository of
+its own; the host works it out at read time from what its producer left on it
+(`NotificationRepositories`): a run's worktree or place, a session's repository,
+a pull request's or a linked task's, a spec-manager product's connected target, a
+remark's chapter. Pairing, the settings test and an MCP call from no session name
+none and are the Brain's. One the host could not work out, because its source
+could not be read, is listed under every scope, so a source that fails never
+hides a question. Opening the centre on a notification the scope hides shows
+every repository until the scope is pressed again.
+
+Over the list sit three filters, each option counting what it would keep under
+the other two:
+
+- **From** — the system, per [Origin](domain.md#origin).
+- **Asked by** — *AI agent* or *Person*, the asker kind of
+  [Origin](domain.md#origin).
+- **Kind** — *All*, *Questions*, *Alerts*, or *Open*, whatever still waits.
+
+**Group by** offers *Repository*, *System*, *Asked by*, *Subject*
+([Subject](domain.md#subject)), or *Not grouped*. Unchosen, it groups by
+repository, or by system while one repository or the Brain alone is pressed. A
+group holding an open question comes first, then by its newest notification;
+inside a group an open question leads, then newest first. Group by and the
+filters are remembered on this machine; **Clear filters** sets every filter back
+to all and keeps Group by. The **Notifications** option's count stays global, so
+the subtitle says how many waiting questions lie outside the scope and how many
+the filters hide, and reads *Loading…* until the first load returns.
 
 The person tries the system out on **Settings › Notifications**
 (`settings/notifications`, offered behind the `notifications` switch). **Send test
