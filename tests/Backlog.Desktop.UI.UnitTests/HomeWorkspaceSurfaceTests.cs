@@ -24,6 +24,7 @@ using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -2506,18 +2507,21 @@ public sealed class HomeWorkspaceSurfaceTests
 
     // --- What a change draws again ------------------------------------------
     //
-    // Every keystroke in an entry's body and every move of the selection is a
-    // change the Tasks state announces, and the shell hears every one. The
-    // header draws nothing those change, so the shell is not drawn again for
-    // them; the Tasks pane listens for itself and is. Each change is made on the
-    // renderer's thread, as the editor's own ValueChanged makes it.
+    // Every move of the selection is a change the Tasks state announces, and the
+    // shell hears every one. The header draws nothing a move changes, so the shell
+    // is not drawn again for it; the Tasks pane listens for itself and is. A
+    // keystroke in an entry's body announces nothing until its save lands. Each
+    // change is made on the renderer's thread, as the editor's own ValueChanged
+    // makes it.
 
-    /// <summary>Five keystrokes in the open entry's Markdown: five redraws of the
-    /// pane that shows the entry, none of the shell around it.</summary>
+    /// <summary>Five keystrokes in the open entry's Markdown draw neither the pane
+    /// nor the shell; the save after the pause draws the pane and still not the
+    /// shell.</summary>
     [Fact]
-    public async Task Typing_in_the_open_entry_redraws_the_pane_and_not_the_shell()
+    public async Task Typing_in_the_open_entry_redraws_the_pane_once_it_saves_and_never_the_shell()
     {
-        using var harness = CreateHarness(seed: PlanEntryText);
+        var clock = new FakeTimeProvider();
+        using var harness = CreateHarness(seed: PlanEntryText, clock: clock);
         var component = Render(harness);
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
         component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
@@ -2533,10 +2537,14 @@ public sealed class HomeWorkspaceSurfaceTests
 
         Assert.Equal("Read it", row.PreviewBody.Trim());
         Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
-        // One pane redraw per keystroke, not the two it took while the shell redrew
-        // too. The debounced save runs on the real clock and may land under load,
-        // adding a redraw, so the count is a range below the old two-per-change.
-        Assert.InRange(ShellRenderCount.TasksPane(component), paneBefore + 5, paneBefore + 9);
+        Assert.Equal(paneBefore, ShellRenderCount.TasksPane(component));
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        component.WaitForAssertion(
+            () => Assert.True(ShellRenderCount.TasksPane(component) > paneBefore, "The save after the pause redraws the pane."),
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
     }
 
     /// <summary>Opening one entry after another moves the selection the pane draws
@@ -3887,7 +3895,8 @@ public sealed class HomeWorkspaceSurfaceTests
         ShellNavigationStore? shellNavigation = null,
         string? seed = null,
         Action<IServiceCollection>? configureServices = null,
-        string[]? moreSeeds = null)
+        string[]? moreSeeds = null,
+        TimeProvider? clock = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -4001,7 +4010,8 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
-            toasts: sp.GetRequiredService<IToastChannel>()));
+            toasts: sp.GetRequiredService<IToastChannel>(),
+            clock: clock));
         // Which task a session or a pull request belongs to is Tasks' answer over the
         // same state, composed as the application hosts compose it (local ADR 0042, V8).
         context.Services.AddScoped<ITaskLookupCandidates>(sp => sp.GetRequiredService<TasksDesktopState>());
