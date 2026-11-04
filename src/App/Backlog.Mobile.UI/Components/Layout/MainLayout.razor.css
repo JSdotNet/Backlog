@@ -65,6 +65,24 @@
     min-height: 44px;
 }
 
+/*
+  The bar's end: the sync line and the settings button. The group shrinks with
+  the sync line inside it, so the title still never gives way; the settings
+  cog keeps its 44px target and never shrinks.
+*/
+.app-bar__end {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: var(--spacing-2xs);
+}
+
+::deep .app-bar__settings {
+    flex: none;
+    min-width: 44px;
+    min-height: 44px;
+}
+
 main {
     flex: 1;
     padding-bottom: var(--spacing-md);

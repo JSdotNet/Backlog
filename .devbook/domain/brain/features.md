@@ -101,7 +101,7 @@ details is not built.
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header]
+related: [.devbook/domain/brain/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
 Pick the Brain the way a repository is picked. The header's repository scope
@@ -111,7 +111,8 @@ the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
 narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
-tasks with no repository. It also shows the Brain when the Devbook is opened. Pull
+tasks with no repository, and the notification centre to the notifications about
+no repository. It also shows the Brain when the Devbook is opened. Pull
 requests and the Roadmap read Brain alone as nothing pressed: every pull request
 belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.

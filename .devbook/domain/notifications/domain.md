@@ -94,13 +94,27 @@ travels wherever the title does, a private notification's push included.
 subtitle of the phone's tray entry, and the push's `origin`, cut to 60
 characters there. The card draws the system as a badge with the place above
 the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
-a link. The centre filters by the system.
+a link.
+
+Who asked, as a kind, is read from the origin rather than stored, keyed on the
+words Backlog's own sources write (`NotificationOrigins`):
+
+| Asker kind | When |
+|---|---|
+| AI agent | Via starts with "Agent session", or is "MCP ask" or "MCP notify"; or there is no origin and the source is the Sessions context |
+| Person | Via is "typed in spec-manager"; or there is no Via but an Asked by, as a Devbook remark names its author |
+| Backlog | Anything else: pairing, the settings test |
+
+The card's asker badge draws the kind. The centre filters by the system, by the
+asker kind (AI agent or Person), and by kind: questions, alerts, or whatever is
+still open.
 
 The sources inside Backlog fill it:
 
 | Source | System | Place | Via |
 |---|---|---|---|
 | A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
+| A session question the relay raises (`QuestionRelay`) | Claude Code | | Agent session |
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
 | MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |
@@ -226,7 +240,10 @@ stateDiagram-v2
 ```
 
 - **Open**: published, and not yet settled.
-- **Acknowledged**: an alert that a person acknowledged on any instance.
+- **Acknowledged**: an alert that a person acknowledged on any instance. On the
+  owner they acknowledge it directly; on a viewer they send an
+  [Acknowledgement](#acknowledgement), which the owner takes. The owner records
+  the device it came from.
 - **Answered**: a question whose owner accepted a reply as its answer.
 - **Closed**: the publisher closed it, or its subject ended. A closed question
   needs no answer, and a reply sent after it is rejected as closed.
@@ -245,10 +262,16 @@ related: [.devbook/domain/notifications/domain.invariants.md#reply, .devbook/arc
 aliases: [ReplyOutboxKind]
 ```
 
-What a person submits to answer a question, from any instance. A reply is a
-proposal until the owner accepts it. A viewer writes it once and never changes
-it; the phone writes it through its device outbox, so a reply made offline is
-kept.
+What a person submits to answer a question, from any instance, or to acknowledge
+an alert from a viewer. A reply is a proposal until the owner takes it. A viewer
+writes it once and never changes it; the phone writes it through its device
+outbox, so a reply made offline is kept.
+
+A reply addressed to an alert is an [Acknowledgement](#acknowledgement). It holds
+no choice, no text and no note. The owner takes the first one and moves the alert
+to Acknowledged. A later one changes nothing, and one that arrives after the alert
+closed is rejected as closed. The rest of this section is about a reply to a
+question.
 
 The owner reads each reply, checks it against the question's
 [Answer Spec](#answer-spec), and accepts or rejects it. It rejects a reply with a
@@ -305,4 +328,18 @@ related: [.devbook/domain/notifications/domain.md#reply]
 ```
 
 Any other paired device: the Android phone or another desktop. It shows
-notifications and submits replies, and never changes a notification.
+notifications, answers questions and acknowledges alerts by submitting replies,
+and never changes a notification.
+
+### Acknowledgement
+
+```meta
+status: proposed
+type: term
+related: [.devbook/domain/notifications/domain.md#reply, .devbook/domain/notifications/domain.invariants.md#invariant-an-acknowledgement-settles-only-an-open-alert, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+```
+
+A [Reply](#reply) a viewer sends to an open alert, asking its owner to move it to
+Acknowledged. It names the alert, its owner instance and the device it came from,
+and nothing else. The phone's pager labels the action Dismiss. A swipe that clears
+the alert from the Android tray only clears the tray, and sends none.

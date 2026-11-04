@@ -15,7 +15,8 @@
 
 @*
     The phone's shell: a title bar that names the app and its version - the
-    way into the update window - and says where sync stands, the page, and a
+    way into the update window - says where sync stands and holds the way into
+    the phone's settings (SettingsControl), the page, and a
     row of tabs along the bottom where a thumb already is. The BlazorWebView
     fills the MAUI page edge to edge, so nothing else names the app on screen.
 
@@ -62,7 +63,10 @@
 
     <header class="app-bar">
         <AppUpdateControl @ref="_updates" />
-        <SyncStatus />
+        <div class="app-bar__end">
+            <SyncStatus />
+            <SettingsControl />
+        </div>
     </header>
 
     @if (Paired && Compatibility.UpdateRequired)

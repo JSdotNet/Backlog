@@ -175,6 +175,53 @@ The system SHALL reject a reply that does not fit the answer spec with its reaso
 - **When** a viewer sends 250 characters
 - **Then** the reply is rejected as too long, and the viewer can send a shorter one
 
+### Requirement: A viewer acknowledges an alert through its owner
+
+```meta
+status: proposed
+type: requirement
+related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+```
+
+The system SHALL let any paired viewer acknowledge an open alert, SHALL mark the alert Acknowledged only when its owner instance takes the acknowledgement, and SHALL then take it out of every device's open stack while it stays in each device's list as settled.
+
+#### Scenario: Dismissing an alert on the phone
+
+- **Given** Desktop A owns an open alert, and the phone and Desktop B are paired
+- **When** the person taps Dismiss on the alert in the phone's pager
+- **Then** the alert leaves the phone's stack at once, Desktop A marks it Acknowledged, and it leaves Desktop A's open notifications, its Windows notification and Desktop B's open notifications
+- **And** the phone's list keeps it, reading "Acknowledged on this phone"
+
+#### Scenario: The owner is offline
+
+- **Given** Desktop A owns an open alert and is asleep
+- **When** the person taps Dismiss on the phone
+- **Then** the alert leaves the phone's stack, the phone's list reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
+
+#### Scenario: The phone is offline
+
+- **Given** the phone has no network
+- **When** the person taps Dismiss on an open alert
+- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and the list reads "Sending" until the outbox delivers it
+
+#### Scenario: The alert closed first
+
+- **Given** an acknowledgement from the phone is on its way
+- **When** the publisher closes the alert before Desktop A takes the acknowledgement
+- **Then** the alert stays Closed with its reason, the acknowledgement is rejected as closed, and the phone shows it as Closed
+
+#### Scenario: Refused by cloud sync
+
+- **Given** an acknowledgement in the phone's outbox
+- **When** cloud sync refuses it
+- **Then** the alert returns to the phone's stack with the reason, and the person can dismiss it again
+
+#### Scenario: Dismissed on two devices
+
+- **Given** an open alert owned by Desktop A
+- **When** the phone and Desktop B both acknowledge it
+- **Then** Desktop A takes the first, the second changes nothing, and every device shows it as Acknowledged
+
 ### Requirement: Android is the only phone platform
 
 ```meta
