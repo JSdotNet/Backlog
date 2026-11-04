@@ -791,7 +791,8 @@ TTL-based, and never canonical domain data or external credentials (local ADR 00
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
 in the Aspire app model as the `sync` resource. The Sync Service and Notification
 Service components below are built. The notification service's Azure resources
-are declared in Bicep and not deployed (local ADR 0039). The webhook receiver and
+were first provisioned on 2026-11-04, and no push reaches a phone until the hub has
+its FCM credential (local ADR 0039). The webhook receiver and
 PC registry are not built.
 
 The sync service is seven projects:
@@ -932,7 +933,7 @@ Cloud components:
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
 | **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation, devbook subject and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
-| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0039. |
+| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and deployed on 2026-11-04; pushes wait on the hub's FCM credential: local ADR 0039. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
 
 
