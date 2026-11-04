@@ -135,10 +135,11 @@ affordance language and both with mandatory keyboard equivalents:
 
 | Rule | Requirement |
 |---|---|
-| Visible handle | Each reorderable row/section MUST expose a drag handle using the `grip-vertical` icon at `icon-md`. On dense rows the handle MAY appear on hover/focus but MUST be reachable by keyboard. |
+| Visible handle | Each reorderable row/section MUST lead with a grip: the `⠿` glyph in `color-text-disabled`, `color-text-secondary` on hover. The grip is the pointer's affordance only — `aria-hidden`, no tab stop — and the keyboard reaches the same move through the row's own commands (`#keyboard-accessible-reordering`). |
+| Press origin | A task row is picked up by a press anywhere on it, its grip included. An item of any other list — a goal card, a No goal row — is picked up by its grip alone, because the rest of it is a control of its own (a goal's head opens and folds it). |
 | Cursor | Pointer over a handle uses a grab/grabbing cursor. |
-| Lift feedback | On drag start, the dragged item lifts with `shadow-lg` and a subtle `color-background-alt` tint; the rest dims slightly. A board card lifts as a copy of itself that follows the pointer, slightly tilted, while the card stays faded in its column; the slot in the column under the pointer opens to the card's height, and on release the copy settles into the card's new place — or back into its old one — on the *Drop settle* motion. Under reduced motion the copy still follows the pointer, untilted, and nothing unfolds or glides. |
-| Handle target | The handle MUST meet the ≥ 44 × 44 px target (see `accessibility.md#target-sizes-and-text`). |
+| Set-back feedback | On drag start, the dragged item stays in its place, set back: faded, its border or outline dashed in `color-border-focus`. In a task list the other rows draw in and dim while it is in flight. Nothing lifts with a shadow: the set-back item says where it came from, and the drop indicator (`#drop-indicators`) says where it goes. A board card lifts as a copy of itself that follows the pointer, slightly tilted, while the card stays faded in its column; the slot in the column under the pointer opens to the card's height, and on release the copy settles into the card's new place — or back into its old one — on the *Drop settle* motion. Under reduced motion the copy still follows the pointer, untilted, and nothing unfolds or glides. |
+| Handle target | Where the whole row is the press origin, the row is the target. A grip that is the only press origin MUST be at least 1.5rem (24 px) wide and 2.75rem (44 px) tall, the bounded exception in `accessibility.md#target-sizes-and-text`. |
 
 ### Drop Indicators
 
@@ -168,7 +169,7 @@ affordance language and both with mandatory keyboard equivalents:
 | One scroller per column | A board scrolls sideways only. Given a bounded height it fills it, and each column scrolls its own cards inside itself; a long column MUST show exactly one vertical scrollbar, never one of its own beside the board's or the pane's. |
 | Drop target covers the column | Where a whole column is the drop target — a board's status column — it MUST span the full height of the board — the box the board is given when that has a height, else the tallest column — not only the height of its own cards. A card carried sideways from low in a long column arrives beside a short column's foot, and that space MUST still belong to the short column; otherwise the drop silently writes nothing. |
 | Cancel both dragenter and dragover | A drop target MUST prevent default on both `dragenter` and `dragover`. A `drop` only fires where the immediately preceding `dragover` was cancelled, and a target that only appears once dragging has started needs its `dragenter` cancelled too, or the first `dragover` over it can be missed. |
-| Handle target size still applies | The ≥ 44 × 44 px minimum in `#drag-affordances` (see `accessibility.md#target-sizes-and-text`) governs the handle as an independent pointer/keyboard-focus target, regardless of how large the drop target is. |
+| Handle target size still applies | The handle target in `#drag-affordances` governs the handle as an independent pointer target, regardless of how large the drop target is. |
 
 ### Keyboard-Accessible Reordering
 
