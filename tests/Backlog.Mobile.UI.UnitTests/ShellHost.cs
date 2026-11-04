@@ -82,6 +82,9 @@ internal sealed class ShellHost : IDisposable
 
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
+    /// <summary>The JavaScript calls the app made, such as moving the focus.</summary>
+    public BunitJSInterop JSInterop => _context.JSInterop;
+
     public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
 
     public T Service<T>() where T : notnull => _context.Services.GetRequiredService<T>();

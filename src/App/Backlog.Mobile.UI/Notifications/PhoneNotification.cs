@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Modules.Notifications.Abstractions;
@@ -160,6 +162,35 @@ public static class NotificationStandings
 
         var answer = labels.Count == 0 ? "No choice" : string.Join(", ", labels);
         return string.IsNullOrWhiteSpace(note) ? answer : $"{answer} · note: “{note.Trim()}”";
+    }
+
+    /// <summary>What every notification screen says when the phone could not keep a reply —
+    /// its own file, not the network, which the outbox rides out.</summary>
+    public const string CouldNotKeepAnswer = "This phone could not keep your answer. Try again.";
+
+    /// <summary>How many characters of a typed answer the pager's confirmation repeats.</summary>
+    public const int ConfirmationTextLength = 40;
+
+    /// <summary>
+    /// The words the pager confirms an answer with before it moves on: the picked labels (a
+    /// choice that takes text by its label alone), else the typed answer, quoted and cut to
+    /// <see cref="ConfirmationTextLength"/> characters — whole text elements, so an emoji is
+    /// never split — then a tick.
+    /// </summary>
+    public static string Confirmation(AnswerSpec? spec, NotificationAnswerPick pick)
+    {
+        ArgumentNullException.ThrowIfNull(pick);
+
+        if (pick.ChoiceIds.Count > 0) return AnswerText(spec, pick.ChoiceIds, text: null) + " ✓";
+
+        var words = pick.Text?.Trim() ?? string.Empty;
+        var characters = new StringInfo(words);
+        if (characters.LengthInTextElements > ConfirmationTextLength)
+        {
+            words = characters.SubstringByTextElements(0, ConfirmationTextLength).TrimEnd() + "…";
+        }
+
+        return AnswerText(spec, [], words) + " ✓";
     }
 
     /// <summary>Whether a reply of <paramref name="choiceIds"/> and <paramref name="text"/>, with
