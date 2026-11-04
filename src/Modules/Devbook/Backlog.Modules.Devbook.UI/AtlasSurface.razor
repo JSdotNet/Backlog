@@ -1,16 +1,22 @@
 @using Backlog.Desktop.UI.Devbook.Extensions
 @inject ISurfaceNavigator Navigator
+@inject IServiceProvider Services
 
 @*
-    The Lobes atlas as a shell surface (local ADR 0043 §1, §3;
-    .devbook/domain/brain/features.md#lobes-atlas): the scope it opens on arrives
-    as its one query key, and every jump out of it — a Brain note, a repository's
-    chapter, a scope card's Devbook — goes through the window's ISurfaceNavigator to
-    the Devbook surface, so it lands in the window it was pressed in. Where its way
+    The Lobes atlas as a shell surface (local ADR 0043 §1, §3, §5;
+    .devbook/domain/brain/features.md#lobes-atlas): what it draws is the window's
+    repository scope, read through the window's AtlasSurfaceWiring, and a row or
+    its card asks that wiring for one member alone. Its one query key is a ghost
+    to step into, as Register repository left it. Every jump out of it — a Brain
+    note, a repository's chapter, a scope card's Devbook — goes through the window's
+    ISurfaceNavigator to the Devbook surface, so it lands in the window it was
+    pressed in. Where its way
     back leads — the surface it was opened over — is the shell's to answer, so its
     close is the callback the shell hands it.
 *@
 <LobesAtlasTakeover Scope="@Scope"
+                    RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
+                    OnScopeTo="@ScopeToCallback"
                     OnClose="OnClose"
                     OnOpenNote="OpenNote"
                     OnOpenRepositoryChapter="OpenRepositoryChapter"
@@ -30,8 +36,16 @@
     [Parameter]
     public EventCallback OnClose { get; set; }
 
-    /// <summary>The scope to open on — <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
-    /// <c>ghost:&lt;alias&gt;</c> — or null for All.</summary>
+    private AtlasSurfaceWiring? _wiring;
+
+    protected override void OnInitialized() => _wiring = Services.GetService<AtlasSurfaceWiring>();
+
+    /// <summary>A row's or the card's ask for one member alone, while the window
+    /// wires one; unbound otherwise, so the atlas offers none.</summary>
+    private EventCallback<string> ScopeToCallback =>
+        _wiring?.ScopeTo is { } scopeTo ? EventCallback.Factory.Create(this, scopeTo) : default;
+
+    /// <summary>The ghost to step into — <c>ghost:&lt;alias&gt;</c> — or null.</summary>
     private string? Scope =>
         Query is not null && Query.TryGetValue(AtlasSurfaceRegistration.ScopeKey, out var scope) ? scope : null;
 
