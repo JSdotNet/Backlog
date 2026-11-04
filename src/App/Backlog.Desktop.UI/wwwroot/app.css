@@ -11300,9 +11300,10 @@ a.pull-request-detail-checks__name:hover {
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
-  the repository scope chips, Show in main window — over one surface. The title
-  takes the room that is left, so Show in main window sits at the far edge where
-  the main window keeps its utilities.
+  the repository scope chips, Keep on top, Remember this window, Show in main
+  window — over one surface. The title takes the room that is left, so the toggles
+  and Show in main window sit at the far edge where the main window keeps its
+  utilities.
 */
 /* A popped-out window is often narrow and has no tiers to fold, so its header
    wraps rather than pushing Show in main window off the edge; the scope chips
@@ -11326,7 +11327,8 @@ a.pull-request-detail-checks__name:hover {
     padding: var(--spacing-lg);
 }
 
-/* Keep on top and Show in main window travel together to the far edge. */
+/* Keep on top, Remember this window and Show in main window travel together to
+   the far edge. */
 .surface-window__actions {
     display: inline-flex;
     align-items: center;
@@ -11334,7 +11336,8 @@ a.pull-request-detail-checks__name:hover {
     margin-left: auto;
 }
 
-.surface-window__on-top {
+.surface-window__on-top,
+.surface-window__remember {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -11349,7 +11352,7 @@ a.pull-request-detail-checks__name:hover {
 /*
   Docked narrow — a "today" list on a side monitor. Every row the header and the
   footer spend is a task the reader cannot see, so below 40rem:
-  - the title and the two buttons share the first row, and the scope chips take a
+  - the title and the buttons share the first row, and the scope chips take a
     row of their own that scrolls sideways rather than running off the edge;
   - Show in main window drops its words (the button keeps its name);
   - the footer goes: the version and the sync state are the main window's to say;
