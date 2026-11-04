@@ -117,6 +117,13 @@ public static class GoalsMapper
             return new GoalsItem(subject, held.Title ?? DeletedTask);
         }
 
+        // A No goal pull request row draws the status line the goals' own draw, from the
+        // same reading; a task row already carries its status from GoalsHolding.
+        GoalsItem NoGoalRow(GoalsItem row) =>
+            row.Subject is { Kind: GoalSubjectKind.PullRequest, Repository: { } repository, Number: { } number }
+                ? row with { PullRequest = Status(repository, number, row.Title) }
+                : row;
+
         StandUpGroup Group(StandUpGroupDto group) => new(
             group.GoalTitle,
             [.. group.Items.Select(item => new StandUpEntry(
@@ -150,7 +157,7 @@ public static class GoalsMapper
             new GoalsWindow(standUp.Last.First, standUp.Last.Last),
             new GoalsWindow(standUp.Next.First, standUp.Next.Last),
             [.. standUp.Goals.Select(Card)],
-            GoalsHolding.NoGoal(goals.Select(summary => summary.Goal), candidates),
+            [.. GoalsHolding.NoGoal(goals.Select(summary => summary.Goal), candidates).Select(NoGoalRow)],
             standUpModel,
             Candidates(candidates))
         {
@@ -162,7 +169,7 @@ public static class GoalsMapper
     public const string DeletedTask = "A task no longer in the backlog";
 
     /// <summary>Every pull request the board shows, each once, in the order it shows them:
-    /// each goal's own and those its tasks link, then the stand-up's.</summary>
+    /// each goal's own and those its tasks link, then the stand-up's, then No goal's.</summary>
     public static IReadOnlyList<PullRequestRefDto> PullRequestsToRead(
         StandUpDto standUp,
         IReadOnlyList<GoalSummaryDto> goals,
@@ -185,7 +192,13 @@ public static class GoalsMapper
             .Where(item => item.Kind == GoalAttachmentKind.PullRequest && item.Repository is not null && item.Number is not null)
             .Select(item => (Repository: item.Repository!, Number: item.Number!.Value));
 
-        return [.. fromGoals.Concat(fromStandUp)
+        // No goal's rows draw a status line too; the open read has usually filled the shared
+        // cache for them already, so this asks for nothing new in the common case.
+        var fromNoGoal = GoalsHolding.NoGoal(goals.Select(summary => summary.Goal), candidates)
+            .Where(row => row.Subject is { Kind: GoalSubjectKind.PullRequest, Repository: not null, Number: not null })
+            .Select(row => (Repository: row.Subject.Repository!, Number: row.Subject.Number!.Value));
+
+        return [.. fromGoals.Concat(fromStandUp).Concat(fromNoGoal)
             .DistinctBy(pull => GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number))
             .Select(pull => new PullRequestRefDto(pull.Repository, pull.Number.ToString(CultureInfo.InvariantCulture)))];
     }

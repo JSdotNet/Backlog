@@ -1489,6 +1489,11 @@
     // click grace, the edge scroll and Escape it shares with them. The Goals board is
     // the first. A task row or card never wears these attributes, so nothing about its
     // gesture changes.
+    //
+    // What a drop on another item of the same owner means is the list's own, never
+    // this script's: the hit test reports any `data-reorder-item` of the owner, draggable
+    // or not. The Goals board uses that to carry a No goal row onto a goal card, which it
+    // reads as an attach rather than a reorder — no second gesture, no line of script.
     const taskListRefs = new Map();
 
     window.backlogListReorder = {

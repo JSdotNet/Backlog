@@ -10377,6 +10377,47 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
+/* PopoverButton: a trigger with a small panel of the host's controls under it,
+   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
+   opens inward from the end of a row. The
+   backdrop is the context menu's, for the same reason: it catches the closing
+   click, and it covers the trigger so a second press closes the panel too. */
+.popover-button {
+    position: relative;
+    display: inline-flex;
+}
+
+.popover-button__glyph {
+    display: inline-flex;
+}
+
+.popover-button__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: transparent;
+}
+
+.popover-button__panel {
+    position: absolute;
+    top: calc(100% + var(--spacing-xs));
+    left: 0;
+    z-index: 26;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 12rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.popover-button__panel--end {
+    right: 0;
+    left: auto;
+}
+
 .nav-list__items {
     display: grid;
     gap: 0.125rem;
@@ -19038,11 +19079,18 @@ select.field__input {
     cursor: default;
 }
 
+/* The panel takes the whole screen below the status bar, leaving a strip of
+   the dimmed screen to tap out on, and the field grows into what the controls
+   leave: a thought rarely fits four rows. A keyboard that shrinks the screen
+   makes the panel scroll rather than squeeze the controls. */
 .capture-sheet__panel {
     position: relative;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     gap: var(--spacing-md);
-    max-height: 92dvh;
+    min-height: 0;
+    margin-top: calc(env(safe-area-inset-top, 0px) + var(--spacing-xl));
     overflow-y: auto;
     padding: var(--spacing-xs) var(--spacing-md) calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
     border-radius: 1.5rem 1.5rem 0 0;
@@ -19057,8 +19105,12 @@ select.field__input {
     outline: none;
 }
 
+.capture-sheet__panel > * {
+    flex: none;
+}
+
 .capture-sheet__grip {
-    justify-self: center;
+    align-self: center;
     width: 40px;
     height: 5px;
     border-radius: var(--border-radius-full);
@@ -19114,9 +19166,23 @@ select.field__input {
     outline-offset: -2px;
 }
 
+/* The field, its box and the textarea in it stretch down the panel together. */
+.capture-sheet__panel > .capture-sheet__field {
+    flex: 1 0 8rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.capture-sheet__field > div {
+    flex: 1;
+    display: flex;
+}
+
 /* Prose, not Markdown source: the field takes the UI face the rest of the sheet
    uses rather than the editor's monospace. */
 .capture-sheet__field .field__input {
+    flex: 1;
+    resize: none;
     font-family: var(--font-family-base);
     font-size: var(--font-size-lg);
 }
@@ -22524,6 +22590,33 @@ select.field__input {
     min-width: 0;
 }
 
+/* A No goal row's state leads its title, drawn as the open goal's columns draw it: the
+   task's dot at the Tasks column's size, the pull request's status line unbroken. */
+.goals-board__no-goal-row .status-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goals-board__no-goal-pull {
+    flex: 0 0 auto;
+}
+
+/* The row carried onto a goal stays where it is, set back, so the outlined goal reads as
+   where it is going. */
+.goals-board__no-goal-row--carried {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* While a carried row is over no goal, nothing in the column takes the drop: the cursor
+   says so (interaction-guidelines.md#drop-indicators), the grip under it included. */
+.goals-board__goals--no-drop,
+.goals-board__goals--no-drop * {
+    cursor: not-allowed;
+}
+
 .goals-board__number,
 .goal-card__number,
 .work-item-search__number {
@@ -22569,9 +22662,11 @@ select.field__input {
     transform: none;
 }
 
-/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
-   row's grip is, with a target as tall as the guideline's drag affordance. */
-.goal-card__grip {
+/* The grip leads the head row, and a No goal row that can be carried onto a goal: a press
+   origin for the shared pointer reorder, as a task row's grip is, with a target as tall as
+   the guideline's drag affordance. */
+.goal-card__grip,
+.goals-board__no-goal-grip {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -22584,7 +22679,8 @@ select.field__input {
     touch-action: none;
 }
 
-.goal-card__grip:hover {
+.goal-card__grip:hover,
+.goals-board__no-goal-grip:hover {
     color: var(--color-text-secondary);
 }
 
@@ -22609,6 +22705,13 @@ select.field__input {
 .goal-card--dragging {
     opacity: 0.6;
     outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The goal a carried No goal row would attach to on a drop: the whole card, folded or
+   open, outlined in the primary ink (interaction-guidelines.md#drop-indicators). */
+.goal-card--drop-target {
+    outline: var(--border-width-2) solid var(--color-primary);
     outline-offset: 2px;
 }
 
@@ -23307,6 +23410,34 @@ select.field__input {
     background: transparent;
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: var(--border-radius-full);
+}
+
+/* NotificationAskerBadge: who raised it, a glyph then the word. The three kinds differ
+   in fill as well as glyph — an agent's filled in the info tone, a person's outlined,
+   the app's own the plain raised face — so they part at a glance in a list. */
+.badge--notification-asker {
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-asker > svg {
+    flex: none;
+}
+
+.badge--notification-asker-agent {
+    background: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-person {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-system {
+    color: var(--color-text-secondary);
 }
 
 .notification-card__body {

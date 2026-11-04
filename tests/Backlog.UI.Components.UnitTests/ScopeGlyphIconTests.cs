@@ -37,6 +37,10 @@ public sealed class ScopeGlyphIconTests
     public void The_archive_box_keeps_the_icon_contract() =>
         AssertIconContract<ArchiveIcon>("archive-icon");
 
+    [Fact]
+    public void The_ellipsis_keeps_the_icon_contract() =>
+        AssertIconContract<EllipsisIcon>("ellipsis-icon");
+
     private static void AssertIconContract<TIcon>(string ownClass) where TIcon : IComponent
     {
         using var context = new BunitContext();

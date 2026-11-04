@@ -24,7 +24,11 @@
     An Origin, when the host hands one, says where the notification came from:
     the system as a badge and the place beside it above the title, who asked and
     how under it, and "Open in <System> ↗" at the foot when it carries a link.
-    Without one the header names the source beside the time, as it always did.
+    With an Asker the "asked" line opens on NotificationAskerBadge: an agent's
+    reads "[AI agent] for Job · <session>", a person's "[Person] Job".
+    Without an Origin but with the model's Asker, the "asked" line is that badge
+    and the source: "[AI agent] Sessions". Without either the header names the
+    source beside the time, as it always did.
 
     The card does not answer anything itself. It raises OnAnswer or OnAcknowledge,
     the host takes the answer to its own reply path, and hands back Busy while it
@@ -46,7 +50,7 @@
         {
             <Badge Kind="notification-state" Slug="@StateSlug" TestId="notification-card-state">@StateLabel</Badge>
         }
-        <span class="notification-card__meta">@(Model.Origin is null ? $"{Model.Source} · {Model.When}" : Model.When)</span>
+        <span class="notification-card__meta">@(Model.Origin is null && Model.Asker is null ? $"{Model.Source} · {Model.When}" : Model.When)</span>
     </header>
 
     @if (Model.Origin is { } origin)
@@ -62,17 +66,44 @@
 
     <h3 class="notification-card__title" id="@TitleId">@Model.Title</h3>
 
-    @if (Model.Origin is { } asked && (!string.IsNullOrWhiteSpace(asked.AskedBy) || !string.IsNullOrWhiteSpace(asked.Via)))
+    @if (Model.Origin is { Asker: NotificationCardAsker.Agent } agent)
+    {
+        @* An agent's: the marker, then the person it acted for and the session it ran in
+           as one phrase, so "Asked by Job" never reads as Job having asked. *@
+        <p class="notification-card__asked" data-testid="notification-card-asked">
+            <NotificationAskerBadge Asker="NotificationCardAsker.Agent" TestId="notification-card-asker" />
+            @if (AgentPhrase(agent) is { } phrase)
+            {
+                <span data-testid="notification-card-asked-by">@phrase</span>
+            }
+        </p>
+    }
+    else if (Model.Origin is { } asked && (asked.Asker is not null || !string.IsNullOrWhiteSpace(asked.AskedBy) || !string.IsNullOrWhiteSpace(asked.Via)))
     {
         <p class="notification-card__asked" data-testid="notification-card-asked">
+            @if (asked.Asker is { } kind)
+            {
+                <NotificationAskerBadge Asker="kind" TestId="notification-card-asker" />
+            }
             @if (!string.IsNullOrWhiteSpace(asked.AskedBy))
             {
-                <span data-testid="notification-card-asked-by">Asked by @asked.AskedBy</span>
+                @* A person's name stands alone beside the Person marker; without a marker,
+                   or beside the host's, it is who asked. *@
+                <span data-testid="notification-card-asked-by">@(asked.Asker == NotificationCardAsker.Person ? asked.AskedBy : $"Asked by {asked.AskedBy}")</span>
             }
             @if (!string.IsNullOrWhiteSpace(asked.Via))
             {
                 <Badge Kind="notification-origin" Slug="via" TestId="notification-card-via">@asked.Via</Badge>
             }
+        </p>
+    }
+    else if (Model.Origin is null && Model.Asker is { } sourceAsker)
+    {
+        @* No origin to name who asked: the marker still says what kind did, as the row's
+           does, and the source moves here from the header beside it. *@
+        <p class="notification-card__asked" data-testid="notification-card-asked">
+            <NotificationAskerBadge Asker="sourceAsker" TestId="notification-card-asker" />
+            <span data-testid="notification-card-asked-by">@Model.Source</span>
         </p>
     }
 
@@ -366,6 +397,16 @@
         if (!string.IsNullOrWhiteSpace(middle)) parts.Add(middle);
         if (!string.IsNullOrWhiteSpace(when)) parts.Add(when);
         return string.Join(" · ", parts);
+    }
+
+    /// <summary>What follows an agent's marker: "for Job · Fix the toast" — the person it acted
+    /// for, then how it was asked (its session, or the tool it called) — or null for neither.</summary>
+    private static string? AgentPhrase(NotificationCardOrigin origin)
+    {
+        var parts = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(origin.AskedBy)) parts.Add($"for {origin.AskedBy.Trim()}");
+        if (!string.IsNullOrWhiteSpace(origin.Via)) parts.Add(origin.Via.Trim());
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
 
     /// <summary>Only an absolute http or https address becomes "Open in …": anything else — a

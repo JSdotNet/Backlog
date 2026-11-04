@@ -104,6 +104,24 @@ public sealed class GoalsHoldingTests
         Assert.Single(GoalsHolding.NoGoal([], candidates));
     }
 
+    /// <summary>A No goal task row carries its status, so the board dots it the way the
+    /// open goal's Tasks column does; a pull request row carries none from here.</summary>
+    [Fact]
+    public void A_no_goal_task_row_carries_whether_it_is_in_progress_or_blocked()
+    {
+        var candidates = Candidates with
+        {
+            Tasks = [Task(Vat, "VAT rate per line item"), Task(Matching, "Payment matching rules", GoalTaskStatus.Blocked)]
+        };
+
+        var noGoal = GoalsHolding.NoGoal([], candidates);
+
+        Assert.Equal(
+            [GoalTaskStatus.Doing, GoalTaskStatus.Blocked],
+            noGoal.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Status));
+        Assert.All(noGoal.Where(item => item.Kind == GoalSubjectKind.PullRequest), item => Assert.Null(item.Status));
+    }
+
     public static TheoryData<GoalItemDto> Items =>
     [
         GoalItemDto.ForPlan("bank-integration"),
