@@ -23,9 +23,9 @@ flow-spec run `run-mvzoobww-d5511o`. Proposed 2026-10-22 by an unattended
 `execute-plan` run of the `+notifications` plan from the agreed proposal
 *Notifications that ask, and wait for your answer* (21 October 2026), including its
 "Settled" list. Built by PR #1499, which merged the `plan/notifications` branch and
-the sub-PRs under it, followed by #1537, #1561 and #1601. The Azure resources are
-declared in Bicep and not deployed, and the hub has no FCM credential yet, so no
-push has reached a phone.
+the sub-PRs under it, followed by #1537, #1561 and #1601. The Azure resources were
+provisioned on 2026-11-04, but the hub has no FCM credential yet, so no push has
+reached a phone.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It **extends** ADR 0005 with a fourth replica container,
@@ -215,9 +215,8 @@ Negative, and accepted:
 ## Verification
 
 The transport of §1 to §3 is built, and so are §4's desktop nudge and Android
-push. §5's hub is declared in Bicep and not deployed. The hub's FCM v1 credential
-is entered by hand later, so no test or device check has yet seen a push reach a
-phone.
+push. §5's hub was provisioned on 2026-11-04. Its FCM v1 credential is not yet
+entered, so no test or device check has yet seen a push reach a phone.
 
 - `NotificationSyncEndpointTests.A_reply_from_a_device_under_another_owner_is_refused`
   proves that the sync API refuses a reply from a device under another owner, and

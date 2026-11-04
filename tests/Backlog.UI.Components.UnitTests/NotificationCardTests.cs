@@ -419,6 +419,48 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
+    public void An_agents_question_is_marked_ai_agent_and_names_who_it_acted_for_and_its_session()
+    {
+        using var context = Context();
+        var origin = SpecManager with { Via = "Fix rounding", Asker = NotificationCardAsker.Agent };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = origin }));
+
+        var asker = card.Find("[data-testid='notification-card-asker']");
+        Assert.Equal("agent", asker.GetAttribute("data-asker"));
+        Assert.Equal("AI agent", asker.TextContent.Trim());
+        Assert.NotNull(asker.QuerySelector("svg.sparkles-icon"));
+        Assert.Equal("for Ada Lovelace · Fix rounding", card.Find("[data-testid='notification-card-asked-by']").TextContent);
+        Assert.DoesNotContain("Asked by", card.Find("[data-testid='notification-card-asked']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_persons_question_is_marked_person_and_names_them()
+    {
+        using var context = Context();
+        var origin = SpecManager with { Via = "typed in spec-manager", Asker = NotificationCardAsker.Person };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = origin }));
+
+        var asker = card.Find("[data-testid='notification-card-asker']");
+        Assert.Equal("person", asker.GetAttribute("data-asker"));
+        Assert.Equal("Person", asker.TextContent.Trim());
+        Assert.NotNull(asker.QuerySelector("svg.user-check-icon"));
+        Assert.Equal("Ada Lovelace", card.Find("[data-testid='notification-card-asked-by']").TextContent);
+        Assert.Equal("typed in spec-manager", card.Find("[data-testid='notification-card-via']").TextContent);
+    }
+
+    [Fact]
+    public void Backlogs_own_notification_is_marked_backlog()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Alert() with { Origin = new NotificationCardOrigin("Backlog", "Pairing", Asker: NotificationCardAsker.System) }));
+
+        Assert.Equal("Backlog", card.Find("[data-testid='notification-card-asker']").TextContent.Trim());
+    }
+
+    [Fact]
     public void A_link_offers_open_in_the_system_in_a_new_window()
     {
         using var context = Context();
@@ -466,5 +508,30 @@ public sealed class NotificationCardTests
 
         Assert.Equal("MCP · 2 min ago", card.Find(".notification-card__meta").TextContent);
         Assert.Empty(card.FindAll("[data-testid='notification-card-origin']"));
+    }
+
+    [Fact]
+    public void A_card_without_an_origin_marks_its_asker_with_the_source_as_the_line()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Asker = NotificationCardAsker.Agent }));
+
+        var asker = card.Find("[data-testid='notification-card-asker']");
+        Assert.Equal("agent", asker.GetAttribute("data-asker"));
+        Assert.Equal("AI agent", asker.TextContent.Trim());
+        Assert.Equal("MCP", card.Find("[data-testid='notification-card-asked-by']").TextContent);
+        Assert.Equal("2 min ago", card.Find(".notification-card__meta").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-origin']"));
+    }
+
+    [Fact]
+    public void Backlogs_own_alert_without_an_origin_is_marked_backlog()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Alert() with { Asker = NotificationCardAsker.System }));
+
+        Assert.Equal("system", card.Find("[data-testid='notification-card-asker']").GetAttribute("data-asker"));
     }
 }

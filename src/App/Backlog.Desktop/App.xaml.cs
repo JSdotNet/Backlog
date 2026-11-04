@@ -24,7 +24,7 @@ public partial class App : Application
         var windows = services.GetRequiredService<ShellWindows>();
         var window = windows.CreateMainWindow();
 
-        // The windows the person pinned reopen once the main window is up, beside it
+        // The windows the person remembered reopen once the main window is up, beside it
         // (local ADR 0043 §5): queued like the launch link, so the main window finishes
         // opening first, and a failure there never holds the main window up.
         window.Created += (_, _) => MainThread.BeginInvokeOnMainThread(() =>

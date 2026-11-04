@@ -154,6 +154,20 @@ public sealed class QuestionRelayTests : IDisposable
         Assert.Equal("Database", QuestionRelay.Draft(dialog, 0).Title);
     }
 
+    /// <summary>
+    /// A relayed question says where it came from like every other agent's question: a
+    /// Claude Code session, asked by its agent — so the centre marks it an AI agent's.
+    /// </summary>
+    [Fact]
+    public void A_relayed_question_names_a_claude_code_agent_session_as_its_origin()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+
+        var origin = QuestionRelay.Draft(asked, 0).Origin;
+
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), origin);
+    }
+
     [Fact]
     public async Task A_question_answered_in_the_session_before_the_delay_is_never_published()
     {

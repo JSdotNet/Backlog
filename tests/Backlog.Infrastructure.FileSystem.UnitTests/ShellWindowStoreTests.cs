@@ -166,7 +166,7 @@ public sealed class ShellWindowStoreTests : IDisposable
     }
 
     [Fact]
-    public void No_window_is_remembered_until_one_is_pinned()
+    public void No_window_is_remembered_until_one_is_remembered()
     {
         var store = new ShellWindowStore(FilePath);
         store.Set("devbook", new ShellWindowBounds(1, 2, 300, 400, false));
@@ -327,5 +327,89 @@ public sealed class ShellWindowStoreTests : IDisposable
 
         Assert.Equal("window-1", remembered.Key);
         Assert.Null(remembered.Bounds);
+    }
+
+    /// <summary>Kept on top and remembered windows are sections of their own beside
+    /// <c>surfaces</c>: setting one leaves the others as they were, across a restart.</summary>
+    [Fact]
+    public void Kept_on_top_and_remembered_windows_sit_beside_the_surfaces_and_survive_a_restart_together()
+    {
+        var store = new ShellWindowStore(FilePath);
+        store.Set("devbook", new ShellWindowBounds(10, 20, 800, 600, Maximized: false));
+        store.SetOnTop("tasks", true);
+        store.Remember(new RememberedShellWindow("window-1", "roadmap", new Dictionary<string, string>(), null));
+        store.Flush();
+
+        var file = JsonNode.Parse(File.ReadAllText(FilePath))!;
+        Assert.Equal(800, file["surfaces"]!["devbook"]!["width"]!.GetValue<int>());
+        Assert.Equal(["tasks"], file["onTop"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.Equal("window-1", file["remembered"]!.AsArray().Single()!["key"]!.GetValue<string>());
+
+        var reopened = new ShellWindowStore(FilePath);
+        Assert.True(reopened.IsOnTop("tasks"));
+        Assert.Equal("roadmap", Assert.Single(reopened.Remembered).SurfaceId);
+        Assert.Equal(new ShellWindowBounds(10, 20, 800, 600, false), reopened.Get("devbook"));
+
+        reopened.SetOnTop("tasks", false);
+        reopened.Forget("window-1");
+        reopened.Flush();
+
+        var emptied = JsonNode.Parse(File.ReadAllText(FilePath))!;
+        Assert.Null(emptied["onTop"]);
+        Assert.Null(emptied["remembered"]);
+        Assert.NotNull(emptied["surfaces"]);
+    }
+
+    [Fact]
+    public void No_surface_is_kept_on_top_before_one_was_pinned()
+    {
+        var store = new ShellWindowStore(FilePath);
+
+        Assert.False(store.IsOnTop("tasks"));
+    }
+
+    [Fact]
+    public void A_surface_pinned_on_top_stays_pinned_across_a_restart_and_unpins()
+    {
+        var store = new ShellWindowStore(FilePath);
+        store.SetOnTop("tasks", true);
+        store.Flush();
+
+        var reopened = new ShellWindowStore(FilePath);
+        Assert.True(reopened.IsOnTop("tasks"));
+        Assert.False(reopened.IsOnTop("devbook"));
+
+        reopened.SetOnTop("tasks", false);
+        reopened.Flush();
+
+        Assert.False(new ShellWindowStore(FilePath).IsOnTop("tasks"));
+    }
+
+    /// <summary>The pin is kept apart from the bounds: a window that moves after it was
+    /// pinned writes its new rectangle and keeps the pin, and a pin needs no rectangle.</summary>
+    [Fact]
+    public void The_pin_survives_the_bounds_being_rewritten()
+    {
+        var store = new ShellWindowStore(FilePath);
+        store.SetOnTop("tasks", true);
+        store.Set("tasks", new ShellWindowBounds(10, 20, 420, 1300, Maximized: false));
+        store.Flush();
+
+        var reopened = new ShellWindowStore(FilePath);
+
+        Assert.True(reopened.IsOnTop("tasks"));
+        Assert.Equal(new ShellWindowBounds(10, 20, 420, 1300, false), reopened.Get("tasks"));
+    }
+
+    [Fact]
+    public void The_file_lists_the_pinned_surfaces_by_id()
+    {
+        var store = new ShellWindowStore(FilePath);
+        store.SetOnTop("tasks", true);
+        store.Flush();
+
+        var json = JsonNode.Parse(File.ReadAllText(FilePath))!;
+
+        Assert.Equal(["tasks"], json["onTop"]!.AsArray().Select(node => node!.GetValue<string>()));
     }
 }

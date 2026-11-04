@@ -247,62 +247,62 @@ public sealed class SurfaceWindowTests
     }
 
     /// <summary>
-    /// The pin (local ADR 0043 §4, §5): an icon-only toggle immediately before Show in
-    /// main window, named Remember this window, unpressed until pressed, and its
-    /// tooltip saying what the next press does.
+    /// Remember this window (local ADR 0043 §4, §5): an icon-only toggle, the bookmark,
+    /// immediately before Show in main window, unpressed until pressed, and its tooltip
+    /// saying what the next press does.
     /// </summary>
     [Fact]
-    public async Task The_pin_stands_before_show_in_main_window_and_remembers_and_forgets_this_window()
+    public async Task Remember_this_window_stands_before_show_in_main_window_and_remembers_and_forgets_this_window()
     {
         using var host = await CreateHostAsync(canRemember: true);
         var window = host.Render("alpha");
 
-        var pin = window.Find("[data-testid='surface-window-pin']");
-        Assert.Equal("Remember this window", pin.GetAttribute("aria-label"));
-        Assert.Equal("false", pin.GetAttribute("aria-pressed"));
-        Assert.Equal("Remember this window", pin.GetAttribute("title"));
-        Assert.Equal("true", pin.QuerySelector("svg")!.GetAttribute("aria-hidden"));
-        Assert.Equal("surface-window-show-in-main", pin.NextElementSibling!.GetAttribute("data-testid"));
+        var remember = window.Find("[data-testid='surface-window-remember']");
+        Assert.Equal("Remember this window", remember.GetAttribute("aria-label"));
+        Assert.Equal("false", remember.GetAttribute("aria-pressed"));
+        Assert.Equal("Remember this window", remember.GetAttribute("title"));
+        Assert.Equal("true", remember.QuerySelector("svg")!.GetAttribute("aria-hidden"));
+        Assert.Equal("surface-window-show-in-main", remember.NextElementSibling!.GetAttribute("data-testid"));
 
-        pin.Click();
+        remember.Click();
 
-        pin = window.Find("[data-testid='surface-window-pin']");
-        Assert.Equal("true", pin.GetAttribute("aria-pressed"));
-        Assert.Equal("Forget this window", pin.GetAttribute("title"));
-        Assert.Equal("Remember this window", pin.GetAttribute("aria-label"));
+        remember = window.Find("[data-testid='surface-window-remember']");
+        Assert.Equal("true", remember.GetAttribute("aria-pressed"));
+        Assert.Equal("Forget this window", remember.GetAttribute("title"));
+        Assert.Equal("Remember this window", remember.GetAttribute("aria-label"));
         Assert.Equal([WindowKey], host.Windows.Remembered);
 
-        pin.Click();
+        remember.Click();
 
-        Assert.Equal("false", window.Find("[data-testid='surface-window-pin']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", window.Find("[data-testid='surface-window-remember']").GetAttribute("aria-pressed"));
         Assert.Empty(host.Windows.Remembered);
     }
 
     [Fact]
-    public async Task A_window_already_remembered_opens_with_its_pin_pressed()
+    public async Task A_window_already_remembered_opens_with_remember_this_window_pressed()
     {
         using var host = await CreateHostAsync(canRemember: true);
         host.Windows.Remembered.Add(WindowKey);
 
         var window = host.Render("alpha");
 
-        var pin = window.Find("[data-testid='surface-window-pin']");
-        Assert.Equal("true", pin.GetAttribute("aria-pressed"));
-        Assert.Equal("Forget this window", pin.GetAttribute("title"));
+        var remember = window.Find("[data-testid='surface-window-remember']");
+        Assert.Equal("true", remember.GetAttribute("aria-pressed"));
+        Assert.Equal("Forget this window", remember.GetAttribute("title"));
     }
 
-    /// <summary>No pin where the window cannot be remembered: a window under no key,
+    /// <summary>No Remember toggle where the window cannot be remembered: a window under no key,
     /// as in the web harness, and a host that remembers no windows, as a browser tab's.</summary>
     [Theory]
     [InlineData(true, null)]
     [InlineData(false, WindowKey)]
-    public async Task No_pin_is_drawn_where_the_window_cannot_be_remembered(bool canRemember, string? key)
+    public async Task No_remember_toggle_is_drawn_where_the_window_cannot_be_remembered(bool canRemember, string? key)
     {
         using var host = await CreateHostAsync(canRemember: canRemember);
 
         var window = host.Render("alpha", windowKey: key);
 
-        Assert.Empty(window.FindAll("[data-testid='surface-window-pin']"));
+        Assert.Empty(window.FindAll("[data-testid='surface-window-remember']"));
         Assert.NotEmpty(window.FindAll("[data-testid='surface-window-show-in-main']"));
     }
 
@@ -323,16 +323,90 @@ public sealed class SurfaceWindowTests
         window.WaitForAssertion(() => Assert.Equal(("beta", "item=7"), host.Windows.LastShowing));
     }
 
+    /// <summary>Both toggles where the head can do both: Keep on top, then Remember this
+    /// window, then Show in main window, each its own glyph.</summary>
+    [Fact]
+    public async Task Keep_on_top_and_remember_this_window_stand_in_order_before_show_in_main_window()
+    {
+        using var host = await CreateHostAsync(canRemember: true, canKeepOnTop: true);
+        var window = host.Render("alpha");
+
+        var onTop = window.Find("[data-testid='surface-window-on-top']");
+        Assert.Equal("surface-window-remember", onTop.NextElementSibling!.GetAttribute("data-testid"));
+        Assert.Equal("surface-window-show-in-main", onTop.NextElementSibling!.NextElementSibling!.GetAttribute("data-testid"));
+        Assert.NotNull(onTop.QuerySelector("svg.pin-icon"));
+        Assert.NotNull(window.Find("[data-testid='surface-window-remember']").QuerySelector("svg.bookmark-icon"));
+    }
+
+    /// <summary>Where the window can be kept on top of other windows, its header has a
+    /// pin: pressed, the window is kept on top; pressed again, it is let go.</summary>
+    [Fact]
+    public async Task The_pin_keeps_the_window_on_top_and_lets_it_go()
+    {
+        using var host = await CreateHostAsync(canKeepOnTop: true);
+        var window = host.Render("alpha");
+
+        var pin = window.Find("[data-testid='surface-window-on-top']");
+        Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+        Assert.Equal("Keep on top", pin.GetAttribute("aria-label"));
+
+        pin.Click();
+
+        Assert.Contains(WindowKey, host.Windows.OnTop);
+        window.WaitForAssertion(() =>
+            Assert.Equal("true", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed")));
+
+        window.Find("[data-testid='surface-window-on-top']").Click();
+
+        Assert.DoesNotContain(WindowKey, host.Windows.OnTop);
+        window.WaitForAssertion(() =>
+            Assert.Equal("false", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed")));
+    }
+
+    /// <summary>A window that opens kept on top — its surface's last window was —
+    /// shows the pin pressed.</summary>
+    [Fact]
+    public async Task A_window_opened_on_top_shows_the_pin_pressed()
+    {
+        using var host = await CreateHostAsync(canKeepOnTop: true);
+        host.Windows.OnTop.Add(WindowKey);
+
+        var window = host.Render("alpha");
+
+        Assert.Equal("true", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>A host whose windows cannot be kept on top — a browser tab — shows no pin.</summary>
+    [Fact]
+    public async Task A_host_that_cannot_keep_a_window_on_top_shows_no_pin()
+    {
+        using var host = await CreateHostAsync();
+        var window = host.Render("alpha");
+
+        Assert.Empty(window.FindAll("[data-testid='surface-window-on-top']"));
+    }
+
+    /// <summary>Show in main window keeps its name when a narrow window hides its words:
+    /// the name is on the button, not only in the text the stylesheet may hide.</summary>
+    [Fact]
+    public async Task Show_in_main_window_is_named_on_the_button_itself()
+    {
+        using var host = await CreateHostAsync();
+        var window = host.Render("alpha");
+
+        Assert.Equal("Show in main window", window.Find("[data-testid='surface-window-show-in-main']").GetAttribute("aria-label"));
+    }
+
     private static string[] RowTitles(IRenderedComponent<SurfaceWindow> window) =>
         [.. window.FindAll("[data-testid='rows-surface'] [data-testid='rows-row']").Select(row => row.TextContent.Trim())];
 
-    private static async Task<Host> CreateHostAsync(TaskChangeSignal? taskWrites = null, bool canRemember = false)
+    private static async Task<Host> CreateHostAsync(TaskChangeSignal? taskWrites = null, bool canRemember = false, bool canKeepOnTop = false)
     {
         var pane = await TasksPaneHost.CreateAsync(
             roadmapTags: null,
             ["backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs"],
             taskWrites: taskWrites);
-        var windows = new RecordingShellWindows { CanRemember = canRemember };
+        var windows = new RecordingShellWindows { CanRemember = canRemember, CanKeepOnTop = canKeepOnTop };
         var main = new MainWindowSurfaces();
         var requests = new List<SurfaceRequest>();
         main.Attach(request =>
@@ -419,6 +493,18 @@ public sealed class SurfaceWindowTests
             LastShowing = (surfaceId, string.Join(';', query
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => $"{pair.Key}={pair.Value}")));
+
+        public bool CanKeepOnTop { get; init; }
+
+        public HashSet<string> OnTop { get; } = new(StringComparer.Ordinal);
+
+        public bool IsOnTop(string windowKey) => OnTop.Contains(windowKey);
+
+        public void SetOnTop(string windowKey, bool onTop)
+        {
+            if (onTop) OnTop.Add(windowKey);
+            else OnTop.Remove(windowKey);
+        }
     }
 
     /// <summary>A surface that draws the query it was handed and jumps to

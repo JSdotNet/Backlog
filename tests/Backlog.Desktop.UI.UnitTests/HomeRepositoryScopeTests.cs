@@ -6,11 +6,14 @@ using Backlog.Infrastructure.GitHub;
 using AngleSharp.Dom;
 
 using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Tasks;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -365,6 +368,35 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal(["backlog", "docs"], component.FindComponent<SessionsPane>().Instance.RepositoryScope));
     }
 
+    /// <summary>
+    /// The notification centre lists by the whole header scope, so opening it keeps a
+    /// plural scope rather than narrowing it to the anchor, a modified press there adds a
+    /// repository, and the centre is handed the scope as it changes.
+    /// </summary>
+    [Fact]
+    public void The_notification_centre_keeps_and_follows_the_whole_header_scope()
+    {
+        using var harness = CreateHarness();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+        _ = features.SetEnabled(NotificationsFeatures.Notifications, true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForElement("[data-testid='notifications-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='notification-centre']")));
+
+        Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+        Assert.Equal(["docs", "backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope);
+        Assert.Contains("Ctrl+click", Chips(component)[0].GetAttribute("title"), StringComparison.Ordinal);
+
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope));
+    }
+
     [Fact]
     public void The_anchor_is_marked_only_once_there_is_a_second_chip_to_tell_it_from()
     {
@@ -532,6 +564,7 @@ public sealed class HomeRepositoryScopeTests
 
         Assert.Empty(component.FindAll("[data-testid='repository-filter-option']"));
         Assert.Empty(component.FindAll("[data-testid='brain-scope-divider']"));
+        OpenDisplayOptions(component);
         Assert.Empty(component.FindAll("[data-testid='repository-colours-toggle']"));
         Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
     }
@@ -1438,8 +1471,13 @@ public sealed class HomeRepositoryScopeTests
     private static void DocsArchived(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
 
-    private static IElement ShowArchivedToggle(IRenderedComponent<Home> component) =>
-        component.WaitForElement("button[data-testid='show-archived-toggle']");
+    /// <summary>The Show archived switch, inside the header's gear menu — which is
+    /// opened first, the way anybody reaching for it has to.</summary>
+    private static IElement ShowArchivedToggle(IRenderedComponent<Home> component)
+    {
+        OpenDisplayOptions(component);
+        return component.WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
+    }
 
     /// <summary>Scenario "The repository scope": the Brain chip and backlog, no chip
     /// for the archived repository.</summary>
@@ -1454,56 +1492,105 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal(["backlog"], Chips(component).Select(chip => chip.TextContent.Trim()));
             Assert.NotNull(BrainChip(component));
         });
-        Assert.Equal("false", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
+        Assert.Equal("false", ShowArchivedToggle(component).GetAttribute("aria-checked"));
     }
 
     /// <summary>
-    /// The control is one glyph that stays pressed, not a switch with its name written
-    /// beside a track: the header had no room for the words. The name moves to
-    /// aria-label, the tooltip says what the next press does, and it stands alone in
-    /// the loose option shape rather than inside the scope group, where it would read
-    /// as one more repository.
+    /// Show archived sits with Colors in the header's gear menu, not in the row: both
+    /// are occasional choices. Inside, it is the shared switch named by the
+    /// words beside it, outside the scope group where it would read as one more
+    /// repository, and flipping it leaves the panel open.
     /// </summary>
     [Fact]
-    public void Show_archived_is_an_icon_only_pressed_toggle_outside_the_scope()
+    public void Show_archived_is_a_switch_inside_the_display_options()
+    {
+        using var harness = CreateHarness(DocsArchived);
+        var component = Render(harness);
+
+        Chips(component);
+        Assert.Empty(component.FindAll("[data-testid='show-archived-toggle']"));
+
+        var toggle = ShowArchivedToggle(component);
+
+        Assert.Equal("switch", toggle.GetAttribute("role"));
+        Assert.Equal("false", toggle.GetAttribute("aria-checked"));
+        Assert.Null(toggle.GetAttribute("aria-label"));
+        Assert.Equal("Show archived", component.Find("#" + toggle.GetAttribute("aria-labelledby")).TextContent.Trim());
+        Assert.NotNull(toggle.Closest("[data-testid='settings-menu-panel'][role='group']"));
+        Assert.Null(toggle.Closest(".app-header__repository-scope"));
+
+        toggle.Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='show-archived-toggle'] [role='switch']").GetAttribute("aria-checked"));
+            Assert.NotNull(component.Find("[data-testid='settings-menu-panel']"));
+        });
+    }
+
+    /// <summary>The gear is a named disclosure: aria-expanded says whether the menu
+    /// is out, and Escape or a click outside puts it away again. Settings is its last
+    /// entry, a link to the page.</summary>
+    [Fact]
+    public void The_gear_menu_opens_from_a_named_trigger_and_closes_on_escape_or_outside_click()
+    {
+        using var harness = CreateHarness(DocsArchived);
+        var component = Render(harness);
+
+        var trigger = DisplayOptionsTrigger(component);
+        Assert.Equal("Settings", trigger.GetAttribute("aria-label"));
+        Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
+        Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+
+        trigger.Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", DisplayOptionsTrigger(component).GetAttribute("aria-expanded")));
+        Assert.Equal(
+            DisplayOptionsTrigger(component).GetAttribute("aria-controls"),
+            component.Find("[data-testid='settings-menu-panel']").Id);
+        var settings = component.Find("[data-testid='settings-menu-panel'] a[data-testid='settings-link']");
+        Assert.Equal("settings", settings.GetAttribute("href"));
+        Assert.Equal("Settings", settings.TextContent.Trim());
+
+        component.Find("[data-testid='repository-colours-toggle'] [role='switch']")
+            .KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        component.WaitForAssertion(() =>
+            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']")));
+
+        DisplayOptionsTrigger(component).Click();
+        component.Find("[data-testid='settings-menu-backdrop']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+            Assert.Equal("false", DisplayOptionsTrigger(component).GetAttribute("aria-expanded"));
+        });
+    }
+
+    /// <summary>With nothing archived the switch has nothing to show, so it is
+    /// disabled and says why — but still listed, so it can be found.</summary>
+    [Fact]
+    public void The_show_archived_switch_is_disabled_with_a_note_while_nothing_is_archived()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component);
+        var toggle = ShowArchivedToggle(component);
+
+        Assert.True(toggle.HasAttribute("disabled"));
+        Assert.Contains("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
+    }
+
+    [Fact]
+    public void The_show_archived_switch_is_enabled_while_a_repository_is_archived()
     {
         using var harness = CreateHarness(DocsArchived);
         var component = Render(harness);
 
         var toggle = ShowArchivedToggle(component);
 
-        Assert.Null(toggle.GetAttribute("role"));
-        Assert.Null(toggle.GetAttribute("aria-checked"));
-        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
-        Assert.Equal("Show archived repositories", toggle.GetAttribute("aria-label"));
-        Assert.Equal("Show archived repositories", toggle.GetAttribute("title"));
-        Assert.Contains("header-group__option--loose", toggle.ClassList);
-        Assert.NotNull(toggle.QuerySelector("svg.archive-icon[aria-hidden='true']"));
-        Assert.Empty(toggle.TextContent.Trim());
-        Assert.Null(toggle.QuerySelector("[class*='track']"));
-        Assert.Null(toggle.Closest("[role='group'], .header-group"));
-
-        toggle.Click();
-
-        component.WaitForAssertion(() =>
-        {
-            var pressed = ShowArchivedToggle(component);
-            Assert.Equal("true", pressed.GetAttribute("aria-pressed"));
-            Assert.Equal("Show archived repositories", pressed.GetAttribute("aria-label"));
-            Assert.Equal("Hide archived repositories", pressed.GetAttribute("title"));
-        });
-    }
-
-    /// <summary>With nothing archived the switch has nothing to show, so it is not
-    /// drawn.</summary>
-    [Fact]
-    public void The_show_archived_switch_is_drawn_only_while_a_repository_is_archived()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        Chips(component);
-        Assert.Empty(component.FindAll("[data-testid='show-archived-toggle']"));
+        Assert.False(toggle.HasAttribute("disabled"));
+        Assert.DoesNotContain("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
     }
 
     /// <summary>Scenarios "Show archived is on" and "A restart": the chip comes back
@@ -1528,7 +1615,7 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal("docs (archived)", chips[1].TextContent.Trim());
             Assert.StartsWith("Archived. ", chips[1].GetAttribute("title"), StringComparison.Ordinal);
         });
-        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
+        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-checked"));
         Assert.True(new ShellNavigationStore(path).ShowArchivedRepositories);
         Assert.Contains("\"showArchivedRepositories\": true", File.ReadAllText(path), StringComparison.Ordinal);
     }
@@ -1543,7 +1630,7 @@ public sealed class HomeRepositoryScopeTests
 
         component.WaitForAssertion(() =>
             Assert.Equal(["backlog", "docs (archived)"], Chips(component).Select(chip => chip.TextContent.Trim())));
-        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
+        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-checked"));
     }
 
     /// <summary>Scenario "The repository was archived since": the remembered scope comes
@@ -1608,7 +1695,8 @@ public sealed class HomeRepositoryScopeTests
 
     // --- The repository colour visualization ----------------------------------
     //
-    // The switch is here, on the main page, beside the chips it is most visibly about.
+    // The switch is here, on the main page, in the header's gear menu rather than
+    // in the Settings page.
     // What it flips is not a shell concern though — it is the settings store's answer to
     // "which hue", which is why turning it off has to empty every surface at once rather
     // than only this one.
@@ -1619,13 +1707,14 @@ public sealed class HomeRepositoryScopeTests
     // alone would name only half of it.
 
     [Fact]
-    public void The_header_offers_the_colour_visualization_switch_beside_the_scope_chips()
+    public void The_header_offers_the_colour_visualization_switch_in_its_gear_menu()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        var control = component.WaitForElement("[data-testid='repository-colours-toggle']");
         var switchElement = ColourSwitch(component);
+        var control = component.Find("[data-testid='repository-colours-toggle']");
+        Assert.NotNull(control.Closest("[data-testid='settings-menu-panel']"));
 
         // A switch and not a disclosure or a selection: nothing opens, nothing is picked
         // out of a set, a fact about the whole workspace changes. So role=switch with
@@ -1811,8 +1900,25 @@ public sealed class HomeRepositoryScopeTests
     /// <summary>The switch inside the header's colour control. Found through the
     /// control's test id rather than by its own, because that is where the shared Toggle
     /// puts one — see the section comment above.</summary>
-    private static IElement ColourSwitch(IRenderedComponent<Home> component) =>
-        component.WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
+    private static IElement ColourSwitch(IRenderedComponent<Home> component)
+    {
+        OpenDisplayOptions(component);
+        return component.WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
+    }
+
+    private static IElement DisplayOptionsTrigger(IRenderedComponent<Home> component) =>
+        component.WaitForElement("button[data-testid='settings-menu-button']");
+
+    /// <summary>Opens the header's gear menu, where Colors and Show archived live,
+    /// unless it is already open.</summary>
+    private static void OpenDisplayOptions(IRenderedComponent<Home> component)
+    {
+        var trigger = DisplayOptionsTrigger(component);
+        if (trigger.GetAttribute("aria-expanded") == "true") return;
+
+        trigger.Click();
+        component.WaitForElement("[data-testid='settings-menu-panel']");
+    }
 
     /// <summary>Turns the identity-hue visualization on, the way somebody using the
     /// header switch would have before this screen was opened.</summary>
@@ -1905,6 +2011,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         // And no delivery runs behind it, for the same reason.
         context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
+        // An empty notification centre, offered only where a test turns its flag on.
+        context.Services.AddSingleton<INotificationCentre>(new EmptyNotificationCentre());
+        context.Services.TryAddSingleton(TimeProvider.System);
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
@@ -2009,6 +2118,23 @@ public sealed class HomeRepositoryScopeTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
+    }
+
+    /// <summary>An owner's centre holding nothing, so the notification centre can open.</summary>
+    private sealed class EmptyNotificationCentre : INotificationCentre
+    {
+        public DeviceIdentity ThisDevice { get; } = new(Guid.NewGuid(), "This desktop");
+
+        public event EventHandler<NotificationChanged>? Changed { add { } remove { } }
+
+        public Task<IReadOnlyList<NotificationView>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<NotificationView>>([]);
+
+        public Task<Backlog.SharedKernel.Results.Result<NotificationAnswer>> AnswerAsync(Guid notificationId, IReadOnlyList<string> choiceIds, string? text, string? note = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<Backlog.SharedKernel.Results.Result> AcknowledgeAsync(Guid notificationId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class EmptyRunSource : IDeliveryRunSource

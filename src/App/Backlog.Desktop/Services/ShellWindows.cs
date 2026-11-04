@@ -18,10 +18,12 @@ namespace Backlog.Desktop.Services;
 /// <item>A popped-out window writes its bounds to <see cref="ShellWindowStore"/> when it
 /// moves, resizes or closes, and the next window of that surface opens there, clamped to
 /// a monitor that is connected now.</item>
-/// <item>Only a window the person pinned reopens at start (<see cref="ReopenRemembered"/>),
+/// <item>Only a window the person remembered reopens at start (<see cref="ReopenRemembered"/>),
 /// under the same key, on what it showed at quit and at its own last bounds. Quitting
 /// keeps it remembered; the person closing it — its own close button, Show in main
 /// window — forgets it.</item>
+/// <item>A popped-out window can be kept on top of other windows. That is remembered per
+/// surface beside its bounds, so the next window of that surface opens kept on top.</item>
 /// </list>
 /// A singleton, because the windows outlive every window's scope.
 /// </summary>
@@ -32,6 +34,8 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
     private static readonly TimeSpan FlushTimeout = TimeSpan.FromSeconds(2);
 
     private readonly Dictionary<string, Window> _popped = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _surfaceOf = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _onTop = new(StringComparer.Ordinal);
 
     /// <summary>What each popped-out window shows now, which a remembered one reopens on.</summary>
     private readonly Dictionary<string, (string SurfaceId, IReadOnlyDictionary<string, string> Query)> _showing = new(StringComparer.Ordinal);
@@ -139,9 +143,7 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
             {
                 lock (_gate)
                 {
-                    _popped.Remove(key);
-                    _showing.Remove(key);
-                    _placed.Remove(key);
+                    Forget(key);
                 }
 
                 built.TrySetResult(false);
@@ -172,9 +174,7 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
             bool quitting;
             lock (_gate)
             {
-                _popped.Remove(key);
-                _showing.Remove(key);
-                _placed.Remove(key);
+                Forget(key);
                 quitting = _quitting;
             }
 
@@ -191,9 +191,22 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         {
             _popped[key] = window;
             _showing[key] = (surfaceId, new Dictionary<string, string>(query ?? new Dictionary<string, string>(), StringComparer.Ordinal));
+            _surfaceOf[key] = surfaceId;
+            if (windowBounds.IsOnTop(surfaceId)) _onTop.Add(key);
         }
 
         return window;
+    }
+
+    /// <summary>Drops every trace of the window <paramref name="key"/> names. Called
+    /// under the gate.</summary>
+    private void Forget(string key)
+    {
+        _popped.Remove(key);
+        _showing.Remove(key);
+        _placed.Remove(key);
+        _surfaceOf.Remove(key);
+        _onTop.Remove(key);
     }
 
     /// <inheritdoc />
@@ -272,6 +285,46 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         if (main is not null) OnMainThread(() => Application.Current?.ActivateWindow(main));
     }
 
+    /// <inheritdoc />
+    /// <remarks>Only on Windows, the one platform this head ships on whose windows
+    /// have the presenter that does it.</remarks>
+    public bool CanKeepOnTop =>
+#if WINDOWS
+        true;
+#else
+        false;
+#endif
+
+    /// <inheritdoc />
+    public bool IsOnTop(string windowKey)
+    {
+        lock (_gate)
+        {
+            return _onTop.Contains(windowKey);
+        }
+    }
+
+    /// <inheritdoc />
+    public void SetOnTop(string windowKey, bool onTop)
+    {
+        if (!CanKeepOnTop) return;
+
+        Window? window;
+        string? surfaceId;
+        lock (_gate)
+        {
+            window = _popped.GetValueOrDefault(windowKey);
+            surfaceId = _surfaceOf.GetValueOrDefault(windowKey);
+            if (window is null || surfaceId is null) return;
+
+            if (onTop) _onTop.Add(windowKey);
+            else _onTop.Remove(windowKey);
+        }
+
+        windowBounds.SetOnTop(surfaceId, onTop);
+        OnMainThread(() => ApplyOnTop(window, onTop));
+    }
+
     /// <summary>
     /// The window <paramref name="windowKey"/> names: a popped-out window, or the main
     /// window for no key — the main window's own scope carries none — and for a key whose
@@ -312,6 +365,8 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
             _quitting = true;
             others = [.. _popped.Values];
             _popped.Clear();
+            _surfaceOf.Clear();
+            _onTop.Clear();
         }
 
         var application = Application.Current;
@@ -364,6 +419,8 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
                 }
             }
 
+            if (IsOnTop(key)) ApplyOnTop(window, onTop: true);
+
             // Kept once as placed, before anything maximises it: a window maximised
             // before it ever moved still has a rectangle to restore to.
             Keep(appWindow, key, surfaceId, restoring: true);
@@ -378,6 +435,16 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         {
             if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is { } appWindow) Keep(appWindow, key, surfaceId);
         };
+#endif
+    }
+
+    /// <summary>Keeps <paramref name="window"/> above every window that is not kept on
+    /// top itself, or lets it go. Called on the main thread.</summary>
+    private static void ApplyOnTop(Window window, bool onTop)
+    {
+#if WINDOWS
+        if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            presenter.IsAlwaysOnTop = onTop;
 #endif
     }
 

@@ -387,18 +387,18 @@ h1, h2, h3 {
 }
 
 /*
-  The shared Toggle standing in the header rather than in a settings row.
+  The shared Toggle in the header's gear menu rather than in a settings row.
 
   The component is laid out for that row: the track aligns to the top of a text
   block that may carry a description under the name, and the name is set at the
-  weight a section heading needs. A header has neither a second line to align to
+  weight a section heading needs. The panel has neither a second line to align to
   nor room for a heading, so the parts are re-centred and the name steps down to
-  the type the chips beside it use. Nothing about the switch itself is touched —
+  the type the chips use. Nothing about the switch itself is touched —
   the track, the thumb, the on state, focus and the reduced-motion rule are all
   still the component's own, which is the whole reason for reaching for it.
 
   It does not shrink. A switch narrowed to nothing is a switch nobody can read
-  the name of, and the header already wraps rather than squeezing its regions.
+  the name of.
 */
 .toggle.header-switch {
     align-items: center;
@@ -415,6 +415,42 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     white-space: nowrap;
+}
+
+/* The note under Show archived while nothing is archived: why it is greyed out. */
+.header-switch__description {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The gear reads pressed while its menu is out, as a hovered icon link does. */
+.icon-link.icon-link--open {
+    background: var(--color-background-alt);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+/* Settings, last in the gear menu: a link to the page, set apart from the
+   switches above it by a hairline. */
+.header-menu__link {
+    display: block;
+    margin-inline: calc(-1 * var(--spacing-md));
+    margin-bottom: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+}
+
+.header-menu__link:hover {
+    color: var(--color-text-link);
+    text-decoration: underline;
+}
+
+.header-menu__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The version control wears `.header-util` for its shape, so only the version
@@ -4002,15 +4038,6 @@ h1, h2, h3 {
 .app-header--fold-2 .header-group__option:has(> .header-nav-label--tier-2),
 .app-header--fold-3 .header-group__option:has(> .header-nav-label--tier-3),
 .app-header--fold-4 .header-group__option:has(> .header-nav-label--tier-4) {
-    padding-inline: var(--spacing-sm);
-}
-
-/* An option that never had a word — Show archived beside Colors — is a glyph in
-   a box from the start, so it takes the folded sides permanently. The height is
-   the option's own, so it lines up with the loose options it borrows the shape
-   from and the header grows no taller for it. */
-.header-group__option--icon-only {
-    flex: 0 0 auto;
     padding-inline: var(--spacing-sm);
 }
 
@@ -11302,17 +11329,11 @@ a.pull-request-detail-checks__name:hover {
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
-  the repository scope chips, the Remember this window pin, Show in main window —
-  over one surface. The title takes the room that is left, so the pin and Show in
-  main window sit at the far edge where the main window keeps its utilities.
+  the repository scope chips, Keep on top, Remember this window, Show in main
+  window — over one surface. The title takes the room that is left, so the toggles
+  and Show in main window sit at the far edge where the main window keeps its
+  utilities.
 */
-/* The pin wears Show archived's loose icon-only option, so its target is that
-   one's and the slim header grows no taller (local ADR 0043 §5). On a header that
-   wraps, the auto margin keeps it at the trailing end beside Show in main window. */
-.surface-window__pin {
-    margin-inline-start: auto;
-}
-
 /* A popped-out window is often narrow and has no tiers to fold, so its header
    wraps rather than pushing Show in main window off the edge; the scope chips
    wrap inside their group the same way. */
@@ -11333,4 +11354,113 @@ a.pull-request-detail-checks__name:hover {
 
 .surface-window__unavailable {
     padding: var(--spacing-lg);
+}
+
+/* Keep on top, Remember this window and Show in main window travel together to
+   the far edge. */
+.surface-window__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.surface-window__on-top,
+.surface-window__remember {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Show in main window says it in words while there is room; its icon stands in for
+   them only once the window is narrow (below). */
+.surface-window__main .btn__icon {
+    display: none;
+}
+
+/*
+  Docked narrow — a "today" list on a side monitor. Every row the header and the
+  footer spend is a task the reader cannot see, so below 40rem:
+  - the title and the buttons share the first row, and the scope chips take a
+    row of their own that scrolls sideways rather than running off the edge;
+  - Show in main window drops its words (the button keeps its name);
+  - the footer goes: the version and the sync state are the main window's to say;
+  - the rows lose their drag handles and the work links, and the page its wide side
+    padding.
+  The viewport is the window here, so a media query is the window's width.
+*/
+@media (max-width: 40rem) {
+    .shell.surface-window {
+        gap: var(--spacing-xs);
+        padding-inline: var(--spacing-sm);
+    }
+
+    .surface-window__header {
+        row-gap: 0;
+        column-gap: var(--spacing-sm);
+    }
+
+    /* Two classes, to outweigh `.app-header h1`, which sets every header title at 2xl. */
+    .surface-window__header .surface-window__title {
+        order: 0;
+        flex: 1 1 0;
+        font-size: var(--font-size-lg);
+    }
+
+    .surface-window__actions {
+        order: 1;
+    }
+
+    /* A line break: a full-width item of no height between the first row and the
+       scope, so the title's free width is never offered to the chips. */
+    .surface-window__header::after {
+        content: "";
+        order: 1;
+        flex-basis: 100%;
+        height: 0;
+    }
+
+    .surface-window__scope {
+        order: 2;
+        flex: 0 1 auto;
+        max-width: 100%;
+        margin-top: var(--spacing-xs);
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+    }
+
+    .surface-window__main-label {
+        display: none;
+    }
+
+    .surface-window__main .btn__icon {
+        display: inline-flex;
+        margin-right: 0;
+    }
+
+    /* The band and its controls go, and not the element: the feedback dialog is
+       rendered inside it, and the error state opens that dialog from any window.
+       With nothing in flow left in it, the band is no height at all. */
+    .app-shell:has(.surface-window) > .app-footer {
+        padding: 0;
+        border-top: 0;
+    }
+
+    .app-shell:has(.surface-window) > .app-footer > :is(.header-util, .app-footer__status) {
+        display: none;
+    }
+
+    /* The two pointer handles — the grip that reorders and the link that draws a
+       "waits on" chain — and the work links. The keyboard keeps both gestures. */
+    .surface-window .task-item__grip,
+    .surface-window .task-item__link,
+    .surface-window .entry-row__work {
+        display: none;
+    }
+
+    .surface-window .task-item {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
 }

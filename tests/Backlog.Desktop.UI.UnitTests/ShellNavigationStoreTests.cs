@@ -1,6 +1,8 @@
 using System.Text.Json;
 
+using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Modules.Notifications.UI;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -1109,6 +1111,47 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("checklist", restarted.ToolsTab);
             Assert.Equal("claude", restarted.ToolsHostFilter);
             Assert.Equal("tools", restarted.LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The notification centre's Group by and filters survive a restart, through the port
+    /// the centre reads; no key is written until one is chosen, and choosing the defaults
+    /// again writes them out.
+    /// </summary>
+    [Fact]
+    public void The_notification_centre_choices_survive_a_restart_and_write_no_key_until_chosen()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var preferences = new ShellNotificationCentrePreferences(new ShellNavigationStore(path));
+            Assert.Equal(new NotificationCentreChoices(), preferences.Choices);
+
+            new ShellNavigationStore(path).SetLastSurface("notifications");
+            using (var none = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("notificationsGroupBy", out _));
+                Assert.False(none.RootElement.TryGetProperty("notificationsFrom", out _));
+            }
+
+            var store = new ShellNavigationStore(path);
+            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by", "ai-agent", "open", "Claude Code"));
+            store.Flush();
+
+            Assert.Equal(
+                new NotificationCentreChoices("asked-by", "ai-agent", "open", "Claude Code"),
+                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
+
+            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by"));
+            using var cleared = JsonDocument.Parse(Written(path));
+            Assert.False(cleared.RootElement.TryGetProperty("notificationsFrom", out _));
+            Assert.Equal("asked-by", cleared.RootElement.GetProperty("notificationsGroupBy").GetString());
         }
         finally
         {

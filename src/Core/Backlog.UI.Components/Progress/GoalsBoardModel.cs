@@ -104,6 +104,15 @@ public sealed record GoalsItem(GoalSubject Subject, string Title)
 
     /// <summary>A pull request's number; null for anything else.</summary>
     public int? Number => Subject.Kind == GoalSubjectKind.PullRequest ? Subject.Number : null;
+
+    /// <summary>A No goal task row's status, dotted the way the open goal's Tasks column
+    /// dots it; null for any other row, which then draws no dot.</summary>
+    public GoalTaskStatus? Status { get; init; }
+
+    /// <summary>A No goal pull request row's status line, drawn the way the open goal's Pull
+    /// requests column draws it; null for any other row, which then draws its plain
+    /// number.</summary>
+    public PullRequestStatusModel? PullRequest { get; init; }
 }
 
 /// <summary>An item in the stand-up's Finished or Planned list.</summary>

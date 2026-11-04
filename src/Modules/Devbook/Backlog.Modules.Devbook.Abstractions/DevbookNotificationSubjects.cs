@@ -34,11 +34,37 @@ public static class DevbookNotificationSubjects
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(chapterPath);
 
-        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? "_" : Uri.EscapeDataString(repositoryAlias.Trim());
+        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? NoRepository :Uri.EscapeDataString(repositoryAlias.Trim());
         var path = string.Join('/', chapterPath.Trim().Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString));
 
-        return $"backlog://devbook/{alias}/{path}";
+        return $"{ChapterLinkPrefix}{alias}/{path}";
     }
+
+    /// <summary>
+    /// The repository alias and chapter path a <see cref="ChapterLink"/> names — the alias
+    /// null where the link was built with none (<c>_</c>) — or null for a link that is not
+    /// a chapter link. What a reader that holds only the notification uses to tell which
+    /// repository a remark is about.
+    /// </summary>
+    public static (string? RepositoryAlias, string ChapterPath)? ParseChapterLink(string? link)
+    {
+        if (string.IsNullOrWhiteSpace(link) || !link.StartsWith(ChapterLinkPrefix, StringComparison.Ordinal)) return null;
+
+        var rest = link[ChapterLinkPrefix.Length..];
+        var slash = rest.IndexOf('/', StringComparison.Ordinal);
+        if (slash <= 0 || slash == rest.Length - 1) return null;
+
+        var alias = rest[..slash];
+        var path = string.Join('/', rest[(slash + 1)..].Split('/').Select(Uri.UnescapeDataString));
+
+        return (alias == NoRepository ? null : Uri.UnescapeDataString(alias), path);
+    }
+
+    /// <summary>What every chapter link starts with.</summary>
+    private const string ChapterLinkPrefix = "backlog://devbook/";
+
+    /// <summary>The alias segment of a chapter link built with no repository.</summary>
+    private const string NoRepository = "_";
 
     /// <summary>Whether a remark is still open: there, not deleted, and not resolved.</summary>
     public static bool IsOpen(DevbookAnnotation? remark) => remark is { IsLive: true, Resolved: false };

@@ -1,8 +1,8 @@
 /* The notification centre (Backlog.Modules.Notifications.UI), served at
    _content/Backlog.Modules.Notifications.UI/notifications.css. The card itself is
    the library's NotificationCard and styled there; this file lays out the
-   takeover around it — the list grouped by subject on the left, the detail on
-   the right — and the list's rows. Tokens only, no colour of its own. */
+   takeover around it — the filter bar across the top, the grouped list on the
+   left, the detail on the right — and the list's rows. Tokens only, no colour of its own. */
 
 .notification-centre {
     display: flex;
@@ -49,9 +49,53 @@
     min-height: 0;
 }
 
-/* The "From" filter over the list: which system the notifications come from. */
+/* The filter bar over the list and the detail — From, Asked by, Kind, Group by and
+   Clear filters — across the whole takeover, since it narrows both. It wraps on a
+   narrow window; no control is wider than the bar. The Sessions list's shape. */
+.notification-centre__filters {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    align-items: center;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
 .notification-centre__filter {
-    margin-bottom: var(--spacing-sm);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.notification-centre__filter > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.notification-centre__filter-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* A strip that wraps keeps each button's rounded edge, as on the Sessions list. */
+.btn-group.notification-centre__options {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.btn-group.notification-centre__options > .btn {
+    border-radius: var(--border-radius-md);
+}
+
+/* How many an option would keep under the other filters. */
+.notification-centre__tally {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
 }
 
 .notification-centre__list,
@@ -140,9 +184,24 @@
     white-space: nowrap;
 }
 
+/* The asker's marker, then who raised it and when. */
+.notification-list__byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
 .notification-list__meta {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
+}
+
+/* A repository's heading, grouped by repository, wears the shared repo-mark's inset
+   bar; the text steps clear of it. */
+.notification-list__subject.repo-mark {
+    padding-left: var(--spacing-sm);
 }
 
 .notification-list__row--answered .notification-list__title,
