@@ -116,6 +116,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IPreferences>(Preferences.Default);
 		builder.Services.AddSingleton<IAppUpdateCheckStamp, PreferencesAppUpdateCheckStamp>();
 
+		// The Dictation language the recogniser listens for, kept across launches.
+		// Before AddMobileShell, whose in-memory store is only the default.
+		builder.Services.AddSingleton<ISpeechSettingsStore, PreferencesSpeechSettingsStore>();
+
 		// The Android push (local ADR 0039 §4): Firebase's token, registered with the sync
 		// service by the shell's PushRegistration, and the tray the messaging service and the
 		// answer receiver draw in. Before AddMobileShell, whose token source answers no token
