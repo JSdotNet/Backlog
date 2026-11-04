@@ -6,11 +6,14 @@ using Backlog.Infrastructure.GitHub;
 using AngleSharp.Dom;
 
 using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Tasks;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -363,6 +366,35 @@ public sealed class HomeRepositoryScopeTests
         Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
         component.WaitForAssertion(() =>
             Assert.Equal(["backlog", "docs"], component.FindComponent<SessionsPane>().Instance.RepositoryScope));
+    }
+
+    /// <summary>
+    /// The notification centre lists by the whole header scope, so opening it keeps a
+    /// plural scope rather than narrowing it to the anchor, a modified press there adds a
+    /// repository, and the centre is handed the scope as it changes.
+    /// </summary>
+    [Fact]
+    public void The_notification_centre_keeps_and_follows_the_whole_header_scope()
+    {
+        using var harness = CreateHarness();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+        _ = features.SetEnabled(NotificationsFeatures.Notifications, true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForElement("[data-testid='notifications-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='notification-centre']")));
+
+        Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+        Assert.Equal(["docs", "backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope);
+        Assert.Contains("Ctrl+click", Chips(component)[0].GetAttribute("title"), StringComparison.Ordinal);
+
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope));
     }
 
     [Fact]
@@ -1979,6 +2011,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         // And no delivery runs behind it, for the same reason.
         context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
+        // An empty notification centre, offered only where a test turns its flag on.
+        context.Services.AddSingleton<INotificationCentre>(new EmptyNotificationCentre());
+        context.Services.TryAddSingleton(TimeProvider.System);
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
@@ -2083,6 +2118,23 @@ public sealed class HomeRepositoryScopeTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
+    }
+
+    /// <summary>An owner's centre holding nothing, so the notification centre can open.</summary>
+    private sealed class EmptyNotificationCentre : INotificationCentre
+    {
+        public DeviceIdentity ThisDevice { get; } = new(Guid.NewGuid(), "This desktop");
+
+        public event EventHandler<NotificationChanged>? Changed { add { } remove { } }
+
+        public Task<IReadOnlyList<NotificationView>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<NotificationView>>([]);
+
+        public Task<Backlog.SharedKernel.Results.Result<NotificationAnswer>> AnswerAsync(Guid notificationId, IReadOnlyList<string> choiceIds, string? text, string? note = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<Backlog.SharedKernel.Results.Result> AcknowledgeAsync(Guid notificationId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class EmptyRunSource : IDeliveryRunSource

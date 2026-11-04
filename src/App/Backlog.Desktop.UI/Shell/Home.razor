@@ -1162,10 +1162,11 @@
     /// but it sat beside the list until it took the screen (local ADR 0022,
     /// amendment of 2026-10-15), and with the Brain and a repository both pressed it
     /// offers its <c>Brain | repo</c> switch (local ADR 0027, §4), which a scope
-    /// narrowed to the anchor would take away. Tools reads none, so there a chip is a
+    /// narrowed to the anchor would take away. The notification centre lists by the
+    /// whole scope, as the session list does. Tools reads none, so there a chip is a
     /// single select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
+        TasksListOnScreen || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible || NotificationsVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button

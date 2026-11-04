@@ -378,6 +378,9 @@ public static class DesktopCompositionRegistration
         // the window's own task list and reader of pull requests.
         services.AddSingleton<ITasksViewPreferences>(sp =>
             new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        // The notification centre's Group by and filters, per device in the same file.
+        services.AddSingleton<INotificationCentrePreferences>(sp =>
+            new ShellNotificationCentrePreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.Add(new ServiceDescriptor(
             typeof(ShellGoalsViewSource),
             sp => new ShellGoalsViewSource(sp),

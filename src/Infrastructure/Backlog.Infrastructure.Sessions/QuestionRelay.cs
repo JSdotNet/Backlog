@@ -356,7 +356,11 @@ public sealed class QuestionRelay : IQuestionRelay
             title,
             OneLine(asked.Question, Limits.Summary),
             Body(question, asked, index),
-            Spec(asked));
+            Spec(asked),
+            // Said the way a run's Personal Validation says it, so the centre reads the relay
+            // as an agent's question. The waiting question holds neither the repository nor
+            // the session's title, so the origin names no place.
+            Origin: NotificationOrigin.Fit(NotificationOrigins.ClaudeCode, via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>The answer spec of one question; see <see cref="Draft"/>.</summary>
