@@ -17,9 +17,10 @@ and `../execute-plan/assets/landing-modes.md`.
 1. **Plan.** The `+tag` from the request, else the plan this session wrote, else ask.
    `get_plan_items` on the `backlog` MCP server, or the plan text in this session without it.
    Per step: type, status, and its pull request
-   (`gh pr list --head <slug>/<id> --state all --json number,state,baseRefName,mergedAt,url`).
+   (`gh pr list --head <entry-branch> --state all --json number,state,baseRefName,mergedAt,url`,
+   the name resolved per **Repository conventions** in `landing-modes.md`).
 2. **Update.** `git fetch origin`. The tip is `origin/<base>`, except while work is still
-   open on its way there: in branch mode `origin/plan/<slug>` while its closing pull request
+   open on its way there: in branch mode `origin/<integration>` while its closing pull request
    is open (**The closing pull request** in `landing-modes.md`), in stacked mode the top of the
    unmerged stack. A clean checkout with no commits of its own →
    `git merge --ff-only <tip>`; otherwise `git worktree add --detach` at the tip in the
