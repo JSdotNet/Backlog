@@ -226,7 +226,10 @@ stateDiagram-v2
 ```
 
 - **Open**: published, and not yet settled.
-- **Acknowledged**: an alert that a person acknowledged on any instance.
+- **Acknowledged**: an alert that a person acknowledged on any instance. On the
+  owner they acknowledge it directly; on a viewer they send an
+  [Acknowledgement](#acknowledgement), which the owner takes. The owner records
+  the device it came from.
 - **Answered**: a question whose owner accepted a reply as its answer.
 - **Closed**: the publisher closed it, or its subject ended. A closed question
   needs no answer, and a reply sent after it is rejected as closed.
@@ -245,10 +248,16 @@ related: [.devbook/domain/notifications/domain.invariants.md#reply, .devbook/arc
 aliases: [ReplyOutboxKind]
 ```
 
-What a person submits to answer a question, from any instance. A reply is a
-proposal until the owner accepts it. A viewer writes it once and never changes
-it; the phone writes it through its device outbox, so a reply made offline is
-kept.
+What a person submits to answer a question, from any instance, or to acknowledge
+an alert from a viewer. A reply is a proposal until the owner takes it. A viewer
+writes it once and never changes it; the phone writes it through its device
+outbox, so a reply made offline is kept.
+
+A reply addressed to an alert is an [Acknowledgement](#acknowledgement). It holds
+no choice, no text and no note. The owner takes the first one and moves the alert
+to Acknowledged. A later one changes nothing, and one that arrives after the alert
+closed is rejected as closed. The rest of this section is about a reply to a
+question.
 
 The owner reads each reply, checks it against the question's
 [Answer Spec](#answer-spec), and accepts or rejects it. It rejects a reply with a
@@ -305,4 +314,18 @@ related: [.devbook/domain/notifications/domain.md#reply]
 ```
 
 Any other paired device: the Android phone or another desktop. It shows
-notifications and submits replies, and never changes a notification.
+notifications, answers questions and acknowledges alerts by submitting replies,
+and never changes a notification.
+
+### Acknowledgement
+
+```meta
+status: proposed
+type: term
+related: [.devbook/domain/notifications/domain.md#reply, .devbook/domain/notifications/domain.invariants.md#invariant-an-acknowledgement-settles-only-an-open-alert, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+```
+
+A [Reply](#reply) a viewer sends to an open alert, asking its owner to move it to
+Acknowledged. It names the alert, its owner instance and the device it came from,
+and nothing else. The phone's pager labels the action Dismiss. A swipe that clears
+the alert from the Android tray only clears the tray, and sends none.
