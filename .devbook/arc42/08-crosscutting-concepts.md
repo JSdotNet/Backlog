@@ -438,8 +438,8 @@ replica containers, the sync routes and the owner desktop's exchange, and the
 desktops' Web PubSub nudge. So are the first publishers: a run's Personal
 Validation, the device that redeemed a pairing code, and a remark left on another
 device. So are the screens: the desktop's notification centre and the phone's
-list and answer screens. So is the Android phone push, declared in Bicep and not
-deployed; no push reaches a phone until the hub has its FCM credential.
+list and answer screens. So is the Android phone push, deployed on 2026-11-04;
+no push reaches a phone until the hub has its FCM credential.
 
 | Concern | How it works |
 |---|---|

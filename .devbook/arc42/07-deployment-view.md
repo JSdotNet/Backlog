@@ -346,8 +346,9 @@ Deployment considerations:
 - **The FCM credential is entered by hand** — the hub's FCM v1 credential
   (project id, client email, private key) is not in Bicep. A person enters it on
   the hub once Firebase is set up. Until then no phone is pushed.
-- **Not deployed yet** — the Web PubSub and Notification Hubs resources are
-  declared in `infra/sync/main.bicep`, and neither is deployed or used for real.
+- **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs
+  resources in `infra/sync/main.bicep` exist in Azure, and the sync container app
+  carries their settings. Pushes wait on the hub's FCM credential.
 
 ### Provisioning and Delivery
 
