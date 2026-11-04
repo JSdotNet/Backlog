@@ -70,6 +70,10 @@ public static class MobileShellServiceCollectionExtensions
         // and nothing is ever registered. Singletons, because the head raises both from outside
         // any scope.
         services.TryAddSingleton<NotificationOpenRequests>();
+
+        // The Capture shortcut on the Android launcher icon, handed to the layout the same way.
+        // Registered here rather than in the head, so every host's layout can inject it.
+        services.TryAddSingleton<CaptureOpenRequests>();
         services.TryAddSingleton<IPushTokenSource, NoPushTokenSource>();
         services.TryAddSingleton<PushRegistration>();
 

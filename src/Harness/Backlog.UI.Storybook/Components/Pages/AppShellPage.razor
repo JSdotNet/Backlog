@@ -47,9 +47,9 @@ The sample is live: pick a view, or press the Inbox, the Devbook or a takeover �
     </Story>
 
     <Story Name="Popped-out window header"
-           Description="A surface popped out into its own window wears a slim header of three things: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
+           Description="A surface popped out into its own window wears a slim header: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, Keep on top — a pin, on the desktop head only, that keeps the window in front of other windows and is remembered for the surface's next window — and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
 
-There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. The sample is live: press a chip, or Show in main window, and the line under it says what the window would do."
+There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. Below 40rem of window width the title and the two buttons share a row, the chips scroll sideways on a row of their own, Show in main window keeps only its icon and its name, and the footer goes. The sample is live: press a chip, or Show in main window, and the line under it says what the window would do."
            Code="@WindowHeaderCode">
         <header class="sb-window-header" data-testid="sb-window-header">
             <h3 class="sb-window-header__title">Roadmap</h3>
@@ -60,8 +60,17 @@ There is no view switch, no takeover option, no Ask AI — it stays in the main 
                     <ToggleButton Pressed="@_windowScope.Contains(repository)" OnClick="() => ScopeWindow(repository)">@repository</ToggleButton>
                 }
             </ButtonGroup>
+            <ToggleButton TestId="sb-window-on-top"
+                          AriaLabel="Keep on top"
+                          Title="Keep this window on top of other windows"
+                          Pressed="_windowOnTop"
+                          PressedChanged="KeepWindowOnTop">
+                <PinIcon />
+            </ToggleButton>
             <AppButton TestId="sb-window-show-in-main"
                        Title="Show this in the main window and close this window"
+                       aria-label="Show in main window"
+                       Icon="@WindowGlyph"
                        OnClick="ShowInMainWindow">
                 Show in main window
             </AppButton>
@@ -185,6 +194,15 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
 
     private List<string> _windowScope = [];
     private bool _shownInMain;
+    private bool _windowOnTop;
+
+    private static readonly RenderFragment WindowGlyph = @<AppWindowIcon />;
+
+    private void KeepWindowOnTop(bool onTop)
+    {
+        _shownInMain = false;
+        _windowOnTop = onTop;
+    }
 
     /// <summary>A plain press scopes that one; a press on the only one in scope
     /// clears it.</summary>
@@ -198,9 +216,10 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
 
     private string WindowState => _shownInMain
         ? "The main window switches to the Roadmap, and this window closes."
-        : _windowScope is [var scope]
+        : (_windowScope is [var scope]
             ? $"This window shows {scope} alone; the main window's scope is unchanged."
-            : "This window shows every repository in scope; the main window's scope is unchanged.";
+            : "This window shows every repository in scope; the main window's scope is unchanged.")
+          + (_windowOnTop ? " It stays on top of other windows." : string.Empty);
 
     private string HeaderState
     {
@@ -292,7 +311,15 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
                     <ToggleButton Pressed="InScope(repository)" OnClick="() => ScopeRepository(repository.Alias)">@repository.Alias</ToggleButton>
                 }
             </ButtonGroup>
-            <AppButton Title="Show this in the main window and close this window" OnClick="ShowInMainWindowAsync">Show in main window</AppButton>
+            <div class="surface-window__actions">
+                @if (CanKeepOnTop)
+                {
+                    <ToggleButton AriaLabel="Keep on top" Title="Keep this window on top of other windows" Pressed="_onTop" PressedChanged="SetOnTop"><PinIcon /></ToggleButton>
+                }
+                <AppButton Title="Show this in the main window and close this window" aria-label="Show in main window" Icon="@AppWindowGlyph" OnClick="ShowInMainWindowAsync">
+                    <span class="surface-window__main-label">Show in main window</span>
+                </AppButton>
+            </div>
         </header>
         """;
 

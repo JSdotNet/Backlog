@@ -308,8 +308,8 @@ The realtime channel to the desktops (local ADR 0039).
   `Aspire.Azure.Messaging.WebPubSub`, in `Backlog.Infrastructure.WebPubSub` alone.
   A desktop holds a plain `ClientWebSocket` on the URL that negotiate hands it.
   There is no emulator, so the Aspire run has no hub and polls.
-- **Status** — `candidate`: built and declared in Bicep, but not yet deployed or
-  used for real.
+- **Status** — `candidate`: built and deployed on 2026-11-04, but not yet used
+  for real.
 
 ## Azure Notification Hubs
 
@@ -340,7 +340,8 @@ ADR 0039).
   `Backlog.Infrastructure.NotificationHubs` alone. It keeps one FCM v1
   installation per phone and sends to the owner's tag. There is no emulator, so
   the Aspire run has no hub and pushes nothing.
-- **Status** — `candidate`: built and declared in Bicep, not deployed.
+- **Status** — `candidate`: built and deployed on 2026-11-04, but not yet used
+  for real; pushes wait on the hub's FCM v1 credential.
 
 ## Firebase Cloud Messaging
 

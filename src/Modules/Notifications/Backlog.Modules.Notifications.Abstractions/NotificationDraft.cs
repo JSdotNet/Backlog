@@ -113,6 +113,9 @@ public static class NotificationOrigins
 
     /// <summary>Told through the MCP <c>notify</c> tool.</summary>
     public const string McpNotify = "MCP notify";
+
+    /// <summary>Typed by a person in spec-manager, not asked by an agent there.</summary>
+    public const string TypedInSpecManager = "typed in spec-manager";
 }
 
 /// <summary>

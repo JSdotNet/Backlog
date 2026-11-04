@@ -83,7 +83,7 @@ public static class GoalsHolding
             .Where(task => task.InScope
                            && task.Status is GoalTaskStatus.Doing or GoalTaskStatus.Blocked
                            && !held.HoldsTask(task.Id))
-            .Select(task => new GoalsItem(GoalSubject.ForTask(task.Id), task.Title));
+            .Select(task => new GoalsItem(GoalSubject.ForTask(task.Id), task.Title) { Status = task.Status });
 
         var pulls = candidates.PullRequests
             .Where(pull => pull.InScope && !held.HoldsPullRequest(pull.Repository, pull.Number))

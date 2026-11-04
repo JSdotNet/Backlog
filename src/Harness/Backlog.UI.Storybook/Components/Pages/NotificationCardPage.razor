@@ -19,6 +19,28 @@
         <NotificationCard Model="@WithOrigin" TestId="notification-card-origin-sample" OnAnswer="@Answered" />
     </Story>
 
+    <Story Name="Asked by an AI agent"
+           Description="An agent's question: the AI agent marker — sparkles on the info tone — then the person it acted for and the session it ran in, as one phrase. It never reads Asked by Job, because Job did not ask."
+           Code="@AgentCode">
+        <NotificationCard Model="@AskedByAgent" TestId="notification-card-agent-sample" OnAnswer="@Answered" />
+    </Story>
+
+    <Story Name="Asked by a person"
+           Description="A person's question: the Person marker — a user glyph, outlined — then their name, and how they asked as the outlined pill."
+           Code="@PersonCode">
+        <NotificationCard Model="@AskedByPerson" TestId="notification-card-person-sample" OnAnswer="@Answered" />
+    </Story>
+
+    <Story Name="Asker marker"
+           Description="NotificationAskerBadge on its own, the three kinds side by side: the card's asked line and every row of the centre's list draw this one marker, so the two never use different words for one kind. Glyph and fill tell the kinds apart; the word says it."
+           Code="@AskerCode">
+        <span style="display: inline-flex; gap: var(--spacing-sm);">
+            <NotificationAskerBadge Asker="NotificationCardAsker.Agent" TestId="notification-asker-agent-sample" />
+            <NotificationAskerBadge Asker="NotificationCardAsker.Person" TestId="notification-asker-person-sample" />
+            <NotificationAskerBadge Asker="NotificationCardAsker.System" TestId="notification-asker-system-sample" />
+        </span>
+    </Story>
+
     <Story Name="Multiple choice"
            Description="A checkbox per set answer and one Answer button. The legend says how many to pick, and Answer stays disabled until the picks fit the question's minimum and maximum."
            Code="@MultipleCode"
@@ -248,6 +270,18 @@
             Via: "Agent session",
             OpenLink: "https://spec-manager.example/billing/backlog/7"));
 
+    private static readonly NotificationCardModel AskedByAgent = WithOrigin with
+    {
+        Id = "agent",
+        Origin = WithOrigin.Origin! with { Via = "Fix invoice rounding", Asker = NotificationCardAsker.Agent }
+    };
+
+    private static readonly NotificationCardModel AskedByPerson = WithOrigin with
+    {
+        Id = "person",
+        Origin = WithOrigin.Origin! with { Via = "typed in spec-manager", Asker = NotificationCardAsker.Person }
+    };
+
     private static readonly NotificationCardModel AnsweredQuestion = SingleChoice with
     {
         Id = "approve",
@@ -290,6 +324,36 @@
                 Via: "Agent session",
                 OpenLink: "https://spec-manager.example/billing/backlog/7")
         })" OnAnswer="AnswerAsync" />
+        """;
+
+    private const string AgentCode = """
+        <NotificationCard Model="@(question with
+        {
+            Origin = new NotificationCardOrigin(
+                "spec-manager",
+                "Billing · #7 Rounding in invoices",
+                AskedBy: "Ada Lovelace",
+                Via: "Fix invoice rounding",
+                Asker: NotificationCardAsker.Agent)
+        })" OnAnswer="AnswerAsync" />
+        """;
+
+    private const string PersonCode = """
+        <NotificationCard Model="@(question with
+        {
+            Origin = new NotificationCardOrigin(
+                "spec-manager",
+                "Billing · #7 Rounding in invoices",
+                AskedBy: "Ada Lovelace",
+                Via: "typed in spec-manager",
+                Asker: NotificationCardAsker.Person)
+        })" OnAnswer="AnswerAsync" />
+        """;
+
+    private const string AskerCode = """
+        <NotificationAskerBadge Asker="NotificationCardAsker.Agent" />
+        <NotificationAskerBadge Asker="NotificationCardAsker.Person" />
+        <NotificationAskerBadge Asker="NotificationCardAsker.System" />
         """;
 
     private const string MultipleCode = """
