@@ -51,6 +51,12 @@ public static class MobileShellServiceCollectionExtensions
         services.TryAddSingleton<IAppUpdateCheckStamp, InMemoryAppUpdateCheckStamp>();
         services.AddScoped<AppUpdateWatch>();
 
+        // The Dictation setting the app bar's Settings sheet writes and the transcribers
+        // read at the start of every turn. The Android head registers its preferences
+        // store first, so the choice outlives a launch; anything else keeps it in memory —
+        // in the browser harness, shared by every browser on it, as one pretend phone.
+        services.TryAddSingleton<ISpeechSettingsStore, InMemorySpeechSettingsStore>();
+
         // Whether the sync service is newer than this app, which the layout's
         // sync-paused callout reads. AddSyncClient registers the verdict a head's
         // clients write to; TryAdd so a host composed without one — the tests'

@@ -113,12 +113,13 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-sheet__tags { display: flex; flex-wrap: wrap; gap: .25rem; }
 
 /*
-  The update window (AppUpdateControl): the library's sheet, risen from the
+  The update window (AppUpdateControl), and the settings sheet beside it: the library's sheet, risen from the
   bottom edge rather than slid in from the side, because on a phone the side
   sheet is the whole screen and the window holds two buttons and a line. The
   two classes together outrank the library's own .detail-sheet rule.
 */
-.detail-sheet.app-update-sheet {
+.detail-sheet.app-update-sheet,
+.detail-sheet.app-settings-sheet {
     top: auto;
     bottom: 0;
     left: 0;
@@ -130,9 +131,14 @@ html, body { background-color: var(--color-background); color: var(--color-text-
     padding-bottom: env(safe-area-inset-bottom);
     transform: translateY(100%);
 }
-.detail-sheet.app-update-sheet[data-open="true"] { transform: translateY(0); }
+.detail-sheet.app-update-sheet[data-open="true"],
+.detail-sheet.app-settings-sheet[data-open="true"] { transform: translateY(0); }
 .app-update-sheet__current { margin: 0; }
 .app-update-sheet__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* The settings sheet (SettingsControl) rises the same way; a group's control sits
+   under a small label naming it. */
+.app-settings-sheet__label { display: block; margin-bottom: var(--spacing-2xs); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 
 /* The update window's status line. AppUpdatePresentation composes these names
    in C#, the same ones the desktop window wears, so each head colours them. */
