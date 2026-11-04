@@ -19079,11 +19079,18 @@ select.field__input {
     cursor: default;
 }
 
+/* The panel takes the whole screen below the status bar, leaving a strip of
+   the dimmed screen to tap out on, and the field grows into what the controls
+   leave: a thought rarely fits four rows. A keyboard that shrinks the screen
+   makes the panel scroll rather than squeeze the controls. */
 .capture-sheet__panel {
     position: relative;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     gap: var(--spacing-md);
-    max-height: 92dvh;
+    min-height: 0;
+    margin-top: calc(env(safe-area-inset-top, 0px) + var(--spacing-xl));
     overflow-y: auto;
     padding: var(--spacing-xs) var(--spacing-md) calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
     border-radius: 1.5rem 1.5rem 0 0;
@@ -19098,8 +19105,12 @@ select.field__input {
     outline: none;
 }
 
+.capture-sheet__panel > * {
+    flex: none;
+}
+
 .capture-sheet__grip {
-    justify-self: center;
+    align-self: center;
     width: 40px;
     height: 5px;
     border-radius: var(--border-radius-full);
@@ -19155,9 +19166,23 @@ select.field__input {
     outline-offset: -2px;
 }
 
+/* The field, its box and the textarea in it stretch down the panel together. */
+.capture-sheet__panel > .capture-sheet__field {
+    flex: 1 0 8rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.capture-sheet__field > div {
+    flex: 1;
+    display: flex;
+}
+
 /* Prose, not Markdown source: the field takes the UI face the rest of the sheet
    uses rather than the editor's monospace. */
 .capture-sheet__field .field__input {
+    flex: 1;
+    resize: none;
     font-family: var(--font-family-base);
     font-size: var(--font-size-lg);
 }

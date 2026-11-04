@@ -62,20 +62,17 @@ h1:focus {
         top: 0.5rem;
     }
 
+/* The strip under the phone's status bar. Android draws the web view edge to
+   edge as iOS does, so this holds on every platform; env() resolves to 0px
+   where nothing overlaps the top, and the strip takes no room. */
 .status-bar-safe-area {
-    display: none;
-}
-
-@supports (-webkit-touch-callout: none) {
-    .status-bar-safe-area {
-        display: flex;
-        position: sticky;
-        top: 0;
-        height: env(safe-area-inset-top);
-        background-color: var(--color-background);
-        width: 100%;
-        z-index: 1;
-    }
+    display: flex;
+    position: sticky;
+    top: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: var(--color-background-alt);
+    width: 100%;
+    z-index: 3;
 }
 
 /* Dark mode only, per .devbook/design/color-scheme.md. */
@@ -169,10 +166,11 @@ html, body { background-color: var(--color-background); color: var(--color-text-
    buttons are ever under it. */
 .today { padding-bottom: 5rem; }
 
+/* A gap above the tab bar, which sits above the phone's own navigation bar. */
 .today__capture {
     position: fixed;
     right: 1.25rem;
-    bottom: 5rem;
+    bottom: calc(3rem + 1px + env(safe-area-inset-bottom, 0px) + 1rem);
     z-index: 2;
     display: flex;
     align-items: center;
@@ -250,7 +248,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .notes__new {
     position: fixed;
     right: 1.25rem;
-    bottom: 5rem;
+    bottom: calc(3rem + 1px + env(safe-area-inset-bottom, 0px) + 1rem);
     z-index: 2;
     display: flex;
     align-items: center;
