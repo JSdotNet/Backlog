@@ -1,11 +1,24 @@
+@using Microsoft.Extensions.DependencyInjection
 @implements IDisposable
 @inject INotificationCentre Centre
 @inject TimeProvider Time
+@inject IServiceProvider Services
 
 @*
     The notification centre: the owner's alerts and questions as a list grouped by
-    subject, and the one picked drawn whole beside it — its Markdown body, the
-    controls its question shape takes, or how it was settled.
+    a chosen property, and the one picked drawn whole beside it — its Markdown body,
+    the controls its question shape takes, or how it was settled.
+
+    The list follows the header's repository scope, by the rule the Sessions list
+    keeps: nothing pressed lists everything, a repository lists what resolves to
+    it, the Brain what resolves to none (local ADR 0027). Which repository a
+    notification is about is the host's answer, through RepositoriesOf; one it
+    could not work out is listed under every scope. Over the scope sit the filters
+    — From, Asked by, Kind — each option counting what it would keep under the
+    others, and Group by. Group by and the filters are remembered on this device
+    when the host composes INotificationCentrePreferences; Clear filters keeps Group
+    by. The header's waiting badge stays global, so the subtitle says how many
+    waiting questions the scope and the filters hide.
 
     An answer given here goes to INotificationCentre.AnswerAsync, the path a
     Windows notification's answer takes too, so the owner checks it the same way
@@ -43,21 +56,89 @@
         <Alert Message="@_loadError" TestId="notification-centre-error" />
     }
 
+    @if (_notifications.Count > 0)
+    {
+        <div class="notification-centre__filters" data-testid="notification-centre-filters">
+            <div class="notification-centre__filter">
+                <SelectField CurrentValue="@_from"
+                             Options="@FromOptions"
+                             Label="From"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="@($"From anywhere ({FromBase.Count})")"
+                             CssClass="badge badge--area"
+                             TestId="notification-centre-from"
+                             OnChanged="ChooseFrom" />
+            </div>
+
+            @* One of three, so a fused strip (#group-shape-says-cardinality), each option
+               counting what it would keep under the other filters. *@
+            <div class="notification-centre__filter">
+                <span class="notification-centre__filter-label">Asked by</span>
+                <ButtonGroup AriaLabel="Who asked" Radio="true" CssClass="notification-centre__options" TestId="notification-centre-asked-by">
+                    <ToggleButton Pressed="_askedBy is null"
+                                  PressedChanged="_ => ChooseAskedBy(null)"
+                                  TestId="notification-centre-asked-by-all">
+                        All<span class="notification-centre__tally" data-testid="notification-centre-tally">@AskedByBase.Count</span>
+                    </ToggleButton>
+                    @foreach (var asker in AskerOptions)
+                    {
+                        <ToggleButton Pressed="_askedBy == asker"
+                                      PressedChanged="_ => ChooseAskedBy(asker)"
+                                      TestId="@($"notification-centre-asked-by-{AskerSlug(asker)}")">
+                            @NotificationPresentation.AskerLabel(asker)<span class="notification-centre__tally" data-testid="notification-centre-tally">@AskedByBase.Count(n => NotificationPresentation.AskerKind(n) == asker)</span>
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+
+            <div class="notification-centre__filter">
+                <span class="notification-centre__filter-label">Kind</span>
+                <ButtonGroup AriaLabel="Which kind of notification" Radio="true" CssClass="notification-centre__options" TestId="notification-centre-kind">
+                    <ToggleButton Pressed="_kind is null"
+                                  PressedChanged="_ => ChooseKind(null)"
+                                  TestId="notification-centre-kind-all">
+                        All<span class="notification-centre__tally" data-testid="notification-centre-tally">@KindBase.Count</span>
+                    </ToggleButton>
+                    @foreach (var kind in KindOptions)
+                    {
+                        <ToggleButton Pressed="_kind == kind"
+                                      PressedChanged="_ => ChooseKind(kind)"
+                                      TestId="@($"notification-centre-kind-{KindSlug(kind)}")">
+                            @KindLabel(kind)<span class="notification-centre__tally" data-testid="notification-centre-tally">@KindBase.Count(n => NotificationPresentation.Keeps(kind, n))</span>
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+
+            <div class="notification-centre__filter">
+                <span class="notification-centre__filter-label">Group by</span>
+                <SelectField CurrentValue="@GroupingSlug(Grouping)"
+                             Options="@GroupingOptions"
+                             Label="How to group the notifications"
+                             CssClass="badge badge--area"
+                             TestId="notification-centre-grouping"
+                             OnChanged="ChooseGrouping" />
+            </div>
+
+            @if (Filtered)
+            {
+                @* Every filter back to All at once; Group by is how the list is drawn, not a
+                   narrowing of it, so it stays. *@
+                <AppButton Variant="ButtonVariant.Ghost"
+                           TestId="notification-centre-clear-filters"
+                           OnClick="ClearFilters">
+                    Clear filters
+                </AppButton>
+            }
+        </div>
+    }
+
     <div class="notification-centre__body">
         <div class="notification-centre__list">
-            @if (_notifications.Count > 0)
-            {
-                <div class="notification-centre__filter">
-                    <SelectField CurrentValue="@_from"
-                                 Options="@FromOptions"
-                                 Label="From"
-                                 IncludeEmptyOption="true"
-                                 EmptyLabel="From anywhere"
-                                 TestId="notification-centre-from"
-                                 OnChanged="FilterFrom" />
-                </div>
-            }
             <NotificationList Notifications="@Shown"
+                              Grouping="@Grouping"
+                              Repositories="@_repositories"
+                              RepositoryColour="@RepositoryColour"
                               SelectedId="@_selectedId"
                               OnSelect="Select"
                               Now="@_now"
@@ -85,7 +166,11 @@
 </section>
 
 @code {
+    private static readonly NotificationAskerKind[] AskerOptions = [NotificationAskerKind.AiAgent, NotificationAskerKind.Person];
+    private static readonly NotificationKindFilter[] KindOptions = [NotificationKindFilter.Questions, NotificationKindFilter.Alerts, NotificationKindFilter.Open];
+
     private IReadOnlyList<NotificationView> _notifications = [];
+    private readonly Dictionary<Guid, string?> _repositories = [];
     private Guid? _selectedId;
     private Guid? _busyId;
     private Guid? _errorFor;
@@ -93,7 +178,30 @@
     private string? _loadError;
     private DateTimeOffset _now;
     private Guid? _focusApplied;
+    private INotificationCentrePreferences? _preferences;
+
+    private NotificationGrouping? _grouping;
     private string? _from;
+    private NotificationAskerKind? _askedBy;
+    private NotificationKindFilter? _kind;
+
+    /// <summary>Set when a focus request opened on a notification the scope hides: the list
+    /// then shows every repository until the header's scope changes.</summary>
+    private bool _scopeSetAside;
+
+    /// <summary>A copy of the scope last handed in, so a change to it is noticed: the host hands
+    /// over its own list and changes it in place, so a reference would always compare equal.</summary>
+    private IReadOnlyList<string> _scopeSeen = [];
+
+    /// <summary>Cancels the newest load's repository resolution — when a newer load starts, and
+    /// when the centre closes.</summary>
+    private CancellationTokenSource? _resolving;
+
+    /// <summary>Counts loads, so only the newest one writes what it read.</summary>
+    private int _loadGeneration;
+
+    // Until the first list is back the centre knows nothing, so the subtitle claims nothing.
+    private bool _loaded;
 
     /// <summary>Closes the takeover the centre is drawn in.</summary>
     [Parameter]
@@ -104,57 +212,138 @@
     [Parameter]
     public Guid? FocusNotificationId { get; set; }
 
+    /// <summary>The header's scope, by alias, the Brain as <c>BrainScope.Value</c>; empty for
+    /// every repository.</summary>
+    [Parameter]
+    public IReadOnlyList<string> RepositoryScope { get; set; } = [];
+
+    /// <summary>Which repository each notification is about — see
+    /// <see cref="NotificationsSurfaceWiring.RepositoriesOf"/>. Null lists everything under
+    /// every scope and offers no Group by Repository.</summary>
+    [Parameter]
+    public Func<IReadOnlyList<NotificationView>, CancellationToken, Task<IReadOnlyDictionary<Guid, string?>>>? RepositoriesOf { get; set; }
+
+    /// <summary>Which identity hue a repository wears, for its group's heading.</summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
+
+    private IReadOnlyList<string> Scope => _scopeSetAside ? [] : RepositoryScope;
+
+    /// <summary>What the scope lets through, before any filter.</summary>
+    private IReadOnlyList<NotificationView> Scoped => NotificationPresentation.ScopeOnly(_notifications, Scope, _repositories);
+
+    /// <summary>What every filter but From lets through — From's options count over it.</summary>
+    private IReadOnlyList<NotificationView> FromBase =>
+        NotificationPresentation.KindOnly(NotificationPresentation.AskedByOnly(Scoped, _askedBy), _kind);
+
+    /// <summary>What every filter but Asked by lets through.</summary>
+    private IReadOnlyList<NotificationView> AskedByBase =>
+        NotificationPresentation.KindOnly(NotificationPresentation.FromOnly(Scoped, _from), _kind);
+
+    /// <summary>What every filter but Kind lets through.</summary>
+    private IReadOnlyList<NotificationView> KindBase =>
+        NotificationPresentation.AskedByOnly(NotificationPresentation.FromOnly(Scoped, _from), _askedBy);
+
+    /// <summary>The notifications the scope and every filter let through.</summary>
+    private IReadOnlyList<NotificationView> Shown => NotificationPresentation.FromOnly(FromBase, _from);
+
     private NotificationView? Selected =>
         _selectedId is { } id ? Shown.FirstOrDefault(n => n.Id == id) : null;
 
-    /// <summary>The notifications the "From" filter lets through.</summary>
-    private IReadOnlyList<NotificationView> Shown => NotificationPresentation.FromOnly(_notifications, _from);
+    private bool Filtered => _from is not null || _askedBy is not null || _kind is not null;
 
-    private IReadOnlyList<SelectorOption> FromOptions =>
-        [.. NotificationPresentation.Froms(_notifications).Select(from => new SelectorOption(from, "From " + from))];
+    /// <summary>The chosen grouping, else the one the scope suggests. Repository is offered
+    /// only while the host answers which repository each notification is about.</summary>
+    private NotificationGrouping Grouping =>
+        _grouping is { } chosen && (chosen != NotificationGrouping.Repository || RepositoriesOf is not null)
+            ? chosen
+            : RepositoriesOf is null ? NotificationGrouping.System : NotificationPresentation.DefaultGrouping(Scope);
 
-    /// <summary>Narrows the list to one system, or lets every one through again, and opens on
-    /// the first notification still shown when the picked one is filtered out.</summary>
-    private void FilterFrom(string? from)
+    /// <summary>The systems the scope holds, and the chosen one even when the scope holds none
+    /// of it — so the select always shows the filter that is applied, counting 0.</summary>
+    private IReadOnlyList<SelectorOption> FromOptions
     {
-        _from = string.IsNullOrEmpty(from) ? null : from;
-        if (Selected is null) _selectedId = FirstShown();
+        get
+        {
+            var counted = FromBase;
+            var froms = NotificationPresentation.Froms(Scoped);
+            if (_from is not null && !froms.Contains(_from, StringComparer.Ordinal))
+            {
+                froms = [.. froms.Append(_from).Order(StringComparer.OrdinalIgnoreCase)];
+            }
+
+            return [.. froms.Select(from =>
+                new SelectorOption(from, $"From {from} ({counted.Count(n => NotificationPresentation.From(n) == from)})"))];
+        }
     }
 
-    private Guid? FirstShown() =>
-        NotificationPresentation.Group(Shown).FirstOrDefault()?.Notifications.FirstOrDefault()?.Id;
+    private IReadOnlyList<SelectorOption> GroupingOptions =>
+    [
+        .. RepositoriesOf is null ? Array.Empty<SelectorOption>() : [new SelectorOption("repository", "Repository")],
+        new SelectorOption("system", "System"),
+        new SelectorOption("asked-by", "Asked by"),
+        new SelectorOption("subject", "Subject"),
+        new SelectorOption("none", "Not grouped"),
+    ];
 
     private string Subtitle
     {
         get
         {
-            var open = _notifications.Count(n => n.IsOpenQuestion);
-            return open switch
+            if (!_loaded) return "Loading…";
+
+            var open = Shown.Count(n => n.IsOpenQuestion);
+            var line = open switch
             {
                 0 => "Nothing waiting for an answer",
                 1 => "1 waiting for an answer",
                 _ => $"{open} waiting for an answer"
             };
+
+            // The header's badge counts every open question; say where the rest are, so
+            // none goes unseen behind the scope or a filter.
+            var scoped = Scoped.Count(n => n.IsOpenQuestion);
+            var outside = _notifications.Count(n => n.IsOpenQuestion) - scoped;
+            var filtered = scoped - open;
+            if (outside > 0) line += $" · {outside} more outside this scope";
+            if (filtered > 0) line += $" · {filtered} hidden by the filters";
+            return line;
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        _preferences = Services.GetService<INotificationCentrePreferences>();
+        Restore(_preferences?.Choices);
+        _scopeSeen = [.. RepositoryScope];
+
         Centre.Changed += OnChanged;
         await LoadAsync();
     }
 
     protected override void OnParametersSet()
     {
-        if (FocusNotificationId is { } focus && focus != _focusApplied && _notifications.Any(n => n.Id == focus))
+        if (!RepositoryScope.SequenceEqual(_scopeSeen, StringComparer.Ordinal))
         {
-            _focusApplied = focus;
-            if (Shown.All(n => n.Id != focus)) _from = null;
-            _selectedId = focus;
+            // A scope pressed in the header wins over one set aside for a jump.
+            _scopeSeen = [.. RepositoryScope];
+            _scopeSetAside = false;
+            if (Selected is null) _selectedId = FirstShown();
         }
+
+        ApplyFocus();
     }
 
-    public void Dispose() => Centre.Changed -= OnChanged;
+    public void Dispose()
+    {
+        Centre.Changed -= OnChanged;
+
+        // A load still running finds itself superseded and writes nothing.
+        _loadGeneration++;
+        _resolving?.Cancel();
+        _resolving?.Dispose();
+        _resolving = null;
+    }
 
     private void OnChanged(object? sender, NotificationChanged change) =>
         _ = InvokeAsync(async () =>
@@ -163,38 +352,195 @@
             StateHasChanged();
         });
 
+    /// <summary>Reads the list and works out the repositories of what is new on it, then shows
+    /// both at once — so a new notification is never drawn under every scope while its answer is
+    /// on the way. A newer load cancels this one, and this one then writes nothing.</summary>
     private async Task LoadAsync()
     {
-        _now = Time.GetUtcNow();
+        var generation = ++_loadGeneration;
+        _resolving?.Cancel();
+        _resolving?.Dispose();
+        _resolving = new CancellationTokenSource();
+        var cancellationToken = _resolving.Token;
 
+        var notifications = _notifications;
+        var loadError = _loadError;
         try
         {
-            _notifications = await Centre.ListAsync();
-            _loadError = null;
+            notifications = await Centre.ListAsync();
+            loadError = null;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _loadError = "The notifications could not be read: " + exception.Message;
+            loadError = "The notifications could not be read: " + exception.Message;
         }
 
+        if (generation != _loadGeneration) return;
+
+        var answers = await ResolveRepositoriesAsync(notifications, cancellationToken);
+        if (generation != _loadGeneration) return;
+
+        foreach (var (id, alias) in answers) _repositories[id] = alias;
+        _notifications = notifications;
+        _loadError = loadError;
+        _loaded = true;
+        _now = Time.GetUtcNow();
+
         // A focus asked for before the list was read is applied once it is.
-        if (FocusNotificationId is { } focus && focus != _focusApplied && _notifications.Any(n => n.Id == focus))
-        {
-            _focusApplied = focus;
-            if (Shown.All(n => n.Id != focus)) _from = null;
-            _selectedId = focus;
-        }
+        ApplyFocus();
+
+        // A remembered or chosen system none of the notifications comes from any more lets
+        // them all through.
+        if (_from is not null && NotificationPresentation.Froms(_notifications).All(from => from != _from)) _from = null;
 
         // Open on the first open question when nothing is picked yet, so the centre opens on
         // what is waiting rather than on an empty detail.
-        // A filter on a system none of the notifications comes from any more lets them all through.
-        if (_from is not null && NotificationPresentation.Froms(_notifications).All(from => from != _from)) _from = null;
-
         if (_selectedId is null || Shown.All(n => n.Id != _selectedId))
         {
             _selectedId = FirstShown();
         }
     }
+
+    /// <summary>Asks the host which repository the notifications not yet answered for are
+    /// about, once per notification: an answer is kept for the life of the pane, and one the
+    /// host could not give is asked for again on the next load. A host that fails leaves them
+    /// unresolved, which lists them under every scope.</summary>
+    private async Task<IReadOnlyDictionary<Guid, string?>> ResolveRepositoriesAsync(
+        IReadOnlyList<NotificationView> notifications,
+        CancellationToken cancellationToken)
+    {
+        if (RepositoriesOf is null) return NoAnswers;
+
+        var missing = notifications.Where(n => !_repositories.ContainsKey(n.Id)).ToList();
+        if (missing.Count == 0) return NoAnswers;
+
+        try
+        {
+            return await RepositoriesOf(missing, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Superseded or closed: the caller writes nothing.
+            return NoAnswers;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Unresolved is shown everywhere; nothing to say beyond that.
+            return NoAnswers;
+        }
+    }
+
+    private static readonly IReadOnlyDictionary<Guid, string?> NoAnswers = new Dictionary<Guid, string?>();
+
+    /// <summary>Opens on the notification a request asked for, clearing whatever filter or
+    /// scope hides it — so a jump from a Windows notification always lands — and keeping
+    /// Group by.</summary>
+    private void ApplyFocus()
+    {
+        if (FocusNotificationId is not { } focus || focus == _focusApplied || _notifications.All(n => n.Id != focus)) return;
+
+        _focusApplied = focus;
+        if (Shown.All(n => n.Id != focus))
+        {
+            _from = null;
+            _askedBy = null;
+            _kind = null;
+            if (Shown.All(n => n.Id != focus)) _scopeSetAside = true;
+        }
+
+        _selectedId = focus;
+    }
+
+    private Guid? FirstShown() =>
+        NotificationPresentation.Group(Shown, Grouping, _repositories).FirstOrDefault()?.Notifications.FirstOrDefault()?.Id;
+
+    /// <summary>Opens on the first notification still shown when the picked one is filtered
+    /// out, and remembers the choices on this device.</summary>
+    private void Chosen()
+    {
+        if (Selected is null) _selectedId = FirstShown();
+        _preferences?.Remember(new NotificationCentreChoices(
+            _grouping is { } grouping ? GroupingSlug(grouping) : null,
+            _askedBy is { } asker ? AskerSlug(asker) : null,
+            _kind is { } kind ? KindSlug(kind) : null,
+            _from));
+    }
+
+    private void ChooseFrom(string? from)
+    {
+        _from = string.IsNullOrEmpty(from) ? null : from;
+        Chosen();
+    }
+
+    private void ChooseAskedBy(NotificationAskerKind? asker)
+    {
+        _askedBy = asker;
+        Chosen();
+    }
+
+    private void ChooseKind(NotificationKindFilter? kind)
+    {
+        _kind = kind;
+        Chosen();
+    }
+
+    private void ChooseGrouping(string? slug)
+    {
+        _grouping = ParseGrouping(slug);
+        Chosen();
+    }
+
+    private void ClearFilters()
+    {
+        _from = null;
+        _askedBy = null;
+        _kind = null;
+        Chosen();
+    }
+
+    /// <summary>Takes the remembered choices; a slug this build does not know is the default.</summary>
+    private void Restore(NotificationCentreChoices? choices)
+    {
+        if (choices is null) return;
+
+        _grouping = ParseGrouping(choices.GroupBy);
+        _askedBy = AskerOptions.Cast<NotificationAskerKind?>().FirstOrDefault(asker => AskerSlug(asker!.Value) == choices.AskedBy);
+        _kind = KindOptions.Cast<NotificationKindFilter?>().FirstOrDefault(kind => KindSlug(kind!.Value) == choices.Kind);
+        _from = string.IsNullOrWhiteSpace(choices.From) ? null : choices.From;
+    }
+
+    private static NotificationGrouping? ParseGrouping(string? slug) =>
+        Enum.GetValues<NotificationGrouping>().Cast<NotificationGrouping?>().FirstOrDefault(grouping => GroupingSlug(grouping!.Value) == slug);
+
+    private static string GroupingSlug(NotificationGrouping grouping) => grouping switch
+    {
+        NotificationGrouping.Repository => "repository",
+        NotificationGrouping.System => "system",
+        NotificationGrouping.AskedBy => "asked-by",
+        NotificationGrouping.Subject => "subject",
+        _ => "none"
+    };
+
+    private static string AskerSlug(NotificationAskerKind asker) => asker switch
+    {
+        NotificationAskerKind.AiAgent => "ai-agent",
+        NotificationAskerKind.Person => "person",
+        _ => "backlog"
+    };
+
+    private static string KindSlug(NotificationKindFilter kind) => kind switch
+    {
+        NotificationKindFilter.Questions => "questions",
+        NotificationKindFilter.Alerts => "alerts",
+        _ => "open"
+    };
+
+    private static string KindLabel(NotificationKindFilter kind) => kind switch
+    {
+        NotificationKindFilter.Questions => "Questions",
+        NotificationKindFilter.Alerts => "Alerts",
+        _ => "Open"
+    };
 
     private void ShowError(Guid id, string message)
     {

@@ -23309,6 +23309,34 @@ select.field__input {
     border-radius: var(--border-radius-full);
 }
 
+/* NotificationAskerBadge: who raised it, a glyph then the word. The three kinds differ
+   in fill as well as glyph — an agent's filled in the info tone, a person's outlined,
+   the app's own the plain raised face — so they part at a glance in a list. */
+.badge--notification-asker {
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-asker > svg {
+    flex: none;
+}
+
+.badge--notification-asker-agent {
+    background: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-person {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-system {
+    color: var(--color-text-secondary);
+}
+
 .notification-card__body {
     min-width: 0;
 }

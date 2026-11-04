@@ -18,6 +18,9 @@ namespace Backlog.UI.Components.Notifications;
 /// <param name="Outcome">How it was settled, or null while it is open.</param>
 /// <param name="Origin">Where it came from, drawn as a line above the title; null draws the card
 /// as it always was, <see cref="Source"/> beside the time.</param>
+/// <param name="Asker">Whether an AI agent, a person or the host itself raised it. Without an
+/// <see cref="Origin"/> the card marks it on its own "asked" line with <see cref="Source"/> beside
+/// the marker; with one, <see cref="NotificationCardOrigin.Asker"/> says it. Null draws neither.</param>
 public sealed record NotificationCardModel(
     string Id,
     NotificationCardKind Kind,
@@ -30,7 +33,8 @@ public sealed record NotificationCardModel(
     NotificationCardAnswerSpec? Answer,
     NotificationCardState State,
     NotificationCardOutcome? Outcome = null,
-    NotificationCardOrigin? Origin = null)
+    NotificationCardOrigin? Origin = null,
+    NotificationCardAsker? Asker = null)
 {
     public bool IsOpen => State == NotificationCardState.Open;
 }
@@ -45,12 +49,29 @@ public sealed record NotificationCardModel(
 /// <param name="AskedBy">The person who asked, or null.</param>
 /// <param name="Via">How it was asked — "Agent session", "MCP ask", "MCP notify" — or null.</param>
 /// <param name="OpenLink">An absolute http or https link that opens it at its origin, or null.</param>
+/// <param name="Asker">Whether an AI agent, a person or the host itself raised it, which the card
+/// marks with a glyph and a word before who asked; null draws the line as it always was, "Asked
+/// by" and the way it was asked.</param>
 public sealed record NotificationCardOrigin(
     string System,
     string? Place = null,
     string? AskedBy = null,
     string? Via = null,
-    string? OpenLink = null);
+    string? OpenLink = null,
+    NotificationCardAsker? Asker = null);
+
+/// <summary>Who raised a notification, as a kind: an AI agent, a person, or the host itself.</summary>
+public enum NotificationCardAsker
+{
+    /// <summary>An agent in a session, or one calling the host's tools.</summary>
+    Agent,
+
+    /// <summary>A person — one who typed the question, or left the remark.</summary>
+    Person,
+
+    /// <summary>The host itself: pairing, a settings test, an alert of its own.</summary>
+    System
+}
 
 public enum NotificationCardKind
 {

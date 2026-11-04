@@ -22,7 +22,7 @@ internal static class SpecManagerQuestionMapper
     public const string QuestionSubjectType = "question";
 
     /// <summary>The "Via" of a question a person typed in spec-manager.</summary>
-    public const string TypedInSpecManager = "typed in spec-manager";
+    public const string TypedInSpecManager = NotificationOrigins.TypedInSpecManager;
 
     /// <summary>How long the "Other" answer and the note may run: spec-manager's own
     /// bound on both.</summary>

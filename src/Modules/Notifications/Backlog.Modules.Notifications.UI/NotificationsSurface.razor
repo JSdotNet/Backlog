@@ -8,9 +8,16 @@
     `notification=<id>` opens it on that notification. While it is on screen it listens
     to NotificationCentreRequests itself, so a Windows notification pressed while the
     centre is open in a window of its own opens on that notification there too — every
-    window that shows the centre answers, not only the main one.
+    window that shows the centre answers, not only the main one. The window's scope and
+    which repository each notification is about come through its
+    NotificationsSurfaceWiring, so a centre in a window of its own follows that window's
+    scope; a host that fills none lists everything.
 *@
-<NotificationCentrePane OnClose="OnClose" FocusNotificationId="@FocusNotificationId" />
+<NotificationCentrePane OnClose="OnClose"
+                        FocusNotificationId="@FocusNotificationId"
+                        RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
+                        RepositoriesOf="@_wiring?.RepositoriesOf"
+                        RepositoryColour="@_wiring?.RepositoryColour" />
 
 @code {
     /// <summary>The query the surface was shown with: <c>notification</c>, or nothing.</summary>
@@ -48,8 +55,13 @@
                 ? id
                 : null);
 
-    protected override void OnInitialized() =>
+    private NotificationsSurfaceWiring? _wiring;
+
+    protected override void OnInitialized()
+    {
+        _wiring = Services.GetService<NotificationsSurfaceWiring>();
         _requests = Services.GetService<NotificationCentreRequests>()?.Listen(OnRequested, takeMissed: false);
+    }
 
     private void OnRequested(Guid? notificationId) => _ = InvokeAsync(() =>
     {
