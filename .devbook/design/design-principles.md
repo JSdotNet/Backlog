@@ -53,13 +53,10 @@ The product is **local-first**, as `.devbook/arc42/12-glossary.md` defines it.
 related: [".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
-This chapter owns the no-save rule. `interaction-guidelines.md#auto-save-no-save-buttons`
-specifies how auto-save behaves.
-
 | Rule | Requirement |
 |---|---|
 | No save affordance | The product MUST NOT persist through a "Save" button, menu item, or keyboard-only save gesture. |
-| Continuous persistence | All edits MUST auto-save; full behavior (debounce, indicator vocabulary, conflict handling) is specified in `interaction-guidelines.md#auto-save-no-save-buttons`. |
+| Continuous persistence | This chapter owns the no-save rule. All edits MUST auto-save; `interaction-guidelines.md#auto-save-no-save-buttons` specifies debounce, indicator vocabulary and conflict handling. |
 | Visible save state | The current save state (saving / saved / offline / conflict) MUST be visible without user action. |
 
 ## Keyboard-First
@@ -148,22 +145,20 @@ first.
 | AI-first surfaces | **Partly held.** The Copilot CLI is integrated, without a shared command surface. |
 | Consistency across channels | **Untested.** The apps share tokens; no IDE webview exists yet. |
 
-What each row rests on:
-
 - **Dark mode only:** the library, the desktop app and the storybook hold one
   `:root`. The syntax theme is authored for dark surfaces rather than borrowed
   (`color-scheme.md#syntax-highlighting-tokens`).
 - **No save buttons:** the storybook's *Entry edit* page runs the real save
   sequence, and its *Feedback* page shows the indicator on its own.
 - **Keyboard-first:** components are keyboard-operable and reorder has arrow-key
-  equivalents. There is no command palette and no slash surface, so "primary
-  actions reachable through a command surface" has nothing behind it.
-- **Low-chrome, content-first:** the Markdown read view currently uses
+  equivalents. No command palette or slash surface exists, so "primary actions
+  reachable through a command surface" has nothing behind it.
+- **Low-chrome, content-first:** the Markdown read view uses
   `color-text-secondary` for body text (`content-editing.md#materialization`).
-  Scrollbars are treated as chrome and dressed in the border tokens by the
-  library itself, so every host gets them rather than only the desktop.
+  The library dresses scrollbars, as chrome, in the border tokens, so every host
+  gets them.
 - **AI-first surfaces:** AI-attributed content has no distinct rendering yet.
-- **Consistency across channels:** the desktop and the Android head both render
-  the shared library in a WebView, so they share its tokens by construction. The
-  VS Code extension draws only a native tree view and a command, so nothing
-  there can diverge yet.
+- **Consistency across channels:** the desktop and the Android head render the
+  shared library in a WebView, so they share its tokens by construction. The VS
+  Code extension draws only a native tree view and a command, so nothing there
+  can diverge yet.

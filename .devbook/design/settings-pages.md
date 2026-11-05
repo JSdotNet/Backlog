@@ -72,9 +72,9 @@ Rules:
   it moves in the same render as the control that changed it.
 - A page MUST NOT render a heading of its own that restates the headline.
 - Navigation focuses the headline (`FocusOnNavigate`, `tabindex="-1"`) so a
-  screen reader announces the page. The headline draws no focus outline for it: it is
-  never a tab stop, and a ring would cover the eyebrow on every page load. The
-  rule is a focus-visibility exemption under
+  screen reader announces the page. The headline draws no focus outline for it:
+  it is never a tab stop, and a ring would cover the eyebrow on every page load.
+  This is a focus-visibility exemption under
   [Focus Visibility](accessibility.md#focus-visibility); every control on the
   page keeps its own ring. `SettingsHeadlineFocusTests` holds it.
 
@@ -192,10 +192,9 @@ without rendering a page.
 - A page MUST declare only the cards it currently draws. A card a feature
   leaves undrawn is not declared while that feature is off, so the search never
   lists it and its `#card-<slug>` address names nothing
-  (`SettingsPages.BuiltInAsDrawn`). Two pages show this:
-  - With usage metrics off, the AI providers page declares neither *Claude usage
-    API* nor *GitHub usage API*.
-  - With the AI assistant off, it does not declare *Azure Foundry AI*.
+  (`SettingsPages.BuiltInAsDrawn`). With usage metrics off, the AI providers
+  page declares neither *Claude usage API* nor *GitHub usage API*, and with the
+  AI assistant off it does not declare *Azure Foundry AI*.
 - A switched-off page is matched on its title alone: it draws only the note, so
   none of its cards is there to reveal.
 - While the search has text, a matched page lists the matched cards under its
@@ -242,11 +241,9 @@ related: [".devbook/design/typography-and-layout.md#type-scale"]
 ```
 
 A page whose state is a few figures shows them first, as a row of the shared
-`MetricTile` before any card. Three pages do so:
-
-- Features has three tiles: Turned on, Unfinished and on, and Always available.
-- AI providers has one tile per AI provider.
-- The Backup card shows its figures in a `MetricGrid`.
+`MetricTile` before any card. Features has three tiles: Turned on, Unfinished
+and on, and Always available. AI providers has one tile per AI provider, and the
+Backup card shows its figures in a `MetricGrid`.
 
 - A figure tile MUST be the shared `MetricTile`; a page MUST NOT draw a figure in
   a card's prose.
@@ -315,14 +312,12 @@ phone.
 | `settings` | The grouped list, with `Settings` as the `h1`; details below. |
 | `settings/<page>` | The page alone at full width, with no menu and no search. |
 
-- **`settings`:**
-  - Each group's pages sit in one rounded card on `color-background-alt`, with
-    rows divided by a hairline.
-  - The rows are 52 px, with the badge and a chevron.
-  - The search has a row of its own above the groups.
-  - The header reads `Settings` in the `h1` with no eyebrow, in place of the
-    default page's headline and group.
-  - No row is marked current, by surface or by `aria-current`.
+- **`settings`:** each group's pages sit in one rounded card on
+  `color-background-alt`, with rows divided by a hairline. The rows are 52 px,
+  with the badge and a chevron. The search has a row of its own above the groups.
+  The header reads `Settings` in the `h1` with no eyebrow, in place of the
+  default page's headline and group. No row is marked current, by surface or by
+  `aria-current`.
 - **`settings/<page>`:** the way back goes to `settings`, named
   `Back to all settings`, in place of the way back to the tasks.
 
@@ -417,17 +412,10 @@ The checklist a module's page meets, each item from a chapter above:
 
 The storybook shows the frame, the menu and the card on its *Settings frame*,
 *Settings menu* and *Settings card* pages. Each page's **Design rules** block
-links back to this chapter:
-
-- The frame links to *Panel and Header* and *Headline*.
-- The menu links to *Menu Groups*, *Badges and the Off State* and *Phone Width*.
-- The card links to *Settings Card* and *Figure Tiles*.
+links back to this chapter. The frame links to *Panel and Header* and
+*Headline*, the menu to *Menu Groups*, *Badges and the Off State* and *Phone
+Width*, and the card to *Settings Card* and *Figure Tiles*.
 
 `SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the
 desktop harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone
-Width* and *Addresses* name it. It covers:
-
-- a page opened by its address and by the menu;
-- Back to the page before;
-- Find a setting to a card brought into view and lit;
-- at phone width, the grouped list and a page alone with the way back to it.
+Width* and *Addresses* name it.

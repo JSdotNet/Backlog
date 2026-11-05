@@ -336,11 +336,8 @@ related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/desig
 ```
 
 A workspace holds several repositories at once. A reader needs to tell one
-project's work from another's at a glance in three places:
-
-- on a portfolio plan,
-- in a list of entries,
-- on the filter that scopes the whole app.
+project's work from another's at a glance on a portfolio plan, in a list of
+entries, and on the filter that scopes the whole app.
 
 Like the code theme above, the band set is **a theme, not a second semantic
 palette**. Each token names *which repository* something belongs to, an
@@ -383,11 +380,10 @@ carrier.
 No other surface may use the set. A new consumer is a row added to that table,
 argued here, and never a hue added to the set.
 
-The triage picker earns its row on the same ground as the entry row. The reader
-decides there which repository the entry will belong to, so the box wears the hue
-the entry will wear afterwards. Each box is labelled with the alias, and the edge
-is added to an otherwise unchanged box. With the layer off, the picker reads
-exactly as it does with the layer on, less the stripe.
+The triage picker earns its row because the reader decides there which
+repository the entry will belong to, so the box wears the hue the entry will
+wear afterwards. Each box is labelled with the alias; with the layer off the
+picker reads as it does with the layer on, less the stripe.
 
 **No new colour value is introduced.** Every value below already appears in this
 document: one is `color-primary`, and the other four are hues the code theme
@@ -446,14 +442,12 @@ were. Nothing is tinted or recoloured, and the control keeps every surface,
 border and text token it already wore. A chip that read correctly before its
 repository had a colour reads the same afterwards, with a stripe along its edge.
 
-Each control takes the edge nothing else on it uses:
-
-- A row takes its leading edge.
-- The header's scope chips take the bottom edge. They are fused into one strip,
-  so their leading edges are the hairlines between them, and a 4px rule against
-  a 1px hairline reads as a thick border on some chips and not others. The bottom
-  is free, because the anchor's mark is an underline under the word rather than
-  on the box.
+Each control takes the edge nothing else on it uses. A row takes its leading
+edge. The header's scope chips take the bottom edge. They are fused into one
+strip, so their leading edges are the hairlines between them, and a 4px rule
+against a 1px hairline reads as a thick border on some chips and not others. The
+bottom is free, because the anchor's mark is an underline under the word rather
+than on the box.
 
 That restraint is the reason the set may leave the roadmap. A band is a region of
 a chart and can afford a 24% wash. A filter chip and an entry row sit inside
@@ -487,42 +481,37 @@ meet. The seam runs along whichever edge the mark took.
 
 Rules:
 
-- **Colour here is identity, never meaning.** A band's hue says which repository.
-  It carries no severity, no status and no priority. Priority on a roadmap is the
+- **Colour here is identity, never meaning.** A band's hue says which
+  repository, never severity, status or priority. Priority on a roadmap is the
   ordinal shade ramp on the bars, which is one hue and stays that way.
 - **Colour is never the sole carrier.** Every band is also labelled with its
   repository alias, written down its own side. Every bar names its band in its
-  accessible name, and the repository filter lists repositories by full name.
-  The band sidebar and every identity edge are `aria-hidden`. A reader who never
-  sees a hue loses nothing, because each surface above also writes the alias in
-  words.
-- **Colour never competes with meaning.** Status, priority, severity and selection
-  keep the colours they have. An identity hue is only ever an edge beside them,
-  never the fill behind them, so both can be read at once without either becoming
-  ambiguous.
+  accessible name, and the repository filter lists repositories by full name. The
+  band sidebar and every identity edge are `aria-hidden`, so a reader who never
+  sees a hue loses nothing, because each surface also writes the alias in words.
+- **Colour never competes with meaning.** Status, priority, severity and
+  selection keep the colours they have. An identity hue is only ever an edge
+  beside them, never the fill behind them.
 - **One choice, one place.** A repository's hue is chosen in Settings, and every
-  surface reads that one answer. The same project is then the same colour on the
+  surface reads that one answer, so the same project is the same colour on the
   roadmap, on the filter and on a row. A surface that picked its own hue would
-  give the same repository a second identity.
-- **The layer is opt-in, and off is the default.** Which hue a repository wears is
-  chosen in Settings. Whether the hues are drawn at all is a switch on the main
-  page, off until somebody turns it on. These are two controls because they answer
-  two questions: the hue is set once and left alone, and the switch is about the
-  screen in front of you. The consumer table therefore says which surfaces *may*
-  carry an identity, not which ones always do.
-- **With the layer off, the alias is all that is left.** Each surface
-  renders the uncoloured presentation it has for a repository with no colour,
-  and the Settings picker still shows its swatches. Because the whole layer can be
-  off, *colour is never the sole carrier* is not a formality: with the hues gone,
-  the alias in words is all that is left.
-- **Hues are assigned by position** in the configured-repository list and wrap after
-  five, so a sixth repository repeats the first hue. An explicit choice in Settings
-  overrides the position. An automatic hue skips the hues already claimed, so it
-  never lands on a neighbour's. Two repositories may share a hue, because the
-  label identifies a repository and the hue does not.
+  give a repository a second identity.
+- **The layer is opt-in, and off is the default.** Whether the hues are drawn at
+  all is a switch on the main page, off until somebody turns it on. It is
+  separate from the Settings choice because the hue is set once and left alone,
+  while the switch is about the screen in front of you. The consumer table says
+  which surfaces *may* carry an identity, not which ones always do.
+- **With the layer off, the alias is all that is left.** Each surface renders the
+  uncoloured presentation it has for a repository with no colour, and the
+  Settings picker still shows its swatches. Colour is never the sole carrier.
+- **Hues are assigned by position** in the configured-repository list and wrap
+  after five, so a sixth repository repeats the first hue. An explicit choice in
+  Settings overrides the position. An automatic hue skips the hues already
+  claimed. Two repositories may share a hue, because the label identifies a
+  repository and the hue does not.
 - A new consumer wanting categorical colour MUST justify itself against this
-  section rather than adding hues, exactly as a new language MUST map onto the code
-  theme rather than adding a colour.
+  section rather than adding hues, exactly as a new language MUST map onto the
+  code theme rather than adding a colour.
 
 Provenance note: the organization's `01-color-palette` guide defines five token
 groups (brand, semantic, text, background and border). It has **no categorical or
@@ -562,11 +551,10 @@ repository's devbook*.
 - **The header's Devbook toggle, pressed:** `color-band-2` takes
   `color-primary`'s place on its border and a 16% fill, with
   `color-text-primary` ink.
-- **A resolved `repo:` link chip:** following it opens a repository devbook.
-- **The ◆ n note badge:** it names the Brain notes that link to the task.
-- **A task chip:** following a gold chip opens the task. A `quiet` chip sits
-  inside a dashed `color-border-strong` edge, with *not in this backlog* in
-  words.
+- **Followable chips:** a resolved `repo:` chip opens a repository devbook, and a
+  gold task chip opens the task. A `quiet` task chip sits inside a dashed
+  `color-border-strong` edge, with *not in this backlog* in words. The **◆ n
+  note** badge names the Brain notes that link to the task.
 
 Rules:
 
@@ -591,11 +579,10 @@ Rules:
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast"]
 ```
 
-Two component families need role names the palette does not provide:
-
-- A chart needs a series colour, a track, a gridline and a baseline.
-- An integration affordance needs three states (live, landed and quiet) and the
-  two surfaces the product acts on.
+Two component families need role names the palette does not provide. A chart
+needs a series colour, a track, a gridline and a baseline. An integration
+affordance needs three states (live, landed and quiet) and the two surfaces the
+product acts on.
 
 Like the code theme, these are **themes, not a second palette**. Unlike the code
 theme, **every value below is derived.** Each is a `var()` of a palette token, or
@@ -1042,11 +1029,9 @@ page, so the evidence the customization guide asks of an override is generated
 rather than asserted.
 
 `DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`
-closes the same loop at build time. It fails when any of these holds:
-
-- a value here and a value in `components.css` disagree;
-- this file's own tables disagree with each other;
-- the stylesheet declares a colour this file does not name.
+closes the same loop at build time. It fails when a value here and a value in
+`components.css` disagree, this file's own tables disagree with each other, or
+the stylesheet declares a colour this file does not name.
 
 The deviation chapter is excluded from that comparison, because its second column
 is deliberately a value the product does not use.

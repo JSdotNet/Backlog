@@ -228,11 +228,8 @@ renders inside a native `dialog` opened with `showModal()`, which puts it in the
 browser's top layer, above every z-index in the page. A modal has to cover the
 window wherever its host renders it, and a z-index cannot promise that. A pane
 becomes the containing block and stacking context of every `position: fixed`
-descendant when it sets any of these:
-
-- `container-type`, as the Inbox does for its container queries;
-- a transform;
-- a filter.
+descendant when it sets `container-type` (as the Inbox does for its container
+queries), a transform, or a filter.
 
 An inline backdrop inside such a pane is clipped to the pane and painted under
 its neighbour. The top layer is out of reach of all three, so containment on a
@@ -275,22 +272,17 @@ Rules:
   view switch and the Goals group
   (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
   label's text, so the nav-item default does not apply.
-- A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks:
-  - before the label on the Devbook pane's section tabs;
-  - after the branch name on a source picker option for each area the branch
-    changes (never Instructions, which a branch is not listed for).
+- A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks. It
+  sits before the label on the Devbook pane's section tabs and after the branch
+  name on a source picker option for each area the branch changes; a branch is
+  never listed for Instructions.
 
   One map assigns the glyphs, so an area is drawn the same way in both places:
-  - `scroll-text` (Instructions)
-  - `boxes` (Domain)
-  - `landmark` (Architecture)
-  - `cpu` (Technology)
-  - `palette` (Design)
-  - `sparkles` (AI)
-
-  On a tab the glyph takes the tab's colour; on an option it is
-  `color-text-secondary`. The glyph is `aria-hidden`; the tab's label, or a
-  visually-hidden "Changes <area>" on the option, says it in words.
+  `scroll-text` (Instructions), `boxes` (Domain), `landmark` (Architecture),
+  `cpu` (Technology), `palette` (Design) and `sparkles` (AI). On a tab the glyph
+  takes the tab's colour; on an option it is `color-text-secondary`. The glyph is
+  `aria-hidden`; the tab's label, or a visually-hidden "Changes <area>" on the
+  option, says it in words.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading). The drag grip is the
   `⠿` text glyph, not an icon (`interaction-guidelines.md#drag-affordances`).
@@ -310,7 +302,7 @@ backtick-token line an entry is written with in Markdown is its source, and
 
 | Rule | Requirement |
 |---|---|
-| Size | A metadata line is set at `font-size-xs` with `color-text-secondary`, below its title. |
+| Size | A metadata line is set at `font-size-xs` with `color-text-secondary`, below its title, and MUST NOT compete with it. |
 | Order | Facts follow what a reader asks first; a fact about the *list* precedes one about the *item*. |
 | Emphasis | Urgent facts MAY take `color-text-primary`; shape facts MUST stay secondary; at most two come forward. |
 | Finished rows | When the item is finished, the **whole line** drops to secondary at once. |
@@ -320,7 +312,6 @@ backtick-token line an entry is written with in Markdown is its source, and
 | Tags | Tags are chips, set **smaller than a tag anywhere else in the product**. |
 | Truncation | The line gives up room before the title does; truncated text MUST stay in the DOM. |
 
-- **Size:** a metadata line MUST NOT compete with the title it belongs to.
 - **Order:** the facts run from what this belongs to, to how far through it is,
   to when it has to happen.
 - **Emphasis:** the facts that make a row urgent are a due date and a reminder.
@@ -332,7 +323,6 @@ backtick-token line an entry is written with in Markdown is its source, and
   clock emoji".
 - **Names, not counts:** "Waiting on 2" says they are stuck without saying what
   to do about it.
-- **Tags:** the small size keeps a chip from out-shouting the title it belongs to.
 - **Truncation:** the title is what identifies the item, and a screen reader
   still reads what was truncated.
 
