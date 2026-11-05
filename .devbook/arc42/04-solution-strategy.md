@@ -12,18 +12,13 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints"]
 
 The desktop app is fully functional standalone and owns the canonical data:
 
-- **All capture runs locally.** YouTube, website and email polling happen on the
-  desktop via background workers.
-- **Cloud is optional.** It adds multi-device sync (mobile), GitHub webhook
-  forwarding and the Remote PC registry.
-- **No cloud dependency for core workflows.** Capture, triage, backlog, knowledge
-  and monitoring all work offline.
-- **Standalone or connected.** The desktop runs in either mode the glossary defines
-  (`.devbook/arc42/12-glossary.md#terms`), and the cloud never gates a feature.
-- **No account required.** A personal-use system syncs without login.
+- **All capture runs locally.** Background workers poll YouTube, websites and email.
+- **Cloud is optional.** It adds multi-device sync, GitHub webhook forwarding and the Remote PC registry.
+- **No cloud dependency for core workflows.** Capture, triage, backlog, knowledge and monitoring work offline.
+- **Standalone or connected.** Either mode the glossary defines (`.devbook/arc42/12-glossary.md#terms`), and the cloud never gates a feature.
+- **No account required.** Sync works without login.
 
-This directly serves quality goals 1 (availability) and 2 (credential privacy) in
-`.devbook/arc42/01-introduction-and-goals.md#quality-goals`.
+This serves quality goals 1 (availability) and 2 (credential privacy) in `.devbook/arc42/01-introduction-and-goals.md#quality-goals`.
 
 ## Domain Decomposition
 
@@ -31,12 +26,7 @@ This directly serves quality goals 1 (availability) and 2 (credential privacy) i
 related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
-`.devbook/arc42/01-introduction-and-goals.md#requirements-overview` lists the
-functional domains, and `.devbook/domain/context-map.md#subdomain-landscape`
-classifies them. Each is separately designable and deployable within the desktop
-client. A thin, one-directional pipeline keeps coupling low: Capture → Inbox →
-route to Tasks or Devbook → signals to Monitoring. Channels can then expose a
-subset of domains without owning domain lifecycle rules.
+`.devbook/arc42/01-introduction-and-goals.md#requirements-overview` lists the domains and `.devbook/domain/context-map.md#subdomain-landscape` classifies them. Each is separately designable and deployable within the desktop client. A one-directional pipeline keeps coupling low: Capture → Inbox → route to Tasks or Devbook → signals to Monitoring. Channels can expose a subset of domains without owning lifecycle rules.
 
 ## Thin Cloud, Rich Desktop
 
@@ -65,16 +55,11 @@ related: [".devbook/arc42/09-architecture-decisions.md"]
 | **IDE** | VS Code extension (TypeScript). Visual Studio has no extension; `.devbook/tech/ide.md` lists it as a candidate |
 | **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure Container Apps (consumption, scale-to-zero), Cosmos DB for NoSQL (serverless). |
 
-- **Desktop:** The WinUI 3 head is the Windows one. `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` records why:
-  an Aspire AppHost can launch it and Playwright can drive it end to end.
-- **Mobile:** `.devbook/arc42/05-building-block-view.md#mobile-app` describes the device
-  store.
-- **Cloud:** `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`
-  records why Cosmos DB won over PostgreSQL and Container Apps over App Service.
+- **Desktop:** the WinUI 3 head is the Windows one. `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` records why: an Aspire AppHost can launch it and Playwright can drive it end to end.
+- **Mobile:** `.devbook/arc42/05-building-block-view.md#mobile-app` describes the device store.
+- **Cloud:** `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` records why Cosmos DB won over PostgreSQL and Container Apps over App Service.
 
-The cloud-service stack follows the organization's .NET ADRs (see
-`.devbook/arc42/09-architecture-decisions.md`). Desktop, mobile, and IDE stacks are chosen
-per platform and are intentionally not governed by the .NET ADRs.
+The cloud stack follows the organization's .NET ADRs (`.devbook/arc42/09-architecture-decisions.md`); desktop, mobile and IDE stacks are chosen per platform and not governed by them.
 
 ## Cross-cutting Strategy
 

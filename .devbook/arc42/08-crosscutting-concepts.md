@@ -16,15 +16,8 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   in the same database. JSON files hold the workspace settings and feature flags,
   which are per-device.
 
-  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
-  Three owners share the file and not the schema:
-  - Tasks (`tasks`)
-  - Roadmap Planning (`roadmap_plan`)
-  - the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`)
-- **The Devbook is the other way round.** A repository's devbook folders stay
-  markdown-canonical, and only the layer derived from them is a database. The two
-  decisions are not in tension: the app owns a task, and the repository owns a
-  devbook chapter, which is edited outside the app. See
+  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. Three owners share the file and not the schema: Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`).
+- **The Devbook is the other way round.** A repository's devbook folders stay markdown-canonical, and only the layer derived from them is a database. The app owns a task; the repository owns a devbook chapter, edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Repository paths are configurable.** A repo registry in `config/repos.json` holds them.
 
@@ -93,19 +86,14 @@ This state deliberately stays on the machine:
 | Inbox lists and groups | The lists and groups the Inbox organises items into are this machine's | `backlog.db` |
 | Derived knowledge layer | Regenerated on the second machine, not shipped to it | app storage ([Devbook Database](#devbook-database)) |
 | Branch snapshot cache | The index of a named commit plus the files read so far; refetched, and safe to delete | the devbook cache folder |
-| [Settled-fact caches](12-glossary.md#terms) of the dashboard | A copy of a provider's answer about something that cannot change again | `activity-cache`, `spend-cache` and `session-activity-cache`, beside the per-user settings |
-
-The branch snapshot cache and the dashboard caches are refetched and safe to delete.
+| [Settled-fact caches](12-glossary.md#terms) of the dashboard | A copy of a provider's answer about something that cannot change again; refetched, and safe to delete | `activity-cache`, `spend-cache` and `session-activity-cache`, beside the per-user settings |
 
 The three dashboard caches hold different answers. `activity-cache` holds the
 merged pull requests, closed issues and per-pull-request detail a listing walk
 found. `spend-cache` holds Claude Code days and Copilot months that are over.
 `session-activity-cache` holds what a pass over this machine's own transcripts
 established. Each is keyed per author, login, actor or file, so a second identity
-never reads the first's. None may sit under the workspace root: a per-machine cache
-carried by a file-sync product is the hazard
-`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists
-to remove.
+never reads the first's. None may sit under the workspace root: a per-machine cache carried by a file-sync product is the hazard `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` removes.
 
 - **Eight containers in the cloud.** Six are replicas, all partitioned on `/ownerId`:
   - `tasks`
@@ -115,44 +103,26 @@ to remove.
   - `notifications`
   - `notificationReplies`
 
-  The replicas are separate because each wants its own change feed, indexing policy, and
-  retention. Serverless billing levies no per-container charge to trade against. Beside
-  them, `devices` and `pairingCodes` hold the device registry. They are not replicas, since no
-  change feed is read from them. They are partitioned on `/id`, because the read
-  on every token mint has only the device id in hand.
+  They are separate because each wants its own change feed, indexing policy and retention, and serverless billing has no per-container charge. `devices` and `pairingCodes` hold the device registry. They are not replicas, since no change feed is read from them, and are partitioned on `/id`, because the read on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
   annotation tombstones after 180 days, stamped on each tombstone. It expires
   whole session records after 12 months, set on the `sessions` container. It
   expires a notification 30 days after it settled, and an unprocessed reply after
   30 days, both stamped per document. The `devbookSubjects` container has no TTL,
-  because a subject's state is never deleted. Nothing
-  reaps, so no scheduled job can fail silently at the moment nobody is watching,
-  which is when a code-based reaper stops running.
+  because a subject's state is never deleted. Nothing reaps, so no scheduled job can fail silently.
 - **The sync service, not the store, keeps a device inside its own data.** The
   service holds an account-scoped managed identity and can see every partition of
   every container. Service code confines a device: it reads the `ownerId` out of
   that device's JWT and refuses to issue a query outside the partition it names.
   The isolation is one check in one service, not a property of the storage layer.
-- **Never file-sync the local store.** The workspace root is a local folder. A
-  binary SQLite database in OneDrive or any other file-sync product is
-  unmergeable, and its WAL sidecars sync out of step with it, so committed
-  transactions silently roll back. Multi-device use goes through the sync service.
-  See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
-- **Desktop works fully standalone.** The cloud connection is purely additive. The
-  one qualification is a repository configured to read its knowledge from a branch
-  rather than from a clone. That needs the network to list the branch and the
-  first time each area is opened, and what has been opened reads offline
-  afterwards. A repository with a clone is unaffected, and is what an install with
-  no stored preference reads. See
+- **Never file-sync the local store.** The workspace root is a local folder: a SQLite database in a file-sync product is unmergeable and its WAL sidecars sync out of step, so committed transactions silently roll back. Multi-device use goes through the sync service. See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+- **Desktop works fully standalone.** The cloud connection is purely additive. The one qualification is a repository configured to read its knowledge from a branch rather than a clone. It needs the network to list the branch and the first time each area is opened, and reads offline afterwards. A repository with a clone is unaffected, and is what an install with no stored preference reads. See
   `.devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
 - **Local credential handling includes Copilot sessions** — desktop workers and
   GitHub Copilot App session adapters both run on the same machine. They pass local
   context (`session_id`, `worktree_path`, `branch`) without routing credentials
   through the optional Cloud Service.
-- **Copilot capture vs. the session record** — capture uses session context to
-  create Inbox, Tasks or Devbook items. The session record Sessions keeps
-  (`.devbook/domain/sessions/domain.md#session-log`) is a separate monitoring
-  concern.
+- **Copilot capture vs. the session record** — capture creates Inbox, Tasks or Devbook items from session context; the session record (`.devbook/domain/sessions/domain.md#session-log`) is a separate monitoring concern.
 
 ## Task Sync
 
@@ -160,22 +130,11 @@ to remove.
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task"]
 ```
 
-Local ADR 0005 settles the direction for the Task aggregate. Everything below is
-built:
+Local ADR 0005 settles the direction for the Task aggregate. All of it is built, including the identity model (pairing, tokens and the query-scoping check) and the Cosmos replica with its change feed and reconciliation.
 
-- the identity model (pairing, tokens, and the query-scoping check);
-- the Cosmos replica;
-- the change feed over it;
-- the reconciliation it carries.
+The service is provisioned by hand (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop half sits behind the `Beta`-status `sync` feature flag, off by default. Tombstone expiry is the one behaviour here that nothing local can exercise.
 
-The service is provisioned by hand
-(`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop
-half sits behind the `Beta`-status `sync` feature flag, off by default. Tombstone
-expiry is the one behaviour here that nothing local can exercise.
-
-Tasks are one kind of the synced state listed under
-[Storage and Sync](#storage-and-sync). Session records travel on different terms,
-under [Session Record Sync](#session-record-sync).
+Tasks are one kind of the synced state under [Storage and Sync](#storage-and-sync); session records travel on different terms ([Session Record Sync](#session-record-sync)).
 
 **Reconciliation between equals, not client and server.** Each device's SQLite
 database is canonical for that device. Azure holds a replica and the change feed
@@ -226,25 +185,16 @@ sequenceDiagram
   owner. Both are recorded with the owner and device ids they were written under.
   A device whose credential names a different pair starts both from nothing; that
   is a device that forgot its registration and registered or paired again.
-  Carrying progress across that line once left a second machine seeing a fraction
-  of the first one's tasks and none of its sessions, with nothing to say why.
+  Carrying progress across that line once left a second machine seeing a fraction of the first one's tasks and none of its sessions.
 - **Pairing, not accounts.** A first device generates an `ownerId`, and a second
   is paired with a short code entered once, out of band. Each holds its own
   registration credential in the OS credential store and exchanges it for a
   short-lived JWT. `ownerId` is the Cosmos partition key of the replica
   containers. The registry that holds the devices and codes is persisted in
   Cosmos as well, so a pairing survives a restart of the service.
-- **The partition key authorizes nothing.** It organizes the store. The service
-  confines a device, as [Storage and Sync](#storage-and-sync) says. Cosmos cannot
-  authorize a device-session principal it has never heard of, so the service is
-  the only place the check can live.
+- **The partition key authorizes nothing.** The service confines a device ([Storage and Sync](#storage-and-sync)), because Cosmos cannot authorize a device-session principal it has never heard of.
 - **Tombstones expire after 180 days** ([Storage and Sync](#storage-and-sync)).
-  The number is chosen against how long a device may plausibly stay offline. A
-  tombstone that expired first would let a returning device push its still-live
-  copy and resurrect a task the person deleted. The adapter stamps the expiry on
-  every tombstone it writes, but **nothing local can show it working**. The Cosmos
-  emulator does not honour TTL, so this is deployed-only behaviour that no test or
-  QA run here has exercised.
+  The number is chosen against how long a device may plausibly stay offline: a tombstone that expired first would let a returning device push its still-live copy and resurrect a deleted task. The adapter stamps the expiry on every tombstone, but **nothing local can show it working**, since the Cosmos emulator does not honour TTL.
 - **A cycle against a newer service sends nothing.** While the service reports a
   version above the app's (local ADR 0005 §Version compatibility), each cycle stops
   before its first request, and the person reads why. The push watermark and the
@@ -273,11 +223,7 @@ Both sit behind the paired-device identity and the query-scoping check task sync
 uses. On the device, an exchange runs on its own schedule. What it pulls is
 composed into the session list a person already reads, not shown apart from it.
 
-The desktop half sits behind the one `Beta`-status `sync` feature flag, off by
-default, that also gates pairing and the task loop. One switch is enough because
-the question a person answers is whether this machine takes part in sync at all.
-The [sanitization boundary](12-glossary.md#terms) makes that one answer safe to
-give.
+The desktop half sits behind the one `Beta`-status `sync` feature flag, off by default, that also gates pairing and the task loop. One switch is enough because the question is whether this machine takes part in sync at all, and the [sanitization boundary](12-glossary.md#terms) makes that answer safe to give.
 
 Two behaviours rest on a store nothing local has exercised. The change feed the
 pull reads needs a real Cosmos, emulator or deployed, and the unit suite runs
@@ -300,9 +246,7 @@ records it covers. A pull the process did not survive is read again from the las
 cursor it saved. That costs repeated work and loses nothing, because a record
 merges idempotently on its identity and server timestamp.
 
-A cycle against a sync service newer than the app sends nothing, as under
-[Task Sync](#task-sync). The watermark and the cursor stay where they were, and the
-records still to push go once the app is updated.
+A cycle against a sync service newer than the app sends nothing, as under [Task Sync](#task-sync); the watermark and cursor stay put, and the records still to push go once the app is updated.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
@@ -329,22 +273,14 @@ fields and nothing else:
 | Time | started at, last activity at, turn count, duration, runs and waits, human turns, usage-limit refusals |
 | Description | title, entrypoint (`claude-desktop`, `cli`), the pull requests the session linked, token usage per model |
 
-- **Identity:** The service stamps the machine id from the token. The machine name is a
+- **Identity:** the service stamps the machine id from the token. The machine name is a
   display label only.
 - **Place:** The repository alias is never a path. The resolved repository alias names the
   registered clone the working folder lay in, as an alias. The worktree key is the
   folder's leaf and eight hex characters of a one-way hash of its path.
 - **Time:** Runs and waits are pairs of timestamps, and human turns are instants.
 
-A record never carries:
-
-- a prompt;
-- tool output;
-- file contents;
-- a working folder's path.
-
-The title is the one prompt-derived exception. Adding a field is a decision
-taken in local ADR 0005, which argues each one, and never in the pushing code.
+A record never carries a prompt, tool output, file contents or a working folder's path. The title is the one prompt-derived exception. Adding a field is a decision taken in local ADR 0005, which argues each one, never in the pushing code.
 
 - **Sections key on the machine id.** The machine name is a label, and a rename
   does not move the id.

@@ -11,21 +11,16 @@ Backlog is a personal, AI-first productivity system. It does four things:
 - It keeps a personal backlog.
 - It monitors progress across repositories and projects.
 
-It runs fully standalone on a single desktop and optionally connects to a thin cloud
-layer for multi-device sync.
+It runs standalone on one desktop and optionally connects to a thin cloud layer for multi-device sync.
 
-The overriding architectural driver is **local-first**, as
-`.devbook/arc42/12-glossary.md` defines it; the desktop application also runs all
-capture workers locally.
+The overriding architectural driver is **local-first**, as `.devbook/arc42/12-glossary.md` defines it; the desktop also runs all capture workers locally.
 
 ## Requirements Overview
 
 ```meta
 ```
 
-The system is decomposed into independent functional domains. Each one can be designed,
-built and extended on its own. `.devbook/domain/context-map.md#subdomain-landscape`
-classifies them.
+The system is split into independent functional domains, each designed, built and extended on its own. `.devbook/domain/context-map.md#subdomain-landscape` classifies them.
 
 | Domain | Purpose |
 |---|---|
@@ -42,19 +37,14 @@ classifies them.
 | **Sessions** | Record what the AI coding agents have been doing on each environment |
 | **Repository Management** | Track repositories, package versions, issues, and health scoring |
 
-Capture delivers normalized `InboxItem`s to the Inbox incoming queue; Inbox does not
-know or care how items were captured. See
-`.devbook/arc42/03-context-and-scope.md#business-context` for the domain boundaries and
-`.devbook/arc42/05-building-block-view.md` for how these domains map onto containers.
+Capture delivers normalized `InboxItem`s to the Inbox incoming queue; Inbox does not know how items were captured. See `.devbook/arc42/03-context-and-scope.md#business-context` for the boundaries and `.devbook/arc42/05-building-block-view.md` for the container mapping.
 
 ## Quality Goals
 
 ```meta
 ```
 
-The top quality goals shaping the architecture, in priority order:
-
-| # | Quality goal | Motivation |
+| # | Quality goal (priority order) | Motivation |
 |---|---|---|
 | 1 | **Local-first availability** | Capture, triage, backlog, knowledge, and monitoring all work offline with no cloud dependency. |
 | 2 | **Privacy of credentials** | External-service credentials (YouTube, email, website) never leave the user's machine; the cloud stores no such secrets. |
@@ -62,8 +52,7 @@ The top quality goals shaping the architecture, in priority order:
 | 4 | **Sync reliability** | Multi-device sync is eventually consistent, conflict-aware, and self-healing (retry with backoff, TTL cleanup). |
 | 5 | **Low operational cost** | The optional cloud layer runs on minimal, single-region infrastructure. |
 
-Detailed, measurable scenarios are elaborated in
-`.devbook/arc42/10-quality-requirements.md`.
+Measurable scenarios are in `.devbook/arc42/10-quality-requirements.md`.
 
 ## Person
 

@@ -3,22 +3,14 @@
 ```meta
 ```
 
-This chapter links to the decision records rather than restating them. There are
-two sets, and they are numbered independently:
+This chapter links to the decision records rather than restating them. Two sets are numbered independently:
 
-- **Inherited decisions** live in `.devbook/arc42/adr/guidelines/`. They are the
-  organization's ADRs, imported into this repository on 2026-08-27 and
-  authoritative here since. Nothing is fetched at read time.
-- **Local decisions** live in `.devbook/arc42/adr/`. Backlog took them for itself,
-  in their own sequence.
+- **Inherited decisions** in `.devbook/arc42/adr/guidelines/` are the organization's ADRs, imported on 2026-08-27 and authoritative here since. Nothing is fetched at read time.
+- **Local decisions** in `.devbook/arc42/adr/` are Backlog's own.
 
-Both sequences start at 0001, so always name the folder when citing one:
-*guidelines 0003* is Aspire, *local ADR 0003* is SQLite.
+Both start at 0001, so name the folder when citing one: *guidelines 0003* is Aspire, *local ADR 0003* is SQLite.
 
-The ASP.NET-specific inherited decisions govern the **sync service** directly. It
-is not the only governed code: the modules, the shared kernel, and the shared
-component library are .NET too (see *Beyond the sync service* below). The IDE
-channel is TypeScript and stays outside the .NET decision set.
+The ASP.NET-specific inherited decisions govern the **sync service** directly; the modules, shared kernel and shared component library are .NET too (*Beyond the sync service*). The TypeScript IDE channel stays outside the .NET decision set.
 
 ## Sync-service alignments
 
@@ -26,13 +18,9 @@ channel is TypeScript and stays outside the .NET decision set.
 related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
-The *alignment* column is a reading of intent per decision, not a compliance
-audit of implemented code. Each linked document carries its own **Deviations and
-gaps** section, which is the accurate account.
+The *alignment* column reads intent, not compliance; each linked document's own **Deviations and gaps** section is the accurate account.
 
-An inherited decision marked `proposed` rather than `active` is one no shipped
-code applies yet. Decisions 0012, 0013, 0017 and 0018 are in that state.
-Such a decision still binds the first work that reaches its ground.
+An inherited decision marked `proposed` rather than `active` is one no shipped code applies yet. Decisions 0012, 0013, 0017 and 0018 are in that state. Such a decision still binds the first work that reaches its ground.
 
 | Decision | Current alignment for the sync service |
 |---|---|
@@ -79,18 +67,16 @@ related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building
 related: [".devbook/arc42/04-solution-strategy.md"]
 ```
 
-`.devbook/arc42/04-solution-strategy.md` frames these product choices, which no
-inherited decision covers:
+`.devbook/arc42/04-solution-strategy.md` frames these product choices, which no inherited decision covers:
 
 - **Local-first storage**, with one canonical local store per corpus: a SQLite
   database for tasks (local ADR 0003), and markdown for a repository's knowledge
   folders with a generated layer over it (local ADR 0004).
-- **Thin cloud, rich desktop** splits the responsibilities between them.
+- **Thin cloud, rich desktop** splits the responsibilities.
 - **Conflict policy** follows the glossary's *Last-write-wins* (`.devbook/arc42/12-glossary.md#terms`).
 - **Capture and Inbox** stay one pipeline, with a possible later split.
 
-A choice that hardens into a governed decision becomes a record under `adr/`
-through the delivery engine's `flow-spec`, and is linked here.
+A choice that hardens into a governed decision becomes a record under `adr/` through `flow-spec` and is linked here.
 
 ## Local ADRs
 
