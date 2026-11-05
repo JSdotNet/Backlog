@@ -356,7 +356,11 @@ public sealed class QuestionRelay : IQuestionRelay
             title,
             OneLine(asked.Question, Limits.Summary),
             Body(question, asked, index),
-            Spec(asked));
+            Spec(asked),
+            // Said the way a run's Personal Validation says it, so the centre reads the relay
+            // as an agent's question. The waiting question holds neither the repository nor
+            // the session's title, so the origin names no place.
+            Origin: NotificationOrigin.Fit(NotificationOrigins.ClaudeCode, via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>The answer spec of one question; see <see cref="Draft"/>.</summary>
@@ -546,14 +550,20 @@ public sealed class QuestionRelay : IQuestionRelay
 
         if (question.Questions.Count > 1)
         {
-            body.Append("Question ").Append(index + 1).Append(" of ").Append(question.Questions.Count).AppendLine(" the session asked.").AppendLine();
+            body.Append("Question ").Append(index + 1).Append(" of ").Append(question.Questions.Count).AppendLine(" the session asked.");
         }
 
-        body.AppendLine(asked.Question.Trim());
+        // Both cards draw the body under the summary, so the question goes here only when the
+        // summary's bound cut it short.
+        if (OneLine(asked.Question, int.MaxValue).Length > Limits.Summary)
+        {
+            if (body.Length > 0) body.AppendLine();
+            body.AppendLine(asked.Question.Trim());
+        }
 
         if (asked.Choices.Count > 0)
         {
-            body.AppendLine();
+            if (body.Length > 0) body.AppendLine();
 
             foreach (var option in asked.Choices)
             {

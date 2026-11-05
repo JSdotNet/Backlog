@@ -151,8 +151,9 @@ public sealed partial class GhCliTransport : IGitHubTransport
     }
 
     /// <summary>The status <c>gh api</c> reports on its own error line —
-    /// <c>gh: Not Found (HTTP 404)</c> — or null when the line has none, which
-    /// is what a CLI that could not run at all writes.</summary>
+    /// <c>gh: Not Found (HTTP 404)</c>, or <c>gh: HTTP 504</c> alone when GitHub's
+    /// answer had no message, as its gateway's timeout answer has none — or null when
+    /// the line has none, which is what a CLI that could not run at all writes.</summary>
     private static HttpStatusCode? StatusFrom(string standardError)
     {
         var match = HttpStatusLine().Match(standardError);
@@ -162,7 +163,7 @@ public sealed partial class GhCliTransport : IGitHubTransport
         return Enum.IsDefined(typeof(HttpStatusCode), status) ? (HttpStatusCode)status : null;
     }
 
-    [GeneratedRegex(@"\(HTTP (\d{3})\)")]
+    [GeneratedRegex(@"(?:\(|^gh: )HTTP (\d{3})", RegexOptions.Multiline)]
     private static partial Regex HttpStatusLine();
 
     private async Task<ProcessResult> RunAsync(

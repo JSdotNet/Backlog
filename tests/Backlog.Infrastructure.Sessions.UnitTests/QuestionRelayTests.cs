@@ -154,6 +154,68 @@ public sealed class QuestionRelayTests : IDisposable
         Assert.Equal("Database", QuestionRelay.Draft(dialog, 0).Title);
     }
 
+    /// <summary>Both cards draw the body under the summary, so a question the summary holds
+    /// whole is not repeated: the body keeps the choices alone.</summary>
+    [Fact]
+    public void The_body_lists_the_choices_without_repeating_the_question()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+
+        var draft = QuestionRelay.Draft(asked, 0);
+
+        Assert.Equal("Which database should the cache use?", draft.Summary);
+        Assert.Equal("- **SQLite** — A local file\n- **Postgres** — A server", draft.BodyMarkdown.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void In_a_dialog_the_body_says_which_question_it_is_without_repeating_it()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick, Tags], true, NotifyAfter, Noon);
+
+        var draft = QuestionRelay.Draft(asked, 1);
+
+        Assert.Equal(
+            "Question 2 of 2 the session asked.\n\n- **ui**\n- **api**\n- **docs**",
+            draft.BodyMarkdown.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void A_prose_question_the_summary_holds_whole_has_an_empty_body()
+    {
+        var asked = WaitingQuestions.Ask("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], true, NotifyAfter, Noon);
+
+        Assert.Equal(string.Empty, QuestionRelay.Draft(asked, 0).BodyMarkdown);
+    }
+
+    /// <summary>A question past the 180-character summary bound loses its tail in the
+    /// summary, so the body opens with the whole question before the choices.</summary>
+    [Fact]
+    public void A_question_cut_short_in_the_summary_opens_the_body_whole()
+    {
+        var question = string.Concat(Enumerable.Repeat("Which database should the cache use for the sync journal? ", 4)).Trim();
+        var asked = WaitingQuestions.Ask(
+            "session-1", "toolu_1", [new RelayQuestion(question, Options: [new RelayOption("Yes"), new RelayOption("No")])], true, NotifyAfter, Noon);
+
+        var draft = QuestionRelay.Draft(asked, 0);
+
+        Assert.EndsWith("…", draft.Summary, StringComparison.Ordinal);
+        Assert.Equal(question + "\n\n- **Yes**\n- **No**", draft.BodyMarkdown.ReplaceLineEndings("\n"));
+    }
+
+    /// <summary>
+    /// A relayed question says where it came from like every other agent's question: a
+    /// Claude Code session, asked by its agent — so the centre marks it an AI agent's.
+    /// </summary>
+    [Fact]
+    public void A_relayed_question_names_a_claude_code_agent_session_as_its_origin()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+
+        var origin = QuestionRelay.Draft(asked, 0).Origin;
+
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), origin);
+    }
+
     [Fact]
     public async Task A_question_answered_in_the_session_before_the_delay_is_never_published()
     {

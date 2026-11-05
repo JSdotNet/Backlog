@@ -1,0 +1,53 @@
+@namespace Backlog.UI.Components.Notifications
+@using Backlog.UI.Components.Badges
+@using Backlog.UI.Components.Icons
+@*
+    Who raised a notification, as a kind: "AI agent" behind sparkles, "Person"
+    behind a user, "Backlog" behind a bell for what the app raised itself. The
+    glyph tells the kinds apart at a glance and the word says it, so neither
+    carries the meaning alone (.devbook/design/accessibility.md#iconography-accessibility).
+
+    One component because two places draw it — the card's "asked" line and a row
+    in the centre's list — and the two must not drift into different words for
+    the same kind.
+*@
+<Badge Kind="notification-asker" Slug="@Slug" TestId="@TestId" data-asker="@Slug">
+    @switch (Asker)
+    {
+        case NotificationCardAsker.Agent:
+            <SparklesIcon Size="12" />
+            break;
+        case NotificationCardAsker.Person:
+            <UserCheckIcon Size="12" />
+            break;
+        default:
+            <BellIcon Size="12" />
+            break;
+    }
+    @Label(Asker)
+</Badge>
+
+@code {
+    /// <summary>The kind to mark.</summary>
+    [Parameter, EditorRequired]
+    public NotificationCardAsker Asker { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The kind in words — the badge's own text, and what a filter or a heading
+    /// names it by.</summary>
+    public static string Label(NotificationCardAsker asker) => asker switch
+    {
+        NotificationCardAsker.Agent => "AI agent",
+        NotificationCardAsker.Person => "Person",
+        _ => "Backlog"
+    };
+
+    private string Slug => Asker switch
+    {
+        NotificationCardAsker.Agent => "agent",
+        NotificationCardAsker.Person => "person",
+        _ => "system"
+    };
+}

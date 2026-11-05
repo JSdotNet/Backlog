@@ -138,16 +138,28 @@ The system SHALL show a goal that had no item done in the last four iterations a
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHoldingTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Work_in_progress_no_goal_holds_is_listed_under_no_goal, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHoldingTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Work_in_progress_no_goal_holds_is_listed_under_no_goal, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_task_row_carries_its_status_through_the_board, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_pull_request_row_carries_its_read_status, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_pull_request_row_whose_status_was_not_read_draws_unknown_with_its_title_and_url, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_pull_requests_no_goal_lists_are_read_after_the_goals_and_the_stand_ups, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_task_row_is_dotted_as_the_open_goals_tasks_are_and_says_its_status, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_pull_request_row_draws_its_status_line_in_place_of_the_plain_number]
 ```
 
-The system SHALL list under No goal each task in progress and each open pull request in the repository scope that no goal holds, each with Attach.
+The system SHALL list under No goal each task in progress and each open pull request in the repository scope that no goal holds, each with its state and Attach.
 
 #### Scenario: A task in progress outside every goal
 
 - **Given** the task "VAT rate per line item" in `backlog` is in progress and no goal holds it, and the header's scope is `backlog`
 - **When** the Goals view is read
-- **Then** "VAT rate per line item" is listed under No goal with "Attach…"
+- **Then** "VAT rate per line item" is listed under No goal with its in-progress dot and "Attach…"
+
+#### Scenario: A blocked task outside every goal
+
+- **Given** the task "Payment matching rules" in `backlog` is blocked and no goal holds it
+- **When** the Goals view is read
+- **Then** "Payment matching rules" is listed under No goal with its blocked dot, and a screen reader hears "Payment matching rules, blocked"
+
+#### Scenario: An open pull request outside every goal
+
+- **Given** pull request #1362 "Credit notes" in `JSdotNet/Backlog` is open with 10 checks, 1 failing and 2 running, and asks for the person's review
+- **When** the Goals view is read
+- **Then** #1362 is listed under No goal with its status line — its number, its checks and approvals and "your review" — in place of its plain number
 
 ## Setting a goal
 
@@ -373,6 +385,33 @@ The system SHALL NOT attach a plan, task, pull request or session that another g
 - **Given** "Devbook search ships" holds the task "Bank import mapping" directly, and "Customers get paid faster" holds `+bank-integration`, which files it
 - **When** both goals are read
 - **Then** "Bank import mapping" counts in "Devbook search ships" only
+
+### Requirement: A No goal row dropped on a goal is attached to it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.With_a_host_listening_and_a_goal_each_no_goal_row_has_a_grip_and_every_goal_takes_a_drop, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Without_a_host_listening_or_without_a_goal_no_row_can_be_carried, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_row_dropped_on_a_goal_attaches_to_it_and_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_carried_row_follows_the_pointer_and_a_drop_off_every_goal_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_row_a_reading_took_out_of_no_goal_during_the_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_drop_the_host_refuses_is_not_said, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_cancelled_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.While_the_host_writes_a_row_is_not_picked_up, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_goal_drag_passing_over_a_no_goal_row_still_reorders_and_attaches_nothing]
+```
+
+The system SHALL attach a No goal row dragged onto a goal, open or folded, to that goal as Attach does, and SHALL attach nothing when it is dropped anywhere else or the drag is cancelled.
+
+#### Scenario: Dropping a task on a folded goal
+
+- **Given** "VAT rate per line item" is listed under No goal and "Customers get paid faster" is folded
+- **When** the person drags the row by its grip onto "Customers get paid faster" and releases
+- **Then** "Customers get paid faster" holds "VAT rate per line item", and a screen reader hears "Attached VAT rate per line item to Customers get paid faster."
+
+#### Scenario: Dropping off every goal
+
+- **Given** the person is dragging "VAT rate per line item"
+- **When** they release it over another No goal row, or press Escape
+- **Then** no goal holds "VAT rate per line item", and it stays under No goal
+
+#### Scenario: A refused drop
+
+- **Given** the person drops "VAT rate per line item" on "Customers get paid faster"
+- **When** the attach is refused
+- **Then** the refusal shows and nothing is announced as attached
 
 ### Requirement: Attaching changes nothing on the work
 

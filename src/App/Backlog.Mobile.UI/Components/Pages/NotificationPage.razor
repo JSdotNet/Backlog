@@ -17,7 +17,7 @@
 <PageTitle>@(Item?.Notification.Title ?? "Notification")</PageTitle>
 
 <nav class="standup-back" aria-label="Notification">
-    <a class="standup-back__link" href="notifications" aria-label="Back to notifications" data-testid="notification-back">
+    <a class="standup-back__link" href="@BackHref" aria-label="Back to notifications" data-testid="notification-back">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
     </a>
@@ -43,7 +43,7 @@ else if (_pulled)
                 Description="It may have expired, or not have reached this phone yet."
                 TestId="notification-missing">
         <Action>
-            <a href="notifications">Back to notifications</a>
+            <a href="@BackHref">Back to notifications</a>
         </Action>
     </EmptyState>
 }
@@ -61,6 +61,13 @@ else
     private bool _replying;
     private string? _replyError;
     private ITimer? _poll;
+
+    /// <summary>The view the detail was opened from: <c>list</c> from the list, else the pager.</summary>
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? View { get; set; }
+
+    /// <summary>Back to the view the detail was opened from.</summary>
+    private string BackHref => string.Equals(View, "list", StringComparison.Ordinal) ? "notifications?view=list" : "notifications";
 
     private PhoneNotification? Item => Notifications.Find(Id);
 
@@ -119,7 +126,7 @@ else
         {
             // The phone could not keep the reply — its own file, not the network, which the
             // outbox rides out. The card can be answered again.
-            _replyError = "This phone could not keep your answer. Try again.";
+            _replyError = NotificationStandings.CouldNotKeepAnswer;
         }
         finally
         {

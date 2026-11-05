@@ -138,6 +138,17 @@ A reply that picks a choice which takes text carries non-empty plain text with i
 
 Enforced at: `Accept()` on the Notification
 
+### Invariant: An acknowledgement settles only an open alert
+
+```meta
+type: invariant
+related: [.devbook/domain/notifications/domain.md#acknowledgement]
+```
+
+A reply addressed to an alert is an acknowledgement and holds no choice, text or note (`reply.invalid`). The owner takes the first one and moves the alert to Acknowledged with the device it came from. A later one changes nothing, and one that reaches the owner after the alert closed is rejected as closed (`reply.closed`). A reply that holds nothing is never an answer to a question (`reply.invalid`).
+
+Enforced at: `Acknowledge()` on the Notification, when the owner's exchange hands it a viewer's reply
+
 ### Invariant: A reply to a closed question is rejected
 
 ```meta
@@ -167,7 +178,7 @@ type: invariant
 tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.NotificationSyncEndpointTests.A_reply_from_a_device_under_another_owner_is_refused, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_stamped_with_another_owner_is_rejected_and_never_reaches_the_gate]
 ```
 
-A reply is accepted only from a device under the same owner as the notification (`reply.foreign_owner`). The sync service checks it first, and the owner instance checks it again.
+A reply, an acknowledgement included, is accepted only from a device under the same owner as the notification (`reply.foreign_owner`). The sync service checks it first, and the owner instance checks it again.
 
 Enforced at: the sync reply endpoint, and the owner desktop's notification exchange before `Accept()`
 

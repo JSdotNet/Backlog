@@ -114,8 +114,9 @@
                filter bar's plan chip copies it — and, with session requests on,
                the queue icon beside it, as a prompt entry carries one beside its copy
                (local ADR 0038 §2). Only for a stored tag, like the goal below: a tag
-               still being typed names no plan yet. The copy does not depend on the
-               switch; the queue icon does.
+               still being typed names no plan yet. The copy follows the copy-entries
+               switch (AllowCopy) and the queue icon the session-requests one; neither
+               depends on the other.
 
                The queue icon writes nothing to the plan and leaves the dialog open, so
                it does not wait out an unsaved change the way Open in Tasks does. It is
@@ -129,12 +130,15 @@
             @if (StoredTag is { } storedTag)
             {
                 <div class="roadmap-editor__plan" data-testid="roadmap-editor-plan">
-                    <CopyButton Text="@storedTag"
-                                Label="@($"Copy {storedTag}")"
-                                ButtonCssClass="roadmap-editor__plan-action"
-                                TestId="roadmap-editor-copy-plan"
-                                ButtonTestId="roadmap-editor-copy-plan-button"
-                                StatusTestId="roadmap-editor-copy-plan-status" />
+                    @if (AllowCopy)
+                    {
+                        <CopyButton Text="@storedTag"
+                                    Label="@($"Copy {storedTag}")"
+                                    ButtonCssClass="roadmap-editor__plan-action"
+                                    TestId="roadmap-editor-copy-plan"
+                                    ButtonTestId="roadmap-editor-copy-plan-button"
+                                    StatusTestId="roadmap-editor-copy-plan-status" />
+                    }
 
                     @if (PlanSession is { } offer && WaitingSession is null)
                     {
@@ -499,6 +503,11 @@
     /// <summary>Raised with the item's id when the person reopens work they completed.</summary>
     [Parameter]
     public EventCallback<Guid> OnReopen { get; set; }
+
+    /// <summary>Whether the stored plan's tag offers its copy. On unless the band says
+    /// otherwise; the queue icon beside it does not depend on it.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
 
     /// <summary>What the plan's queue icon offers for this item (local ADR 0038 §2), or
     /// null when it offers nothing — the action is not offered, or the item is new or

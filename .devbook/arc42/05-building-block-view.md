@@ -574,7 +574,7 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -604,7 +604,11 @@ The tabs are:
 - **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet
   over the screen it was opened from, not a tab. It sends one thought to the
   Inbox as a capture, creates it as a note through the note view, or adds it to
-  today through `task_view`. It offers dictation and a photo.
+  today through `task_view`. It offers dictation and a photo. The Android
+  launcher shortcut **Capture** opens it too, at `capture?from=inbox`: the head
+  publishes a dynamic shortcut, `MainActivity` raises the buffered, consume-once
+  `CaptureOpenRequests`, and the shell follows it, as it follows a notification
+  tap (local ADR 0039). A restored activity raises nothing.
 - **Notes** — every note in `note_view`, newest first and searched on the phone,
   and an editor for one. A note has a title, a dictated Markdown body, and
   attached pictures and files. It saves on its own a second after typing stops,
@@ -656,6 +660,7 @@ graph TB
     Picker["Attachment picker\n(camera, pictures, files)"]
     Speech["Speech transcriber"]
     Share["Share target"]
+    Shortcut["Launcher shortcut (Capture)"]
     Creds["Secure storage\n(device credential)"]
     Installer["APK installer\n(PackageInstaller)"]
   end
@@ -680,6 +685,8 @@ graph TB
   InboxTab --> Speech
   Share -->|captured on arrival| Shell
   Shell -->|shared capture| Outbox
+  Shortcut -->|"open capture sheet, once"| Shell
+  Shell --> CaptureSheet
   TasksTab --> TaskView
   TasksTab --> Outbox
   Files -->|"PUT /api/sync/attachments/{id}"| API
@@ -791,7 +798,8 @@ TTL-based, and never canonical domain data or external credentials (local ADR 00
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
 in the Aspire app model as the `sync` resource. The Sync Service and Notification
 Service components below are built. The notification service's Azure resources
-are declared in Bicep and not deployed (local ADR 0039). The webhook receiver and
+were first provisioned on 2026-11-04, and no push reaches a phone until the hub has
+its FCM credential (local ADR 0039). The webhook receiver and
 PC registry are not built.
 
 The sync service is seven projects:
@@ -932,7 +940,7 @@ Cloud components:
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
 | **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation, devbook subject and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
-| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0039. |
+| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and deployed on 2026-11-04; pushes wait on the hub's FCM credential: local ADR 0039. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
 
 

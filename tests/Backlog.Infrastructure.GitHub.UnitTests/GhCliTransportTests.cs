@@ -258,6 +258,19 @@ public sealed class GhCliTransportTests
         Assert.True(exception.IsNotFound);
     }
 
+    /// <summary>What <c>gh api graphql</c> writes when GitHub's gateway gives up on a
+    /// query: the status alone, with no message to put it after.</summary>
+    [Fact]
+    public async Task A_failure_that_is_only_a_status_carries_the_status()
+    {
+        using var gh = new GhStub().Fails(1, "gh: HTTP 504");
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            gh.Transport().SendAsync(HttpMethod.Post, "graphql", cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(System.Net.HttpStatusCode.GatewayTimeout, exception.Status);
+    }
+
     [Fact]
     public async Task A_failure_with_no_status_line_carries_no_status()
     {

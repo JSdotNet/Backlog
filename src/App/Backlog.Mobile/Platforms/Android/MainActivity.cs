@@ -9,6 +9,7 @@ using AndroidX.Core.Content;
 
 using Backlog.Mobile.Services;
 using Backlog.Mobile.UI.Notifications;
+using Backlog.Mobile.UI.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,9 +35,16 @@ public class MainActivity : MauiAppCompatActivity
         // The share that launched the app. This runs before the BlazorWebView has
         // built the layout that captures it, which is why the receiver buffers
         // rather than just raising an event.
-        Forward(Intent);
+        // Restored after process death, or relaunched from Recents, Android hands back the
+        // intent the task was first started with — not one the person just made.
+        var restored = savedInstanceState is not null
+            || (Intent?.Flags & ActivityFlags.LaunchedFromHistory) == ActivityFlags.LaunchedFromHistory;
+
+        Forward(Intent, restored);
 
         AskToNotify();
+
+        CaptureShortcut.Publish(this, IPlatformApplication.Current?.Services);
     }
 
     /// <summary>A share into an app that is already running, thanks to
@@ -49,7 +57,7 @@ public class MainActivity : MauiAppCompatActivity
         // sees the share the person just made rather than the one before it.
         Intent = intent;
 
-        Forward(intent);
+        Forward(intent, restored: false);
     }
 
     /// <summary>
@@ -73,9 +81,15 @@ public class MainActivity : MauiAppCompatActivity
     /// field: the activity can outlive a MauiApp rebuild, and a stale receiver
     /// would publish into a buffer nothing is subscribed to.
     /// </summary>
-    private static void Forward(Intent? intent)
+    private static void Forward(Intent? intent, bool restored)
     {
         var services = IPlatformApplication.Current?.Services;
+
+        // Every branch below clears what it read, but that clearing lives only in this process:
+        // after process death, or from Recents, Android hands the original intent back whole.
+        // A restored activity follows none of them — a share would land in the Inbox twice, a
+        // notification's detail would reopen on its own.
+        if (restored) return;
 
         services?.GetService<AndroidShareTargetReceiver>()?.Receive(intent);
 
@@ -87,6 +101,16 @@ public class MainActivity : MauiAppCompatActivity
         {
             intent.RemoveExtra(PushTrayPresenter.NotificationIdExtra);
             services?.GetService<NotificationOpenRequests>()?.Request(notificationId);
+        }
+
+        // A tap on the Capture shortcut of the launcher icon (CaptureShortcut): the layout opens
+        // the capture sheet over the Inbox. An action cannot be removed like an extra, so it is
+        // set back to MAIN once read — a recreated activity handed the same intent does not
+        // open the sheet over wherever the person has gone since.
+        if (intent?.Action == CaptureShortcut.Action)
+        {
+            intent.SetAction(Intent.ActionMain);
+            services?.GetService<CaptureOpenRequests>()?.Request();
         }
     }
 

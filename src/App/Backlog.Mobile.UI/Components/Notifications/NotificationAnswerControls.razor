@@ -1,0 +1,227 @@
+@namespace Backlog.Mobile.UI.Components.Notifications
+@using Backlog.Mobile.UI.Notifications
+@using Backlog.Modules.Notifications.Abstractions
+
+@*
+    The answer controls of one notification on the phone: the one implementation of the
+    answer shapes, which the card (list and detail) and the pager both draw
+    (.devbook/domain/notifications/features.md#answering-from-another-device).
+
+    They follow the question's shape and nothing else:
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
+      multiple choice    one Checkbox per set answer, and Answer to send the picks
+      open               a plain-text TextArea and Send
+      choices with open  the buttons, and the box with Send below them
+    Seven or eight choices wrap into two even columns. A question that takes a
+    note adds a plain-text box, "Add a note (optional)", under the answers, and
+    whatever is in it goes with the answer.
+
+    Nothing is drawn unless the phone may answer now (PhoneNotification.CanAnswer):
+    a question that says answerOn: owner, an alert, and a reply on its way draw none.
+
+    The controls answer nothing themselves. They raise OnReply, and the host queues
+    the reply through the outbox. Handed another notification, they start over.
+*@
+
+@if (Notification.CanAnswer && Spec is { } spec)
+{
+    <div class="phone-notification__answer" data-testid="notification-answer">
+        @if (spec.AllowMultiple)
+        {
+            <fieldset class="phone-notification__checks" data-testid="notification-checkboxes">
+                <legend class="phone-notification__legend">@PickHint(spec)</legend>
+                @foreach (var choice in spec.Choices)
+                {
+                    <Checkbox Label="@choice.Label"
+                              Checked="@_picked.Contains(choice.Id)"
+                              CheckedChanged="@(on => Toggle(choice.Id, on))"
+                              Disabled="@Busy"
+                              TestId="@($"notification-check-{choice.Id}")" />
+                }
+            </fieldset>
+            <div class="phone-notification__choices">
+                <AppButton Variant="ButtonVariant.Primary"
+                           Busy="@Busy"
+                           BusyLabel="Answering"
+                           Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
+                           TestId="notification-submit"
+                           OnClick="SubmitPicksAsync">Answer</AppButton>
+            </div>
+        }
+        else if (spec.Choices.Count > 0)
+        {
+            <div class="@ChoicesClass(spec)" data-testid="notification-choices">
+                @foreach (var choice in spec.Choices)
+                {
+                    <AppButton Variant="@VariantFor(choice.Style)"
+                               Disabled="@Busy"
+                               TestId="@($"notification-choice-{choice.Id}")"
+                               OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                }
+            </div>
+
+            @if (Composing is { } composing)
+            {
+                <div class="phone-notification__open" data-testid="notification-choice-text">
+                    <TextArea Label="@($"{composing.Label}: in your own words")"
+                              @bind-Value="_choiceText"
+                              Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                              Disabled="@Busy"
+                              Rows="2"
+                              maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
+                    <div class="phone-notification__choices">
+                        <AppButton Variant="ButtonVariant.Primary"
+                                   Busy="@Busy"
+                                   BusyLabel="Sending"
+                                   Disabled="@(!NotificationStandings.Fits(spec, [composing.Id], _choiceText, _note))"
+                                   TestId="notification-choice-send"
+                                   OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Disabled="@Busy"
+                                   TestId="notification-choice-cancel"
+                                   OnClick="CancelChoiceText">Cancel</AppButton>
+                    </div>
+                </div>
+            }
+        }
+
+        @if (spec.Open is { } open)
+        {
+            <div class="phone-notification__open" data-testid="notification-open-answer">
+                <TextArea Label="@(spec.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
+                          @bind-Value="_text"
+                          Placeholder="@(open.Placeholder ?? "Write an answer…")"
+                          Disabled="@Busy"
+                          Rows="2"
+                          TestId="notification-text"
+                          maxlength="@open.MaxLength" />
+                <div class="phone-notification__choices">
+                    <AppButton Variant="@(spec.Choices.Count > 0 ? ButtonVariant.Secondary : ButtonVariant.Primary)"
+                               Busy="@Busy"
+                               BusyLabel="Sending"
+                               Disabled="@(string.IsNullOrWhiteSpace(_text))"
+                               TestId="notification-send"
+                               OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
+                </div>
+            </div>
+        }
+
+        @if (spec.Note is { } note)
+        {
+            <div class="phone-notification__note" data-testid="notification-note">
+                <TextArea Label="Add a note (optional)"
+                          @bind-Value="_note"
+                          Placeholder="@note.Placeholder"
+                          Disabled="@Busy"
+                          Rows="2"
+                          TestId="notification-note-text"
+                          maxlength="@note.MaxLength" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
+    private string? _text;
+    private string? _composing;
+    private string? _choiceText;
+    private string? _note;
+    private Guid _shownId;
+
+    /// <summary>The notification to answer and where it stands for this phone.</summary>
+    [Parameter, EditorRequired]
+    public PhoneNotification Notification { get; set; } = default!;
+
+    /// <summary>True while the host is keeping a reply.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The picked choice ids and the typed text, for the host to queue.</summary>
+    [Parameter]
+    public EventCallback<NotificationAnswerPick> OnReply { get; set; }
+
+    private AnswerSpec? Spec => Notification.Notification.AnswerSpec;
+
+    protected override void OnParametersSet()
+    {
+        // Controls handed another notification start their answer over.
+        if (_shownId == Notification.Id) return;
+
+        _shownId = Notification.Id;
+        _picked.Clear();
+        _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
+    }
+
+    /// <summary>Seven or eight choices wrap into an even grid rather than one long row.</summary>
+    private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
+        ? "phone-notification__choices phone-notification__choices--many"
+        : "phone-notification__choices";
+
+    private static string PickHint(AnswerSpec spec)
+    {
+        var least = spec.MinChoices ?? 1;
+        var most = spec.MaxChoices ?? spec.Choices.Count;
+
+        return least == most ? $"Pick {least}" : most >= spec.Choices.Count ? $"Pick {least} or more" : $"Pick {least} to {most}";
+    }
+
+    private static ButtonVariant VariantFor(AnswerChoiceStyle style) => style switch
+    {
+        AnswerChoiceStyle.Primary => ButtonVariant.Primary,
+        AnswerChoiceStyle.Destructive => ButtonVariant.Danger,
+        _ => ButtonVariant.Secondary
+    };
+
+    private void Toggle(string id, bool on)
+    {
+        if (on) _picked.Add(id);
+        else _picked.Remove(id);
+    }
+
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private AnswerChoice? Composing => _composing is null
+        ? null
+        : Spec?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private Task ChooseAsync(AnswerChoice choice)
+    {
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is queued until Send.
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal)) _choiceText = null;
+            _composing = choice.Id;
+            return Task.CompletedTask;
+        }
+
+        return ReplyAsync([choice.Id], null);
+    }
+
+    private void CancelChoiceText()
+    {
+        _composing = null;
+        _choiceText = null;
+    }
+
+    private Task SubmitPicksAsync() =>
+        ReplyAsync([.. Spec!.Choices.Where(choice => _picked.Contains(choice.Id)).Select(choice => choice.Id)], null);
+
+    private async Task ReplyAsync(IReadOnlyList<string> choiceIds, string? text)
+    {
+        if (Busy) return;
+
+        var note = Spec?.Note is not null && !string.IsNullOrWhiteSpace(_note) ? _note.Trim() : null;
+        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text, note));
+
+        _picked.Clear();
+        _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
+    }
+}

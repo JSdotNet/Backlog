@@ -19,7 +19,8 @@ related: [".devbook/tech/cloud.md#firebase-cloud-messaging", ".devbook/tech/shar
 The primary mobile target platform; the platform head that `.devbook/tech/shared.md#net-maui`
 uses on this channel.
 
-- **Used for** — speech-shortcut capture, share-sheet capture, inbox review, and
+- **Used for** — speech-shortcut capture, share-sheet capture, launcher-shortcut
+  capture (a dynamic shortcut through `ShortcutManagerCompat`), inbox review, and
   push notifications.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.

@@ -1,0 +1,80 @@
+@using Backlog.UI.Components.Settings
+@inject ISpeechSettingsStore Speech
+
+@*
+    The app bar's settings button and the sheet it opens: the phone's settings,
+    which are this device's and never sync. One group today, Dictation, holding
+    the language the recogniser listens for (ISpeechSettingsStore).
+
+    A sheet risen from the bottom edge, like the update window beside it, rather
+    than a page: the phone has a handful of settings, not a menu of them, and a
+    sheet leaves the tab the person was on underneath. The group is drawn the way
+    a settings card is (.devbook/design/settings-pages.md): its heading, one
+    sentence, and the control.
+
+    A choice takes effect when it is tapped - there is no Save - and applies from
+    the next press of the mic, because the transcribers read the setting at the
+    start of every turn.
+*@
+
+<IconButton AriaLabel="Settings" CssClass="app-bar__settings" TestId="app-settings"
+            OnClick="Open" id="@ButtonId" aria-haspopup="dialog">
+    <SettingsIcon Size="20" />
+</IconButton>
+
+<DetailSheet Open="_open" OpenChanged="open => _open = open"
+             Title="Settings" CloseLabel="Close settings" RestoreFocusToId="@ButtonId"
+             CssClass="app-settings-sheet" TestId="app-settings-sheet">
+    <SettingsCard Title="Dictation" HeadingLevel="3" Id="app-settings-dictation"
+                  Description="Dutch and English detects which you speak, on Android 14 and later."
+                  TestId="app-settings-dictation">
+        <span class="app-settings-sheet__label" id="@LanguageLabelId">Language</span>
+        <RadioGroup TValue="DictationLanguage"
+                    Options="Languages"
+                    Value="_language"
+                    ValueChanged="Choose"
+                    OptionLabel="Label"
+                    OptionTestId="@(language => $"dictation-language-{language.ToString().ToLowerInvariant()}")"
+                    aria-labelledby="@LanguageLabelId"
+                    TestId="dictation-language" />
+    </SettingsCard>
+</DetailSheet>
+
+@code {
+    private const string ButtonId = "app-settings-button";
+    private const string LanguageLabelId = "app-settings-dictation-language";
+
+    private static readonly IReadOnlyList<DictationLanguage> Languages =
+    [
+        DictationLanguage.DutchAndEnglish,
+        DictationLanguage.Dutch,
+        DictationLanguage.English,
+        DictationLanguage.PhoneLanguage
+    ];
+
+    private bool _open;
+    private DictationLanguage _language;
+
+    /// <summary>What a Dictation language says in the sheet.</summary>
+    public static string Label(DictationLanguage language) => language switch
+    {
+        DictationLanguage.Dutch => "Dutch",
+        DictationLanguage.English => "English",
+        DictationLanguage.PhoneLanguage => "Phone language",
+        _ => "Dutch and English"
+    };
+
+    private void Open()
+    {
+        // Read on every opening rather than once: the store is the truth, and the sheet
+        // only shows it.
+        _language = Speech.Language;
+        _open = true;
+    }
+
+    private void Choose(DictationLanguage language)
+    {
+        _language = language;
+        Speech.Language = language;
+    }
+}

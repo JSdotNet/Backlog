@@ -36,6 +36,7 @@
     and the chart takes the width.
 *@
 @implements IDisposable
+@using global::Backlog.SharedKernel
 @using Microsoft.Extensions.Logging
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
@@ -173,6 +174,7 @@
                        OnOpenTasks="OpenTasksAsync"
                        OnComplete="CompleteAsync"
                        OnReopen="ReopenAsync"
+                       AllowCopy="@CopyEnabled"
                        PlanSession="@PlanSessionFor(_edited)"
                        WaitingSession="@_planSessions.OpenFor(_edited?.Tag)"
                        SessionBusy="@_planSessions.Busy"
@@ -629,6 +631,15 @@
         _view = Drawn();
         StateHasChanged();
     });
+
+    /// <summary>Whether the dialog offers the plan's copy: the copy-entries switch,
+    /// read per render. The switch is flipped on the Settings route, which remounts the
+    /// band, so it needs no change subscription — the session-requests switch is read
+    /// the same way. Resolved optionally, as the queue's port is: a host that composed
+    /// no feature switches keeps the copy.</summary>
+    private bool CopyEnabled =>
+        Services.GetService(typeof(IAppFeatureSettings)) is not IAppFeatureSettings features
+        || features.IsEnabled(AppFeatureKeys.CopyEntries);
 
     /// <summary>What the plan's queue icon offers on <paramref name="item"/>: nothing
     /// while the action is not offered; otherwise the item's tag in its first

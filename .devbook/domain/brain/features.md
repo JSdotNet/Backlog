@@ -100,7 +100,7 @@ details is not built.
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header]
+related: [.devbook/domain/brain/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
 Pick the Brain the way a repository is picked. The header's repository scope
@@ -110,7 +110,8 @@ the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
 narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
-tasks with no repository. It also shows the Brain when the Devbook is opened. Pull
+tasks with no repository, and the notification centre to the notifications about
+no repository. It also shows the Brain when the Devbook is opened. Pull
 requests and the Roadmap read Brain alone as nothing pressed: every pull request
 belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.
@@ -304,29 +305,34 @@ the main view, the takeover that was up, or the Devbook when its button opened
 the atlas. If that takeover or the Devbook has since been switched off, they
 return to the main view instead, and the tooltip names the main view.
 
-**Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
-**Brain**, then each registered devbook by alias, then each ghost devbook in a
-dashed button. Switching scope brings the camera home. The new scope's brains
-turn from where the last view left them to the default view in about half a
-second, easing in and out. Under reduced motion the new scope starts at the
-default view.
+**Scopes.** The atlas draws what the shell header's repository scope selects:
+one member is that scope alone; several, or none pressed (every repository), is
+**All** with just those. Ghost devbooks are in no repository scope, so a
+**Ghosts** toggle at the top right, offered while one exists, draws every ghost
+in All too. A change of what is drawn brings the camera home. The new layout's
+brains turn from where the last view left them to the default view in about
+half a second, easing in and out. Under reduced motion the new layout starts at
+the default view.
 
 | Scope | The atlas shows |
 | --- | --- |
-| **All** | The Brain in the middle, each devbook as a smaller brain around it |
+| **All** | The Brain in the middle, each devbook in view as a smaller brain around it |
 | **Brain** | The Brain alone, by region |
 | One per devbook | That devbook alone, by region, with a Brain hub beside it |
 
+When nothing in scope has a devbook — a repository with none pressed alone —
+the atlas says so in words and offers another pick or **Ghosts**, never an
+empty map nor everything.
+
 **Layout.** The map fills the atlas, and everything else floats over it: the
-title and the scope switch at the top left, the left panel with the scope card
-under it, the picture's controls and the chips at the top right, the list of
-marks down the right, and the foot along the bottom. A drag or a scroll that
-starts on any of them leaves the camera alone. In a window 60rem wide or
-narrower nothing floats. The parts stack in one column, in the order the
-keyboard meets them: the title, the scope switch, the controls, the chips, one
-disclosure that folds the panel and the scope card away, the map with its list
-under it, and the foot. The scope switch and the chips each keep one row and
-scroll sideways.
+title at the top left, the left panel with the scope card under it, the
+picture's controls and the chips at the top right, the list of marks down the
+right, and the foot along the bottom. A drag or a scroll that starts on any of
+them leaves the camera alone. In a window 60rem wide or narrower nothing
+floats. The parts stack in one column, in the order the keyboard meets them:
+the title, the controls, the chips, one disclosure that folds the panel and the
+scope card away, the map with its list under it, and the foot. The chips keep
+one row and scroll sideways.
 
 **The camera.** The brains move like a globe in the hand. A drag carries the
 near face of a brain with the pointer, across as well as up and down. A brisk
@@ -341,7 +347,7 @@ once in a hundred seconds. The turn lasts until the person presses, scrolls or
 rests the pointer on a mark. Showing or hiding a region, or turning Labels on or
 off, keeps the camera where it was and moving as it was. Under reduced motion
 nothing moves on its own. A drag turns the brains only while it lasts, and a
-scroll and a scope switch land at once.
+scroll and a new layout land at once.
 
 **Pause** stops the turn on its own until the person presses it again. It reads
 as pressed while the turn is held, and it lasts while the atlas is open. A fling,
@@ -349,8 +355,9 @@ a drag and the zoom still move the brains while paused. Pressing it again resume
 the turn as after any input: four seconds, then it eases in.
 
 A repository alias the Brain links to that is not registered on this machine
-is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
-outline, and only the chapters the notes name, in the link's own words. The
+is a **ghost devbook**. It is drawn dashed in All while **Ghosts** is on, and
+its row in the panel steps into it alone, with its own card. Either way it is
+drawn as its outline, and only the chapters the notes name, in the link's own words. The
 atlas reads no repository, as [Atlas edges](features.md#atlas-edges) already says.
 
 **Brain regions.** A note's region comes from its PARA area. Its `para` field
@@ -384,8 +391,8 @@ its chip, its row in the left panel or **All**. The panel still lists Parietal
 with its count while it is hidden.
 
 Technology starts hidden in All too: no devbook's `tech/` chapters are drawn
-on the map or listed beside it there. All's chips act on scopes, not regions,
-so All carries one more toggle of its own, **Tech**, after **Labels** and
+on the map or listed beside it there. All has no region chips, so it carries
+one more toggle of its own, **Tech**, after **Labels** and
 **Pause** at the top right. It starts off; turning it on draws every devbook's `tech/` chapters
 in their Parietal regions, and turning it off hides them again. It acts on All
 alone and leaves each devbook scope's own Parietal chip as the reader set it.
@@ -412,23 +419,24 @@ to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
 the devbook with those same bundles. A bundle is solid when the link resolves
 and dashed when it does not, as in [Atlas edges](features.md#atlas-edges).
 
-**The left panel.** In All it lists the scopes, each with its count; a row
-opens that scope. In a single scope it lists that scope's six regions, each
+**The left panel.** In All it lists the scopes in view, each with its count; a
+registered one's row asks the header's scope for it alone, a ghost's row steps
+into that ghost. With no header to ask, the rows are a plain legend. In a
+single scope it lists that scope's six regions, each
 with what it holds and its count; a row shows or hides the region. The panel's
 heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
 **Devbook folders** for a devbook.
 
-**The top right.** **Labels**, **Pause**, **All** and **None** sit beside the
-close button, with **Tech** after **Pause** in All, and under them one chip per region of the current scope, or one per
-scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
-hides what it names, as the panel's row does. **All** and **None** act on the
-current scope only, so the regions hidden in another scope stay hidden. In a
-scope, **None** hides the Archive dust with the regions, so nothing is left on
+**The top right.** **Labels** and **Pause** sit beside the close button, then
+**Tech** in All and **Ghosts** while a ghost exists. In a single scope **All**
+and **None** follow, with one chip per region under them, named by a short code
+such as `FRO` or `ARC`. All has no chips. A chip shows or hides what it names,
+as the panel's row does. **All** and **None** act on the current scope only,
+so the regions hidden in another scope stay hidden. In a scope, **None** hides the Archive dust with the regions, so nothing is left on
 the map or in the list beside it, and **All** shows it again. The dust has no
 chip or row of its own, so showing one region again after **None** leaves it
-hidden until **All**. The picture's **All** is named *All scopes* or *All
-regions* for a screen reader or speech input, apart from the scope switch's
-**All**.
+hidden until **All**. The picture's **All** is named *All regions* for a
+screen reader or speech input.
 
 **The scope card.** Below the list, a scope card names the scope with its
 counts, says when its index was last built, such as "Indexed 4 minutes ago" or
@@ -436,15 +444,16 @@ counts, says when its index was last built, such as "Indexed 4 minutes ago" or
 
 | Scope | The card's action |
 | --- | --- |
-| All | **Step into the Brain**, which switches to the Brain's scope |
+| All | **Step into the Brain**, which asks the header's scope for the Brain alone |
 | The Brain | **Open in the pane** |
 | A devbook | **Open devbook** |
-| A ghost devbook | **Register repository**, which opens the Repositories settings |
+| A ghost devbook | **Register repository**, which opens the Repositories settings, and **Back to all scopes** |
 
-A ghost devbook has no index of its own here, so its card gives no time.
-Coming back from the Repositories settings reopens the atlas on that ghost,
-with the same way back as before. Once the alias is registered, it opens on
-that devbook's scope instead.
+With no header to ask, All's card offers none. A ghost devbook has no index of
+its own here, so its card gives no time. Coming back from the Repositories
+settings reopens the atlas on that ghost, with the same way back as before.
+Once the alias is registered, the header's scope selects that repository and
+the atlas follows it.
 
 **The foot.** Along the map's bottom edge, the hint "Drag — rotate · Scroll —
 zoom" ends with the zoom level, and an orientation marker draws the superior,
@@ -477,7 +486,8 @@ the offer. A host that cannot build the index offers only **Back to notes**.
 Back to notes leaves the atlas the way its close button does.
 
 **Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
-opens this atlas at the pane's scope: the Brain, or that repository. While it
+opens this atlas on the header's repository scope, whose anchor the pane
+reads. While it
 is off, the button opens today's atlas. The Technology section keeps its own
 views either way; no atlas draws the stack.
 

@@ -56,6 +56,12 @@ the header's repository scope that no goal holds, each with **Attach…**. The v
 every goal, whatever the repository scope. With no goals and nothing in progress
 outside one, the view says so and offers **New goal**.
 
+Each No goal row says how its work stands, as the open goal's columns do: a task
+carries its status dot, in progress or blocked, and a pull request its
+[status](#pull-request-status) line in place of its plain number. A row also leads
+with a grip, by which it can be [dragged onto a goal](#attaching-work-to-a-goal)
+besides **Attach…**.
+
 Beside them sits the [stand-up](#the-stand-up), read over the same windows. The view is
 read when it opens, on a change of iteration, on Refresh, after each change made in
 it, and whenever goals, impediments or the iteration setting change elsewhere.
@@ -101,7 +107,16 @@ request on its branch when it has one, so the person attaches whichever fits. Wi
 [Sessions area](../sessions/context.md#sessions-area) off, no session is offered, and a
 session already attached counts by its linked tasks alone. **Attach…** on a No goal row attaches the item to the open goal, or
 asks which goal when none is open. Both questions are the same **Attach to goal**
-picker every other goal control opens. An item belongs to at most one goal. An item
+picker every other goal control opens.
+
+A No goal row can also be dragged by its grip onto a goal, open or folded, which
+attaches it to that goal as **Attach…** does. The goal under the pointer is outlined
+as the drop target; anywhere else the cursor says the drop is not allowed, and a drop
+there, or Escape, attaches nothing. Once the drop is attached, the board says
+"Attached ‹title› to ‹goal›." to a screen reader; a refused attach is not said.
+**Attach…** stays the keyboard's way in.
+
+An item belongs to at most one goal. An item
 another goal holds is not attached silently: the picker opens on the goal it was meant
 for, names the goal that holds it and says attaching moves it from there, and
 **Attach** moves it. Detaching an item changes nothing on it. Attaching is a desktop

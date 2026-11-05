@@ -4,17 +4,21 @@
 
 @*
     The Lobes atlas, full-window (.devbook/domain/brain/features.md#lobes-atlas):
-    the Brain and every registered devbook drawn as brains, one scope at a time or
-    all of them at once.
+    the Brain and the registered devbooks drawn as brains — the ones the shell's
+    repository scope holds, which the atlas follows rather than filtering on its
+    own: one in scope is that scope's own layout, several or none (every
+    repository) is All with just those. Unregistered devbooks are not in that
+    scope, so a Ghosts toggle draws them in All too.
 
-    A takeover's body and nothing more. The host gives it the screen, and answers
-    what a selection asks for — a Brain note or a repository chapter opened in the
-    Devbook, which closes the atlas because the Devbook takes the screen in its
-    place. The map fills the takeover and everything else floats over it, as the
-    design draws it: the title and the scope switch at the top left; the
-    picture's own controls and the close button at the top right, in the place
-    every takeover's close sits, with a chip per region (a scope's, in All) under
-    them; the left panel listing the scopes or the regions, with the scope card
+    A takeover's body and nothing more. The host gives it the screen and its
+    repository scope, and answers what a selection asks for — a Brain note or a
+    repository chapter opened in the Devbook, which closes the atlas because the
+    Devbook takes the screen in its place, or a row asking for its scope alone.
+    The map fills the takeover and everything else floats over it, as the
+    design draws it: the title at the top left; the picture's own controls and
+    the close button at the top right, in the place every takeover's close
+    sits, with a chip per region of a scope under them; the left panel listing
+    the scopes in view or the regions, with the scope card
     under it saying what the scope holds and when it was last indexed; the index
     list on the right; and the foot's drag/scroll hint and orientation marker at
     the bottom. None of them is inside the canvas, so a drag or a wheel on one
@@ -28,7 +32,7 @@
     disagree about what is on screen.
 *@
 
-<section class="@ClassValue" data-testid="lobes-atlas" data-scope="@_scope" aria-label="Atlas">
+<section class="@ClassValue" data-testid="lobes-atlas" data-scope="@_layout" aria-label="Atlas">
     <header class="lobes-atlas__header">
         <div class="lobes-atlas__lead">
             <div class="lobes-atlas__heading">
@@ -45,41 +49,6 @@
                     <Badge Kind="brain" CssClass="lobes-atlas__subject" TestId="lobes-atlas-subject">Brain</Badge>
                 }
             </div>
-
-            @if (_graph is { Available: true })
-            {
-                @* The scope switch: one scope on screen at a time, All among them, so a
-                   fused group of pressed states (interaction-guidelines.md, Group shape
-                   says cardinality). A ghost devbook's option is dashed, as its outline
-                   is. Pressing one brings the camera home: the renderer keeps a camera per
-                   layout and eases a new layout from the last view to its default. *@
-                <ButtonGroup CssClass="header-group lobes-atlas__scopes"
-                             AriaLabel="Scope"
-                             TestId="lobes-atlas-scopes">
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="@(_scope == LobesAtlasModel.AllLayout)"
-                                  TestId="lobes-atlas-scope"
-                                  data-scope="@LobesAtlasModel.AllLayout"
-                                  OnClick="() => SwitchScope(LobesAtlasModel.AllLayout)">
-                        All
-                    </ToggleButton>
-                    @foreach (var scope in _graph.Scopes)
-                    {
-                        var key = scope.Key;
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      CssClass="@(scope.Kind == DevbookLobesScopeKind.Ghost ? "lobes-atlas__scope--ghost" : scope.Kind == DevbookLobesScopeKind.Brain ? "lobes-atlas__scope--brain" : null)"
-                                      Pressed="@(_scope == key)"
-                                      TestId="lobes-atlas-scope"
-                                      Title="@ScopeTitle(scope)"
-                                      data-scope="@key"
-                                      OnClick="() => SwitchScope(key)">
-                            @scope.Label
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
         </div>
 
         <div class="lobes-atlas__controls">
@@ -103,10 +72,10 @@
                                   OnClick="TogglePause">
                         Pause
                     </ToggleButton>
-                    @* All's chips act on scopes, not regions, so every devbook's
-                       technology — hidden in All to start with — has a toggle of
-                       its own here. It acts on All alone: each devbook scope's
-                       Parietal chip keeps what the reader set. *@
+                    @* All has no region chips, so every devbook's technology —
+                       hidden in All to start with — has a toggle of its own here.
+                       It acts on All alone: each devbook scope's Parietal chip
+                       keeps what the reader set. *@
                     @if (IsAll)
                     {
                         <ToggleButton BaseClass="btn btn--toggle"
@@ -117,22 +86,37 @@
                             Tech
                         </ToggleButton>
                     }
-                    @* Named apart from the scope switch's All, and starting with
+                    @* An unregistered devbook is in no repository scope, so it
+                       has a toggle of its own: on, every ghost joins All. *@
+                    @if (HasGhosts)
+                    {
+                        <ToggleButton BaseClass="btn btn--toggle"
+                                      Pressed="_showGhosts"
+                                      TestId="lobes-atlas-ghosts"
+                                      Title="@(_showGhosts ? "Take the devbooks not registered here off the map" : "Draw the devbooks your notes name that are not registered here")"
+                                      OnClick="ToggleGhosts">
+                            Ghosts
+                        </ToggleButton>
+                    }
+                    @* A scope's regions, all shown or all hidden; starting with
                        the word it shows, so a speech user can still say it
                        (WCAG 2.5.3). *@
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               TestId="lobes-atlas-show-all"
-                               aria-label="@(IsAll ? "All scopes" : "All regions")"
-                               title="@(IsAll ? "Show every scope" : "Show every region")"
-                               OnClick="() => ShowEverything(true)">
-                        All
-                    </AppButton>
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               TestId="lobes-atlas-show-none"
-                               title="@(IsAll ? "Hide every scope" : "Hide every region")"
-                               OnClick="() => ShowEverything(false)">
-                        None
-                    </AppButton>
+                    @if (!IsAll)
+                    {
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   TestId="lobes-atlas-show-all"
+                                   aria-label="All regions"
+                                   title="Show every region"
+                                   OnClick="() => ShowEverything(true)">
+                            All
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   TestId="lobes-atlas-show-none"
+                                   title="Hide every region"
+                                   OnClick="() => ShowEverything(false)">
+                            None
+                        </AppButton>
+                    }
                 }
                 <IconButton AriaLabel="Close the atlas"
                             CssClass="btn--ghost"
@@ -140,43 +124,26 @@
                             OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
             </div>
 
-            @if (_graph is { Available: true })
+            @if (_graph is { Available: true } && CurrentScope is { } chipScope)
             {
-                @* What is drawn: one chip per region of the scope on screen, or per
-                   scope in All, pressed while shown. The same toggles as the panel's
-                   rows, kept beside the picture's other controls. *@
+                @* What is drawn: one chip per region of the scope on screen,
+                   pressed while shown. The same toggles as the panel's rows, kept
+                   beside the picture's other controls. Which scopes are drawn is
+                   the shell's repository scope, so All has none. *@
                 <ButtonGroup CssClass="lobes-atlas__chips"
-                             AriaLabel="@(IsAll ? "Show scopes" : "Show regions")"
+                             AriaLabel="Show regions"
                              TestId="lobes-atlas-chips">
-                    @if (IsAll)
+                    @foreach (var lobe in RegionOrder)
                     {
-                        @foreach (var scope in _graph.Scopes)
-                        {
-                            var key = scope.Key;
-                            <ToggleButton BaseClass="btn btn--toggle lobes-atlas__chip"
-                                          Pressed="@(!_hiddenScopes.Contains(key))"
-                                          TestId="lobes-atlas-chip"
-                                          AriaLabel="@scope.Label"
-                                          data-scope="@key"
-                                          OnClick="() => ToggleScopeShown(key)">
-                                @scope.Label
-                            </ToggleButton>
-                        }
-                    }
-                    else if (CurrentScope is { } chipScope)
-                    {
-                        @foreach (var lobe in RegionOrder)
-                        {
-                            var region = new LobesAtlasRegionKey(chipScope.Key, DevbookLobesAtlas.LobeKey(lobe));
-                            <ToggleButton BaseClass="btn btn--toggle lobes-atlas__chip"
-                                          Pressed="@(!_hiddenLobes.Contains(region))"
-                                          TestId="lobes-atlas-chip"
-                                          AriaLabel="@($"{DevbookLobesAtlas.RegionAbbreviation(chipScope.Kind, lobe)} {DevbookLobesAtlas.RegionName(chipScope.Kind, lobe)}")"
-                                          data-lobe="@region.Lobe"
-                                          OnClick="() => ToggleRegion(region)">
-                                @DevbookLobesAtlas.RegionAbbreviation(chipScope.Kind, lobe)
-                            </ToggleButton>
-                        }
+                        var region = new LobesAtlasRegionKey(chipScope.Key, DevbookLobesAtlas.LobeKey(lobe));
+                        <ToggleButton BaseClass="btn btn--toggle lobes-atlas__chip"
+                                      Pressed="@(!_hiddenLobes.Contains(region))"
+                                      TestId="lobes-atlas-chip"
+                                      AriaLabel="@($"{DevbookLobesAtlas.RegionAbbreviation(chipScope.Kind, lobe)} {DevbookLobesAtlas.RegionName(chipScope.Kind, lobe)}")"
+                                      data-lobe="@region.Lobe"
+                                      OnClick="() => ToggleRegion(region)">
+                            @DevbookLobesAtlas.RegionAbbreviation(chipScope.Kind, lobe)
+                        </ToggleButton>
                     }
                 </ButtonGroup>
             }
@@ -246,6 +213,16 @@
             </Action>
         </EmptyState>
     }
+    else if (_nothingInView)
+    {
+        @* The shell's scope holds nothing the atlas can draw — a repository
+           with no devbook: said in words, never an empty map, and never
+           everything drawn instead. *@
+        <EmptyState Title="None of the repositories in scope has a devbook to map"
+                    Description="@(HasGhosts ? "Pick another in the header, or turn on Ghosts." : "Pick another in the header.")"
+                    role="status"
+                    TestId="lobes-atlas-nothing-in-view" />
+    }
     else
     {
         @* The panel and the scope card. Over the map they float as two boxes on
@@ -271,24 +248,33 @@
 
                     @if (IsAll)
                     {
+                        @* The scopes in view, with what each holds. A registered
+                           one's row asks the shell for that scope alone; a ghost's
+                           steps into the ghost here, since the shell has no chip for
+                           it. A host that wires no scope gets a plain legend. *@
                         <ul class="lobes-atlas__rows" data-testid="lobes-atlas-rows">
-                            @foreach (var scope in _graph.Scopes)
+                            @foreach (var scope in DrawnScopes)
                             {
                                 var key = scope.Key;
+                                var ghost = scope.Kind == DevbookLobesScopeKind.Ghost;
                                 <li>
-                                    <AppButton BaseClass="lobes-atlas__row"
-                                               Variant="ButtonVariant.None"
-                                               TestId="lobes-atlas-row"
-                                               aria-label="@($"Open {scope.Label}")"
-                                               data-scope="@key"
-                                               OnClick="() => SwitchScope(key)">
-                                        <span class="lobes-atlas__swatch lobes-atlas__swatch--@KindSlug(scope.Kind)" aria-hidden="true"></span>
-                                        <span class="lobes-atlas__row-text">
-                                            <span class="lobes-atlas__row-name">@scope.Label</span>
-                                            <span class="lobes-atlas__row-sub">@ScopeSub(scope)</span>
-                                        </span>
-                                        <Badge BaseClass="lobes-atlas__row-count" Kind="">@(scope.Kind == DevbookLobesScopeKind.Ghost ? "—" : scope.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture))</Badge>
-                                    </AppButton>
+                                    @if (ghost || OnScopeTo.HasDelegate)
+                                    {
+                                        <AppButton BaseClass="lobes-atlas__row"
+                                                   Variant="ButtonVariant.None"
+                                                   TestId="lobes-atlas-row"
+                                                   aria-label="@($"Open {scope.Label}")"
+                                                   data-scope="@key"
+                                                   OnClick="() => OpenRowAsync(scope)">
+                                            @ScopeRowContent(scope)
+                                        </AppButton>
+                                    }
+                                    else
+                                    {
+                                        <div class="lobes-atlas__row" data-testid="lobes-atlas-row" data-scope="@key">
+                                            @ScopeRowContent(scope)
+                                        </div>
+                                    }
                                 </li>
                             }
                         </ul>
@@ -337,8 +323,16 @@
                                    OnClick="RegisterRepository">
                             Register repository
                         </AppButton>
+                        @* The way back from a ghost stepped into: All again, as
+                           Ghosts off or a change of the shell's scope also is. *@
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   CssClass="lobes-atlas__card-action"
+                                   TestId="lobes-atlas-ghost-back"
+                                   OnClick="LeaveGhost">
+                            Back to all scopes
+                        </AppButton>
                     }
-                    else
+                    else if (!IsAll || OnScopeTo.HasDelegate)
                     {
                         <AppButton Variant="ButtonVariant.Primary"
                                    CssClass="lobes-atlas__card-action"
@@ -429,7 +423,6 @@
         DevbookLobe.Stem
     ];
 
-    private readonly HashSet<string> _hiddenScopes = new(StringComparer.Ordinal);
     private readonly HashSet<LobesAtlasRegionKey> _hiddenLobes = [];
     // The devbook and ghost scopes whose Parietal has had its hidden start:
     // once per scope key, so a reread never hides again what the reader turned
@@ -440,7 +433,14 @@
     private DevbookLobesGraph? _graph;
     private LobesAtlasModel? _model;
     private IReadOnlyList<GraphAtlasNode> _nodes = [];
-    private string _scope = LobesAtlasModel.AllLayout;
+    // The layout on screen and the scopes it draws, derived from the shell's
+    // repository scope, the Ghosts toggle and a ghost stepped into.
+    private string _layout = LobesAtlasModel.AllLayout;
+    private IReadOnlyList<string> _drawn = [];
+    private bool _nothingInView;
+    private bool _showGhosts;
+    private string? _ghostFocus;
+    private string? _appliedSelection;
     private string? _appliedScope;
     private string? _selectedId;
     private bool _showLabels = true;
@@ -454,10 +454,21 @@
 
     public LobesAtlasTakeover() => _showCamera = ShowCamera;
 
-    /// <summary>The scope to open on: <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
-    /// <c>ghost:&lt;alias&gt;</c> — <see cref="DevbookLobesAtlas.ScopeKeyFor"/> —
-    /// or null for All. A ghost whose alias has been registered since opens that
-    /// devbook; any other scope the graph does not hold opens All.</summary>
+    /// <summary>The window's repository scope, in its order, <c>BrainScope.Value</c>
+    /// for the Brain; empty for every repository. One member the graph holds is
+    /// drawn in its own layout, several in All.</summary>
+    [Parameter]
+    public IReadOnlyList<string> RepositoryScope { get; set; } = [];
+
+    /// <summary>Asks the host to scope the window to one member alone — an alias,
+    /// or <c>BrainScope.Value</c> for the Brain. Unbound, All's rows are a plain
+    /// legend and its card offers nothing.</summary>
+    [Parameter]
+    public EventCallback<string> OnScopeTo { get; set; }
+
+    /// <summary>A ghost to step into, <c>ghost:&lt;alias&gt;</c>, as Register
+    /// repository left it. Applied once per hand-over; a ghost whose alias has been
+    /// registered since asks the host for that repository instead.</summary>
     [Parameter]
     public string? Scope { get; set; }
 
@@ -492,14 +503,21 @@
     [Parameter]
     public EventCallback<string> OnRegisterRepository { get; set; }
 
-    private bool IsAll => _scope == LobesAtlasModel.AllLayout;
+    private bool IsAll => _layout == LobesAtlasModel.AllLayout;
+
+    private bool HasGhosts => _graph?.Scopes.Any(scope => scope.Kind == DevbookLobesScopeKind.Ghost) ?? false;
+
+    /// <summary>The scopes drawn, in the graph's order — the order the renderer
+    /// seats them in.</summary>
+    private IEnumerable<DevbookLobesScope> DrawnScopes =>
+        _graph?.Scopes.Where(scope => _drawn.Contains(scope.Key, StringComparer.OrdinalIgnoreCase)) ?? [];
 
     /// <summary>The root's classes: the sheet's state rides on it, because only a
     /// narrow window folds the panel and the card into a sheet — over the map
     /// they are always shown, whatever the disclosure last said.</summary>
     private string ClassValue => _sheetOpen ? "lobes-atlas lobes-atlas--sheet-open" : "lobes-atlas";
 
-    private DevbookLobesScope? CurrentScope => IsAll ? null : _graph?.Scope(_scope);
+    private DevbookLobesScope? CurrentScope => IsAll ? null : _graph?.Scope(_layout);
 
     private DevbookLobesNode? Selected =>
         _selectedId is null ? null : _graph?.Nodes.FirstOrDefault(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
@@ -511,11 +529,13 @@
         _ => "lobes-atlas__dot--brain"
     };
 
-    private int DevbookCount => _graph?.Scopes.Count(scope => scope.Kind != DevbookLobesScopeKind.Brain) ?? 0;
+    private int DevbookCount => DrawnScopes.Count(scope => scope.Kind != DevbookLobesScopeKind.Brain);
+
+    private bool BrainDrawn => DrawnScopes.Any(scope => scope.Kind == DevbookLobesScopeKind.Brain);
 
     private string Headline => CurrentScope switch
     {
-        null => $"Brain + {DevbookCount} {(DevbookCount == 1 ? "devbook" : "devbooks")}",
+        null => $"{(BrainDrawn ? "Brain + " : string.Empty)}{DevbookCount} {(DevbookCount == 1 ? "devbook" : "devbooks")}",
         { Kind: DevbookLobesScopeKind.Brain } => "Brain · 6 regions",
         { Kind: DevbookLobesScopeKind.Ghost } scope => $"{scope.Label} · not registered",
         var scope => $"{scope.Label} devbook · 6 folders"
@@ -543,11 +563,15 @@
         _ => "devbook"
     };
 
-    private static string ScopeTitle(DevbookLobesScope scope) => scope.Kind switch
+    /// <summary>A scope's row in All: its swatch, name, what it is and its count.</summary>
+    private static RenderFragment ScopeRowContent(DevbookLobesScope scope) => __builder =>
     {
-        DevbookLobesScopeKind.Brain => "The Brain alone, by region",
-        DevbookLobesScopeKind.Ghost => $"{scope.Label}: not registered on this machine — only the chapters your notes name",
-        _ => $"The {scope.Label} devbook alone, by folder"
+        <span class="lobes-atlas__swatch lobes-atlas__swatch--@KindSlug(scope.Kind)" aria-hidden="true"></span>
+        <span class="lobes-atlas__row-text">
+            <span class="lobes-atlas__row-name">@scope.Label</span>
+            <span class="lobes-atlas__row-sub">@ScopeSub(scope)</span>
+        </span>
+        <Badge BaseClass="lobes-atlas__row-count" Kind="">@(scope.Kind == DevbookLobesScopeKind.Ghost ? "—" : scope.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture))</Badge>
     };
 
     private static string ScopeSub(DevbookLobesScope scope) => scope.Kind switch
@@ -602,11 +626,11 @@
         {
             if (_graph is null) return [];
 
-            var brain = _graph.Scope(DevbookLobesGraph.BrainScopeKey);
+            var brain = DrawnScopes.FirstOrDefault(scope => scope.Kind == DevbookLobesScopeKind.Brain);
             switch (CurrentScope)
             {
                 case null:
-                    var chapters = _graph.Scopes.Where(scope => scope.Kind == DevbookLobesScopeKind.Devbook).Sum(scope => scope.ItemCount);
+                    var chapters = DrawnScopes.Where(scope => scope.Kind == DevbookLobesScopeKind.Devbook).Sum(scope => scope.ItemCount);
                     return
                     [
                         $"{Notes(brain?.ItemCount ?? 0)} · {chapters} {(chapters == 1 ? "chapter" : "chapters")}",
@@ -640,56 +664,135 @@
 
     protected override void OnInitialized() => Lobes.Changed += OnLobesChanged;
 
+    /// <summary>Every render the host makes hands the scope in again; the atlas lays
+    /// out again only when what it draws changed, since a fresh model repaints.</summary>
     protected override async Task OnParametersSetAsync()
     {
         if (_graph is null) await LoadAsync();
-
-        // The host's scope is applied when it is handed over, not on every
-        // render: the reader's own presses after that are theirs.
-        var asked = string.IsNullOrWhiteSpace(Scope) ? LobesAtlasModel.AllLayout : Scope;
-        if (!string.Equals(asked, _appliedScope, StringComparison.Ordinal))
-        {
-            _appliedScope = asked;
-            SwitchScope(asked);
-        }
+        else await FollowAsync(force: false);
     }
 
     private async Task LoadAsync()
     {
-        var wasAvailable = _graph is { Available: true };
         _graph = await Lobes.ReadAsync();
         SeedHiddenTechnology();
 
-        // An atlas that opened on the empty state and has its index now opens
-        // where the host asked, not on All.
-        if (!wasAvailable && _graph.Available && _appliedScope is { } asked)
+        // A ghost stepped into whose alias was registered meanwhile: the shell is
+        // asked for that repository, and the atlas follows it there.
+        if (_ghostFocus is { } ghost && _graph.Scope(ghost) is null)
         {
-            SwitchScope(asked);
+            _ghostFocus = null;
+            if (RegisteredAlias(ghost) is { } alias) await OnScopeTo.InvokeAsync(alias);
+        }
+
+        await FollowAsync(force: true);
+    }
+
+    /// <summary>The shell's scope and the host's hand-over applied, then the layout
+    /// derived again. A change of the shell's scope is a new view, so it leaves a
+    /// ghost the reader stepped into.</summary>
+    private async Task FollowAsync(bool force)
+    {
+        var selection = $"{RepositoryScope.Count}:{string.Join('\u001f', RepositoryScope)}";
+        if (_appliedSelection is not null && !string.Equals(selection, _appliedSelection, StringComparison.Ordinal)) _ghostFocus = null;
+        _appliedSelection = selection;
+
+        await ApplyHandOverAsync();
+        Relayout(force);
+    }
+
+    /// <summary>The ghost the host handed in, applied once per hand-over and only
+    /// once there is a map: stepped into with Ghosts on, or — registered since —
+    /// the shell asked for its repository.</summary>
+    private async Task ApplyHandOverAsync()
+    {
+        var asked = string.IsNullOrWhiteSpace(Scope) ? null : Scope.Trim();
+        if (_graph is not { Available: true } || string.Equals(asked, _appliedScope, StringComparison.Ordinal)) return;
+
+        _appliedScope = asked;
+        if (asked is null) return;
+
+        if (_graph.Scope(asked) is { Kind: DevbookLobesScopeKind.Ghost } ghost)
+        {
+            _ghostFocus = ghost.Key;
+            _showGhosts = true;
+        }
+        else if (RegisteredAlias(asked) is { } alias)
+        {
+            await OnScopeTo.InvokeAsync(alias);
+        }
+    }
+
+    /// <summary>
+    /// The layout and the scopes it draws: one scope in view, and no ghost, is
+    /// that scope's own layout; otherwise All with the scopes in view and, with
+    /// Ghosts on, every ghost. A ghost stepped into wins over both. A new layout
+    /// or a new set of scopes drops the selection and hands the renderer a fresh
+    /// model, which starts from its default camera.
+    /// </summary>
+    private void Relayout(bool force = false)
+    {
+        if (_graph is not { Available: true })
+        {
+            _nothingInView = false;
+            Project();
             return;
         }
 
-        // A reread keeps the reader's place while it is still there — a ghost
-        // whose alias was registered meanwhile as that devbook.
-        if (_scope != LobesAtlasModel.AllLayout && _graph.Scope(_scope) is null)
-        {
-            var registered = RegisteredSince(_scope);
-            _scope = _graph.Scope(registered) is null ? LobesAtlasModel.AllLayout : registered;
-        }
+        List<string> inView = RepositoryScope.Count == 0
+            ? [.. _graph.Scopes.Where(scope => scope.Kind != DevbookLobesScopeKind.Ghost).Select(scope => scope.Key)]
+            : [.. RepositoryScope
+                .Select(member => _graph.Scope(DevbookLobesAtlas.ScopeKeyFor(member)))
+                .OfType<DevbookLobesScope>()
+                .Where(scope => scope.Kind != DevbookLobesScopeKind.Ghost)
+                .Select(scope => scope.Key)
+                .Distinct(StringComparer.Ordinal)];
+        List<string> ghosts = _showGhosts
+            ? [.. _graph.Scopes.Where(scope => scope.Kind == DevbookLobesScopeKind.Ghost).Select(scope => scope.Key)]
+            : [];
 
-        Project();
+        if (_ghostFocus is { } focus && _graph.Scope(focus) is not { Kind: DevbookLobesScopeKind.Ghost }) _ghostFocus = null;
+
+        var layout = _ghostFocus ?? (inView.Count == 1 && ghosts.Count == 0 ? inView[0] : LobesAtlasModel.AllLayout);
+        IReadOnlyList<string> drawn = layout == LobesAtlasModel.AllLayout ? [.. inView, .. ghosts] : [layout];
+
+        var changed = layout != _layout || !drawn.Order(StringComparer.Ordinal).SequenceEqual(_drawn.Order(StringComparer.Ordinal), StringComparer.Ordinal);
+        if (changed) _selectedId = null;
+
+        _layout = layout;
+        _drawn = drawn;
+        _nothingInView = drawn.Count == 0;
+        if (changed || force) Project();
     }
 
-    /// <summary>A press on the scope switch, a scope's row or the card, or the
-    /// scope the host handed in. The selection goes with the scope it was in, and
-    /// the new layout starts from the renderer's default camera.</summary>
-    private void SwitchScope(string key)
+    /// <summary>A row of All's panel: a ghost's steps into it here; a registered
+    /// scope's asks the shell for it alone.</summary>
+    private Task OpenRowAsync(DevbookLobesScope scope)
     {
-        key = RegisteredSince(key);
-        _scope = key == LobesAtlasModel.AllLayout || _graph?.Scope(key) is null
-            ? LobesAtlasModel.AllLayout
-            : _graph.Scope(key)!.Key;
-        _selectedId = null;
-        Project();
+        if (scope.Kind == DevbookLobesScopeKind.Ghost)
+        {
+            _ghostFocus = scope.Key;
+            Relayout();
+            return Task.CompletedTask;
+        }
+
+        return OnScopeTo.InvokeAsync(scope.Kind == DevbookLobesScopeKind.Brain ? BrainScope.Value : scope.Alias ?? scope.Label);
+    }
+
+    /// <summary>The ghost card's Back to all scopes.</summary>
+    private void LeaveGhost()
+    {
+        _ghostFocus = null;
+        Relayout();
+    }
+
+    /// <summary>Ghosts: every unregistered devbook drawn in All, or taken off the
+    /// map again — and a ghost stepped into left with them.</summary>
+    private void ToggleGhosts()
+    {
+        _showGhosts = !_showGhosts;
+        if (!_showGhosts) _ghostFocus = null;
+        Relayout();
     }
 
     private void ToggleLabels()
@@ -727,55 +830,44 @@
         Project();
     }
 
-    private void ToggleScopeShown(string key)
-    {
-        if (!_hiddenScopes.Remove(key)) _hiddenScopes.Add(key);
-        Project();
-    }
-
     private void ToggleRegion(LobesAtlasRegionKey region)
     {
         if (!_hiddenLobes.Remove(region)) _hiddenLobes.Add(region);
         Project();
     }
 
-    /// <summary>All and None: every scope (in All) or every region of the scope
-    /// on screen, shown or hidden — and in a scope its Archive dust with them,
-    /// which is no region and has no chip of its own, so None leaves nothing on
-    /// the map. What is hidden elsewhere stays as it was.</summary>
+    /// <summary>All and None: every region of the scope on screen, shown or
+    /// hidden — and its Archive dust with them, which is no region and has no
+    /// chip of its own, so None leaves nothing on the map. What is hidden
+    /// elsewhere stays as it was.</summary>
     private void ShowEverything(bool show)
     {
-        if (_graph is null) return;
+        if (_graph is null || IsAll) return;
 
-        if (IsAll)
-        {
-            _hiddenScopes.Clear();
-            if (!show) _hiddenScopes.UnionWith(_graph.Scopes.Select(scope => scope.Key));
-        }
-        else
-        {
-            _hiddenLobes.RemoveWhere(region => region.Scope == _scope);
-            if (!show) _hiddenLobes.UnionWith(RegionOrder.Append(DevbookLobe.Dust).Select(lobe => new LobesAtlasRegionKey(_scope, DevbookLobesAtlas.LobeKey(lobe))));
-        }
+        _hiddenLobes.RemoveWhere(region => region.Scope == _layout);
+        if (!show) _hiddenLobes.UnionWith(RegionOrder.Append(DevbookLobe.Dust).Select(lobe => new LobesAtlasRegionKey(_layout, DevbookLobesAtlas.LobeKey(lobe))));
 
         Project();
     }
 
     /// <summary>The renderer's model and the index rows, built once per change
     /// rather than per render: a fresh model is a changed parameter, and a
-    /// changed parameter repaints the scene.</summary>
+    /// changed parameter repaints the scene. All is drawn from the scopes in view
+    /// alone, left out rather than hidden, so the renderer seats only them; a
+    /// scope's own layout keeps the whole graph for the Brain's bundles into it.</summary>
     private void Project()
     {
-        if (_graph is not { Available: true })
+        if (_graph is not { Available: true } || _nothingInView)
         {
             _model = null;
             _nodes = [];
             return;
         }
 
-        IReadOnlyList<LobesAtlasRegionKey> hiddenAll = _showTech ? [] : DevbookLobesAtlas.TechRegions(_graph);
-        _model = DevbookLobesAtlas.Model(_graph, _scope, _hiddenScopes, _hiddenLobes, _showLabels, hiddenAll, idleMotion: !_paused);
-        _nodes = DevbookLobesAtlas.IndexNodes(_graph, _scope, _hiddenScopes, _hiddenLobes, hiddenAll);
+        var view = IsAll ? DevbookLobesAtlas.InView(_graph, _drawn) : _graph;
+        IReadOnlyList<LobesAtlasRegionKey> hiddenAll = _showTech ? [] : DevbookLobesAtlas.TechRegions(view);
+        _model = DevbookLobesAtlas.Model(view, _layout, [], _hiddenLobes, _showLabels, hiddenAll, idleMotion: !_paused);
+        _nodes = DevbookLobesAtlas.IndexNodes(view, _layout, [], _hiddenLobes, hiddenAll);
         if (_selectedId is not null && _nodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal))) _selectedId = null;
     }
 
@@ -866,16 +958,17 @@
         return trimmedAlias.Length == 0 || path.Length == 0 ? null : new DevbookRepositoryChapter(trimmedAlias, slug is null ? path : $"{path}#{slug}");
     }
 
-    /// <summary>A ghost's key whose alias has been registered since — the graph
-    /// holding its devbook instead — as that devbook's key; any other key as it
-    /// is.</summary>
-    private string RegisteredSince(string key)
+    /// <summary>The alias of a ghost's key that has been registered since — the
+    /// graph holding its devbook instead; null for any other key.</summary>
+    private string? RegisteredAlias(string key)
     {
         const string ghost = DevbookLobesGraph.GhostScopePrefix;
-        if (_graph is null || !key.StartsWith(ghost, StringComparison.Ordinal) || _graph.Scope(key) is not null) return key;
+        if (_graph is null || !key.StartsWith(ghost, StringComparison.OrdinalIgnoreCase) || _graph.Scope(key) is not null) return null;
 
-        var devbook = DevbookLobesAtlas.ScopeKeyFor(key[ghost.Length..]);
-        return _graph.Scope(devbook) is null ? key : devbook;
+        var alias = key[ghost.Length..];
+        return _graph.Scope(DevbookLobesAtlas.ScopeKeyFor(alias)) is { Kind: DevbookLobesScopeKind.Devbook } devbook
+            ? devbook.Alias ?? alias
+            : null;
     }
 
     /// <summary>The ghost card's Register repository: the Repositories settings,
@@ -883,25 +976,21 @@
     /// to reopen the atlas on it once the reader comes back.</summary>
     private async Task RegisterRepository()
     {
-        await OnRegisterRepository.InvokeAsync(_scope);
+        await OnRegisterRepository.InvokeAsync(_layout);
         Navigation.NavigateTo(RepositorySettings);
     }
 
     /// <summary>Where Register repository goes.</summary>
     internal const string RepositorySettings = "settings/repositories";
 
+    /// <summary>The card's action. All's Step into the Brain asks the shell for the
+    /// Brain alone, and the atlas follows it there.</summary>
     private Task CardActionAsync() => CurrentScope switch
     {
-        null => StepIntoBrainAsync(),
+        null => OnScopeTo.InvokeAsync(BrainScope.Value),
         { Kind: DevbookLobesScopeKind.Brain } => OnOpenScope.InvokeAsync(string.Empty),
         var scope => OnOpenScope.InvokeAsync(scope.Alias ?? scope.Label)
     };
-
-    private Task StepIntoBrainAsync()
-    {
-        SwitchScope(DevbookLobesGraph.BrainScopeKey);
-        return Task.CompletedTask;
-    }
 
     /// <summary>The Brain's index or a devbook changed: the atlas reads again,
     /// inside <c>InvokeAsync</c> because the word arrives off the renderer's

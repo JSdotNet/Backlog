@@ -41,7 +41,9 @@ internal sealed class ShellHost : IDisposable
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         if (clock is not null) _context.Services.AddSingleton(clock);
         _context.Services.AddSingleton<ISharedContentReceiver>(Share);
+        Speech.Settings = SpeechSettings;
         _context.Services.AddSingleton<ISpeechTranscriber>(Speech);
+        _context.Services.AddSingleton<ISpeechSettingsStore>(SpeechSettings);
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
@@ -63,6 +65,10 @@ internal sealed class ShellHost : IDisposable
     /// the markup around it.</summary>
     public ScriptedSpeechTranscriber Speech { get; } = new();
 
+    /// <summary>The phone's Dictation setting, which the Settings sheet writes and
+    /// <see cref="Speech"/> reads at the start of every turn.</summary>
+    public InMemorySpeechSettingsStore SpeechSettings { get; } = new();
+
     /// <summary>What the Note page's and the capture sheet's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();
 
@@ -81,6 +87,9 @@ internal sealed class ShellHost : IDisposable
     public ScriptedNotificationService Notifications { get; }
 
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
+
+    /// <summary>The JavaScript calls the app made, such as moving the focus.</summary>
+    public BunitJSInterop JSInterop => _context.JSInterop;
 
     public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
 

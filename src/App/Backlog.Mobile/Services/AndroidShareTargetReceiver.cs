@@ -44,8 +44,9 @@ public sealed class AndroidShareTargetReceiver : BufferedSharedContentReceiver
         if (content.IsEmpty) return;
 
         // The extras are cleared once read. Android hands the same launch intent
-        // back to a recreated activity — a restored process, for instance — and
-        // reading it again would put the same capture in the inbox twice.
+        // back to an activity recreated in this process, and reading it again would
+        // put the same capture in the inbox twice. A restored process gets the
+        // original intent back whole, so MainActivity does not forward it at all.
         intent.RemoveExtra(Intent.ExtraText);
         intent.RemoveExtra(Intent.ExtraSubject);
 

@@ -33,6 +33,45 @@ public interface IShellWindows
 
     /// <summary>Brings the main window to the front.</summary>
     void ActivateMainWindow();
+
+    /// <summary>Whether a popped-out window can be kept on top of other windows here.
+    /// Only a head with OS windows can: a browser tab cannot, so a host that cannot
+    /// says no and its windows show no pin.</summary>
+    bool CanKeepOnTop => false;
+
+    /// <summary>Whether the popped-out window <paramref name="windowKey"/> names is kept
+    /// on top of other windows.</summary>
+    bool IsOnTop(string windowKey) => false;
+
+    /// <summary>Keeps the popped-out window <paramref name="windowKey"/> names on top of
+    /// other windows, or lets it go, and remembers that for its surface's next window.
+    /// One value per surface, so with two windows of a surface open the last press
+    /// wins. Does nothing where <see cref="CanKeepOnTop"/> is false.</summary>
+    void SetOnTop(string windowKey, bool onTop)
+    {
+    }
+
+    /// <summary>Whether a popped-out window can be remembered to reopen on the next
+    /// start (local ADR 0043 §5): true in the desktop head only. A host that answers
+    /// false — a browser tab, a test — draws no Remember toggle.</summary>
+    bool CanRemember => false;
+
+    /// <summary>Whether the popped-out window <paramref name="windowKey"/> names is
+    /// remembered to reopen on the next start.</summary>
+    bool IsRemembered(string windowKey) => false;
+
+    /// <summary>Marks the popped-out window <paramref name="windowKey"/> names
+    /// remembered, so it reopens on the next start on what it shows then, or forgets
+    /// it. Changes that one window alone.</summary>
+    void SetRemembered(string windowKey, bool remembered)
+    {
+    }
+
+    /// <summary>What the popped-out window <paramref name="windowKey"/> names shows
+    /// now, after a jump or a scope change: what a remembered window reopens on.</summary>
+    void ReportShowing(string windowKey, string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+    }
 }
 
 /// <summary>

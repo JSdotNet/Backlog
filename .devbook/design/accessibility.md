@@ -268,6 +268,18 @@ clause, because the side panel offers the same action at full size. It is bounde
 - The exception covers these dots only. The cluster circles, pills and
   satellites on the same map are not covered by it.
 
+**Exception — the drag grips.** A grip that is an item's only press origin — a
+goal card's, a No goal row's — is 1.5rem (24 px) wide, WCAG 2.2's 2.5.8 AA
+minimum, and 2.75rem (44 px) tall. A wider grip would take the row's width from
+its title on every row of a dense list. The exception holds because the grip is
+the pointer's shortcut for a move the row already offers. It is bounded:
+
+- Every move a grip makes is reachable without it: a goal through **Move up**
+  and **Move down**, a No goal row through **Attach…**
+  (`interaction-guidelines.md#drag-affordances`).
+- A task row's grip needs no exception: the whole row is its press origin.
+- The exception covers drag grips only, at no less than 24 × 44 px.
+
 ## Iconography Accessibility
 
 ```meta
@@ -345,9 +357,9 @@ Gaps, tracked rather than assumed:
   not in the set, and some metadata-line glyphs are still emoji. See
   `typography-and-layout.md#materialization`.
 - **Target sizes are unverified.** No test asserts the ≥ 44 × 44 px minimum, and
-  dense rows are exactly where it tends to fail. The sync arrow pad's 24 px keys
-  and the Clusters map's dots are the two recorded exceptions
-  (`#target-sizes-and-text`), not gaps.
+  dense rows are exactly where it tends to fail. The sync arrow pad's 24 px keys,
+  the Clusters map's dots and the 24 × 44 px drag grips are the three recorded
+  exceptions (`#target-sizes-and-text`), not gaps.
 - **Both app channels are web-rendered.** The desktop and the Android head each
   host Razor components in a WebView; the phone's come from `Backlog.Mobile.UI`
   over the shared library. Every rule above applies to both as written, and MAUI's

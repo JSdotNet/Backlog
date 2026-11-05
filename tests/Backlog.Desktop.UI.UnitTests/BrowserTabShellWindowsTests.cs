@@ -78,6 +78,21 @@ public sealed class BrowserTabShellWindowsTests
         Assert.False(await windows.OpenAsync("devbook"));
     }
 
+    /// <summary>A tab is not a window the app reopens at start (local ADR 0043 §5), so
+    /// a page served this way draws no pin and remembers nothing.</summary>
+    [Fact]
+    public void A_tab_cannot_be_remembered()
+    {
+        using var context = new BunitContext();
+        IShellWindows windows = new BrowserTabShellWindows(context.JSInterop.JSRuntime);
+
+        windows.SetRemembered("window-1", true);
+
+        Assert.False(windows.CanRemember);
+        Assert.False(windows.IsRemembered("window-1"));
+        Assert.Empty(context.JSInterop.Invocations);
+    }
+
     [Theory]
     [InlineData("window/devbook", "devbook")]
     [InlineData("window/devbook?chapter=a.md", "devbook")]

@@ -20,8 +20,14 @@ namespace Backlog.Mobile.UI.Services;
 /// arrives through the same static-asset route as <c>app.css</c> and neither
 /// host document has to be edited.
 /// </para>
+/// <para>
+/// The language is the Dictation setting's, read at the start of every turn and handed
+/// to the recogniser as its <c>lang</c>. The Web Speech API has no language detection,
+/// so Dutch and English listens for Dutch here, as it does on a phone older than
+/// Android 14; the phone's language is the browser's own.
+/// </para>
 /// </remarks>
-public sealed class WebSpeechTranscriber(IJSRuntime js) : ISpeechTranscriber
+public sealed class WebSpeechTranscriber(IJSRuntime js, ISpeechSettingsStore settings) : ISpeechTranscriber
 {
     private const string ModulePath = "./_content/Backlog.Mobile.UI/speech.js";
 
@@ -62,9 +68,13 @@ public sealed class WebSpeechTranscriber(IJSRuntime js) : ISpeechTranscriber
 
         _self ??= DotNetObjectReference.Create(this);
 
+        // No device language from here: a null tag leaves it to speech.js, which asks the
+        // browser for its own.
+        var request = DictationRequest.For(settings.Language, deviceLanguage: null, supportsDetection: false);
+
         try
         {
-            await module.InvokeVoidAsync("start", cancellationToken, _self);
+            await module.InvokeVoidAsync("start", cancellationToken, _self, request.Language);
         }
         catch (JSException ex)
         {
@@ -192,7 +202,7 @@ public sealed class WebSpeechTranscriber(IJSRuntime js) : ISpeechTranscriber
         "audio-capture" => "No microphone was found.",
         "network" => "Speech recognition needs the network and could not reach it.",
         "aborted" => "Listening stopped before anything was recognised.",
-        "language-not-supported" => "Speech recognition does not support this device's language.",
+        "language-not-supported" => "Speech recognition does not support the dictation language here. Choose another in Settings.",
         "not-supported" => Unavailable,
         null or "" => "Speech recognition failed.",
         _ => $"Speech recognition failed ({error})."

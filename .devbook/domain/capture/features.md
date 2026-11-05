@@ -53,6 +53,11 @@ to Focus instead: the thought is set down and the task taken up again. Cancel, a
 tap on the dimmed screen behind, or Escape go back to the screen the sheet came
 from.
 
+On Android, a long press on the Backlog icon lists **Capture**. A tap opens the
+same sheet over the Inbox, with Inbox chosen, whether the app was closed or open
+on any tab; Cancel lands on the Inbox. The tap is followed once, so reopening the
+app from Recents after Android ended it does not bring the sheet back.
+
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and each bounded. A person is sent as the person and
 never as a tag; on the desktop it becomes the item's source person, and the tags
@@ -156,6 +161,9 @@ type: sub-feature
 
 Another app hands its content to Capture through the phone's share sheet or a
 shortcut, without opening the capture sheet first.
+
+The launcher icon's **Capture** shortcut hands over no content: it only opens the
+capture sheet, as [One-tap entry](#one-tap-entry) describes.
 
 ## Automation capture
 
