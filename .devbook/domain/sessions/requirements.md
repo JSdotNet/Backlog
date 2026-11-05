@@ -5,7 +5,9 @@ type: requirements
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it.
+> requirement is one SHALL sentence with the scenarios that prove it. A feature
+> chapter says what the capability is and why it exists; this file says what it
+> promises.
 
 ## Name the source that could not be read
 
@@ -13,9 +15,6 @@ type: requirements
 type: requirements
 related: [.devbook/domain/sessions/features.md#name-the-source-that-could-not-be-read]
 ```
-
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
 
 ### Requirement: One unreadable source costs only its own sessions
 
@@ -40,9 +39,6 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#only-what-the-dashboard-recorded]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
-
 ### Requirement: A figure a run did not measure is left out
 
 ```meta
@@ -66,10 +62,8 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
 > [Delivery Run Telemetry](domain.md#delivery-run-telemetry) is the reaction that
-> keeps them.
+> keeps these promises.
 
 ### Requirement: A session's telemetry reaches only a run it drives
 
@@ -164,9 +158,6 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
-
 ### Requirement: A share of the weekly limit is labelled an estimate
 
 ```meta
@@ -189,12 +180,10 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. Local ADR 0038 decides
-> them. Both sides are built: the queue icons that create a request (on an entry,
-> on a plan's roadmap item, and beside a selected plan filter chip), and the
-> dispatcher side, the wait route and the claim, mark and list tools a Manager
-> session uses.
+> Local ADR 0038 decides these requirements. Both sides are built: the queue icons
+> that create a request (on an entry, on a plan's roadmap item, and beside a selected
+> plan filter chip), and the dispatcher side, the wait route and the claim, mark and
+> list tools a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
 
@@ -360,9 +349,7 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/sessions/domain.md#question-relay, .devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. Local ADR 0041
-> decides them. None of them is built yet.
+> Local ADR 0041 decides these requirements. None of them is built yet.
 
 ### Requirement: A question asked while the person is away is notified at once
 
@@ -370,7 +357,7 @@ related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-e
 type: requirement
 ```
 
-The system SHALL publish a session's question as a notification when it is asked while the person is away: after the away setting, 10 minutes by default, without keyboard or mouse input, or while the screen is locked.
+The system SHALL publish as a notification a question asked while the person is away: no keyboard or mouse input for the away setting, 10 minutes by default, or a locked screen.
 
 #### Scenario: The person left the desk
 
@@ -390,7 +377,7 @@ The system SHALL publish a session's question as a notification when it is asked
 type: requirement
 ```
 
-The system SHALL keep a question asked while the person is at the keyboard in the session, and SHALL publish it only if it is still open after the notify setting, 15 minutes by default.
+The system SHALL keep a question asked while the person is at the keyboard in the session, and publish it only if it is still open after the notify setting, 15 minutes by default.
 
 #### Scenario: Answered in time
 
@@ -438,7 +425,7 @@ The system SHALL close a question answered in the session, with the answers, and
 type: requirement
 ```
 
-The system SHALL answer the `get_answer` call of the hook holding a dialog asked while the person is away with the accepted answers, holding each call at most 55 seconds, for up to the dialog wait setting, 8 hours by default.
+The system SHALL give the hook holding a dialog asked while away the accepted answers through `get_answer`, holding each call at most 55 seconds, up to the dialog wait setting, 8 hours by default.
 
 #### Scenario: Answered on the phone
 
@@ -458,7 +445,7 @@ The system SHALL answer the `get_answer` call of the hook holding a dialog asked
 type: requirement
 ```
 
-The system SHALL turn the answer to a prose question, or to a dialog that escalated from the session, into a delivery that the dispatch wait route hands to a waiting Manager before any session request.
+The system SHALL turn the answer to a prose question or an escalated dialog into a delivery the dispatch wait route hands a waiting Manager before any session request.
 
 #### Scenario: A prose question answered on the phone
 

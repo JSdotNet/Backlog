@@ -4,10 +4,6 @@
 type: dependencies
 ```
 
-> Dependencies this bounded context has on other bounded contexts or
-> modules, and known dependents. Note the DDD relationship pattern,
-> integration mechanism, and published contract for each relationship.
-
 ## Outbound dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
@@ -18,21 +14,24 @@ type: dependencies
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Monitoring = customer) | Health and scan feed | `.devbook/domain/repository-management/domain.md#repository-registry` | Repository health scores, package freshness, and issue backlog feed the dashboard. |
 | GitHub (external) | ACL | Polling / webhook | `.devbook/domain/tasks/domain.md#statuschanged` | Issue status feeds progress signals and is compared against backlog status. |
 | Application Insights (external) | ACL | Metric pull | `.devbook/domain/monitoring/features.md#project-dashboard-application-insights` | App performance/error metrics populate the project dashboard. |
-| [Sessions](../sessions/domain.md#session-log) | Customer/Supplier (Sessions = supplier) | Reads the session record an environment holds | `.devbook/domain/sessions/domain.md#session-log` | Session activity and state are shown alongside related issues and tasks. A `stalled` session is what an inactivity alert is raised on. Not built. |
+| [Sessions](../sessions/domain.md#session-log) | Customer/Supplier (Sessions = supplier) | Reads the session record an environment holds | `.devbook/domain/sessions/domain.md#session-log` | Session activity and state show alongside related issues and tasks. Not built. |
+
+- **Sessions:** A `stalled` session is what an inactivity alert is raised on.
 
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Monitoring = supplier) | Receives `FollowUpCaptured` | `.devbook/domain/monitoring/domain.md#followupcaptured` | Relies on Monitoring emitting well-formed follow-up items. |
-| [Environment](../environment/domain.md#environment) | Customer/Supplier (Monitoring = supplier) | Reads health and availability signals | `.devbook/domain/monitoring/domain.md#progress-signal` | Quick-access views can show whether an environment appears healthy before launch. Intended, not built: `src/` has no Environment module. |
+| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Monitoring = supplier) | Receives `FollowUpCaptured` | `.devbook/domain/monitoring/domain.md#followupcaptured` | Monitoring emitting well-formed follow-up items. |
+| [Environment](../environment/domain.md#environment) | Customer/Supplier (Monitoring = supplier) | Reads health and availability signals | `.devbook/domain/monitoring/domain.md#progress-signal` | Quick-access views can show whether an environment appears healthy before launch. |
+
+- **Environment:** This row is intended, not built: `src/` has no Environment module.
 
 ## Notes
 
-- Monitoring is an observer and read context. It consumes signals from many
-  contexts, and its one write-back is
+- Monitoring is an observer and read context. Its one write-back is
   [`FollowUpCaptured`](domain.md#followupcaptured).
 - External integrations (GitHub, Application Insights) sit behind
   anti-corruption adapters so their schemas never leak into the signal model.
-- GitHub issue <-> backlog mismatch detection is shared with Tasks; see
-  `.devbook/domain/tasks/dependencies.md`.
+- Detecting a mismatch between a GitHub issue and the backlog is shared with Tasks;
+  see `.devbook/domain/tasks/dependencies.md`.

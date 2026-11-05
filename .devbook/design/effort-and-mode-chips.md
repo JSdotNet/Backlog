@@ -67,9 +67,9 @@ Rules:
 
 - The chip MUST print the effort word as its text. Low and medium share one
   treatment, so the word is the only thing that tells them apart.
-- The ladder MUST stay one hue. A step MUST NOT borrow a semantic surface, because
-  `color-warning`, `color-error` and `color-success` mean alert, fault and settled
-  on the badge tone scale.
+- The ladder MUST stay one hue. A step MUST NOT borrow a semantic surface,
+  because on the badge tone scale `color-warning` means alert, `color-error` fault and
+  `color-success` settled.
 - The xhigh tint MUST be mixed against `color-background` on both surfaces, so the
   chip is one colour wherever it sits.
 - An effort value the ladder does not list MUST render verbatim with the low
@@ -81,10 +81,11 @@ Rules:
 filled chip is one the product acts on. Effort is a *magnitude*, so it takes an
 ordinal ramp of the one saturated hue instead. That is the reasoning
 `color-scheme.md#chart-roles` gives for single-hue ramps, and the reasoning the
-roadmap gives for its priority shade ramp. The solid `max` chip is the top of that
-ramp. It is gold rather than a semantic surface, so it cannot be read as alert,
-fault or settled. The effort family MUST NOT be added to the stylesheet's badge
-families.
+roadmap gives for its priority shade ramp.
+
+The solid `max` chip is the top of that ramp. It is gold rather than a semantic
+surface, so it cannot be read as alert, fault or settled. The effort family MUST
+NOT be added to the stylesheet's badge families.
 
 **The outline for low and medium is `color-border-strong`, not `color-border`.**
 `color-border` measures 2.16:1 on `color-background-alt` and 2.49:1 on

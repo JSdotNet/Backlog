@@ -5,13 +5,12 @@ rating: candidate
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
-> The Azure side of the system. It holds a deliberately thin sync service, which
-> does only sync coordination, webhook forwarding, push, and the machine
-> registry, and the managed AI service the desktop calls.
+> The Azure side of the system: a deliberately thin sync service (sync
+> coordination, webhook forwarding, push, and the machine registry) and the
+> managed AI service the desktop calls.
 >
-> The app model that runs this service locally is
-> [.NET Aspire](shared.md#net-aspire). It composes every channel, not just this
-> one, so it lives in `shared.md`.
+> [.NET Aspire](shared.md#net-aspire) runs this service locally. It composes
+> every channel, so it lives in `shared.md`.
 
 ## ASP.NET Core Minimal APIs
 
@@ -25,14 +24,14 @@ alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
 
 The HTTP surface of the cloud service.
 
-- **Used for** — `Backlog.Modules.Sync.Api`. It serves the `/api/sync/devices/*`
-  registration, pairing-code, pairing, and token endpoints, and the
-  bearer-protected `/api/sync/inbox` capture, list, and acknowledge endpoints.
+- **Used for** — `Backlog.Modules.Sync.Api`, which serves two groups of endpoints.
+  `/api/sync/devices/*` handles registration, pairing-code, pairing, and token.
+  The bearer-protected `/api/sync/inbox` handles capture, list, and acknowledge.
   Webhook intake, push dispatch, and the remote PC registry are to follow.
 - **Why** — the organization's governed .NET stack for services; minimal APIs fit
-  a handful of endpoints without ceremony. The API head sits over the
-  `Backlog.Modules.Sync` module, with its stores in `Backlog.Infrastructure.Cosmos`
-  and `Backlog.Infrastructure.BlobStorage`.
+  a handful of endpoints. The API head sits over the `Backlog.Modules.Sync`
+  module, with stores in `Backlog.Infrastructure.Cosmos` and
+  `Backlog.Infrastructure.BlobStorage`.
 
 ## Microsoft.AspNetCore.Authentication.JwtBearer
 
@@ -46,12 +45,12 @@ related: [".devbook/arc42/adr/guidelines/0012-authentication-external-identity-p
 
 Validates the device token on every sync request.
 
-- **Used for** — `Backlog.Modules.Sync.Api`'s authentication pipeline. It checks
-  issuer, audience, lifetime, signature, and a pinned signing algorithm on every
-  request, with no server-side session, ahead of the owner-scoping
+- **Used for** — `Backlog.Modules.Sync.Api`'s authentication pipeline. On every
+  request, with no server-side session, it checks issuer, audience, lifetime,
+  signature, and a pinned signing algorithm, ahead of the owner-scoping
   authorization filter.
-- **Why** — inherited ADR 0012 requires stateless validation of every field on
-  a device-session JWT, and this is the governed package that does it.
+- **Why** — inherited ADR 0012 requires stateless validation of every field on a
+  device-session JWT, and this is the governed package that does it.
 
 ## Microsoft.IdentityModel.JsonWebTokens
 
@@ -68,10 +67,9 @@ The token library the sync service issues its own device tokens with.
 - **Used for** — `JwtDeviceTokenIssuer` minting the 30-minute HS256 device
   token (`sub`, `owner_id`, `jti`, `iat`, `nbf`, `exp`) that a device presents
   on every sync call.
-- **Why** — it is pinned as a direct reference, at the version
-  `Microsoft.AspNetCore.Authentication.JwtBearer` already resolves transitively.
-  The code that signs a token and the code that validates it therefore share
-  one build of the library, rather than two that could drift apart.
+- **Why** — it is a direct reference at the version
+  `Microsoft.AspNetCore.Authentication.JwtBearer` already resolves transitively,
+  so signing and validation share one build of the library.
 
 ## Microsoft.AspNetCore.OpenApi
 
@@ -96,18 +94,27 @@ rating: adopted
 type: package
 version: "1.21.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/tech/cloud.md#azure-ai-foundry"]
+related: [".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 Microsoft Entra token credentials.
 
-- **Used for** — `DeveloperSignInTokenSource` in
-  `Backlog.Infrastructure.AzureFoundry`, behind the `IAzureManagementTokenSource`
-  port. It reads Foundry cost data from the management plane through an explicit
-  `ChainedTokenCredential` of Azure CLI, Azure Developer CLI, and Visual Studio,
-  not through `DefaultAzureCredential` and its probing chain.
-- **Why** — the governed way to obtain an Entra token. Chat completions still
-  use the API key, so this is the cost reader's only credential.
+- **Used for** — three callers, each with the credential it needs:
+  - `DeveloperSignInTokenSource` in `Backlog.Infrastructure.AzureFoundry`,
+    behind the `IAzureManagementTokenSource` port, reads Foundry cost data from
+    the management plane. It uses an explicit `ChainedTokenCredential` of Azure
+    CLI, Azure Developer CLI, and Visual Studio, not `DefaultAzureCredential`
+    and its probing chain.
+  - `AzureFoundryTranscriptionRegistration`, in the same project, gives the
+    sync service's transcription client a `ManagedIdentityCredential` for the
+    Foundry data plane (local ADR 0045).
+  - `Backlog.Infrastructure.WebPubSub` reaches the hub through
+    `Aspire.Azure.Messaging.WebPubSub`, which registers the service client with
+    `DefaultAzureCredential`. In Azure that resolves to the sync service's
+    managed identity.
+- **Why** — the governed way to obtain an Entra token, so the sync service holds
+  no key. The desktop's chat completions still use the API key and take no
+  Entra token.
 
 ## Azure Container Apps
 
@@ -123,20 +130,19 @@ The compute host for the cloud service.
 
 - **Used for** — running a single-region, single-instance deployment sized for
   personal use.
-- **Why** — scale-to-zero means a personal tool costs nothing while nobody is
-  syncing. The Aspire AppHost already models `sync` as a container resource, so
-  local and deployed topology keep the same shape. Local ADR 0005 settled this
-  against App Service, which the deployment view had left as an equal option.
+- **Why** — scale-to-zero costs nothing while nobody is syncing. The Aspire
+  AppHost already models `sync` as a container resource, so local and deployed
+  topology keep one shape. Local ADR 0005 settled this against App Service, which
+  the deployment view had left as an equal option.
 - **How** — `infra/sync/main.bicep` declares a consumption-profile managed
   environment and one container app (`minReplicas: 0`). The app pulls from a
   container registry with the same user-assigned managed identity it reaches
   Cosmos with.
-- **Status** — `trial` rather than adopted. The environment and the app run in
-  `JS-AI`, put there by hand. The `Deploy Sync` workflow has completed only a
-  `preview` run (2026-10-20), and no second device has synced against the
-  service in real use. Infrastructure runs stay manual. The service also
-  deploys nightly through Release All, which calls Deploy Sync in `service`
-  mode and provisions nothing
+- **Rating** — `trial`. The environment and the app run in `JS-AI`, put there by
+  hand. The `Deploy Sync` workflow has completed only a `preview` run
+  (2026-10-20), and no second device has synced against the service in real use.
+  Infrastructure runs stay manual. Release All deploys the service nightly,
+  calling Deploy Sync in `service` mode, which provisions nothing
   (`.devbook/arc42/07-deployment-view.md#release`).
 
 ## Azure AI Foundry
@@ -144,29 +150,40 @@ The compute host for the cloud service.
 ```meta
 rating: adopted
 type: service
-related: [".devbook/tech/tooling.md#bicep", ".devbook/tech/tooling.md#azure-cli", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
+related: [".devbook/tech/tooling.md#bicep", ".devbook/tech/tooling.md#azure-cli", ".devbook/tech/cloud.md#azureidentity", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 alternatives: ["Anthropic API directly", "local models"]
 ```
 
-The managed model endpoint the product's own AI features call.
+The managed model endpoint the product's own AI features call. It has two
+callers, each configured on its own.
 
-- **Used for** — chat completions from `Backlog.Infrastructure.AzureFoundry`,
-  which keeps endpoint settings, API-key storage, and the HTTP details out of the
-  UI and the modules.
+- **Used for** — two calls, both made from `Backlog.Infrastructure.AzureFoundry`,
+  which keeps the endpoint settings, the credentials, and the HTTP details out of
+  the UI and the modules:
+  - **Chat completions from the desktop**, with the API key the desktop stores.
+  - **Transcription from the sync service.** `AzureFoundryTranscriptionClient`
+    sends a phone dictation's audio to the `gpt-4o-transcribe` deployment and
+    returns the text, keeping neither (local ADR 0045). It authenticates with the
+    sync service's managed identity, which holds Cognitive Services OpenAI User
+    on the account. `infra/sync/main.bicep` grants that role only once
+    `SYNC_FOUNDRY_ACCOUNT_NAME` names the account.
 - **Why** — one governed Azure resource with per-model deployments and a content
   filter policy, rather than a vendor key per developer machine.
 - **How** — `infra/foundry/main.bicep` declares a `Microsoft.CognitiveServices`
   account of kind `AIServices` and its deployments, each behind a parameter.
-  Three models are required. A balanced model, speech transcription, and a
-  `text-embedding-3-small` deployment behind `includeEmbeddingModel` are
-  optional. The devbook database's semantic tier would call the embedding
-  deployment. Nothing calls it yet, and the database is correct without it
+  Three models are required. Three are optional: a balanced model, speech
+  transcription behind `includeSpeechModel`, and a `text-embedding-3-small`
+  deployment behind `includeEmbeddingModel`. The sync service calls the speech
+  deployment. The devbook database's semantic tier would call the embedding
+  deployment; nothing does yet, and the database is correct without it
   (`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`).
-  `.github/workflows/deploy-foundry.yml` builds, validates, what-ifs, and then
-  deploys it from a self-hosted runner.
-- **Local runs** — development runs never touch it. The Aspire AppHost starts
-  `Backlog.AzureFoundry.TestService` instead and points the desktop harness at
-  it through `BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT`.
+  `.github/workflows/deploy-foundry.yml` runs build → validate → what-if → deploy
+  from a self-hosted runner.
+- **Local runs** — development runs never touch it: the Aspire AppHost starts
+  `Backlog.AzureFoundry.TestService` instead. It points the desktop harness at
+  it through `BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT`, and the sync service at its
+  transcription stand-in through `Modules__Sync__Transcription__Endpoint`, with
+  no credential.
 
 ## Azure Cosmos DB
 
@@ -177,39 +194,37 @@ related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbo
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
 ```
 
-The cloud data store for cross-device coordination state: serverless, one
-account, one database, and the containers below.
+The serverless cloud store for cross-device coordination state: one account, one
+database, and the containers below.
 
 | Container | Holds | Partition key | Retention |
 |---|---|---|---|
-| `tasks` | The Task aggregate. The phone's captures land here as task documents rather than as a shape of their own. | `/ownerId` | 180 days per tombstone, stamped by the service. A live task never expires. |
-| `sessions` | Machine-stamped, append-only session records | `/ownerId` | 12 months for the whole record, as the container TTL |
+| `tasks` | The Task aggregate, including the phone's captures | `/ownerId` | 180 days per tombstone, stamped by the service. A live task never expires. |
+| `sessions` | Machine-stamped, append-only session records | `/ownerId` | 12 months for the whole record, as the container's time to live (TTL) |
 | `annotations` | The person's [remarks](../domain/devbook/domain.md#remark) on Devbook chapters (local ADR 0011) | `/ownerId` | 180 days per tombstone, stamped by the service |
 | `devices` | The device registry | `/id` | None: a registration lasts until the device is forgotten |
 | `pairingCodes` | One document per live pairing code, keyed by the code's hash | `/id` | The code's ten-minute window plus a grace, stamped per document |
 
 - **Used for** — the replica the devices reconcile through, and the device
-  registry beside it. The replicas are separate containers because each wants
-  its own change feed, indexing policy, and retention. Serverless levies no
-  per-container charge to trade against that.
-- **Why** — local ADR 0005 settled it. **TTL is the retention mechanism**:
+  registry beside it. The phone's captures land in `tasks` as task documents.
+- **Why** — local ADR 0005 settled it. The replicas are separate containers
+  because each wants its own change feed, indexing policy, and retention, and
+  serverless levies no per-container charge. **TTL is the retention mechanism**:
   nothing reaps, so no scheduled job can fail silently. Serverless bills per
-  request with no floor, which suits one person's sync traffic, where an
-  always-on relational tier charges for an idle database. The aggregate is
-  already a document, so no second relational schema needs versioning. The
-  change feed *is* the sync protocol, answered natively from a continuation
-  token.
+  request with no floor, which suits one person's sync traffic; an always-on
+  relational tier charges for an idle database. The aggregate is already a
+  document, so no second relational schema needs versioning. The change feed
+  *is* the sync protocol, answered natively from a continuation token.
 - **How** — `infra/sync/main.bicep` declares the account with
-  `disableLocalAuth: true`, so it accepts no account key at all. The service
-  reaches it as a managed identity holding the built-in data-plane contributor
-  role. The 180 days on `tasks` is a provisioned value the service stamps on each
-  tombstone. A container has one TTL, and a container-level 180 days would
-  expire live tasks too. Local runs use the Cosmos vNext emulator the Aspire
-  AppHost starts, so building or testing the sync path needs no Azure account.
-- **Status** — `trial` and no higher. The account is provisioned in `JS-AI` and
-  the hand-deployed sync service reaches it. The `Deploy Sync` workflow has
-  completed only a `preview` run, though, and no real multi-device use has
-  validated it.
+  `disableLocalAuth: true`, so it accepts no account key. The service reaches it
+  as a managed identity holding the built-in data-plane contributor role. The 180
+  days on `tasks` is a provisioned value the service stamps on each tombstone,
+  because a container has one TTL and a container-level 180 days would expire
+  live tasks too. Local runs use the Cosmos vNext emulator the Aspire AppHost
+  starts, so the sync path needs no Azure account.
+- **Rating** — `trial` and no higher. The account is provisioned in `JS-AI` and
+  the hand-deployed sync service reaches it, but the `Deploy Sync` workflow has
+  completed only a `preview` run and no real multi-device use has validated it.
 
 ## Azure Blob Storage
 
@@ -227,11 +242,11 @@ The attachment store beside the Cosmos replica (local ADR 0014).
   service. `Backlog.Infrastructure.BlobStorage` uses `Azure.Storage.Blobs`
   through the `Aspire.Azure.Storage.Blobs` client integration. Locally the
   AppHost runs Azurite in its place.
-- **Why** — a capture document carries metadata only, and a device never holds
-  a storage credential.
-- **Status** — `trial` for the same reason as the rest of the Azure tier. The
-  deployment view records the storage account as provisioned and running, but
-  real use has not yet validated it.
+- **Why** — a capture document carries metadata only, and a device never holds a
+  storage credential.
+- **Rating** — `trial`, like the rest of the Azure tier. The deployment view
+  records the storage account as provisioned and running; real use has not
+  validated it.
 
 ## Azure Key Vault
 
@@ -246,11 +261,10 @@ The secret store for the cloud service.
 - **Used for** — GitHub webhook secrets and OAuth tokens.
 - **Why** — credentials are never held in app configuration, and user-source
   credentials stay on the desktop entirely.
-- **How** — `infra/sync/main.bicep` provisions it with RBAC authorization and
-  grants the sync service's managed identity **Key Vault Secrets User**. It is
-  provisioned empty. The sync tier holds no Cosmos key and no registry
-  credential to put in it, so the vault stands ready for the webhook and OAuth
-  secrets.
+- **How** — `infra/sync/main.bicep` provisions it with role-based access control
+  (RBAC) authorization and grants the sync service's managed identity **Key Vault
+  Secrets User**. It is provisioned empty: the sync tier holds no Cosmos key or
+  registry credential, so the vault waits for the webhook and OAuth secrets.
 
 ## Azure Monitor
 
@@ -265,22 +279,20 @@ The telemetry sink for the deployed cloud service: a Log Analytics workspace and
 a workspace-based Application Insights resource over it.
 
 - **Used for** — requests, dependencies, traces, exceptions and metrics from the
-  sync container app, plus the container app environment's console and system
-  logs. OpenTelemetry already flows through `AddServiceDefaults()`, so this is
-  wiring rather than design. Locally the same signals go to the Aspire dashboard
-  instead.
-- **Why** — the deployed service scales to zero and has no dashboard of its own,
-  so without a sink its telemetry ends when the replica does.
+  sync container app, plus the environment's console and system logs.
+  OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring.
+  Locally the same signals go to the Aspire dashboard.
+- **Why** — the deployed service scales to zero and has no dashboard, so without
+  a sink its telemetry ends when the replica does.
 - **How** — provisioned by `infra/sync/main.bicep`. The container app environment
-  logs through the `azure-monitor` destination and a diagnostic setting rather
-  than the `log-analytics` destination. The latter wants the workspace's shared
-  key inline in configuration, and this deployment issues no keys.
-- **Constraint** — application observability **only**. The service writes no
-  task or session content here, and nothing that identifies the owner. A
-  telemetry pipeline samples and drops under load, so anything a dashboard
-  answered from it would inherit that sampling and be wrong exactly when the
-  system is busiest. This is a rule about what the service logs; no template can
-  enforce it.
+  logs through the `azure-monitor` destination and a diagnostic setting, not the
+  `log-analytics` destination, which wants the workspace's shared key inline and
+  this deployment issues no keys.
+- **Constraint** — application observability **only**. The service writes no task
+  or session content here, and nothing that identifies the owner. A telemetry
+  pipeline samples and drops under load, so a dashboard answered from it would be
+  wrong exactly when the system is busiest. This is a rule about what the service
+  logs; no template can enforce it.
 
 ## Azure Web PubSub
 
@@ -298,17 +310,17 @@ The realtime channel to the desktops (local ADR 0039).
   desktop holds a WebSocket to one hub, and the sync service publishes to it when
   a notification or a reply lands. The message carries no document.
 - **Why** — the hub holds the connections, so the sync service keeps scaling to
-  zero. An SSE stream on the sync service would hold a replica awake around the
+  zero. A server-sent events (SSE) stream would hold a replica awake around the
   clock.
-- **How** — the Free tier (`Free_F1`), which allows 20 concurrent connections
-  and 20,000 messages a day. That covers a personal setup. `infra/sync/main.bicep`
-  declares the resource with local auth off and a `notifications` hub that refuses
-  anonymous connects. The sync service reaches it with its managed identity, which
-  holds the Web PubSub Service Owner role. The service-side client is
+- **How** — the Free tier (`Free_F1`), whose 20 concurrent connections and 20,000
+  messages a day cover a personal setup. `infra/sync/main.bicep` declares the
+  resource with local auth off and a `notifications` hub that refuses anonymous
+  connects. The sync service reaches it with its managed identity, which holds
+  the Web PubSub Service Owner role. The service-side client is
   `Aspire.Azure.Messaging.WebPubSub`, in `Backlog.Infrastructure.WebPubSub` alone.
   A desktop holds a plain `ClientWebSocket` on the URL that negotiate hands it.
   There is no emulator, so the Aspire run has no hub and polls.
-- **Status** — `candidate`: built and deployed on 2026-11-04, but not yet used
+- **Rating** — `candidate`: built and deployed on 2026-11-04, but not yet used
   for real.
 
 ## Azure Notification Hubs
@@ -328,19 +340,18 @@ ADR 0039).
   notification's id, kind, severity, state, title and summary, and never its
   body.
 - **Why** — the sync service talks only to Azure, and the hub relays to
-  [Firebase Cloud Messaging](#firebase-cloud-messaging). Calling FCM directly
-  would need workload identity federation set up with `gcloud`, which is outside
-  the stack.
+  [Firebase Cloud Messaging](#firebase-cloud-messaging) (FCM). Calling FCM directly
+  would need workload identity federation set up with `gcloud`, outside the stack.
 - **How** — the Free tier, which allows one million pushes a month and 500
-  devices. Notification Hubs supports no managed identity. So
-  `infra/sync/main.bicep` declares a `sync-send` rule and a `sync-manage` rule on
-  the `backlog` hub, and passes both connection strings straight into container
-  app secrets; no person handles them. The service-side client is
+  devices. Notification Hubs supports no managed identity, so
+  `infra/sync/main.bicep` declares a `sync-send` and a `sync-manage` rule on the
+  `backlog` hub and passes both connection strings straight into container app
+  secrets; no person handles them. The service-side client is
   `Microsoft.Azure.NotificationHubs` 4.2.0, in
   `Backlog.Infrastructure.NotificationHubs` alone. It keeps one FCM v1
   installation per phone and sends to the owner's tag. There is no emulator, so
   the Aspire run has no hub and pushes nothing.
-- **Status** — `candidate`: built and deployed on 2026-11-04, but not yet used
+- **Rating** — `candidate`: built and deployed on 2026-11-04, but not yet used
   for real; pushes wait on the hub's FCM v1 credential.
 
 ## Firebase Cloud Messaging
@@ -359,7 +370,6 @@ The Android push transport behind
 - **Why** — the native push channel for Android, and Android is the only phone
   platform.
 - **How** — a one-time Firebase console setup. Its FCM v1 credential lives only
-  inside the hub, entered there by hand. The phone takes its token and the data
-  messages through
-  [Xamarin.Firebase.Messaging](mobile.md#xamarinfirebasemessaging).
-- **Status** — `candidate` until the first push reaches a phone.
+  inside the hub, entered by hand. The phone takes its token and the data
+  messages through [Xamarin.Firebase.Messaging](mobile.md#xamarinfirebasemessaging).
+- **Rating** — `candidate` until the first push reaches a phone.

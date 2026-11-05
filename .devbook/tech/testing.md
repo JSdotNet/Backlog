@@ -6,8 +6,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requir
 ```
 
 > This layer is fully `adopted`: every technology here runs on every pull
-> request, either in `dotnet test` or in the `phase-verify` stage of a `flow-*`
-> run.
+> request, in `dotnet test` or the `phase-verify` stage of a `flow-*` run.
 
 ## xUnit v3
 
@@ -22,11 +21,16 @@ related: [".devbook/tech/testing.md#microsofttestingplatform"]
 The unit-test framework for every test project, referenced once in
 `tests/Directory.Build.props`.
 
-- **Used for** — module, infrastructure, UI-component, and architecture tests.
-  `Backlog.ArchitectureTests` uses it to enforce repository rules that no
-  compiler can, such as shared-control adoption and the fence keeping
-  `src/Harness/` out of shipping code.
-- **Why** — the default .NET test framework, and v3 is what integrates with
+- **Used for** — these kinds of test:
+  - module
+  - infrastructure
+  - UI-component
+  - architecture
+
+  `Backlog.ArchitectureTests` enforces repository rules no compiler can, such as
+  shared-control adoption and the fence keeping `src/Harness/` out of shipping
+  code.
+- **Why** — the default .NET test framework, and v3 integrates with
   Microsoft.Testing.Platform.
 - **How** — v3 runs each test assembly as its own process, so every test project
   sets `OutputType=Exe`. The package set and the `Xunit` global using are
@@ -46,9 +50,9 @@ The test host that replaces VSTest for this solution.
 - **Used for** — running the suite. `global.json` selects it
   (`"test": { "runner": "Microsoft.Testing.Platform" }`), which changes the
   command-line contract of `dotnet test`: the solution is named with
-  `--solution`, and options are the platform's rather than VSTest's.
-- **Why** — it is what xUnit v3 targets, and it makes each test assembly a
-  self-contained executable.
+  `--solution`, and options are the platform's, not VSTest's.
+- **Why** — xUnit v3 targets it, and it makes each test assembly a self-contained
+  executable.
 
 ## Microsoft.NET.Test.Sdk
 
@@ -93,9 +97,8 @@ related: [".devbook/tech/tooling.md#github-actions"]
 The TRX report writer.
 
 - **Used for** — the test-results artifact the pull-request workflow uploads.
-- **Why** — under Microsoft.Testing.Platform the reporter is an opt-in extension
-  rather than a logger built into the runner, so the `--report-trx` option only
-  exists because this package is referenced.
+- **Why** — under Microsoft.Testing.Platform the reporter is an opt-in extension,
+  so `--report-trx` exists only because this package is referenced.
 
 ## Microsoft.Testing.Extensions.CodeCoverage
 
@@ -112,10 +115,9 @@ The code-coverage collector, referenced from `tests/Directory.Build.props`.
 - **Used for** — the Cobertura report each test module writes in the
   pull-request run, uploaded as an artifact and merged into the line-coverage
   figure on the run summary.
-- **Why** — like the TRX reporter, coverage is an opt-in extension under
-  Microsoft.Testing.Platform, and the `--coverage` options exist only because
-  this package is referenced. Coverlet's collector is a VSTest data collector
-  the platform never loads, so it is not an option here.
+- **Why** — like the TRX reporter, coverage is an opt-in extension, and the
+  `--coverage` options exist only because this package is referenced. Coverlet's
+  collector is a VSTest data collector the platform never loads.
 
 ## bUnit
 
@@ -132,9 +134,8 @@ The Razor component test framework.
 - **Used for** — `Backlog.UI.Components.UnitTests`,
   `Backlog.Desktop.UI.UnitTests`, and `Backlog.Mobile.UI.UnitTests`: rendering a
   component in isolation and asserting on the produced markup.
-- **Why** — it tests the component layer without a browser, so component
-  behaviour is pinned in `dotnet test` and Playwright is reserved for real
-  end-to-end flows.
+- **Why** — it tests components without a browser, so their behaviour is pinned
+  in `dotnet test` and Playwright is reserved for end-to-end flows.
 
 ## Microsoft.AspNetCore.Mvc.Testing
 
@@ -148,9 +149,9 @@ depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xu
 In-memory hosting of an ASP.NET Core app under test.
 
 - **Used for** — `WebApplicationFactory` in `Backlog.Modules.Sync.Api.UnitTests`
-  and `Backlog.HostComposition.UnitTests`. Both exercise the real pipeline, with
-  its authentication, routing, and filters, without a socket.
-- **Why** — the first-party test host. An endpoint test goes through the same
+  and `Backlog.HostComposition.UnitTests`, which exercise the real pipeline
+  (authentication, routing, filters) without a socket.
+- **Why** — the first-party test host. An endpoint test crosses the same
   middleware a deployed request does.
 
 ## Microsoft.Extensions.TimeProvider.Testing
@@ -164,10 +165,13 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 
 `FakeTimeProvider`, a clock a test moves by hand.
 
-- **Used for** — the unit-test projects whose code takes a `TimeProvider`:
-  token lifetimes, sync cycles, deferral and resurfacing, and roadmap dates.
-- **Why** — time-dependent behaviour is asserted without sleeping and without
-  flaking on a slow machine.
+- **Used for** — unit-test projects whose code takes a `TimeProvider`:
+  - token lifetimes
+  - sync cycles
+  - deferral and resurfacing
+  - roadmap dates
+- **Why** — time-dependent behaviour is asserted without sleeping or flaking on
+  a slow machine.
 
 ## Playwright
 
@@ -184,7 +188,8 @@ Browser automation for end-to-end validation.
 - **Used for** — two things:
   - The `phase-verify` stage of a code-modifying `flow-*` run. It drives the Blazor
     Server harnesses and the storybook, captures screenshots and video as evidence,
-    and attaches to the desktop head over WebView2's CDP debugging port.
+    and attaches to the desktop head over WebView2's Chrome DevTools Protocol (CDP)
+    debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
     `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
     reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.

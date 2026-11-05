@@ -4,12 +4,7 @@
 type: domain
 ```
 
-> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context; each chapter's
-> `type` records which of those it is. An Aggregate's owned Entities, Value
-> Objects, and Enums are chapters directly beneath it, typed `entity`,
-> `value-object`, and `enum`. Value Objects/Enums shared across multiple
-> aggregates get their own chapter at the end instead of being duplicated.
+> A chapter's `type` is `entity`, `value-object` or `enum` beneath its aggregate.
 
 ## Environment Catalog
 
@@ -29,9 +24,7 @@ type: entity
 aliases: [environment_id]
 ```
 
-A named destination the person wants quick access to, such as a local Aspire
-dashboard, a staging web app, an Azure resource group, a repository preview, or a
-production admin surface.
+A named destination the person wants quick access to, such as a local Aspire dashboard, a staging web app, an Azure resource group, a repository preview or a production admin surface.
 
 ### Environment Shortcut
 
@@ -40,8 +33,13 @@ type: entity
 aliases: [EnvironmentShortcut, shortcut_id]
 ```
 
-An owned quick-access entry for an Environment. It carries display name, group,
-order, pinned/hidden state, and optional deep-link details.
+An owned quick-access entry for an Environment. It carries:
+
+- a display name;
+- a group;
+- an order;
+- pinned/hidden state;
+- optional deep-link details.
 
 ### Launch Target
 
@@ -50,9 +48,15 @@ type: value-object
 aliases: [LaunchTarget, target_ref]
 ```
 
-The value needed to open an environment: URL, command, workspace path, dashboard
-resource id, cloud resource id, or repository/environment id. Equality is by
-target type and target value.
+The value needed to open an environment. Equality is by target type and target
+value. It is one of:
+
+- a URL;
+- a command;
+- a workspace path;
+- a dashboard resource id;
+- a cloud resource id;
+- a repository/environment id.
 
 ### Access Hint
 
@@ -61,9 +65,8 @@ type: value-object
 aliases: [AccessHint]
 ```
 
-A non-secret pointer that helps the person reach the environment, such as the
-credential source name, tenant label, VPN requirement, or required local profile.
-It never contains the credential itself.
+A non-secret pointer that helps the person reach the environment. It never
+contains the credential itself. It can be the credential source name, a tenant label, a VPN requirement or a required local profile.
 
 ### Environment Type
 
@@ -71,8 +74,16 @@ It never contains the credential itself.
 type: enum
 ```
 
-Classifies the destination: `local`, `development`, `test`, `staging`,
-`production`, `cloud`, `repository`, or `tooling`.
+Classifies the destination as one of:
+
+- `local`
+- `development`
+- `test`
+- `staging`
+- `production`
+- `cloud`
+- `repository`
+- `tooling`
 
 ## Environment Shortcut Resolution
 
@@ -99,12 +110,15 @@ sequenceDiagram
 - The health read is optional: Environment asks only when a view shows health.
 - Environment is not built, so this flow is the intended design.
 
-Resolves an Environment Shortcut into the launch action the UI can present: open
-a URL, run a command, focus a local workspace, or navigate to a cloud dashboard.
+Resolves an Environment Shortcut into the launch action the UI presents:
+
+- open a URL;
+- run a command;
+- focus a local workspace;
+- navigate to a cloud dashboard.
+
 It is a service because it composes catalog data with supplier facts such as
-repository path or environment health rather than belonging to one shortcut's
-stored state. Invocation semantics: query/composition-oriented when a quick-access
-view is shown or a shortcut is activated.
+repository path or environment health. Invocation semantics: query/composition-oriented, when a quick-access view is shown or a shortcut is activated.
 
 ## EnvironmentShortcutUsed
 
@@ -140,5 +154,4 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Environment currently has a single aggregate, so `Environment Type` is documented
-under it. This chapter is reserved for future cross-aggregate enums.
+Environment has one aggregate, so `Environment Type` sits under it. This chapter is reserved for cross-aggregate enums.
