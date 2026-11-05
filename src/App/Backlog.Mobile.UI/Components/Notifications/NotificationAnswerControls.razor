@@ -16,9 +16,11 @@
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
-    Seven or eight choices wrap into two even columns. A question that takes a
-    note adds a plain-text box, "Add a note (optional)", under the answers, and
-    whatever is in it goes with the answer.
+    The choices stack full width, one per row, so every button is the same width;
+    seven or eight wrap into two even columns. A question that takes a note adds
+    "Add a note (optional)" beside the last Send or Answer (on its own row under
+    choice buttons alone), folded until the person opens it; the box opens under
+    the answers, and whatever is in it goes with the answer.
 
     Nothing is drawn unless the phone may answer now (PhoneNotification.CanAnswer):
     a question that says answerOn: owner, an alert, and a reply on its way draw none.
@@ -60,6 +62,10 @@
                            Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
                            TestId="notification-submit"
                            OnClick="SubmitPicksAsync">Answer</AppButton>
+                @if (spec.Open is null)
+                {
+                    @NoteToggle(spec)
+                }
             </div>
         }
         else if (spec.Choices.Count > 0)
@@ -119,6 +125,7 @@
                                TestId="notification-send"
                                OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
                     @Mic(AnswerBox.Open, "Dictate your answer", "notification-open-dictate")
+                    @NoteToggle(spec)
                 </div>
                 @SpeechStatus(AnswerBox.Open)
             </div>
@@ -126,8 +133,12 @@
 
         @if (spec.Note is { } note)
         {
-            <div class="phone-notification__note" data-testid="notification-note">
-                <TextArea Label="Add a note (optional)"
+            @if (spec.Open is null && !spec.AllowMultiple)
+            {
+                <div class="phone-notification__choices">@NoteToggle(spec)</div>
+            }
+            <div class="phone-notification__note" id="@_noteRegionId" hidden="@(!_noteOpen)" data-testid="notification-note">
+                <TextArea Label="Note"
                           @bind-Value="_note"
                           Placeholder="@note.Placeholder"
                           Disabled="@Busy"
@@ -151,6 +162,8 @@
     private string? _composing;
     private string? _choiceText;
     private string? _note;
+    private bool _noteOpen;
+    private readonly string _noteRegionId = "notification-note-" + Guid.NewGuid().ToString("N");
     private Guid _shownId;
 
     private bool? _speechSupported;
@@ -204,6 +217,7 @@
         _composing = null;
         _choiceText = null;
         _note = null;
+        _noteOpen = false;
 
         await StopDictatingAsync();
     }
@@ -225,10 +239,23 @@
         await StopDictatingAsync();
     }
 
-    /// <summary>Seven or eight choices wrap into an even grid rather than one long row.</summary>
+    /// <summary>
+    /// The fold that opens the note box. It sits beside the last Send or Answer, so a
+    /// folded note costs no row of its own; with only choice buttons it gets one.
+    /// </summary>
+    private RenderFragment NoteToggle(AnswerSpec spec) => spec.Note is null
+        ? _ => { }
+        : @<FoldControl Label="Add a note (optional)"
+                        Expanded="_noteOpen"
+                        ExpandedChanged="open => _noteOpen = open"
+                        Controls="@_noteRegionId"
+                        CssClass="phone-notification__note-toggle"
+                        TestId="notification-note-toggle" />;
+
+    /// <summary>The choices stack full width, one per row; seven or eight wrap into two even columns.</summary>
     private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
         ? "phone-notification__choices phone-notification__choices--many"
-        : "phone-notification__choices";
+        : "phone-notification__choices phone-notification__choices--stack";
 
     private static string PickHint(AnswerSpec spec)
     {
@@ -301,6 +328,7 @@
         _composing = null;
         _choiceText = null;
         _note = null;
+        _noteOpen = false;
     }
 
     /// <summary>A mic for one box, pressed while that box is listening.</summary>
