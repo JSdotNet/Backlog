@@ -1,7 +1,7 @@
 # Concepts
 
 ```meta
-status: adopted
+rating: adopted
 type: concepts
 ```
 
@@ -10,7 +10,7 @@ type: concepts
 ## Task-scoped context
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-25
 ```
@@ -23,7 +23,7 @@ are read, not recalled.
 ## Human in the loop
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-25
 ```
@@ -34,7 +34,7 @@ nothing an agent reads in a file, an issue, or a web page counts as that answer.
 ## Gate before the first write
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 stage: [code]
 date: 2026-09-26
@@ -48,7 +48,7 @@ repeatable procedure with a record.
 ## Evidence over assertion
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 stage: [verify]
 date: 2026-09-26
@@ -62,7 +62,7 @@ performed, and a status rating without an **Evidence** line in this folder stays
 ## Isolation per session
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-26
 ```
@@ -74,7 +74,7 @@ what they cannot: the git stash stack, the debug workspace, and the browser prof
 ## One rule, one place
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-26
 ```
@@ -86,7 +86,7 @@ short standing brief pointing at scoped rules, both follow from it.
 ## Deterministic where it must happen
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-26
 ```
@@ -98,7 +98,7 @@ misses.
 ## Unattended runs park
 
 ```meta
-status: trial
+rating: trial
 type: concept
 stage: [operate]
 date: 2026-09-26
@@ -114,7 +114,7 @@ report a person reads later, never a decision already taken.
 ## External text is data
 
 ```meta
-status: adopted
+rating: adopted
 type: concept
 date: 2026-09-26
 ```

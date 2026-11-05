@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// <para>A corpus profile (<see cref="DevbookCorpusProfile"/>) may name its own
 /// folders instead, in its own order, and a path's folder is then the first of
 /// them it lies under. Where the profile has no folder conventions, none applies
-/// to a profile's own folder — no root document by name, no resting status, no
+/// to a profile's own folder — no root document by name, no
 /// <c>kind</c> fallback — even one that happens to be called <c>design</c>, which
 /// is what <see cref="ConventionFolderForPath"/> answers; the generator gets the
 /// same by knowing none of such a corpus's folders.</para>
@@ -111,37 +111,12 @@ internal sealed record DevbookBuildLayout(
 
     /// <summary>
     /// The devbook folder whose conventions apply to a path — its reading-order
-    /// slots, its resting status, its <c>kind</c> fallback. The path's folder in a
+    /// slots and its <c>kind</c> fallback. The path's folder in a
     /// repository; nothing under a profile without folder conventions, whose
     /// folders carry none of them.
     /// </summary>
     public string? ConventionFolderForPath(string relativePath) =>
         Profile.HasFolderConventions ? FolderKindForPath(relativePath) : null;
-
-    /// <summary>The status a folder's chapters rest at and so omit — or, for a debt
-    /// record's top-level block, <c>identified</c>, where its own ladder rests
-    /// (contract 33).</summary>
-    public static string? RestingStatusFor(string? folder, bool debtRecord = false) =>
-        debtRecord ? "identified"
-        : folder is "domain" or "arc42" or "design" ? "active"
-        : null;
-
-    /// <summary>
-    /// Whether a file's top-level block is a debt record's: a file under
-    /// <c>.devbook/arc42/tdr/</c> other than the folder's index (metadata.mjs
-    /// <c>isDebtRecord</c>). The generator knows the devbook layout's path alone, so
-    /// a root layout's <c>.arc42/tdr/</c> keeps the folder's ladder.
-    /// </summary>
-    public static bool IsDebtRecord(DevbookBuildLayout layout, string relativePath, IReadOnlyDictionary<string, object?>? fileMeta)
-    {
-        ArgumentNullException.ThrowIfNull(layout);
-        if (!layout.IsDevbookLayout || !layout.Profile.HasFolderConventions) return false;
-
-        var normalized = relativePath.Replace('\\', '/');
-        return normalized.StartsWith(DevbookFolderSetting.DevbookRoot + "/arc42/tdr/", StringComparison.Ordinal)
-            && normalized.EndsWith(".md", StringComparison.Ordinal)
-            && !(fileMeta?.GetValueOrDefault("index") is string index && index == "root");
-    }
 
     /// <summary>
     /// The chapter's <c>type</c>, falling back to <c>kind</c> in <c>tech</c>, where

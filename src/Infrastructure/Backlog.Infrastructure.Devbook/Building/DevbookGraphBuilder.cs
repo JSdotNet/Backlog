@@ -72,7 +72,7 @@ internal static partial class DevbookGraphBuilder
                     Folder = folderKind,
                     Path = relativePath
                 };
-                ApplyMeta(fileNode, fileMeta, conventionFolder, DevbookBuildLayout.IsDebtRecord(layout, relativePath, fileMeta));
+                ApplyMeta(fileNode, fileMeta, conventionFolder);
                 layout.Profile.ApplyNodeFields(new NodeFields(fileNode, fileMeta), folderKind);
                 Add(fileNode);
 
@@ -188,14 +188,14 @@ internal static partial class DevbookGraphBuilder
         return new DevbookGraph(nodes, edges);
     }
 
-    /// <param name="debtRecord">Whether the block is a debt record's top-level one,
-    /// which rests at <c>identified</c> rather than its folder's value.</param>
-    private static void ApplyMeta(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? folder, bool debtRecord = false)
+    private static void ApplyMeta(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? folder)
     {
         if (meta is null) return;
 
-        var declared = meta.GetValueOrDefault("status");
-        node.Status = declared is not null ? Scalar(declared) : DevbookBuildLayout.RestingStatusFor(folder, debtRecord);
+        // Devbook contract 38: a node carries the `rating` a `tech/` or `ai/`
+        // block states, and no `status` — not a declared one, not a folder's
+        // resting one (graph.mjs). The `status` column holds that rating.
+        node.Status = meta.GetValueOrDefault("rating") is { } rating ? Scalar(rating) : null;
 
         if (DevbookBuildLayout.ResolveType(folder, meta) is { } type) node.Kind = Scalar(type);
         if (meta.GetValueOrDefault("version") is { } version) node.Version = Scalar(version);

@@ -1,7 +1,6 @@
 # Requirements
 
 ```meta
-status: draft
 type: requirements
 ```
 
@@ -14,7 +13,6 @@ type: requirements
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
@@ -25,7 +23,6 @@ related: [.devbook/domain/sync/features.md#pairing-a-device]
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_stops_working_after_ten_minutes, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_still_works_a_minute_before_it_expires]
 ```
 
@@ -41,7 +38,6 @@ The sync service SHALL refuse a [Pairing Code](domain.md#pairing-code) redeemed 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_pairs_one_device_and_no_more, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevicePairingEndpointTests.The_same_code_cannot_pair_two_devices]
 ```
 
@@ -57,7 +53,6 @@ The sync service SHALL accept a pairing code once and refuse every later redempt
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it]
 ```
 
@@ -73,7 +68,6 @@ The sync service SHALL list an owner's devices with the device whose code paired
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.Only_the_hash_of_the_credential_is_stored
 ```
 
@@ -89,7 +83,6 @@ The sync service SHALL hand a device its [Registration credential](domain.md#reg
 
 ```meta
 type: requirement
-status: draft
 tests: integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncEndpointAuthenticationTests.An_expired_token_is_refused
 ```
 
@@ -105,7 +98,6 @@ The sync service SHALL refuse a [Device token](domain.md#device-token) after its
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/sync/features.md#syncing-between-devices]
 ```
 
@@ -116,7 +108,6 @@ related: [.devbook/domain/sync/features.md#syncing-between-devices]
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.TaskSyncEndpointTests.A_separate_owner_pulls_nothing, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.TaskSyncEndpointTests.A_cursor_minted_for_another_owner_is_refused, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevicePairingEndpointTests.A_device_only_ever_sees_its_own_owners_captures]
 ```
 
@@ -132,7 +123,6 @@ The sync service SHALL answer a call only from the partition of the [Owner](doma
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityHandlerTests.A_newer_service_is_sent_nothing_and_the_answer_asks_for_an_update, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityRegistrationTests.A_sync_client_sends_nothing_to_a_newer_service, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityRegistrationTests.The_token_request_is_held_too, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskSyncWorkerTests.A_service_newer_than_the_app_is_sent_nothing_and_the_progress_stays, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncWorkerTests.A_service_newer_than_the_app_is_sent_nothing_and_the_progress_stays]
 ```
@@ -158,7 +148,6 @@ A device SHALL send no sync request, its token request included, while the sync 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/sync/features.md#carrying-captures-to-the-inbox, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync]
 tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.DeviceOutboxTests.Entries_for_a_service_newer_than_the_app_wait_rather_than_being_refused, unit:dotnet:Backlog.Mobile.UI.UnitTests.DeviceOutboxTests.Waiting_entries_go_once_the_service_is_no_newer_than_the_app]
 ```

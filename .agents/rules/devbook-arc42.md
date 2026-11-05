@@ -74,8 +74,8 @@ instructions.
   `devbook-writing.md`.
 - Each file's top-level chapter, and any independently trackable ## section
   inside it, must carry the metadata block described in
-  `devbook-chapter-metadata.md` (status — optional here, see
-  below — cross-folder tags, issue link) — required for the derived index and
+  `devbook-chapter-metadata.md` (cross-folder tags) — required for the derived
+  index and
   graph tooling. There is no `depends-on` field in `arc42/` —
   architecture chapters describe standing structure, not sequenced work;
   cross-references use `related` instead.
@@ -83,23 +83,10 @@ instructions.
   chapter's metadata block also serves as the file's file-level metadata
   block described in `devbook-chapter-metadata.md`
   — do not add a second, duplicate block for the file.
-- The metadata block's `status` field uses `draft`, `proposed`, `active`, or
-  `deprecated` in this folder. Architecture documentation describes a
-  standing decision/structure, not a task, so there is no `done`. That is
-  the built-in ladder; a repository replaces its transitional rungs per file
-  in `.devbook/statuses.json`, per `devbook-chapter-metadata.md`. A debt
-  record under `tdr/` has a ladder of its own instead, per "Debt records".
-- **There is no `approved` or `accepted` rung here.** The two decision rungs
-  are `domain/`'s alone — see `devbook-domain.md`. An architecture chapter
-  records a standing structure, and the question those rungs answer is asked of
-  the model, not of it.
-- **`active` is this folder's resting value, so it is written by omitting the
-  field.** State `status` only while the chapter is in transition (`draft`,
-  `proposed`) or carries a standing warning (`deprecated`). A standing structure
-  is settled by definition, so `active` is where nearly every chapter here ends
-  up permanently, and stating it turns the field into noise the few moving
-  chapters hide behind. Writing `status: active` explicitly is reported. A
-  debt record rests at `identified` instead, per "Debt records".
+- A block carries no `status`, decision rung, or debt ladder: a merged
+  chapter is the standing structure. A decision record's `proposed` and a debt
+  record's state are the host's, per "Moved to tooling" in
+  `devbook-chapter-metadata.md`.
 - **Chapters are ordered by their number, not by their filename string.** The
   `<NN>-` prefix supplies it, so `10-quality-requirements.md` sorts after
   `09-architecture-decisions.md` rather than after `01-…`. Only add an explicit
@@ -180,7 +167,7 @@ rewritten, the reasons and rejected alternatives are brought in line, and a row
 is added to its history. Open a new file only for a concern no record covers.
 Two concerns that are always decided together are one record; a record that
 keeps growing a second subject is two. A record for a concern the system no
-longer has is marked `status: deprecated` and says what happened; it is never
+longer has says so in its standing choice and a history row; it is never
 deleted, because the history is the part a reader most needs.
 
 Each record, in this order:
@@ -200,11 +187,12 @@ Each record, in this order:
   The `date` field carries the newest row's date; it is content, not a
   modification timestamp.
 
-A proposed change to a concern lives in that record under `status: proposed`,
-in a `## Proposed` section stating the candidate choice against the standing
-one. Decided, it folds into the choice and a history row and the section goes;
-declined, it becomes a history row saying so. A proposal never sits as a loose
-document beside the set.
+A proposed change to a concern lives in that record, on the branch of its pull
+request, in a `## Proposed` section stating the candidate choice against the
+standing one; while the pull request is open the host keeps the record's
+`proposed` state, and the record carries none. Decided, it folds into the choice
+and a history row and the section goes; declined, it becomes a history row
+saying so. A proposal never sits as a loose document beside the set.
 
 The `adr/` index lists every concern with its standing choice in one line, and
 `09-architecture-decisions.md` links to the index and restates nothing.
@@ -275,20 +263,18 @@ folder's index (`README.md`, `index: root`) lists every block with its
 responsibility in one line.
 
 ## Debt records (`tdr/`)
-
-A debt record carries two fields beyond `number` and `date`, in its top-level
+A debt record carries one field beyond `number` and `date`, in its top-level
 block:
 
 - `severity` — always stated, per `devbook-chapter-metadata.md`; a record
   without it is reported as a warning, never an error. It ranks the set by cost;
   the number still orders the folder.
-- `status` — the debt's own ladder, `identified`, `planned`, `in-progress`,
-  `resolved`, in place of the folder's. `identified` is the resting value, written
-  by omitting the field. A resolved record stays, and says what resolved it. A
-  `.devbook/statuses.json` rule whose `files` is `tdr/**` replaces the ladder
-  like any other.
 
-The `tdr/` index carries neither.
+Where the debt stands — identified, planned, in progress, resolved — is the
+host's state for the record, never a field. A resolved record stays, and its
+prose says what resolved it.
+
+The `tdr/` index carries no `severity`.
 
 ## Template
 
@@ -296,7 +282,6 @@ The `tdr/` index carries neither.
 # <NN>. <Chapter Name>
 
 \`\`\`meta
-status: draft
 \`\`\`
 
 Chapter content.
@@ -304,13 +289,11 @@ Chapter content.
 ## <Section Name>
 
 \`\`\`meta
-status: draft
 \`\`\`
 
 Section content.
 ```
 
-`related` and `issue` are omitted above rather than written empty, per the
-omit-when-empty rule; add them when they carry a value. Once a chapter settles,
-its `status: draft` line comes out too and the fence is left empty — keep the
-fence, it is what makes the heading an addressable chapter.
+`related` is omitted above rather than written empty, per the omit-when-empty
+rule; add it when it carries a value. Keep the empty fence — it is what makes
+the heading an addressable chapter.

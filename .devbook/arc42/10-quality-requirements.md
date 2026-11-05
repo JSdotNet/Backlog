@@ -1,7 +1,6 @@
 # 10. Quality Requirements
 
 ```meta
-status: draft
 related: [".devbook/arc42/01-introduction-and-goals.md#quality-goals"]
 ```
 
@@ -11,7 +10,6 @@ validation against real usage.
 ## Quality Scenarios
 
 ```meta
-status: draft
 ```
 
 | # | Quality attribute | Scenario | Target |

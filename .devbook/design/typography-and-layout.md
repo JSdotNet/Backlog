@@ -255,7 +255,7 @@ registry.
 |---|---|---|
 | `icon-xs` | 12px | Inline badge indicator |
 | `icon-sm` | 16px | Inline text icons, dense table/list actions, stale-data spinner |
-| `icon-md` | 20px | Default in buttons, inputs, nav items, drag handle (`grip-vertical`) |
+| `icon-md` | 20px | Default in buttons, inputs, nav items |
 | `icon-base` | 24px | Standalone icon on the base grid |
 | `icon-lg` | 32px | Section headers |
 | `icon-xl` | 48px | Empty-state illustrations |
@@ -285,8 +285,8 @@ Rules:
   on an option it is `color-text-secondary`. The glyph is `aria-hidden`; the tab's
   label, or a visually-hidden "Changes <area>" on the option, says it in words.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
-  `x-circle` (error), `info` (info), `loader-2` (loading), `grip-vertical` (drag
-  handle).
+  `x-circle` (error), `info` (info), `loader-2` (loading). The drag grip is the
+  `⠿` text glyph, not an icon (`interaction-guidelines.md#drag-affordances`).
 
 ## Metadata Lines
 

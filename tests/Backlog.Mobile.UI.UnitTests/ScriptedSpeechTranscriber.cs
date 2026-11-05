@@ -15,6 +15,10 @@ internal sealed class ScriptedSpeechTranscriber : ISpeechTranscriber
 
     public int StopCount { get; private set; }
 
+    /// <summary>Thrown by the next <see cref="ListenAsync"/> instead of starting a turn, for
+    /// a recogniser that faults rather than answering with a reason.</summary>
+    public Exception? ListenFailure { get; set; }
+
     /// <summary>The Dictation setting each turn reads, as the real transcribers do.</summary>
     public ISpeechSettingsStore? Settings { get; set; }
 
@@ -29,6 +33,12 @@ internal sealed class ScriptedSpeechTranscriber : ISpeechTranscriber
     public Task<SpeechTranscript> ListenAsync(CancellationToken cancellationToken = default)
     {
         if (!Supported) return Task.FromResult(SpeechTranscript.Failed("No recogniser."));
+
+        if (ListenFailure is { } failure)
+        {
+            ListenFailure = null;
+            return Task.FromException<SpeechTranscript>(failure);
+        }
 
         if (Settings is not null) TurnLanguages.Add(Settings.Language);
 

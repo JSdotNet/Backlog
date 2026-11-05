@@ -109,7 +109,7 @@ public sealed class AiDevbookViewTests : IDisposable
             () =>
             {
                 var text = File.ReadAllText(Path.Combine(harness.AiFolder, "01-specify.md")).ReplaceLineEndings();
-                Assert.Contains("## Devbook skills\n```meta\nstatus: adopted".ReplaceLineEndings(), text, StringComparison.Ordinal);
+                Assert.Contains("## Devbook skills\n```meta\nrating: adopted".ReplaceLineEndings(), text, StringComparison.Ordinal);
                 Assert.Contains("# Specify\n```meta\nstatus: adopted\ntype: stage".ReplaceLineEndings(), text, StringComparison.Ordinal);
                 Assert.DoesNotContain("status: trial", text, StringComparison.Ordinal);
             },

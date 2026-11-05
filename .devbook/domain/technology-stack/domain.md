@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/technology-stack/domain.invariants.md#technology-registry]
 aliases: [TechnologyRegistry]
 ```
@@ -30,9 +28,20 @@ populated from daily snapshots. The rules the registry holds are in
 
 ```meta
 type: entity
-status: draft
 aliases: [technology_id]
 related: [.devbook/domain/technology-stack/domain.invariants.md#technology-registry]
+```
+
+**Technology lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Beta : Proposed and added to registry
+    Beta --> Stable : Approved for portfolio use
+    Stable --> Deprecated : New version; EOL date + migration set
+    Deprecated --> Unsupported : EOL reached; exceptions flagged
+    Unsupported --> [*]
+    Stable --> Beta : Reverted to evaluation (edge case)
 ```
 
 A single tool, framework, language, or runtime, identified by `technology_id`
@@ -48,7 +57,6 @@ A single tool, framework, language, or runtime, identified by `technology_id`
 
 ```meta
 type: entity
-status: draft
 ```
 
 A significant breaking change between versions of a `Technology`: `from_version`,
@@ -59,7 +67,6 @@ A significant breaking change between versions of a `Technology`: `from_version`
 
 ```meta
 type: entity
-status: draft
 ```
 
 A deprecated technology still active in the portfolio: `technology_id`,
@@ -70,7 +77,6 @@ approvals. Tracked so phase-out can be reported and enforced.
 
 ```meta
 type: entity
-status: draft
 ```
 
 An approved exception to remain on deprecated technology: the machine/repo id,
@@ -81,7 +87,6 @@ An approved exception to remain on deprecated technology: the machine/repo id,
 
 ```meta
 type: value-object
-status: draft
 aliases: [TechnologyBaseline, TeamToolsBaseline, TechBaselines]
 ```
 
@@ -95,7 +100,6 @@ and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A version alias with semantic meaning: `constraint_name` (lts, latest, stable,
@@ -105,7 +109,6 @@ current), the concrete `version`, `description`, and `effective_date`.
 
 ```meta
 type: value-object
-status: draft
 aliases: [DeprecationNotice]
 ```
 
@@ -117,7 +120,6 @@ A formal phase-out announcement: `technology_id`, `announcement_date`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A point-in-time adoption view for a technology: `date`, `adoption_count`,
@@ -128,7 +130,6 @@ A point-in-time adoption view for a technology: `date`, `adoption_count`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Usage distribution of one technology: `date`, `technology_id`,
@@ -138,7 +139,6 @@ Usage distribution of one technology: `date`, `technology_id`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Adoption velocity for a technology/version: `technology_id`, optional `version`,
@@ -148,7 +148,6 @@ Adoption velocity for a technology/version: `technology_id`, optional `version`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Known compatibility between two technologies: `technology_a`, `technology_b`,
@@ -158,7 +157,6 @@ Known compatibility between two technologies: `technology_a`, `technology_b`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Portfolio-wide rollup: daily `portfolio_adoption`, `adoption_trends`,
@@ -168,7 +166,6 @@ Portfolio-wide rollup: daily `portfolio_adoption`, `adoption_trends`,
 
 ```meta
 type: enum
-status: draft
 aliases: [TechStatus]
 ```
 
@@ -178,7 +175,6 @@ Lifecycle of a technology: `stable`, `beta`, `deprecated`, `unsupported`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Kind of technology: `language`, `runtime`, `framework`, `tool`, `ide`, `utility`.
@@ -187,9 +183,25 @@ Kind of technology: `language`, `runtime`, `framework`, `tool`, `ide`, `utility`
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/monitoring/domain.md#progress-signal]
 ```
+
+**Adoption tracking**
+
+```mermaid
+flowchart LR
+    DevPC[Dev PC Management] -->|tool-version reports| AT
+    Repo[Repository Management] -->|tech-stack scans| AT
+    Reg[Public package registries] -->|latest versions, behind an ACL| AT
+    AT[Adoption Tracking] -->|daily snapshots| AA[Adoption Analytics]
+    AA -->|adoption metrics feed| Mon[Monitoring & Dashboard]
+    AA -->|adoption gaps as tech-upgrade tasks| Tasks
+```
+
+- [Adoption Tracking](domain.md#adoption-tracking) runs on a schedule or on an
+  incoming report. Only the `Technology Registry` root writes the analytics.
+- Technology Stack is not built, so none of these feeds exists in code.
+  [dependencies.md](dependencies.md) names the intended contract for each.
 
 Collects daily adoption from Dev PC Management tool-version reports and
 Repository Management tech-stack scans. From them it:
@@ -201,13 +213,12 @@ Repository Management tech-stack scans. From them it:
 It is a service because it aggregates data reported by other contexts into
 portfolio analytics that no single `Technology` owns. Invocation semantics:
 scheduled/event-triggered analytics service. The
-[adoption tracking flow](flow.md#adoption-tracking) shows its inputs and outputs.
+[adoption tracking flow](domain.md#adoption-tracking) shows its inputs and outputs.
 
 ## Deprecation Management
 
 ```meta
 type: domain-service
-status: draft
 ```
 
 Drives the deprecation lifecycle. It:
@@ -226,7 +237,6 @@ triggered by baseline changes, EOL thresholds, and approval decisions.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -237,7 +247,6 @@ documented under it. This chapter is reserved for future cross-aggregate enums.
 ## Ubiquitous Language
 
 ```meta
-status: draft
 type: ubiquitous-language
 ```
 
@@ -246,7 +255,6 @@ type: ubiquitous-language
 ### Technology Sprawl
 
 ```meta
-status: draft
 type: term
 aliases: [sprawl]
 related: [.devbook/domain/technology-stack/domain.md#adoption-tracking, .devbook/domain/technology-stack/domain.md#technology-baseline]

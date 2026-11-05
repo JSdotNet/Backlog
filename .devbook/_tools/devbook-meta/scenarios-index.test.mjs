@@ -1,11 +1,11 @@
 // The journey register, `_meta/scenarios.json`, is built from the graph
 // `buildGraph` already holds: every journey — a `##` typed `scenario` in a
 // scenarios file — sorted by file and then file order, with its address, file,
-// anchor, title, declared status, the six setup fields as written, its
+// anchor, title, the six setup fields as written, its
 // screenshot labels in order with the part each sits in, and its parts in
 // order — title, anchor, the labels under it, and every requirement case whose
 // `Proved by:` names it. Journeys of the same name in two files are both
-// listed, with no problem. The register carries its own `schemaVersion` of 2,
+// listed, with no problem. The register carries its own `schemaVersion` of 3,
 // writes an empty list outside `domain/`, and leaves graph.json's shape alone.
 //
 // Run: `node scenarios-index.test.mjs`
@@ -52,7 +52,7 @@ const REQUIREMENTS_MD =
     ]);
 
 const SETUP =
-    "type: scenario\nstatus: draft\nstart: /products/webshop/backlog\nactor: actors.md#product-owner\ndata: [webshop-without-statuses]\n" +
+    "type: scenario\nstart: /products/webshop/backlog\nactor: actors.md#product-owner\ndata: [webshop-without-statuses]\n" +
     "profile: tenant-acme\nflags: [context.md#new-board]\nsettings: [context.md#backlog-max-columns=5]\n";
 
 async function withCorpus(files, run) {
@@ -83,7 +83,7 @@ await withCorpus(corpus, async (root, graph) => {
     const document = buildScenariosDocument(root, ".", graph, FOLDERS);
     const [moved, setUp] = document.scenarios;
 
-    check(document.schemaVersion === SCENARIOS_SCHEMA_VERSION && SCENARIOS_SCHEMA_VERSION === 2, "the register carries its own schemaVersion, 2");
+    check(document.schemaVersion === SCENARIOS_SCHEMA_VERSION && SCENARIOS_SCHEMA_VERSION === 3, "the register carries its own schemaVersion, 3");
     check(document.scope === "." && dump(document.sources) === dump(FOLDERS), "the rollup's envelope names its scope and sources", dump(document));
     check(
         dump(document.scenarios.map((entry) => entry.id)) === dump([`${OTHER}#move-an-item`, `${PAGE}#set-up-and-fill-the-backlog`]),
@@ -92,12 +92,12 @@ await withCorpus(corpus, async (root, graph) => {
     );
 
     check(
-        dump(Object.keys(setUp)) === dump(["id", "path", "anchor", "title", "status", "setup", "labels", "parts"]),
-        "a journey carries its address, file, anchor, title, status, setup, labels, and parts",
+        dump(Object.keys(setUp)) === dump(["id", "path", "anchor", "title", "setup", "labels", "parts"]),
+        "a journey carries its address, file, anchor, title, setup, labels, and parts — no status",
         dump(Object.keys(setUp))
     );
-    check(setUp.path === PAGE && setUp.anchor === "set-up-and-fill-the-backlog" && setUp.title === "Set up and fill the backlog" && setUp.status === "draft", "a journey carries its file, anchor, title, and declared status", dump(setUp));
-    check(moved.status === null, "a journey with no status reads null", dump(moved));
+    check(setUp.path === PAGE && setUp.anchor === "set-up-and-fill-the-backlog" && setUp.title === "Set up and fill the backlog", "a journey carries its file, anchor, and title", dump(setUp));
+    check(!("status" in moved), "a journey carries no status", dump(moved));
     check(
         dump(setUp.setup) ===
             dump({

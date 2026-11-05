@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 ```
 
@@ -17,17 +16,74 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests]
 aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task, RestoredAt, restored_at]
 ```
 
+**Inbox item lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unprocessed : Capture delivers item / typed by hand
+    Unprocessed --> Routed : Route to Tasks / Create plan / To Brain
+    Unprocessed --> Deferred : Defer for later review
+    Unprocessed --> Archived : Dismiss / not actionable
+    Deferred --> Deferred : Change the review date
+    Deferred --> Unprocessed : Review date reached / Return to inbox
+    Deferred --> Routed : Route to Tasks / Create plan / To Brain
+    Deferred --> Archived : Dismissed after deferral
+    Routed --> Unprocessed : Undo (return to the inbox)
+    Archived --> Unprocessed : Undo (restore)
+    Routed --> [*]
+    Archived --> [*]
+```
+
+- `Routed` is the stored status `triaged` with a `RoutingTarget`, and
+  `ItemTriaged` is emitted on the way in. [Inbox Status](domain.md#inbox-status)
+  says why deciding and routing are one step.
+- A `triaged` item with no routing target is not routed, so it may still be
+  deferred or archived.
+- Filing in a list (`list_id`) is not a transition.
+- The rules each transition is held to are the `Inbox Item` chapters of
+  [`domain.invariants.md`](domain.invariants.md#inbox-item).
+- `Deferred → Unprocessed` happens two ways. A person returns the item by hand,
+  whatever its date, or the [resurface sweep](domain.md#resurface-sweep) finds
+  its review date reached.
+- Undo reopens a decision only within the app session that took it
+  ([Undo a decision](features.md#undo-a-decision)).
+
+**Undo and a returning tombstone**
+
+An undo cannot call back a tombstone the desktop already sent, so the intake
+reads every later tombstone against the item's `restored_at`.
+
+```mermaid
+sequenceDiagram
+    participant D as Desktop Inbox
+    participant R as Replica
+    participant P as Phone or another desktop
+
+    D->>R: tombstone for the capture, stamped t1 (archive or route)
+    Note over D: Undo sets restored_at to t2, after t1
+    R-->>D: a later pull delivers the t1 tombstone again
+    D->>D: t1 is at or before restored_at, so the item stays open
+    P->>R: a dismissal stamped t3, after t2
+    R-->>D: the next pull delivers the t3 tombstone
+    D->>D: t3 is after restored_at, so the item is archived (Withdrawn)
+```
+
+- The echo may arrive on the next pull or days later, on a full replay.
+- The stamps come from different clocks when the tombstone is not this
+  desktop's own. A dismissal made after the undo but stamped at or before it by
+  a skewed clock is ignored. That is accepted rather than an undo that does not
+  hold.
+
 A single unit of captured information moving through triage. The aggregate
 guarantees three things:
 
 - the original source link and capture timestamp are always preserved;
-- its status moves only along the [lifecycle](flow.md#inbox-item-lifecycle);
+- its status moves only along the [lifecycle](domain.md#inbox-item);
 - a routing decision records exactly one `Routing Target`.
 
 A deferred item carries an optional `deferred_until` review date, and the
@@ -74,7 +130,7 @@ An item the reader reopens by undo records when, as `restored_at`. Restoring it
 from the archive sets the stamp, and so does returning it from the backlog. The
 desktop cannot call back an acknowledgement it already sent, so the intake reads
 each later tombstone against `restored_at`.
-[Undo and a returning tombstone](flow.md#undo-and-a-returning-tombstone) shows
+[Undo and a returning tombstone](domain.md#inbox-item) shows
 the timing. The stamp is sync bookkeeping, kept apart from `updated_at`. Filing
 and tagging restamp `updated_at`, which would hide a phone dismissal made in
 between.
@@ -113,7 +169,6 @@ chapters in [`domain.invariants.md`](domain.invariants.md#inbox-item).
 
 ```meta
 type: value-object
-status: draft
 aliases: [RoutingTarget, InboxRoutingDto]
 ```
 
@@ -134,7 +189,6 @@ why they are ids and not references.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A `#keyword` applied during triage. Equality is by canonical `name`, without
@@ -150,7 +204,6 @@ is stored with `auto_generated` false like one they typed.
 
 ```meta
 type: value-object
-status: draft
 related: [.devbook/domain/capture/domain.md#source-metadata]
 aliases: [InboxSource, person]
 ```
@@ -167,11 +220,29 @@ set; equality is by value.
 
 ```meta
 type: value-object
-status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/inbox/features.md#capture-attachments, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
 aliases: [InboxAttachment, InboxAttachmentDto, inbox_item_attachments, file]
 ```
+
+**Attachment lifecycle**
+
+One file on an item, as this machine holds it. The bytes come from the attachment
+store (local ADR 0014), never from the replica.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Recorded : the capture names the file, item saved
+    Recorded --> Downloaded : bytes fetched, sha256 matches, written to the item's folder
+    Recorded --> Failed : fetch or write fails, or sha256 differs
+    Failed --> Downloaded : Retry succeeds
+    Failed --> Failed : Retry fails again (new reason)
+    Downloaded --> [*]
+```
+
+- A replayed sync page never retries a Failed file; only the person's Retry does.
+- Recording the same file again changes nothing, so a replay cannot move a
+  Downloaded file back to Recorded.
 
 One file an item arrived with, and whether this machine has it. It has two
 halves, because they come from two places and change at different rates.
@@ -187,7 +258,7 @@ halves, because they come from two places and change at different rates.
 
 The bytes do not travel on the replica. The capture names the file, and the
 desktop fetches it from the sync service's attachment store afterwards (local
-ADR 0014). The [attachment lifecycle](flow.md#attachment-lifecycle) shows the
+ADR 0014). The [attachment lifecycle](domain.md#attachment) shows the
 states a file moves through. A Recorded file is shown in the pane as *Waiting
 to download*. A Downloaded file is in the item's
 [attachment folder](#attachment-folder). A Failed file keeps its reason and
@@ -204,7 +275,6 @@ change is a new attachment that the item swaps in, and only the item does so.
 
 ```meta
 type: enum
-status: draft
 related: [.devbook/domain/inbox/domain.md#note]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
@@ -238,7 +308,6 @@ after it is captured: every other kind records what arrived and keeps it.
 
 ```meta
 type: enum
-status: draft
 aliases: [InboxStatus]
 ```
 
@@ -248,7 +317,7 @@ Lifecycle state of an Inbox Item:
 - `triaged` — the item was routed. In this product deciding *is* routing, so
   there is no separate "mark triaged" step. An item becomes `triaged` and gains
   its `Routing Target` in one transition, which the
-  [lifecycle](flow.md#inbox-item-lifecycle) draws as `Routed`.
+  [lifecycle](domain.md#inbox-item) draws as `Routed`.
 - `deferred` — postponed with an optional review date.
 - `archived` — dismissed / not actionable.
 
@@ -256,7 +325,6 @@ Lifecycle state of an Inbox Item:
 
 ```meta
 type: enum
-status: draft
 related: [.devbook/domain/capture/domain.md#capture-source, .devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md]
 aliases: [CaptureSource, source, channel]
 ```
@@ -273,7 +341,6 @@ into a default.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/domain.md#inbox-group, .devbook/domain/inbox/domain.invariants.md#inbox-list]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
 aliases: [InboxList, InboxListDto, list_id, inbox_lists]
@@ -300,7 +367,6 @@ once with a default set of lists and groups: groups `Areas`, `Projects` and
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-list, .devbook/domain/inbox/domain.invariants.md#inbox-group]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
 aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
@@ -316,7 +382,6 @@ and then removes the group, so no list is ever deleted by deleting its group.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/brain/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand, MergeIntoTaskCommand, InboxMergeRequestDto]
@@ -359,7 +424,7 @@ Three decisions route to Tasks, and all end in the same `Routing Target`:
 
   A batch never registers a repository. The dependencies left on in the panel
   before it goes travel as `after:` tokens; see
-  [Dependency tier](#dependency-tier). [Batch route](flow.md#batch-route) shows
+  [Dependency tier](#dependency-tier). [Batch route](features.md#routing) shows
   the whole path.
 
 An item with attachments hands its [attachment folder](#attachment-folder) to
@@ -380,7 +445,7 @@ The Inbox refuses before it writes anything when:
 A comment Tasks will not take as prose leaves the item open. That happens when
 the notes hold a heading, a checklist item or a fence. The comment is written
 first, so a failure never leaves an item archived against a task that never
-heard of it. [Merge and To Brain](flow.md#merge-and-to-brain) shows the order.
+heard of it. [Merge and To Brain](features.md#routing) shows the order.
 
 **To Brain** writes a capture or a note into the person's
 [Brain](../brain/domain.md#brain) as a new Knowledge Note in its inbox area,
@@ -396,7 +461,6 @@ to Tasks does.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#classification, .devbook/domain/inbox/features.md#classification-and-enrichment, .devbook/domain/inbox/context.md#inbox-routing-rules]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ContentKindDetectorTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_picture_and_nothing_else_arrives_as_an_image_and_a_file_as_a_document, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests]
 aliases: [ContentKindDetector, InboxClassifier, SuggestQuery, DismissSuggestionCommand, InboxSuggestionDto, suggestion]
@@ -457,7 +521,6 @@ Invocation semantics:
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/inbox/domain.md#triage]
 ```
 
@@ -509,7 +572,6 @@ shape is stable even though the destination-specific fields differ.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -528,7 +590,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [CaptureItemCommand, manual, ManualChannel]
 related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/inbox/features.md#add-by-hand]
 ```
@@ -544,7 +605,6 @@ the Capture context, which arrives from a device through sync.
 
 ```meta
 type: term
-status: draft
 aliases: [note, NoteItem, Notes tab]
 related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 ```
@@ -568,7 +628,6 @@ written in the Notes tab.
 
 ```meta
 type: term
-status: draft
 aliases: [PlanTag, InboxPlanTag, import_plan_id]
 related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/inbox/domain.md#batch, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 ```
@@ -590,7 +649,6 @@ Each plan is therefore new, and importing one never clears another's entries.
 
 ```meta
 type: term
-status: draft
 aliases: [InboxBatchRouteRequestDto, InboxBatchRoutedDto, RouteBatchToBacklogCommand]
 related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#plan-tag]
 ```
@@ -605,7 +663,6 @@ became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
 
 ```meta
 type: term
-status: draft
 aliases: [DependencyTier, ProposedDependency, Stated, Inferred]
 related: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
 ```
@@ -628,7 +685,6 @@ A guess from similar wording would sit between the two and is not built.
 
 ```meta
 type: term
-status: draft
 aliases: [AttachmentPath, _inbox/attachments]
 related: [.devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#triage]
 ```
@@ -643,7 +699,6 @@ folder to every task the item becomes, as the task's single attachment
 
 ```meta
 type: term
-status: draft
 aliases: [ResurfaceDueItems, ResurfaceDueItemsCommand]
 related: [.devbook/domain/inbox/domain.invariants.md#invariant-a-deferred-item-resurfaces, .devbook/domain/inbox/features.md#defer]
 ```
@@ -662,7 +717,6 @@ reads the queue unattended.
 
 ```meta
 type: term
-status: draft
 aliases: [reference kind]
 related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#classification, .devbook/domain/inbox/features.md#route-to-brain]
 ```
@@ -676,7 +730,6 @@ route for collected material.
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/inbox/features.md#organise-into-lists-and-groups, .devbook/domain/inbox/features.md#filter-by-content-kind]
 ```
 
@@ -688,24 +741,22 @@ pills narrow the rows of a slice but do not change which slice is open.
 
 ```meta
 type: term
-status: draft
 aliases: [acknowledgement echo]
-related: [.devbook/domain/inbox/flow.md#capture-intake-and-acknowledgement, .devbook/domain/inbox/features.md#undo-a-decision]
+related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbox/features.md#undo-a-decision]
 ```
 
 The tombstone this desktop sent for a decision, delivered back to it by a later
 pull. The replica keeps every tombstone, so the echo may come on the next pull
 or days later. The intake answers it `AlreadyKnown` and writes nothing. After an
 undo, the intake reads it against the item's `restored_at`
-([Undo and a returning tombstone](flow.md#undo-and-a-returning-tombstone)).
+([Undo and a returning tombstone](domain.md#inbox-item)).
 
 ### Replica-backed item
 
 ```meta
 type: term
-status: draft
 aliases: [ReplicaBacked]
-related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/flow.md#capture-intake-and-acknowledgement]
+related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/features.md#incoming-queue]
 ```
 
 An Inbox Item that arrived through sync, so its id is a capture document's id

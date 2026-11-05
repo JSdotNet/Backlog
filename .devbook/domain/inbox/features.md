@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,10 +11,74 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/capture/features.md#normalized-delivery]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
+
+**Capture intake and acknowledgement**
+
+The replica document and its `capture` kind token are
+decided in `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`.
+
+```mermaid
+sequenceDiagram
+    participant P as Phone / IDE
+    participant S as Sync Service (replica)
+    participant M as Desktop sync client
+    participant I as Inbox intake
+    participant O as Inbox outbox
+    participant A as Attachment store (via sync)
+
+    P->>A: PUT /api/sync/attachments/{id} (each file first)
+    P->>S: POST /api/sync/inbox (title, source, attachments: metadata)
+    S->>S: write document, type = capture
+    M->>S: GET /api/sync/tasks?since=cursor
+    S-->>M: documents, captures among them
+    M->>I: ReceiveAsync(capture)
+    alt unknown id, live
+        I->>I: create item with the capture's id, record its attachments, save (Received)
+        loop each attachment still waiting
+            I->>A: GET /api/sync/attachments/{id}
+            A-->>I: bytes
+            I->>I: check sha256, write into the item's folder — Downloaded, or Failed with the reason
+        end
+    else known id, live
+        I->>I: record attachments it lacks, fetch waiting ones (AlreadyKnown)
+    else known id, tombstoned, still open
+        I->>I: archive the item, owing nothing (Withdrawn)
+    else otherwise
+        I-->>M: AlreadyKnown / Ignored
+    end
+    Note over I,O: later — the reader routes or archives the item
+    I->>O: acknowledgement pending
+    M->>O: ListPendingAsync()
+    M->>S: POST /api/sync/tasks (tombstones of the capture documents, batched)
+    S-->>M: accepted
+    M->>O: MarkSentAsync(ids)
+    P->>S: GET /api/sync/inbox
+    S-->>P: the capture is no longer listed
+```
+
+- The intake decides by id and status and parses no token. Every case has an
+  answer and none is an error, because the caller is the sync client, and an
+  error there would replay the page for ever. For the same reason, a file entry
+  no fetch could honour is left off the item rather than thrown. A file that
+  fails to download leaves the item Received.
+- Only a route, archive or delete of a
+  [replica-backed item](domain.md#replica-backed-item) puts an acknowledgement
+  in the outbox. An item archived *because* the replica already carried a
+  tombstone owes nothing.
+- The acknowledgement is durable on the item, so a decision taken offline
+  reaches the phone on the first push that succeeds.
+- A deleted item's acknowledgement is kept beside the item store, and it is all
+  that is left of the item. Until it is sent, a replay of the capture is
+  `AlreadyKnown` rather than a new item.
+- The desktop's own tombstone, its [sync echo](domain.md#sync-echo), comes back
+  on the next pull as a known id it has already decided on: `AlreadyKnown`,
+  nothing written. A second desktop still holding the item open archives it
+  instead.
+- The phone's own "Triage" acknowledges the same way: the service tombstones the
+  capture document.
 
 Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are read newest first by capture
@@ -42,7 +105,6 @@ repositories are shown in the detail, not on the row.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/capture/features.md#run-capture-now, .devbook/domain/inbox/requirements.md#columns]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
@@ -79,7 +141,6 @@ seeded without a phone.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#capture-attachments, .devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_plans_task_entries_carry_the_items_attachment_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
@@ -110,7 +171,6 @@ drafter itself never sees it.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-list, .devbook/domain/inbox/domain.md#inbox-group]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
@@ -129,7 +189,6 @@ workspace is seeded once with a default set to start from.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/requirements.md#columns]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
@@ -144,7 +203,6 @@ place an item goes.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#incoming-queue]
 ```
 
@@ -154,7 +212,6 @@ Review unprocessed items one by one or in batch and take an action per item.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#columns]
 ```
 
@@ -172,7 +229,6 @@ itself, because they are not the decision the item is waiting for.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#bulk-editing, .devbook/domain/inbox/requirements.md#act-on-several-at-once, .devbook/domain/inbox/features.md#filter-by-content-kind]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
@@ -211,7 +267,6 @@ the reader is looking at, the other what the next act will reach.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
@@ -251,7 +306,6 @@ buttons they stand for name them in their titles.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/features.md#undo-a-decision, .devbook/domain/inbox/features.md#inbox-zero]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -300,7 +354,6 @@ repositories are not decisions and leave the reader where they are. Escape, or
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#triage-mode]
 related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -344,7 +397,6 @@ triage reads as it would without AI.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
 related: [.devbook/domain/inbox/requirements.md#merge-into-a-task, .devbook/domain/inbox/features.md#archive, .devbook/domain/tasks/features.md#task-creation]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -361,7 +413,6 @@ decision](#undo-a-decision)).
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests]
@@ -396,7 +447,7 @@ items, only the items that failed stay on top. The sentence then says what was
 refused, what failed and how many items came back.
 
 An undo outlasts the decision's [sync echo](domain.md#sync-echo).
-[Undo and a returning tombstone](flow.md#undo-and-a-returning-tombstone) shows
+[Undo and a returning tombstone](domain.md#inbox-item) shows
 the timing. Archiving or moving a capture from the phone sends the replica an
 acknowledgement, and a later pull may deliver it again, even days later. The
 item stays open, because the acknowledgement is older than the undo. A
@@ -410,7 +461,6 @@ changed by deciding again, not by undo.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#inbox-zero, .devbook/domain/inbox/features.md#defer]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
@@ -439,12 +489,31 @@ on. A list, or Deferred, that is empty shows its own empty state.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
 related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage-pass, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#undo-a-decision]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests]
 ```
+
+**AI triage pass Apply**
+
+How **Apply** takes the accepted proposals of the
+[AI triage pass](features.md#ai-triage-pass).
+
+```mermaid
+flowchart TD
+    A["Apply"] --> B["Take the next accepted proposal, in list order"]
+    B --> C{"Refused?"}
+    C -->|no| D["The decision lands as one undo step"]
+    D --> E{"More accepted proposals?"}
+    E -->|yes| B
+    E -->|no| F["Screen closes, a toast counts decisions and items left"]
+    C -->|yes| G["Stop. What already landed stays"]
+    G --> H["Screen keeps the proposals not taken, a note names the refused item and why"]
+```
+
+- A plan that routed only some of its members leaves the screen, and its
+  members still waiting are left for the reader.
 
 **Let AI propose the rest**, in triage's header, asks the model to read every
 unprocessed item of the slice against the backlog at once. It opens a review
@@ -487,7 +556,7 @@ the screen lists them:
   backlog;
 - a filing or an archive, through its own act.
 
-[AI triage pass Apply](flow.md#ai-triage-pass-apply) shows what happens when a
+[AI triage pass Apply](features.md#ai-triage-pass) shows what happens when a
 decision is refused. Each decision lands as one step of the
 [undo history](#undo-a-decision), so **u** takes them back newest first. A pass
 with nothing to propose opens no screen and says so under triage's header.
@@ -501,7 +570,6 @@ the entries Move to backlog makes.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#classification-and-enrichment, .devbook/domain/inbox/domain.md#classification]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 setting: .devbook/domain/inbox/context.md#inbox-routing-rules
@@ -562,10 +630,65 @@ the AI cards.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#triage-workflow]
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/brain/features.md#knowledge-capture]
 ```
+
+**Merge and To Brain**
+
+Both decisions write into another context first and change the item only once
+that write succeeded.
+
+```mermaid
+sequenceDiagram
+    participant I as Inbox (Triage)
+    participant T as Tasks
+    participant B as Devbook (Brain)
+
+    Note over I,T: Merge into a task
+    I->>I: refuse a decided item, or a task the backlog no longer has
+    I->>T: write the item as one comment on the task
+    alt Tasks takes the comment
+        I->>I: archive the item, DuplicateOf names the task
+    else Tasks refuses it (a heading, checklist item or fence) or the write fails
+        I->>I: the item stays open
+    end
+    Note over I,B: To Brain
+    I->>I: refuse a decided item
+    I->>B: write a Knowledge Note into the Brain's inbox area
+    alt the note is written
+        I->>I: route the item, target devbook
+    else no Brain folder is set up, or the write fails
+        I->>I: the item stays open and unrouted
+    end
+```
+
+- Writing first means a failure never leaves an item archived against a task
+  that never heard of it, or routed to a note that was never written.
+
+**Batch route**
+
+Two or more items routed to Tasks together, as one plan import
+([Route a batch to Tasks](features.md#route-a-batch-to-tasks)). A single item
+routes on the press, without the panel.
+
+```mermaid
+flowchart TD
+    A["Reader picks items, or opens a list"] --> B["Panel shows order, plan tag, tasks and dependencies"]
+    B --> C{"Ask the AI to order?"}
+    C -->|yes| D["Drafter adds inferred dependencies"]
+    C -->|no| E["Confirm"]
+    D --> E
+    E --> F["Items that would spoil the document are left out by name"]
+    F --> G{"Tasks imports the rest whole?"}
+    G -->|yes| H["Each item is marked routed to its own tasks"]
+    G -->|no| I["Nothing is routed, every item stays"]
+```
+
+- A loop among the dependencies holds Confirm until a switch breaks it, and
+  Confirm waits while an ask is out.
+- An item whose entries were made but which could not then be marked routed is
+  named along with those entries.
 
 Routing is the terminal outcome of triage and happens exactly once.
 
@@ -573,7 +696,6 @@ Routing is the terminal outcome of triage and happens exactly once.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
 ```
@@ -598,7 +720,6 @@ links the siblings of each of its items the same way.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks]
 related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests]
@@ -619,7 +740,6 @@ the action stays visible, disabled, with its reason.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#act-on-several-at-once]
 related: [.devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/requirements.md#route-a-batch-to-tasks, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -627,7 +747,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, un
 ```
 
 A [batch](domain.md#batch) of captures that belong together lands in the
-backlog as one plan. [Batch route](flow.md#batch-route) shows the path from
+backlog as one plan. [Batch route](features.md#routing) shows the path from
 pick to routed. A batch is formed in two ways:
 
 - **Move to backlog** in the selection bar routes the picked items.
@@ -666,7 +786,6 @@ Which item waits on which is settled before the batch goes, in
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks]
 related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -696,7 +815,6 @@ Cancel changes nothing.
 
 ```meta
 type: sub-feature
-status: draft
 depends-on: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#create-plan-from-an-item]
 related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/requirements.md#order-a-batch-with-the-drafter, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -732,7 +850,6 @@ says why in the panel and adds nothing. Confirm routes the batch through
 
 ```meta
 type: sub-feature
-status: draft
 aliases: [Route to Devbook, To Brain]
 related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
@@ -775,8 +892,7 @@ two captures in the Brain with the same words are two notes.
 
 ```meta
 type: sub-feature
-status: draft
-related: [.devbook/domain/inbox/flow.md#inbox-item-lifecycle]
+related: [.devbook/domain/inbox/domain.md#inbox-item]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Deferring_with_a_date_moves_the_row_to_the_deferred_slice_and_counts_it_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.Every_opening_of_the_inbox_runs_the_resurface_sweep]
 ```
@@ -796,7 +912,6 @@ many came back. An item deferred with no date waits until a person returns it.
 
 ```meta
 type: sub-feature
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_routed_item_cannot_be_archived]
 ```
 
@@ -809,7 +924,6 @@ offering it.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#delete, .devbook/domain/inbox/features.md#archive, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
@@ -830,7 +944,6 @@ it was routed, because routing handed that folder to the task.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/monitoring/features.md#inbox-and-queue-health]
 ```
 
@@ -841,7 +954,6 @@ long, and raise configurable alerts when the queue exceeds a threshold.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
@@ -867,9 +979,32 @@ alerts, are Monitoring's.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#content-kind, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/capture/features.md#talk-note, .devbook/domain/inbox/features.md#route-to-brain]
 ```
+
+**A note on the phone**
+
+How a note saves in the phone's Notes tab
+([Notes on the phone](features.md#notes-on-the-phone)).
+
+```mermaid
+stateDiagram-v2
+    state "Saving..." as Saving
+    state "Waiting to sync" as Waiting
+    [*] --> Empty : New note opens an empty editor
+    Empty --> [*] : left empty, nothing is made
+    Empty --> Saving : the first save with something in it creates the note
+    Saving --> Waiting : the outbox still holds the note
+    Saving --> Saved : the outbox has sent it
+    Waiting --> Saved : the outbox sends it
+    Saved --> Saving : another edit
+    Waiting --> Saving : another edit
+    Saved --> Removed : the desktop archived or deleted it, seen on the next pull
+    Removed --> [*]
+```
+
+- A note is kept on the phone first, so it saves with no signal.
+- An editor still open on a removed note says its changes are no longer kept.
 
 Keep and edit [notes](domain.md#note) on the phone and the desktop. Every note
 reaches the phone, whichever device made it, and an edit on either side
@@ -886,7 +1021,6 @@ two differ.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/inbox/requirements.md#notes-on-the-phone]
 ```
 
@@ -905,7 +1039,7 @@ empty editor, and a tap on a note opens it in the same editor.
 The editor holds a title, a Markdown body that dictation appends to, and
 attached photos and files. These are the
 [talk note's](../capture/features.md#talk-note) tools.
-[A note on the phone](flow.md#a-note-on-the-phone) shows how it saves. The
+[A note on the phone](features.md#notes) shows how it saves. The
 editor has no save button. A second after typing stops, the note is saved.
 Leaving a field or the editor saves at once. So do picking a file and the app
 going to the background, where the phone may end it before the second is up.
@@ -919,7 +1053,6 @@ tab.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/requirements.md#notes-on-the-desktop]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
@@ -937,7 +1070,6 @@ from the phone.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/features.md#offline-first-sync, .devbook/domain/inbox/requirements.md#triage-stays-on-the-desktop]
 ```
 

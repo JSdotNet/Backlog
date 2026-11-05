@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 aliases: [DevbookAnnotation, remark, reading note]
 related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/domain/devbook/domain.md#review-note, .devbook/domain/devbook/domain.invariants.md#remark, .devbook/domain/devbook/requirements.md#remarks-on-a-chapter]
 ```
@@ -65,7 +63,6 @@ turned into a review note.
 
 ```meta
 type: aggregate
-status: draft
 aliases: [DevbookSubjectState, IDevbookSubjectStateStore, subject state]
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
 ```
@@ -124,7 +121,6 @@ A subject state holds no text of the chapter, and it is not a [Remark](#remark).
 
 ```meta
 type: value-object
-status: draft
 aliases: [DevbookSubject, subject]
 ```
 
@@ -152,7 +148,6 @@ proposal name that is no folder name.
 
 ```meta
 type: enum
-status: draft
 aliases: [DevbookSubjectKind]
 ```
 
@@ -172,7 +167,6 @@ refused and never stored.
 
 ```meta
 type: value-object
-status: draft
 aliases: [DevbookSubjectDecision, approval, acceptance]
 ```
 
@@ -189,7 +183,6 @@ it.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
 ```
 
@@ -237,7 +230,6 @@ at a time.
 
 ```meta
 type: shared-value-objects
-status: draft
 related: [.devbook/domain/devbook/domain.invariants.md#shared-value-objects]
 ```
 
@@ -251,7 +243,6 @@ related: [.devbook/domain/devbook/domain.invariants.md#shared-value-objects]
 
 ```meta
 type: value-object
-status: draft
 aliases: [roadmap contribution, contributes to]
 ```
 
@@ -283,7 +274,6 @@ owns, and only Roadmap Planning reads it. The two are never collapsed.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -301,7 +291,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [Devbook, Knowledge]
 related: [.devbook/domain/context-map.md#context-map, .devbook/domain/brain/domain.md#brain]
 ```
@@ -321,7 +310,6 @@ What the context reads in a repository keeps the convention's own name,
 
 ```meta
 type: term
-status: draft
 aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/tasks/domain.md#effort]
 ```
@@ -340,7 +328,6 @@ chapters an item gathers, but never sets it.
 
 ```meta
 type: term
-status: draft
 aliases: [instructions, agent instructions, working instructions]
 related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/devbook/features.md#instruction-set-inventory]
 ```
@@ -355,7 +342,6 @@ repository, not to this product.
 
 ```meta
 type: term
-status: draft
 aliases: [context load, always-loaded weight]
 related: [.devbook/domain/devbook/features.md#context-load-budget]
 ```
@@ -372,7 +358,6 @@ never traded against each other silently.
 
 ```meta
 type: term
-status: draft
 aliases: [finding, proposal]
 related: [.devbook/domain/devbook/domain.md#instruction-review]
 ```
@@ -386,7 +371,6 @@ recoverable.
 
 ```meta
 type: term
-status: draft
 aliases: [alignment, cross-tool alignment]
 related: [.devbook/domain/devbook/features.md#cross-tool-alignment-validation]
 ```
@@ -405,7 +389,6 @@ as a pair, and a change to one leaves the other unfinished.
 
 ```meta
 type: term
-status: draft
 aliases: [evidence basis]
 related: [.devbook/domain/devbook/features.md#saving-evidence]
 ```
@@ -419,7 +402,6 @@ billed amount is claimed, and a figure with no basis is not shown.
 
 ```meta
 type: term
-status: draft
 aliases: [DevbookSyncVerdict, sweep verdict, drift verdict]
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/sessions/domain.md#delivery-run-recording]
 ```
@@ -445,7 +427,6 @@ with it.
 
 ```meta
 type: term
-status: draft
 aliases: [sync unit, SyncUnit]
 related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps]
 ```
@@ -465,7 +446,6 @@ time the map is read. A repository read only from a branch is not imported.
 
 ```meta
 type: term
-status: draft
 aliases: [review note, annotation, annotation fence]
 related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter, .devbook/domain/devbook/domain.md#remark]
 ```

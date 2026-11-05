@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 

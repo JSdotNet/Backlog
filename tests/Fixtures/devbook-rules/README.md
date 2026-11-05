@@ -21,6 +21,11 @@ One row is newer: the `tech/` row of the `type` table in
 commit `04e14abe`, devbook 1.29.0), so `DevbookRuleTextContractTests` pins the
 three `tech/` types it adds — `plugin`, `skill` and `agent`.
 
+`contract-36/devbook-chapter-metadata.md` is the copy this repository vendored under
+`.agents/rules/` at devbook 1.30.1, contract 36 — the last contract whose Markdown carried the
+`sync` field. Contract 38 moved sync into Backlog's own direction map, so
+`DevbookSyncTests` pins the application's sync vocabulary against this copy.
+
 To move to a newer contract, replace the three files with the new commit's
 copies, update the commit and the contract above, drop the newer-row paragraph,
 and let the failing tests name what changed.

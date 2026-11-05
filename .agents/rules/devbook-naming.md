@@ -50,12 +50,15 @@ A name should not repeat what its location already says.
 
 ## A journey's address is its name
 
-A journey is a `##` of a scenarios file, `scenarios.md` or `scenarios.<name>.md`,
-headed by what the actor does: `## Set up and fill the backlog`. Its address,
+A journey is a `##` of a scenarios file, `scenarios.md`, `scenarios.<name>.md`, or
+its subpage `scenarios.<name>.<page>.md`, headed by what the actor does: `## Set up and fill the backlog`. Its address,
 `.devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog`, is its identity for
 every tool: its run folder `scenarios/set-up-and-fill-the-backlog/`, its derived
-spec's header, and every `Proved by:` and `related` entry use it. The anchor is
-unique in its file, so retitling the heading renames the journey. See
+spec's header, and every `Proved by:` and `related` entry use it. In a subpage
+the address and the run folder follow the subpage:
+`scenarios.returns.courier.md#<journey>` runs into `scenarios.returns.courier/<journey>/`.
+The anchor is unique in its file, so retitling the heading renames the journey, and
+moving it to another file renames it too. See
 `devbook-chapter-metadata.md` under "Journeys".
 
 ## Casing

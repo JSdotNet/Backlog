@@ -4,8 +4,11 @@
 // the gate is green on it, because a gate that is red the day it lands gets
 // switched off rather than obeyed. The rest build a throwaway knowledge folder
 // in a temp directory and assert the gate is red for exactly one reason at a
-// time, which is the only way to tell "catches a bad status" apart from
+// time, which is the only way to tell "catches a bad rating" apart from
 // "catches everything".
+//
+// The fixtures are devbook contract 38's: a `tech/` or `ai/` block states a
+// `rating`, and no other folder carries a status at all.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -104,15 +107,15 @@ test('a .devbook/ chapter is judged by the installed checker', async () => {
     // An unrecognized field is promoted to blocking.
     const unknown = await checkFixture(
         '.devbook/design/sample.md',
-        chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
+        chapter({ type: 'guideline' }, { owner: 'nobody' })
     );
     assert.ok(unknown.blocking.length >= 1, blockingText(unknown));
     assert.match(blockingText(unknown), /unrecognized field `owner`/);
 
-    // And a status outside the folder's vocabulary blocks.
+    // And a rating outside the folder's ladder blocks.
     const bad = await checkFixture(
-        '.devbook/domain/sample/features.md',
-        chapter({ type: 'features' }, { status: 'idea', type: 'feature' })
+        '.devbook/tech/sample.md',
+        chapter({ rating: 'adopted', type: 'library' }, { rating: 'idea', type: 'library' })
     );
     assert.ok(bad.blocking.length >= 1, blockingText(bad));
     assert.match(blockingText(bad), /"idea"/);
@@ -127,7 +130,7 @@ test('an adopted folder that holds nothing is an error, not a silent pass', asyn
         await mkdir(join(root, '.devbook', 'domain', 'sample'), { recursive: true });
         await writeFile(
             join(root, '.devbook', 'domain', 'sample', 'features.md'),
-            chapter({ status: 'active', type: 'features' }, { status: 'active', type: 'feature' }),
+            chapter({ type: 'features' }, { type: 'feature' }),
             'utf8'
         );
         await mkdir(join(root, '.devbook', 'design'), { recursive: true });
@@ -144,32 +147,40 @@ test('an adopted folder that holds nothing is an error, not a silent pass', asyn
     }
 });
 
-test('a status outside the folder vocabulary blocks, naming the value and the list', async () => {
+test('a rating outside the ladder blocks, naming the value and the list', async () => {
     const result = await checkFixture(
-        '.devbook/domain/sample/features.md',
-        chapter({ status: 'active', type: 'features' }, { status: 'idea', type: 'feature' })
+        '.devbook/tech/sample.md',
+        chapter({ rating: 'adopted', type: 'library' }, { rating: 'idea', type: 'library' })
     );
 
     assert.equal(result.blocking.length, 1, blockingText(result));
     const [finding] = result.blocking;
-    assert.equal(finding.path, '.devbook/domain/sample/features.md');
+    assert.equal(finding.path, '.devbook/tech/sample.md');
     assert.match(finding.message, /## A chapter/);
     assert.match(finding.message, /[(]line 8[)]/);
     assert.match(finding.message, /"idea"/);
-    assert.match(finding.message, /draft, proposed, active, deprecated/);
+    assert.match(finding.message, /candidate, trial, adopted, hold, retired/);
 });
 
-test('each folder is judged against its own ladder', async () => {
-    // `adopted` is a real status in `tech/`, and `active` is a real status in
-    // `domain/`. Borrowing another folder vocabulary is the mistake that one
-    // shared list would wave through.
+test('a status blocks in every folder, naming the migration that deletes it', async () => {
+    // Contract 38 took workflow state off the chapter: `status` is no field of
+    // any folder now, and a `tech/` or `ai/` rating is spelled `rating`.
+    for (const relPath of ['.devbook/domain/sample/features.md', '.devbook/design/sample.md', '.devbook/tech/sample.md']) {
+        const result = await checkFixture(relPath, chapter({}, { status: 'draft' }));
+        assert.ok(result.blocking.length >= 1, `${relPath}: ${blockingText(result)}`);
+        assert.match(blockingText(result), /038-workflow-state-leaves-the-chapter/, relPath);
+    }
+});
+
+test('a rating outside tech/ and ai/ blocks', async () => {
+    // Only those two folders rate anything; a rating borrowed into `design/` is
+    // the mistake one shared list would wave through.
     const design = await checkFixture(
         '.devbook/design/sample.md',
-        chapter({ status: 'active' }, { status: 'adopted' })
+        chapter({ type: 'guideline' }, { rating: 'adopted' })
     );
-    assert.equal(design.blocking.length, 1, blockingText(design));
-    assert.match(design.blocking[0].message, /"adopted"/);
-    assert.match(design.blocking[0].message, /draft, active, deprecated/);
+    assert.ok(design.blocking.length >= 1, blockingText(design));
+    assert.match(blockingText(design), /rating/);
 });
 
 test('a root-level folder is not a devbook folder and is not gated', async () => {
@@ -190,7 +201,7 @@ test('a root-level folder is not a devbook folder and is not gated', async () =>
 test('a bad type value blocks', async () => {
     const result = await checkFixture(
         '.devbook/domain/sample/model.md',
-        chapter({ status: 'active', type: 'model' }, { status: 'active', type: 'widget' })
+        chapter({ type: 'model' }, { type: 'widget' })
     );
 
     assert.equal(result.blocking.length, 1, blockingText(result));
@@ -203,7 +214,7 @@ test('an unrecognized field blocks', async () => {
     // value the schema does not know, and that class is what this gate is for.
     const result = await checkFixture(
         '.devbook/design/sample.md',
-        chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
+        chapter({ type: 'guideline' }, { owner: 'nobody' })
     );
 
     assert.equal(result.blocking.length, 1, blockingText(result));
@@ -230,10 +241,10 @@ test('the command exits 0 on this repository and 1 on a violation', async () => 
 
     const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
-        await mkdir(join(root, '.devbook', 'domain', 'sample'), { recursive: true });
+        await mkdir(join(root, '.devbook', 'tech'), { recursive: true });
         await writeFile(
-            join(root, '.devbook', 'domain', 'sample', 'features.md'),
-            chapter({ status: 'active', type: 'features' }, { status: 'idea', type: 'feature' }),
+            join(root, '.devbook', 'tech', 'sample.md'),
+            chapter({ rating: 'adopted', type: 'library' }, { rating: 'idea', type: 'library' }),
             'utf8'
         );
 
@@ -266,13 +277,13 @@ test('a root with no devbook folders is an error, not a pass', async () => {
 // errors block, the two placement warnings stay advisory — so a change to
 // `classify` that promoted or swallowed one would fail here.
 
-const AI_FILE = { status: 'adopted', type: 'stage' };
+const AI_FILE = { rating: 'adopted', type: 'stage' };
 
 /** Check one `ai/` chapter carrying `fields` beside an adopted `agent` type. */
 function checkAiChapter(fields) {
     return checkFixture(
         '.devbook/ai/sample.md',
-        chapter(AI_FILE, { status: 'adopted', type: 'agent', ...fields })
+        chapter(AI_FILE, { rating: 'adopted', type: 'agent', ...fields })
     );
 }
 
@@ -343,7 +354,7 @@ test('evidence blocks unless it is one word from the vocabulary', async () => {
 test('a placement field on the file-level block blocks', async () => {
     const result = await checkFixture(
         '.devbook/ai/sample.md',
-        chapter({ ...AI_FILE, layer: '[harness]' }, { status: 'adopted', type: 'agent', stage: '[code]' })
+        chapter({ ...AI_FILE, layer: '[harness]' }, { rating: 'adopted', type: 'agent', stage: '[code]' })
     );
     assert.equal(result.blocking.length, 1, blockingText(result));
     assert.match(result.blocking[0].message, /`layer` on the file-level block/);
@@ -356,7 +367,7 @@ test('an unplaced chapter and a missing Moves up when bullet stay advisory, as i
 
     const trial = await checkFixture(
         '.devbook/ai/sample.md',
-        chapter(AI_FILE, { status: 'trial', type: 'agent', stage: '[code]' })
+        chapter(AI_FILE, { rating: 'trial', type: 'agent', stage: '[code]' })
     );
     assert.equal(trial.blocking.length, 0, blockingText(trial));
     assert.ok(trial.advisory >= 1, 'The devbook checker warns on a trial chapter without a Moves up when bullet.');

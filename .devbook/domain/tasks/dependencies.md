@@ -2,7 +2,6 @@
 
 ```meta
 type: dependencies
-status: draft
 related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 

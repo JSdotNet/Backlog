@@ -6,6 +6,12 @@
     that already ships pressable chips almost never calls the pressed state
     `--pressed`. It is `chip--active` here and `--selected` there, and a base
     class alone could not express that.
+
+    Busy is AppButton's Busy without the spinner: the act the button belongs to is
+    running, so a press is ignored, but the button keeps its tab stop and its focus
+    (.devbook/design/interaction-guidelines.md#accessibility) and says aria-disabled
+    instead of the native `disabled`. Disabled is a standing state - the control is
+    unavailable, not waiting - and keeps the native attribute.
 *@
 
 @if (InRadioGroup)
@@ -21,6 +27,7 @@
             aria-checked="@(Pressed ? "true" : "false")"
             tabindex="@(Group!.IsTabStop(this) ? 0 : -1)"
             disabled="@Disabled"
+            aria-disabled="@(Busy && !Disabled ? "true" : null)"
             title="@Title"
             aria-label="@AriaLabel"
             @ref="_element"
@@ -38,6 +45,7 @@ else
             data-testid="@TestId"
             aria-pressed="@(Pressed ? "true" : "false")"
             disabled="@Disabled"
+            aria-disabled="@(Busy && !Disabled ? "true" : null)"
             title="@Title"
             aria-label="@AriaLabel"
             @onclick="TogglePressed"
@@ -75,6 +83,11 @@ else
 
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>Ignores a press without removing the button from the tab order, so
+    /// focus survives while the act it belongs to runs; see <see cref="AppButton.Busy"/>.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
 
     [Parameter]
     public string? Title { get; set; }
@@ -133,6 +146,9 @@ else
         // one-of-many strip sets Pressed from its own selection on the next
         // render, and pressing the pressed one there must not unpress it.
         // A radio is never unchecked by pressing it, so it announces true.
+        // A busy button is still focusable and clickable, so the press is dropped here.
+        if (Busy) return;
+
         var pressed = InRadioGroup || !Pressed;
         Pressed = pressed;
         await PressedChanged.InvokeAsync(pressed);

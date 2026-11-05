@@ -238,8 +238,10 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal("adopted", layer.Metadata.Status);
         Assert.Equal("active", Assert.Single(layer.Nodes).Status);
         var markdown = File.ReadAllText(Path.Combine(techPath, "shared.md"));
-        Assert.Contains("status: adopted", markdown);
-        Assert.Contains("status: active", markdown);
+        // A legacy `status` line is renamed to `rating` as it is written (contract 38).
+        Assert.Contains("rating: adopted", markdown);
+        Assert.Contains("rating: active", markdown);
+        Assert.DoesNotContain("status:", markdown);
     }
 
     [Theory]

@@ -79,6 +79,20 @@ public sealed class TasksPlanSessionRequestTests
     }
 
     [Fact]
+    public async Task With_copy_switched_off_the_icon_follows_the_chip_directly()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+        host.Features.SetEnabled(AppFeatureKeys.CopyEntries, enabled: false);
+
+        var pane = host.Render();
+        var icon = pane.WaitForElement("[data-testid='tag-filter-queue-plan']");
+
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
+        Assert.Equal("tag-filter-option", icon.ParentElement?.PreviousElementSibling?.GetAttribute("data-testid"));
+    }
+
+    [Fact]
     public async Task With_no_plan_pressed_there_is_no_icon()
     {
         var (host, _) = await HostAsync(pressPlan: false);

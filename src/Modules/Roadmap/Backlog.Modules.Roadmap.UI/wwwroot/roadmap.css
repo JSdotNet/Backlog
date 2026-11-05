@@ -329,8 +329,8 @@
     margin-bottom: var(--spacing-sm);
 }
 
-/* The stored plan's tag to copy and, beside it, its queue icon: one line under the
-   Tag field, the copy's status line trailing them. */
+/* The stored plan's tag to copy (while the copy-entries switch is on) and its queue
+   icon: one line under the Tag field, the copy's status line trailing them. */
 .roadmap-editor__plan {
     display: flex;
     align-items: center;

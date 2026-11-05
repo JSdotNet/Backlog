@@ -1,7 +1,6 @@
 # Roadmap Planning
 
 ```meta
-status: draft
 type: context
 deployment: module
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
@@ -29,7 +28,6 @@ gathers. The model itself is in [domain.md](domain.md).
 ## Roadmap view
 
 ```meta
-status: draft
 type: feature-flag
 key: roadmap
 default: on
@@ -57,7 +55,6 @@ and is not retired.
 ## Story points a week
 
 ```meta
-status: draft
 type: setting
 key: planning-velocity.json
 scope: user

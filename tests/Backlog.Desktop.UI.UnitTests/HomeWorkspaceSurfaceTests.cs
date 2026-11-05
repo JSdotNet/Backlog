@@ -3263,15 +3263,15 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas at the
-    /// Devbook's scope over the Devbook; its close, Escape and its option pressed
-    /// again return to the Devbook rather than the view under it — where the person
-    /// was.</summary>
+    /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas over the
+    /// Devbook on the shell's repository scope — the one the Devbook reads; its close,
+    /// Escape and its option pressed again return to the Devbook rather than the view
+    /// under it — where the person was.</summary>
     [Theory]
     [InlineData("close")]
     [InlineData("escape")]
     [InlineData("option")]
-    public async Task The_devbooks_atlas_button_opens_the_atlas_at_its_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
+    public async Task The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
     {
         using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
         var component = Render(harness);
@@ -3466,9 +3466,10 @@ public sealed class HomeWorkspaceSurfaceTests
                 component.Find("[data-testid='dashboard-toggle-button']").Click();
                 component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
                 component.Find("[data-testid='atlas-toggle-button']").Click();
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']")));
+                component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
 
-                component.Find("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']").Click();
+                component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click();
                 component.WaitForAssertion(() =>
                     Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
                 component.Find("[data-testid='lobes-atlas-card-action']").Click();
@@ -3501,11 +3502,12 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Back from Settings once the ghost's alias is registered: the atlas opens on
-    /// that devbook's scope rather than on a ghost the graph no longer holds.
+    /// Back from Settings once the ghost's alias is registered: the shell is scoped to
+    /// that repository, and the atlas follows it onto that devbook rather than a
+    /// ghost the graph no longer holds.
     /// </summary>
     [Fact]
-    public void Back_from_registering_the_ghosts_alias_opens_that_devbooks_scope()
+    public void Back_from_registering_the_ghosts_alias_scopes_the_shell_to_it_and_the_atlas_follows()
     {
         var path = NewShellNavigationPath();
 
@@ -3517,9 +3519,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
             using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes);
             var component = Render(harness);
+            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
             component.WaitForAssertion(() =>
             {
+                Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
                 Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
                 Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
             });
@@ -3591,18 +3595,20 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
         component.Find("[data-testid='atlas-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='brain']")));
+        component.WaitForAssertion(() => Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
 
-        // No Brain composed in this host: said out loud, the atlas stays.
-        component.Find("[data-testid='lobes-atlas-scope'][data-scope='brain']").Click();
-        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-card-action']").Click());
+        // No Brain composed in this host: said out loud, the atlas stays. The
+        // header's Brain chip is what puts the atlas on the Brain.
+        component.Find("[data-testid='brain-scope-option']").Click();
+        component.WaitForAssertion(() => Assert.Equal("brain", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+        component.Find("[data-testid='lobes-atlas-card-action']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.Equal("tasks-devbook-unavailable", Assert.Single(toasts.Visible).TestId);
             Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
         });
 
-        component.Find("[data-testid='lobes-atlas-scope'][data-scope='repo:backlog']").Click();
+        component.Find("[data-testid='repository-filter-option']").Click();
         component.WaitForAssertion(() =>
             Assert.Equal("Open devbook", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
         component.Find("[data-testid='lobes-atlas-card-action']").Click();
@@ -3612,6 +3618,69 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
         });
+    }
+
+    /// <summary>
+    /// The atlas draws the shell's repository scope, so that scope stays plural while
+    /// the atlas has the screen: opening it does not narrow the scope to its anchor,
+    /// and Ctrl on a header chip adds or takes a member there.
+    /// </summary>
+    [Fact]
+    public void Opening_the_atlas_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it_while_it_has_the_screen()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+            Assert.Equal("all", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal("repo:backlog", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+            Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+    }
+
+    /// <summary>A plain press on a header chip while the atlas is open lays the atlas
+    /// out again on that member, without reopening it.</summary>
+    [Fact]
+    public void A_header_chip_press_lays_the_open_atlas_out_again()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+
+        component.Find("[data-testid='repository-filter-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("repo:backlog", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+            Assert.Equal("Devbook folders", component.Find(".lobes-atlas__panel-title").TextContent.Trim());
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click();
+        component.WaitForAssertion(() => Assert.Equal("brain", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+        Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
     }
 
     private static void AddLobes(IServiceCollection services) =>

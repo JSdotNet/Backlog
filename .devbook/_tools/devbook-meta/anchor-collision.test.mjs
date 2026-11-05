@@ -54,8 +54,8 @@ const nodeAt = (graph, id) => graph.nodes.find((n) => n.id === id);
 // ── Two addressable headings ────────────────────────────────────────────────
 
 const twoChapters = await graphOf(
-    chapter("Order Management", "type: bounded-context\nstatus: draft\n") +
-        chapter("Order Management!", "type: bounded-context\nstatus: approved\n")
+    chapter("Order Management", "type: bounded-context\ndate: 2026-01-01\n") +
+        chapter("Order Management!", "type: bounded-context\ndate: 2026-02-02\n")
 );
 check(
     collisions(twoChapters).length === 1,
@@ -64,7 +64,7 @@ check(
 );
 const kept = nodeAt(twoChapters, ANCHOR);
 check(
-    kept?.label === "Order Management" && kept?.status === "draft",
+    kept?.label === "Order Management" && kept?.date === "2026-01-01",
     "the first chapter keeps the anchor — the second does not overwrite it",
     JSON.stringify(kept)
 );

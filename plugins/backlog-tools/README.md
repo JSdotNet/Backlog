@@ -131,17 +131,19 @@ running plan.
   (`disable-model-invocation: true`); it never talks to the Backlog app, the source tool, or
   GitHub.
 - **`handle-remarks`** — empties the other inbox: the private reading notes a person
-  left on a repository's Devbook chapters in the app. It reads them over MCP
-  (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
-  through the devbook plugin's own `annotations.mjs`, and only then resolves the note
-  (`resolve_annotation`). Fence first, resolve second, because that is the order whose
-  half-done state is recoverable. It writes nothing for an archived repository, whose devbook
-  is read-only (`list_annotations` answers `archived: true`, local ADR 0029 §4), and neither
-  does `run-plan-item`'s short form. The two
-  annotation kinds stay two things —
-  `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
-  and the app is never the fence's writer. `run-plan-item` carries a short form of
-  the same procedure for the notes an item it just ran leaves answerable.
+  left on a repository's Devbook chapters in the app. It reads them over MCP, one chapter at a
+  time (`devbook_list_notes` per address, `list_annotations` per chapter path). A
+  default-branch note it answers with a reply through `devbook_post_note` (`replyTo`) and then
+  resolves with `devbook_resolve_note`; a note those refuse — `unknown-note`, a branch-snapshot
+  note, a Brain note — it answers in the session report and closes with `resolve_annotation`.
+  Answer first, resolve second, because that is the order whose half-done state is
+  recoverable. A chapter or code fix an answer needs goes through the delivery gate; the skill
+  itself writes and commits nothing. It never writes a fence: devbook
+  contract 38 retired the `annotation` fence, the checker rejects one, and a review note is a
+  thread in Backlog's store (local ADRs 0044 and 0011). It writes nothing for an archived
+  repository, whose devbook is read-only (`list_annotations` answers `archived: true`, local
+  ADR 0029 §4), and neither does `run-plan-item`'s short form. `run-plan-item` carries a
+  short form of the same procedure for the notes an item it just ran leaves answerable.
 - **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
   ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude

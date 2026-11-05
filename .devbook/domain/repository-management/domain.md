@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
@@ -17,7 +16,6 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 aliases: [RepositoryRegistry]
 ```
@@ -56,7 +54,6 @@ security. The rules they will hold are in
 
 ```meta
 type: entity
-status: draft
 aliases: [repo_id, repo_ids]
 ```
 
@@ -93,7 +90,6 @@ baseline does not allow will then trigger a deprecation warning.
 
 ```meta
 type: value-object
-status: draft
 aliases: [alias, repository alias]
 related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registry-configuration]
 ```
@@ -113,7 +109,6 @@ nothing about which repository is meant.
 
 ```meta
 type: value-object
-status: draft
 aliases: [RepositoryRename, memory of a rename]
 related: [.devbook/domain/repository-management/features.md#following-a-repository-rename]
 ```
@@ -133,7 +128,6 @@ is that new repository, not the old one. A rename leaves an
 
 ```meta
 type: value-object
-status: draft
 aliases: [RepositoryRemoval, memory of a removal]
 related: [.devbook/domain/repository-management/features.md#following-a-repository-rename]
 ```
@@ -150,7 +144,6 @@ import that names it.
 
 ```meta
 type: entity
-status: draft
 aliases: [PackageManifest]
 ```
 
@@ -162,7 +155,6 @@ file (e.g. `package.json`, `*.csproj`, `pyproject.toml`, `go.mod`).
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A single dependency: `name`, `version`, `constraint`, `latest_version`,
@@ -172,7 +164,6 @@ A single dependency: `name`, `version`, `constraint`, `latest_version`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A detected technology in the repo: `name`, `version`, `category`
@@ -182,7 +173,6 @@ A detected technology in the repo: `name`, `version`, `category`
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A snapshot of GitHub stats: `stars`, `forks`, `watchers`, `open_issues`,
@@ -192,7 +182,6 @@ A snapshot of GitHub stats: `stars`, `forks`, `watchers`, `open_issues`,
 
 ```meta
 type: value-object
-status: draft
 aliases: [HealthDetails, health score, health_score]
 ```
 
@@ -206,7 +195,6 @@ The breakdown of a repository's 0-100 health score, tracked over time as
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A vulnerability from GitHub Advanced Security: `alert_id`, `vulnerability`,
@@ -217,7 +205,6 @@ A vulnerability from GitHub Advanced Security: `alert_id`, `vulnerability`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Daily freshness: `date`, `outdated_count`, `total_count`, `freshness_pct`
@@ -227,7 +214,6 @@ Daily freshness: `date`, `outdated_count`, `total_count`, `freshness_pct`
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Health at a point in time: `date`, `overall_score`, `package_score`,
@@ -237,7 +223,6 @@ Health at a point in time: `date`, `overall_score`, `package_score`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Daily issue/PR aging: `date`, `open_issues`, `avg_issue_age_days`, `open_prs`,
@@ -247,7 +232,6 @@ Daily issue/PR aging: `date`, `open_issues`, `avg_issue_age_days`, `open_prs`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Tech-stack snapshot at a date: `date`, `technologies`.
@@ -256,7 +240,6 @@ Tech-stack snapshot at a date: `date`, `technologies`.
 
 ```meta
 type: value-object
-status: draft
 aliases: [TechBaselines]
 ```
 
@@ -268,7 +251,6 @@ baselines plus `deprecated_tech`. Consumed from Technology Stack
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Portfolio-wide rollup: daily `portfolio_health`, freshness/health `TrendMetrics`,
@@ -278,7 +260,6 @@ and `TechAdoptionTrends`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Kind of repo: `service`, `library`, `frontend`, `cli`, `template`.
@@ -287,7 +268,6 @@ Kind of repo: `service`, `library`, `frontend`, `cli`, `template`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Security alert severity: `critical`, `high`, `medium`, `low`.
@@ -296,7 +276,6 @@ Security alert severity: `critical`, `high`, `medium`, `low`.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repository-management/domain.invariants.md#repository-scan]
 ```
 
@@ -316,7 +295,6 @@ on-demand orchestration service. It is planned and not built.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
@@ -334,7 +312,6 @@ aggregate. Invocation semantics: command-invoked orchestration service.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -347,7 +324,6 @@ enums.
 
 ```meta
 type: ubiquitous-language
-status: draft
 ```
 
 > The terms this context owns that are not chapters above.
@@ -356,7 +332,6 @@ status: draft
 
 ```meta
 type: term
-status: draft
 aliases: [Archived, archive, unarchive, archived row]
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/repository-management/features.md#archiving-a-repository, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 ```
@@ -377,7 +352,6 @@ repository; this is the repository itself.
 
 ```meta
 type: term
-status: draft
 aliases: [active]
 related: [.devbook/domain/repository-management/domain.md#repository]
 ```
@@ -390,7 +364,6 @@ the default repository.
 
 ```meta
 type: term
-status: draft
 aliases: [show-archived]
 related: [.devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
@@ -403,7 +376,6 @@ the roadmap's open work. It changes what is shown, never what is archived.
 
 ```meta
 type: term
-status: proposed
 aliases: [status, PullRequestStatusModel, GoalPullRequestDto, checks and approvals marks]
 related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/requirements.md#pull-request-status, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
@@ -425,7 +397,6 @@ GitHub for it.
 
 ```meta
 type: term
-status: proposed
 aliases: [verdict, PullRequestVerdict]
 related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
@@ -447,7 +418,6 @@ verdict for the same status.
 
 ```meta
 type: term
-status: proposed
 aliases: [stacked pull request, stack, PullRequestStacks]
 related: [.devbook/domain/repository-management/features.md#pull-request-readiness]
 ```
@@ -461,7 +431,6 @@ the bottom, whose base is the repository's own branch, up to the one on top.
 
 ```meta
 type: term
-status: proposed
 aliases: [act, second act, PullRequestMerges]
 related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/domain/repository-management/features.md#re-run-failed, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```

@@ -11,11 +11,12 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Lobes atlas takeover (<c>.devbook/domain/brain/features.md#lobes-atlas</c>)
-/// over a graph handed in whole: its scope switch, the camera a switch resets, the
-/// regions a scope hides, and what a selected node offers.
+/// over a graph handed in whole: how it follows the shell's repository scope, the
+/// camera a new scope resets, the ghosts it draws on request, the regions a scope
+/// hides, and what a selected node offers.
 /// <para>
 /// The camera is the renderer's, and it keeps one per layout: a new layout starts
-/// from the default view. So "switching scope resets the camera" is proved here as
+/// from the default view. So "a new scope resets the camera" is proved here as
 /// the layout the renderer is handed changing with the scope, which is the only
 /// thing C# decides about it.
 /// </para>
@@ -37,39 +38,39 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         _context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
     }
 
+    /// <summary>The atlas has no repository filter of its own: what it draws is the
+    /// shell's repository scope, and an empty one is every registered devbook with
+    /// the Brain — the ghosts left out until the Ghosts toggle asks for them.</summary>
     [Fact]
-    public void The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed()
-    {
-        var component = Render();
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope']")));
-
-        var options = component.FindAll("[data-testid='lobes-atlas-scope']");
-        Assert.Equal(["All", "Brain", "backlog", "devbook-stack"], options.Select(option => option.TextContent.Trim()));
-        Assert.Equal(["all", "brain", "repo:backlog", "ghost:devbook-stack"], options.Select(option => option.GetAttribute("data-scope")));
-        Assert.Contains("lobes-atlas__scope--ghost", options[3].ClassList);
-        Assert.DoesNotContain("lobes-atlas__scope--ghost", options[2].ClassList);
-
-        // Opened from the header with no scope, it opens on All.
-        Assert.Equal("true", options[0].GetAttribute("aria-pressed"));
-        Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout);
-    }
-
-    [Fact]
-    public void Switching_scope_hands_the_renderer_a_new_layout_which_resets_the_camera()
+    public void The_atlas_offers_no_scope_switch_and_draws_the_shells_scope()
     {
         var component = Render();
         component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
 
-        Scope(component, "repo:backlog").Click();
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-scopes']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-scope']"));
+        Assert.Equal(["brain", "repo:backlog"], LastModel().Scopes.Select(scope => scope.Key));
+        Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        Assert.Equal("— Brain + 1 devbook", component.Find("[data-testid='lobes-atlas-headline']").TextContent.Trim());
+    }
+
+    /// <summary>The shell's scope changed while the atlas is open: it lays out again
+    /// without reopening, on that one member's own layout.</summary>
+    [Fact]
+    public void A_new_shell_scope_hands_the_renderer_a_new_layout_which_resets_the_camera()
+    {
+        var component = Render();
+        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
+
+        ShellScope(component, "backlog");
 
         component.WaitForAssertion(() =>
         {
             Assert.Equal("repo:backlog", LastModel().Layout);
-            Assert.Equal("true", Scope(component, "repo:backlog").GetAttribute("aria-pressed"));
-            Assert.Equal("false", Scope(component, LobesAtlasModel.AllLayout).GetAttribute("aria-pressed"));
             Assert.Equal("repo:backlog", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
-            Assert.Contains("backlog devbook", component.Find("[data-testid='lobes-atlas-headline']").TextContent, StringComparison.Ordinal);
+            Assert.Equal("— backlog devbook · 6 folders", component.Find("[data-testid='lobes-atlas-headline']").TextContent.Trim());
+            Assert.Equal("Devbook folders", component.Find(".lobes-atlas__panel-title").TextContent.Trim());
+            Assert.Equal(6, component.FindAll("[data-testid='lobes-atlas-region']").Count);
             Assert.Equal("Open devbook", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim());
         });
 
@@ -77,42 +78,51 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.All(component.FindAll("[data-testid='graph-atlas-index-option']"),
             option => Assert.StartsWith("repo:backlog|", option.GetAttribute("data-node-id"), StringComparison.Ordinal));
 
-        Scope(component, "ghost:devbook-stack").Click();
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("ghost:devbook-stack", LastModel().Layout);
-            Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim());
-        });
+        ShellScope(component, BrainScope.Value);
+        component.WaitForAssertion(() => Assert.Equal("brain", LastModel().Layout));
     }
 
+    /// <summary>A shell's scope that holds nothing the atlas can draw — a
+    /// repository with no devbook — is said in words, with the tools still there:
+    /// never an empty map, and never everything drawn instead.</summary>
     [Fact]
-    public void A_scope_handed_in_opens_on_that_scope_and_an_unknown_one_opens_all()
+    public void The_shells_one_member_opens_its_scope_and_one_with_no_devbook_says_so()
     {
         var component = Render("brain");
         component.WaitForAssertion(() =>
         {
             Assert.Equal("brain", LastModel().Layout);
-            Assert.Equal("true", Scope(component, "brain").GetAttribute("aria-pressed"));
             Assert.Equal("Anatomical regions", component.Find(".lobes-atlas__panel-title").TextContent.Trim());
             Assert.Equal("Open in the pane", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim());
         });
 
-        var unknown = Render("repo:nowhere");
-        unknown.WaitForAssertion(() => Assert.Equal("true", Scope(unknown, LobesAtlasModel.AllLayout).GetAttribute("aria-pressed")));
+        var invocations = _context.JSInterop.Invocations.Count(invocation => invocation.Identifier == RenderFunction);
+        var nowhere = Render("repo:nowhere");
+        nowhere.WaitForAssertion(() =>
+        {
+            var empty = nowhere.Find("[data-testid='lobes-atlas-nothing-in-view']");
+            Assert.Equal("status", empty.GetAttribute("role"));
+            Assert.Contains("turn on Ghosts", empty.TextContent, StringComparison.Ordinal);
+        });
+        Assert.Empty(nowhere.FindAll("[data-testid='lobes-atlas-graph']"));
+        Assert.NotEmpty(nowhere.FindAll("[data-testid='lobes-atlas-labels']"));
+        Assert.NotEmpty(nowhere.FindAll("[data-testid='lobes-atlas-ghosts']"));
+        Assert.Equal(invocations, _context.JSInterop.Invocations.Count(invocation => invocation.Identifier == RenderFunction));
     }
 
     /// <summary>A ghost handed back after its alias was registered — the graph
-    /// holds that devbook now — opens on the devbook.</summary>
+    /// holds that devbook now — asks the shell for that repository, once per
+    /// hand-over, and the atlas follows the shell there.</summary>
     [Fact]
-    public void A_ghost_handed_in_whose_alias_is_registered_since_opens_its_devbook()
+    public void A_ghost_handed_in_whose_alias_is_registered_since_asks_the_shell_for_that_repository()
     {
         var component = Render("ghost:backlog");
 
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("repo:backlog", LastModel().Layout);
-            Assert.Equal("true", Scope(component, "repo:backlog").GetAttribute("aria-pressed"));
-        });
+        component.WaitForAssertion(() => Assert.Equal(["backlog"], _askedFor));
+
+        ShellScope(component, "backlog");
+        component.WaitForAssertion(() => Assert.Equal("repo:backlog", LastModel().Layout));
+        Assert.Equal(["backlog"], _askedFor);
     }
 
     /// <summary>Register repository tells the host which ghost it left on before
@@ -211,7 +221,9 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         DevbookRepositoryChapter? opened = null;
         var component = Render(onOpenChapter: link => opened = link);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
-        // The ghost's one chapter is technology, hidden in All until Tech shows it.
+        // The ghost is drawn once Ghosts asks for it, and its one chapter is
+        // technology, hidden in All until Tech shows it.
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
         component.Find("[data-testid='lobes-atlas-tech']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option'][data-node-id='ghost:devbook-stack|ghost:tech/radar.md']")));
 
@@ -278,7 +290,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var closed = 0;
         string? openedScope = null;
         var component = _context.Render<LobesAtlasTakeover>(parameters => parameters
-            .Add(atlas => atlas.Scope, "repo:backlog")
+            .Add(atlas => atlas.RepositoryScope, (IReadOnlyList<string>)["backlog"])
             .Add(atlas => atlas.OnClose, () => closed++)
             .Add(atlas => atlas.OnOpenScope, (string alias) => openedScope = alias));
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-card-action']")));
@@ -390,15 +402,15 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     // ----- The left panel ------------------------------------------------------------
 
     [Fact]
-    public void In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it()
+    public void In_all_the_panel_lists_the_scopes_in_view_with_their_counts_and_a_row_asks_the_shell_for_it()
     {
         var component = Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row']")));
 
         Assert.Equal("Scopes", component.Find(".lobes-atlas__panel-title").TextContent.Trim());
         var rows = component.FindAll("[data-testid='lobes-atlas-row']");
-        Assert.Equal(["brain", "repo:backlog", "ghost:devbook-stack"], rows.Select(row => row.GetAttribute("data-scope")));
-        Assert.Equal(["2", "3", "—"], rows.Select(row => row.QuerySelector(".lobes-atlas__row-count")!.TextContent.Trim()));
+        Assert.Equal(["brain", "repo:backlog"], rows.Select(row => row.GetAttribute("data-scope")));
+        Assert.Equal(["2", "3"], rows.Select(row => row.QuerySelector(".lobes-atlas__row-count")!.TextContent.Trim()));
         Assert.All(rows, row =>
         {
             AssertRealButton(row);
@@ -407,8 +419,37 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         });
         Assert.Equal("Open backlog", rows[1].GetAttribute("aria-label"));
 
+        // The row asks the shell; the atlas moves when the shell's scope does.
         rows[1].Click();
-        component.WaitForAssertion(() => Assert.Equal("repo:backlog", LastModel().Layout));
+        component.Find("[data-testid='lobes-atlas-row'][data-scope='brain']").Click();
+        Assert.Equal(["backlog", BrainScope.Value], _askedFor);
+        Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout);
+
+        // With Ghosts on, each ghost has its row too, its count a dash.
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal(["brain", "repo:backlog", "ghost:devbook-stack"], component.FindAll("[data-testid='lobes-atlas-row']").Select(row => row.GetAttribute("data-scope"))));
+        Assert.Equal("—", component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack'] .lobes-atlas__row-count").TextContent.Trim());
+    }
+
+    /// <summary>A host that wires no repository scope — the storybook, a bare host —
+    /// gets All's rows as a plain legend and a card with no action, rather than
+    /// buttons that do nothing. A ghost's row still steps into it, which is the
+    /// atlas's own doing.</summary>
+    [Fact]
+    public void Without_a_host_to_ask_alls_rows_are_a_plain_legend_and_its_card_offers_nothing()
+    {
+        var component = _context.Render<LobesAtlasTakeover>();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row']")));
+
+        Assert.All(component.FindAll("[data-testid='lobes-atlas-row']"), row => Assert.Equal("DIV", row.TagName));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-card-action']"));
+
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
+        component.WaitForAssertion(() =>
+            AssertRealButton(component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
+        component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click();
+        component.WaitForAssertion(() => Assert.Equal("ghost:devbook-stack", LastModel().Layout));
     }
 
     [Fact]
@@ -429,7 +470,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             Assert.Equal("true", row.GetAttribute("aria-pressed"));
         });
 
-        Scope(component, "repo:backlog").Click();
+        ShellScope(component, "backlog");
         component.WaitForAssertion(() => Assert.Equal("Devbook folders", component.Find(".lobes-atlas__panel-title").TextContent.Trim()));
         var folders = component.FindAll("[data-testid='lobes-atlas-region']");
         Assert.Equal(["arc42", "tech", "domain", "design", "ai", "Index"],
@@ -446,8 +487,9 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var component = Render("repo:backlog");
         component.WaitForAssertion(() => Assert.Equal(6, component.FindAll("[data-testid='lobes-atlas-chip']").Count));
 
+        // Ghosts too, since the graph holds a ghost: it widens the map to All.
         var tools = component.Find(".lobes-atlas__tools");
-        Assert.Equal(["Labels", "Pause", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        Assert.Equal(["Labels", "Pause", "Ghosts", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         // None is named by its own word; what it does is the title.
         Assert.Null(component.Find("[data-testid='lobes-atlas-show-none']").GetAttribute("aria-label"));
         Assert.Equal("Show every region", component.Find("[data-testid='lobes-atlas-show-all']").GetAttribute("title"));
@@ -471,23 +513,19 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         });
     }
 
+    /// <summary>Which scopes All draws is the shell's to say, so All has no chip
+    /// per scope and no All or None acting on scopes.</summary>
     [Fact]
-    public void In_all_the_chips_are_one_per_scope_and_hide_that_scope()
+    public void In_all_there_are_no_chips_and_no_all_or_none()
     {
         var component = Render();
-        component.WaitForAssertion(() => Assert.Equal(3, component.FindAll("[data-testid='lobes-atlas-chip']").Count));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-labels']")));
 
-        Assert.Equal("Show scopes", component.Find("[data-testid='lobes-atlas-chips']").GetAttribute("aria-label"));
-        var chips = component.FindAll("[data-testid='lobes-atlas-chip']");
-        Assert.Equal(["brain", "repo:backlog", "ghost:devbook-stack"], chips.Select(chip => chip.GetAttribute("data-scope")));
-        Assert.All(chips, AssertRealButton);
-
-        component.Find("[data-testid='lobes-atlas-chip'][data-scope='repo:backlog']").Click();
-        component.WaitForAssertion(() =>
-        {
-            Assert.Contains("repo:backlog", LastModel().HiddenScopes);
-            Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-scope='repo:backlog']").GetAttribute("aria-pressed"));
-        });
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-chips']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-chip']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-show-all']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-show-none']"));
+        Assert.Empty(LastModel().HiddenScopes);
     }
 
     [Fact]
@@ -508,7 +546,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(3, LastModel().HiddenLobes.Count));
 
         // …is left alone by None and All on the Brain.
-        Scope(component, "brain").Click();
+        ShellScope(component, BrainScope.Value);
         component.WaitForAssertion(() => Assert.Equal("brain", LastModel().Layout));
         component.Find("[data-testid='lobes-atlas-show-none']").Click();
         component.WaitForAssertion(() =>
@@ -522,41 +560,27 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.Find("[data-testid='lobes-atlas-show-all']").Click();
         component.WaitForAssertion(() =>
             Assert.Equal(backlogHidden.ToHashSet(), LastModel().HiddenLobes.ToHashSet()));
-
-        // In All, None hides every scope and leaves the regions as they were.
-        Scope(component, LobesAtlasModel.AllLayout).Click();
-        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
-        Assert.Equal("Hide every scope", component.Find("[data-testid='lobes-atlas-show-none']").GetAttribute("title"));
-        component.Find("[data-testid='lobes-atlas-show-none']").Click();
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal(3, LastModel().HiddenScopes.Count);
-            Assert.Equal(3, LastModel().HiddenLobes.Count);
-        });
     }
 
     [Theory]
-    [InlineData(LobesAtlasModel.AllLayout, "All scopes")]
-    [InlineData("brain", "All regions")]
-    [InlineData("repo:backlog", "All regions")]
-    public void The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word(string scope, string name)
+    [InlineData("brain")]
+    [InlineData("repo:backlog")]
+    public void The_show_all_tool_is_named_all_regions_and_starts_with_its_word(string scope)
     {
         var component = Render(scope);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-show-all']")));
 
         var showAll = component.Find("[data-testid='lobes-atlas-show-all']");
-        var switchAll = Scope(component, LobesAtlasModel.AllLayout);
         Assert.Equal("All", showAll.TextContent.Trim());
-        Assert.Equal(name, showAll.GetAttribute("aria-label"));
+        Assert.Equal("All regions", showAll.GetAttribute("aria-label"));
         // WCAG 2.5.3: the name holds the visible word, at its start.
-        Assert.StartsWith(showAll.TextContent.Trim(), name, StringComparison.Ordinal);
+        Assert.StartsWith(showAll.TextContent.Trim(), "All regions", StringComparison.Ordinal);
 
-        // No tool shares a name with an option of the scope switch.
-        var names = component.FindAll(".lobes-atlas__scopes button, .lobes-atlas__tools button")
+        // No two tools share a name.
+        var names = component.FindAll(".lobes-atlas__tools button")
             .Select(button => button.GetAttribute("aria-label") ?? button.TextContent.Trim())
             .ToList();
         Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Equal("All", switchAll.GetAttribute("aria-label") ?? switchAll.TextContent.Trim());
     }
 
     [Fact]
@@ -785,7 +809,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal(4, component.FindAll("[data-testid='lobes-atlas-scope']").Count);
+            Assert.Contains(LastModel().Scopes, scope => scope.Key == "repo:devbook-stack");
             Assert.Contains(new LobesAtlasRegionKey("repo:devbook-stack", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
             Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
             Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed"));
@@ -798,7 +822,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var component = Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
 
-        Assert.Equal(["Labels", "Pause", "Tech", "All", "None", "✕"],
+        Assert.Equal(["Labels", "Pause", "Tech", "Ghosts", "✕"],
             component.Find(".lobes-atlas__tools").QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         var tech = component.Find("[data-testid='lobes-atlas-tech']");
         AssertRealButton(tech);
@@ -808,9 +832,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Contains("btn", tech.ClassList);
         Assert.Contains("btn--toggle", tech.ClassList);
 
-        Assert.Equal(
-            [new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal)],
-            LastModel().HiddenAllLobes);
+        // The ghost is off the map until Ghosts asks for it, so only backlog's.
+        Assert.Equal([new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal)], LastModel().HiddenAllLobes);
         var listed = component.FindAll("[data-testid='graph-atlas-index-option']").Select(option => option.GetAttribute("data-node-id")).ToList();
         Assert.DoesNotContain(Docker, listed);
         Assert.Contains("repo:backlog|.devbook/arc42/01-introduction.md", listed);
@@ -839,7 +862,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         });
 
         // Hidden in All too, until Tech shows it.
-        Scope(component, LobesAtlasModel.AllLayout).Click();
+        component.Find("[data-testid='lobes-atlas-ghost-back']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
         Assert.Contains(new LobesAtlasRegionKey(GhostStack, LobesAtlasMark.Parietal), LastModel().HiddenAllLobes!);
         Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == Radar);
@@ -870,13 +893,13 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
         });
 
-        Scope(component, "repo:backlog").Click();
+        ShellScope(component, "backlog");
         component.WaitForAssertion(() =>
             Assert.Equal("false", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed")));
 
         // Shown in the scope, then hidden again in All: the scope keeps it shown.
         component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").Click();
-        Scope(component, LobesAtlasModel.AllLayout).Click();
+        ShellScope(component);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
         component.Find("[data-testid='lobes-atlas-tech']").Click();
         component.WaitForAssertion(() =>
@@ -886,7 +909,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             Assert.DoesNotContain(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Parietal), LastModel().HiddenLobes);
         });
 
-        Scope(component, "repo:backlog").Click();
+        ShellScope(component, "backlog");
         component.WaitForAssertion(() =>
             Assert.Equal("true", component.Find("[data-testid='lobes-atlas-chip'][data-lobe='parietal']").GetAttribute("aria-pressed")));
     }
@@ -931,7 +954,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         AssertRealButton(component.Find("[data-testid='lobes-atlas-card-action']"));
         Assert.Equal("Open in the pane", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim());
 
-        Scope(component, "repo:backlog").Click();
+        ShellScope(component, "backlog");
         component.WaitForAssertion(() =>
         {
             var lines = component.FindAll(".lobes-atlas__card-line").Select(line => line.TextContent.Trim()).ToList();
@@ -942,7 +965,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         // A ghost was never indexed here; its action, a button like the others,
         // opens the repository settings.
-        Scope(component, "ghost:devbook-stack").Click();
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
+        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click());
         component.WaitForAssertion(() =>
             Assert.DoesNotContain(component.FindAll(".lobes-atlas__card-line"), line => line.TextContent.Contains("indexed", StringComparison.OrdinalIgnoreCase)));
         var register = component.Find("[data-testid='lobes-atlas-card-action']");
@@ -987,7 +1011,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     public void Every_control_of_the_atlas_is_a_real_button(string scope)
     {
         var component = Render(scope);
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-ghosts']")));
 
         AssertEveryControlIsANamedButton(component.FindAll(".lobes-atlas__header button, .lobes-atlas__header a, .lobes-atlas__panel button, .lobes-atlas__panel a"));
     }
@@ -1055,7 +1079,6 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         var focus = Rule(css, ".lobes-atlas__row:focus-visible,");
         Assert.Contains(".lobes-atlas__chip:focus-visible", focus, StringComparison.Ordinal);
-        Assert.Contains(".lobes-atlas__header .header-group__option:focus-visible", focus, StringComparison.Ordinal);
         Assert.Contains("outline: var(--border-width-2) solid var(--color-border-focus);", focus, StringComparison.Ordinal);
     }
 
@@ -1082,21 +1105,6 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Contains("flex: 0 1 auto;", legend, StringComparison.Ordinal);
         Assert.Contains("min-height: calc(2 * 44px", legend, StringComparison.Ordinal);
         Assert.Contains("overflow: hidden;", legend, StringComparison.Ordinal);
-    }
-
-    /// <summary>Found in the live QA pass: at 390 px the fused scope switch clipped
-    /// six of thirteen scopes and squeezed the rest until their names overlapped.
-    /// The switch scrolls sideways instead and no option shrinks below its name.</summary>
-    [Fact]
-    public void The_stylesheet_lets_the_scope_switch_scroll_rather_than_clip_or_squeeze_its_options()
-    {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
-
-        var scopes = Rule(css, ".lobes-atlas__scopes {");
-        Assert.Contains("overflow-x: auto;", scopes, StringComparison.Ordinal);
-        Assert.Contains("max-width: 100%;", scopes, StringComparison.Ordinal);
-
-        Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__scopes > .header-group__option {"), StringComparison.Ordinal);
     }
 
     /// <summary>Lobes.dc.html draws the map full-bleed and floats everything over
@@ -1130,8 +1138,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Contains("z-index: 1;", floating, StringComparison.Ordinal);
         Assert.Contains("pointer-events: none;", floating, StringComparison.Ordinal);
 
-        var controls = NestedRule(wide, ".lobes-atlas__scopes,");
-        foreach (var part in new[] { ".lobes-atlas__tools,", ".lobes-atlas__chips,", ".lobes-atlas__sheet {" })
+        var controls = NestedRule(wide, ".lobes-atlas__tools,");
+        foreach (var part in new[] { ".lobes-atlas__chips,", ".lobes-atlas__sheet {" })
         {
             Assert.Contains(part, controls, StringComparison.Ordinal);
         }
@@ -1243,20 +1251,26 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     public void A_change_reads_the_atlas_again()
     {
         var component = Render();
-        component.WaitForAssertion(() => Assert.Equal(4, component.FindAll("[data-testid='lobes-atlas-scope']").Count));
+        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
+        component.WaitForAssertion(() => Assert.Equal(3, component.FindAll("[data-testid='lobes-atlas-row']").Count));
 
         var graph = SampleGraph();
         _lobes.Graph = graph with { Scopes = [.. graph.Scopes.Where(scope => scope.Kind != DevbookLobesScopeKind.Ghost)] };
         _lobes.RaiseChanged();
 
-        component.WaitForAssertion(() => Assert.Equal(3, component.FindAll("[data-testid='lobes-atlas-scope']").Count));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, component.FindAll("[data-testid='lobes-atlas-row']").Count);
+            // No ghost left, so no Ghosts to offer.
+            Assert.Empty(component.FindAll("[data-testid='lobes-atlas-ghosts']"));
+        });
     }
 
     /// <summary>On a ghost when its alias gets registered — the devbook built into
-    /// the graph after the reader came back — the reread moves to that devbook
-    /// rather than dropping to All.</summary>
+    /// the graph after the reader came back — the reread asks the shell for that
+    /// repository rather than leaving the reader on a ghost that is gone.</summary>
     [Fact]
-    public void A_reread_after_the_ghosts_alias_is_registered_moves_to_its_devbook()
+    public void A_reread_after_the_ghosts_alias_is_registered_asks_the_shell_for_its_repository()
     {
         var component = Render("ghost:devbook-stack");
         component.WaitForAssertion(() => Assert.Equal("ghost:devbook-stack", LastModel().Layout));
@@ -1270,19 +1284,235 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         };
         _lobes.RaiseChanged();
 
-        component.WaitForAssertion(() => Assert.Equal("true", Scope(component, "repo:devbook-stack").GetAttribute("aria-pressed")));
+        component.WaitForAssertion(() => Assert.Equal(["devbook-stack"], _askedFor));
+
+        ShellScope(component, "devbook-stack");
+        component.WaitForAssertion(() => Assert.Equal("repo:devbook-stack", LastModel().Layout));
+    }
+
+    // ----- Following the shell's scope ---------------------------------------------
+
+    /// <summary>Several members in the shell's scope: All, drawn with those scopes
+    /// alone — left out of the model, not hidden in it, so the renderer seats only
+    /// them.</summary>
+    [Fact]
+    public void Several_in_view_draw_all_with_only_those_scopes()
+    {
+        _lobes.Graph = WithDocs(SampleGraph());
+        var component = _context.Render<LobesAtlasTakeover>(parameters => parameters
+            .Add(atlas => atlas.RepositoryScope, (IReadOnlyList<string>)[BrainScope.Value, "backlog"]));
+
+        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
+        var model = LastModel();
+        Assert.Equal(["brain", "repo:backlog"], model.Scopes.Select(scope => scope.Key));
+        Assert.All(model.Marks, mark => Assert.Contains(mark.Scope, new[] { "brain", "repo:backlog" }));
+        Assert.Empty(model.HiddenScopes);
+        Assert.All(component.FindAll("[data-testid='graph-atlas-index-option']"), option =>
+            Assert.True(option.GetAttribute("data-node-id")!.StartsWith("brain|", StringComparison.Ordinal)
+                || option.GetAttribute("data-node-id")!.StartsWith("repo:backlog|", StringComparison.Ordinal)));
+        Assert.Equal("— Brain + 1 devbook", component.Find("[data-testid='lobes-atlas-headline']").TextContent.Trim());
+
+        // Without the Brain, the headline counts the devbooks alone.
+        ShellScope(component, "backlog", "docs");
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["repo:backlog", "repo:docs"], LastModel().Scopes.Select(scope => scope.Key));
+            Assert.Equal("— 2 devbooks", component.Find("[data-testid='lobes-atlas-headline']").TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void An_empty_shell_scope_draws_the_brain_and_every_registered_devbook_and_no_ghost()
+    {
+        _lobes.Graph = WithDocs(SampleGraph());
+        var component = Render();
+
+        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
+        Assert.Equal(["brain", "repo:backlog", "repo:docs"], LastModel().Scopes.Select(scope => scope.Key));
+        Assert.DoesNotContain(LastModel().Marks, mark => mark.Scope == GhostStack);
+        Assert.Equal("— Brain + 2 devbooks", component.Find("[data-testid='lobes-atlas-headline']").TextContent.Trim());
+    }
+
+    /// <summary>A new shell scope is a new layout, and what the reader set on the
+    /// atlas — a region hidden, Labels, Pause, Tech — survives it.</summary>
+    [Fact]
+    public void A_shell_scope_change_lays_out_live_and_keeps_region_hides_labels_pause_and_tech()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+        var frontal = new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal);
+
+        component.Find("[data-testid='lobes-atlas-chip'][data-lobe='frontal']").Click();
+        component.Find("[data-testid='lobes-atlas-labels']").Click();
+        component.Find("[data-testid='lobes-atlas-motion']").Click();
+
+        ShellScope(component);
+        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
+        component.Find("[data-testid='lobes-atlas-tech']").Click();
+        component.WaitForAssertion(() => Assert.Empty(LastModel().HiddenAllLobes!));
+
+        ShellScope(component, "backlog");
+        component.WaitForAssertion(() =>
+        {
+            var model = LastModel();
+            Assert.Equal("repo:backlog", model.Layout);
+            Assert.Contains(frontal, model.HiddenLobes);
+            Assert.False(model.ShowLabels);
+            Assert.False(model.IdleMotion);
+        });
+
+        ShellScope(component);
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-tech']").GetAttribute("aria-pressed")));
+    }
+
+    /// <summary>A shell render that changes nothing the atlas draws hands the
+    /// renderer no fresh model, which would repaint the scene.</summary>
+    [Fact]
+    public void The_same_shell_scope_again_hands_the_renderer_nothing_new()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.Equal("repo:backlog", LastModel().Layout));
+        var before = LastModel();
+
+        ShellScope(component, "backlog");
+
+        Assert.Same(before, LastModel());
+    }
+
+    [Fact]
+    public void Ghosts_is_a_toggle_that_draws_every_ghost_in_all_and_is_absent_without_one()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-ghosts']")));
+
+        var ghosts = component.Find("[data-testid='lobes-atlas-ghosts']");
+        AssertRealButton(ghosts);
+        Assert.Equal("false", ghosts.GetAttribute("aria-pressed"));
+        Assert.Contains("btn--toggle", ghosts.ClassList);
+
+        // On: All, with the scope in view and every ghost, dashed and saying so.
+        ghosts.Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-ghosts']").GetAttribute("aria-pressed"));
+            var model = LastModel();
+            Assert.Equal(LobesAtlasModel.AllLayout, model.Layout);
+            Assert.Equal(["repo:backlog", GhostStack], model.Scopes.Select(scope => scope.Key));
+            var ghost = model.Scopes.Single(scope => scope.Key == GhostStack);
+            Assert.Equal(LobesAtlasScope.Ghost, ghost.Kind);
+            Assert.Equal(DevbookLobesAtlas.NotRegistered, ghost.Status);
+        });
+
+        // Off: the ghosts leave the map and the index, and the one scope is back.
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
+        component.WaitForAssertion(() => Assert.Equal("repo:backlog", LastModel().Layout));
+        Assert.DoesNotContain(component.FindAll("[data-testid='graph-atlas-index-option']"),
+            option => option.GetAttribute("data-node-id")!.StartsWith(GhostStack, StringComparison.Ordinal));
+
+        var graph = SampleGraph();
+        _lobes.Graph = graph with { Scopes = [.. graph.Scopes.Where(scope => scope.Kind != DevbookLobesScopeKind.Ghost)] };
+        var without = Render();
+        without.WaitForAssertion(() => Assert.NotEmpty(without.FindAll("[data-testid='lobes-atlas-labels']")));
+        Assert.Empty(without.FindAll("[data-testid='lobes-atlas-ghosts']"));
+    }
+
+    /// <summary>A ghost's row steps into that ghost, with its card and Register
+    /// repository; Back to all scopes, Ghosts off and a new shell scope each
+    /// leave it.</summary>
+    [Fact]
+    public void A_ghost_row_steps_into_the_ghost_and_back_ghosts_off_or_a_shell_change_leaves_it()
+    {
+        var component = Render();
+        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
+
+        void StepIn()
+        {
+            component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click());
+            component.WaitForAssertion(() => Assert.Equal(GhostStack, LastModel().Layout));
+        }
+
+        StepIn();
+        Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim());
+        var back = component.Find("[data-testid='lobes-atlas-ghost-back']");
+        AssertRealButton(back);
+        Assert.Equal("Back to all scopes", back.TextContent.Trim());
+        back.Click();
+        component.WaitForAssertion(() => Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout));
+        Assert.Empty(_askedFor);
+
+        // A new shell scope: All again, the one repository in view beside the
+        // ghosts, since Ghosts is still on.
+        StepIn();
+        ShellScope(component, "backlog");
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout);
+            Assert.Equal(["repo:backlog", GhostStack], LastModel().Scopes.Select(scope => scope.Key));
+        });
+
+        ShellScope(component);
+        StepIn();
+        component.Find("[data-testid='lobes-atlas-ghosts']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(LobesAtlasModel.AllLayout, LastModel().Layout);
+            Assert.Equal(["brain", "repo:backlog"], LastModel().Scopes.Select(scope => scope.Key));
+        });
+    }
+
+    [Fact]
+    public void Step_into_the_brain_asks_the_shell_for_the_brain()
+    {
+        var component = Render();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Step into the Brain", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
+
+        component.Find("[data-testid='lobes-atlas-card-action']").Click();
+
+        Assert.Equal([BrainScope.Value], _askedFor);
     }
 
     // ----- Fixtures ------------------------------------------------------------------
 
+    /// <summary>What the atlas asked the shell for, through <c>OnScopeTo</c>.</summary>
+    private readonly List<string> _askedFor = [];
+
+    /// <summary>The atlas as the shell puts it on <paramref name="scope"/>: the
+    /// Brain or a repository as the shell's one member, All as every repository, a
+    /// ghost handed in as Register repository leaves it.</summary>
     private IRenderedComponent<LobesAtlasTakeover> Render(
         string? scope = null,
         Action<string>? onOpenNote = null,
         Action<DevbookRepositoryChapter>? onOpenChapter = null) =>
         _context.Render<LobesAtlasTakeover>(parameters => parameters
-            .Add(atlas => atlas.Scope, scope)
+            .Add(atlas => atlas.RepositoryScope, ShellScopeFor(scope))
+            .Add(atlas => atlas.Scope, scope is not null && scope.StartsWith(DevbookLobesGraph.GhostScopePrefix, StringComparison.Ordinal) ? scope : null)
+            .Add(atlas => atlas.OnScopeTo, (string member) => _askedFor.Add(member))
             .Add(atlas => atlas.OnOpenNote, (string path) => onOpenNote?.Invoke(path))
             .Add(atlas => atlas.OnOpenRepositoryChapter, (DevbookRepositoryChapter link) => onOpenChapter?.Invoke(link)));
+
+    private static IReadOnlyList<string> ShellScopeFor(string? scope) => scope switch
+    {
+        DevbookLobesGraph.BrainScopeKey => [BrainScope.Value],
+        { } key when key.StartsWith(DevbookLobesReader.RepositoryScopePrefix, StringComparison.Ordinal) => [key[DevbookLobesReader.RepositoryScopePrefix.Length..]],
+        _ => []
+    };
+
+    /// <summary>The shell's scope changed under the open atlas: the host renders it
+    /// again with the new members.</summary>
+    private static void ShellScope(IRenderedComponent<LobesAtlasTakeover> component, params string[] members) =>
+        component.Render(parameters => parameters.Add(atlas => atlas.RepositoryScope, (IReadOnlyList<string>)members));
+
+    /// <summary>The sample graph with a second registered devbook, <c>docs</c>.</summary>
+    private static DevbookLobesGraph WithDocs(DevbookLobesGraph graph)
+    {
+        const string docs = "repo:docs";
+        var guide = new DevbookLobesNode($"{docs}|.devbook/arc42/guide.md", "Guide", docs, DevbookLobe.Frontal, DevbookLobesNodeKind.Chapter, ".devbook/arc42/guide.md");
+        var scope = new DevbookLobesScope(docs, "docs", DevbookLobesScopeKind.Devbook, "docs", true, null,
+            Enum.GetValues<DevbookLobe>().ToDictionary(lobe => lobe, lobe => lobe == DevbookLobe.Frontal ? 1 : 0), 1, 0);
+        return graph with { Scopes = [.. graph.Scopes, scope], Nodes = [.. graph.Nodes, guide] };
+    }
 
     /// <summary>A real, named button: the element, not a div made to act as one.</summary>
     private static void AssertRealButton(AngleSharp.Dom.IElement element)
@@ -1347,9 +1577,6 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.True(start >= 0, $"{opening} should exist in the block.");
         return block[start..block.IndexOf('}', start)];
     }
-
-    private static AngleSharp.Dom.IElement Scope(IRenderedComponent<LobesAtlasTakeover> component, string key) =>
-        component.Find($"[data-testid='lobes-atlas-scope'][data-scope='{key}']");
 
     /// <summary>The model the renderer was last handed.</summary>
     private LobesAtlasModel LastModel() =>

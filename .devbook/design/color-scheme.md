@@ -657,7 +657,6 @@ words onto one set of status tones. Review surface: storybook → *Badges*, and
 ### Impediment state tones
 
 ```meta
-status: draft
 related: [".devbook/domain/progress/domain.md#impediment-state", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 ```
 
@@ -696,7 +695,6 @@ storybook → *Stand-up*, **Badges** and **State list**.
 ### Goal forecast badges
 
 ```meta
-status: draft
 related: [".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/features.md#the-goals-view"]
 ```
 
@@ -716,7 +714,6 @@ Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On trac
 ### Pull request status marks
 
 ```meta
-status: draft
 related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/repository-management/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
 ```
 

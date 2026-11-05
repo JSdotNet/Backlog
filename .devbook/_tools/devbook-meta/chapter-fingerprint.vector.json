@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "description": "The shared chapter fingerprint vector, devbook.chapter.fingerprint@1 per resources/chapter-fingerprint.md. Every implementation — devbook's metadata.mjs and chapter-hash.mjs, spec-manager's, Backlog's — reads each block case's markdown as the file at path, takes the block address names, folds in each demo the block belongs to from demos (a path absent from it does not exist), and must produce canonical and fingerprint exactly. Each change case is a change folder: its proposal.md and each delta at its path, and must produce canonical and fingerprint exactly. A case with sameAs fingerprints the same as the case it names; one with differsFrom, differently.",
+  "algorithm": "sha256: followed by the first 8 lowercase hex of SHA-256 over the canonical text in UTF-8",
+  "blocks": [
+    {
+      "name": "file block: meta and annotation fences dropped, a diagram kept, whitespace collapsed",
+      "path": ".devbook/arc42/adr/example.md",
+      "address": ".devbook/arc42/adr/example.md",
+      "markdown": "# Example Record\n\n```meta\ndate: 2026-10-29\nrelated: [\".devbook/arc42/09-architecture-decisions.md\"]\n```\n\nThe   record states   a choice.\n\n```annotation\nkind: question\nby: Job\nstatus: open\nbody: Is this the choice?\n```\n\n## Why\n\n```meta\n```\n\nBecause\tit reads.\n\n```mermaid\nflowchart LR\n  a  -->  b\n```\n",
+      "canonical": "Example Record\nThe record states a choice.\n## Why\nBecause it reads.\n```mermaid\nflowchart LR\na --> b\n```",
+      "fingerprint": "sha256:276306ad"
+    },
+    {
+      "name": "the same file reflowed, in CRLF, with a note added",
+      "path": ".devbook/arc42/adr/example.md",
+      "address": ".devbook/arc42/adr/example.md",
+      "markdown": "# Example Record\r\n\r\n```meta\r\ndate: 2026-10-29\r\nrelated: [\".devbook/arc42/09-architecture-decisions.md\"]\r\n```\r\n\r\n  The record states a choice.  \r\n\r\n\r\n\r\n\r\n```annotation\r\nkind: question\r\nby: Job\r\nstatus: open\r\nbody: Is this the choice?\r\n```\r\n\r\n## Why\r\n\r\n```annotation\r\nkind: flag\r\nby: Job\r\nstatus: resolved\r\nbody: Fine.\r\n```\r\n\r\n```meta\r\n```\r\n\r\nBecause\tit reads.\r\n\r\n```mermaid\r\nflowchart LR\r\n  a  -->  b\r\n```\r\n",
+      "canonical": "Example Record\nThe record states a choice.\n## Why\nBecause it reads.\n```mermaid\nflowchart LR\na --> b\n```",
+      "fingerprint": "sha256:276306ad",
+      "sameAs": "file block: meta and annotation fences dropped, a diagram kept, whitespace collapsed"
+    },
+    {
+      "name": "a ## chapter covers its ### and stops at the next ##; a # line inside a fence is content",
+      "path": ".devbook/domain/ordering/domain.md",
+      "address": ".devbook/domain/ordering/domain.md#order",
+      "markdown": "# Ordering\n\n```meta\ntype: domain\n```\n\n## Order\n\n```meta\ntype: aggregate\n```\n\nAn order holds lines.\n\n### Lines\n\nA line holds a product.\n\n~~~text\n# not a heading\n~~~\n\n## Payment\n\n```meta\ntype: aggregate\n```\n\nA payment settles an order.\n",
+      "canonical": "Order\nAn order holds lines.\n### Lines\nA line holds a product.\n~~~text\n# not a heading\n~~~",
+      "fingerprint": "sha256:25b1952a"
+    },
+    {
+      "name": "renaming a chapter changes it",
+      "path": ".devbook/domain/ordering/domain.md",
+      "address": ".devbook/domain/ordering/domain.md#purchase-order",
+      "markdown": "# Ordering\n\n```meta\ntype: domain\n```\n\n## Purchase Order\n\n```meta\ntype: aggregate\n```\n\nAn order holds lines.\n\n### Lines\n\nA line holds a product.\n\n~~~text\n# not a heading\n~~~\n\n## Payment\n\n```meta\ntype: aggregate\n```\n\nA payment settles an order.\n",
+      "canonical": "Purchase Order\nAn order holds lines.\n### Lines\nA line holds a product.\n~~~text\n# not a heading\n~~~",
+      "fingerprint": "sha256:39fb2668",
+      "differsFrom": "a ## chapter covers its ### and stops at the next ##; a # line inside a fence is content"
+    },
+    {
+      "name": "a page's file block folds in its page demo and the demo a chapter names, each without its managed region",
+      "path": ".devbook/domain/ordering/features.md",
+      "address": ".devbook/domain/ordering/features.md",
+      "markdown": "# Features\n\n```meta\ntype: features\n```\n\n## Checkout\n\n```meta\ntype: feature\ndemo: [.devbook/domain/ordering/checkout.demo.html#cart]\n```\n\nA buyer pays for the cart.\n",
+      "demos": {
+        ".devbook/domain/ordering/features.demo.html": "<!doctype html>\r\n<html>\r\n<!-- template:begin v=3 sha256:00000000 -->\n<style>a{}</style>\n<!-- template:end -->\r\n<section data-screen=\"list\">Features</section>\r\n</html>\r\n",
+        ".devbook/domain/ordering/checkout.demo.html": "<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n"
+      },
+      "canonical": "sha256:43de229a\n.devbook/domain/ordering/checkout.demo.html\n<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n\n.devbook/domain/ordering/features.demo.html\n<!doctype html>\n<html>\n\n<section data-screen=\"list\">Features</section>\n</html>\n",
+      "fingerprint": "sha256:d685d813"
+    },
+    {
+      "name": "a template refresh does not change it",
+      "path": ".devbook/domain/ordering/features.md",
+      "address": ".devbook/domain/ordering/features.md",
+      "markdown": "# Features\n\n```meta\ntype: features\n```\n\n## Checkout\n\n```meta\ntype: feature\ndemo: [.devbook/domain/ordering/checkout.demo.html#cart]\n```\n\nA buyer pays for the cart.\n",
+      "demos": {
+        ".devbook/domain/ordering/features.demo.html": "<!doctype html>\r\n<html>\r\n<!-- template:begin v=3 sha256:00000000 -->\n<style>a{color:red}</style>\n<!-- template:end -->\r\n<section data-screen=\"list\">Features</section>\r\n</html>\r\n",
+        ".devbook/domain/ordering/checkout.demo.html": "<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n"
+      },
+      "canonical": "sha256:43de229a\n.devbook/domain/ordering/checkout.demo.html\n<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n\n.devbook/domain/ordering/features.demo.html\n<!doctype html>\n<html>\n\n<section data-screen=\"list\">Features</section>\n</html>\n",
+      "fingerprint": "sha256:d685d813",
+      "sameAs": "a page's file block folds in its page demo and the demo a chapter names, each without its managed region"
+    },
+    {
+      "name": "a chapter folds in only the demo its own field names",
+      "path": ".devbook/domain/ordering/features.md",
+      "address": ".devbook/domain/ordering/features.md#checkout",
+      "markdown": "# Features\n\n```meta\ntype: features\n```\n\n## Checkout\n\n```meta\ntype: feature\ndemo: [.devbook/domain/ordering/checkout.demo.html#cart]\n```\n\nA buyer pays for the cart.\n",
+      "demos": {
+        ".devbook/domain/ordering/features.demo.html": "<!doctype html>\r\n<html>\r\n<!-- template:begin v=3 sha256:00000000 -->\n<style>a{}</style>\n<!-- template:end -->\r\n<section data-screen=\"list\">Features</section>\r\n</html>\r\n",
+        ".devbook/domain/ordering/checkout.demo.html": "<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n"
+      },
+      "canonical": "sha256:50150981\n.devbook/domain/ordering/checkout.demo.html\n<!doctype html>\n<html>\n<section data-screen=\"cart\">Cart</section>\n</html>\n",
+      "fingerprint": "sha256:1cdd1743"
+    },
+    {
+      "name": "a second # heading ends the file block; the page demo and a playthrough's demo fold in once; a named demo that does not exist does not",
+      "path": ".devbook/domain/ordering/context.md",
+      "address": ".devbook/domain/ordering/context.md",
+      "markdown": "# Ordering   ##   \n\n```meta\ntype: context\n```\n\nThe boundary.\n\n## Checkout\n\n```meta\ntype: feature\nplaythrough: .devbook/domain/ordering/demo.html#walkthrough/buy\ndemo: [.devbook/domain/ordering/missing.demo.html#cart]\n```\n\nA buyer pays.\n\n# Appendix\n\n```meta\n```\n\nOutside the file block.\n",
+      "demos": {
+        ".devbook/domain/ordering/demo.html": "<!DOCTYPE html>\n<!--template:begin v=1-->\n<script></script>\n<!-- TEMPLATE:END -->\n<section data-screen=\"buy\">Buy</section>\n"
+      },
+      "canonical": "sha256:08c612fb\n.devbook/domain/ordering/demo.html\n<!DOCTYPE html>\n\n<section data-screen=\"buy\">Buy</section>\n",
+      "fingerprint": "sha256:a06b7e6d"
+    },
+    {
+      "name": "a later # block takes the page demo too",
+      "path": ".devbook/domain/ordering/context.md",
+      "address": ".devbook/domain/ordering/context.md#appendix",
+      "markdown": "# Ordering   ##   \n\n```meta\ntype: context\n```\n\nThe boundary.\n\n## Checkout\n\n```meta\ntype: feature\nplaythrough: .devbook/domain/ordering/demo.html#walkthrough/buy\ndemo: [.devbook/domain/ordering/missing.demo.html#cart]\n```\n\nA buyer pays.\n\n# Appendix\n\n```meta\n```\n\nOutside the file block.\n",
+      "demos": {
+        ".devbook/domain/ordering/demo.html": "<!DOCTYPE html>\n<!--template:begin v=1-->\n<script></script>\n<!-- TEMPLATE:END -->\n<section data-screen=\"buy\">Buy</section>\n"
+      },
+      "canonical": "sha256:cd2afab8\n.devbook/domain/ordering/demo.html\n<!DOCTYPE html>\n\n<section data-screen=\"buy\">Buy</section>\n",
+      "fingerprint": "sha256:041a1595"
+    },
+    {
+      "name": "a ### address; an upper-case META fence is dropped; an unclosed fence runs to the end",
+      "path": ".devbook/domain/ordering/domain.md",
+      "address": ".devbook/domain/ordering/domain.md#lines",
+      "markdown": "# Ordering\n\n```meta\ntype: domain\n```\n\n## Order\n\n```meta\ntype: aggregate\n```\n\n### Lines\n\n```META\nnote: dropped\n```\n\nA line holds a product.\n\n```text\nunclosed\n## Not a heading\n",
+      "canonical": "Lines\nA line holds a product.\n```text\nunclosed\n## Not a heading",
+      "fingerprint": "sha256:0b7c09fb"
+    }
+  ],
+  "changes": [
+    {
+      "name": "a change: its proposal's file block, then each delta by target, a delta's meta kept and its notes dropped, a demo delta without its managed region",
+      "address": "openspec/changes/pay-by-card",
+      "proposal": "# Pay by card\n\n```meta\ntype: change\n```\n\n## Why\n\nBuyers ask for it.\n",
+      "deltas": [
+        {
+          "path": "openspec/changes/pay-by-card/devbook-delta/domain/ordering/features.demo.html",
+          "markdown": "<!doctype html>\n<!-- template:begin v=3 sha256:00000000 -->\n<style></style>\n<!-- template:end -->\n<section data-screen=\"pay\">Pay</section>\n"
+        },
+        {
+          "path": "openspec/changes/pay-by-card/devbook-delta/domain/ordering/domain.md",
+          "markdown": "# Ordering\n\n```meta\nchange: pay-by-card\ndelta: added\n```\n\n## Card Payment\n\n```meta\ntype: aggregate\n```\n\nA card payment   settles an order.\n"
+        }
+      ],
+      "canonical": "sha256:0883dd4c\n.devbook/domain/ordering/domain.md\n# Ordering\n```meta\nchange: pay-by-card\ndelta: added\n```\n## Card Payment\n```meta\ntype: aggregate\n```\nA card payment settles an order.\n.devbook/domain/ordering/features.demo.html\n<!doctype html>\n\n<section data-screen=\"pay\">Pay</section>\n",
+      "fingerprint": "sha256:2b11c532"
+    },
+    {
+      "name": "the same change with its deltas read in another order and a note added",
+      "address": "openspec/changes/pay-by-card",
+      "proposal": "# Pay by card\n\n```meta\ntype: change\n```\n\n## Why\n\nBuyers ask for it.\n",
+      "deltas": [
+        {
+          "path": "openspec/changes/pay-by-card/devbook-delta/domain/ordering/domain.md",
+          "markdown": "# Ordering\n\n```meta\nchange: pay-by-card\ndelta: added\n```\n\n## Card Payment\n\n```meta\ntype: aggregate\n```\n\nA card payment   settles an order.\n\n```annotation\nkind: question\nby: Job\nstatus: open\nbody: Which cards?\n```\n"
+        },
+        {
+          "path": "openspec/changes/pay-by-card/devbook-delta/domain/ordering/features.demo.html",
+          "markdown": "<!doctype html>\n<!-- template:begin v=3 sha256:00000000 -->\n<style>b{}</style>\n<!-- template:end -->\n<section data-screen=\"pay\">Pay</section>\n"
+        }
+      ],
+      "canonical": "sha256:0883dd4c\n.devbook/domain/ordering/domain.md\n# Ordering\n```meta\nchange: pay-by-card\ndelta: added\n```\n## Card Payment\n```meta\ntype: aggregate\n```\nA card payment settles an order.\n.devbook/domain/ordering/features.demo.html\n<!doctype html>\n\n<section data-screen=\"pay\">Pay</section>\n",
+      "fingerprint": "sha256:2b11c532",
+      "sameAs": "a change: its proposal's file block, then each delta by target, a delta's meta kept and its notes dropped, a demo delta without its managed region"
+    },
+    {
+      "name": "a delta's meta block is content",
+      "address": "openspec/changes/pay-by-card",
+      "proposal": "# Pay by card\n\n```meta\ntype: change\n```\n\n## Why\n\nBuyers ask for it.\n",
+      "deltas": [
+        {
+          "path": "openspec/changes/pay-by-card/devbook-delta/domain/ordering/domain.md",
+          "markdown": "# Ordering\n\n```meta\nchange: pay-by-card\ndelta: added\n```\n\n## Card Payment\n\n```meta\ntype: entity\n```\n\nA card payment   settles an order.\n"
+        }
+      ],
+      "canonical": "sha256:0883dd4c\n.devbook/domain/ordering/domain.md\n# Ordering\n```meta\nchange: pay-by-card\ndelta: added\n```\n## Card Payment\n```meta\ntype: entity\n```\nA card payment settles an order.",
+      "fingerprint": "sha256:28a64736",
+      "differsFrom": "a change: its proposal's file block, then each delta by target, a delta's meta kept and its notes dropped, a demo delta without its managed region"
+    }
+  ]
+}

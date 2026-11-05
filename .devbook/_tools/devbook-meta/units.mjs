@@ -1,13 +1,13 @@
-// units.mjs — list the sync units of a devbook and the groups a sweep claims.
+// units.mjs — list the sync units of a devbook and the groups they join into.
 //
 // A sync unit is what one verify pass covers and one pull request changes: an
 // aggregate with everything it owns and every rule that names it, a domain
 // service the same way, a feature, a switch, a user or technical actor, a
 // building block, a design component, and one shared-types unit per context. A group is the units a
-// requirement naming two aggregates and no feature ties together. Each unit
-// carries its effective `sync` direction and the block it came from; a group's
-// direction is the roll-up of its units'. The rules are "Sync direction" in
-// devbook-chapter-metadata.md.
+// requirement naming two aggregates and no feature ties together. The rules
+// are "Sync units" in devbook-chapter-metadata.md. Which units a sweep levels,
+// and which way, is not the devbook's: since contract 38 no chapter carries a
+// direction, and the tool that runs the sweep keeps it.
 //
 // Deterministic: the same corpus prints the same output, sorted by id. It
 // reads the graph `buildGraph` builds, so membership comes from headings,
@@ -20,13 +20,13 @@ import { pathToFileURL } from "node:url";
 
 import { WORKSPACE } from "./c4-graph.mjs";
 import { buildGraph } from "./graph.mjs";
-import { DEFAULT_SYNC_DIRECTION, SYNC_DIRECTIONS, domainFileName, slugify, syncSources } from "./metadata.mjs";
+import { slugify } from "./metadata.mjs";
 
 /** A group past this many chapters is set aside rather than split. */
 export const DEFAULT_MAX_GROUP_CHAPTERS = 40;
 
 /** The version of the JSON this tool prints. */
-export const UNITS_SCHEMA_VERSION = 1;
+export const UNITS_SCHEMA_VERSION = 2;
 
 // The unit kinds, by the `type` of their root chapter in `domain/`. A `user`
 // and a `technical` chapter run as the `actor` converter kind; an
@@ -51,10 +51,6 @@ const PAIRING_KINDS = Object.keys(PAIRED_KINDS);
 // Owned chapters that belong to the unit they sit under.
 const NESTED_KINDS = ["entity", "value-object", "enum", "invariant", "sub-feature"];
 
-// The directions each `--direction` picks up. `sync` units go with both
-// writing sweeps; `report` is devbook-verify's; `off` is in none.
-const PICKED_UP = { pull: ["pull", "sync"], push: ["push", "sync"], report: ["report"] };
-
 const asList = (value) => (value == null ? [] : Array.isArray(value) ? value : [value]);
 const fold = (name) => String(name).trim().toLowerCase();
 const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -66,29 +62,6 @@ function contextOf(relPath) {
     return parts[1] === "domain" && parts.length === 4 ? parts.slice(0, 3).join("/") : null;
 }
 
-/** The level a direction source sits at, for a unit rooted at `rootId`. */
-function levelOf(sourceId, rootId, levels) {
-    if (sourceId === rootId) return "unit";
-    const level = levels.get(sourceId);
-    if (level) return level;
-    return domainFileName(sourceId).base === "context" ? "context" : "page";
-}
-
-/**
- * Resolve a unit's direction nearest-wins: `{ sync, syncFrom, syncLevel }`,
- * with `syncFrom` null and `syncLevel` "default" when nothing above states one.
- * `skipRoot` leaves the root itself out, for a unit whose root is no level.
- */
-function resolveDirection(rootId, nodes, levels, skipRoot = false) {
-    const sources = syncSources(rootId).slice(skipRoot ? 1 : 0);
-    for (const source of sources) {
-        const value = nodes.get(source)?.sync;
-        if (!SYNC_DIRECTIONS.includes(value)) continue;
-        return { sync: value, syncFrom: source, syncLevel: levelOf(source, rootId, levels) };
-    }
-    return { sync: DEFAULT_SYNC_DIRECTION, syncFrom: null, syncLevel: "default" };
-}
-
 /**
  * Every sync unit in a graph, the chapters that belong to none, and the
  * requirements that tie units together. Pure: takes what `buildGraph`
@@ -96,7 +69,7 @@ function resolveDirection(rootId, nodes, levels, skipRoot = false) {
  */
 export function collectUnits(graph) {
     const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
-    const levels = graph.syncLevels ?? new Map();
+    const roots = graph.unitRoots ?? new Set();
     const parent = new Map();
     for (const edge of graph.edges) {
         if (edge.type === "contains") parent.set(edge.target, edge.source);
@@ -115,7 +88,7 @@ export function collectUnits(graph) {
 
     // 1. The roots, one unit each.
     for (const node of nodes.values()) {
-        if (levels.get(node.id) !== "unit") continue;
+        if (!roots.has(node.id)) continue;
         if (node.folder === "domain" && DOMAIN_ROOT_KINDS.includes(node.kind)) {
             addUnit({ id: node.id, kind: node.kind, root: node.id, label: node.label, context: contextOf(node.path) });
         } else if (node.folder === "arc42" && node.type === "file") {
@@ -268,9 +241,8 @@ export function collectUnits(graph) {
         else if (homes.size > 1) orphan(node, `its aliases resolve into ${homes.size} units: ${sorted(homes).join(", ")}`);
     }
 
-    // 5. Direction, files, and the final shape.
+    // 5. Files, and the final shape.
     const list = [...units.values()].map((unit) => {
-        const direction = resolveDirection(unit.root, nodes, levels, unit.kind === "shared-types");
         const chapterIds = sorted(unit.chapters);
         for (const id of chapterIds) unit.files.add(id.split("#")[0]);
         return {
@@ -278,7 +250,6 @@ export function collectUnits(graph) {
             kind: unit.kind,
             label: unit.label,
             context: unit.context,
-            ...direction,
             chapters: chapterIds,
             files: sorted(unit.files),
         };
@@ -287,33 +258,13 @@ export function collectUnits(graph) {
     orphans.sort(byId);
     ties.sort((a, b) => (a.requirement < b.requirement ? -1 : 1));
 
-    // A stated direction no unit resolved to: an `actors.md` of organisations
-    // only, or a level every unit under states its own.
-    const used = new Set(list.map((unit) => unit.syncFrom).filter(Boolean));
-    const unused = [...nodes.values()]
-        .filter((node) => SYNC_DIRECTIONS.includes(node.sync) && !used.has(node.id) && !units.has(node.id))
-        .map((node) => ({ id: node.id, sync: node.sync }))
-        .sort(byId);
-
-    return { units: list, orphans, ties, unused };
-}
-
-/**
- * The direction a set of unit directions rolls up to: the one they share, a
- * `sync` unit going with whichever single other direction it is grouped
- * with, and null — mixed — when two others meet.
- */
-export function rollUpDirection(directions) {
-    const others = new Set(directions.filter((d) => d !== "sync"));
-    if (others.size === 0) return directions.length ? "sync" : null;
-    return others.size === 1 ? [...others][0] : null;
+    return { units: list, orphans, ties };
 }
 
 /**
  * Join units into groups: the connected sets a requirement naming two
- * aggregates and no feature ties together. Links never join. A group whose
- * directions are mixed, or that holds more than `maxGroupChapters` chapters,
- * is set aside.
+ * aggregates and no feature ties together. Links never join. A group that
+ * holds more than `maxGroupChapters` chapters is set aside.
  */
 export function groupUnits({ units, ties }, { maxGroupChapters = DEFAULT_MAX_GROUP_CHAPTERS } = {}) {
     const root = new Map(units.map((unit) => [unit.id, unit.id]));
@@ -341,13 +292,11 @@ export function groupUnits({ units, ties }, { maxGroupChapters = DEFAULT_MAX_GRO
         const ids = group.map((unit) => unit.id);
         const tying = ties.filter((tie) => ids.includes(tie.units[0])).map((tie) => tie.requirement);
         const chapters = group.reduce((sum, unit) => sum + unit.chapters.length, 0);
-        const direction = rollUpDirection(group.map((unit) => unit.sync));
-        const setAside = direction === null ? "mixed" : chapters > maxGroupChapters ? "oversized" : null;
+        const setAside = chapters > maxGroupChapters ? "oversized" : null;
         const lead = group[0];
         return {
             id: lead.id,
             slug: slugify([lead.context ? path.posix.basename(lead.context) : null, lead.label].filter(Boolean).join(" ")),
-            direction,
             setAside,
             chapters,
             ties: tying,
@@ -357,52 +306,36 @@ export function groupUnits({ units, ties }, { maxGroupChapters = DEFAULT_MAX_GRO
     return groups.sort(byId);
 }
 
-/** Whether a sweep in `direction` picks up a unit or a group. */
-export function picksUp(direction, value) {
-    return PICKED_UP[direction]?.includes(value) ?? false;
-}
-
 /**
- * The tool's whole answer for one repository: units or groups, filtered to
- * one sweep's direction when one is given, with the set-asides, the orphans,
- * and the stated directions nothing inherits.
+ * The tool's whole answer for one repository: units or groups, with the
+ * set-asides and the orphans.
  */
-export async function listUnits(repoRoot, { direction = null, groups = false, maxGroupChapters = DEFAULT_MAX_GROUP_CHAPTERS } = {}) {
+export async function listUnits(repoRoot, { groups = false, maxGroupChapters = DEFAULT_MAX_GROUP_CHAPTERS } = {}) {
     const graph = await buildGraph(repoRoot);
     const collected = collectUnits(graph);
-    const result = { version: UNITS_SCHEMA_VERSION, direction, maxGroupChapters };
+    const result = { version: UNITS_SCHEMA_VERSION, maxGroupChapters };
     if (!groups) {
-        result.units = direction ? collected.units.filter((unit) => picksUp(direction, unit.sync)) : collected.units;
+        result.units = collected.units;
     } else {
         const all = groupUnits(collected, { maxGroupChapters });
-        const relevant = (group) =>
-            !direction ||
-            (group.setAside === "mixed" ? group.units.some((unit) => picksUp(direction, unit.sync)) : picksUp(direction, group.direction));
-        result.groups = all.filter((group) => !group.setAside && relevant(group));
-        result.setAside = all.filter((group) => group.setAside && relevant(group));
+        result.groups = all.filter((group) => !group.setAside);
+        result.setAside = all.filter((group) => group.setAside);
     }
     result.orphans = collected.orphans;
-    result.unused = collected.unused;
     return result;
 }
 
 /** The one-line summary a commit body or a brief can quote. */
 export function summaryLine(result) {
-    const scope = result.direction ? ` picked up by ${result.direction}` : "";
     const orphans = `${result.orphans.length} orphan${result.orphans.length === 1 ? "" : "s"}`;
-    if (!result.groups) return `${result.units.length} unit${result.units.length === 1 ? "" : "s"}${scope}; ${orphans}.`;
+    if (!result.groups) return `${result.units.length} unit${result.units.length === 1 ? "" : "s"}; ${orphans}.`;
     const units = result.groups.reduce((sum, group) => sum + group.units.length, 0);
-    const reasons = ["mixed", "oversized"]
-        .map((reason) => [reason, result.setAside.filter((group) => group.setAside === reason).length])
-        .filter(([, count]) => count)
-        .map(([reason, count]) => `${count} ${reason}`);
-    const aside = reasons.length ? ` (${reasons.join(", ")})` : "";
-    return `${result.groups.length} group${result.groups.length === 1 ? "" : "s"} of ${units} unit${units === 1 ? "" : "s"}${scope}; ${result.setAside.length} set aside${aside}; ${orphans}.`;
+    const aside = result.setAside.length ? ` (${result.setAside.length} oversized)` : "";
+    return `${result.groups.length} group${result.groups.length === 1 ? "" : "s"} of ${units} unit${units === 1 ? "" : "s"}; ${result.setAside.length} set aside${aside}; ${orphans}.`;
 }
 
 function unitLine(unit, indent = "") {
-    const from = unit.syncFrom ? `${unit.syncLevel} ${unit.syncFrom}` : "default";
-    return `${indent}${unit.kind.padEnd(16)} ${unit.id}  ${unit.sync} (${from})  ${unit.chapters.length} chapter${unit.chapters.length === 1 ? "" : "s"}`;
+    return `${indent}${unit.kind.padEnd(16)} ${unit.id}  ${unit.chapters.length} chapter${unit.chapters.length === 1 ? "" : "s"}`;
 }
 
 /** Plain-text rendering of `listUnits`'s result. */
@@ -412,13 +345,13 @@ export function renderText(result) {
         for (const unit of result.units) lines.push(unitLine(unit));
     } else {
         for (const group of result.groups) {
-            lines.push(`${group.id}  ${group.direction}  ${group.chapters} chapters`);
+            lines.push(`${group.id}  ${group.chapters} chapters`);
             for (const unit of group.units) lines.push(unitLine(unit, "  "));
         }
         if (result.setAside.length) {
             lines.push("", "Set aside:");
             for (const group of result.setAside) {
-                const why = group.setAside === "mixed" ? "mixed directions" : `${group.chapters} chapters, past ${result.maxGroupChapters}`;
+                const why = `${group.chapters} chapters, past ${result.maxGroupChapters}`;
                 lines.push(`${group.id}  ${why}${group.ties.length ? `; tied by ${group.ties.join(", ")}` : ""}`);
                 for (const unit of group.units) lines.push(unitLine(unit, "  "));
             }
@@ -428,25 +361,19 @@ export function renderText(result) {
         lines.push("", "Orphans:");
         for (const orphan of result.orphans) lines.push(`${orphan.id}  ${orphan.kind ?? "untyped"}: ${orphan.reason}`);
     }
-    if (result.unused.length) {
-        lines.push("", "Inherited by nothing:");
-        for (const entry of result.unused) lines.push(`${entry.id}  sync: ${entry.sync}`);
-    }
     return lines.join("\n");
 }
 
-const USAGE = `units.mjs — the sync units of a devbook and the groups a sweep claims
+const USAGE = `units.mjs — the sync units of a devbook and the groups they join into
 
-  node units.mjs                        every unit, its chapters, and its direction
+  node units.mjs                        every unit and its chapters
   node units.mjs --groups               the groups units join into, and the set-asides
-  node units.mjs --direction pull       only what the pull sweep picks up (pull, sync);
-                                        push likewise; report is devbook-verify's
   node units.mjs --json                 the same as JSON
   node units.mjs --max-group-chapters N set a group past N chapters aside (default 40)
   node units.mjs --root <path>          a repository other than the working directory`;
 
 export async function main(argv) {
-    const options = { direction: null, groups: false, json: false, maxGroupChapters: DEFAULT_MAX_GROUP_CHAPTERS, root: process.cwd() };
+    const options = { groups: false, json: false, maxGroupChapters: DEFAULT_MAX_GROUP_CHAPTERS, root: process.cwd() };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === "--help" || arg === "-h") {
@@ -454,13 +381,7 @@ export async function main(argv) {
             return 0;
         } else if (arg === "--groups") options.groups = true;
         else if (arg === "--json") options.json = true;
-        else if (arg === "--direction") {
-            options.direction = argv[++i];
-            if (!PICKED_UP[options.direction]) {
-                console.error(`--direction takes ${Object.keys(PICKED_UP).join(", ")}; got "${options.direction ?? ""}".`);
-                return 1;
-            }
-        } else if (arg === "--max-group-chapters") {
+        else if (arg === "--max-group-chapters") {
             const value = argv[++i];
             if (!/^\d+$/.test(value ?? "")) {
                 console.error(`--max-group-chapters takes a whole number; got "${value ?? ""}".`);

@@ -19958,6 +19958,7 @@ select.field__input {
 
 .standup-goal {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     padding: 14px var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
@@ -19985,9 +19986,12 @@ select.field__input {
     gap: var(--spacing-sm);
 }
 
+/* A stand-up title with one long unbroken word, a path or a URL, breaks inside it
+   rather than running past the phone's edge; the work and impediment titles do too. */
 .standup-goal__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 0.9375rem;
     font-weight: var(--font-weight-semibold);
 }
@@ -20041,6 +20045,7 @@ select.field__input {
 .standup-work__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .standup-work__trailing {
@@ -20078,6 +20083,7 @@ select.field__input {
 .standup-impediment__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-weight: var(--font-weight-medium);
 }
 

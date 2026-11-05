@@ -221,24 +221,33 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
     }
 
     /// <summary>
-    /// An alert about the answer to one question. Its words go in the summary, which holds
-    /// the whole sentence; the title says only that an answer did not arrive. Its id is
-    /// derived from the question, so a refusal replayed after a restart raises one alert.
+    /// An alert about the answer to one question. Its sentence goes in the summary; the
+    /// title says only that an answer did not arrive. Both cards draw the body beneath the
+    /// summary, so the body holds the detail alone when the summary holds the whole
+    /// sentence, and opens with the whole sentence before the detail only when the
+    /// 180-character bound cut the summary short — so the sentence's tail is not lost. Its id
+    /// is derived from the question, so a refusal replayed after a restart raises one alert.
     /// </summary>
-    private NotificationDraft Alert(string product, string questionId, string sentence, string detail, string? link) => new(
-        new NotificationSource(SpecManagerQuestionMapper.SourceContext, SpecManagerQuestionMapper.SourceKey(product, questionId)),
-        Subject: null,
-        NotificationKind.Alert,
-        NotificationSeverity.Warning,
-        "Your answer did not reach spec-manager",
-        SpecManagerQuestionMapper.Cut(SpecManagerQuestionMapper.OneLine(sentence), 180),
-        sentence + "\n\n" + detail,
-        DeepLink: link,
-        Origin: NotificationOrigin.Fit(
-            SpecManagerQuestionMapper.SystemOf(_client.Root, _defaultInstallation),
-            product,
-            openLink: link),
-        Id: SpecManagerQuestionIds.RefusalFor(_client.Root, questionId));
+    private NotificationDraft Alert(string product, string questionId, string sentence, string detail, string? link)
+    {
+        var line = SpecManagerQuestionMapper.OneLine(sentence);
+        var summary = SpecManagerQuestionMapper.Cut(line, 180);
+
+        return new(
+            new NotificationSource(SpecManagerQuestionMapper.SourceContext, SpecManagerQuestionMapper.SourceKey(product, questionId)),
+            Subject: null,
+            NotificationKind.Alert,
+            NotificationSeverity.Warning,
+            "Your answer did not reach spec-manager",
+            summary,
+            string.Equals(summary, line, StringComparison.Ordinal) ? detail : sentence + "\n\n" + detail,
+            DeepLink: link,
+            Origin: NotificationOrigin.Fit(
+                SpecManagerQuestionMapper.SystemOf(_client.Root, _defaultInstallation),
+                product,
+                openLink: link),
+            Id: SpecManagerQuestionIds.RefusalFor(_client.Root, questionId));
+    }
 
     private string QuestionLink(string product, string questionId) =>
         $"{_client.Root}/producten/{Uri.EscapeDataString(product)}/questions?question={Uri.EscapeDataString(questionId)}";

@@ -27,7 +27,7 @@ it works at, so a tool can draw the answer — see
 
 **`tech/` stays the registry.** An AI tool with a vendor and a version — Claude
 Code, an MCP server, a model provider, a CI agent — is registered as a `tech/`
-chapter like any other technology, with `tech/`'s `status` recording its maturity
+chapter like any other technology, with `tech/`'s `rating` recording its maturity
 as a technology in this project.
 
 `ai/` never re-registers it. An `ai/` chapter names the **usage**: the practice,
@@ -126,11 +126,13 @@ nothing in the picture.
     `integrate`; one `subgraph` beneath them holding the three layers, `thread`,
     `upkeep`, and `harness`, as nodes, each present even when empty; and each
     chapter as a node joined to every stage or layer it lists with `---`,
-    shaded by `status` through one `classDef` per rung. A `feeds` entry is a
+    shaded by `rating` through one `classDef` per rung. A `feeds` entry is a
     labelled `-->|label|` edge between two chapters. It is the hand-drawn form
     of the [adoption view](#the-loop-picture), read from the same fields, so
     the two never disagree.
-  - Explains the status ladder and how to read and extend the folder.
+  - Explains the rating ladder and how to read and extend the folder.
+  - Links the scheduler's `tech/` chapter, when the repository has one — the
+    one place the [loop picture](#the-loop-picture) learns which it is.
   - Its `##` sections do **not** carry per-chapter metadata blocks; the file
     carries a file-level block only — the same rule as `.devbook/domain/context-map.md`
     and `.devbook/tech/technology-graph.md`.
@@ -150,15 +152,17 @@ Every element of every view is one field on a chapter, and nothing is authored
 twice.
 
 **Adoption** — how far each usage has got. One row per stage, a pull-request
-divider after `verify`, then one row per layer; the columns are the status
+divider after `verify`, then one row per layer; the columns are the rating
 ladder.
 
 | In the view | Read from |
 |---|---|
 | The rows, in order | the seven stages, then the three layers — authored nowhere |
 | A card in a row | a chapter whose `stage` or `layer` lists it; a chapter listing several sits at its first stage, else its first layer, and names the rest |
-| The card's column | its `status` |
+| The card's column | its `rating` |
 | The card's evidence mark | its `evidence` |
+| The card's evidence text | its **Evidence** bullet, printed beside the evidence mark |
+| The card's scheduled mark | a `depends-on` entry naming the scheduler's `tech/` chapter |
 | What the card waits on | its **Moves up when** bullet |
 | Since when | its `date` |
 
@@ -169,7 +173,10 @@ request between `verify` and `integrate`, and the layers as bands beneath.
 |---|---|
 | A node | a chapter, in the column or band the adoption view gives it |
 | A labelled arrow | a `feeds` entry: to the chapter before the colon, labelled with the text after it |
+| A dashed arrow | a `feeds` entry with a `candidate` chapter at either end |
+| The open loop, in place of the dashed arrow | a `feeds` entry out of a `candidate` chapter at `operate` into an `adopted` chapter: the loop not yet closed |
 | A dotted support link | a `related` entry |
+| A node's scheduled mark | as on the adoption card |
 | The platforms row | the `tech/` chapters the `depends-on` entries name, with how many usages rest on each |
 
 **Model** — the path as a model of work.
@@ -180,6 +187,11 @@ request between `verify` and `integrate`, and the layers as bands beneath.
 | A sub-stage card under a stage | a `substage` entry `<stage>/<word>`, holding every chapter that lists it, in order of first appearance |
 | A stage with no sub-stages | one unnamed card holding the chapters at that stage |
 | The layer rows beneath | the chapters whose `layer` lists each one |
+
+The scheduler's `tech/` chapter is the one the repository's scheduled usages
+run on, named once, by a link in `adoption-map.md`; a repository with no
+scheduler draws no scheduled mark. Each of these marks is a reading of fields
+already authored, never a field of its own.
 
 In every view a stage with no chapter renders empty. That is the picture doing
 its job, so never fill a stage with a chapter that names a tool and no usage.
@@ -194,7 +206,7 @@ on are `tech/`'s, and `tech/` is not organized by stage.
 ## <Chapter Name>
 
 ```meta
-status: trial
+rating: trial
 type: practice
 stage: [code, verify]
 substage: [verify/review]
@@ -209,7 +221,7 @@ One or two sentences: what this is, in this project.
 
 - **Used for** — the concrete work it carries at these stages.
 - **Adopted by** — who actually works this way today, and where. This is the
-  field that keeps `status` honest.
+  field that keeps `rating` honest.
 - **Evidence** — what shows it works, or what would have to be true to promote
   it: a merged pull request, a measured cycle, a retro. `none yet` is a
   legitimate value and a useful one.
@@ -228,11 +240,10 @@ understood and judged, not an essay about AI.
 ## Metadata fields
 
 `ai/` uses the common fields from
-`devbook-chapter-metadata.md` (`status` and `type` required;
-`related`, `issue`, `effort`, `roadmap`, `date`, and `tests` optional) plus the
-folder-specific fields below.
+`devbook-chapter-metadata.md` (`rating` and `type` required; `related`, `date`,
+and `tests` optional) plus the folder-specific fields below.
 
-### status
+### rating
 
 How far adoption has got **for this usage, in this project**, on the same
 tech-radar ladder `tech/` uses — deliberately the same five words, so a reader
@@ -246,16 +257,13 @@ learns one adoption vocabulary and applies it in both folders:
 | `hold` | Kept, but no longer expanded; avoid new usage. |
 | `retired` | No longer used. Kept because knowing what we stopped doing, and why, is the most useful record in this folder. |
 
-A repository may narrow this ladder per file in `.devbook/statuses.json`, and
-never add to it — see `devbook-chapter-metadata.md`.
+The ladder is fixed; no repository configuration narrows or widens it.
 
-There is no `approved` or `accepted` rung here. The two decision rungs are
-`domain/`'s alone — see `devbook-domain.md`.
-
-**`status` is required on every `ai/` block, with no resting value to omit** —
-for the same reason as `tech/`, whose ladder this is: the value is a rating, and
-a usage nobody has rated is not thereby `candidate`. It is *not* the editorial
-status that `domain/`, `arc42/`, and `design/` make optional.
+**`rating` is required on every `ai/` block, with no value to omit** — for the
+same reason as `tech/`, whose ladder this is: a rating is a decision the branch
+makes, and a usage nobody has rated is not thereby `candidate`. The field was
+spelled `status` until contract 38; the `038-workflow-state-leaves-the-chapter`
+migration renames it.
 
 What is on the ladder differs between the two folders: `tech/` rates a
 **technology**, `ai/` rates a **way of working with one**. A tool can be
@@ -269,7 +277,7 @@ promoting a chapter to `adopted` because the tool is good; promote it when the
 A `retired` chapter is never deleted. What was tried and abandoned is the part of
 this record nobody can reconstruct later.
 
-**`date` is the day the current rating was set.** Write it whenever `status`
+**`date` is the day the current rating was set.** Write it whenever `rating`
 moves on a chapter — when the trial started, when it was promoted, when it was
 retired — and leave it alone otherwise. It is what lets the picture show when a
 box got its shade, and it stays a real date rather than a modified timestamp,
@@ -310,7 +318,7 @@ and is reported. A word outside the seven is an error: the vocabulary is fixed
 so that every repository draws the same path.
 
 Entries are **plain words, not `<path>#<heading-slug>` references** — like
-`domain/`'s `aliases` and `roadmap` tags, they stay node attributes and produce
+`domain/`'s `aliases`, they stay node attributes and produce
 no graph edges. Never write `stage`, `substage`, `layer`, `feeds`, or `evidence`
 on a file-level block: a file groups chapters and places none of them.
 
@@ -384,7 +392,7 @@ domain chapter beside it.
   stage is one chapter per stage.** An idea applied throughout is a `concept`
   with no `stage`, not a chapter listing all seven; a usage that runs under
   every stage is a `layer`.
-- **Keep `status` honest, and let it go down.** A demotion — `adopted` back to
+- **Keep `rating` honest, and let it go down.** A demotion — `adopted` back to
   `trial`, or straight to `retired` — is the most informative edit this folder
   ever takes. A folder where nothing was ever demoted is a wish list.
 - **Record what was dropped.** Set `retired` and say why in the chapter's prose
@@ -395,7 +403,7 @@ domain chapter beside it.
   that goes stale.
 - **Update `adoption-map.md`'s file table and diagram in the same change** that
   adds a chapter or moves one between stages or layers.
-- **Move `date` with `status`.** The rating and the day it was set are one edit,
+- **Move `date` with `rating`.** The rating and the day it was set are one edit,
   and **Moves up when** goes with them: write it when a chapter enters `trial`
   or `candidate`, drop it when it reaches `adopted`.
 

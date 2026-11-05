@@ -190,4 +190,51 @@ public sealed class NotificationStandingTests
         Assert.Equal(
             "Yes, run it · note: “Tonight”",
             NotificationStandings.AnswerText(TestNotifications.YesNo, ["yes"], null, " Tonight "));
+
+    // The pager's confirmation after an answer
+
+    [Fact]
+    public void A_single_choice_confirms_with_its_label() =>
+        Assert.Equal(
+            "Yes, run it ✓",
+            NotificationStandings.Confirmation(TestNotifications.YesNo, new NotificationAnswerPick(["yes"], null)));
+
+    [Fact]
+    public void Several_choices_confirm_with_every_label() =>
+        Assert.Equal(
+            "Pair phone, Sync ✓",
+            NotificationStandings.Confirmation(TestNotifications.Journeys, new NotificationAnswerPick(["pair", "sync"], null)));
+
+    [Fact]
+    public void A_choice_that_takes_text_confirms_with_its_label_alone() =>
+        Assert.Equal(
+            "Revise ✓",
+            NotificationStandings.Confirmation(
+                TestNotifications.Validation(),
+                new NotificationAnswerPick(["revise"], "Rename the toggle", "Quick one")));
+
+    [Fact]
+    public void A_short_open_answer_confirms_with_its_words() =>
+        Assert.Equal(
+            "“Ship it Friday” ✓",
+            NotificationStandings.Confirmation(TestNotifications.ReleaseNote, new NotificationAnswerPick([], "  Ship it Friday ")));
+
+    [Fact]
+    public void A_long_open_answer_confirms_with_a_short_form() =>
+        Assert.Equal(
+            "“The release goes out on Friday after the…” ✓",
+            NotificationStandings.Confirmation(
+                TestNotifications.ReleaseNote,
+                new NotificationAnswerPick([], "The release goes out on Friday after the smoke tests pass on staging.")));
+
+    [Fact]
+    public void The_short_form_never_cuts_a_character_in_half()
+    {
+        // 39 letters, then an emoji (two UTF-16 units) as the 40th character.
+        var words = new string('a', 39) + "\U0001F680" + " and more after it";
+
+        Assert.Equal(
+            "“" + new string('a', 39) + "\U0001F680…” ✓",
+            NotificationStandings.Confirmation(TestNotifications.ReleaseNote, new NotificationAnswerPick([], words)));
+    }
 }

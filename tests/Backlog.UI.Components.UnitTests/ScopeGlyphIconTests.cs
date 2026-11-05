@@ -38,6 +38,14 @@ public sealed class ScopeGlyphIconTests
         AssertIconContract<ArchiveIcon>("archive-icon");
 
     [Fact]
+    public void The_pin_keeps_the_icon_contract() =>
+        AssertIconContract<PinIcon>("pin-icon");
+
+    [Fact]
+    public void The_bookmark_keeps_the_icon_contract() =>
+        AssertIconContract<BookmarkIcon>("bookmark-icon");
+
+    [Fact]
     public void The_ellipsis_keeps_the_icon_contract() =>
         AssertIconContract<EllipsisIcon>("ellipsis-icon");
 

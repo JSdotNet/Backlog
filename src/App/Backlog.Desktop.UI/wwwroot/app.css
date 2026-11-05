@@ -700,7 +700,9 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-.filter-bar__plan-pair > .chip--active {
+/* Only while a fused segment follows: with copy switched off and no queue icon
+   offered — or the waiting chip, which sits apart — the chip keeps its rounded end. */
+.filter-bar__plan-pair > .chip--active:has(+ .filter-bar__plan-copy, + .filter-bar__plan-queue) {
     border-start-end-radius: 0;
     border-end-end-radius: 0;
 }
@@ -745,8 +747,9 @@ h1, h2, h3 {
 
 /*
    The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
-   after the copy. It wears the copy segment's class, so it takes the same fill,
-   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
+   after the copy, or straight after the chip with the copy-entries switch off. It
+   wears the copy segment's class, so it takes the same fill, border, hairline and
+   hover, and the copy, when there, hands it the pair's rounded end. Like the
    copy it stays inside the strip's one-row clip, which cuts anything taller than a
    chip, so its target is the segment itself.
 
@@ -10109,7 +10112,7 @@ a.pull-request-detail-checks__name:hover {
 
 /* The Lobes atlas takeover (.devbook/domain/brain/features.md#lobes-atlas),
    laid out as Lobes.dc.html draws it: the map fills the takeover and everything
-   else floats over it — the title and the scope switch at the top left, the
+   else floats over it — the title at the top left, the
    picture's controls and the close at the top right with the chips under them,
    the panel and the scope card down the left, the index list down the right,
    and the foot's hint and orientation marker at the bottom. It was a header row
@@ -10151,8 +10154,8 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
 }
 
-/* The heading keeps its width beside the scope switch, up to half the row; a
-   longer headline ends in an ellipsis rather than starving the switch. */
+/* The heading keeps to half the row at most; a longer headline ends in an
+   ellipsis rather than running under the controls. */
 .lobes-atlas__heading {
     display: inline-flex;
     flex: none;
@@ -10204,31 +10207,6 @@ a.pull-request-detail-checks__name:hover {
 
 .lobes-atlas__dot--ghost {
     background: var(--color-text-secondary);
-}
-
-/* The scope switch scrolls sideways when its scopes outgrow the room it has,
-   and no option shrinks below its name. It clipped until the live QA pass found
-   six of thirteen scopes out of reach at 390 px and the rest squeezed until
-   their names ran into each other. The padding, taken back by the margin,
-   keeps a focused option's ring clear of the scrolling edge. */
-.lobes-atlas__scopes {
-    min-width: 0;
-    max-width: 100%;
-    margin: calc(-1 * var(--spacing-xs));
-    padding: var(--spacing-xs);
-    overflow-x: auto;
-    scrollbar-width: thin;
-}
-
-.lobes-atlas__scopes > .header-group__option {
-    flex: none;
-}
-
-/* A ghost devbook's scope option is dashed, as its outline is on the map. */
-.lobes-atlas__scopes .lobes-atlas__scope--ghost {
-    outline: var(--border-width) dashed var(--color-border-strong);
-    outline-offset: calc(-1 * var(--spacing-2xs));
-    color: var(--color-text-secondary);
 }
 
 .lobes-atlas__controls {
@@ -10423,8 +10401,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* Every control of the atlas is a full target (accessibility.md#target-size):
-   at least 44 x 44 px whatever its glyph, the scope switch's fused options
-   included, which the shell header draws shorter. */
+   at least 44 x 44 px whatever its glyph. */
 .lobes-atlas__header :is(button, a),
 .lobes-atlas__panel :is(button, a),
 .lobes-atlas__empty button {
@@ -10435,8 +10412,7 @@ a.pull-request-detail-checks__name:hover {
 /* And every one shows where the keyboard is: the panel's rows are bare
    buttons with no .btn ring of their own. */
 .lobes-atlas__row:focus-visible,
-.lobes-atlas__chip:focus-visible,
-.lobes-atlas__header .header-group__option:focus-visible {
+.lobes-atlas__chip:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -10599,7 +10575,7 @@ a.pull-request-detail-checks__name:hover {
    — still turns the map; their controls take it.
 
    The offsets follow the parts' own sizes: the left column starts under the
-   one 44 px row of the title and the switch, the right one under the tools'
+   one 44 px row of the title, the right one under the tools'
    row and the chips' row (whose sideways scrollbar the 1.25rem leaves room
    for), and the index stops above the orientation marker, which
    LobesAtlasCompass draws 96 px square. */
@@ -10619,15 +10595,14 @@ a.pull-request-detail-checks__name:hover {
         pointer-events: none;
     }
 
-    .lobes-atlas__scopes,
     .lobes-atlas__tools,
     .lobes-atlas__chips,
     .lobes-atlas__sheet {
         pointer-events: auto;
     }
 
-    /* The title and the switch at the top left, the controls at the top right;
-       the switch gives way to the controls, never the other way round. */
+    /* The title at the top left, the controls at the top right; the title
+       gives way to the controls, never the other way round. */
     .lobes-atlas__header {
         top: var(--lobes-atlas-inset);
         right: var(--lobes-atlas-inset);
@@ -10725,10 +10700,6 @@ a.pull-request-detail-checks__name:hover {
 
     .lobes-atlas__heading {
         max-width: 100%;
-    }
-
-    .lobes-atlas__scopes {
-        align-self: flex-start;
     }
 
     .lobes-atlas__controls {
@@ -11329,9 +11300,10 @@ a.pull-request-detail-checks__name:hover {
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
-  the repository scope chips, Show in main window — over one surface. The title
-  takes the room that is left, so Show in main window sits at the far edge where
-  the main window keeps its utilities.
+  the repository scope chips, Keep on top, Remember this window, Show in main
+  window — over one surface. The title takes the room that is left, so the toggles
+  and Show in main window sit at the far edge where the main window keeps its
+  utilities.
 */
 /* A popped-out window is often narrow and has no tiers to fold, so its header
    wraps rather than pushing Show in main window off the edge; the scope chips
@@ -11355,7 +11327,8 @@ a.pull-request-detail-checks__name:hover {
     padding: var(--spacing-lg);
 }
 
-/* Keep on top and Show in main window travel together to the far edge. */
+/* Keep on top, Remember this window and Show in main window travel together to
+   the far edge. */
 .surface-window__actions {
     display: inline-flex;
     align-items: center;
@@ -11363,7 +11336,8 @@ a.pull-request-detail-checks__name:hover {
     margin-left: auto;
 }
 
-.surface-window__on-top {
+.surface-window__on-top,
+.surface-window__remember {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -11378,7 +11352,7 @@ a.pull-request-detail-checks__name:hover {
 /*
   Docked narrow — a "today" list on a side monitor. Every row the header and the
   footer spend is a task the reader cannot see, so below 40rem:
-  - the title and the two buttons share the first row, and the scope chips take a
+  - the title and the buttons share the first row, and the scope chips take a
     row of their own that scrolls sideways rather than running off the edge;
   - Show in main window drops its words (the button keeps its name);
   - the footer goes: the version and the sync state are the main window's to say;

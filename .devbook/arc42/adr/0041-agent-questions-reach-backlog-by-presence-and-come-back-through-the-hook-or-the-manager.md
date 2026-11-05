@@ -2,8 +2,6 @@
 
 ```meta
 date: 2026-10-27
-status: proposed
-roadmap: [question-relay]
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/sessions/domain.md#question-relay", ".devbook/domain/sessions/domain.md#waiting-question", ".devbook/domain/sessions/domain.md#presence", ".devbook/domain/sessions/domain.md#session-state", ".devbook/domain/sessions/domain.invariants.md#question-relay", ".devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/notifications/context.md"]
 ```
 

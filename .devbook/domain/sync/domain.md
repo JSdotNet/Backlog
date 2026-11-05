@@ -1,7 +1,6 @@
 # Domain
 
 ```meta
-status: draft
 type: domain
 ```
 
@@ -12,7 +11,6 @@ type: domain
 ## Device
 
 ```meta
-status: draft
 type: aggregate
 aliases: [device registration, registered device]
 related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
@@ -39,7 +37,6 @@ that machine as the sync service knows it, under an id the service issued.
 ## Pairing Code
 
 ```meta
-status: draft
 type: aggregate
 aliases: [PairingCode, pairing code, XXXX-XXXX code]
 related: [.devbook/domain/sync/domain.invariants.md#pairing-code, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#pairing-a-device]
@@ -61,7 +58,6 @@ Redeeming it is the one transition, and the code is burned before the new
 ## Change Precedence
 
 ```meta
-status: draft
 type: domain-service
 aliases: [TaskChangePrecedence, AnnotationChangePrecedence, DevbookSubjectChangePrecedence, last-write-wins]
 related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/tasks/requirements.md#requirement-the-later-edit-wins-whole]
@@ -93,7 +89,6 @@ Invocation semantics: command-invoked, by a push, once per document.
 ## Shared Value Objects
 
 ```meta
-status: draft
 type: shared-value-objects
 related: [.devbook/domain/sync/domain.invariants.md#shared-value-objects]
 ```
@@ -103,7 +98,6 @@ related: [.devbook/domain/sync/domain.invariants.md#shared-value-objects]
 ### OwnerId
 
 ```meta
-status: draft
 type: value-object
 aliases: [ownerId, owner id]
 related: [.devbook/domain/sync/domain.md#owner]
@@ -118,7 +112,6 @@ are equal.
 ### DeviceId
 
 ```meta
-status: draft
 type: value-object
 aliases: [deviceId, device id, machine id]
 ```
@@ -131,7 +124,6 @@ installation identity, and the desktop maps one onto the other for its own recor
 ### OwnerScope
 
 ```meta
-status: draft
 type: value-object
 related: [.devbook/domain/sync/requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner]
 ```
@@ -146,7 +138,6 @@ the service reaches the store under one identity that can see every partition
 ### SyncCursor
 
 ```meta
-status: draft
 type: value-object
 aliases: [since cursor, sync cursor]
 ```
@@ -161,7 +152,6 @@ owner's data, and the store would not object.
 ### Replica Cursor
 
 ```meta
-status: draft
 type: value-object
 aliases: [TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor, DevbookSubjectReplicaCursor]
 related: [.devbook/domain/sync/domain.md#synccursor]
@@ -177,7 +167,6 @@ page is empty.
 ### Session Record Key
 
 ```meta
-status: draft
 type: value-object
 aliases: [SessionRecordKey]
 related: [.devbook/domain/sessions/domain.md#session-identity]
@@ -192,7 +181,6 @@ machine can overwrite another's record.
 ## Ubiquitous Language
 
 ```meta
-status: draft
 type: ubiquitous-language
 ```
 

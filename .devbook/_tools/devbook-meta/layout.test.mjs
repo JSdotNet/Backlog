@@ -21,7 +21,6 @@ import {
     REPO_SCOPE,
 } from "./graph.mjs";
 import { buildOutlineDocument, outlinePathFor } from "./outline.mjs";
-import { annotationsPathFor } from "./annotations-index.mjs";
 
 let failed = 0;
 const check = (ok, name, detail) => {
@@ -56,7 +55,6 @@ check(resolveScope(".") === REPO_SCOPE, "the rollup resolves to itself");
 check(resolveScope("backlog") === null && resolveScope("") === null, "an unknown or empty scope resolves to null");
 check(outputPathFor(REPO_SCOPE) === `${DEVBOOK_ROOT}/_meta/graph.json`, "the rollup graph lives under the parent", outputPathFor(REPO_SCOPE));
 check(outlinePathFor(REPO_SCOPE) === `${DEVBOOK_ROOT}/_meta/index.json`, "the rollup outline lives under the parent");
-check(annotationsPathFor(REPO_SCOPE) === `${DEVBOOK_ROOT}/_meta/annotations.json`, "the rollup annotations live under the parent");
 check(outputPathFor(`${DEVBOOK_ROOT}/tech`) === `${DEVBOOK_ROOT}/tech/_meta/graph.json`, "a folder scope writes its _meta beside its own chapters");
 
 // -- A corpus, and a stray folder beside it ----------------------------------
@@ -71,13 +69,13 @@ const corpus = [
     ],
     [
         `${at("tech")}/technology-graph.md`,
-        `# Technology Graph\n\n${fence("status: adopted\nindex: root\n")}\n` +
-            `## Postgres\n\n${fence("status: adopted\ntype: service\n")}\nA database.\n`,
+        `# Technology Graph\n\n${fence("rating: adopted\nindex: root\n")}\n` +
+            `## Postgres\n\n${fence("rating: adopted\ntype: service\n")}\nA database.\n`,
     ],
-    [`${at("tech")}/tooling.md`, `# Tooling\n\n${fence("status: adopted\n")}\nLast by convention.\n`],
-    [`${at("tech")}/shared.md`, `# Shared\n\n${fence("status: adopted\n")}\nFirst by convention.\n`],
-    [`${at("tech")}/backend.md`, `# Backend\n\n${fence("status: adopted\n")}\nIn between.\n`],
-    // A bounded context with split files: beside their base (`domain`, `flow`),
+    [`${at("tech")}/tooling.md`, `# Tooling\n\n${fence("rating: adopted\n")}\nLast by convention.\n`],
+    [`${at("tech")}/shared.md`, `# Shared\n\n${fence("rating: adopted\n")}\nFirst by convention.\n`],
+    [`${at("tech")}/backend.md`, `# Backend\n\n${fence("rating: adopted\n")}\nIn between.\n`],
+    // A bounded context with split files: beside their base (`domain`),
     // in a dropped base's slot (`features`, `model`), two for one base, an
     // invariants subpage after the page it belongs to (`domain.md`, a split
     // `domain.order.md`) and none for a page without one (`domain.invoice.md`),
@@ -91,10 +89,8 @@ const corpus = [
         ["actors.md", "actors"],
         ["features.checkout.md", "features"],
         ["model.order.md", "model"],
-        ["flow.md", "flow"],
-        ["flow.fulfilment.md", "flow"],
         ["dependencies.md", "dependencies"],
-        ["notes.md", "flow"],
+        ["notes.md", "notes"],
     ].map(([name, type]) => [
         `${at("domain")}/order-management/${name}`,
         `# Order Management\n\n${fence(`type: ${type}\n`)}\nA file.\n`,
@@ -144,8 +140,6 @@ try {
         "actors.md",
         "features.checkout.md",
         "model.order.md",
-        "flow.md",
-        "flow.fulfilment.md",
         "dependencies.md",
         "notes.md",
     ];
