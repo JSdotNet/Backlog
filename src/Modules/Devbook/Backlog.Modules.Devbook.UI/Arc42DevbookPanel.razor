@@ -158,7 +158,7 @@
             }
 
             @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
-               both switches are on (local ADR 0045). The same model, walked one
+               both switches are on (local ADR 0046). The same model, walked one
                level at a time; it replaces the C4 tab only once it is validated, so
                until then the C4 tab above is left exactly as it was. *@
             @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
@@ -1714,7 +1714,7 @@
 
     /// <summary>
     /// The decision and debt states the subject store holds for this repository, laid
-    /// over the records the C4 surface lists (local ADR 0045, after local ADR 0044 §5):
+    /// over the records the C4 surface lists (local ADR 0046, after local ADR 0044 §5):
     /// a stored state wins and the file's <c>status</c> is the fallback. None while the
     /// status display is switched off, which draws nothing of a subject's state, so the
     /// surface reads the files as it did. A new instance only when what it says

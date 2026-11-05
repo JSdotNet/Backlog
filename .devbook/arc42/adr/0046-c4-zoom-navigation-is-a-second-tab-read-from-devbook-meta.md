@@ -1,4 +1,4 @@
-# ADR 0045: C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees
+# ADR 0046: C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees
 
 ```meta
 date: 2026-10-21
@@ -233,6 +233,7 @@ itself recommends generating level 4.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-05 | Renumbered from 0045 to 0046. | `main` took 0045 for the dictation relay while this record was still on its plan branch. |
 | 2026-11-05 | §2: the file fallback is the resting read in this repository; this record's own `status` and `roadmap` fields are removed. | `main` moved to devbook contract 38, which takes workflow state out of the chapter. |
-| 2026-11-02 | §2: a TDR's lifecycle and an ADR's `proposed` mark are read from Backlog's subject store, with the record's `status` as the fallback. The record was renumbered from 0044 to 0045 in the same merge. | `main` took local ADR 0044 for the subject store while this record was in flight on `plan/c4-zoom-navigation`. That record moves a record's workflow state out of the chapter, so the zoom tab and the file header disagreed. |
+| 2026-11-02 | §2: a TDR's lifecycle and an ADR's `proposed` mark are read from Backlog's subject store, with the record's `status` as the fallback. The record was renumbered from 0044 to 0046 in the same merge. | `main` took local ADR 0044 for the subject store while this record was in flight on `plan/c4-zoom-navigation`. That record moves a record's workflow state out of the chapter, so the zoom tab and the file header disagreed. |
 | 2026-10-21 | Proposed: the C4 zoom tab, its links read from devbook metadata, and its Code level read from syntax trees. | The C4 tab lists views but does not navigate them, and nothing links a record to the element it is about. |

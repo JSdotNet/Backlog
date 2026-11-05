@@ -13,7 +13,7 @@ lists only system-wide architecture terms that don't belong to a single domain.
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 | Term | Definition |
@@ -24,7 +24,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Brain** | The person's own notes, one folder per user outside every repository, and the scope of everything filed against no repository. The Brain context owns the term: see [Brain](../domain/brain/domain.md#brain). |
 | **Dot-folder contract** | Scope-portable `.inbox/` folders present at workspace, repo, and project levels. A repository's devbook folders sit under `.devbook/` (`.devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md`). The Brain is one folder per user outside every repository instead (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). |
 | **Fetch worker** | A local desktop background job that polls an external source (YouTube, website, email, GitHub). |
-| **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry — no domain data or fetching. |
+| **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry. It holds no domain data and fetches nothing. Its one compute beyond coordination is a stateless relay that transcribes a phone dictation and keeps neither the audio nor the text (`.devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md`). |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
 | **Note** | An Inbox item of content kind `note`. It syncs both ways between the desktop and the phone, and either side may edit it. Not a *Knowledge Note*, which is a Devbook term. See `.devbook/domain/inbox/domain.md#note` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`. |

@@ -1,8 +1,8 @@
 # ADR 0039: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
 
 ```meta
-date: 2026-11-02
-related: [".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/notifications/context.md", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
+date: 2026-11-05
+related: [".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md#2-brain-is-the-scope-of-everything-filed-against-no-repository", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/notifications/context.md", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 A notification is a document one desktop instance owns and alone writes. It
@@ -31,6 +31,11 @@ reached a phone.
 viewer acknowledges an alert through a reply the owner takes. That amendment is not
 yet built. It follows the phone's swipe pager, which shows alerts without Dismiss
 until then.
+
+§6 was added in place on 2026-11-05 by flow-spec run `run-mw40wkee-3ldbu8`, accepted
+by the repository owner at its Personal Validation gate: the owner publishes the repository each
+notification is about, so the phone can filter by it. That amendment is not yet
+built.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It **extends** ADR 0005 with a fourth replica container,
@@ -188,6 +193,35 @@ container app secret, `notification-hubs-send-connection-string` and
 Bicep output echoes one. Web PubSub takes the sync service's managed identity, as
 Cosmos does.
 
+### 6. The owner publishes the repository each notification is about
+
+**Amended 2026-11-05.** The owner desktop puts the repository a notification is
+about on the notification it publishes, as an optional field. The phone needs it
+to filter its Notifications tab by repository, and it cannot work the repository
+out alone. The field holds one of two answers, and its absence is a third:
+
+| On the published notification | Means |
+| --- | --- |
+| A repository's alias | The notification is about that repository. |
+| The Brain | The owner resolved it to no repository, so it is the Brain's, per [local ADR 0027 §2](0027-the-brain-is-a-scope-beside-the-repositories.md#2-brain-is-the-scope-of-everything-filed-against-no-repository). |
+| Nothing | The owner could not work it out. |
+
+- **The owner resolves it at push time,** by the same resolution its notification
+  centre uses for the header scope (`NotificationRepositories` in the desktop
+  shell). Each push carries the answer as it stands then. An open question is
+  re-pushed and picks up a later answer. A settled notification keeps the answer
+  of its last push.
+- **The value is the owner's alias,** the name its header scope and the phone
+  show. The phone keeps no aliases of its own, so it shows the owner's.
+- **Unknown stays unknown.** A resolution that fails, or a source it cannot read,
+  leaves the field out and never fails the push. A notification from an owner on
+  an older build has no field and reads as unknown. A viewer keeps an unknown
+  notification under every repository choice, as the desktop centre does.
+- **Only the document carries it.** The field sits on the published notification
+  beside the owner's name, not in the push preview. So the Android push of §4 is
+  unchanged, and the sync service stores the field without reading it. A reader
+  on an older build ignores it.
+
 ## Consequences
 
 Positive:
@@ -207,6 +241,9 @@ Positive:
   phone is acknowledged on the owner, so it leaves the desktop's centre, its
   Windows notification and every other device's stack. A spec-manager alert is
   then marked read in spec-manager too.
+- **The phone filters by repository without a resolver of its own.** It reads
+  the owner's answer from the document and needs no session catalog, task rows
+  or alias registry.
 
 Negative, and accepted:
 
@@ -225,6 +262,12 @@ Negative, and accepted:
   Check the current tier limits before building.
 - **A fourth container and a fourth copy of the exchange loop.** ADR 0011 already
   accepted a third copy. Extraction stays deferred.
+- **A settled notification's repository can go stale.** The owner resolves it
+  at push time, and a settled notification is not pushed again. A session
+  catalog that loads late, or a task filed elsewhere afterwards, leaves the old
+  answer on it.
+- **The alias is one desktop's name.** Two owner desktops may alias the same
+  repository differently, and the phone then shows two repository choices for it.
 
 ## Rejected
 
@@ -247,6 +290,13 @@ Negative, and accepted:
 - **A container or a route of its own for acknowledgements.** It would be a second
   mailbox for a document that carries only an id and a device, and it would repeat
   every owner check the reply path already makes.
+- **The phone works the repository out itself.** It could read one only from a
+  run's origin place, a pull request subject or a remark's chapter link. Session
+  questions carry none of these, and they are most of the agent questions.
+- **Publishing `owner/name` in place of the alias.** The phone keeps no alias
+  registry, so it would show a name the desktop's header scope never uses.
+- **Repository in the push preview.** The tray shows no repository, and the
+  phone filters only what it pulled, so the push would carry a value nobody reads.
 
 ## Verification
 
@@ -306,6 +356,10 @@ entered, so no test or device check has yet seen a push reach a phone.
   [acknowledgement invariant](../../domain/notifications/domain.invariants.md#invariant-an-acknowledgement-settles-only-an-open-alert)
   and the
   [requirement](../../domain/notifications/requirements.md#requirement-a-viewer-acknowledges-an-alert-through-its-owner).
+- The 2026-11-05 §6 is not yet built. The flow-code run that builds it names its
+  tests: the payload round trip with an older document reading as unknown, a
+  push carrying the resolved answer, a failing resolution that leaves the field
+  out without failing the push, and the sync service storing the field untouched.
 
 ## History
 
@@ -314,6 +368,7 @@ entered, so no test or device check has yet seen a push reach a phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-05 | §6 added: the owner publishes the repository each notification is about, as an optional field on the document, resolved at push time to its alias or the Brain, and absent when unknown. | The phone's Notifications tab filters by repository, and the phone cannot work the repository out alone. |
 | 2026-11-04 | §2 amended: a viewer acknowledges an alert with a reply that holds no choice, text or note, through the same outbox, route and container; the owner takes the first one and records the device. | The phone's swipe pager needs a Dismiss for alerts, and a dismiss kept only on the phone would leave the alert open on every other device. |
 | 2026-11-02 | Accepted. | Built on main by PR #1499 and its follow-ups #1537, #1561 and #1601; the owner accepted it at the gate of flow-spec run `run-mvzoobww-d5511o`. |
 | 2026-10-26 | §4 amended: the push adds an `origin` value, the notification's "System · Place" cut to 60 characters, sent for a private notification too. | Every notification now says where it came from (`domain.md#origin`), and the tray shows it as the subtitle before the phone has pulled. |

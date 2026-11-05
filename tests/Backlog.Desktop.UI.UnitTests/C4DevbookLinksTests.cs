@@ -282,7 +282,7 @@ public sealed class C4DevbookLinksTests : IDisposable
 
     /// <summary>Devbook contract 38 took workflow state out of the chapter: this
     /// repository's records state none, so they read at rest, and the store is the only
-    /// thing that moves them (local ADRs 0044 and 0045).</summary>
+    /// thing that moves them (local ADRs 0044 and 0046).</summary>
     [Fact]
     public async Task This_repositorys_records_state_no_status_and_read_their_state_from_the_store()
     {

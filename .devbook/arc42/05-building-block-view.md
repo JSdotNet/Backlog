@@ -276,7 +276,7 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
-The same project reads the C4 zoom tab's Code level (local ADR 0045 §3).
+The same project reads the C4 zoom tab's Code level (local ADR 0046 §3).
 `Code/CSharpCodeReader` parses every `*.cs` under a component's folder, `bin/`
 and `obj/` left out, with Roslyn syntax trees and never a compilation. It returns
 the types with their public members and the members of every accessibility, and
@@ -587,7 +587,7 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -595,7 +595,7 @@ and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
 The shell (`MainLayout`) is a title bar carrying the version control and the sync
-status, the page, and three tabs along the bottom, withheld until the device is
+status, the page, and the tabs along the bottom, withheld until the device is
 paired.
 
 The **version control** (`AppUpdateControl`) is the app bar's title. It names the
@@ -629,6 +629,10 @@ The tabs are:
 - **Tasks** — My Day, read from `task_view`, and the phone's writes to tasks. It
   adds a task picked for today. For a task in today's My Day it marks it done or
   undone, ticks one of its steps, or moves it to tomorrow.
+- **Notifications** — the notifications the paired desktops published, as a
+  list, a detail and a pager that swipes between them. A question is answered
+  there, and each of its answer boxes can be dictated into through the speech
+  transcriber. The reply leaves through the outbox as `notification-reply`.
 
 Its local SQLite file holds no canonical task data. It holds:
 
@@ -658,10 +662,11 @@ graph TB
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
+    NotificationsTab["Notifications tab\n(list, detail, pager, answer)"]
   end
 
   subgraph "Device store (SQLite)"
-    Outbox["Outbox\n(capture, note, task, talk-note)"]
+    Outbox["Outbox\n(capture, note, task, notification-reply, talk-note)"]
     InboxCache["Last pulled inbox"]
     TaskView["task_view\n(fold of the task feed)"]
     NoteView["note_view\n(fold of note documents)"]
@@ -671,7 +676,7 @@ graph TB
 
   subgraph "Platform (Backlog.Mobile)"
     Picker["Attachment picker\n(camera, pictures, files)"]
-    Speech["Speech transcriber"]
+    Speech["Speech transcriber\n(on-device, or Cloud engine)"]
     Share["Share target"]
     Shortcut["Launcher shortcut (Capture)"]
     Creds["Secure storage\n(device credential)"]
@@ -702,13 +707,21 @@ graph TB
   Shell --> CaptureSheet
   TasksTab --> TaskView
   TasksTab --> Outbox
+  Shell --> NotificationsTab
+  NotificationsTab --> Outbox
+  NotificationsTab --> Speech
   Files -->|"PUT /api/sync/attachments/{id}"| API
+  Speech -.->|"POST /api/sync/transcriptions (Cloud engine)"| API
   Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API
   API -->|"GET /api/sync/inbox"| InboxCache
   API -->|"GET /api/sync/tasks (task feed)"| TaskView
   API -->|"GET /api/sync/tasks (note documents)"| NoteView
   Creds -.->|bearer| API
 ```
+
+The speech transcriber listens on-device by default. With the Cloud engine picked
+in Settings, it records the turn and sends it to the sync API for transcription.
+It falls back to on-device when the cloud cannot answer (local ADR 0045).
 
 The phone reaches the cloud only through the sync API. No device store goes
 through a file-sync product (`.devbook/arc42/02-constraints.md#technical-constraints`).
@@ -800,7 +813,7 @@ for monitoring. Capture uses session context to create backlog and knowledge ite
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`),
@@ -905,6 +918,16 @@ same authorization, owner-scope and replica-fault filters as every other sync
 route. The per-file cap and the type allowlist are `Modules:Sync:Attachments`
 settings. A capture names its files as metadata. The acknowledgement tombstone,
 the phone's own or the desktop's pushed one, releases them, best effort.
+
+Local ADR 0045: `POST /api/sync/transcriptions` takes
+one phone dictation's audio and answers its text. It sits behind the same
+authorization and owner-scope filters as every other sync route. The service hands
+the audio to the Azure Foundry `gpt-4o-transcribe` deployment through
+`Backlog.Infrastructure.AzureFoundry`, with its managed identity, through a bridge in the host, and keeps neither
+the audio nor the text. The cap, the audio allowlist, the endpoint, the deployment
+and the api-version are `Modules:Sync:Transcription` settings. With no endpoint set,
+the route answers `503 sync.transcription_unavailable`, and the phone dictates
+on-device.
 
 ```mermaid
 flowchart TB

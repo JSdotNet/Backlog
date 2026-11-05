@@ -328,7 +328,9 @@
     </Story>
 
     <Story Name="Checkbox"
-           Description="The 'all' box is indeterminate whenever some — but not all — of the children are checked, which is state the browser cannot derive on its own."
+           Description="The 'all' box is indeterminate whenever some — but not all — of the children are checked, which is state the browser cannot derive on its own.
+
+Busy is ToggleButton's Busy: the act the box belongs to is running, so a change is ignored, but the box keeps its tab stop and says `aria-disabled`. Disabled is a standing state — the box is unavailable — and is the native attribute."
            Code="@CheckboxCode">
         <div class="sb-stack">
             <Checkbox Checked="AllChecked"
@@ -344,6 +346,7 @@
                           TestId="@($"check-{area.ToLowerInvariant()}")" />
             }
             <Checkbox Checked="false" Label="Disabled" Disabled="true" />
+            <Checkbox Checked="false" Label="Busy" Busy="true" TestId="check-busy" />
             <p class="sb-state" data-testid="input-checkbox-value">[@string.Join(", ", _checked)]</p>
         </div>
 
@@ -870,6 +873,7 @@ It exists because two panels had each written a private class to get here, which
 
     private const string CheckboxCode = """
         <Checkbox Checked="AllChecked" CheckedChanged="SetAll" Indeterminate="SomeChecked" Label="All areas" />
+        <Checkbox Checked="_picked" CheckedChanged="v => _picked = v" Busy="@_sending" Label="Pair phone" />
         <Checkbox Checked="_enabled" CheckedChanged="v => _enabled = v" Label="Architecture">
             <code>.arc42</code>
         </Checkbox>

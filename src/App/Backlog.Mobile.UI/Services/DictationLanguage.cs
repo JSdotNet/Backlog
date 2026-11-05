@@ -70,5 +70,19 @@ public sealed record DictationRequest(string? Language, IReadOnlyList<string> De
                 : Single(Dutch)
         };
 
+    /// <summary>
+    /// The language hint a cloud turn sends with its recording (local ADR 0045 §6): one of
+    /// the route's <c>nl</c> and <c>en</c>, or <c>null</c> to let the model detect it.
+    /// </summary>
+    /// <param name="choice">The Dictation setting. Only a single language is hinted: Dutch and
+    /// English is what the model's own detection is for, and the phone's language may be one
+    /// the route does not take.</param>
+    public static string? TranscriptionHintFor(DictationLanguage choice) => choice switch
+    {
+        DictationLanguage.Dutch => "nl",
+        DictationLanguage.English => "en",
+        _ => null
+    };
+
     private static DictationRequest Single(string? language) => new(language, [], SwitchesLanguage: false);
 }

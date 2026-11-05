@@ -73,7 +73,8 @@ type: sub-feature
 On-device transcription of voice notes into usable markdown, with retry on
 transcription failure, preserving source metadata.
 
-On the phone, dictation is the capture sheet's. What was heard is shown on a
+On the phone, the capture sheet, the Notes editor and a notification's answer
+boxes take dictation. What was heard is shown on a
 line and appended to what is already in the field, so nothing is sent that the
 person has not read first.
 

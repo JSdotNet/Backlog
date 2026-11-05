@@ -669,7 +669,7 @@ related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 ```
 
 > The requirements of the **C4 zoom** tab of the architecture panel, behind the
-> `c4-zoom` switch (local ADR 0045). Each has its cases written inline until a
+> `c4-zoom` switch (local ADR 0046). Each has its cases written inline until a
 > journey proves it.
 
 ### Requirement: The zoom tab sits beside the C4 tab

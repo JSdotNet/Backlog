@@ -67,7 +67,7 @@ feature catalog in `AppFeatures.cs`, and a person's choice is kept in
 type: feature-flag
 key: c4-zoom
 default: off
-related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0045-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
+related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
 ```
 
 Turning it on adds a **C4 zoom** tab beside the **C4** tab in the architecture
@@ -79,7 +79,7 @@ or off.
 
 The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and the
 switch is retired once the zoom tab has been validated and replaces the **C4** tab
-(local ADR 0045).
+(local ADR 0046).
 
 ## Devbook editing
 

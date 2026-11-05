@@ -44,6 +44,66 @@ public sealed class CheckboxTests
     }
 
     /// <summary>
+    /// Busy is ToggleButton's Busy: the box keeps its tab stop, says aria-disabled, and
+    /// a change is dropped rather than reported, so the act it belongs to runs once.
+    /// </summary>
+    [Fact]
+    public void A_busy_box_stays_focusable_and_ignores_a_change()
+    {
+        using var context = new BunitContext();
+        bool? reported = null;
+
+        var checkbox = context.Render<Checkbox>(parameters => parameters
+            .Add(c => c.Busy, true)
+            .Add(c => c.CheckedChanged, (bool value) => reported = value));
+
+        var input = checkbox.Find("input");
+        Assert.Equal("true", input.GetAttribute("aria-disabled"));
+        Assert.False(input.HasAttribute("disabled"));
+
+        input.Change(true);
+
+        Assert.Null(reported);
+        Assert.False(checkbox.Find("input").HasAttribute("checked"));
+    }
+
+    /// <summary>
+    /// The handler's guard alone cannot stop the box: the browser flips it before the
+    /// change arrives, and a re-render with the same Checked writes nothing back. The
+    /// click's default is prevented instead. bUnit does not run the default, so this
+    /// pins the directive that does.
+    /// </summary>
+    [Fact]
+    public void A_busy_box_prevents_the_click_that_would_flip_it()
+    {
+        using var context = new BunitContext();
+
+        var busy = context.Render<Checkbox>(parameters => parameters.Add(c => c.Busy, true));
+        var idle = context.Render<Checkbox>();
+
+        Assert.Contains(busy.Find("input").Attributes, PreventsClick);
+        Assert.DoesNotContain(idle.Find("input").Attributes, PreventsClick);
+
+        static bool PreventsClick(AngleSharp.Dom.IAttr attribute) =>
+            string.Equals(attribute.Name, "blazor:onclick:preventDefault", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Disabled_stays_the_native_attribute_and_wins_over_busy()
+    {
+        using var context = new BunitContext();
+
+        var both = context.Render<Checkbox>(parameters => parameters
+            .Add(c => c.Disabled, true)
+            .Add(c => c.Busy, true));
+        var idle = context.Render<Checkbox>();
+
+        Assert.True(both.Find("input").HasAttribute("disabled"));
+        Assert.False(both.Find("input").HasAttribute("aria-disabled"));
+        Assert.False(idle.Find("input").HasAttribute("aria-disabled"));
+    }
+
+    /// <summary>
     /// The mixed state reaches the box, not just the label.
     /// <para>
     /// Asserted through the selector the stylesheet actually uses, because that

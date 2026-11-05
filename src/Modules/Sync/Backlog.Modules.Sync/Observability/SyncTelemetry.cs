@@ -50,6 +50,25 @@ public static class SyncTelemetry
         public const string Remove = "remove";
     }
 
+    /// <summary>A dictation's declared media type, without parameters — on the allowlist by
+    /// the time it is tagged, so low cardinality by construction (local ADR 0045 §4).</summary>
+    public const string ContentTypeTag = "backlog.sync.content_type";
+
+    /// <summary>A dictation's size in bytes, on the trace only.</summary>
+    public const string SizeTag = "backlog.sync.size_bytes";
+
+    /// <summary>How a dictation ended — one of <see cref="TranscriptionOutcomes"/>.</summary>
+    public const string OutcomeTag = "backlog.sync.outcome";
+
+    /// <summary>The values <see cref="OutcomeTag"/> takes.</summary>
+    public static class TranscriptionOutcomes
+    {
+        public const string Transcribed = "transcribed";
+        public const string Unavailable = "unavailable";
+        public const string Failed = "failed";
+        public const string TooLarge = "too_large";
+    }
+
     public static readonly ActivitySource Source = new(Name);
 
     private static readonly Meter Meter = new(Name);
@@ -79,4 +98,19 @@ public static class SyncTelemetry
         "backlog.sync.push_failed",
         unit: "{push}",
         description: "Android push calls that failed and were contained, tagged by operation.");
+
+    /// <summary>How long a dictation took to transcribe, by content type and outcome (local ADR
+    /// 0045 §4). The size, the type, the duration and the outcome are all the telemetry a
+    /// dictation leaves; never its audio or its text.</summary>
+    public static readonly Histogram<double> TranscriptionDuration = Meter.CreateHistogram<double>(
+        "backlog.sync.transcription.duration",
+        unit: "s",
+        description: "Dictation transcriptions, by content type and outcome.");
+
+    /// <summary>How large the dictations sent to be transcribed were, by content type and
+    /// outcome.</summary>
+    public static readonly Histogram<long> TranscriptionSize = Meter.CreateHistogram<long>(
+        "backlog.sync.transcription.size",
+        unit: "By",
+        description: "Bytes of dictation audio relayed for transcription, by content type and outcome.");
 }

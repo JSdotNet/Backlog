@@ -476,7 +476,7 @@ prepared, so a review leaves no trace in the repository or the app's storage.
 type: feature
 feature-flag: .devbook/domain/devbook/context.md#c4-zoom
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
-related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0045-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Walk the architecture the way C4 draws it, one level at a time, from the system
@@ -572,7 +572,7 @@ stays the text that is read; the model is what is drawn.
 
 Which element a record names, a TDR's severity, which ADR supersedes which, and
 which code a component maps to are read from the chapters' own devbook metadata,
-never from a file kept beside the model (local ADR 0045). A TDR's rung and an ADR's
+never from a file kept beside the model (local ADR 0046). A TDR's rung and an ADR's
 proposed mark are the record's state in Backlog's subject store, as the file header
 shows it, and the record's own `status` only where nothing is stored (local ADR
 0044). A record that states none, as devbook's contract 38 has it, rests: no proposed

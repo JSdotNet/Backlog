@@ -370,7 +370,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal(["Chapters", "C4"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
     }
 
-    // ---- a record's state, from the subject store (local ADRs 0044 §5 and 0045) ----
+    // ---- a record's state, from the subject store (local ADRs 0044 §5 and 0046) ----
 
     private const string DebtPath = ".arc42/tdr/0001-debt.md";
 

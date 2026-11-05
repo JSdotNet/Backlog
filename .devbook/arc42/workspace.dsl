@@ -158,7 +158,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             }
         }
         externalSources = softwareSystem "External Sources" "YouTube, Email, Websites / RSS" "External"
-        azureFoundry = softwareSystem "Azure AI Foundry" "Chat, embeddings and plan drafting; resource cost" "External"
+        azureFoundry = softwareSystem "Azure AI Foundry" "Chat, embeddings, plan drafting and dictation transcription; resource cost" "External"
         claude = softwareSystem "Claude" "Usage and cost reporting" "External"
 
         me -> backlog "Captures, triages, manages backlog and knowledge"
@@ -176,6 +176,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         backlog.ide -> backlog.cloud "Reads and posts inbox items as a paired device" "HTTPS /api/sync/inbox, Bearer"
         backlog.cloud -> backlog.attachments "Stores and serves attachments" "Blob SDK"
         backlog.cloud -> github "Receives webhooks" "HTTPS"
+        backlog.cloud -> azureFoundry "Transcribes dictation audio" "HTTPS"
     }
 
     views {
