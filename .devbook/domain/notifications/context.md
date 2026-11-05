@@ -123,8 +123,8 @@ in two places:
 The centre's list follows the header's repository scope, by the rule the
 Sessions list keeps (local ADR 0027): nothing pressed lists every notification,
 one repository — or several, pressed with Ctrl — lists those about them, and the
-Brain lists those about no repository. A notification carries no repository of
-its own; the host works it out at read time from what its producer left on it
+Brain lists those about no repository. The host works out which repository a
+notification is about at read time, from what its producer left on it
 (`NotificationRepositories`): a run's worktree or place, a session's repository,
 a pull request's or a linked task's, a spec-manager product's connected target, a
 remark's chapter. Pairing, the settings test and an MCP call from no session name
@@ -132,6 +132,15 @@ none and are the Brain's. One the host could not work out, because its source
 could not be read, is listed under every scope, so a source that fails never
 hides a question. Opening the centre on a notification the scope hides shows
 every repository until the scope is pressed again.
+
+The owner desktop publishes that answer with each notification it pushes, worked
+out by the same rule when it pushes: the repository's alias, the name its header
+scope shows, or the Brain for a notification about no repository. One it could
+not work out goes out with neither and reads as not known, as does every
+notification an owner pushed before it published a repository. The phone keeps
+no aliases of its own, so this is what its Repository filter reads
+([Answering from another device](features.md#answering-from-another-device);
+local ADR 0039).
 
 Over the list sit three filters, each option counting what it would keep under
 the other two:
