@@ -1,7 +1,7 @@
 # Desktop Stack
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop"]
 ```
 
@@ -11,7 +11,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-vie
 ## Windows
 
 ```meta
-status: adopted
+rating: adopted
 type: platform
 related: [".devbook/arc42/07-deployment-view.md#local-deployment-desktop"]
 ```
@@ -26,7 +26,7 @@ The target operating system for the desktop client.
 ## Windows App SDK
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
 ```
@@ -39,7 +39,7 @@ The modern Windows application platform underneath the UI framework.
 ## WinUI 3
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/desktop.md#windows-app-sdk", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
@@ -58,7 +58,7 @@ The native Windows head that `.devbook/tech/shared.md#net-maui` uses on this pla
 ## WebView2
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/desktop.md#windows-app-sdk"]
 related: [".devbook/tech/shared.md#blazor-hybrid", ".devbook/tech/testing.md#playwright", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
@@ -76,7 +76,7 @@ The Chromium-based embedded browser the desktop UI actually renders in.
 ## Local Task Store
 
 ```meta
-status: adopted
+rating: adopted
 type: library
 depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#microsoftdatasqlite", ".devbook/tech/shared.md#json"]
 related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
@@ -100,7 +100,7 @@ The file-backed persistence layer, implemented in-app rather than bought in.
 ## Background Workers
 
 ```meta
-status: candidate
+rating: candidate
 type: library
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
@@ -117,7 +117,7 @@ In-process hosted services that poll external sources on the local machine.
 ## System.Security.Cryptography.ProtectedData
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
@@ -143,7 +143,7 @@ The .NET wrapper over Windows DPAPI.
 ## Model Context Protocol C# SDK
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "2.2.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#net-runtime"]
@@ -164,7 +164,7 @@ with.
 ## Microsoft.CodeAnalysis.CSharp
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "5.9.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -188,7 +188,7 @@ Roslyn's C# parser, used for syntax trees and nothing else.
 ## GitHub CLI
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#github-platform"]
 related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
@@ -211,7 +211,7 @@ The local integration path to GitHub from the desktop (`gh`).
 ## MSIX Packaging
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/desktop.md#windows-app-sdk"]
 related: [".devbook/arc42/07-deployment-view.md#installation-and-updates", ".devbook/tech/tooling.md#powershell"]
@@ -247,7 +247,7 @@ The packaging and update format for the Windows client.
 ## App Installer (`.appinstaller`)
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 depends-on: [".devbook/tech/desktop.md#msix-packaging"]
 related: [".devbook/arc42/07-deployment-view.md#installation-and-updates"]

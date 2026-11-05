@@ -11,7 +11,10 @@ namespace Backlog.Desktop.UI.Devbook;
 /// same thing in more places — a debt record's rung in the left navigation, on the
 /// record panel's ladder, in the inspector and the cross-cutting tray, a decision's
 /// "proposed" mark on each of those — so it reads the same store, and the record's
-/// authored <c>status</c> only where the store holds nothing (local ADR 0045).
+/// authored <c>status</c> only where the store holds nothing (local ADR 0045). From
+/// devbook's contract 38 a record states none, so that fallback is the resting read,
+/// no "proposed" mark and the <c>identified</c> rung; a repository on an older
+/// contract still states one.
 /// </para>
 /// <para>
 /// A debt record is keyed by its path. A decision record is keyed by its path and the

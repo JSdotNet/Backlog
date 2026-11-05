@@ -24,7 +24,7 @@ public enum Arc42SurfaceMode
 public sealed record Arc42SurfaceChapter(string Path, string? Number, string Title, int Views, int Decisions, int Debt);
 
 /// <summary>One decision or debt record on the surface's lists.</summary>
-/// <param name="Proposed">An ADR still at <c>status: proposed</c>.</param>
+/// <param name="Proposed">An ADR whose state, stored or stated by its file, is <c>proposed</c>.</param>
 /// <param name="Guideline">An ADR adopted from elsewhere, under <c>adr/guidelines/</c>.</param>
 /// <param name="Note">What is said on the right: "proposed", a TDR's severity and rung.</param>
 public sealed record Arc42SurfaceRecord(string Path, string Number, string Title, bool Proposed, bool Guideline, string? Note);

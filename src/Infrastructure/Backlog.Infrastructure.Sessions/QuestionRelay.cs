@@ -550,14 +550,20 @@ public sealed class QuestionRelay : IQuestionRelay
 
         if (question.Questions.Count > 1)
         {
-            body.Append("Question ").Append(index + 1).Append(" of ").Append(question.Questions.Count).AppendLine(" the session asked.").AppendLine();
+            body.Append("Question ").Append(index + 1).Append(" of ").Append(question.Questions.Count).AppendLine(" the session asked.");
         }
 
-        body.AppendLine(asked.Question.Trim());
+        // Both cards draw the body under the summary, so the question goes here only when the
+        // summary's bound cut it short.
+        if (OneLine(asked.Question, int.MaxValue).Length > Limits.Summary)
+        {
+            if (body.Length > 0) body.AppendLine();
+            body.AppendLine(asked.Question.Trim());
+        }
 
         if (asked.Choices.Count > 0)
         {
-            body.AppendLine();
+            if (body.Length > 0) body.AppendLine();
 
             foreach (var option in asked.Choices)
             {

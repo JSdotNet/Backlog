@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -36,7 +35,6 @@ without touching the header's scope or the task filter.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
@@ -56,7 +54,6 @@ task list and keeps it underneath, so one press moves between knowledge and work
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
@@ -86,7 +83,6 @@ rather than offering an empty tab strip.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
 related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
@@ -315,7 +311,6 @@ same verdicts a unit at a time and groups them by that direction.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
@@ -345,7 +340,6 @@ repository read from a branch without a clone is prepared too.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
@@ -390,7 +384,6 @@ with it.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
@@ -448,7 +441,6 @@ choice with the same entries.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 depends-on: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
 related: [.devbook/domain/devbook/requirements.md#reviewing-what-a-branch-changed, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md]
@@ -482,7 +474,6 @@ prepared, so a review leaves no trace in the repository or the app's storage.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#c4-zoom
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0045-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
@@ -584,13 +575,13 @@ which code a component maps to are read from the chapters' own devbook metadata,
 never from a file kept beside the model (local ADR 0045). A TDR's rung and an ADR's
 proposed mark are the record's state in Backlog's subject store, as the file header
 shows it, and the record's own `status` only where nothing is stored (local ADR
-0044).
+0044). A record that states none, as devbook's contract 38 has it, rests: no proposed
+mark, the `identified` rung.
 
 ## Technology view
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/requirements.md#technology-view, .devbook/tech/technology-graph.md#graph, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md#how-a-reader-degrades]
@@ -736,7 +727,6 @@ picks a technology from the companion and loses nothing but the picture.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#instruction-optimization
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
@@ -760,7 +750,6 @@ review reports that rather than a saving.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-set]
 ```
 
@@ -773,7 +762,6 @@ rather than dropped, because the next tool arriving is a normal event.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#context-load]
 ```
 
@@ -787,7 +775,6 @@ a long one reached twice a month.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 ```
 
@@ -801,7 +788,6 @@ alike are sometimes two different rules and collapsing them loses one.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 ```
 
@@ -815,7 +801,6 @@ not yet finished.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Judge the wording that is supposed to do the work. A line naming a document held
@@ -833,7 +818,6 @@ in front of the reader.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Surface the lines that no longer earn their load:
@@ -850,7 +834,6 @@ by running the agent without it, not by arguing about it.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-review]
 ```
 
@@ -864,7 +847,6 @@ instruction that has to be exact.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#saving-evidence]
 ```
 
@@ -874,7 +856,6 @@ Show every claimed reduction with its [Saving Evidence](domain.md#saving-evidenc
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 

@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
 aliases: [ProgressSignal, Signal]
 ```
@@ -34,7 +32,6 @@ entities; its variable payload is held in the `Signal Payload` value object.
 
 ```meta
 type: value-object
-status: draft
 aliases: [SignalPayload]
 ```
 
@@ -53,7 +50,6 @@ A payload is immutable, and two payloads are equal when their values are.
 
 ```meta
 type: enum
-status: draft
 aliases: [SignalType]
 ```
 
@@ -76,8 +72,36 @@ Kind of change a signal represents:
 
 ```meta
 type: domain-service
-status: draft
 ```
+
+**Signal flow**
+
+```mermaid
+sequenceDiagram
+    participant Tasks as Tasks
+    participant Inbox as Inbox
+    participant GitHub as GitHub
+    participant AppInsights as Application Insights
+    participant DevPC as Dev PC Management
+    participant Monitoring as Monitoring
+    participant Dashboard as Dashboard
+
+    Tasks->>Monitoring: StatusChanged (item_id, new_status, changed_at)
+    Inbox->>Monitoring: QueueDepthChanged (depth, age_max, processing_rate)
+    GitHub->>Monitoring: IssueUpdated (task_id, url, status)
+    AppInsights->>Monitoring: MetricReceived (project, metric, value, severity)
+    DevPC->>Monitoring: MachineStatusChanged (machine_id, status, last_heartbeat)
+    DevPC->>Monitoring: ComplianceUpdated (machine_id, compliance_score)
+
+    Note over Monitoring: Signals aggregated and correlated
+
+    Monitoring->>Dashboard: ProgressSignals + QueueHealth + InfraDashboard
+    Note over Dashboard: Follow-up actions identified
+    Dashboard->>Inbox: FollowUpCaptured (title, source: monitoring)
+```
+
+The last arrow closes the observe-and-act loop; see
+[FollowUpCaptured](domain.md#followupcaptured).
 
 Ingests signals from every source and correlates them, for example GitHub errors
 against backlog delays. It detects staleness and attention conditions against
@@ -92,7 +116,6 @@ contexts publish.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/arc42/08-crosscutting-concepts.md#observability]
 ```
 
@@ -116,7 +139,6 @@ follow-up decision is requested.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/monitoring/domain.md#dashboard]
 ```
 
@@ -144,7 +166,6 @@ Published by `Dashboard` when an observed condition should become a new Inbox it
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.

@@ -2,7 +2,6 @@
 
 ```meta
 type: dependencies
-status: draft
 related: [.devbook/domain/context-map.md]
 ```
 

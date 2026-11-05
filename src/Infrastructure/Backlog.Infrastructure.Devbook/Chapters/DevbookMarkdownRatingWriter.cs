@@ -7,17 +7,18 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 /// a chapter's, addressed by <c>&lt;path&gt;#&lt;slug&gt;</c>, or a file's own,
 /// addressed by the bare path — in <c>tech/</c> and <c>ai/</c>, and nowhere else.
 ///
-/// <para>The only <c>status</c> field the product still writes. Under devbook's
-/// branch-true decision a chapter's workflow state — a decision record's, a debt record's, a proposal's
-/// approval — is kept by the tool and not in git, so the product no longer writes
-/// a <c>status</c> into <c>arc42/</c>, <c>domain/</c> or <c>design/</c>; an
-/// authored one there still reads, as a badge. In <c>tech/</c> and <c>ai/</c>
-/// the same field is a rating — where a technology stands on the adoption ladder,
-/// how a team uses a practice — which is what the chapter says rather than where
-/// it is in a workflow, so it stays in the Markdown. Devbook contract 38 renames
-/// the field <c>rating</c>; the writer updates whichever of the two the fence
-/// already carries, and a fence that carries neither gets <c>status</c> until
-/// the contract lands.</para>
+/// <para>The only metadata field the product still writes into a chapter. Under
+/// devbook's branch-true decision a chapter's workflow state — a decision record's,
+/// a debt record's, a proposal's approval — is kept by the tool and not in git, so
+/// the product writes no <c>status</c> anywhere. In <c>tech/</c> and <c>ai/</c> a
+/// block states a rating — where a technology stands on the adoption ladder, how a
+/// team uses a practice — which is what the chapter says rather than where it is in
+/// a workflow, so it stays in the Markdown. Devbook contract 38 spells it
+/// <c>rating</c> and rejects <c>status</c> in both folders, and the generator reads
+/// <c>rating</c> alone. So the writer updates a <c>rating</c> line in place and
+/// drops any <c>status</c> line beside it in the same fence; renames a legacy
+/// <c>status</c>-only line to <c>rating</c> in place; and gives a fence that
+/// carries neither — or a heading with no fence — a <c>rating</c> line.</para>
 ///
 /// <para>Refused before the file is opened, so a refused write leaves no trace:
 /// any folder but those two, and a decision rung, which is in neither folder's
@@ -56,12 +57,12 @@ internal static class DevbookMarkdownRatingWriter
         document.Save();
     }
 
-    /// <summary>The field a fence states its rating in once its repository has
-    /// migrated to contract 38.</summary>
+    /// <summary>The field a fence states its rating in from devbook contract 38
+    /// on, and the only one a write leaves behind.</summary>
     private const string RatingField = "rating";
 
-    /// <summary>The field a rating is still written in everywhere else, and the
-    /// one a new fence gets until contract 38 lands.</summary>
+    /// <summary>The field a fence written before contract 38 states its rating
+    /// in; the contract rejects it in both folders, so a write renames it.</summary>
     private const string StatusField = "status";
 
     private static void Upsert(List<string> lines, int headingIndex, string rating)
@@ -69,28 +70,36 @@ internal static class DevbookMarkdownRatingWriter
         var fenceIndex = DevbookHeadingDocument.FindFence(lines, headingIndex);
         if (fenceIndex < 0)
         {
-            lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"{StatusField}: {rating}", "```"]);
+            lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"{RatingField}: {rating}", "```"]);
             return;
         }
 
-        // Whichever field the fence already carries: a migrated fence keeps
-        // `rating`, an unmigrated one keeps `status`, and neither gains the other.
+        // `rating` first: updated in place, and a `status` line a half-done
+        // migration left beside it in this fence goes. Otherwise a legacy
+        // `status` line is renamed where it stands, so the fence keeps its order.
         var line = FindFieldLine(lines, fenceIndex, RatingField);
-        var field = RatingField;
-        if (line < 0)
+        if (line >= 0)
         {
-            line = FindFieldLine(lines, fenceIndex, StatusField);
-            field = StatusField;
-        }
-
-        if (line < 0)
-        {
-            lines.Insert(fenceIndex + 1, $"{StatusField}: {rating}");
+            Set(lines, line, rating);
+            DevbookHeadingDocument.RemoveFields(lines, fenceIndex, [StatusField]);
             return;
         }
 
+        line = FindFieldLine(lines, fenceIndex, StatusField);
+        if (line >= 0)
+        {
+            Set(lines, line, rating);
+            return;
+        }
+
+        lines.Insert(fenceIndex + 1, $"{RatingField}: {rating}");
+    }
+
+    /// <summary>Write <c>rating: &lt;value&gt;</c> over the line, keeping its indent.</summary>
+    private static void Set(List<string> lines, int line, string rating)
+    {
         var indent = lines[line][..(lines[line].Length - lines[line].TrimStart().Length)];
-        lines[line] = $"{indent}{field}: {rating}";
+        lines[line] = $"{indent}{RatingField}: {rating}";
     }
 
     /// <summary>The index of the <paramref name="field"/> line inside the fence
@@ -102,7 +111,8 @@ internal static class DevbookMarkdownRatingWriter
         var prefix = field + ":";
         for (var i = fenceIndex + 1; i < lines.Count && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal); i++)
         {
-            if (lines[i].TrimStart().StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return i;
+            // Unindented only: an indented key is nested under another field.
+            if (lines[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return i;
         }
 
         return -1;

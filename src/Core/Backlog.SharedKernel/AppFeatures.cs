@@ -163,4 +163,11 @@ public static class AppFeatureKeys
     /// <summary>Tasks starts the CLI from an entry and Devbook
     /// starts it from a devbook chapter. Two contexts, one key.</summary>
     public const string CopilotCli = "copilot-cli";
+
+    /// <summary>Copy an entry's text, or a plan's tag, to the clipboard: Tasks
+    /// offers it on a row, a board card, the open entry and the pressed plan chip,
+    /// and Roadmap in the planned-work dialog. On by default; the queue icon beside
+    /// each copy is meant to replace it, and switching this off leaves that icon
+    /// alone. Two contexts, one key.</summary>
+    public const string CopyEntries = "copy-entries";
 }

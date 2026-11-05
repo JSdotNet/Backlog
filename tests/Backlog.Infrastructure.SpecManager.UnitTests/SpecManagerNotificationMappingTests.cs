@@ -76,14 +76,29 @@ public sealed class SpecManagerNotificationMappingTests
         Assert.Equal(NotificationSeverity.Info, draft.Severity);
     }
 
+    /// <summary>Both cards draw the body under the summary, so a text the summary holds
+    /// whole leaves the body empty rather than showing it twice.</summary>
     [Fact]
-    public void The_subject_is_the_title_and_the_text_the_summary_and_the_body()
+    public void The_subject_is_the_title_and_the_text_the_summary_alone()
     {
         var draft = SpecManagerNotificationMapper.ToDraft(Mention, Root, false, "Billing");
 
         Assert.Equal("Kees mentioned you on #7 Rounding in invoices", draft.Title);
         Assert.Equal("@Jip can you check the rounding rule before Friday?", draft.Summary);
-        Assert.Equal("@Jip can you check the\nrounding rule before Friday?", draft.BodyMarkdown);
+        Assert.Equal(string.Empty, draft.BodyMarkdown);
+    }
+
+    /// <summary>A text past the 180-character summary bound loses its tail in the summary,
+    /// so the body holds the whole text.</summary>
+    [Fact]
+    public void A_text_cut_short_in_the_summary_is_the_body_whole()
+    {
+        var text = string.Join("\n", Enumerable.Repeat("Round half even on every line, then the total half up.", 5));
+
+        var draft = SpecManagerNotificationMapper.ToDraft(Mention with { Text = text }, Root, false, "Billing");
+
+        Assert.EndsWith("…", draft.Summary, StringComparison.Ordinal);
+        Assert.Equal(text, draft.BodyMarkdown);
     }
 
     [Fact]

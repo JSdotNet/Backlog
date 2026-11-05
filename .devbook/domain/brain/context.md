@@ -1,7 +1,6 @@
 # Brain
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -40,7 +39,6 @@ Outside it:
 ## Brain folder
 
 ```meta
-status: draft
 type: setting
 key: brain.settings.json
 scope: user
@@ -85,7 +83,6 @@ behind.
 ## Lobes atlas
 
 ```meta
-status: draft
 type: feature-flag
 key: atlas-lobes
 default: off
@@ -93,8 +90,8 @@ related: [".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/brai
 ```
 
 Turning it on makes the Devbook pane's **Atlas** button open the
-[Lobes atlas](features.md#lobes-atlas) at the pane's scope, the Brain or that
-repository, and offers the atlas from the shell header. Off, the button opens
+[Lobes atlas](features.md#lobes-atlas) on the header's repository scope, whose
+anchor the pane reads, and offers the atlas from the shell header. Off, the button opens
 today's atlas, and the header offers none. The Technology section keeps its own
 views either way.
 

@@ -1,11 +1,9 @@
 # Inbox
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
-sync: pull
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
@@ -27,7 +25,6 @@ decided in `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.
 ## Inbox pane
 
 ```meta
-status: draft
 type: feature-flag
 key: inbox-pane
 default: off
@@ -41,7 +38,6 @@ It ships off and marked `DEV` while triage is under construction. The key is the
 ## Inbox routing rules
 
 ```meta
-status: draft
 type: setting
 key: inbox-routing-rules.json
 scope: user

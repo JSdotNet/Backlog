@@ -467,7 +467,7 @@ public sealed record DevbookMeta(string? Status, IReadOnlyList<string> Related)
     /// status means, and nothing else's. A missing status is
     /// <see cref="DevbookDebtLifecycle.Identified"/>, the ladder's resting value, which
     /// the convention writes by omitting the field. A value off the ladder is null
-    /// rather than a guess: a <c>statuses.json</c> rule may replace the ladder.
+    /// rather than a guess: a repository on an older contract may configure its own.
     /// </summary>
     public DevbookDebtLifecycle? DebtLifecycle => Status?.Trim().ToLowerInvariant() switch
     {

@@ -1,7 +1,6 @@
 # ADR 0018: Configuration and options binding
 
 ```meta
-status: proposed
 related: [".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md"]
 ```
 

@@ -62,7 +62,7 @@ last — the order shown in the tree above. See
   - Lists the layers and what each layer file covers.
   - Renders the technology graph as a Mermaid diagram (nodes = technologies,
     edges = `depends-on`).
-  - Explains the status ladder and how to read/extend the graph.
+  - Explains the rating ladder and how to read/extend the graph.
   - Its `##` sections do **not** carry per-chapter metadata blocks; the file
     carries a file-level block only (same rule as `.devbook/domain/context-map.md`).
   - It is `tech/`'s root document, so it is the first file read in the folder.
@@ -80,7 +80,7 @@ last — the order shown in the tree above. See
 ## <Technology Name>
 
 \`\`\`meta
-status: candidate
+rating: candidate
 type: framework
 version: "9.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -101,11 +101,10 @@ context to be understood, not a design document.
 ## Metadata fields
 
 `tech/` uses the common fields from
-`devbook-chapter-metadata.md` (`status` and `type` required;
-`related`, `issue`, `effort`, and `roadmap` optional) plus the folder-specific
-fields below.
+`devbook-chapter-metadata.md` (`rating` and `type` required; `related` and
+`tests` optional) plus the folder-specific fields below.
 
-### status
+### rating
 
 Maturity of the technology **in this project**, on a tech-radar-style ladder:
 
@@ -117,23 +116,15 @@ Maturity of the technology **in this project**, on a tech-radar-style ladder:
 | `hold` | Kept but no longer expanded; avoid new usage. |
 | `retired` | No longer used; kept for history. |
 
-Early in a project most entries are legitimately `candidate`. A repository
-may narrow this ladder per file in `.devbook/statuses.json`, and never add to
-it — see `devbook-chapter-metadata.md`.
+Early in a project most entries are legitimately `candidate`. The ladder is
+fixed; no repository configuration narrows or widens it.
 
-There is no `approved` or `accepted` rung here. The two decision rungs are
-`domain/`'s alone — see `devbook-domain.md`. This folder's value is a rating of
-a technology, and stacking a decision about a chapter on top of it would put two
-unrelated statements in one field.
-
-**`status` is required on every `tech/` block, with no resting value to omit** —
-unlike `domain/`, `arc42/`, and `design/`, where an absent status means settled
-content. Here the value is a *rating*, and being stated is its entire purpose: a
+**`rating` is required on every `tech/` block, with no value to omit.** A rating
+is a decision the branch makes, and being stated is its entire purpose: a
 technology nobody has rated is not thereby `candidate`, and a radar assembled
 from omissions renders blank. `adopted` is the most common value precisely
-because it is the interesting one.
-
-### type
+because it is the interesting one. The field was spelled `status` until
+contract 38; the `038-workflow-state-leaves-the-chapter` migration renames it.
 
 What kind of technology the chapter describes. Required on every technology
 chapter. One of: `language`, `runtime`, `framework`, `library`, `package`,

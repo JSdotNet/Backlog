@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
@@ -33,7 +31,6 @@ use part of that:
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/capture/requirements.md#one-tap-entry]
 ```
 
@@ -56,6 +53,11 @@ to Focus instead: the thought is set down and the task taken up again. Cancel, a
 tap on the dimmed screen behind, or Escape go back to the screen the sheet came
 from.
 
+On Android, a long press on the Backlog icon lists **Capture**. A tap opens the
+same sheet over the Inbox, with Inbox chosen, whether the app was closed or open
+on any tab; Cancel lands on the Inbox. The tap is followed once, so reopening the
+app from Recents after Android ended it does not bring the sheet back.
+
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and each bounded. A person is sent as the person and
 never as a tag; on the desktop it becomes the item's source person, and the tags
@@ -66,7 +68,6 @@ the same answer as one that sends everything.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 On-device transcription of voice notes into usable markdown, with retry on
@@ -80,7 +81,6 @@ person has not read first.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 ```mermaid
@@ -157,17 +157,18 @@ else after the first file's name.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Another app hands its content to Capture through the phone's share sheet or a
 shortcut, without opening the capture sheet first.
 
+The launcher icon's **Capture** shortcut hands over no content: it only opens the
+capture sheet, as [One-tap entry](#one-tap-entry) describes.
+
 ## Automation capture
 
 ```meta
 type: feature
-status: draft
 ```
 
 Unattended monitors that watch external sources and create captures on a
@@ -177,7 +178,6 @@ configurable schedule, with retry/backoff and failure logging.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/inbox/features.md#incoming-queue]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
@@ -226,7 +226,6 @@ monitor does not compare the page between runs. There is no folder filing and no
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Polls an email inbox over IMAP (the Internet Message Access Protocol) for
@@ -236,7 +235,6 @@ newsletters and summaries, and tags each capture `#capture/email/{sender}`.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 The monitors run on a schedule the reader sets, so nobody has to press Run
@@ -246,7 +244,6 @@ capture now.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/monitoring/features.md#automation-status]
 ```
 
@@ -273,7 +270,6 @@ about the product's own health continue to reach the Inbox as Monitoring's
 
 ```meta
 type: feature
-status: draft
 ```
 
 A browser extension or bookmarklet that clips web content: the URL, the title, the
@@ -284,7 +280,6 @@ the source link.
 
 ```meta
 type: feature
-status: draft
 ```
 
 An adapter that lets an IDE-class host capture selected code or text, or a note
@@ -296,7 +291,6 @@ Studio) and agentic session tools (GitHub Copilot App).
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/capture/domain.md#source-adapter]
 ```
 
@@ -310,7 +304,6 @@ machine. The desktop's source monitors work under the same local-first rule.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Drag-and-drop files or paste content directly, convert to markdown (MarkItDown
@@ -320,7 +313,6 @@ or equivalent), and extract tags, links, and source metadata automatically.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/inbox/domain.md#inbox-list]
 ```
 
@@ -369,7 +361,6 @@ front matter that cannot be read refuses the whole file, because without its
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/inbox/features.md#incoming-queue]
 ```
 
@@ -382,7 +373,6 @@ source link and capture timestamp.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/capture/context.md#feedback-reporting
 related: [.devbook/domain/repository-management/features.md#github-access-resolution]
 ```

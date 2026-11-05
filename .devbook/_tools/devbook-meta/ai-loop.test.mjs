@@ -36,7 +36,7 @@ const MOVES = "\n- **Moves up when** — a second person works this way.\n";
 const usageFile = (fileMeta, chapters) =>
     `# 1. Author\n\n${fence(fileMeta)}\nProse.\n\n` +
     chapters.map(([name, meta, body = MOVES]) => `## ${name}\n\n${fence(meta)}\nProse.\n${body}`).join("\n");
-const one = (meta, body) => validateDocument(".devbook/ai/01-author.md", usageFile("status: trial\ntype: stage\n", [["Coding Agent", meta, body]]));
+const one = (meta, body) => validateDocument(".devbook/ai/01-author.md", usageFile("rating: trial\ntype: stage\n", [["Coding Agent", meta, body]]));
 
 // --- the vocabularies -------------------------------------------------------
 
@@ -60,16 +60,16 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 {
     const issues = validateDocument(
         ".devbook/ai/01-author.md",
-        usageFile("status: trial\ntype: stage\n", [
-            ["Coding Agent", "status: trial\ntype: agent\nstage: [code, verify]\n"],
-            ["Release Notes", "status: candidate\ntype: skill\nstage: release\n"],
+        usageFile("rating: trial\ntype: stage\n", [
+            ["Coding Agent", "rating: trial\ntype: agent\nstage: [code, verify]\n"],
+            ["Release Notes", "rating: candidate\ntype: skill\nstage: release\n"],
         ])
     );
     check(issues.every((i) => i.severity === "info"), "chapters placed with path words are silent, list or scalar", dump(issues));
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [plan, code]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [plan, code]\n");
     check(
         Boolean(find(issues, "error", '`stage` entry "plan", expected one of: decide, specify, code')),
         "a word outside the seven — an old loop word included — is an error",
@@ -78,7 +78,7 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [monitor, custom]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [monitor, custom]\n");
     check(
         Boolean(find(issues, "error", "migration `035-delivery-path-stages` maps it onto the path")) &&
             !issues.some((i) => i.message.includes('"custom"') && i.message.includes("035-delivery-path-stages")),
@@ -88,7 +88,7 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 }
 
 {
-    const issues = one("status: trial\ntype: agent\n");
+    const issues = one("rating: trial\ntype: agent\n");
     check(
         Boolean(find(issues, "warning", "has no `stage` and no `layer`")),
         "a usage with neither `stage` nor `layer` is off the picture and warns",
@@ -99,7 +99,7 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 {
     const issues = validateDocument(
         ".devbook/ai/concepts.md",
-        `# Concepts\n\n${fence("status: adopted\ntype: concepts\n")}\nProse.\n\n## Context Engineering\n\n${fence("status: adopted\ntype: concept\n")}\nProse.\n\n## Eval Harness\n\n${fence("status: trial\ntype: concept\nstage: [verify]\n")}\nProse.\n${MOVES}`
+        `# Concepts\n\n${fence("rating: adopted\ntype: concepts\n")}\nProse.\n\n## Context Engineering\n\n${fence("rating: adopted\ntype: concept\n")}\nProse.\n\n## Eval Harness\n\n${fence("rating: trial\ntype: concept\nstage: [verify]\n")}\nProse.\n${MOVES}`
     );
     check(!find(issues, "warning", "no `stage`"), "a concept with neither is applied throughout and silent", dump(issues));
 }
@@ -107,17 +107,17 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 // --- layer ------------------------------------------------------------------
 
 {
-    const issues = one("status: adopted\ntype: practice\nlayer: [harness]\n", "");
+    const issues = one("rating: adopted\ntype: practice\nlayer: [harness]\n", "");
     check(issues.every((i) => i.severity === "info"), "a chapter placed by `layer` alone is silent", dump(issues));
 }
 
 {
-    const issues = one("status: adopted\ntype: practice\nstage: [code]\nlayer: [thread, upkeep]\n", "");
+    const issues = one("rating: adopted\ntype: practice\nstage: [code]\nlayer: [thread, upkeep]\n", "");
     check(issues.every((i) => i.severity === "info"), "a chapter may carry `stage` and `layer` both", dump(issues));
 }
 
 {
-    const issues = one("status: adopted\ntype: practice\nlayer: [platform]\n", "");
+    const issues = one("rating: adopted\ntype: practice\nlayer: [platform]\n", "");
     check(
         Boolean(find(issues, "error", '`layer` entry "platform", expected one of: thread, upkeep, harness')),
         "a layer outside the three is an error",
@@ -128,12 +128,12 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 // --- substage ---------------------------------------------------------------
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [verify, integrate]\nsubstage: [verify/review, integrate/review, verify/functional-qa]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [verify, integrate]\nsubstage: [verify/review, integrate/review, verify/functional-qa]\n");
     check(issues.every((i) => i.severity === "info"), "sub-stages under listed stages, in the repository's own words, are silent", dump(issues));
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\nsubstage: [verify/review]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\nsubstage: [verify/review]\n");
     check(
         Boolean(find(issues, "error", '`substage` entry "verify/review" under "verify", which its `stage` does not list')),
         "a sub-stage under a stage the chapter does not list is an error",
@@ -142,7 +142,7 @@ check(AI_EVIDENCE.join(" ") === "recorded partial fired none", "the four evidenc
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [verify]\nsubstage: [review, verify/Code Review]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [verify]\nsubstage: [review, verify/Code Review]\n");
     check(
         Boolean(find(issues, "error", '`substage` entry "review" — a sub-stage is written `<stage>/<word>`')) &&
             Boolean(find(issues, "error", '`substage` entry "verify/Code Review"')),
@@ -161,7 +161,7 @@ check(
 check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no label does not parse");
 
 {
-    const issues = one('status: trial\ntype: agent\nstage: [code]\nfeeds: [".devbook/ai/01-author.md#coding-agent"]\n');
+    const issues = one('rating: trial\ntype: agent\nstage: [code]\nfeeds: [".devbook/ai/01-author.md#coding-agent"]\n');
     check(
         Boolean(find(issues, "error", "the arrow's label, which is required")),
         "a `feeds` entry without its label is an error",
@@ -172,12 +172,12 @@ check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no
 // --- evidence ---------------------------------------------------------------
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\nevidence: partial\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\nevidence: partial\n");
     check(issues.every((i) => i.severity === "info"), "an evidence word from the four is silent", dump(issues));
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\nevidence: some\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\nevidence: some\n");
     check(
         Boolean(find(issues, "error", '`evidence` "some", expected one of: recorded, partial, fired, none')),
         "an evidence word outside the four is an error",
@@ -188,7 +188,7 @@ check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no
 // --- Moves up when ----------------------------------------------------------
 
 {
-    const issues = one("status: candidate\ntype: agent\nstage: [code]\n", "\n- **Evidence** — none yet.\n");
+    const issues = one("rating: candidate\ntype: agent\nstage: [code]\n", "\n- **Evidence** — none yet.\n");
     check(
         Boolean(find(issues, "warning", "is `candidate` and has no `- **Moves up when** — …` bullet")),
         "a candidate without **Moves up when** warns",
@@ -197,7 +197,7 @@ check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no
 }
 
 {
-    const issues = one("status: adopted\ntype: agent\nstage: [code]\n", MOVES);
+    const issues = one("rating: adopted\ntype: agent\nstage: [code]\n", MOVES);
     check(
         Boolean(find(issues, "warning", "is `adopted` and still carries a **Moves up when** bullet")),
         "an adopted chapter carrying **Moves up when** warns",
@@ -206,7 +206,7 @@ check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\n", "\n```text\n- **Moves up when** — in a fence\n```\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\n", "\n```text\n- **Moves up when** — in a fence\n```\n");
     check(Boolean(find(issues, "warning", "has no `- **Moves up when**")), "a bullet inside a fence does not count", dump(issues));
 }
 
@@ -215,7 +215,7 @@ check(parseFeed(".devbook/ai/02-deliver.md#code-gate") === null, "a feed with no
 for (const field of ["stage: [code]", "substage: [code/start]", "layer: [harness]", "evidence: none", 'feeds: [".devbook/ai/01-author.md#coding-agent: x"]']) {
     const issues = validateDocument(
         ".devbook/ai/01-author.md",
-        usageFile(`status: trial\ntype: stage\n${field}\n`, [["Coding Agent", "status: trial\ntype: agent\nstage: [code]\n"]])
+        usageFile(`rating: trial\ntype: stage\n${field}\n`, [["Coding Agent", "rating: trial\ntype: agent\nstage: [code]\n"]])
     );
     const name = field.split(":")[0];
     check(
@@ -228,13 +228,13 @@ for (const field of ["stage: [code]", "substage: [code/start]", "layer: [harness
 // --- the tool edge is depends-on, never related -----------------------------
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\nrelated: [.devbook/tech/tooling.md#claude-code, .devbook/arc42/adr/hosts.md]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\nrelated: [.devbook/tech/tooling.md#claude-code, .devbook/arc42/adr/hosts.md]\n");
     check(Boolean(find(issues, "warning", "reaching into .tech")), "a `related` entry into .tech on an ai chapter is a warning", dump(issues));
     check(!find(issues, "warning", ".devbook/arc42/adr/hosts.md"), "a `related` entry into .arc42 stays silent", dump(issues));
 }
 
 {
-    const issues = one("status: trial\ntype: agent\nstage: [code]\ndepends-on: [.devbook/tech/tooling.md#claude-code]\n");
+    const issues = one("rating: trial\ntype: agent\nstage: [code]\ndepends-on: [.devbook/tech/tooling.md#claude-code]\n");
     check(!find(issues, "warning", "reaching into .tech"), "the same reference in `depends-on` is silent", dump(issues));
 }
 
@@ -246,17 +246,17 @@ for (const field of ["stage: [code]", "substage: [code/start]", "layer: [harness
         await mkdir(path.join(root, ".devbook", "ai"), { recursive: true });
         await writeFile(
             path.join(root, ".devbook", "ai", "adoption-map.md"),
-            `# Map\n\n${fence("status: trial\nindex: root\ntype: adoption-map\n")}\nProse.\n`
+            `# Map\n\n${fence("rating: trial\nindex: root\ntype: adoption-map\n")}\nProse.\n`
         );
         await writeFile(
             path.join(root, ".devbook", "ai", "01-author.md"),
-            usageFile("status: trial\ntype: stage\n", [
+            usageFile("rating: trial\ntype: stage\n", [
                 [
                     "Coding Agent",
-                    'status: trial\ntype: agent\nstage: code\nsubstage: code/implement\nevidence: fired\ndate: 2026-09-01\nfeeds: [".devbook/ai/01-author.md#eval-gate: the change to check"]\n',
+                    'rating: trial\ntype: agent\nstage: code\nsubstage: code/implement\nevidence: fired\ndate: 2026-09-01\nfeeds: [".devbook/ai/01-author.md#eval-gate: the change to check"]\n',
                 ],
-                ["Eval Gate", "status: candidate\ntype: guardrail\nstage: [verify, integrate]\nlayer: [thread]\n"],
-                ["Broken Feed", 'status: candidate\ntype: guardrail\nstage: [verify]\nfeeds: [".devbook/ai/01-author.md#nowhere: lost"]\n'],
+                ["Eval Gate", "rating: candidate\ntype: guardrail\nstage: [verify, integrate]\nlayer: [thread]\n"],
+                ["Broken Feed", 'rating: candidate\ntype: guardrail\nstage: [verify]\nfeeds: [".devbook/ai/01-author.md#nowhere: lost"]\n'],
             ])
         );
         const graph = await buildGraph(root);

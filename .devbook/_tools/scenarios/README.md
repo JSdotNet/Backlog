@@ -1,7 +1,7 @@
 # Scenario tools
 
 Connect a repository's e2e suite to its journeys — each `##` typed `scenario` in a
-`scenarios.md` or `scenarios.<name>.md` under `.devbook/domain/<context>/` — through a file
+`scenarios.md`, `scenarios.<name>.md`, or `scenarios.<name>.<page>.md` under `.devbook/domain/<context>/` — through a file
 contract: each spec names the journey it implements, as `<scenarios file>#<journey>`, and the
 signature it was derived from, and each run writes `run.json` and one PNG per screenshot label
 into the journey's run folder beside its scenarios file. `devbook:init` and `devbook:update` materialize this folder

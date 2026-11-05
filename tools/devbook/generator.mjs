@@ -6,9 +6,15 @@
 // `.devbook/_tools/devbook-meta/`. This file finds it and imports the seam the
 // database build uses: `buildGraph`, `discoverScopes` and `REPO_SCOPE` from
 // `graph.mjs`, `parseDocument` and `folderKindForPath` from `metadata.mjs`,
-// `buildOutlineDocument` from `outline.mjs`, and `collectAnnotations` and
-// `openCountsByAddress` from `annotations-index.mjs`. The rows carry the paths
-// that generator spells, which are the repository's real ones.
+// and `buildOutlineDocument` from `outline.mjs`. The rows carry the paths that
+// generator spells, which are the repository's real ones.
+//
+// The annotation index is optional. Devbook contract 38 retired the
+// `annotation` fence — a review note is a thread in the app's own store (local
+// ADR 0044) — and deleted `annotations-index.mjs` with it. An older generator
+// that still ships the module lends its `collectAnnotations` and
+// `openCountsByAddress`; one without it collects no threads, so every
+// chapter's open-note count is zero.
 //
 // The older root layout — each folder a dot-folder at the root (`.arc42`,
 // `.domain`, …) — is not built here any more. Its generator was the
@@ -41,7 +47,10 @@ export const GENERATOR_LOCATIONS = [
 ];
 
 /** The generator modules a directory has to hold to count as one. */
-const GENERATOR_MODULES = ['graph.mjs', 'metadata.mjs', 'outline.mjs', 'annotations-index.mjs'];
+const GENERATOR_MODULES = ['graph.mjs', 'metadata.mjs', 'outline.mjs'];
+
+/** The annotation index a generator before contract 38 ships beside them. */
+const ANNOTATIONS_MODULE = 'annotations-index.mjs';
 
 async function isDirectory(absolute) {
     try {
@@ -113,7 +122,10 @@ export async function loadGenerator(repoRoot, { generatorDir = null } = {}) {
     const graph = await load('graph.mjs');
     const metadata = await load('metadata.mjs');
     const outline = await load('outline.mjs');
-    const annotations = await load('annotations-index.mjs');
+    // Absent from contract 38 on: no fence, so no thread and no open count.
+    const annotations = (await isFile(path.join(directory, ANNOTATIONS_MODULE)))
+        ? await load(ANNOTATIONS_MODULE)
+        : { collectAnnotations: async () => [], openCountsByAddress: () => new Map() };
 
     return {
         layout: 'devbook',

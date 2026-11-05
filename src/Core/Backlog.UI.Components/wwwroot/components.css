@@ -21204,6 +21204,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 .standup-goal {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     padding: 14px var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
@@ -21231,9 +21232,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-sm);
 }
 
+/* A stand-up title with one long unbroken word, a path or a URL, breaks inside it
+   rather than running past the phone's edge; the work and impediment titles do too. */
 .standup-goal__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 0.9375rem;
     font-weight: var(--font-weight-semibold);
 }
@@ -21287,6 +21291,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .standup-work__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .standup-work__trailing {
@@ -21324,6 +21329,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .standup-impediment__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-weight: var(--font-weight-medium);
 }
 

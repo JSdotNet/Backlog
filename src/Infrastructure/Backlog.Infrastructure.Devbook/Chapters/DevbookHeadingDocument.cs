@@ -68,13 +68,16 @@ internal static class DevbookHeadingDocument
         return removed;
     }
 
+    // Only an unindented key is the fence's own field; an indented one is a value
+    // nested under another field, and is never removed with it.
     private static bool IsField(string line, IReadOnlyList<string> fields)
     {
-        var trimmed = line.TrimStart();
-        var colon = trimmed.IndexOf(':');
+        if (line.Length == 0 || char.IsWhiteSpace(line[0])) return false;
+
+        var colon = line.IndexOf(':');
         if (colon <= 0) return false;
 
-        return fields.Contains(trimmed[..colon].Trim(), StringComparer.OrdinalIgnoreCase);
+        return fields.Contains(line[..colon].Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Resolve the item path to a file inside the folder, read it, and

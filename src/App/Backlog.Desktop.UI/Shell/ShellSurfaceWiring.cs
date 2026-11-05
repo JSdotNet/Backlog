@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
@@ -79,6 +80,25 @@ public static class ShellSurfaceWiring
                 {
                     RepositoryAliases = () => state.SelectedRepositoryAliases,
                     RepositoryColour = state.RepositoryColourFor,
+                };
+            },
+            windowStateLifetime));
+
+        // The atlas draws the window's repository scope; a row or its card asks the
+        // window to narrow it to one member, the plain press on that member's chip.
+        services.Add(new ServiceDescriptor(
+            typeof(AtlasSurfaceWiring),
+            sp =>
+            {
+                var state = sp.GetRequiredService<TasksDesktopState>();
+                return new AtlasSurfaceWiring
+                {
+                    RepositoryScope = () => state.SelectedRepositoryAliases,
+                    ScopeTo = member =>
+                    {
+                        if (BrainScope.Is(member)) state.SetBrainFilter();
+                        else state.SetRepositoryFilter(member);
+                    },
                 };
             },
             windowStateLifetime));

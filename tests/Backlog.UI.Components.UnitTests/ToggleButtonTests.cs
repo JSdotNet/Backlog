@@ -31,6 +31,51 @@ public sealed class ToggleButtonTests
     }
 
     /// <summary>
+    /// Busy is AppButton's Busy: the button keeps its tab stop, so focus survives the
+    /// act it belongs to, and the press is dropped rather than flipping the state.
+    /// </summary>
+    [Fact]
+    public void A_busy_button_stays_focusable_and_ignores_the_press()
+    {
+        using var context = new BunitContext();
+        bool? reported = null;
+        var clicked = false;
+
+        var button = context.Render<ToggleButton>(parameters => parameters
+            .Add(b => b.Busy, true)
+            .Add(b => b.PressedChanged, (bool pressed) => reported = pressed)
+            .Add(b => b.OnClick, (MouseEventArgs _) => clicked = true));
+
+        var element = button.Find("button");
+        Assert.Equal("true", element.GetAttribute("aria-disabled"));
+        Assert.False(element.HasAttribute("disabled"));
+
+        element.Click();
+
+        Assert.Null(reported);
+        Assert.False(clicked);
+        Assert.Equal("false", button.Find("button").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void Disabled_stays_the_native_attribute_and_wins_over_busy()
+    {
+        using var context = new BunitContext();
+
+        var disabled = context.Render<ToggleButton>(parameters => parameters.Add(b => b.Disabled, true));
+        var both = context.Render<ToggleButton>(parameters => parameters
+            .Add(b => b.Disabled, true)
+            .Add(b => b.Busy, true));
+        var idle = context.Render<ToggleButton>();
+
+        Assert.True(disabled.Find("button").HasAttribute("disabled"));
+        Assert.False(disabled.Find("button").HasAttribute("aria-disabled"));
+        Assert.True(both.Find("button").HasAttribute("disabled"));
+        Assert.False(both.Find("button").HasAttribute("aria-disabled"));
+        Assert.False(idle.Find("button").HasAttribute("aria-disabled"));
+    }
+
+    /// <summary>
     /// A host whose strip means something different with a modifier held — one of
     /// many on a plain press, one more on Ctrl — needs the event, not just the new
     /// state. It arrives beside <c>PressedChanged</c> rather than instead of it, so

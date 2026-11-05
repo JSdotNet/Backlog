@@ -1,7 +1,7 @@
 # Technology Graph
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/domain/devbook/features.md#technology-view"]
 ```
 

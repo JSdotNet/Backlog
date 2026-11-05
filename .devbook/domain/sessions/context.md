@@ -4,7 +4,6 @@
 index: root
 type: context
 deployment: module
-sync: push
 related: [.devbook/arc42/05-building-block-view.md#desktop-app, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
@@ -56,7 +55,6 @@ contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests
 ## Sessions area
 
 ```meta
-status: draft
 type: feature-flag
 key: sessions
 default: on
@@ -83,7 +81,6 @@ the Sessions area leaves `DEV`.
 ## Session requests
 
 ```meta
-status: draft
 type: feature-flag
 key: session-requests
 default: off

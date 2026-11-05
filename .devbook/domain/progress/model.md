@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#iteration]
 ```
 

@@ -24,7 +24,7 @@ public enum C4InspectorRecordKind
 /// <param name="Path">The record, as the host opens it.</param>
 /// <param name="Number">The number its file name leads with — "0030".</param>
 /// <param name="Title">The record's title.</param>
-/// <param name="Proposed">A decision still at <c>status: proposed</c>; drawn as the
+/// <param name="Proposed">A decision whose state is <c>proposed</c>; drawn as the
 /// "proposed" chip. Always false for debt.</param>
 /// <param name="Severity">A debt record's severity as a reader says it — "Medium" —
 /// or null.</param>

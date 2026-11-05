@@ -273,7 +273,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
 
         DevbookMarkdownRatingWriter.UpdateRating(folder, DocumentDevbookFolder.Ai.DocumentPath("01-author.md"), DocumentDevbookFolder.Ai.PathPrefix, "adopted");
 
-        Assert.Contains("status: adopted", File.ReadAllText(file));
+        Assert.Contains("rating: adopted", File.ReadAllText(file));
         Assert.False(Directory.Exists(Path.Combine(_root, ".ai")));
     }
 

@@ -5,20 +5,27 @@
 @inject DeviceOutbox Outbox
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>Notifications</PageTitle>
 
 @*
-    The phone's notifications (.devbook/domain/notifications/context.md): every
-    alert and question the paired desktops published, open ones first, as the
-    proposal's phone mockup draws them. A question is answered right on its card;
-    the title opens the whole notification with its Markdown body.
+    The phone's notifications (.devbook/domain/notifications/context.md), in two
+    views the heading switches between. The pager (NotificationPager) is the default:
+    one open item waiting on the person per screen, oldest first. The list
+    (?view=list) is every alert and question the paired desktops published, open
+    ones first, then the settled ones as history, as the proposal's phone mockup
+    draws them. Either way a question is answered right on its card, and the title
+    opens the whole notification with its Markdown body.
 
     The feed is pulled when the page opens and whenever the app comes back to the
     front, and every 30 seconds while a reply made here waits for its owner to
     accept it — the poll the proposal sets until a push wakes the phone. What the
     phone last pulled is drawn first, so a phone with no signal still shows it.
+    Both views share that feed. The view is in the address (?view=list), switched in
+    place rather than as a new history entry, and the list hands it to the detail so
+    the detail's back link returns to the list.
 *@
 
 <header class="notifications-heading">
@@ -26,10 +33,14 @@
         <span class="notifications-heading__lede" data-testid="notifications-count">@CountLabel</span>
         <h1>Notifications</h1>
     </div>
-    <IconButton AriaLabel="Refresh notifications" Title="Refresh notifications" Disabled="_pulling"
-                OnClick="PullAsync" CssClass="notifications-heading__refresh" TestId="notifications-refresh">
-        <RefreshCwIcon Size="16" />
-    </IconButton>
+    <span class="notifications-heading__actions">
+        <AppButton Variant="ButtonVariant.Ghost" CssClass="notifications-heading__toggle" TestId="notifications-view-toggle"
+                   OnClick="ToggleView">@(ShowsList ? "One at a time" : "List")</AppButton>
+        <IconButton AriaLabel="Refresh notifications" Title="Refresh notifications" Disabled="_pulling"
+                    OnClick="PullAsync" CssClass="notifications-heading__refresh" TestId="notifications-refresh">
+            <RefreshCwIcon Size="16" />
+        </IconButton>
+    </span>
 </header>
 
 @if (_pullNotice is not null)
@@ -37,36 +48,50 @@
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="notifications-pull-notice" />
 }
 
-<section class="notifications" aria-label="Notifications">
-    @if (Items.Count == 0)
+@if (!ShowsList)
+{
+    @if (Items is { Count: 0 } && !_pulled)
     {
-        @if (_pulled)
-        {
-            <EmptyState Title="No notifications"
-                        Description="Questions and alerts from your desktops show up here."
-                        TestId="notifications-empty" />
-        }
-        else
-        {
-            <Spinner Label="Loading notifications" />
-        }
+        <Spinner Label="Loading notifications" />
     }
     else
     {
-        <ul class="notifications__list" data-testid="notifications-list">
-            @foreach (var item in Items)
-            {
-                <li @key="item.Id">
-                    <PhoneNotificationCard Notification="item"
-                                           Href="@($"notifications/{item.Id}")"
-                                           Busy="@(_replying == item.Id)"
-                                           OnReply="pick => ReplyAsync(item.Id, pick)"
-                                           OnRetry="RetryAsync" />
-                </li>
-            }
-        </ul>
+        <NotificationPager Notifications="Items" OnShowList="ShowList" />
     }
-</section>
+}
+else
+{
+    <section class="notifications" aria-label="Notifications">
+        @if (Items.Count == 0)
+        {
+            @if (_pulled)
+            {
+                <EmptyState Title="No notifications"
+                            Description="Questions and alerts from your desktops show up here."
+                            TestId="notifications-empty" />
+            }
+            else
+            {
+                <Spinner Label="Loading notifications" />
+            }
+        }
+        else
+        {
+            <ul class="notifications__list" data-testid="notifications-list">
+                @foreach (var item in Items)
+                {
+                    <li @key="item.Id">
+                        <PhoneNotificationCard Notification="item"
+                                               Href="@($"notifications/{item.Id}?view=list")"
+                                               Busy="@(_replying == item.Id)"
+                                               OnReply="pick => ReplyAsync(item.Id, pick)"
+                                               OnRetry="RetryAsync" />
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
 
 @code {
     /// <summary>How often the feed is pulled while a reply made here waits on its owner.</summary>
@@ -79,6 +104,12 @@
     private ITimer? _poll;
 
     private IReadOnlyList<PhoneNotification> Items => Notifications.Notifications();
+
+    /// <summary>Which view the address names: <c>list</c>, or the pager by default.</summary>
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? View { get; set; }
+
+    private bool ShowsList => string.Equals(View, "list", StringComparison.Ordinal);
 
     private string CountLabel => Notifications.Waiting switch
     {
@@ -144,7 +175,7 @@
         {
             // The phone could not keep the reply — its own file, not the network, which the
             // outbox rides out. Said where the pull's notice goes; the card can be answered again.
-            _pullNotice = "This phone could not keep your answer. Try again.";
+            _pullNotice = NotificationStandings.CouldNotKeepAnswer;
         }
         finally
         {
@@ -153,6 +184,11 @@
     }
 
     private Task RetryAsync(Guid entryId) => Outbox.RetryAsync(entryId);
+
+    // Replace, so Back leaves the tab instead of walking back through every switch.
+    private void ToggleView() => Navigation.NavigateTo(ShowsList ? "notifications" : "notifications?view=list", replace: true);
+
+    private void ShowList() => Navigation.NavigateTo("notifications?view=list", replace: true);
 
     public void Dispose()
     {

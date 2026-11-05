@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 ```
 
 Define team-approved technologies (languages, frameworks, runtimes, tools). Each
@@ -23,7 +21,6 @@ deprecated status. Teams and projects can override the portfolio defaults.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
@@ -36,7 +33,6 @@ Enforce minimum versions, track each legacy exception as a
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking, .devbook/domain/repository-management/features.md#technology-stack-inventory]
 ```
 
@@ -48,7 +44,6 @@ and outliers, surface adoption velocity, and report
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
@@ -61,7 +56,6 @@ the ADRs that justify them.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Define semantic-versioning expectations per tool, map version aliases (latest,
@@ -72,7 +66,6 @@ technologies.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
 ```
 

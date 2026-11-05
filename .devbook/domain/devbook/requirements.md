@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md]
 ```
 
@@ -14,7 +13,6 @@ related: [.devbook/domain/devbook/features.md]
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#unified-search]
 ```
 
@@ -25,7 +23,6 @@ related: [.devbook/domain/devbook/features.md#unified-search]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL group search results by the devbook they came from and put the Brain's group first.
@@ -40,7 +37,6 @@ The system SHALL group search results by the devbook they came from and put the 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL search only the Brain under the Brain chip and only one repository's devbook under that repository's chip.
@@ -55,7 +51,6 @@ The system SHALL search only the Brain under the Brain chip and only one reposit
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL name a source whose database has not been built as not searchable, beside the groups of the sources that answered, rather than leave it out.
@@ -70,7 +65,6 @@ The system SHALL name a source whose database has not been built as not searchab
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL open a result in the devbook it came from, moving the pane to that devbook when it shows another, and SHALL leave the header's scope and the task filter unchanged.
@@ -85,7 +79,6 @@ The system SHALL open a result in the devbook it came from, moving the pane to t
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```
 
@@ -99,7 +92,6 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.The_nine_state_fields_are_never_rows_in_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.Approval_and_acceptance_are_drawn_beside_the_status_as_who_and_when, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests.Status_is_not_shown_while_devbook_status_is_off, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests.Findings_about_the_status_and_its_sign_off_go_with_it]
 ```
 
@@ -121,7 +113,6 @@ While [Devbook status](context.md#devbook-status) is on, the system SHALL show a
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_decision_records_state_is_drawn_read_only_from_the_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_state_that_arrives_while_the_record_is_open_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.The_authored_status_reads_as_a_badge_and_nothing_writes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_arc42_panel_sets_a_debt_records_state_on_a_branch_and_writes_no_file, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.The_line_states_the_kind_who_and_when, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_options_is_offered_where_the_status_cannot_be_edited, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.A_subject_with_no_options_is_shown_and_not_offered, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataSubjectStateTests.With_the_status_hidden_the_subject_state_is_not_drawn]
 ```
@@ -150,7 +141,6 @@ While [Devbook status](context.md#devbook-status) is on, the system SHALL show a
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.invariants.md#invariant-leaving-a-decision-step-withdraws-the-decisions-above-it]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Setting_a_proposal_back_to_draft_withdraws_approval_and_acceptance, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approving_again_withdraws_an_acceptance_at_the_old_fingerprint]
 ```
@@ -173,7 +163,6 @@ The system SHALL withdraw a proposal's approval and acceptance when it is set ba
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.An_extension_keeps_its_authors_casing_and_its_value_verbatim, unit:dotnet:Backlog.UI.Components.UnitTests.DevbookMetadataFindingsTests.Extension_keys_are_never_validated, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.An_extension_key_stays_a_row_and_is_marked_as_one]
 ```
 
@@ -189,7 +178,6 @@ The system SHALL show every `ext.` key of a chapter's metadata with its key and 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/domain/devbook/domain.invariants.md#invariant-an-import-never-overwrites-a-state-the-store-holds]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_repository_is_imported_from_its_default_branch_and_marked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_second_run_reads_nothing_writes_nothing_and_raises_no_changed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.An_import_run_again_never_overwrites_what_the_stores_hold, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.When_the_default_branch_cannot_be_read_nothing_is_written_or_marked_and_the_next_run_retries, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_debt_record_imports_its_status, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_proposed_decision_record_is_planned_for_its_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_accepted_proposal_keeps_its_authored_approval_and_acceptance]
 ```
@@ -224,7 +212,6 @@ The system SHALL import once the state each decision record, debt record and pro
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#effort, .devbook/domain/devbook/domain.md#roadmap-contribution]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.Issue_effort_roadmap_and_change_draw_no_row, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.A_block_stating_only_planning_fields_has_no_rows_to_draw, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookPanelTests.A_chapter_naming_an_issue_draws_no_issue_badge_and_no_planning_rows, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.Effort_roadmap_and_issue_are_still_parsed_for_the_readers_that_need_them]
 ```
@@ -241,7 +228,6 @@ The chapter view SHALL draw nothing for a chapter's `issue`, `effort`, `roadmap`
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 
@@ -253,7 +239,6 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#remark]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_follows_its_paragraph_when_the_chapter_grows_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_follows_its_paragraph_when_the_chapter_shrinks_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_survives_its_paragraph_being_rewrapped, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_repeated_passage_takes_the_copy_nearest_the_remembered_index, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_without_a_digest_is_anchored_by_index_exactly_as_before]
 ```
@@ -270,7 +255,6 @@ The read view SHALL show a remark beside the passage it was left on after the ch
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#remark]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_was_deleted_shows_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_changed_wording_shows_at_the_end]
 ```
@@ -287,7 +271,6 @@ The read view SHALL show a remark whose passage has been deleted or reworded at 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#review-note, .devbook/domain/devbook/domain.invariants.md#invariant-an-import-never-overwrites-a-remark-the-store-holds]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_open_fence_becomes_a_remark_anchored_to_the_block_above_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.A_question_keeps_its_kind_and_its_replies_fold_into_the_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMarkdownImportTests.An_unknown_kind_reads_as_a_comment_and_a_resolved_fence_imports_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_repository_is_imported_from_its_default_branch_and_marked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookImportWorkerTests.A_second_run_reads_nothing_writes_nothing_and_raises_no_changed, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.An_imported_open_remark_is_written_and_raises_no_alert]
 ```
@@ -316,7 +299,6 @@ The system SHALL import each open review note on a registered repository's defau
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#remark]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.List_answers_only_the_remarks_for_the_branch_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_branch_across_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch]
 ```
@@ -333,7 +315,6 @@ The read view SHALL show a remark left on a named branch only while that branch 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 ```
 
@@ -344,7 +325,6 @@ related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/domain.md#review-note]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.An_ordinary_read_leaves_out_only_the_meta_and_annotation_fences, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.PrivateFenceTests.An_annotation_fence_quoting_a_code_sample_is_cut_whole]
 ```
@@ -361,7 +341,6 @@ The system SHALL leave a chapter's review notes out of everything it hands on as
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
 ```
 
@@ -371,7 +350,6 @@ related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DevbookSyncVerdictStoreTests.A_later_run_replaces_the_chapters_it_names_and_leaves_the_rest]
 ```
 
@@ -387,7 +365,6 @@ The system SHALL show beside a chapter the verdict of the latest sweep that chec
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSyncVerdictBadgeTests.A_word_outside_the_sweeps_vocabulary_keeps_its_spelling_and_wears_the_unknown_tone]
 ```
 
@@ -403,7 +380,6 @@ The system SHALL show a verdict in the sweep's own word, and show a word outside
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
 ```
 
@@ -414,7 +390,6 @@ related: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_query_keeps_the_suggestions_containing_it_whatever_the_case, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_blank_query_is_no_filter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_load_entry_survives_any_query_until_the_branches_are_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_narrows_the_list_to_the_branches_that_match, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.A_click_in_the_untouched_field_lists_every_source]
 ```
 
@@ -430,7 +405,6 @@ The system SHALL suggest, in the source field, the sources whose names contain t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.Opening_the_pane_loads_once_and_the_picker_and_tabs_ask_nothing_more, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.The_list_says_the_branches_are_loading_while_the_first_load_runs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.While_a_refresh_runs_the_field_keeps_naming_the_source_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.The_first_load_lists_compares_every_branch_and_checks_the_clone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_second_load_answers_from_the_first_and_asks_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.Loads_asked_for_at_once_share_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.One_caller_giving_up_does_not_cancel_the_shared_load, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_refresh_loads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_load_that_runs_out_of_time_stops_the_comparisons_it_started, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_load_entry_becomes_a_refresh_once_the_overview_is_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.No_load_entry_is_offered_while_the_overview_loads, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_branches_refreshes_the_overview, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.While_the_overview_loads_the_suggestions_say_so_and_the_entry_names_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_the_branches_does_not_change_what_is_current, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsDevbookFolderStatusTests.After_a_refresh_the_source_select_is_rebuilt_on_the_source_read, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Branches_past_the_first_page_are_listed, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Listing_stops_at_the_ceiling, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Branch_heads_are_paged_to_the_same_ceiling]
 ```
 
@@ -458,7 +432,6 @@ The system SHALL load a repository's branches, each compared with the default br
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.Only_branches_changing_the_devbook_are_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Once_the_overview_is_in_only_branches_changing_the_devbook_are_listed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_configured_branch_is_listed_even_when_it_changes_no_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_listed_branch_left_out_by_the_filter_still_means_itself, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_branch_changes_the_sections_its_files_are_under_in_tab_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_legacy_root_folder_counts_as_its_section, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_folder_pointed_elsewhere_counts_as_its_section, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.Code_and_instruction_files_change_no_section, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_file_renamed_out_of_a_section_changed_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_cut_short_file_list_with_no_devbook_file_may_change_it]
 ```
 
@@ -474,7 +447,6 @@ The system SHALL suggest, among the branches, only those whose diff against the 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.A_branch_row_shows_a_glyph_for_each_section_it_changes_and_its_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_branch_row_carries_its_sections_and_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Nothing_loaded_means_no_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.Ahead_and_behind_come_from_the_comparison]
 ```
 
@@ -490,7 +462,6 @@ The system SHALL show, on each suggested branch, the glyph of every devbook area
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.The_clone_row_shows_its_counts_against_its_upstream, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_clone_row_carries_its_counts_against_its_upstream, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_clone_git_could_not_place_has_no_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_clone_with_no_upstream_has_no_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_repository_with_no_clone_is_not_checked_for_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.Recording_the_clone_replaces_its_answer_and_keeps_the_branches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_clone_recorded_during_a_load_is_not_overwritten_by_that_loads_older_look, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.Pulling_moves_the_clone_row_and_lists_no_branches_again]
 ```
 
@@ -506,7 +477,6 @@ The system SHALL show, on the local clone's row, its commits ahead of and behind
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.A_refused_load_says_why_and_the_picker_keeps_working, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_refused_overview_keeps_the_default_the_clone_and_the_configured_branch, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_refused_refresh_keeps_the_list_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_listing_that_fails_comes_back_as_a_message, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_comparison_that_fails_leaves_that_branch_out_and_nothing_else, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_failed_load_is_not_retried_by_loading_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_clone_check_that_fails_leaves_the_clone_unknown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_refused_refresh_keeps_the_branches_the_last_load_listed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_configured_branch_is_listed_even_when_nothing_was_loaded]
 ```
 
@@ -522,7 +492,6 @@ The system SHALL, when the branch listing is refused, say why beside the source 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.A_branch_shows_no_version_control, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.A_clone_found_behind_offers_the_pull_without_a_check_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookUpdateServiceTests.Only_a_scope_reading_its_clone_has_a_clone_to_update, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookUpdateServiceTests.The_overviews_look_at_the_clone_is_the_state_a_check_would_give, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookUpdateServiceTests.Nothing_loaded_seeds_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookUpdateServiceTests.A_pull_leaves_the_overview_holding_the_clone_it_left]
 ```
@@ -545,7 +514,6 @@ The system SHALL show the version control only while the pane reads the local cl
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_before_the_list_is_loaded_fetches_it_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_the_list_lacks_asks_github_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_an_unknown_branch_says_so_and_leaves_the_source_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_branch_typed_in_another_case_means_the_branch_as_it_is_spelled, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.A_branch_that_is_gone_resolves_to_null_rather_than_throwing]
 ```
 
@@ -567,7 +535,6 @@ The system SHALL ask GitHub for a branch the reader commits by name that the loa
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_the_field_mid_search_fetches_nothing_and_switches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_an_emptied_field_switches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Entering_an_emptied_field_switches_nothing_and_fetches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_the_field_on_a_named_source_switches_to_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Committing_the_source_already_read_says_nothing]
 ```
 
@@ -583,7 +550,6 @@ The system SHALL switch the source when the field is left only if its text names
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Nothing_is_said_about_the_source_until_somebody_switches_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Switching_to_a_branch_says_the_branch_is_being_read_as_a_snapshot, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Switching_back_to_the_clone_says_the_clone_is_being_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.A_refusal_on_a_branch_puts_the_branch_back_and_says_why_under_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_repository_reading_a_branch_says_so_and_says_it_is_read_only]
 ```
 
@@ -599,7 +565,6 @@ The system SHALL say under the area strip, after the reader switches the source,
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#reviewing-what-a-branch-changed]
 ```
 
@@ -610,7 +575,6 @@ related: [.devbook/domain/devbook/features.md#reviewing-what-a-branch-changed]
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.The_toggle_is_offered_for_a_branch_and_not_for_the_local_clone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_branch_source_can_be_reviewed_and_the_local_clone_cannot, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Switching_to_the_local_clone_closes_the_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Moving_to_another_repository_closes_the_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Closing_the_review_goes_back_to_the_chapters]
 ```
 
@@ -626,7 +590,6 @@ The system SHALL offer **Review changes** only while the pane reads a branch, an
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_asks_for_the_three_dot_compare_of_the_two_refs, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_carries_the_merge_base_and_how_far_apart_the_two_are, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.The_branch_is_compared_with_the_default_branch_by_their_heads, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.Commits_are_listed_newest_first_with_short_sha_subject_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Opening_the_review_shows_the_branch_its_chapters_and_the_first_comparison]
 ```
 
@@ -642,7 +605,6 @@ The system SHALL list, in a branch review, the commits the branch holds that the
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_commit_is_compared_with_its_parent, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_commit_is_read_against_its_first_parent, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_root_commit_adds_every_chapter_and_lists_no_parent_tree, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.Each_chapter_counts_what_moved_between_the_merge_base_and_the_branch, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Choosing_a_commit_lists_the_chapters_that_commit_changed]
 ```
 
@@ -658,7 +620,6 @@ The system SHALL compare a chosen commit with its first parent, and the whole br
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.The_whole_branch_lists_its_devbook_chapters_and_counts_the_rest, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_folder_pointed_elsewhere_is_where_its_chapters_are_looked_for, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chapter_renamed_out_of_the_devbook_reads_as_removed]
 ```
 
@@ -674,7 +635,6 @@ The system SHALL list the devbook chapters a chosen change touched and count eve
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chosen_chapter_is_compared_section_by_section, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Choosing_a_chapter_compares_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chapter_the_scope_does_not_hold_is_an_error]
 ```
 
@@ -690,7 +650,6 @@ The system SHALL show a chosen chapter's before and after compared section by se
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_truncated_commit_list_says_how_many_are_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_full_file_list_says_chapters_may_be_missing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_cut_short_earlier_tree_says_a_chapter_may_read_as_new, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_with_more_commits_than_listed_says_it_is_truncated, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_full_file_list_says_it_may_be_cut_short, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_branch_that_is_gone_is_said_rather_than_thrown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_refused_comparison_is_said_rather_than_thrown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.What_github_refused_is_said_in_place_of_the_review]
 ```
 
@@ -706,7 +665,6 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 ```
 
@@ -718,7 +676,6 @@ related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL offer a **C4 zoom** tab beside an unchanged **C4** tab in the architecture panel only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
@@ -751,7 +708,6 @@ The system SHALL offer a **C4 zoom** tab beside an unchanged **C4** tab in the a
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
@@ -778,7 +734,6 @@ The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Con
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL zoom into a drillable element on a double-click, on its "Zoom in" chip, or on Enter while it has focus, and zoom out on an earlier zoom bar step or on Backspace while the diagram has focus, keeping the element zoomed out of selected and taking neither key outside the focused diagram.
@@ -823,7 +778,6 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it — a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab — and a zoom-in button only when a deeper view of it exists.
@@ -856,7 +810,6 @@ The system SHALL show, for the selected element, its kind, description and techn
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs, or of open TDRs, naming an element on its card, draws a card that open TDRs name on the error surface, counts under the diagram the records that name only elements below the view, and shows the open TDRs that name no element in a cross-cutting tray while Debt is chosen.
@@ -883,7 +836,6 @@ The system SHALL offer an overlay switch of None, Decisions and Debt that puts t
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw the Code level of a component from the source its code link names when it is opened, showing the types and their members, and never from an authored diagram.
@@ -910,7 +862,6 @@ The system SHALL draw the Code level of a component from the source its code lin
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments behind one tab list with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
@@ -943,7 +894,6 @@ The system SHALL play a dynamic view one numbered step at a time, switch a deplo
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL, while `c4-zoom` is on, show for an ADR or a TDR opened in the Chapters tab where it lands on the container view and its decision chain, and for an arc42 chapter the views it documents with the elements present in the model but not in its mermaid fence, and those in the fence but not in the model, flagged.
@@ -970,7 +920,6 @@ The system SHALL, while `c4-zoom` is on, show for an ADR or a TDR opened in the 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/devbook/features.md#technology-view]
 ```
 
@@ -981,7 +930,6 @@ related: [.devbook/domain/devbook/features.md#technology-view]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show the Technology area as five views, Overview, Dependencies, Complexity, Clusters and Type lenses, switched from one tab bar, with no Atlas or Layers tab.
@@ -997,7 +945,6 @@ The system SHALL show the Technology area as five views, Overview, Dependencies,
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL keep the technology selected in one Technology view selected when the reader switches to another.
@@ -1018,7 +965,6 @@ The system SHALL keep the technology selected in one Technology view selected wh
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show as a technology's Used by the number of technologies whose `depends-on` names it.
@@ -1039,7 +985,6 @@ The system SHALL show as a technology's Used by the number of technologies whose
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show as a technology's Breaks if it changes the number of technologies that reach it through `depends-on` at any distance, each counted once.
@@ -1055,7 +1000,6 @@ The system SHALL show as a technology's Breaks if it changes the number of techn
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show as a technology's Rests on the number of technologies it reaches through `depends-on` at any distance, each counted once.
@@ -1076,7 +1020,6 @@ The system SHALL show as a technology's Rests on the number of technologies it r
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show as a technology's Depth the number of hops in the longest `depends-on` chain from it to a technology with no `depends-on`.
@@ -1091,7 +1034,6 @@ The system SHALL show as a technology's Depth the number of hops in the longest 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show as a technology's Complexity its Rests on plus its Depth, banded Low below 6, Medium from 6 to 9 and High from 10.
@@ -1118,7 +1060,6 @@ The system SHALL show as a technology's Complexity its Rests on plus its Depth, 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL colour each technology in the Technology views by its type's family: framework; platform; runtime; language and package; library, tool and plugin; skill; agent, service and format; protocol.
@@ -1139,7 +1080,6 @@ The system SHALL colour each technology in the Technology views by its type's fa
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw a technology whose status is not `adopted` hollow in every Technology view that draws it, and an `adopted` one filled.
@@ -1154,7 +1094,6 @@ The system SHALL draw a technology whose status is not `adopted` hollow in every
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL open the inspector of every selected technology, whatever its type, on its status, what it sits on and what uses it, with the section its type chooses below them.
@@ -1175,7 +1114,6 @@ The system SHALL open the inspector of every selected technology, whatever its t
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL fill a type lens only from the technology chapter's metadata and the graph, and leave out each fact the chapter does not record.
@@ -1202,7 +1140,6 @@ The system SHALL fill a type lens only from the technology chapter's metadata an
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL let the reader change a technology's status from the inspector and write the new status into that technology's chapter in its layer file.
@@ -1224,7 +1161,6 @@ The system SHALL let the reader change a technology's status from the inspector 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_on_All_layers_is_a_button_that_selects_its_technology_and_opens_its_layer]
 ```
 
@@ -1252,7 +1188,6 @@ The system SHALL draw each technology on the Clusters map and the Complexity sca
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL pair each Technology view a pointer operates with a list or table on screen that selects the same technologies and shares its selection.
@@ -1273,7 +1208,6 @@ The system SHALL pair each Technology view a pointer operates with a list or tab
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL leave a technology out of its own Used by, Breaks if it changes and Rests on when its `depends-on` names itself.
@@ -1288,7 +1222,6 @@ The system SHALL leave a technology out of its own Used by, Breaks if it changes
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL give every member of a `depends-on` cycle the depth of the longest chain that leaves the cycle, count no hop between two members, and end every walk at a technology it has already visited.
@@ -1304,7 +1237,6 @@ The system SHALL give every member of a `depends-on` cycle the depth of the long
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count a chapter of another devbook folder that a technology's `depends-on` names in the measures, and leave it out of the folder's per-type, per-family and per-status counts, the Complexity scatter and the Clusters map.
@@ -1321,7 +1253,6 @@ The system SHALL count a chapter of another devbook folder that a technology's `
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL place a technology on the Complexity scatter in Hubs at used by 4 or more and rests on 5 or more, in Foundations at used by 4 or more and rests on 4 or fewer, in Deep leaves at used by 3 or fewer and rests on 5 or more, and in Leaves otherwise, and show each quadrant's name with its one line.
@@ -1348,7 +1279,6 @@ The system SHALL place a technology on the Complexity scatter in Hubs at used by
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL place a technology across the Complexity scatter at the square root of its used by over the square root of the axis's end, the end being the largest used by and never less than 4.
@@ -1363,7 +1293,6 @@ The system SHALL place a technology across the Complexity scatter at the square 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw the technologies with the same used by and rests on as one point labelled with every name, and select the next of them each time the point is pressed again.
@@ -1382,7 +1311,6 @@ The system SHALL draw the technologies with the same used by and rests on as one
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show each technology the Dependencies view reaches once, at its nearest hop, marked with every further hop it is also reached at, and from 2 hops with the technology one hop nearer that it is reached through.
@@ -1403,7 +1331,6 @@ The system SHALL show each technology the Dependencies view reaches once, at its
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL let the reader group the Dependencies cards by hop or by layer.
@@ -1418,7 +1345,6 @@ The system SHALL let the reader group the Dependencies cards by hop or by layer.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL list at most 10 paths from the selected technology down to a foundation, say when more exist, and show the longest path running through it.
@@ -1434,7 +1360,6 @@ The system SHALL list at most 10 paths from the selected technology down to a fo
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL open Clusters on the selected technology's layer, with that technology in focus, and on All layers when nothing is selected.
@@ -1450,7 +1375,6 @@ The system SHALL open Clusters on the selected technology's layer, with that tec
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL keep the last 6 technologies the reader followed in Clusters as a trail, and step back along it with Back.
@@ -1471,7 +1395,6 @@ The system SHALL keep the last 6 technologies the reader followed in Clusters as
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.An_open_layer_groups_its_pills_by_family_under_a_heading]
 ```
 
@@ -1488,7 +1411,6 @@ The system SHALL draw an open layer's technologies in Clusters as one group per 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.Each_cluster_is_one_tab_stop_its_button_first_and_the_browser_roves_it, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_answers_the_arrows_home_and_end_unmodified_on_its_own_buttons, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_moves_its_one_stop_and_the_focus_wrapping_and_skipping_disabled]
 ```
 
@@ -1511,7 +1433,6 @@ The system SHALL make each cluster on the All layers map one tab stop, its open-
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_on_All_layers_is_a_button_that_selects_its_technology_and_opens_its_layer]
 ```
 
@@ -1528,7 +1449,6 @@ The system SHALL open a dot's layer on its technology when the reader presses th
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.A_dot_keeps_its_own_button_when_a_reread_takes_away_a_technology_before_it, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_left_without_one_stop_gets_one_back]
 ```
 
@@ -1550,7 +1470,6 @@ The system SHALL keep exactly one tab stop in each cluster on All layers when a 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show on the Type lenses board one card per type in use, each with its type's lens for the selected technology when that technology is of its type and otherwise for the type's most-used technology, and a Lens per type table below the cards.

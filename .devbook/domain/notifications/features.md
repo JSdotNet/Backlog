@@ -1,7 +1,6 @@
 # Features
 
 ```meta
-status: draft
 type: features
 ```
 
@@ -12,7 +11,6 @@ type: features
 ## Publishing a notification
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#publishing-a-notification]
 ```
@@ -31,7 +29,6 @@ the person.
 ## Answering from another device
 
 ```meta
-status: proposed
 type: feature
 related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply]
 ```
@@ -53,6 +50,18 @@ plain-text answer, and the reply leaves through the device outbox as a
 verdict syncs back the card reads "Answered from this phone", "Answered
 elsewhere" with the answer that won, or the owner's reason for rejecting it with
 the controls back. A question that says `answerOn: owner` is read-only there.
+
+An open alert on the phone offers Dismiss, which sends an
+[Acknowledgement](domain.md#acknowledgement) to the owner desktop through the same
+outbox, as a `notification-reply` entry. Another desktop sends one from its
+centre's Acknowledge. The alert leaves the stack of the device that dismissed it at
+once, and every other device's stack once the owner takes it. It stays in each
+device's list as settled, for as long as answered and closed notifications stay
+there, and reads "Acknowledged on this phone" or "Acknowledged elsewhere". Until
+the owner takes it, the list reads "Sending" while it is in the outbox, and
+"delivers on wake" while the owner is offline. When the alert closes first, it
+reads Closed with its reason. When cloud sync refuses the acknowledgement, the
+alert comes back into the stack with the reason.
 
 The phone reads presence off the owner's own pushes: an owner desktop pushes each
 open question again every 10 minutes, and a phone that has seen no push from it
@@ -76,7 +85,8 @@ the app to answer it.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
 entry as a reply made in the app. A tap opens the notification in the app. A
-notification that is answered, acknowledged or closed leaves the tray. The phone
+notification that is answered, acknowledged or closed leaves the tray. Swiping an
+alert out of the tray only clears the tray, and acknowledges nothing. The phone
 registers for the push once it is paired, and again when Firebase hands it a new
 token.
 
@@ -87,7 +97,6 @@ whether a phone showed it.
 ## Asking from the contexts
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
@@ -161,7 +170,6 @@ spec-manager. One read in spec-manager closes here as "Read in spec-manager".
 ## Closing a notification
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#closing-a-notification]
 ```

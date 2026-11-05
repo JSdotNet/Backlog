@@ -2,8 +2,6 @@
 
 ```meta
 date: 2026-10-29
-status: proposed
-roadmap: [goals-standup]
 related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#holds-back", ".devbook/domain/progress/domain.md#stand-up-reading", ".devbook/domain/progress/domain.invariants.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/requirements.md#tracking-an-impediment", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 c4-touches: [backlog.desktop.shell, backlog.desktop.dashboard, backlog.mobile, backlog.cloud, backlog.taskStore]
 ```

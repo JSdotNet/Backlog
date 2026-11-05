@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 aliases: [MachineRegistry]
 ```
@@ -32,7 +30,6 @@ the registry holds are in [its invariants](domain.invariants.md#machine-registry
 
 ```meta
 type: entity
-status: draft
 aliases: [machine_id]
 related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 ```
@@ -55,7 +52,6 @@ environment is wherever an agent can run. Why a Machine holds no sessions is in
 
 ```meta
 type: value-object
-status: draft
 ```
 
 An installed tool's version: `tool_name`, `version`, `last_checked_at`. Equality
@@ -65,7 +61,6 @@ by `(tool_name, version)`.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A queued tool update: `tool_name`, `target_version`, `requested_by`,
@@ -75,7 +70,6 @@ A queued tool update: `tool_name`, `target_version`, `requested_by`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Daily uptime: `date`, `uptime_pct`, `last_heartbeat`, `downtime_min`.
@@ -84,7 +78,6 @@ Daily uptime: `date`, `uptime_pct`, `last_heartbeat`, `downtime_min`.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Daily tool compliance: `date`, `compliant_tools_count`, `outdated_tools_count`,
@@ -95,7 +88,6 @@ Daily tool compliance: `date`, `compliant_tools_count`, `outdated_tools_count`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A completed tool update: `date`, `tool_name`, `target_version`, `status`
@@ -105,7 +97,6 @@ A completed tool update: `date`, `tool_name`, `target_version`, `status`
 
 ```meta
 type: value-object
-status: draft
 aliases: [DevToolLastRun, last run]
 related: [.devbook/domain/dev-pc-management/features.md#last-run-record]
 ```
@@ -134,7 +125,6 @@ matching no shape are kept byte for byte.
 
 ```meta
 type: value-object
-status: draft
 aliases: [DevToolRunStep]
 ```
 
@@ -146,7 +136,6 @@ failed), and `duration`.
 
 ```meta
 type: value-object
-status: draft
 aliases: [DevToolApplication, DevToolMcpServer, catalog entry]
 related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/dev-pc-management/features.md#overview-tab]
 ```
@@ -165,7 +154,6 @@ a hand-edited value is kept as written and only ever linked when it is one.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Version requirement for one tool: `tool_name`, `min_version`,
@@ -175,7 +163,6 @@ Version requirement for one tool: `tool_name`, `min_version`,
 
 ```meta
 type: value-object
-status: draft
 aliases: [TeamToolsBaseline]
 ```
 
@@ -187,7 +174,6 @@ Technology Stack domain (see `dependencies.md`).
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Aggregate fleet status: `date`, `total_machines`, `online_count`,
@@ -197,7 +183,6 @@ Aggregate fleet status: `date`, `total_machines`, `online_count`,
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Multi-period rolling averages: 7-day, 30-day, 90-day.
@@ -206,7 +191,6 @@ Multi-period rolling averages: 7-day, 30-day, 90-day.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 Aggregated fleet metrics: daily `fleet_health`, `fleet_uptime_trends`,
@@ -216,8 +200,19 @@ Aggregated fleet metrics: daily `fleet_health`, `fleet_uptime_trends`,
 
 ```meta
 type: enum
-status: draft
 aliases: [MachineStatus]
+```
+
+**Machine status lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Online : Registers and sends heartbeat
+    Online --> Sleeping : OS sleeps (heartbeat pauses)
+    Sleeping --> Online : WoL received; heartbeat resumes
+    Online --> Offline : Heartbeat timeout
+    Sleeping --> Offline : Heartbeat timeout
+    Offline --> Online : Desktop app restarts and heartbeats
 ```
 
 Current state of a machine: `online`, `sleeping`, `offline`.
@@ -226,7 +221,6 @@ Current state of a machine: `online`, `sleeping`, `offline`.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/arc42/06-runtime-view.md#remote-pc-wake-and-status-update, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure]
 ```
 
@@ -246,7 +240,6 @@ Invocation semantics: command-invoked orchestration service.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry]
 ```
 
@@ -254,7 +247,7 @@ Queues and executes tool updates across machines, singly, targeted, or in bulk,
 and requires authorization. The desktop app runs each update through the
 machine's native package manager and reports its progress, with rollback on
 failure. How an update moves through its states is drawn in
-[Tool update lifecycle](flow.md#tool-update-lifecycle).
+[Tool update lifecycle](features.md#remote-tool-updates).
 
 It is a service because it orchestrates queued work against offline and online
 machines and external package managers. Invocation semantics: command-invoked
@@ -264,7 +257,6 @@ orchestration service.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/dev-pc-management/domain.md#machine-registry]
 ```
 
@@ -291,7 +283,6 @@ Published when a registered machine changes runtime status.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/dev-pc-management/domain.md#machine-registry]
 ```
 
@@ -320,7 +311,6 @@ team tools baseline.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.

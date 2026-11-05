@@ -1,7 +1,7 @@
 # AI Adoption Map
 
 ```meta
-status: adopted
+rating: adopted
 type: adoption-map
 related: [".devbook/tech/ai-development.md"]
 ```

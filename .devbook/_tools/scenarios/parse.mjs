@@ -10,7 +10,7 @@ import path from "node:path";
 
 /** Where a repository keeps its profiles and data sets, unless it says otherwise. Runs live beside their scenarios file. */
 export const SCENARIO_FOLDER = ".devbook/scenarios";
-/** Where scenarios files live: `scenarios.md` and `scenarios.<name>.md` in a bounded context folder under it. */
+/** Where scenarios files live: `scenarios.md`, `scenarios.<name>.md`, and `scenarios.<name>.<page>.md` in a bounded context folder under it. */
 export const DOMAIN_FOLDER = ".devbook/domain";
 /** The profile file, inside the scenario folder. */
 export const PROFILES_FILE = "profiles.json";
@@ -147,14 +147,16 @@ function maskCodeSpans(line) {
 }
 
 /**
- * Whether a path is a scenarios file: `scenarios.md` or a split
- * `scenarios.<name>.md`, directly in a bounded context folder.
+ * Whether a path is a scenarios file: `scenarios.md`, a split
+ * `scenarios.<name>.md`, or a split's subpage `scenarios.<name>.<page>.md`,
+ * directly in a bounded context folder. `scenarios.<name>.invariants.md` is an
+ * invariants subpage, not a scenarios file.
  */
 export function isScenariosPath(relPath) {
     const rel = normalizePath(relPath);
     if (!rel.startsWith(`${DOMAIN_FOLDER}/`)) return false;
     const segments = rel.slice(DOMAIN_FOLDER.length + 1).split("/");
-    return segments.length === 2 && /^scenarios(?:\.[^./]+)?\.md$/i.test(segments[1]);
+    return segments.length === 2 && /^scenarios(?:\.[^./]+){0,2}\.md$/i.test(segments[1]) && !/\.invariants\.md$/i.test(segments[1]);
 }
 
 /** A journey's address: the scenarios file and the journey's own anchor. */
@@ -172,7 +174,8 @@ export function splitAddress(address) {
 /**
  * Where a journey's runs live: its scenarios file without `.md`, then the
  * journey's anchor — `scenarios.returns.md#return-a-parcel` runs into
- * `scenarios.returns/return-a-parcel/`.
+ * `scenarios.returns/return-a-parcel/`, and a subpage's beside the subpage,
+ * `scenarios.returns.courier/<journey>/`.
  */
 export function runFolderOf(journey) {
     return `${normalizePath(journey.path).replace(/\.md$/i, "")}/${journey.slug}`;

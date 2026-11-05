@@ -1,7 +1,7 @@
 # Test
 
 ```meta
-status: adopted
+rating: adopted
 type: stage
 ```
 
@@ -10,7 +10,7 @@ type: stage
 ## QA agent on the running application
 
 ```meta
-status: adopted
+rating: adopted
 type: agent
 stage: [verify]
 substage: [verify/functional-qa]
@@ -37,7 +37,7 @@ and returns an evidence path for every scenario it reports.
 ## Repository procedures
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [verify]
 substage: [verify/functional-qa]
@@ -69,7 +69,7 @@ through `run` instead of guessing a command.
 ## Devbook checks around a flow
 
 ```meta
-status: trial
+rating: trial
 type: practice
 stage: [verify]
 layer: [thread]
@@ -96,7 +96,7 @@ The flows' `phases` maps in `.devbook/config.json` hang the devbook skills on th
 ## Personal Validation gate
 
 ```meta
-status: adopted
+rating: adopted
 type: guardrail
 stage: [verify, integrate]
 substage: [verify/acceptance]

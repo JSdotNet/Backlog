@@ -452,7 +452,8 @@ no push reaches a phone until the hub has its FCM credential.
 
 - **One writer per document.** Only the owner instance writes a notification. A
   viewer writes a reply document once, and the owner accepts or rejects it. The
-  first valid reply the owner processes wins.
+  first valid reply the owner processes wins. A reply addressed to an alert is an
+  acknowledgement, and the owner takes it by moving the alert to Acknowledged.
 - **Push payloads hold no body.** A push carries the id, kind, severity, state,
   title, summary and origin, from the push preview the owner writes on the
   envelope, and never the body. An OS notification shows the title and the
@@ -482,7 +483,6 @@ no push reaches a phone until the hub has its FCM credential.
 ## Feature Enablement
 
 ```meta
-status: proposed
 related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 

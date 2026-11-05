@@ -1,7 +1,7 @@
 # Release and Operate
 
 ```meta
-status: trial
+rating: trial
 type: stage
 ```
 
@@ -12,7 +12,7 @@ type: stage
 ## Merge-ready and CI repair
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [integrate]
 substage: [integrate/readiness]
@@ -35,7 +35,7 @@ repairs failing checks, and answers review findings, through the delivery engine
 ## Alerts to work items
 
 ```meta
-status: candidate
+rating: candidate
 type: skill
 stage: [operate]
 substage: [operate/alerting]

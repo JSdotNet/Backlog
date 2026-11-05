@@ -58,7 +58,7 @@ public sealed record C4LinkedRecord(
     /// every other kind: a debt record's status is its <see cref="Lifecycle"/>.</summary>
     public string? Status { get; init; }
 
-    /// <summary>A decision still at <c>status: proposed</c>.</summary>
+    /// <summary>A decision whose state, stored or stated by its file, is <c>proposed</c>.</summary>
     public bool Proposed =>
         Kind == C4RecordKind.Decision && string.Equals(Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase);
 }

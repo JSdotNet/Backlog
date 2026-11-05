@@ -1,7 +1,6 @@
 # ADR 0013: Authorization and the Zero Trust model
 
 ```meta
-status: proposed
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md"]
 ```
 

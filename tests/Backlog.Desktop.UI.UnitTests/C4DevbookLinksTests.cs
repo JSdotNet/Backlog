@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.UI.Components.Diagrams.C4;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -277,6 +278,31 @@ public sealed class C4DevbookLinksTests : IDisposable
         Assert.NotEmpty(catalog.RecordsOf("backlog.desktop.devbook"));
         Assert.Contains(catalog.Links, link => link.Record.Kind == C4RecordKind.Decision && link.Kind == C4LinkKind.Touches);
         Assert.Contains(catalog.Links, link => link.Record is { Kind: C4RecordKind.Debt, Severity: not null, Lifecycle: not null });
+    }
+
+    /// <summary>Devbook contract 38 took workflow state out of the chapter: this
+    /// repository's records state none, so they read at rest, and the store is the only
+    /// thing that moves them (local ADRs 0044 and 0045).</summary>
+    [Fact]
+    public async Task This_repositorys_records_state_no_status_and_read_their_state_from_the_store()
+    {
+        var catalog = await LoadRepositoryAsync();
+        var decision = catalog.Links.Select(link => link.Record).First(record => record.Kind == C4RecordKind.Decision);
+        var debt = catalog.Links.Select(link => link.Record).First(record => record.Kind == C4RecordKind.Debt);
+
+        Assert.All(catalog.Links, link =>
+        {
+            Assert.False(link.Record.Proposed);
+            if (link.Record.Kind == C4RecordKind.Debt) Assert.Equal(DevbookDebtLifecycle.Identified, link.Record.Lifecycle);
+        });
+
+        var subjects = new SessionDevbookSubjectStateStore();
+        Assert.False(subjects.SetState("repo", DevbookSubject.Decision(decision.Path, 7), "proposed", "test").IsRefused);
+        Assert.False(subjects.SetState("repo", DevbookSubject.Debt(debt.Path), "resolved", "test").IsRefused);
+        var states = C4RecordStates.From(subjects.List("repo"));
+
+        Assert.True(states.Apply(decision).Proposed);
+        Assert.Equal(DevbookDebtLifecycle.Resolved, states.Apply(debt).Lifecycle);
     }
 
     // ---- harness ----------------------------------------------------------------

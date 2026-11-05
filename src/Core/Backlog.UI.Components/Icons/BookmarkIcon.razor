@@ -1,0 +1,46 @@
+@*
+    A bookmark: a tall ribbon with a notch cut into its foot.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, in Lucide's
+    idiom on the terms `.devbook/design/typography-and-layout.md#iconography` allows:
+    an outline on the 24x24 grid, stroked at 2, round caps and joins, filled nowhere.
+    Lucide's `bookmark`.
+
+    Named for the shape, not for a meaning. A popped-out window puts it on the
+    Remember this window toggle; the toggle carries the name, so the glyph is
+    decorative and hidden from assistive technology.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "bookmark-icon" : $"bookmark-icon {CssClass}";
+}

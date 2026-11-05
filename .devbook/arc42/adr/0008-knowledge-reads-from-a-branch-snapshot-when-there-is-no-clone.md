@@ -1,7 +1,6 @@
 # ADR 0008: The Devbook reads from a cached branch snapshot when there is no clone; only a clone is editable
 
 ```meta
-status: proposed
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 c4: [backlog.desktop.devbook, github]
 ```

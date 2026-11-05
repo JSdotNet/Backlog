@@ -1,7 +1,6 @@
 # Devbook
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -38,7 +37,6 @@ Outside it:
 ## Devbook pane
 
 ```meta
-status: draft
 type: feature-flag
 key: repository-devbook
 default: on
@@ -66,7 +64,6 @@ feature catalog in `AppFeatures.cs`, and a person's choice is kept in
 ## C4 zoom
 
 ```meta
-status: draft
 type: feature-flag
 key: c4-zoom
 default: off
@@ -87,7 +84,6 @@ switch is retired once the zoom tab has been validated and replaces the **C4** t
 ## Devbook editing
 
 ```meta
-status: draft
 type: feature-flag
 key: devbook-editing
 default: off
@@ -116,7 +112,6 @@ each panel follows a change live, with no restart.
 ## Devbook status
 
 ```meta
-status: draft
 type: feature-flag
 key: devbook-status
 default: off
@@ -149,7 +144,6 @@ Edit. Each panel follows a change live, with no restart.
 ## Instruction optimization
 
 ```meta
-status: draft
 type: feature-flag
 key: instruction-optimization
 related: [".devbook/domain/devbook/features.md#instruction-optimization"]

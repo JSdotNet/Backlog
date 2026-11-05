@@ -27,6 +27,11 @@ the sub-PRs under it, followed by #1537, #1561 and #1601. The Azure resources we
 provisioned on 2026-11-04, but the hub has no FCM credential yet, so no push has
 reached a phone.
 
+§2 was amended in place on 2026-11-04 by flow-spec run `run-mw20z2wp-29i3zl`: a
+viewer acknowledges an alert through a reply the owner takes. That amendment is not
+yet built. It follows the phone's swipe pager, which shows alerts without Dismiss
+until then.
+
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It **extends** ADR 0005 with a fourth replica container,
 on ADR 0011's precedent, and builds the Notification Service that the building
@@ -75,6 +80,24 @@ replica needs no merge rule beyond the one ADR 0005 already has.
 
 The sync API accepts a reply only from a device under the same owner. The owner
 checks that again before it accepts.
+
+**Amended 2026-11-04: a viewer acknowledges an alert with a reply too.** A viewer
+that acknowledges an alert writes an acknowledgement: a reply document addressed to
+the alert, holding no choice, no text and no note. The alert's kind is what makes
+it one, so the document needs no new field. It travels the way an answer does:
+
+- through the phone's device outbox, so an acknowledgement made offline is kept;
+- through the same sync route into `notificationReplies`, under the same owner
+  checks;
+- to the owner, which takes the first acknowledgement of an open alert, moves the
+  alert to Acknowledged with the device it came from, and deletes the document.
+
+An acknowledgement of an alert already acknowledged changes nothing. One that
+reaches the owner after the alert closed is rejected as closed, and one addressed
+to a question is rejected as not fitting its answer spec. An owner on a build
+before this amendment rejects it the same way, and the alert stays open. The
+acknowledged alert leaves every device's open stack on the next pull, so no viewer
+keeps a dismiss of its own.
 
 ### 3. Notifications get their own replica containers
 
@@ -180,10 +203,17 @@ Positive:
   million pushes a month, 500 devices) cover a personal setup. Cosmos reads for
   the feed cost cents a month on serverless.
 
+- **Dismiss means the same thing on every device.** An alert acknowledged on the
+  phone is acknowledged on the owner, so it leaves the desktop's centre, its
+  Windows notification and every other device's stack. A spec-manager alert is
+  then marked read in spec-manager too.
+
 Negative, and accepted:
 
 - **A reply counts only when the owner is awake.** While the owner desktop is
   offline, a reply waits on the sync service and viewers show "delivers on wake".
+  An acknowledgement waits the same way: it leaves the stack of the phone that
+  sent it at once, and every other device's stack only once the owner takes it.
 - **Two secrets in the deployment.** The two SAS connection strings, Send and
   Manage, are the sync tier's only key-based data credentials beside managed
   identities. They live only in container app secrets, and no person sees them.
@@ -211,6 +241,12 @@ Negative, and accepted:
 - **Two writers per notification, with viewers changing its state.** It would need
   a merge rule for a state change against an answer. The single-writer pattern the
   Inbox already uses removes the question.
+- **A dismiss kept only on the phone, as a read mark.** The alert would stay open
+  on the owner and on every other device, and a spec-manager alert would never be
+  marked read there. The person would dismiss the same alert once per device.
+- **A container or a route of its own for acknowledgements.** It would be a second
+  mailbox for a document that carries only an id and a device, and it would repeat
+  every owner check the reply path already makes.
 
 ## Verification
 
@@ -265,6 +301,11 @@ entered, so no test or device check has yet seen a push reach a phone.
   `PushRegistrationTests` when the phone registers, and
   `NotificationOpenRequestTests` the tap. The Android head itself has no unit
   test; its build and a device check prove it.
+- The 2026-11-04 amendment to §2 is not yet built. The flow-code run that builds
+  it names its tests on the
+  [acknowledgement invariant](../../domain/notifications/domain.invariants.md#invariant-an-acknowledgement-settles-only-an-open-alert)
+  and the
+  [requirement](../../domain/notifications/requirements.md#requirement-a-viewer-acknowledges-an-alert-through-its-owner).
 
 ## History
 
@@ -273,6 +314,7 @@ entered, so no test or device check has yet seen a push reach a phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-04 | §2 amended: a viewer acknowledges an alert with a reply that holds no choice, text or note, through the same outbox, route and container; the owner takes the first one and records the device. | The phone's swipe pager needs a Dismiss for alerts, and a dismiss kept only on the phone would leave the alert open on every other device. |
 | 2026-11-02 | Accepted. | Built on main by PR #1499 and its follow-ups #1537, #1561 and #1601; the owner accepted it at the gate of flow-spec run `run-mvzoobww-d5511o`. |
 | 2026-10-26 | §4 amended: the push adds an `origin` value, the notification's "System · Place" cut to 60 characters, sent for a private notification too. | Every notification now says where it came from (`domain.md#origin`), and the tray shows it as the subtitle before the phone has pulled. |
 | 2026-10-26 | §5 amended: Bicep declares two hub rules, `sync-send` (Send) and `sync-manage` (Listen, Manage, Send), each into its own container app secret, in place of one Send-only key. | The service registers each phone's installation itself, and a Send-only rule cannot: an installation needs Manage. |

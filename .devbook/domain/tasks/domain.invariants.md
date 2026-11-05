@@ -1,7 +1,6 @@
 # Invariants
 
 ```meta
-status: draft
 type: invariants
 ```
 
@@ -10,7 +9,6 @@ What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggreg
 ## Task
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -20,7 +18,6 @@ related: [.devbook/domain/tasks/domain.md#task]
 ### Invariant: A new task starts in draft
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.ManuallyCreatedEntry_DefaultsToDraft_WithNoSourceInbox
 ```
@@ -32,19 +29,17 @@ Enforced at: constructor
 ### Invariant: Status changes follow the lifecycle
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.InvalidTransitions_Throw, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.ValidTransitions_AreAllowed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryStatusFlowTests.The_graph_is_the_one_the_domain_folder_draws]
 ```
 
-A status change through `ChangeStatus()` moves only along the [Task lifecycle](flow.md#task-lifecycle).
+A status change through `ChangeStatus()` moves only along the [Task lifecycle](domain.md#task).
 
 Enforced at: `ChangeStatus()`
 
 ### Invariant: Sub-items change through the task
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -55,7 +50,6 @@ Enforced at: all mutations (`SubItem`'s constructor and setters are internal)
 ### Invariant: Projection references change through the task
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -66,16 +60,7 @@ Enforced at: all mutations (`ProjectionRefs` is read-only, and changes only thro
 ### Invariant: The AI work log changes through the task
 
 ```meta
-status: draft
 type: invariant
-```
-
-```annotation
-kind: question
-author: "flow-spec"
-date: 2026-10-13
-body: |
-  Not built: no type in src/ enforces this yet. Which type and transition will?
 ```
 
 A task's [AI work log](domain.md#ai-work-log) events change only through the task.
@@ -85,7 +70,6 @@ Enforced at: open
 ### Invariant: Usage events change through the task
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -96,7 +80,6 @@ Enforced at: all mutations (`UsageEvents` is read-only, and grows only through `
 ### Invariant: Progress follows the sub-items
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemSubItemTests.ParentProgress_ReflectsSubItemCompletion, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemSubItemTests.Progress_IsZero_WhenNoSubItems]
 ```
@@ -108,7 +91,6 @@ Enforced at: `Progress`
 ### Invariant: A blank area is unfiled
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -119,7 +101,6 @@ Enforced at: `SetArea()`, which every path that writes an area goes through
 ### Invariant: Effort is never negative
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_Negative_IsRefusedAndLeavesTheValueUnchanged, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_HoldsAnyNonNegativeValue]
 ```
@@ -131,7 +112,6 @@ Enforced at: `SetEffort()`
 ### Invariant: Readiness is derived and never stored
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.A_task_is_ready_when_everything_it_named_is_finished, unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.Finishing_one_step_frees_every_row_that_named_it]
 ```
@@ -144,7 +124,6 @@ Enforced at: `TaskChain.Resolve()`, a stateless function in `Backlog.UI.Componen
 ### Invariant: A ticked task reads done
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.Done_wins_over_an_outstanding_dependency
 ```
@@ -157,7 +136,6 @@ Enforced at: `TaskChain.Resolve()` in `Backlog.UI.Components.Tasks`, over rows w
 ### Invariant: A dependency naming no task still blocks
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.An_id_that_names_nothing_here_leaves_the_task_blocked
 ```
@@ -170,7 +148,6 @@ Enforced at: `TaskChain.Resolve()` in `Backlog.UI.Components.Tasks`; `SetDepends
 ### Invariant: Every task in a dependency loop reads blocked
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.Every_task_in_a_cycle_is_blocked_and_flagged_and_nothing_is_next, unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.A_task_that_names_itself_is_a_cycle_of_one]
 ```
@@ -183,7 +160,6 @@ Enforced at: `TaskChain.Resolve()` in `Backlog.UI.Components.Tasks`
 ### Invariant: The first move into progress stamps the start
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Moving_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Setting_the_status_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Leaving_in_progress_and_coming_back_on_a_later_day_keeps_the_first_day]
 ```
@@ -196,7 +172,6 @@ Enforced at: `ChangeStatus()` and `SetStatus()`
 ### Invariant: A task outside My Day holds no agenda time
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_task_holds_no_agenda_time_outside_my_day
 ```
@@ -209,7 +184,6 @@ Enforced at: `SetAgendaTime()`
 ### Invariant: A new My Day date drops the agenda time
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Moving_the_task_to_another_day_drops_its_slot, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Taking_the_task_out_of_my_day_drops_its_slot, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Setting_the_same_day_again_keeps_the_slot]
 ```
@@ -222,7 +196,6 @@ Enforced at: `SetInMyDayOn()`
 ### Invariant: A text save that moves My Day drops the slot carried along
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_drops_the_slot_carried_along_unedited, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_and_types_a_new_slot_keeps_the_new_slot]
 ```
@@ -235,7 +208,6 @@ Enforced at: `TaskEntryFields.ApplyToExisting()`, which every text save of an ex
 ### Invariant: An agenda duration is a positive whole number of minutes
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_duration_must_be_positive
 ```
@@ -247,7 +219,6 @@ Enforced at: constructor (`AgendaTime`)
 ### Invariant: A start alone is thirty minutes
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_start_without_a_duration_means_thirty_minutes, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_start_alone_reads_as_thirty_minutes]
 ```
@@ -259,7 +230,6 @@ Enforced at: constructor (`AgendaTime`, `DefaultDurationMinutes`), and `EntryTex
 ### Invariant: A duration without a start is no agenda time
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_duration_without_a_start_is_refused_as_malformed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_of_a_lone_duration_sets_no_slot]
 ```
@@ -272,7 +242,6 @@ Enforced at: constructor (`AgendaTime` has no form without a start), and `EntryT
 ### Invariant: A planned-hours figure is more than none and at most a day
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_figure_out_of_range_is_refused_and_nothing_is_written
 ```
@@ -284,7 +253,6 @@ Enforced at: `PlannedHoursBlock.Create()` and `TryCreate()`; `TaskItem` holds on
 ### Invariant: A planned-hours figure is kept in quarters of an hour
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_figure_is_kept_in_quarters_of_an_hour
 ```
@@ -297,7 +265,6 @@ Enforced at: `PlannedHoursBlock.TryCreate()`
 ### Invariant: A task holds one planned-hours figure a day
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_day_holds_one_block_and_the_last_figure_wins
 ```
@@ -309,7 +276,6 @@ Enforced at: `SetPlannedHours()`
 ### Invariant: Every edit restamps the task
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.An_edit_moves_the_stamp, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.Every_public_mutator_is_on_one_of_the_two_lists, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.An_edit_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward]
 ```
@@ -322,7 +288,6 @@ Enforced at: all mutations (each calls `Touch()`); `RecordUsage()`, `LoadSubItem
 ### Invariant: A restored task is stamped after its tombstone
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_is_live_again_and_stamped_after_its_tombstone, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_deleted_again_is_a_tombstone_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone]
 ```
@@ -335,7 +300,6 @@ Enforced at: `Restore()`
 ### Invariant: Unlinking removes every reference to the named artifact
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_a_session_takes_it_off_under_every_repository]
 ```
@@ -348,7 +312,6 @@ Enforced at: `RemoveProjectionRef()`
 ### Invariant: Unlinking leaves the task's repositories as they are
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories
 ```
@@ -361,7 +324,6 @@ Enforced at: `RemoveProjectionRef()`, which changes only `ProjectionRefs`
 ### Invariant: Unlinking what the task does not hold changes nothing
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_what_the_entry_does_not_hold_leaves_its_stamp
 ```
@@ -373,7 +335,6 @@ Enforced at: `RemoveProjectionRef()`, which restamps only when it removed someth
 ### Invariant: A plan id keeps its sigil
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanTests.The_shared_plan_tag_is_the_sigilled_one_whatever_else_is_shared
 ```

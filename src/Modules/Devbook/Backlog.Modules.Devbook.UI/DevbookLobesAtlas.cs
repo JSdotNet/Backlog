@@ -112,6 +112,29 @@ public static class DevbookLobesAtlas
     }
 
     /// <summary>
+    /// <paramref name="graph"/> with only the scopes in <paramref name="scopeKeys"/>:
+    /// their nodes, and the edges whose two ends both stay. What the shell's
+    /// repository scope leaves out is dropped rather than hidden, because the
+    /// renderer seats All's brains by their place in the list.
+    /// </summary>
+    public static DevbookLobesGraph InView(DevbookLobesGraph graph, IReadOnlyCollection<string> scopeKeys)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(scopeKeys);
+
+        var keep = new HashSet<string>(scopeKeys, StringComparer.OrdinalIgnoreCase);
+        var nodes = graph.Nodes.Where(node => keep.Contains(node.ScopeKey)).ToList();
+        var ids = nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
+
+        return graph with
+        {
+            Scopes = [.. graph.Scopes.Where(scope => keep.Contains(scope.Key))],
+            Nodes = nodes,
+            Edges = [.. graph.Edges.Where(edge => ids.Contains(edge.Source) && ids.Contains(edge.Target))]
+        };
+    }
+
+    /// <summary>
     /// The drawing of <paramref name="graph"/> in <paramref name="layout"/> —
     /// <see cref="LobesAtlasModel.AllLayout"/> or a scope key — with the scopes and
     /// regions the reader has hidden left undrawn: <paramref name="hiddenLobes"/>
