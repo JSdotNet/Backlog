@@ -37,7 +37,7 @@ import {
     documentDigest,
     folderKindForPath,
     resolveType,
-    resolveStatus,
+    RATING_FIELD,
     documentNumber,
     fileNumberFromPath,
     indexRole,
@@ -81,11 +81,10 @@ const DIRECTORY_CONVENTION = {
             "skills.md",
             "features.md",
             "model.md",
-            "flow.md",
             "dependencies.md",
         ],
         last: [],
-        split: ["domain.md", "requirements.md", "features.md", "skills.md", "model.md", "flow.md"],
+        split: ["domain.md", "requirements.md", "features.md", "skills.md", "model.md"],
         subpage: { suffix: "invariants", of: ["domain.md"] },
     },
     "tech": { root: "technology-graph.md", first: ["shared.md"], last: ["tooling.md"] },
@@ -256,7 +255,7 @@ async function readDirectory(repoRoot, relDir, problems) {
         else if (entry.isFile() && entry.name.endsWith(".md")) files.push(entry.name);
     }
 
-    // Parse every file once: we need its title/status for the outline anyway,
+    // Parse every file once: we need its title and rating for the outline anyway,
     // and the digest (lede, diagram count) comes out of the same pass, which is
     // the whole point — a viewer listing this folder must not have to open the
     // files to learn what the generator already read.
@@ -308,13 +307,8 @@ async function readDirectory(repoRoot, relDir, problems) {
             // or match a heading; `kind` is what a viewer groups and sorts by.
             const folder = folderKindForPath(doc.relPath);
             const fileKind = resolveType(folder, doc.meta);
-            // Resolved, not passed through: a file that omits its status in an
-            // editorial folder is at that folder's resting value, and an index
-            // entry saying null would send a list view looking for a state the
-            // convention already answers. `statusDeclared` records that the
-            // file itself did not say it — written only when false, so no
-            // existing entry churns.
-            const { status, declared } = resolveStatus(folder, doc.meta, doc.relPath, "file");
+            // A `tech/` or `ai/` file states its rating; nothing else carries one.
+            const rating = typeof doc.meta[RATING_FIELD] === "string" ? doc.meta[RATING_FIELD] : null;
             const tests = testList(doc.meta);
             outline.push({
                 type: "file",
@@ -322,8 +316,7 @@ async function readDirectory(repoRoot, relDir, problems) {
                 path: doc.relPath,
                 title: doc.title ?? path.basename(name, ".md"),
                 ...(fileKind ? { kind: fileKind } : {}),
-                status,
-                ...(declared || status === null ? {} : { statusDeclared: false }),
+                ...(rating ? { rating } : {}),
                 // Omitted rather than emitted empty, so adding these fields did
                 // not churn every entry of every existing index.
                 ...(doc.number !== null ? { number: doc.number } : {}),

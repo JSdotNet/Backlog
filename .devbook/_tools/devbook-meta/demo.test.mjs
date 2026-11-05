@@ -13,8 +13,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { buildGraph } from "./graph.mjs";
-import { chapterFingerprint, chapterHash, isPageNamedDemo, validateDocument } from "./metadata.mjs";
-import { changeFingerprint, mergeDelta, parseDelta } from "./delta.mjs";
+import { chapterFingerprint, chapterHash, isPageNamedDemo } from "./metadata.mjs";
+import { changeFingerprint } from "./delta.mjs";
 import { demoReader, DEMO_SIZE_TARGET } from "./demo.mjs";
 import { main as hashMain } from "./chapter-hash.mjs";
 
@@ -102,7 +102,7 @@ const dump = (problems) => problems.map((p) => `[${p.severity}] ${p.message}`).j
     const other = "openspec/changes/rename-orders";
     const problems = await demoProblemsOf({
         [`${other}/proposal.md`]:
-            `# Rename orders\n\n${fence("type: change\nstatus: proposed\ncategory: behaviour-change\n")}\n` +
+            `# Rename orders\n\n${fence("type: change\ncategory: behaviour-change\n")}\n` +
             `## Why\n\nNames.\n\n## Scope\n\nNames.\n`,
         [`${other}/devbook-delta/domain/ordering/context.md`]: fence("change: rename-orders\ndelta: modified\n"),
     });
@@ -116,8 +116,8 @@ check(isPageNamedDemo(`${CONTEXT}/features.checkout.demo.html`), "a split page's
 check(!isPageNamedDemo(`${CONTEXT}/checkout-journey.demo.html`), "a name no page prescribes is not page-named");
 
 {
-    const problems = await demoProblemsOf({ [`${CONTEXT}/flow.demo.html`]: demoHtml() });
-    check(has(problems, "error", "is named for .devbook/domain/ordering/flow.md, which does not exist"), "a page-named demo without its page errors", dump(problems));
+    const problems = await demoProblemsOf({ [`${CONTEXT}/model.demo.html`]: demoHtml() });
+    check(has(problems, "error", "is named for .devbook/domain/ordering/model.md, which does not exist"), "a page-named demo without its page errors", dump(problems));
 }
 
 {
@@ -396,7 +396,7 @@ for (const [head, needle, name] of [
 
 const CHANGE = "openspec/changes/add-express";
 const proposalMd = (demo) =>
-    `# Add express checkout\n\n${fence(`type: change\nstatus: proposed\ncategory: feature\ndemo: [${demo}]\n`)}\n` +
+    `# Add express checkout\n\n${fence(`type: change\ncategory: feature\ndemo: [${demo}]\n`)}\n` +
     `## Why\n\nFaster.\n\n## Scope\n\nCheckout.\n`;
 const solutionMd = (demo) => `# Solution\n\n${fence(`demo: [${demo}]\n`)}\nShow express on the checkout screen.\n`;
 
@@ -426,9 +426,9 @@ const solutionMd = (demo) => `# Solution\n\n${fence(`demo: [${demo}]\n`)}\nShow 
 {
     const problems = await demoProblemsOf({
         [`${CHANGE}/proposal.md`]: proposalMd(`${DEMO}#checkout`),
-        [`${CHANGE}/devbook-delta/domain/ordering/flow.demo.html`]: demoHtml(),
+        [`${CHANGE}/devbook-delta/domain/ordering/model.demo.html`]: demoHtml(),
     });
-    check(has(problems, "error", "is named for .devbook/domain/ordering/flow.md"), "a proposed page-named demo without its page errors", dump(problems));
+    check(has(problems, "error", "is named for .devbook/domain/ordering/model.md"), "a proposed page-named demo without its page errors", dump(problems));
 }
 
 {
@@ -443,30 +443,21 @@ const solutionMd = (demo) => `# Solution\n\n${fence(`demo: [${demo}]\n`)}\nShow 
 // -- The fingerprint ------------------------------------------------------
 
 {
-    const approved = (hash) => `type: feature\ndemo: [${DEMO}#checkout]\nstatus: approved\napproved-by: Job\napproved-at: 2026-10-02\napproved-hash: ${hash}\n`;
+    // A host records a decision at this fingerprint; the chapter carries none.
     const root = await repo();
     const read = demoReader(root);
-    const draft = featuresMd(approved("sha256:00000000"));
-    const line = draft.split("\n").indexOf("## Checkout") + 1;
-    const hash = chapterFingerprint(`${CONTEXT}/features.md`, draft, line, read);
-    check(hash !== chapterHash(draft, line), "a chapter naming a demo fingerprints the demo with it");
-
-    const stamped = featuresMd(approved(hash));
     const rel = `${CONTEXT}/features.md`;
-    const clean = validateDocument(rel, stamped, { demoText: read });
-    check(!clean.some((i) => i.message.includes("content that has changed")), "the recorded fingerprint matches while the demo is unchanged", dump(clean));
+    const page = featuresMd(`type: feature\ndemo: [${DEMO}#checkout]\n`);
+    const line = page.split("\n").indexOf("## Checkout") + 1;
+    const hash = chapterFingerprint(rel, page, line, read);
+    check(hash !== chapterHash(page, line), "a chapter naming a demo fingerprints the demo with it");
 
     const edited = demoReader(await repo({ [DEMO]: demoHtml({ body: BODY.replace("Pay", "Pay now") }) }));
-    const stale = validateDocument(rel, stamped, { demoText: edited });
-    check(stale.some((i) => i.severity === "error" && i.message.includes("content that has changed")), "editing the demo lifts the chapter's approval", dump(stale));
+    check(chapterFingerprint(rel, page, line, edited) !== hash, "editing the demo changes the chapter's fingerprint");
 
-    const { problems } = await buildGraph(await repo({ [rel]: stamped, [DEMO]: demoHtml({ body: BODY.replace("Pay", "Pay now") }) }));
-    check(has(problems, "error", "content that has changed"), "the check reports it through the build", dump(problems));
-
-    // A template refresh rewrites the managed region only: the approval holds.
+    // A template refresh rewrites the managed region only: the fingerprint holds.
     const refreshed = demoReader(await repo({ [DEMO]: demoHtml().replace("<!-- template:begin -->", "<!-- template:begin hash=sha256:feedface -->").replace("body{margin:0}", "body{margin:0;padding:0}") }));
-    const held = validateDocument(rel, stamped, { demoText: refreshed });
-    check(!held.some((i) => i.message.includes("content that has changed")), "rewriting the managed region keeps the chapter's approval", dump(held));
+    check(chapterFingerprint(rel, page, line, refreshed) === hash, "rewriting the managed region keeps the chapter's fingerprint");
 }
 
 {
@@ -516,23 +507,6 @@ const solutionMd = (demo) => `# Solution\n\n${fence(`demo: [${demo}]\n`)}\nShow 
     const edited = await changeFingerprint(root, "add-express");
     await writeFile(path.join(root, CHANGE, "devbook-delta/domain/ordering/features.demo.html"), demoHtml({ body: BODY.replace("Pay", "Pay now") }).replace("body{margin:0}", "body{margin:1px}"), "utf8");
     check((await changeFingerprint(root, "add-express")) === edited, "rewriting a proposed demo's managed region keeps the change's fingerprint");
-}
-
-{
-    // A merge that leaves a demo-backed chapter alone keeps its approval: the
-    // merge compares against the same fingerprint the gate recorded.
-    const root = await repo();
-    const read = demoReader(root);
-    const rel = `${CONTEXT}/features.md`;
-    const meta = (hash) => `type: feature\ndemo: [${DEMO}#checkout]\nstatus: approved\napproved-by: Job\napproved-at: 2026-10-02\napproved-hash: ${hash}\n`;
-    const draft = featuresMd(meta("sha256:00000000")) + `\n## Refunds\n\n${fence("type: feature\n")}\nRefunding.\n`;
-    const line = draft.split("\n").indexOf("## Checkout") + 1;
-    const original = draft.replace("sha256:00000000", chapterFingerprint(rel, draft, line, read));
-    const delta = parseDelta(
-        fence("change: add-express\ndelta: modified\n") + `\n## Refunds\n\n### MODIFIED\n\n${fence("")}\n#### Partial refunds\n\n${fence("")}\nPart of an order.\n`
-    );
-    const { merged, issues } = mergeDelta(delta, original, "add-express", { target: rel, demoText: read });
-    check(merged?.includes("status: approved") && !issues.some((i) => i.message.includes("lifts")), "a merge elsewhere in the page keeps a demo-backed approval", JSON.stringify(issues));
 }
 
 for (const root of roots) await rm(root, { recursive: true, force: true });

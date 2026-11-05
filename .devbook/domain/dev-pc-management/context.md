@@ -1,7 +1,6 @@
 # Dev PC Management
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -22,7 +21,6 @@ configured", so a Machine holds no session state. What stays here is the machine
 ## System tools
 
 ```meta
-status: draft
 type: feature-flag
 key: system-tools
 default: on

@@ -1,7 +1,6 @@
 # Monitoring & Dashboard
 
 ```meta
-status: draft
 index: root
 type: context
 ```

@@ -1,7 +1,6 @@
 # Domain
 
 ```meta
-status: draft
 type: domain
 ```
 
@@ -13,7 +12,6 @@ type: domain
 ## Notification
 
 ```meta
-status: proposed
 type: aggregate
 related: [.devbook/domain/notifications/domain.invariants.md#notification, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 aliases: [NotificationDraft, NotificationId]
@@ -57,7 +55,6 @@ The rules it holds are `### Invariant:` chapters in
 ### Source
 
 ```meta
-status: draft
 type: value-object
 aliases: [NotificationSource]
 ```
@@ -71,7 +68,6 @@ The source routes; it is never shown. What a person reads is the
 ### Origin
 
 ```meta
-status: draft
 type: value-object
 aliases: [NotificationOrigin]
 related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin-stays-within-its-bounds]
@@ -124,7 +120,6 @@ The sources inside Backlog fill it:
 ### Subject
 
 ```meta
-status: draft
 type: value-object
 aliases: [NotificationSubject]
 ```
@@ -161,7 +156,6 @@ closes there the same way.
 ### Answer Spec
 
 ```meta
-status: draft
 type: value-object
 aliases: [AnswerSpec, AnswerChoice, OpenAnswer]
 ```
@@ -199,7 +193,6 @@ questions included.
 ### Notification Kind
 
 ```meta
-status: draft
 type: enum
 aliases: [NotificationKind]
 ```
@@ -210,7 +203,6 @@ aliases: [NotificationKind]
 ### Severity
 
 ```meta
-status: draft
 type: enum
 aliases: [NotificationSeverity]
 ```
@@ -222,7 +214,6 @@ informational. Severity never limits who may answer.
 ### Notification State
 
 ```meta
-status: draft
 type: enum
 related: [.devbook/arc42/08-crosscutting-concepts.md#notifications]
 ```
@@ -256,7 +247,6 @@ spec-manager, and the publisher closes one read there.
 ## Reply
 
 ```meta
-status: draft
 type: aggregate
 related: [.devbook/domain/notifications/domain.invariants.md#reply, .devbook/arc42/06-runtime-view.md#notification-reply]
 aliases: [ReplyOutboxKind]
@@ -287,7 +277,6 @@ words of a choice that takes text; the note stays apart from them.
 ## Answer
 
 ```meta
-status: draft
 type: value-object
 aliases: [NotificationAnswer]
 ```
@@ -300,14 +289,12 @@ once and treats a second delivery for the same notification as the same answer.
 ## Ubiquitous Language
 
 ```meta
-status: draft
 type: ubiquitous-language
 ```
 
 ### Owner instance
 
 ```meta
-status: proposed
 type: term
 aliases: [ownerInstanceId]
 related: [.devbook/domain/tasks/domain.md#device]
@@ -322,7 +309,6 @@ other instance takes them over, and they expire.
 ### Viewer instance
 
 ```meta
-status: proposed
 type: term
 related: [.devbook/domain/notifications/domain.md#reply]
 ```
@@ -334,7 +320,6 @@ and never changes a notification.
 ### Acknowledgement
 
 ```meta
-status: proposed
 type: term
 related: [.devbook/domain/notifications/domain.md#reply, .devbook/domain/notifications/domain.invariants.md#invariant-an-acknowledgement-settles-only-an-open-alert, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```

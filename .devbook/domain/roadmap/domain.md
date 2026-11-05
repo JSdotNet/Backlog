@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -25,10 +24,37 @@ repository rather than one undifferentiated list.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/roadmap/domain.invariants.md#roadmap-plan]
 aliases: [RoadmapPlan, plan, the plan]
 ```
+
+**Who placed an item's window**
+
+```mermaid
+stateDiagram-v2
+    state "effort" as Effort
+    state "due-date" as DueDate
+    state "absent (the person's)" as Person
+
+    [*] --> Effort : import, no due date
+    [*] --> DueDate : import, with a due date
+    [*] --> Person : created by hand, or dropped on a Calendar day
+    Effort --> Effort : keep-up re-lays it, re-import, or lane drop
+    DueDate --> DueDate : re-import of the document
+    Effort --> Person : hand move
+    DueDate --> Person : hand move
+    Person --> Person : any later import leaves the dates alone
+```
+
+The states are the values of `placed_by_import` on a
+[Roadmap Item](domain.md#roadmap-item), and that chapter defines a
+[hand move](domain.md#roadmap-item). The two transitions to the person's state are
+[a hand move](domain.invariants.md#invariant-a-hand-move-hands-the-window-to-the-person),
+and no transition leaves it, because
+[the importer never moves a window a person placed](domain.invariants.md#invariant-the-importer-never-moves-a-window-a-person-placed)
+and an import never deletes an item. A drop on a Calendar day still places the
+window by the `effort` rule, from the day dropped on. The window is the person's
+because they chose that day.
 
 The single plan for the workspace, and the consistency boundary for every item,
 milestone, and dependency in it.
@@ -55,7 +81,6 @@ including those of the value objects below.
 
 ```meta
 type: entity
-status: draft
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
@@ -73,7 +98,7 @@ A single piece of planned work, identified by `roadmap_item_id`. It holds:
 
 `placed_by_import` records which rule an import placed the window by. How the
 value is set and cleared is drawn in
-[Who placed an item's window](flow.md#who-placed-an-items-window).
+[Who placed an item's window](domain.md#roadmap-plan).
 
 - `effort`: the start comes from its predecessors, and the length from the
   gathered effort over the reader's pace.
@@ -128,7 +153,6 @@ totalling, because neither answer is in the item's own state.
 
 ```meta
 type: entity
-status: draft
 aliases: [roadmap_milestone_id, fixed point]
 ```
 
@@ -148,7 +172,6 @@ them must be validated on one side of a boundary, not two.
 
 ```meta
 type: value-object
-status: draft
 aliases: [PlannedWindow, start, end, span]
 ```
 
@@ -163,7 +186,6 @@ piece of work indistinguishable from no work at all.
 
 ```meta
 type: value-object
-status: draft
 aliases: [RepositoryScope, repository_aliases, repos, scope]
 ```
 
@@ -180,7 +202,6 @@ are held as opaque strings. Resolution is a separate concern; see
 
 ```meta
 type: value-object
-status: draft
 aliases: [depends_on, depends_on_id, waits on, blocked by]
 ```
 
@@ -197,7 +218,6 @@ a plan is edited.
 
 ```meta
 type: value-object
-status: draft
 aliases: [PlanningLane, lane, row]
 ```
 
@@ -213,7 +233,6 @@ mean shipping a release every time someone invents a workstream.
 
 ```meta
 type: value-object
-status: draft
 aliases: [TaskLink, task_id]
 ```
 
@@ -229,7 +248,6 @@ than as an error.
 
 ```meta
 type: value-object
-status: draft
 aliases: [RoadmapTag, tag, roadmap tag, slug]
 related: [.devbook/domain/tasks/requirements.md#requirement-a-sync-never-creates-a-roadmap-item]
 ```
@@ -269,7 +287,6 @@ until the person places it (local ADR 0013, ruling 3).
 
 ```meta
 type: value-object
-status: draft
 aliases: [KnowledgeRef, knowledge_refs, knowledge reference]
 ```
 
@@ -291,7 +308,6 @@ something temporarily missing would lose the intent the reference recorded.
 
 ```meta
 type: enum
-status: draft
 aliases: [PlanningPriority, planning priority]
 ```
 
@@ -307,7 +323,6 @@ different contexts.
 
 ```meta
 type: enum
-status: draft
 ```
 
 What kind of fixed point it is: `release`, `freeze`, `review`, `commitment`.
@@ -319,7 +334,6 @@ belongs to the view, not here.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/roadmap/domain.invariants.md#plan-sequencing]
 ```
 
@@ -342,7 +356,6 @@ command-invoked as the validation step behind adding a dependency.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/environment/domain.md#environment-shortcut-resolution]
 ```
 
@@ -362,7 +375,6 @@ query/composition-oriented, on the read path.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/roadmap/domain.invariants.md#roadmap-item-gathering]
 ```
 
@@ -459,7 +471,6 @@ Invocation semantics: query/composition-oriented, on the read path.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
@@ -505,7 +516,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [RoadmapNodeId, node, dependency endpoint]
 related: [.devbook/domain/roadmap/domain.md#dependency]
 ```
@@ -518,7 +528,6 @@ base type would imply a shared lifecycle they do not have.
 
 ```meta
 type: term
-status: draft
 aliases: [repository part, part of a plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week]
 ```
@@ -543,7 +552,6 @@ never stored. Where a part starts and how it is drawn is in
 
 ```meta
 type: term
-status: draft
 aliases: [band, repository band]
 related: [.devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/roadmap/features.md#reading-the-plan-by-repository, .devbook/domain/roadmap/features.md#telling-one-project-from-another-at-a-glance]
 ```
@@ -561,7 +569,6 @@ plan's milestones share a band at the top, which takes no colour either.
 
 ```meta
 type: term
-status: draft
 aliases: [own task, own work]
 related: [.devbook/domain/roadmap/domain.md#part, .devbook/domain/roadmap/domain.md#shared-task, .devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace]
 ```
@@ -575,7 +582,6 @@ finished, unless it is where the plan's open [shared tasks](#shared-task) are le
 
 ```meta
 type: term
-status: draft
 aliases: [shared task]
 related: [.devbook/domain/roadmap/domain.md#part, .devbook/domain/roadmap/domain.md#own-task, .devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/requirements.md#requirement-a-shared-task-counts-where-own-work-is-still-open]
 ```
@@ -592,7 +598,6 @@ own work open.
 
 ```meta
 type: term
-status: draft
 aliases: [head, day head, week head]
 related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours]
 ```
@@ -606,7 +611,6 @@ shows is in [Reading the near term closely](features.md#reading-the-near-term-cl
 
 ```meta
 type: term
-status: draft
 aliases: [plan sigil]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/inbox/domain.md#plan-tag, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md]
 ```
@@ -624,7 +628,6 @@ writes (ADR 0013).
 
 ```meta
 type: term
-status: draft
 aliases: [effort, story points, story-point estimate, total registered effort]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/domain.md#effort]
 ```
@@ -646,7 +649,6 @@ value.
 
 ```meta
 type: term
-status: draft
 aliases: [working week, working hours, workingWeek, WorkingHours]
 related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
@@ -669,7 +671,6 @@ hours (ADR 0019).
 
 ```meta
 type: term
-status: draft
 aliases: [day override, overrides, blocked day, blocked date, unblocked day, vacation day, holiday]
 related: [.devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/features.md#setting-days-off-in-a-list, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
@@ -696,7 +697,6 @@ all. Both write the same override.
 
 ```meta
 type: term
-status: draft
 aliases: [actual hours, actual]
 related: [.devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
@@ -727,7 +727,6 @@ records only the dates it started and finished.
 
 ```meta
 type: term
-status: draft
 aliases: [working stretch, stretch of work]
 related: [.devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/sessions/domain.md#human-turn, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
@@ -753,7 +752,6 @@ which Sessions reads. A working stretch is not the
 
 ```meta
 type: term
-status: draft
 aliases: [contradiction, conflicting dates]
 related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
@@ -768,7 +766,6 @@ because a contradiction is a plan with a date problem and a cycle is not a plan.
 
 ```meta
 type: term
-status: proposed
 aliases: [plus label, plan label, +label]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/requirements.md#requirement-only-the-first-plan-label-files-the-task, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
@@ -786,7 +783,6 @@ carries several source labels,
 
 ```meta
 type: term
-status: deprecated
 aliases: [promote, Promote to plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#promote-to-plan, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```

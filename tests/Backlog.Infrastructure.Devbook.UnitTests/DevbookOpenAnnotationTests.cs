@@ -119,8 +119,11 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
     }
 
     [Fact]
-    public void The_builder_writes_the_count_into_the_chapter_table()
+    public void The_builder_writes_no_open_count_since_contract_38_retired_the_fence()
     {
+        // tools/devbook/build-database.mjs counts nothing with a generator that
+        // has no annotation index, and the builder matches it: a review note is
+        // a thread in the app's own store (local ADR 0044), not a fence.
         var file = System.IO.Path.Combine(_root, Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
         File.WriteAllText(file, Markdown);
@@ -131,7 +134,7 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
         using var database = DevbookDatabase.TryOpen(target);
         Assert.NotNull(database);
         Assert.Equal(
-            [("inbox", 1), ("capture", 2), ("capture", 0), ("fenced", 1)],
+            [("inbox", 0), ("capture", 0), ("capture", 0), ("fenced", 0)],
             database.Chapters(Path).Select(chapter => (chapter.Slug, chapter.OpenAnnotations)));
     }
 

@@ -1,7 +1,6 @@
 # 11. Risks and Technical Debt
 
 ```meta
-status: draft
 ```
 
 The open questions below are the "next steps" that must be resolved as the system
@@ -11,7 +10,6 @@ moves from setup toward MVP. Formally tracked debt should be promoted to TDRs
 ## Open Design Questions
 
 ```meta
-status: draft
 related: [".devbook/arc42/03-context-and-scope.md#business-context"]
 ```
 
@@ -25,7 +23,6 @@ related: [".devbook/arc42/03-context-and-scope.md#business-context"]
 ## Architectural Risks
 
 ```meta
-status: draft
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
 ```
 
@@ -41,7 +38,6 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 ## Technical Debt
 
 ```meta
-status: draft
 related: [".devbook/arc42/adr/guidelines/README.md"]
 ```
 

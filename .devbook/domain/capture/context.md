@@ -1,7 +1,6 @@
 # Capture
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -29,7 +28,6 @@ product's own repository.
 ## Feedback reporting
 
 ```meta
-status: draft
 type: feature-flag
 key: feedback-reporting
 default: on
@@ -49,7 +47,6 @@ choices. It is retired once nobody needs to switch the report action off.
 ## Capture sources
 
 ```meta
-status: draft
 type: setting
 key: capture-sources.json
 scope: user

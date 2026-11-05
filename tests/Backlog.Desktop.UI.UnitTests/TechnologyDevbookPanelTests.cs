@@ -323,7 +323,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
             {
                 var desktop = File.ReadAllText(Path.Combine(harness.TechFolder, "desktop.md"));
                 var blazor = desktop[desktop.IndexOf("## Blazor", StringComparison.Ordinal)..desktop.IndexOf("## Playwright", StringComparison.Ordinal)];
-                Assert.Contains("status: hold", blazor, StringComparison.Ordinal);
+                Assert.Contains("rating: hold", blazor, StringComparison.Ordinal);
             },
             TimeSpan.FromSeconds(5));
         component.WaitForAssertion(() => Assert.Equal("2 adopted · 1 candidate · 1 hold", TileFootnote(component, "ladder")));

@@ -1,7 +1,6 @@
 # Invariants
 
 ```meta
-status: draft
 type: invariants
 ```
 
@@ -10,7 +9,6 @@ What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggreg
 ## Remark
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/devbook/domain.md#remark]
 ```
@@ -20,7 +18,6 @@ related: [.devbook/domain/devbook/domain.md#remark]
 ### Invariant: Each change stamps the remark later than the copy it changed
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Editing_and_resolving_stamp_the_remark_for_the_next_push, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_edit_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_deletion_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it]
 ```
@@ -33,7 +30,6 @@ Enforced at: `DevbookAnnotationStore.Edit()`, `SetResolved()` and `Delete()`, th
 ### Invariant: The newer version of a remark wins whole
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationReplicaMergeTests.A_newer_version_from_elsewhere_replaces_the_local_one, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationReplicaMergeTests.An_older_version_never_replaces_a_newer_local_one_even_one_already_pushed, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationReplicaMergeTests.The_replica_stamp_decides_first_then_the_device_stamp_then_the_device_id]
 ```
@@ -46,7 +42,6 @@ Enforced at: `AnnotationReplicaMerge.Wins()` and `Apply()`
 ### Invariant: Deleting a written remark leaves a tombstone
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_written_remark_leaves_a_tombstone_for_the_push, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationReplicaMergeTests.A_tombstone_from_elsewhere_deletes_the_local_remark]
 ```
@@ -59,7 +54,6 @@ Enforced at: `DevbookAnnotationStore.Delete()`, which sets `DeletedAt`; `Annotat
 ### Invariant: A draft stays on this device
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_fresh_remark_is_a_draft_on_the_block_it_was_asked_for, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_push_selects_what_changed_after_the_watermark_and_never_a_draft, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_draft_removes_it_outright]
 ```
@@ -72,7 +66,6 @@ Enforced at: `DevbookAnnotation.IsDraft`; `DevbookAnnotationStore.ListChangedSin
 ### Invariant: A remark the sync service would refuse stays on this device
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_the_service_would_refuse_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_longer_than_the_service_stores_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_left_out_is_counted_and_named_in_a_warning_that_leaves_out_its_body, unit:dotnet:Backlog.Modules.Sync.UnitTests.AnnotationRecordLimitsTests.An_unknown_kind_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.AnnotationRecordLimitsTests.A_branch_past_the_bound_is_refused]
 ```
@@ -86,7 +79,6 @@ Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimit
 ### Invariant: A deletion replicates without the remark's body
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_deleted_remark_is_sent_as_a_tombstone_however_long_it_was]
 ```
@@ -99,7 +91,6 @@ Enforced at: `AnnotationReplicaMerge.ToChange()`
 ### Invariant: A remark is never written into a repository
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Each_repository_gets_its_own_file_under_the_storage_folder
 ```
@@ -112,7 +103,6 @@ Enforced at: `DevbookAnnotationStore`, which writes only under its own storage f
 ### Invariant: An import never overwrites a remark the store holds
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_overwrites_a_remark_the_store_holds, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_brings_back_a_remark_the_person_deleted, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
 ```
@@ -125,7 +115,6 @@ Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which checks and writes 
 ### Invariant: An imported remark keeps its authored time
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_imported_remark_stamped_in_the_past_is_not_pushed_as_a_new_change
 ```
@@ -138,7 +127,6 @@ Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which writes the remark'
 ## Subject State
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/devbook/domain.md#subject-state]
 ```
@@ -148,7 +136,6 @@ related: [.devbook/domain/devbook/domain.md#subject-state]
 ### Invariant: A refused operation writes nothing
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_refused_operation_leaves_the_file_as_it_was_and_says_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_refusal_on_a_subject_with_no_state_creates_no_file, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.Accepting_with_no_approval_is_refused_not_approved_and_writes_nothing]
 ```
@@ -161,7 +148,6 @@ Enforced at: `DevbookSubjectRules`, whose `DevbookSubjectOutcome.Refuse()` carri
 ### Invariant: A state is one of its kind's row
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_state_outside_the_subjects_row_is_refused, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_proposal_is_never_set_to_approved_or_accepted, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_decision_record_moves_through_its_own_row]
 ```
@@ -173,7 +159,6 @@ Enforced at: `DevbookSubjectRules.SetState()`
 ### Invariant: Approve and accept take a proposal alone
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approve_and_accept_take_a_proposal_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.A_fingerprint_that_is_no_fingerprint_is_refused]
 ```
@@ -185,7 +170,6 @@ Enforced at: `DevbookSubjectRules.Approve()` and `Accept()`, through `IsFingerpr
 ### Invariant: An acceptance stands on an approval at the same fingerprint
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_stands_on_an_approval_at_the_same_fingerprint, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_without_an_approval_is_refused_not_approved, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Accepting_at_another_fingerprint_is_refused_as_a_mismatch]
 ```
@@ -198,7 +182,6 @@ Enforced at: `DevbookSubjectRules.Accept()`
 ### Invariant: Leaving a decision step withdraws the decisions above it
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Setting_a_proposal_back_to_draft_withdraws_approval_and_acceptance, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectRulesTests.Approving_again_withdraws_an_acceptance_at_the_old_fingerprint]
 ```
@@ -211,7 +194,6 @@ Enforced at: `DevbookSubjectRules.SetState()` and `Approve()`
 ### Invariant: Each change stamps the state later than the copy it changed
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_state_set_on_a_copy_from_a_faster_clock_still_lands_after_it
 ```
@@ -224,7 +206,6 @@ Enforced at: `DevbookSubjectStateStore.Operate()`, through `Stamp()`
 ### Invariant: The later version of a subject's state wins whole
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.A_replicated_state_no_later_than_the_one_held_is_not_written, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_later_state_from_elsewhere_replaces_the_local_one_whole, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.An_older_state_never_replaces_a_later_local_one, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.The_replica_stamp_decides_first_then_the_device_stamp_then_the_device_id]
 ```
@@ -237,7 +218,6 @@ Enforced at: `DevbookSubjectRules.Supersedes()`, which every store's `Apply()` a
 ### Invariant: A subject has one id on every device
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.The_id_is_the_same_on_every_device_for_the_same_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.Another_repository_or_pull_request_is_another_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.An_alias_names_one_repository_whatever_its_case, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_record_filed_under_another_id_than_its_subjects_is_not_taken]
 ```
@@ -250,7 +230,6 @@ Enforced at: `DevbookSubject.IdFor()`, through `AliasKey()`; `DevbookSubjectRepl
 ### Invariant: A state the sync service would refuse stays on this device
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectSyncSessionTests.A_state_the_service_would_refuse_is_left_out_and_named_without_holding_back_the_rest, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_change_the_service_would_not_store_is_refused_with_a_reason]
 ```
@@ -263,7 +242,6 @@ Enforced at: `DevbookSubjectSyncSession.PushAsync()`, through `DevbookSubjectRec
 ### Invariant: A subject's state is never written into a repository
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.Each_repository_keeps_its_own_file, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookReadOnlyBranchTests.A_debt_records_state_is_set_on_a_branch_and_no_file_changes]
 ```
@@ -276,7 +254,6 @@ Enforced at: `DevbookSubjectStateStore`, which writes only under its own storage
 ### Invariant: An import never overwrites a state the store holds
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.An_import_never_overwrites_a_state_the_store_holds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookSubjectStateStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
 ```
@@ -289,7 +266,6 @@ Enforced at: `DevbookSubjectStateStore.ImportIfAbsent()`, which checks and write
 ### Invariant: An imported state keeps its authored time
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.An_imported_state_stamped_in_the_past_is_not_pushed_as_a_new_change
 ```
@@ -302,7 +278,6 @@ Enforced at: `DevbookSubjectStateStore.ImportIfAbsent()`, which writes the state
 ## Shared Value Objects
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/devbook/domain.md#shared-value-objects]
 ```
@@ -313,7 +288,6 @@ related: [.devbook/domain/devbook/domain.md#shared-value-objects]
 ### Invariant: A roadmap contribution draws no graph edge
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -325,7 +299,6 @@ Enforced at: `DevbookGraphBuilder.ApplyMeta()`, which keeps `roadmap` as a node 
 ### Invariant: An unreadable effort is no estimate
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.KnowledgeGraphTests.AMissingOrUnreadableEffortIsNull_NotZero
 ```

@@ -1,7 +1,7 @@
 # Shared Technologies
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/02-constraints.md#technical-constraints"]
 ```
 
@@ -11,7 +11,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/02-constraints.md
 ## Markdown
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"]
 ```
@@ -31,7 +31,7 @@ own devbook folders.
 ## JSON
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
@@ -47,7 +47,7 @@ The derived-data and settings format sitting beside the canonical stores.
 ## YAML
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 ```
 
@@ -61,7 +61,7 @@ The structured-metadata format embedded in Markdown documents.
 ## Mermaid
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 depends-on: [".devbook/tech/shared.md#markdown"]
 related: [".devbook/tech/tooling.md#archify"]
@@ -79,7 +79,7 @@ Diagram-as-text notation embedded directly in Markdown.
 ## .NET Runtime
 
 ```meta
-status: adopted
+rating: adopted
 type: runtime
 version: "10.0"
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/09-architecture-decisions.md"]
@@ -98,7 +98,7 @@ cloud channels.
 ## C# Language
 
 ```meta
-status: adopted
+rating: adopted
 type: language
 version: "latest"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -116,7 +116,7 @@ The main implementation language of the system.
 ## Node.js
 
 ```meta
-status: adopted
+rating: adopted
 type: runtime
 version: ">=18"
 related: [".devbook/tech/ide.md#vs-code-extension-api"]
@@ -136,7 +136,7 @@ tool.
 ## TypeScript
 
 ```meta
-status: adopted
+rating: adopted
 type: language
 version: "^7.0.0"
 depends-on: [".devbook/tech/shared.md#nodejs"]
@@ -155,7 +155,7 @@ The implementation language for the VS Code channel.
 ## .NET MAUI
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "10.0.100"
 depends-on: [".devbook/tech/desktop.md#winui-3", ".devbook/tech/mobile.md#android", ".devbook/tech/shared.md#c-language"]
@@ -182,7 +182,7 @@ channels: a WinUI 3 head on Windows, native Android views on Android.
 ## Blazor Hybrid
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/shared.md#net-maui", ".devbook/tech/shared.md#razor-components"]
 related: [".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/tech/desktop.md#webview2"]
@@ -203,7 +203,7 @@ Razor Components rendered inside the MAUI shell's embedded WebView, through
 ## Razor Components
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "10.0.11"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
@@ -223,7 +223,7 @@ The component model every screen in the product is written in
 ## Blazor Server
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/shared.md#razor-components", ".devbook/tech/shared.md#aspnet-core"]
 related: [".devbook/tech/testing.md#playwright", ".devbook/tech/shared.md#net-aspire"]
@@ -244,7 +244,7 @@ under `src/Harness/`.
 ## ASP.NET Core
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
 ```
@@ -260,7 +260,7 @@ The web host underneath every HTTP surface in the solution
 ## .NET Aspire
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "13.6.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
@@ -318,7 +318,7 @@ flowchart LR
 ## OpenTelemetry
 
 ```meta
-status: adopted
+rating: adopted
 type: library
 version: "1.18.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -337,7 +337,7 @@ The observability stack wired into every host through `ServiceDefaults`.
 ## SQLite
 
 ```meta
-status: adopted
+rating: adopted
 type: library
 depends-on: [".devbook/tech/shared.md#markdown"]
 related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
@@ -365,7 +365,7 @@ The embedded database that is the canonical local store for tasks.
 ## Microsoft.Data.Sqlite
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#net-runtime"]
@@ -382,7 +382,7 @@ The ADO.NET provider the SQLite adapter is written against.
 ## Microsoft.Extensions.DependencyInjection
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -399,7 +399,7 @@ The container abstraction each module registers itself into.
 ## Microsoft.Extensions.Http
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -416,7 +416,7 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 ## Microsoft.Extensions.Http.Resilience
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.9.0"
 depends-on: [".devbook/tech/shared.md#microsoftextensionshttp"]
@@ -440,7 +440,7 @@ Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
 ## Polly
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "8.6.6"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -463,7 +463,7 @@ The resilience pipeline library under the HTTP resilience handlers.
 ## Microsoft.Extensions.ServiceDiscovery
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.9.0"
 depends-on: [".devbook/tech/shared.md#net-aspire"]
@@ -479,7 +479,7 @@ Logical-name resolution for service endpoints.
 ## Microsoft.Extensions.Logging
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -498,7 +498,7 @@ The logging abstraction, plus the debug provider on the two MAUI heads.
 ## YamlDotNet
 
 ```meta
-status: hold
+rating: hold
 type: package
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"]
@@ -518,7 +518,7 @@ A YAML serializer that no project pins or references.
 ## GitHub Platform
 
 ```meta
-status: adopted
+rating: adopted
 type: service
 related: [".devbook/arc42/02-constraints.md#organizational--process-constraints"]
 ```
@@ -533,7 +533,7 @@ The external system of record for issues, repositories, and automation.
 ## Anthropic Claude Platform
 
 ```meta
-status: candidate
+rating: candidate
 type: service
 related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import", ".devbook/tech/ai-development.md#claude-code"]
 alternatives: ["Local accumulation of per-response token counts"]
@@ -554,7 +554,7 @@ Code session activity.
 ## GitHub Copilot Usage APIs
 
 ```meta
-status: candidate
+rating: candidate
 type: service
 depends-on: [".devbook/tech/shared.md#github-platform"]
 related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import"]

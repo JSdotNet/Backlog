@@ -1,7 +1,7 @@
 # Plan
 
 ```meta
-status: adopted
+rating: adopted
 type: stage
 ```
 
@@ -10,7 +10,7 @@ type: stage
 ## Devbook chapters through flow-spec
 
 ```meta
-status: adopted
+rating: adopted
 type: workflow
 stage: [specify]
 layer: [thread]
@@ -39,7 +39,7 @@ folder, runs the devbook check, and stops at Personal Validation before a pull r
 ## Import plans
 
 ```meta
-status: adopted
+rating: adopted
 type: skill
 stage: [specify]
 substage: [specify/break-down]
@@ -66,7 +66,7 @@ session runs a `prompt` step, and only a person does a `task` or `test` step. Ea
 ## Estimate against landed work
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [specify]
 substage: [specify/break-down]
@@ -91,7 +91,7 @@ reference each estimate was compared with.
 ## Answer remarks
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [specify]
 substage: [specify/specify]

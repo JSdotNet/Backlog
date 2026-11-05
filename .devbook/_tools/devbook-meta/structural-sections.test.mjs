@@ -2,7 +2,7 @@
 // sections, not chapters, so a heading there without a `meta` block is what the
 // folder rules ask for and draws no warning.
 //
-// The rules name the files: `context-map.md`, `model.md`, `flow.md`, their
+// The rules name the files: `context-map.md`, `model.md`, its
 // splits, `dependencies.md`, and any additional page in `domain/`;
 // `technology-graph.md` in `tech/`; `adoption-map.md` in `ai/`. Everywhere else
 // a heading without a block is still reported.
@@ -29,7 +29,6 @@ for (const [path, fileMeta] of [
     [".devbook/domain/context-map.md", "index: root\ntype: context-map\n"],
     [".devbook/domain/ordering/model.md", "type: model\n"],
     [".devbook/domain/ordering/model.order.md", "type: model\n"],
-    [".devbook/domain/ordering/flow.md", "type: flow\n"],
     [".devbook/domain/ordering/dependencies.md", "type: dependencies\n"],
     [".devbook/domain/ordering/import.md", "type: import\n"],
 ]) {
@@ -74,6 +73,13 @@ check(!isStructuralDocument(".devbook/domain/work/scenarios.md"), "a scenarios f
     check(e.length === 1 && e[0].message.includes("nonsense"), "a block on a structural section is still validated", dump(e));
 }
 
+
+// The flow page is retired by contract 37: a file typed `flow` is an error that
+// names the migration, split or not.
+for (const path of [".devbook/domain/ordering/flow.md", ".devbook/domain/ordering/flow.fulfilment.md"]) {
+    const errors = validateDocument(path, doc("type: flow\n")).filter((i) => i.severity === "error" && i.message.includes("037-flows-in-their-chapters"));
+    check(errors.length === 1, `${path}: a flow page is an error naming the migration`, dump(errors));
+}
 if (failed) {
     console.log(`\n${failed} failed`);
     process.exit(1);

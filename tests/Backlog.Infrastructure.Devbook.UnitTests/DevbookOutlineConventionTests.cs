@@ -39,7 +39,7 @@ public sealed class DevbookOutlineConventionTests : IDisposable
         Write(".devbook/domain/_reading-order.json", StrayOrder);
         Write(".devbook/domain/context-map.md", "# Context Map\n");
         Write(".devbook/domain/zeta/context.md", "# Zeta\n");
-        Write(".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\nstatus: draft\n```\n");
+        Write(".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\n```\n");
         Write(".devbook/domain/zeta/domain.md", "# Zeta\n");
         Write(".devbook/domain/zeta/domain.invariants.md", "# Zeta\n");
         Write(".devbook/domain/zeta/domain.order.md", "# Zeta\n");
@@ -50,7 +50,7 @@ public sealed class DevbookOutlineConventionTests : IDisposable
         Write(".devbook/tech/tooling.md", "# Tooling\n");
         Write(".devbook/tech/cloud.md", "# Cloud\n");
         Write(".devbook/tech/technology-graph.md", "# Technology Graph\n");
-        Write(".devbook/tech/shared.md", "# Shared\n\n```meta\nstatus: adopted\n```\n");
+        Write(".devbook/tech/shared.md", "# Shared\n\n```meta\nrating: adopted\n```\n");
 
         Write(".devbook/design/README.md", "# Design\n");
         Write(".devbook/design/content-editing.md", "# Content Editing\n");
@@ -134,15 +134,17 @@ public sealed class DevbookOutlineConventionTests : IDisposable
     }
 
     [Fact]
-    public void A_file_s_status_resolves_to_its_folder_s_resting_value_and_its_kind_to_its_type()
+    public void A_file_s_status_is_its_rating_and_its_kind_its_type()
     {
+        // Devbook contract 38: only a tech/ or ai/ file states a rating, and no
+        // folder rests at a status its files omit.
         var zeta = Children(".devbook/domain", ".devbook/domain/zeta");
         var model = zeta.Single(row => row.Name == "model.md");
         var context = zeta.Single(row => row.Name == "context.md");
 
-        Assert.Equal("draft", model.Status);
+        Assert.Null(model.Status);
         Assert.Equal("aggregate", model.Kind);
-        Assert.Equal("active", context.Status);
+        Assert.Null(context.Status);
         Assert.Equal("domain", context.Kind);
 
         var tech = Children(".devbook/tech", ".devbook/tech");

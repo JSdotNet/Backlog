@@ -13,6 +13,7 @@ const check = (ok, name, detail) => {
 };
 
 const fence = (body) => "```meta\n" + body + "```\n";
+// A retired `annotation` fence, which the check now reports.
 const note = (body) => "```annotation\n" + body + "```\n";
 const find = (issues, severity, needle) =>
     issues.find((i) => i.severity === severity && i.message.includes(needle));
@@ -301,8 +302,8 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
 {
     const issues = validateDocument(
         ".devbook/ai/03-build.md",
-        `# Build\n\n${fence("status: adopted\ntype: stage\nstage: verify\n")}\n## TDD with an agent\n\n` +
-            `${fence("status: trial\ntype: practice\nstage: verify\n")}\nProse.\n\n- **Moves up when** — a second person works this way.\n`
+        `# Build\n\n${fence("rating: adopted\ntype: stage\nstage: verify\n")}\n## TDD with an agent\n\n` +
+            `${fence("rating: trial\ntype: practice\nstage: verify\n")}\nProse.\n\n- **Moves up when** — a second person works this way.\n`
     );
 
     check(
@@ -317,58 +318,26 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
     );
 }
 
-// --- an open question means the chapter is not agreed -------------------
+// --- the annotation fence is retired --------------------------------
 
-// Reported only against an approval, which is the contradiction: a person
-// signed for content that still carries an unanswered question. An open
-// question on any other rung is the state the fence exists for.
+// A review note is a comment thread in the host since contract 38, so a fence
+// left in a chapter is reported, open or resolved, naming the migration.
 {
-    const approved = "type: aggregate\nstatus: approved\napproved-by: jobsc\napproved-at: 2026-09-01\n";
     const question = "kind: question\nauthor: jobsc\ndate: 2026-09-02\nbody: Does this still hold?\n";
+    const body = (inner) =>
+        `# Ordering\n\n${fence("type: domain\n")}\n## Order\n\n${fence("type: aggregate\n")}\n${inner}\nProse.\n`;
 
-    const issues = validateDocument(
-        ".devbook/domain/ordering/domain.md",
-        `# Ordering\n\n${fence("type: domain\n")}\n## Order\n\n${fence(approved)}\n${note(question)}\nProse.\n`
-    );
+    const active = validateDocument(".devbook/domain/ordering/domain.md", body(note(question)));
     check(
-        Boolean(find(issues, "error", "an open question means the chapter is not agreed")),
-        "an approval standing over an open question is an error",
-        dump(issues)
-    );
-
-    const resolved = validateDocument(
-        ".devbook/domain/ordering/domain.md",
-        `# Ordering\n\n${fence("type: domain\n")}\n## Order\n\n${fence(approved)}\n` +
-            `${note("kind: question\nstatus: resolved\n" + question.split("\n").slice(1).join("\n"))}\nProse.\n`
-    );
-    check(
-        resolved.length === 0,
-        "a resolved question under the same approval is silent",
-        dump(resolved)
-    );
-
-    const active = validateDocument(
-        ".devbook/domain/ordering/domain.md",
-        `# Ordering\n\n${fence("type: domain\n")}\n## Order\n\n${fence("type: aggregate\n")}\n${note(question)}\nProse.\n`
-    );
-    check(
-        active.length === 0,
-        "an open question on an unapproved chapter is silent — that is what the fence is for",
+        active.length === 1 &&
+            find(active, "error", "038-workflow-state-leaves-the-chapter") &&
+            find(active, "error", "`annotation` fence at line 13"),
+        "an annotation fence is an error naming the migration that deletes it",
         dump(active)
     );
 
-    // Position is the anchor: the note under the sub-chapter is the
-    // sub-chapter's, so the approved parent above it stays clean.
-    const nested = validateDocument(
-        ".devbook/domain/ordering/domain.md",
-        `# Ordering\n\n${fence("type: domain\n")}\n## Order\n\n${fence(approved)}\nProse.\n\n` +
-            `### Line\n\n${fence("type: entity\n")}\n${note(question)}\nProse.\n`
-    );
-    check(
-        !find(nested, "error", "not agreed"),
-        "a question under a sub-chapter does not indict its approved parent",
-        dump(nested)
-    );
+    const quoted = validateDocument(".devbook/domain/ordering/domain.md", body("````text\n" + note(question) + "````\n"));
+    check(quoted.length === 0, "an annotation fence quoted inside another fence is that fence's content", dump(quoted));
 }
 
 // --- journey field scope ---------------------------------------------

@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -12,15 +11,35 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/brain/domain.md#brain, .devbook/domain/brain/domain.invariants.md#knowledge-note]
 aliases: [KnowledgeNote, Brain note]
 ```
 
+**Knowledge note lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created : Routed To Brain from the Inbox, or captured in the Brain
+    Created --> Organized : Moved out of the inbox area into another area
+    Organized --> Linked : Linked to tasks or other notes
+    Linked --> Organized : Links updated
+    Organized --> Archived : Note no longer active
+    Linked --> Archived : Note no longer active
+    Archived --> Organized : Restored
+```
+
+- The lifecycle states (Created/Organized/Linked/Archived) are workflow phases,
+  not a stored enum field. The persisted state is the note's area: a note in the
+  Brain's inbox area (`_inbox` under the PARA default) is Created, and a note in
+  its archive area is Archived. A Brain that declares its own areas without an
+  archive area has no Archived state.
+
+How a Knowledge Note moves through its workflow phases over time.
+
 An organized unit of project knowledge stored as Markdown, and the boundary for
 its own organization and links. Its area, its `PARA Category`, is its only
 lifecycle state: the lifecycle is a set of workflow phases read off the area
-([Knowledge note lifecycle](flow.md#knowledge-note-lifecycle)). The rules a note
+([Knowledge note lifecycle](domain.md#knowledge-note)). The rules a note
 is held to are in [its invariants](domain.invariants.md#knowledge-note).
 
 A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook
@@ -51,7 +70,6 @@ The Knowledge Note aggregate has no independently identified child entities;
 
 ```meta
 type: value-object
-status: draft
 aliases: [ProjectRef, repo_id]
 ```
 
@@ -63,7 +81,6 @@ included.
 
 ```meta
 type: value-object
-status: draft
 aliases: [TaskLink, task_id]
 ```
 
@@ -81,7 +98,6 @@ a task. A task's record carries no note.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A `#keyword` for cross-cutting discovery (e.g. `#architecture`, `#performance`).
@@ -95,7 +111,6 @@ a [Roadmap Contribution](../devbook/domain.md#roadmap-contribution).
 
 ```meta
 type: value-object
-status: draft
 aliases: [PARACategory, Brain area, para]
 related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/brain/features.md#brain-folder-setup]
 ```
@@ -157,7 +172,6 @@ same way, one area per note.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Origin of the note: `inbox` (routed **To Brain** from triage), `manual`
@@ -168,7 +182,6 @@ over MCP), or `import`.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
@@ -188,7 +201,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [Brain, Second Brain, SecondBrain, brain scope, Brain scope]
 related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/12-glossary.md#terms, .devbook/domain/brain/features.md#brain-scope]
 ```
@@ -213,7 +225,6 @@ alias can take.
 
 ```meta
 type: term
-status: draft
 aliases: [repo link, RepoLink, From your Brain]
 related: [.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#repo-links-and-backlinks]
 ```
@@ -224,4 +235,3 @@ runs one way: a repository devbook never links into a Brain. Its reverse is the
 **From your Brain** list, the Brain notes a repository chapter shows as linking to
 it. Who sees that list, and what reading it writes, is
 [Backlinks reach only the owner and write nothing](requirements.md#requirement-backlinks-reach-only-the-owner-and-write-nothing).
-

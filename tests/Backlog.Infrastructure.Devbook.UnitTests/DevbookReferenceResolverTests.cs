@@ -254,6 +254,21 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         Assert.Equal("domain", answer.Folder);
     }
 
+    /// <summary>Devbook contract 38 spells a <c>tech/</c> or <c>ai/</c> rating
+    /// <c>rating</c>; the file read answers it as the chapter's status.</summary>
+    [Fact]
+    public async Task Without_a_database_a_tech_chapter_answers_its_rating_as_its_status()
+    {
+        const string page = ".devbook/tech/shared.md";
+        Write(page, "# Shared\n\n```meta\nrating: adopted\ntype: layer\n```\n\n## Blazor\n\n```meta\nrating: trial\ntype: framework\n```\n");
+
+        var answers = await Resolver().ResolveAsync(Alias, [page, $"{page}#blazor"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [(DevbookReferenceState.Page, (string?)null), (DevbookReferenceState.Chapter, "trial")],
+            answers.Select(answer => (answer.State, answer.Status)));
+    }
+
     [Fact]
     public async Task Without_a_database_a_page_and_its_unknown_heading_are_read_from_the_file()
     {

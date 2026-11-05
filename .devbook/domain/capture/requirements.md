@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/capture/features.md]
 ```
 
@@ -13,7 +12,6 @@ related: [.devbook/domain/capture/features.md]
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/capture/features.md#one-tap-entry]
 ```
 
@@ -25,7 +23,6 @@ related: [.devbook/domain/capture/features.md#one-tap-entry]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The capture sheet SHALL file a saved thought where the reader chose: Inbox as an ordinary capture, Note as a note, and Today as a new task in today's My Day.
@@ -52,7 +49,6 @@ The capture sheet SHALL file a saved thought where the reader chose: Inbox as an
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The capture sheet SHALL stay open and cleared after each save, with a line naming what it did and inviting the next thought.

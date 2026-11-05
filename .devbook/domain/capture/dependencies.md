@@ -2,7 +2,6 @@
 
 ```meta
 type: dependencies
-status: draft
 ```
 
 > Dependencies this bounded context has on other bounded contexts or

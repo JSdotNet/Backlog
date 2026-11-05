@@ -1,7 +1,6 @@
 # Notifications
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module

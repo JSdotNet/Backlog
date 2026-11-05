@@ -1,7 +1,6 @@
 # Repository Management
 
 ```meta
-status: draft
 index: root
 type: context
 related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
@@ -59,7 +58,6 @@ Outside it:
 ## Pull requests
 
 ```meta
-status: proposed
 type: feature-flag
 key: pull-requests
 related: [".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
@@ -83,7 +81,6 @@ choice still applies. It is retired when the pull requests pane leaves `DEV`.
 ## Additional repositories
 
 ```meta
-status: draft
 type: feature-flag
 key: additional-repositories
 default: on

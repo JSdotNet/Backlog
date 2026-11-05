@@ -17,7 +17,7 @@ const check = (ok, name, detail) => {
 };
 
 const file = (type) =>
-    "# Financieel\n\n```meta\nstatus: draft\ntype: " + type + "\n```\n\nProse.\n\n## A Section\n\nMore prose.\n";
+    "# Financieel\n\n```meta\ntype: " + type + "\n```\n\nProse.\n\n## A Section\n\nMore prose.\n";
 
 const errors = (path, type) =>
     validateDocument(path, file(type)).filter((i) => i.severity === "error");
