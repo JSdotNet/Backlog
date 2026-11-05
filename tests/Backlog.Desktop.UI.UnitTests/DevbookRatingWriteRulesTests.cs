@@ -8,12 +8,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 ///
 /// <para>Under devbook's branch-true decision a chapter's workflow state is kept
 /// by the tool rather than in git, so the product writes no <c>status</c> into
-/// <c>arc42/</c>, <c>domain/</c> or <c>design/</c> any more. What <c>tech/</c> and
-/// <c>ai/</c> spell <c>status</c> is not workflow state but a rating — where a
-/// technology stands on the adoption ladder, how a team uses an AI practice — and
-/// a rating stays in the Markdown, still under the field name <c>status</c> until
-/// devbook contract 38 renames it. So the writer takes those two folders and
-/// refuses every other one before the file is opened.</para>
+/// any folder. What <c>tech/</c> and <c>ai/</c> rate is not workflow state but
+/// where a technology stands on the adoption ladder, how a team uses an AI
+/// practice — and a rating stays in the Markdown, under the field name
+/// <c>rating</c> since devbook contract 38 renamed it and rejects <c>status</c>
+/// there. A legacy <c>status</c> line is renamed in place as it is written. So the
+/// writer takes those two folders and refuses every other one before the file is
+/// opened.</para>
 /// </summary>
 public sealed class DevbookRatingWriteRulesTests : IDisposable
 {
@@ -25,11 +26,28 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
     [InlineData(".ai/", "ai", "adoption-map.md")]
     public void A_rating_folder_takes_a_rating(string prefix, string area, string file)
     {
-        var (root, path) = Write(area, file, "# Title\n\n```meta\nstatus: trial\n```\n");
+        var (root, path) = Write(area, file, "# Title\n\n```meta\nrating: trial\n```\n");
 
         DevbookMarkdownRatingWriter.UpdateRating(root, prefix + file, prefix, "adopt");
 
-        Assert.Equal(["status: adopt"], Fence(File.ReadAllText(path), "# Title"));
+        Assert.Equal(["rating: adopt"], Fence(File.ReadAllText(path), "# Title"));
+    }
+
+    /// <summary>A fence written before contract 38 states its rating as
+    /// <c>status</c>, which the contract rejects in both folders: the write renames
+    /// that line in place, keeping its position and indent.</summary>
+    [Theory]
+    [InlineData(".tech/", "tech", "shared.md")]
+    [InlineData(".devbook/ai/", "ai", "adoption-map.md")]
+    public void A_legacy_status_line_is_renamed_to_rating_in_place(string prefix, string area, string file)
+    {
+        var (root, path) = Write(area, file, "# Title\n\n```meta\nstatus: trial\ntype: library\n```\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, prefix + file, prefix, "adopt");
+
+        var text = File.ReadAllText(path);
+        Assert.Equal(["rating: adopt", "type: library"], Fence(text, "# Title"));
+        Assert.DoesNotContain("status:", text, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -39,11 +57,11 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
     {
         // Not a word either folder defines — the writer is not the vocabulary's
         // judge — but it is not a resting value there, so it is not a removal.
-        var (root, path) = Write(area, file, "# Title\n\n```meta\nstatus: trial\n```\n");
+        var (root, path) = Write(area, file, "# Title\n\n```meta\nrating: trial\n```\n");
 
         DevbookMarkdownRatingWriter.UpdateRating(root, prefix + file, prefix, "active");
 
-        Assert.Contains("status: active", File.ReadAllText(path), StringComparison.Ordinal);
+        Assert.Contains("rating: active", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
     /// <summary>A repository that has migrated under contract 38 writes
@@ -61,24 +79,68 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
         Assert.Equal(["type: library", "rating: adopt"], Fence(File.ReadAllText(path), "# Title"));
     }
 
-    [Fact]
-    public void A_fence_with_neither_field_keeps_status_until_contract_38()
+    [Theory]
+    [InlineData(".tech/", "tech", "shared.md")]
+    [InlineData(".devbook/ai/", "ai", "adoption-map.md")]
+    public void A_fence_with_neither_field_gets_rating(string prefix, string area, string file)
     {
-        var (root, path) = Write("tech", "shared.md", "# Title\n\n```meta\ntype: library\n```\n");
+        var (root, path) = Write(area, file, "# Title\n\n```meta\ntype: library\n```\n");
 
-        DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md", ".tech/", "adopt");
+        DevbookMarkdownRatingWriter.UpdateRating(root, prefix + file, prefix, "adopt");
 
-        Assert.Equal(["status: adopt", "type: library"], Fence(File.ReadAllText(path), "# Title"));
+        Assert.Equal(["rating: adopt", "type: library"], Fence(File.ReadAllText(path), "# Title"));
     }
 
     [Fact]
-    public void A_heading_with_no_fence_gets_one()
+    public void A_heading_with_no_fence_gets_one_stating_rating()
     {
         var (root, path) = Write("tech", "shared.md", "# Shared\n\nText.\n\n## Blazor\n\nNode text.\n");
 
         DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md#blazor", ".tech/", "adopt");
 
-        Assert.Equal(["status: adopt"], Fence(File.ReadAllText(path), "## Blazor"));
+        Assert.Equal(["rating: adopt"], Fence(File.ReadAllText(path), "## Blazor"));
+    }
+
+    /// <summary>A fence carrying both spellings — one a migration left half done
+    /// — has its <c>rating</c> updated and its legacy <c>status</c> removed, which
+    /// contract 38 rejects in both folders.</summary>
+    [Fact]
+    public void A_fence_with_both_fields_has_its_rating_updated_and_its_status_removed()
+    {
+        var (root, path) = Write("tech", "shared.md", "# Title\n\n```meta\nstatus: trial\ntype: library\nrating: trial\n```\n\nText.\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md", ".tech/", "adopt");
+
+        var text = File.ReadAllText(path);
+        Assert.Equal(["type: library", "rating: adopt"], Fence(text, "# Title"));
+        Assert.DoesNotContain("status:", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Only a top-level field is the fence's: a <c>status</c> key nested
+    /// under another field is that field's value, and survives a rating change.</summary>
+    [Fact]
+    public void A_nested_status_key_is_left_alone()
+    {
+        var (root, path) = Write("tech", "shared.md", "# Title\n\n```meta\nrating: trial\next.tool:\n  status: green\n  - status: item\n```\n\nText.\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md", ".tech/", "adopt");
+
+        var text = File.ReadAllText(path);
+        Assert.Equal(["rating: adopt", "ext.tool:", "status: green", "- status: item"], Fence(text, "# Title"));
+        Assert.Contains("\n  status: green\n", text.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    /// <summary>A CRLF file stays CRLF through the rename, every line of it.</summary>
+    [Fact]
+    public void A_crlf_file_keeps_its_line_endings()
+    {
+        var (root, path) = WriteVerbatim("tech", "shared.md", "# Title\r\n\r\n```meta\r\nstatus: trial\r\ntype: library\r\n```\r\n\r\nText.\r\n");
+
+        DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md", ".tech/", "adopt");
+
+        Assert.Equal(
+            "# Title\r\n\r\n```meta\r\nrating: adopt\r\ntype: library\r\n```\r\n\r\nText.\r\n",
+            File.ReadAllText(path));
     }
 
     [Theory]
@@ -126,22 +188,22 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
             ## Blazor
 
             ```meta
-            status: trial
+            rating: trial
             related: [.devbook/tech/runtime.md]
             ```
 
             ## Bunit
 
             ```meta
-            status: trial
+            rating: trial
             ```
             """);
 
         DevbookMarkdownRatingWriter.UpdateRating(root, ".tech/shared.md#blazor", ".tech/", "adopt");
 
         var text = File.ReadAllText(path);
-        Assert.Equal(["status: adopt", "related: [.devbook/tech/runtime.md]"], Fence(text, "## Blazor"));
-        Assert.Equal(["status: trial"], Fence(text, "## Bunit"));
+        Assert.Equal(["rating: adopt", "related: [.devbook/tech/runtime.md]"], Fence(text, "## Blazor"));
+        Assert.Equal(["rating: trial"], Fence(text, "## Bunit"));
         Assert.Equal(["type: layer"], Fence(text, "# Shared"));
     }
 
@@ -182,14 +244,18 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
 
     /// <summary>A file in a folder root, which is what the stores hand the writer:
     /// the item path's prefix is stripped against it.</summary>
-    private (string Root, string Path) Write(string area, string file, string content)
+    private (string Root, string Path) Write(string area, string file, string content) =>
+        WriteVerbatim(area, file, content.Replace("\r\n", "\n", StringComparison.Ordinal));
+
+    /// <summary>A file written byte for byte, line endings included.</summary>
+    private (string Root, string Path) WriteVerbatim(string area, string file, string content)
     {
         var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "devbook-rating-rules-tests", Guid.NewGuid().ToString("N"), area);
         Directory.CreateDirectory(root);
         _roots.Add(System.IO.Path.GetDirectoryName(root)!);
 
         var path = System.IO.Path.Combine(root, file);
-        File.WriteAllText(path, content.Replace("\r\n", "\n", StringComparison.Ordinal));
+        File.WriteAllText(path, content);
         return (root, path);
     }
 }

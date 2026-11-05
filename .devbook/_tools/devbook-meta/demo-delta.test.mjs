@@ -7,10 +7,10 @@
 import { mkdtemp, mkdir, writeFile, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { CHANGES_ROOT, chapterFingerprint } from "./metadata.mjs";
+import { CHANGES_ROOT } from "./metadata.mjs";
 import { buildGraph } from "./graph.mjs";
 import { applyChange, changeFingerprint, checkChange, checkDemoDelta } from "./delta.mjs";
-import { demoFileIssues, demoReader } from "./demo.mjs";
+import { demoFileIssues } from "./demo.mjs";
 import { regionHash } from "./demo-template.mjs";
 
 let failed = 0;
@@ -68,7 +68,7 @@ check(
 const FEATURES = ".devbook/domain/ordering/features.md";
 const BASE = `${CHANGES_ROOT}/show-checkout`;
 const proposal =
-    `# Show checkout\n\n${fence("type: change\nstatus: proposed\ncategory: feature\n")}\n` +
+    `# Show checkout\n\n${fence("type: change\ncategory: feature\n")}\n` +
     `## Why\n\nCheckout was agreed on a screen.\n\n## Scope\n\nThe checkout screen.\n`;
 const placeholder = fence("change: show-checkout\ndelta: modified\n");
 
@@ -90,15 +90,9 @@ async function fixture(extra = {}) {
     return root;
 }
 
-async function decide(root) {
-    const hash = await changeFingerprint(root, "show-checkout");
-    const at = path.join(root, `${BASE}/proposal.md`);
-    const block =
-        `status: accepted\napproved-by: @amy\napproved-at: 2026-09-20\napproved-hash: ${hash}\n` +
-        `accepted-by: @sam\naccepted-at: 2026-09-27\naccepted-hash: ${hash}\n`;
-    await writeFile(at, (await readFile(at, "utf8")).replace("status: proposed\n", block), "utf8");
-    return hash;
-}
+// The acceptance a host keeps over the change as it stands: the fingerprint
+// `--accepted-hash` passes, per `devbook.decision@1`.
+const decide = (root) => changeFingerprint(root, "show-checkout");
 
 // -- --check ----------------------------------------------------------------
 
@@ -147,54 +141,26 @@ async function decide(root) {
     check(!changeErrors.length, "a change carrying a demo indexes with no error", JSON.stringify(changeErrors));
 }
 
-// -- An approval whose fingerprint covers the demo ---------------------------
-
-async function approvedFixture(demoDelta) {
-    // The approved chapter names the demo; the delta adds under its sibling.
-    const features = (rung) =>
-        `# Features\n\n${fence("")}\nWhat ordering does.\n\n` +
-        `## Checkout\n\n${fence(`demo: [${AT}]\n${rung}`)}\nPay for the cart.\n\n` +
-        `## Returns\n\n${fence("")}\nSend it back.\n`;
-    const root = await fixture({
-        [FEATURES]: features(""),
-        [`${BASE}/devbook-delta/domain/ordering/features.md`]:
-            fence("change: show-checkout\ndelta: modified\n") + `\n## Returns\n\n### ADDED\n\n#### Refunds\n\n${fence("")}\nMoney back.\n`,
-        [`${BASE}/devbook-delta/domain/ordering/features.demo.html`]: demoDelta,
-    });
-    const line = features("").split("\n").indexOf("## Checkout") + 1;
-    const hash = chapterFingerprint(FEATURES, features(""), line, demoReader(root));
-    await writeFile(path.join(root, FEATURES), features(`status: approved\napproved-by: @amy\napproved-at: 2026-09-20\napproved-hash: ${hash}\n`), "utf8");
-    return root;
-}
-const lifts = (report) => report.deltas.some((d) => d.issues.some((i) => /lifts `approved`/.test(i.message)));
-check(!lifts(await checkChange(await approvedFixture(null), "show-checkout")), "--check keeps an approval whose chapter and demo the change leaves alone");
-check(lifts(await checkChange(await approvedFixture(demo()), "show-checkout")), "--check lifts an approval whose demo the change replaces");
+// -- A demo-only change ------------------------------------------------------
 
 {
-    // A demo-only change: the Markdown delta is a placeholder, and the chapters
-    // folding the demo in sit in the page itself and in another file.
+    // The Markdown delta is a placeholder, and the chapters folding the demo in
+    // sit in the page itself and in another file. The merge writes none of them.
     const REQUIREMENTS = ".devbook/domain/ordering/requirements.md";
-    const approved = (hash) => `status: approved\napproved-by: @amy\napproved-at: 2026-09-20\napproved-hash: ${hash}\n`;
-    const page = (rung) => `# Features\n\n${fence(rung)}\nWhat ordering does.\n`;
-    const rules = (rung) => `# Requirements\n\n${fence("")}\nWhat ordering promises.\n\n## Checkout\n\n${fence(`demo: [${AT}]\n${rung}`)}\nPay for the cart.\n`;
-    const root = await fixture();
-    const read = demoReader(root);
-    const line = rules("").split("\n").indexOf("## Checkout") + 1;
-    await writeFile(path.join(root, FEATURES), page(approved(chapterFingerprint(FEATURES, page(""), 1, read))), "utf8");
-    await writeFile(path.join(root, REQUIREMENTS), rules(approved(chapterFingerprint(REQUIREMENTS, rules(""), line, read))), "utf8");
-    await decide(root);
-    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", move: false });
+    const page = `# Features\n\n${fence("")}\nWhat ordering does.\n`;
+    const rules = `# Requirements\n\n${fence("")}\nWhat ordering promises.\n\n## Checkout\n\n${fence(`demo: [${AT}]\n`)}\nPay for the cart.\n`;
+    const root = await fixture({ [FEATURES]: page, [REQUIREMENTS]: rules });
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", move: false, acceptedHash: await decide(root) });
     check(result.applied, "--apply merges a demo-only change", JSON.stringify(result.report.problems));
-    check(!/approved/.test(await readFile(path.join(root, FEATURES), "utf8")), "a replaced demo lifts the approval of the page it belongs to, behind a placeholder delta");
-    check(!/approved/.test(await readFile(path.join(root, REQUIREMENTS), "utf8")), "a replaced demo lifts the approval of a chapter in another file that names it");
+    check((await readFile(path.join(root, FEATURES), "utf8")) === page, "a replaced demo leaves the page it belongs to as it was");
+    check((await readFile(path.join(root, REQUIREMENTS), "utf8")) === rules, "a replaced demo leaves a chapter in another file that names it as it was");
 }
 
 // -- --apply ----------------------------------------------------------------
 
 {
     const root = await fixture();
-    await decide(root);
-    const result = await applyChange(root, "show-checkout", { date: "2026-09-28" });
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", acceptedHash: await decide(root) });
     check(result.applied, "--apply merges an accepted change carrying a demo", JSON.stringify(result.report.problems));
     check((await readFile(path.join(root, AT), "utf8")) === demo(), "--apply replaces the target demo whole, byte for byte");
     check(result.written.includes(`replaced ${AT}`), "--apply reports the demo as replaced");
@@ -202,15 +168,14 @@ check(lifts(await checkChange(await approvedFixture(demo()), "show-checkout")), 
 }
 {
     const root = await fixture({ [AT]: null });
-    await decide(root);
-    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", move: false });
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", move: false, acceptedHash: await decide(root) });
     check(result.applied && (await readFile(path.join(root, AT), "utf8")) === demo(), "--apply creates a demo the target folder did not have");
 }
 {
     const root = await fixture();
-    await decide(root);
+    const acceptedHash = await decide(root);
     await writeFile(path.join(root, `${BASE}/devbook-delta/domain/ordering/features.demo.html`), demo({ meta: { question: "Edited after?" } }), "utf8");
-    const result = await applyChange(root, "show-checkout", { date: "2026-09-28" });
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", acceptedHash });
     check(!result.applied, "--apply refuses a change whose demo was edited after the decision");
 }
 
@@ -219,9 +184,9 @@ for (const [html, name] of [
     [demo().replace("margin:0", "margin:1"), "a hand-edited region"],
 ]) {
     const root = await fixture({ [`${BASE}/devbook-delta/domain/ordering/features.demo.html`]: html });
-    await decide(root);
+    const acceptedHash = await decide(root);
     const before = await readFile(path.join(root, AT), "utf8");
-    const result = await applyChange(root, "show-checkout", { date: "2026-09-28" });
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", acceptedHash });
     check(!result.applied && (await readFile(path.join(root, AT), "utf8")) === before, `--apply refuses an accepted demo with ${name} and writes nothing`);
 }
 

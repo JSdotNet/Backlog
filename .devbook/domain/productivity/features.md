@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,9 +11,27 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/productivity/domain.md#productivity-ledger, .devbook/domain/tasks/domain.md#aiworklogged]
 ```
+
+**AI-assisted activity recording**
+
+```mermaid
+sequenceDiagram
+    participant Tasks as Tasks
+    participant Productivity as Productivity
+    participant Monitor as Monitoring & Dashboard
+
+    Tasks->>Productivity: AIWorkLogged
+    Productivity->>Productivity: Append Productivity Entry
+    Productivity->>Productivity: Recompute derived summaries
+    Productivity-->>Monitor: ProductivityRecorded
+```
+
+- Tasks owns the work item and emits activity evidence.
+- Productivity owns the measurement ledger and derived summaries.
+- Monitoring may display productivity signals but does not change productivity
+  records.
 
 [AI Productivity Tracking](domain.md#ai-productivity-tracking) shows what changed
 because of AI assistance: tasks moved, artifacts created, prompts reused, reviews shortened, or
@@ -24,7 +41,6 @@ research summarized.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Record AI-assisted activity from task work, Copilot sessions, IDE chats, and
@@ -35,7 +51,6 @@ internals.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Summarize AI-assisted work by day, week, repository, activity kind, and tool so
@@ -45,7 +60,6 @@ the person can see how AI affects throughput and focus.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Capture optional estimates or calibrated defaults for time saved, keeping the
@@ -55,7 +69,6 @@ estimate visibly separate from measured activity.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
 related: [.devbook/domain/productivity/dependencies.md#outbound-dependencies]
 ```
@@ -71,7 +84,6 @@ evidence for the ledger; it never becomes the ledger.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
 related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundrySpendSourceReadTests]
@@ -100,7 +112,6 @@ that raises a change each time a read is recorded.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
 related: [.devbook/domain/productivity/features.md#when-each-usage-source-was-last-read]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AiProvidersOverviewTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsAiUsageTests]
@@ -131,7 +142,6 @@ card says the assistant stays hidden until it is.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
 ```
 
@@ -157,7 +167,6 @@ That narrowing has to stay visible to the person reading the numbers.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
 setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
 related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
@@ -176,7 +185,6 @@ as charts.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/productivity/features.md#the-header-and-its-controls, .devbook/domain/productivity/features.md#deltas-against-the-previous-window, .devbook/domain/productivity/requirements.md#six-tabs-and-what-each-answers]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests]
 ```
@@ -284,7 +292,6 @@ tabs promise is in [the requirements](requirements.md#six-tabs-and-what-each-ans
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/sessions/domain.md#session-history]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHeadlinesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeviceMachineDirectoryTests]
 ```
@@ -335,7 +342,6 @@ its id for any other: "JS-DESKTOP (0f4c2a9e)".
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/requirements.md#deltas-against-the-previous-window, .devbook/domain/sessions/domain.md#session-history]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
@@ -377,7 +383,6 @@ What the deltas promise is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/requirements.md#what-needs-you]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests]
 ```
@@ -474,7 +479,6 @@ an all-clear. What Needs you promises is in
 
 ```meta
 type: sub-feature
-status: draft
 setting: [.devbook/domain/productivity/context.md#monthly-spend-budget]
 related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import, .devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/requirements.md#spend-against-a-monthly-budget]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProviderNamesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardMoneyFormatTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostTabTests]
@@ -535,7 +539,6 @@ What the projection promises is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
@@ -599,7 +602,6 @@ currencies cannot be added, so the block then says it has no figure.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Limit_hits_are_split_by_what_overage_did_about_them, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Refusals_are_counted_over_the_half_open_window_and_agree_with_a_hand_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_limit_hits_tile_says_unstamped_refusals_are_not_counted]
 ```
@@ -628,7 +630,6 @@ Claude session.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_follow_the_machine_filter, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_longest_sessions_read_to_the_minute_and_link_to_all_of_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardFormatTimeTests]
 ```
@@ -653,7 +654,6 @@ pane.
 
 ```meta
 type: sub-feature
-status: draft
 setting: [.devbook/domain/productivity/context.md#working-week]
 related: [.devbook/domain/productivity/requirements.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/productivity/dependencies.md#outbound-dependencies]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
@@ -693,7 +693,6 @@ and no work is left out. What it promises is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unattended-runs.md]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DriftInsightsTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubDriftIssueSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLabelledIssuesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDriftPartTests]
 ```
@@ -754,7 +753,6 @@ unless GitHub refused it for its rate limit; that one is kept until a refresh.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
@@ -824,7 +822,6 @@ paces, the plan names each of them, for example "app 8, site 4 points a week".
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: [.devbook/domain/productivity/context.md#dashboard, .devbook/domain/tasks/context.md#ai-assistant]
 related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/productivity/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]

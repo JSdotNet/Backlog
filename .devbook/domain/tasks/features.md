@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
@@ -25,7 +23,6 @@ to `draft`.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
@@ -48,7 +45,6 @@ refinement.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -76,7 +72,6 @@ roadmap matches it.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
@@ -95,7 +90,6 @@ carries and what stays on the task.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/domain.md#attachment]
 ```
 
@@ -115,7 +109,6 @@ is.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
@@ -164,7 +157,6 @@ with whether the task is proved.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/features.md#recurring-tasks, .devbook/domain/tasks/features.md#multi-repo-targeting]
 ```
@@ -209,7 +201,6 @@ Deleting everything selected empties the selection.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
 ```
@@ -232,7 +223,6 @@ A task left unestimated is counted as unestimated there, never silently as zero.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#effort-registration]
 related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .devbook/domain/tasks/features.md#task-dependencies]
 ```
@@ -266,7 +256,6 @@ already names [what it waits on](#task-dependencies).
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -291,7 +280,6 @@ unreadable in a file people hand-edit.
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 Commit a task to a calendar day, its [Due Date](domain.md#due-date). How that
@@ -302,7 +290,6 @@ read "Today", "Friday, 21 August", or a localized format.
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 Ask to be reminded of a task at a chosen local date and time, its
@@ -314,7 +301,6 @@ was closed therefore surfaces rather than being silently missed.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#occurrence-spawning, .devbook/domain/tasks/features.md#archive-and-lifecycle, .devbook/domain/tasks/requirements.md#recurring-tasks]
 ```
 
@@ -336,7 +322,6 @@ occurrence carries over.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
 related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
@@ -451,7 +436,6 @@ delivers each change is
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#manual-ordering]
 ```
@@ -470,7 +454,6 @@ the list happens to be shown in.
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 Read off what can actually be started, as each task's
@@ -492,7 +475,6 @@ and [dependency loops are named rather than broken](domain.invariants.md#invaria
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/features.md#raising-an-impediment, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
@@ -510,7 +492,6 @@ The task stores no impediment id, and Tasks never calls Progress.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry, .devbook/domain/tasks/domain.md#dependency, .devbook/domain/notifications/features.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#re-importing-an-updated-plan, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
 
@@ -560,7 +541,6 @@ doing anything.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 related: [.devbook/domain/tasks/features.md#projection]
 ```
@@ -573,7 +553,6 @@ in one view across all contexts.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-repo-targeting]
 related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/domain/tasks/requirements.md#projection]
 ```
@@ -588,7 +567,6 @@ policy, and what it will promise is in
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/tasks/context.md#github-integration
 related: [.devbook/domain/repository-management/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
 ```
@@ -625,7 +603,6 @@ person's to tick.
 
 ```meta
 type: feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
@@ -672,7 +649,6 @@ spec-manager product is picked rather than typed.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -694,7 +670,6 @@ A spec-manager product is read whole on every sync: the open backlog has no
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-reconnecting-a-target-restores-the-tasks-deleted-with-it, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -720,7 +695,6 @@ by the sync.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-restore-deleted-tasks-restores-every-deleted-task-of-the-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -736,7 +710,6 @@ refused, and nothing is restored.
 
 ```meta
 type: sub-feature
-status: deprecated
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -751,7 +724,6 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
@@ -821,7 +793,6 @@ with its copy, and the focus stays on the moved chip.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/requirements.md#manual-ordering]
 ```
 
@@ -833,8 +804,7 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 
 ```meta
 type: sub-feature
-status: draft
-related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 
@@ -856,7 +826,7 @@ in both plan columns. The choice of columns is remembered with the view.
 
 While the columns are by status, the status filter steps aside, since every
 status is a column. A task can then be dragged to another column. Only a move
-the [task lifecycle](flow.md#task-lifecycle) allows is taken. While a task is
+the [task lifecycle](domain.md#task) allows is taken. While a task is
 held, the columns it may go to are marked. The others say why not and what has
 to happen first: a ready task, for example, has to be started before it can be
 done.
@@ -869,7 +839,6 @@ it, the board scrolls sideways rather than squeezing its columns.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it]
 ```
@@ -933,7 +902,6 @@ and starts a shelf plan, and changes nothing else about them.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md, .devbook/design/interaction-guidelines.md#combobox]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests]
 ```
@@ -980,7 +948,6 @@ the roadmap or the Calendar.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Copy a prompt's text to the clipboard in one click. Each copy or use is logged
@@ -991,7 +958,6 @@ log.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#task-type]
 ```
 
@@ -1015,7 +981,6 @@ which entry it is, and the session, not the copy, decides whether to run it.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/sessions/context.md#session-requests
 related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#multi-repo-targeting]
 ```
@@ -1031,7 +996,6 @@ offered it and what the waiting chip shows.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/tasks/context.md#copilot-cli
 related: [.devbook/domain/productivity/features.md#ai-activity-capture]
 ```
@@ -1045,7 +1009,6 @@ AI was put to work on it.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/tasks/features.md#multi-repo-targeting]
 related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage, .devbook/domain/tasks/requirements.md#import]
 ```
@@ -1157,7 +1120,6 @@ written and says so.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/repository-management/domain.md#repository-registry]
 ```
 
@@ -1185,7 +1147,6 @@ names none of its own. An entry that carries its own `repo:` token keeps it.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#task-status]
 ```
 
@@ -1227,7 +1188,6 @@ plan stops resolving.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/tasks/context.md#ai-assistant
 related: [.devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/productivity/features.md#ai-productivity-tracking]
 ```
@@ -1244,8 +1204,7 @@ capability and the product remains fully usable with it switched off.
 
 ```meta
 type: feature
-status: draft
-related: [.devbook/domain/tasks/flow.md, .devbook/domain/tasks/requirements.md#archive-and-lifecycle]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/requirements.md#archive-and-lifecycle]
 ```
 
 Move tasks between active and archived states; archived tasks are excluded
@@ -1274,7 +1233,6 @@ stamp yet, since an earlier one is kept.
 
 ```meta
 type: feature
-status: deprecated
 related: [.devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
@@ -1298,7 +1256,6 @@ app; the sync itself does that now.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync, .devbook/domain/sync/features.md#syncing-between-devices]
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
@@ -1333,7 +1290,6 @@ How the feed moves is
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/repository-management/features.md, .devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md]
 ```
 
@@ -1368,7 +1324,6 @@ leaves and stays behind, while sync is a live copy that comes back.
 
 ```meta
 type: feature
-status: deprecated
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/roadmap/features.md, .devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task]
 ```
@@ -1398,7 +1353,6 @@ a task ready in the first place, and the
 
 ```meta
 type: sub-feature
-status: deprecated
 related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
 ```
 

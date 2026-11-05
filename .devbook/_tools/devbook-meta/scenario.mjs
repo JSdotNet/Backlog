@@ -7,9 +7,10 @@
 // pointer derives.
 //
 // A journey is a `##` chapter typed `scenario` in a scenarios file —
-// `scenarios.md` or `scenarios.<name>.md` in a bounded context — and its `###`
+// `scenarios.md`, `scenarios.<name>.md`, or `scenarios.<name>.<page>.md` in a
+// bounded context — and its `###`
 // headings are its parts. The per-document rules — where the type may sit, the
-// status, the step keywords, the field shapes, the anchors unique in a file —
+// step keywords, the field shapes, the anchors unique in a file —
 // are validateDocument's, in metadata.mjs. This module runs once per graph
 // build, over documents that build already read.
 //
@@ -307,7 +308,7 @@ export async function scenarioProblems(repoRoot, docs, nodes) {
 
 /**
  * One journey as the register lists it: its address, file, and anchor, its
- * title and the status it declares, the six setup fields as written — `start`
+ * title, the six setup fields as written — `start`
  * and `profile` a string or null, the other four lists — its screenshot labels
  * in order with the part each sits in, and its parts in order, each with the
  * labels under it and every requirement case whose `Proved by:` names it.
@@ -326,7 +327,6 @@ function registerEntry(journey) {
         anchor: journey.anchor,
         line: journey.line,
         title: journey.title,
-        status: typeof meta.status === "string" ? meta.status : null,
         setup,
         labels: journey.labels.map((entry) => ({ ...entry })),
         parts: [...journey.parts].map(([anchor, title]) => ({

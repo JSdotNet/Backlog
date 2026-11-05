@@ -2,23 +2,12 @@
 // blocks defined in devbook-chapter-metadata.md.
 //
 // Dependency-free ESM against node built-ins, like everything else executable
-// here: `node:crypto` is what fingerprints an approved chapter's content.
+// here: `node:crypto` is what fingerprints a chapter's content.
 import { createHash } from "node:crypto";
 //
 // The schema used across .devbook/{arc42,domain,tech,design,ai} is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
 // tiny hand-written reader instead of pulling in a YAML dependency.
-
-// The approval gate's rung, sitting on top of every folder's own ladder. A
-// chapter reaches it when a person has approved the content — the decision the
-// flow layer's gate makes before a chapter becomes work. It is deliberately one
-// rung shared by every folder rather than a per-folder word: what is being
-// approved is the chapter, and the ladder underneath it says what kind of thing
-// the chapter is.
-//
-// It is never a resting value. A chapter states `approved` while the approval
-// stands, and drops back to its ordinary rung the moment the content changes —
-// an approval is of what was read, not of the heading.
 /**
  * The five devbook folders, by kind. A repository adopts any subset, and every
  * one of them lives under the one `.devbook/` parent: `.devbook/arc42`,
@@ -68,117 +57,28 @@ export function changePathParts(relPath) {
     return { name, part: "other", target: null };
 }
 
-const APPROVED_STATUS = "approved";
-
-// One rung above `approved`, and the two are a stack rather than a choice:
-// `approved` says the specification is right, `accepted` says what was built
-// satisfies it. They are usually stated by different people on different days,
-// which is why the acceptance never replaces the approval record — a chapter
-// at `accepted` carries both. Acceptance is of the chapter's content, not of a
-// commit; which pull request delivered it is the tracker's business.
-const ACCEPTED_STATUS = "accepted";
-
-// The two decision rungs sit on `domain/`'s ladder and on a change's
-// `proposal.md`, and on no other. What they record is that a person agreed the
-// model — or a change to the devbook — and then that what was built satisfies
-// it. The other four ladders rate content or a technology, and a rung on them
-// was surface nothing used.
-const STATUS_BY_FOLDER = {
-    domain: ["draft", "proposed", "active", "deprecated", APPROVED_STATUS, ACCEPTED_STATUS],
-    arc42: ["draft", "proposed", "active", "deprecated"],
-    tech: ["candidate", "trial", "adopted", "hold", "retired"],
-    design: ["draft", "active", "deprecated"],
-    // `.ai` deliberately reuses `.tech`'s ladder: a reader learns one
-    // adoption vocabulary. What is on the ladder differs — `.tech` rates a
-    // technology, `.ai` rates a way of working with one.
-    ai: ["candidate", "trial", "adopted", "hold", "retired"],
-    // A change's `proposal.md` is the one block in the change folder with a
-    // status, and it carries the two decision rungs for the whole change: the
-    // change is reviewed and decided as one, so the decision is recorded once.
-    // A chapter a delta merges into gets no rung from it — its `change`
-    // provenance points at the archived proposal, which holds the record.
-    [CHANGES_FOLDER]: ["proposed", APPROVED_STATUS, ACCEPTED_STATUS],
-};
-
-/**
- * The built-in ladder of a folder — what `status` may hold where the
- * repository's `.devbook/statuses.json` declares nothing (see statuses.mjs).
- */
-export const builtInStatuses = (folder) => [...(STATUS_BY_FOLDER[folder] ?? [])];
-
-/** The two decision rungs, which no repository configuration adds or removes. */
-export const DECISION_STATUSES = [APPROVED_STATUS, ACCEPTED_STATUS];
-
-// Who approved, and on what day. The gate writes both; they exist so the
-// decision travels with the content and lands in the git history, rather than
-// living in flow configuration or in someone's memory.
-const APPROVAL_FIELDS = ["approved-by", "approved-at"];
-
-// What was approved, as a fingerprint of the content itself. Deliberately
-// *not* in APPROVAL_FIELDS: those two are written together and are missing
-// together, while this one is optional everywhere. A repository that omits it
-// keeps the rule "the rung comes off when the content changes" as something a
-// person remembers; a repository that writes it has the checker say so.
+// Workflow state is not content (the chapter-schema decision, contract 38). A
+// branch's devbook states what is true of its code, so a merged chapter is in
+// force and carries no status. A change proposal, a decision record under
+// discussion, and a debt record have state, and the tool that runs the
+// workflow keeps it outside git, answering `devbook.decision@1`.
 //
-// The rung already claimed the content had not changed since `approved-at`,
-// and nothing could establish it: git answers per file, not per chapter, so a
-// chapter in a busy file reads as stale and a chapter in a quiet one reads as
-// current whatever either actually is. A fingerprint of the chapter needs no
-// git and is exact.
-const CONTENT_HASH_FIELD = "approved-hash";
+// The one decision a chapter still records is a `tech/` or `ai/` rating: where
+// a technology, or a way of working with one, stands on the adoption ladder.
+// The branch makes that decision, so it stays, and it is always stated — an
+// unrated technology is not a `candidate` one. `ai/` reuses `tech/`'s ladder,
+// so a reader learns one adoption vocabulary. It was spelled `status` until
+// contract 38; renaming it keeps one word from meaning two things.
+export const RATING_FIELD = "rating";
+const RATINGS = ["candidate", "trial", "adopted", "hold", "retired"];
+const RATING_BY_FOLDER = { tech: RATINGS, ai: RATINGS };
 
-// Who accepted the built work against this chapter, and on what day — the
-// approval triad's shape, one rung up, for the same reason: the statement
-// travels with the content instead of living in a tracker this repository
-// cannot read. `accepted-hash` is the same fingerprint as `approved-hash`,
-// computed by the same function, and the two are equal whenever both are
-// written — an acceptance is of the approved content.
-const ACCEPTANCE_FIELDS = ["accepted-by", "accepted-at"];
-const ACCEPTED_HASH_FIELD = "accepted-hash";
+/** The ratings a folder's blocks take, or `[]` in a folder that rates nothing. */
+export const ratingsFor = (folder) => [...(RATING_BY_FOLDER[folder] ?? [])];
 
-// The rungs' six record fields, scoped to `domain/` with them. Kept as one
-// list so the folder that has the rungs and the folder that has the fields can
-// never drift apart.
-const DECISION_FIELDS = [
-    ...APPROVAL_FIELDS,
-    CONTENT_HASH_FIELD,
-    ...ACCEPTANCE_FIELDS,
-    ACCEPTED_HASH_FIELD,
-];
-
-// `sha256:` names the algorithm so a later one can be told apart, and eight
-// hex characters is the whole digest a reader ever compares: this detects an
-// edit, it does not defend against one, and nobody is forging a chapter past
-// their own approval gate.
-const CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{8}$/;
-
-// The value a folder's content settles on, which is therefore *omitted* rather
-// than written. A folder listed here makes `status` optional: absence means the
-// resting value, and writing it out restates what absence already says.
-//
-// Only the three editorial folders have such a value. In `.domain`, `.arc42`,
-// and `.design` `status` records how settled the writing is, and `active` — "no
-// longer in transition" — is the state most chapters sit in forever. The other
-// two folders have no resting value to omit: in `.tech` and `.ai` the value is
-// a *rating* whose whole purpose is to be stated, so an absent status would be
-// indistinguishable from `candidate` ("nobody has rated this") and a radar built
-// from omissions renders blank.
-//
-// Note what is *not* resting: `deprecated` is a standing warning and stays
-// written, as do `draft` and `proposed`, which say the content is in transition.
-const RESTING_STATUS_BY_FOLDER = {
-    domain: "active",
-    arc42: "active",
-    design: "active",
-};
-
-// A debt record under `arc42/tdr/` is not a standing structure: it is debt on
-// its way to being paid, so its top-level block takes a ladder of its own in
-// place of the folder's, and rests at `identified` — logged, nothing planned.
-// The `tdr/` index, a record's own sections, and every other arc42 block keep
-// the folder's ladder. Contract 33.
-const DEBT_STATUSES = ["identified", "planned", "in-progress", "resolved"];
-const DEBT_RESTING_STATUS = "identified";
+// A debt record under `arc42/tdr/` is debt on its way to being paid. Its state
+// is the tool's; its `severity`, what the debt costs while it stands, is
+// content and sits on its top-level block. Contract 33.
 const DEBT_FOLDER = `${DEVBOOK_PREFIX}arc42/tdr/`;
 
 // What a debt costs while it stands, on a debt record's top-level block only.
@@ -240,26 +140,6 @@ export function historyHeaderIssues(relPath, markdown, fileMeta) {
 export function isDebtRecord(relPath, blockLevel, fileMeta) {
     const normalized = String(relPath).replace(/\\/g, "/");
     return blockLevel === "file" && normalized.startsWith(DEBT_FOLDER) && normalized.endsWith(".md") && fileMeta?.index !== "root";
-}
-
-/**
- * The built-in ladder and resting value of one block: the debt ladder on a
- * debt record's top-level block, the folder's everywhere else.
- */
-export function blockLadder(folder, relPath = null, blockLevel = null, fileMeta = null) {
-    if (folder === "arc42" && relPath && isDebtRecord(relPath, blockLevel, fileMeta)) {
-        return { statuses: [...DEBT_STATUSES], resting: DEBT_RESTING_STATUS, debt: true };
-    }
-    return { statuses: builtInStatuses(folder), resting: restingStatusFor(folder), debt: false };
-}
-
-/**
- * What a `statuses.json` rule's globs aim at: `debt` when every one names
- * `tdr/`, so the rule replaces the debt ladder, with that ladder's resting value.
- */
-export function ruleLadder(folder, files) {
-    const debt = folder === "arc42" && files.length > 0 && files.every((glob) => /^(?:\.\/)?tdr\//.test(String(glob).replace(/\\/g, "/")));
-    return { debt, resting: debt ? DEBT_RESTING_STATUS : restingStatusFor(folder) };
 }
 
 /** Whether a `code` entry is a folder written from the repository root: no leading `/`, drive, `.`, `..`, or anchor. */
@@ -351,7 +231,6 @@ const TYPE_BY_FOLDER = {
             "invariants",
             "scenarios",
             "model",
-            "flow",
             "dependencies",
         ],
     },
@@ -418,7 +297,8 @@ const LEGACY_TYPE_FIELD_BY_FOLDER = { tech: "kind" };
 // validates none of it, and produces no edges from it. That is the whole point.
 // Without it, every extension would force a devbook schema bump and a migration
 // in every consuming repository. Reserved and currently unused: the first
-// extension's state became schema fields instead (the annotations decision).
+// extension's state became schema fields instead, and then moved to the hosts
+// (the annotations decision).
 //
 // The block grammar is flat single-line scalars, so the namespace is spelled
 // with dotted keys — `ext.<plugin>.<key>: <value>` — rather than by nesting.
@@ -438,14 +318,8 @@ export function isExtensionField(key) {
 const COMMON_OPTIONAL_FIELDS = [
     "type",
     "related",
-    "issue",
-    "effort",
-    "roadmap",
     "date",
     "tests",
-    // Provenance: the change whose merge last touched this chapter. Written by
-    // the delta merge, never by hand, and valid in every folder.
-    "change",
     // The places in a click demo that show what the chapter claims. The
     // addresses are resolved against each demo's `demo-model` by demo.mjs.
     "demo",
@@ -464,16 +338,13 @@ const SETTING_SCOPES = ["user", "tenant", "system"];
 // defect. OpenSpec's `devbook` schema asks for it in the same three words.
 export const CHANGE_CATEGORIES = ["feature", "behaviour-change", "defect"];
 
-// A change's name as its folder spells it, and so as `change` spells it on a
-// delta and, after the merge, on every chapter the delta touched.
+// A change's name as its folder spells it, and so as `change` spells it in a
+// delta's header.
 const CHANGE_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 // How a bounded context ships: as its own deployable `service`, or as a
 // `module` inside a modular monolith that hosts other contexts beside it.
 const CONTEXT_DEPLOYMENTS = ["service", "module"];
-
-// `roadmap` entries are lowercase kebab-case tag slugs, not chapter references.
-const ROADMAP_TAG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 // `tests` links a chapter or file to the test cases that assert what it claims.
 // Entries are `<level>:<runner>:<selector>` — coarse to fine, so a consumer can
@@ -582,8 +453,8 @@ const BEHAVIOUR_TEST_LEVELS = {
 const SCENARIO_HEADING = /^Scenario:/i;
 
 // A journey: one end-to-end walk through the product, written as a `##`
-// chapter of a scenarios file — `scenarios.md` or a split `scenarios.<name>.md`
-// — in the bounded context holding most of the requirements it proves. Its
+// chapter of a scenarios file — `scenarios.md`, a split `scenarios.<name>.md`,
+// or its subpage `scenarios.<name>.<page>.md` — in the bounded context holding most of the requirements it proves. Its
 // `###` headings are its parts, sections that owe no block and stay
 // addressable. Two words stay apart in every rule — a *journey* is the
 // `scenario` chapter; a scenario *case* is the `#### Scenario:` under a
@@ -591,11 +462,6 @@ const SCENARIO_HEADING = /^Scenario:/i;
 // a journey was a whole file typed `scenario`; `032-scenarios-md` folds each
 // such page into its context's `scenarios.md`.
 export const SCENARIO_TYPE = "scenario";
-
-// Absent means the journey is in force. A journey that is still being written or
-// agreed says so; it has no rung of its own beyond that, because what proves it
-// is its run, not a person's signature on the text.
-const SCENARIO_STATUSES = ["draft", "proposed"];
 
 /**
  * The fields that say where a journey starts and in which configuration it
@@ -620,13 +486,15 @@ const SETUP_PORTAL = /^([a-z0-9][a-z0-9-]*):(.+)$/;
 const SETUP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /**
- * Whether a document is a scenarios file: `scenarios.md` or a split
- * `scenarios.<name>.md`, directly in a bounded context folder.
+ * Whether a document is a scenarios file: `scenarios.md`, a split
+ * `scenarios.<name>.md`, or a split's subpage `scenarios.<name>.<page>.md`,
+ * directly in a bounded context folder.
  */
 export function isScenariosFile(relPath) {
     if (folderKindForPath(relPath) !== "domain") return false;
-    const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + "domain".length + 1);
-    return subject.split("/").length === 2 && domainFileName(relPath).base === "scenarios" && !domainFileName(relPath).page;
+    const segments = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + "domain".length + 1).split("/");
+    const { base, page } = domainFileName(relPath);
+    return segments.length === 2 && base === "scenarios" && !page && segments[1].split(".").length <= 4;
 }
 
 /** Split a portal prefix off a setup entry: `admin:/route` → `{ portal: "admin", rest: "/route" }`. */
@@ -778,18 +646,51 @@ const REMOVED_FIELDS = {
         "not what you want, give the documents a `number` or mark the directory's " +
         "entry point with `index: root`. See " +
         "devbook-chapter-metadata.md.",
-    // A review in progress is workflow state: the rung says the chapter is
-    // waiting, the open annotation fences say on what, and who owes the next
-    // move belongs to the pull request or the tracker. Contract 21.
+    // A review in progress is workflow state: the host that keeps the chapter's
+    // state holds its notes, and who owes the next move belongs to the pull
+    // request or the tracker. Contract 21.
     ...Object.fromEntries(
         ["review", "reviewer", "review-at"].map((field) => [
             field,
-            "a review in progress is the chapter's `status` rung plus its open annotation " +
-                "fences, and who owes the next move lives in the pull request or the tracker. " +
+            "a review in progress is the host's: its notes are comment threads read through " +
+                "`devbook.decision@1`, and who owes the next move lives in the pull request or the tracker. " +
                 "Run the `021-no-review-triad` migration, which deletes it.",
         ])
     ),
+    // Workflow state left the chapter in contract 38: the tool that runs the
+    // workflow keeps it, and `038-workflow-state-leaves-the-chapter` deletes
+    // each of these. The messages say where each went.
+    status: movedToTooling(
+        "a merged chapter is in force and carries no status. A change proposal's, a decision " +
+            "record's, and a debt record's state is kept by the tool that runs the workflow, through " +
+            "`devbook.decision@1`, and a chapter that should no longer be followed is removed by a " +
+            "change's `REMOVED` delta"
+    ),
+    ...Object.fromEntries(
+        ["approved-by", "approved-at", "approved-hash", "accepted-by", "accepted-at", "accepted-hash"].map((field) => [
+            field,
+            movedToTooling(
+                "approval and acceptance are decisions on a change proposal, kept by the tool that " +
+                    "runs the workflow over the proposal's fingerprint, through `devbook.decision@1`; a chapter keeps none"
+            ),
+        ])
+    ),
+    sync: movedToTooling("which units a sweep levels, and which way, is Backlog's direction map per repository and folder"),
+    issue: movedToTooling("the tracker keeps its own reference to the chapter's address"),
+    effort: movedToTooling("an estimate belongs to a change proposal's tasks and the work item each becomes"),
+    roadmap: movedToTooling("dropped — Backlog's goals and roadmap plans group the work"),
+    change: movedToTooling("dropped — git history and the archived change folder record the merge"),
 };
+
+/** The message for a field contract 38 moved out of the chapter. */
+function movedToTooling(where) {
+    return `it moved to tooling: ${where}. Run the \`038-workflow-state-leaves-the-chapter\` migration, which deletes it.`;
+}
+
+// `status` in `tech/` and `ai/` was a rating, and is renamed rather than moved.
+const RENAMED_RATING =
+    "a `tech/` or `ai/` rating is the `rating` field since contract 38. Run the " +
+    "`038-workflow-state-leaves-the-chapter` migration, which renames it.";
 
 // The C4 model's two fields: the workspace elements a chapter is about, and
 // the ones its consequences name. Each entry is a bare identifier of
@@ -802,19 +703,21 @@ const FOLDER_EXTRA_FIELDS = {
     domain: [
         "depends-on", "aliases", "feature-flag", "setting", "role", "key", "default", "scope",
         "deployment",
-        "sync",
         // The playthrough a feature's page shows: a demo walkthrough that plays
         // a whole journey, resolved by demo.mjs. Contract 36.
         "playthrough",
         ...C4_FIELDS,
-        ...DECISION_FIELDS,
     ],
-    arc42: ["sync", ...C4_FIELDS, "code", "severity"],
-    tech: ["kind", "version", "depends-on", "alternatives"],
-    design: ["sync"],
-    ai: ["depends-on", "stage", "substage", "layer", "feeds", "evidence"],
-    [CHANGES_FOLDER]: ["category", ...DECISION_FIELDS],
+    arc42: [...C4_FIELDS, "code", "severity"],
+    tech: [RATING_FIELD, "kind", "version", "depends-on", "alternatives"],
+    design: [],
+    ai: [RATING_FIELD, "depends-on", "stage", "substage", "layer", "feeds", "evidence"],
+    [CHANGES_FOLDER]: ["category"],
 };
+
+// The flow page of `domain/`, retired by contract 37: a diagram opens the
+// chapter of what it draws. Named only to point at the migration.
+const RETIRED_FLOW_TYPE = "flow";
 
 // The DevOps loop's words, retired by contract 35; named only to point at the migration.
 const LOOP_WORDS = ["plan", "build", "test", "deploy", "monitor"];
@@ -855,7 +758,7 @@ export const AI_EVIDENCE = ["recorded", "partial", "fired", "none"];
 const AI_SUBSTAGE = /^([a-z]+)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 // The body bullet that says what would move a `trial` or `candidate` rating.
 const MOVES_UP_WHEN = /^\s*[-*]\s+\*\*Moves up when\*\*/;
-const AI_UNPROVEN_STATUSES = ["trial", "candidate"];
+const AI_UNPROVEN_RATINGS = ["trial", "candidate"];
 
 /**
  * Split one `feeds` entry, `"<path>#<anchor>: <label>"`, into the reference
@@ -933,17 +836,17 @@ export function aiChapterIssues(meta, type, body) {
             message: `has \`evidence\` "${toList(meta.evidence).join(", ")}", expected one of: ${AI_EVIDENCE.join(", ")}.`,
         });
     }
-    const unproven = AI_UNPROVEN_STATUSES.includes(meta.status);
+    const unproven = AI_UNPROVEN_RATINGS.includes(meta.rating);
     const movesUp = body.some((line) => MOVES_UP_WHEN.test(line));
     if (unproven && !movesUp) {
         issues.push({
             severity: "warning",
-            message: `is \`${meta.status}\` and has no \`- **Moves up when** — …\` bullet — a chapter below \`adopted\` says what would move its rating.`,
+            message: `is \`${meta.rating}\` and has no \`- **Moves up when** — …\` bullet — a chapter below \`adopted\` says what would move its rating.`,
         });
-    } else if (!unproven && movesUp && meta.status != null) {
+    } else if (!unproven && movesUp && meta.rating != null) {
         issues.push({
             severity: "warning",
-            message: `is \`${meta.status}\` and still carries a **Moves up when** bullet — it belongs on a \`trial\` or \`candidate\` chapter only.`,
+            message: `is \`${meta.rating}\` and still carries a **Moves up when** bullet — it belongs on a \`trial\` or \`candidate\` chapter only.`,
         });
     }
     return issues;
@@ -1072,158 +975,44 @@ const FILE_FIELD_TYPE_SCOPE = {
 };
 
 // ---------------------------------------------------------------------------
-// Sync direction — which way changes flow between a chapter and its code
+// Sync units — what one verify pass covers
 // ---------------------------------------------------------------------------
-
-/**
- * The values `sync` may take. `push` makes the agreed chapter the truth the
- * code follows, `pull` the code the evidence the chapter follows, `sync` lets
- * each verdict decide, `report` only reports drift, and `off` keeps the unit
- * out of every sweep. Exported for the tools that list units by direction.
- */
-export const SYNC_DIRECTIONS = ["push", "pull", "sync", "report", "off"];
-
-/** The direction of a unit nothing above it sets: report drift, write nothing. */
-export const DEFAULT_SYNC_DIRECTION = "report";
 
 // The root chapters of a sync unit in `.domain`, one per converter kind: an
 // aggregate, a domain service, a feature, the two switch chapters, and the two
 // actors code represents, a `user` and a `technical` actor. An `organisation`
 // is modelled and never authenticated, so it roots no unit.
-const SYNC_UNIT_TYPES = ["aggregate", "domain-service", "feature", "feature-flag", "setting", "user", "technical"];
-
-// Chapters a unit owns. They are captured and briefed with that unit, so a
-// direction of their own would let half a unit go one way and half the other.
-const SYNC_OWNED_TYPES = [
-    "entity",
-    "value-object",
-    "enum",
-    "domain-event",
-    "invariant",
-    "requirement",
-    "sub-feature",
-    "term",
-];
-
-// The folder overview whose file-level block sets a folder's default.
-const SYNC_FOLDER_FILES = {
-    domain: "context-map.md",
-    arc42: "05-building-block-view.md",
-    design: "component-libraries.md",
-};
-
-// Context pages whose file-level block sets a default for the units on them.
-// On `actors.md` those are its `user` and `technical` chapters; one holding
-// only organisations has none, and a value there is reported as inherited by
-// nothing rather than refused.
-const SYNC_PAGE_BASES = ["domain", "features", "skills", "actors"];
+const UNIT_ROOT_TYPES = ["aggregate", "domain-service", "feature", "feature-flag", "setting", "user", "technical"];
 
 // Pages that hold only chapters some unit on another page owns.
-const SYNC_OWNED_PAGE_BASES = ["requirements", "invariants"];
+const OWNED_PAGE_BASES = ["requirements", "invariants"];
+
+// The one `.design` document whose `##` chapters are components.
+const COMPONENT_FILE = "component-libraries.md";
 
 /**
- * Where a `sync` value on this block sits: `{ level }` with `folder`,
- * `context`, `page`, or `unit`, or `{ refused }` with `owned`, `owned-page`,
- * or `none` — a block that is no level at all. `blockLevel` is "file" for the
- * level-1 block and "chapter" for every other heading; `headingLevel` is the
- * chapter's heading depth, which `.design` needs because only a `##` chapter
- * of `component-libraries.md` is a component.
+ * Whether this block roots a sync unit: a `domain/` chapter of one of the
+ * root kinds on a context page, an `arc42/building-blocks/<name>.md` file, or
+ * a `##` component chapter of `design/component-libraries.md`. `units.mjs`
+ * groups every other chapter under the unit it belongs to. `blockLevel` is
+ * "file" for the level-1 block and "chapter" for every other heading;
+ * `headingLevel` is the chapter's heading depth. Which units a sweep levels,
+ * and which way, is not the devbook's: no chapter carries a direction.
  */
-export function syncLevel(relPath, blockLevel, meta, headingLevel = blockLevel === "file" ? 1 : 2) {
+export function isUnitRoot(relPath, blockLevel, meta, headingLevel = blockLevel === "file" ? 1 : 2) {
     const folder = folderKindForPath(relPath);
-    if (!SYNC_FOLDER_FILES[folder]) return { refused: "none" };
+    if (!["domain", "arc42", "design"].includes(folder)) return false;
     const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + folder.length + 1);
     const type = resolveType(folder, meta);
-
     if (folder === "domain") {
-        if (subject === SYNC_FOLDER_FILES.domain) return blockLevel === "file" ? { level: "folder" } : { refused: "none" };
-        if (subject.split("/").length !== 2) return { refused: "none" };
-        const { base } = domainFileName(relPath);
-        if (SYNC_OWNED_PAGE_BASES.includes(base)) return { refused: "owned-page" };
-        if (blockLevel === "file") {
-            if (base === "context") return { level: "context" };
-            return SYNC_PAGE_BASES.includes(base) ? { level: "page" } : { refused: "none" };
-        }
-        if (SYNC_UNIT_TYPES.includes(type)) return { level: "unit" };
-        return SYNC_OWNED_TYPES.includes(type) ? { refused: "owned" } : { refused: "none" };
+        if (blockLevel === "file" || subject.split("/").length !== 2) return false;
+        if (OWNED_PAGE_BASES.includes(domainFileName(relPath).base)) return false;
+        return UNIT_ROOT_TYPES.includes(type);
     }
-
     if (folder === "arc42") {
-        if (blockLevel !== "file") return { refused: "none" };
-        if (subject === SYNC_FOLDER_FILES.arc42) return { level: "folder" };
-        const isBlock = /^building-blocks\/[^/]+\.md$/.test(subject) && indexRole(meta) !== "root";
-        return isBlock ? { level: "unit" } : { refused: "none" };
+        return blockLevel === "file" && /^building-blocks\/[^/]+\.md$/.test(subject) && indexRole(meta) !== "root";
     }
-
-    // `.design`: the component-libraries document, and its `##` components.
-    if (subject !== SYNC_FOLDER_FILES.design) return { refused: "none" };
-    if (blockLevel === "file") return { level: "folder" };
-    if (type === "requirement") return { refused: "owned" };
-    return headingLevel === 2 && type === null ? { level: "unit" } : { refused: "none" };
-}
-
-/**
- * The blocks a unit's direction is read from, nearest first: the unit, its
- * page, its context, its folder. The first that states `sync` wins, and none
- * means `report`. `unitId` is a graph node id — a chapter's `<path>#<slug>`,
- * or a building block's bare path. A page that is also the context (a switch
- * chapter in `context.md`) appears once.
- */
-export function syncSources(unitId) {
-    const relPath = String(unitId).split("#")[0];
-    const folder = folderKindForPath(relPath);
-    const overview = SYNC_FOLDER_FILES[folder];
-    if (!overview) return [unitId];
-    const sources = [unitId];
-    if (folder === "domain") {
-        const context = `${relPath.slice(0, relPath.lastIndexOf("/"))}/context.md`;
-        sources.push(relPath, context);
-    }
-    sources.push(`${DEVBOOK_PREFIX}${folder}/${overview}`);
-    return [...new Set(sources)];
-}
-
-/**
- * Lint `sync`: one of `SYNC_DIRECTIONS`, on a block that is a sync level, and
- * never on a chapter a unit owns or a page that holds only such chapters.
- * Whether any unit actually inherits a value is the graph build's to say,
- * since only it sees every page of a context at once.
- */
-export function syncIssues(relPath, blockLevel, meta, headingLevel) {
-    if (!meta || !("sync" in meta)) return [];
-    if (meta.sync === null || (Array.isArray(meta.sync) && meta.sync.length === 0)) {
-        return [{
-            severity: "warning",
-            message: `sets \`sync\` to an empty/null value — omit the field instead to inherit the direction from above, or \`${DEFAULT_SYNC_DIRECTION}\` when nothing above sets one.`,
-        }];
-    }
-    const issues = [];
-    const value = meta.sync;
-    if (Array.isArray(value) || !SYNC_DIRECTIONS.includes(value)) {
-        issues.push({
-            severity: "error",
-            message: `has \`sync\` "${Array.isArray(value) ? value.join(", ") : value}", expected one of: ${SYNC_DIRECTIONS.join(", ")}.`,
-        });
-    }
-    const { refused } = syncLevel(relPath, blockLevel, meta, headingLevel);
-    const folder = folderKindForPath(relPath);
-    if (refused === "owned") {
-        issues.push({
-            severity: "error",
-            message: `has \`sync\` on a \`${resolveType(folder, meta)}\` chapter, which a unit owns and is captured and briefed with it — set the direction on the unit's root chapter or above it. See devbook-chapter-metadata.md.`,
-        });
-    } else if (refused === "owned-page") {
-        issues.push({
-            severity: "error",
-            message: `has \`sync\` on a page that holds only chapters a unit on another page owns — each follows its unit's direction. See devbook-chapter-metadata.md.`,
-        });
-    } else if (refused === "none") {
-        issues.push({
-            severity: "error",
-            message: `has \`sync\` on a block that is no sync level — it is set on a folder overview (\`domain/context-map.md\`, \`arc42/05-building-block-view.md\`, \`design/component-libraries.md\`), a \`context.md\`, a context page, or a unit's root chapter. See devbook-chapter-metadata.md.`,
-        });
-    }
-    return issues;
+    return subject === COMPONENT_FILE && blockLevel === "chapter" && headingLevel === 2 && type === null;
 }
 
 /** Determine which devbook folder a repo-relative path belongs to. */
@@ -1238,29 +1027,6 @@ export function folderKindForPath(relPath) {
         if (subject.startsWith(`${name}/`)) return name;
     }
     return null;
-}
-
-/**
- * The status a folder's content rests at and therefore omits, or null when the
- * folder has none and every block must state its status.
- */
-export function restingStatusFor(folder) {
-    return RESTING_STATUS_BY_FOLDER[folder] ?? null;
-}
-
-/**
- * The effective status of a block, and whether the file actually said it.
- *
- * Every consumer resolves through here rather than reading `meta.status`, so
- * "at rest" and "nobody said" stay distinguishable: an omitted status in an
- * editorial folder resolves to that folder's resting value with
- * `declared: false`, while an omitted status anywhere else stays null — which
- * validateDocument reports as an error, and no viewer should paper over.
- */
-export function resolveStatus(folder, meta, relPath = null, blockLevel = null) {
-    const declared = meta?.status ?? null;
-    if (declared !== null) return { status: declared, declared: true };
-    return { status: blockLadder(folder, relPath, blockLevel, meta).resting, declared: false };
 }
 
 /**
@@ -1570,6 +1336,13 @@ export function typeIssues(folder, blockLevel, meta, fileBase = null) {
         }
         return issues;
     }
+    if (folder === "domain" && blockLevel === "file" && declared === RETIRED_FLOW_TYPE) {
+        issues.push({
+            severity: "error",
+            message: `has type "${RETIRED_FLOW_TYPE}", a flow page — retired by contract 37: each diagram opens the chapter of what it draws. Run the \`037-flows-in-their-chapters\` migration.`,
+        });
+        return issues;
+    }
     if (allowed.length) {
         if (declared === null) {
             if (OPTIONAL_TYPE_FOLDERS.includes(folder)) return issues;
@@ -1730,8 +1503,7 @@ export function testIssues(meta) {
 /**
  * How many `#### Scenario:` headings sit under the chapter at `index`.
  *
- * A scenario belongs to the rule above it by position, exactly as an
- * annotation does: the count stops at the first heading back at or above the
+ * A scenario belongs to the rule above it by position: the count stops at the first heading back at or above the
  * rule's own level, and only headings one level deeper count — a scenario of a
  * scenario is not a thing, and a `#####` under one is its own business.
  */
@@ -1785,9 +1557,8 @@ export function behaviourIssues(type, meta, scenarios = 0, folder = "domain") {
     // Only a requirement is held to its scenarios. An invariant's claim is
     // already the case and its `unit` test names it, so one with none is
     // complete — and one an older chapter still carries is left alone. A
-    // deprecated requirement is a withdrawn promise kept as a record, and a
-    // withdrawn promise has no case left to exercise.
-    if (type === "requirement" && scenarios === 0 && resolveStatus(folder, meta).status !== "deprecated") {
+    // promise that is withdrawn is removed by a change, not kept and exempted.
+    if (type === "requirement" && scenarios === 0) {
         issues.push({
             severity: "warning",
             message: `is a \`${type}\` chapter with no \`#### Scenario:\` under it — a promise with no case that exercises it is one nobody can tell has been broken, and a brief can derive no acceptance check from it.`,
@@ -1835,7 +1606,7 @@ export function behaviourIssues(type, meta, scenarios = 0, folder = "domain") {
  * links and images, `[label](target)`, and reference definitions,
  * `[label]: target`.
  *
- * Fenced blocks are skipped whole — the `meta` block, an `annotation`, a
+ * Fenced blocks are skipped whole — the `meta` block, a
  * diagram, a code sample — and so are code spans, so a chapter quoting link
  * syntax is not read as linking. The target comes back as written, `<…>`
  * brackets and a trailing title removed; resolving it is the caller's job.
@@ -2125,223 +1896,21 @@ export function c4FieldIssues(relPath, blockLevel, meta, fileMeta) {
 }
 
 /**
- * Lint the approval record: `status: approved` plus `approved-by` and
- * `approved-at`.
- *
- * Exported so the graph build reports it too. The point of putting an approval
- * in the chapter is that the decision is auditable — a rung with nobody's name
- * on it, or a name with no rung, is the one shape that defeats that.
- */
-export function approvalIssues(meta, contentHash = null) {
-    if (!meta) return [];
-    const issues = [];
-    // `accepted` stands on the approval and keeps its record, so the approval
-    // fields are at home under either rung. This is the one place the orphan
-    // rule widens.
-    const accepted = meta.status === ACCEPTED_STATUS;
-    const approved = meta.status === APPROVED_STATUS || accepted;
-
-    for (const field of APPROVAL_FIELDS) {
-        const raw = meta[field];
-        if (raw == null) continue;
-        if (Array.isArray(raw) || String(raw).trim() === "") {
-            issues.push({
-                severity: "error",
-                message: `has \`${field}\` set to an empty or list value — it records one approver and one day.`,
-            });
-            continue;
-        }
-        if (!approved) {
-            issues.push({
-                severity: "warning",
-                message: `carries \`${field}\` without \`status: ${APPROVED_STATUS}\`. Either the approval is current, and the status says so, or it has lapsed and the record comes out with it.`,
-            });
-        }
-    }
-
-    if (meta["approved-at"] != null && !DATE_PATTERN.test(String(meta["approved-at"]))) {
-        issues.push({
-            severity: "error",
-            message: `has \`approved-at\` "${meta["approved-at"]}" — an approval date is a single calendar day in \`YYYY-MM-DD\` form.`,
-        });
-    }
-
-    // The fingerprint is optional, so its absence says nothing. Present, it is
-    // checked: a value that does not match the content is the one case the
-    // rung alone could never report, which is the reason the field exists.
-    const recorded = meta[CONTENT_HASH_FIELD];
-    if (recorded != null) {
-        if (Array.isArray(recorded) || String(recorded).trim() === "") {
-            issues.push({
-                severity: "error",
-                message: `has \`${CONTENT_HASH_FIELD}\` set to an empty or list value — it records one fingerprint of the content approved.`,
-            });
-        } else if (!CONTENT_HASH_PATTERN.test(String(recorded).trim())) {
-            issues.push({
-                severity: "error",
-                message: `has \`${CONTENT_HASH_FIELD}\` "${recorded}" — a content fingerprint is \`sha256:\` followed by eight lowercase hex characters, written by the approval gate and never by hand.`,
-            });
-        } else if (!approved) {
-            issues.push({
-                severity: "warning",
-                message: `carries \`${CONTENT_HASH_FIELD}\` without \`status: ${APPROVED_STATUS}\`. Either the approval is current, and the status says so, or it has lapsed and the record comes out with it.`,
-            });
-        } else if (contentHash != null && String(recorded).trim() !== contentHash) {
-            issues.push({
-                severity: "error",
-                message: `states \`status: ${APPROVED_STATUS}\` over content that has changed since \`approved-at\` — \`${CONTENT_HASH_FIELD}\` records ${recorded}, the content now fingerprints as ${contentHash}. Re-approve the chapter, or take the rung off.`,
-            });
-        }
-    }
-
-    if (approved) {
-        for (const field of APPROVAL_FIELDS) {
-            if (meta[field] == null) {
-                issues.push({
-                    severity: "warning",
-                    message: `states \`status: ${meta.status}\` without \`${field}\`. An approval nobody signed and dated is not a record of a decision.`,
-                });
-            }
-        }
-    }
-
-    for (const issue of acceptanceIssues(meta, contentHash)) issues.push(issue);
-
-    return issues;
-}
-
-/**
- * Lint the acceptance record: the `accepted` rung and its three fields.
- *
- * The rung says a person saw the built work against this chapter and accepted
- * it — a different statement from `approved`, which says the chapter itself is
- * right, and usually made by a different person on a different day. So the two
- * stack: an accepted chapter carries both records, and a content change drops
- * both, because a build was accepted against the text that was approved.
- *
- * Called from `approvalIssues`, since every rule here is about how the two
- * records sit together and splitting them across two callers would let a
- * repository get one without the other.
- */
-function acceptanceIssues(meta, contentHash = null) {
-    const issues = [];
-    const accepted = meta.status === ACCEPTED_STATUS;
-
-    for (const field of ACCEPTANCE_FIELDS) {
-        const raw = meta[field];
-        if (raw == null) continue;
-        if (Array.isArray(raw) || String(raw).trim() === "") {
-            issues.push({
-                severity: "error",
-                message: `has \`${field}\` set to an empty or list value — it records one acceptor and one day.`,
-            });
-            continue;
-        }
-        if (!accepted) {
-            issues.push({
-                severity: "warning",
-                message: `carries \`${field}\` without \`status: ${ACCEPTED_STATUS}\`. Either the acceptance is current, and the status says so, or it has lapsed and the record comes out with it.`,
-            });
-        }
-    }
-
-    if (meta["accepted-at"] != null && !DATE_PATTERN.test(String(meta["accepted-at"]))) {
-        issues.push({
-            severity: "error",
-            message: `has \`accepted-at\` "${meta["accepted-at"]}" — an acceptance date is a single calendar day in \`YYYY-MM-DD\` form.`,
-        });
-    }
-
-    if (accepted) {
-        for (const field of ACCEPTANCE_FIELDS) {
-            if (meta[field] == null) {
-                issues.push({
-                    severity: "warning",
-                    message: `states \`status: ${ACCEPTED_STATUS}\` without \`${field}\`. An acceptance nobody signed and dated is not a record of a decision.`,
-                });
-            }
-        }
-
-        // The rung it stands on. Without the approval record there is nothing
-        // saying the chapter the build was accepted against was ever agreed.
-        for (const field of APPROVAL_FIELDS) {
-            if (meta[field] == null) {
-                issues.push({
-                    severity: "error",
-                    message: `states \`status: ${ACCEPTED_STATUS}\` without \`${field}\` — an acceptance stands on an approval. Record who approved the chapter and when, or write \`status: ${APPROVED_STATUS}\` first.`,
-                });
-            }
-        }
-    }
-
-    // A build cannot be accepted against a chapter before that chapter was
-    // approved, so the two dates are ordered whenever both are readable.
-    const approvedAt = meta["approved-at"];
-    const acceptedAt = meta["accepted-at"];
-    if (
-        approvedAt != null && acceptedAt != null &&
-        DATE_PATTERN.test(String(approvedAt)) && DATE_PATTERN.test(String(acceptedAt)) &&
-        String(acceptedAt) < String(approvedAt)
-    ) {
-        issues.push({
-            severity: "error",
-            message: `has \`accepted-at\` ${acceptedAt} before \`approved-at\` ${approvedAt} — the build was accepted against a chapter that had not been approved yet. One of the two dates is wrong.`,
-        });
-    }
-
-    const recorded = meta[ACCEPTED_HASH_FIELD];
-    if (recorded != null) {
-        if (Array.isArray(recorded) || String(recorded).trim() === "") {
-            issues.push({
-                severity: "error",
-                message: `has \`${ACCEPTED_HASH_FIELD}\` set to an empty or list value — it records one fingerprint of the content accepted.`,
-            });
-        } else if (!CONTENT_HASH_PATTERN.test(String(recorded).trim())) {
-            issues.push({
-                severity: "error",
-                message: `has \`${ACCEPTED_HASH_FIELD}\` "${recorded}" — a content fingerprint is \`sha256:\` followed by eight lowercase hex characters, written by the acceptance gate and never by hand.`,
-            });
-        } else if (!accepted) {
-            issues.push({
-                severity: "warning",
-                message: `carries \`${ACCEPTED_HASH_FIELD}\` without \`status: ${ACCEPTED_STATUS}\`. Either the acceptance is current, and the status says so, or it has lapsed and the record comes out with it.`,
-            });
-        } else {
-            const approvedHash = meta[CONTENT_HASH_FIELD];
-            if (
-                approvedHash != null && CONTENT_HASH_PATTERN.test(String(approvedHash).trim()) &&
-                String(approvedHash).trim() !== String(recorded).trim()
-            ) {
-                issues.push({
-                    severity: "error",
-                    message: `records \`${CONTENT_HASH_FIELD}\` ${approvedHash} and \`${ACCEPTED_HASH_FIELD}\` ${recorded} — an acceptance is of the approved content, so the two are one value. The chapter changed between the two decisions.`,
-                });
-            } else if (contentHash != null && String(recorded).trim() !== contentHash) {
-                issues.push({
-                    severity: "error",
-                    message: `states \`status: ${ACCEPTED_STATUS}\` over content that has changed since \`accepted-at\` — \`${ACCEPTED_HASH_FIELD}\` records ${recorded}, the content now fingerprints as ${contentHash}. Accept the chapter again, or take the rung off.`,
-                });
-            }
-        }
-    }
-
-    return issues;
-}
-
-/**
  * Fields this block carries that the schema used to define and no longer does.
  *
  * Exported so the graph build reports them the same way it reports `typeIssues`
  * — a repository that adopted an earlier version of the convention still has
  * these fields in its Markdown, and CI is where it needs to be told.
  */
-export function removedFieldIssues(meta) {
+export function removedFieldIssues(meta, folder = null) {
     if (!meta) return [];
     return Object.keys(meta)
         .filter((key) => key in REMOVED_FIELDS)
         .map((key) => ({
             severity: "error",
-            message: `has \`${key}\`, which is no longer part of the metadata schema — ${REMOVED_FIELDS[key]}`,
+            message: `has \`${key}\`, which is no longer part of the metadata schema — ${
+                key === "status" && ratingsFor(folder).length ? RENAMED_RATING : REMOVED_FIELDS[key]
+            }`,
         }));
 }
 
@@ -2375,7 +1944,7 @@ const STRUCTURAL_ROOT_FILES = {
     tech: "technology-graph.md",
     ai: "adoption-map.md",
 };
-const STRUCTURAL_DOMAIN_BASES = ["model", "flow", "dependencies"];
+const STRUCTURAL_DOMAIN_BASES = ["model", "dependencies"];
 
 /**
  * Whether this document's headings are sections rather than chapters, so a
@@ -2402,12 +1971,8 @@ export function isStructuralDocument(relPath) {
  * not know which headings are "addressable chapters" per folder — see that
  * folder's own instructions file) — it checks the blocks that *are* present
  * plus the file-level block, which covers the common authoring mistakes.
- *
- * `ladder` is the repository's own status ladder, from `loadStatusLadder` in
- * statuses.mjs. Absent, or where it declares nothing for a block, the folder's
- * built-in ladder applies.
  */
-export function validateDocument(relPath, markdown, { ladder = null, changeHash: changeFingerprint = null, demoText = null } = {}) {
+export function validateDocument(relPath, markdown) {
     const kind = folderKindForPath(relPath);
     const named = domainFileName(relPath);
     const fileBase = named.base;
@@ -2438,12 +2003,9 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
         issues.push({ severity: issue.severity, message: issue.message });
     }
-    // Annotations are authored Markdown in the same file, so they are linted
-    // here rather than by a second pass a repository could forget to run.
-    for (const issue of annotationIssues(markdown)) {
-        // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
-        issues.push({ severity: issue.severity, message: issue.message });
-    }
+    // The annotation fence retired in contract 38; one left behind is reported
+    // here, in the same pass, so a repository cannot forget to look.
+    for (const issue of retiredFenceIssues(markdown)) issues.push(issue);
     for (const issue of historyHeaderIssues(relPath, markdown, fileMeta)) issues.push(issue);
     const optionalFields = new Set([
         ...COMMON_OPTIONAL_FIELDS,
@@ -2487,20 +2049,6 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         }
     }
 
-    // Where an open question sits, keyed by the line of the heading it is
-    // attached to. Position is the anchor, so a note under `### Sub` is Sub's
-    // question and never its parent's — the same rule the annotation grammar
-    // states, applied here rather than re-derived.
-    const openQuestions = new Map();
-    for (const note of parseAnnotations(markdown)) {
-        const fields = note.fields ?? {};
-        const kindOf = fields.kind ?? "comment";
-        const statusOf = fields.status ?? "open";
-        if (statusOf !== "open" || !note.chapter) continue;
-        if (kindOf !== "question" || openQuestions.has(note.chapter.line)) continue;
-        openQuestions.set(note.chapter.line, note.line);
-    }
-
     // A scenarios file holds one journey per `##`, typed `scenario`; the
     // `###` headings under a journey are its parts — sections, never
     // chapters, so they owe no block and stay addressable by anchor. Every
@@ -2532,7 +2080,7 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             if (chapter.level === 1 || !chapter.meta || resolveType(kind, chapter.meta) !== SCENARIO_TYPE || kind !== "domain") continue;
             issues.push({
                 severity: "error",
-                message: `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line}) has type "${SCENARIO_TYPE}" outside a scenarios file — a journey is a \`##\` of \`scenarios.md\` or \`scenarios.<name>.md\` in the bounded context of the requirements it proves.`,
+                message: `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line}) has type "${SCENARIO_TYPE}" outside a scenarios file — a journey is a \`##\` of \`scenarios.md\`, \`scenarios.<name>.md\`, or \`scenarios.<name>.<page>.md\` in the bounded context of the requirements it proves.`,
             });
         }
     }
@@ -2582,73 +2130,29 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             continue;
         }
 
-        // `status` is required only in the folders that have no resting value.
-        // Where a folder does have one, absence *is* the statement, so an
-        // omitted status is correct and the resting value written out is the
-        // thing worth reporting — otherwise the corpus ends up with two
-        // spellings of one state and neither reader knows which to expect.
-        //
-        // Which values are written is the repository's ladder where it declares
-        // one for this block, and the folder's built-in one otherwise. The
-        // resting value is checked first because a configured ladder never
-        // lists it: omission is devbook's mechanism, not a rung to choose.
         const blockLevel = chapter.level === 1 ? "file" : "chapter";
-        // A debt record's top-level block is on the debt ladder, resting at
-        // `identified`; only a `statuses.json` rule aimed at `tdr/` replaces it.
-        const builtIn = blockLadder(kind, relPath, blockLevel, fileMeta);
-        const resting = builtIn.resting;
-        const configured = ladder?.statusesFor(relPath, blockLevel, { debt: builtIn.debt }) ?? null;
-        const allowedStatus = configured?.statuses ?? builtIn.statuses;
-        // The rungs a debt record could hold before it had a ladder of its
-        // own: the folder's, as the repository's rules narrowed them.
-        const folderRungs = builtIn.debt
-            ? [...(ladder?.statusesFor(relPath, blockLevel)?.statuses ?? STATUS_BY_FOLDER.arc42), restingStatusFor(kind)]
-            : [];
-        const declaresStatus = "status" in chapter.meta;
         const journeyBlock = kind === "domain" && blockLevel === "chapter" && resolveType(kind, chapter.meta) === SCENARIO_TYPE;
-        if (journeyBlock && declaresStatus && chapter.meta.status !== null) {
-            // A journey's ladder is fixed: absent means it is in force, and the
-            // journey says only that it is still in transition.
-            if (!SCENARIO_STATUSES.includes(chapter.meta.status)) {
+
+        // A `tech/` or `ai/` block states its rating, from the adoption
+        // ladder. No other folder rates anything, so `rating` there is reported
+        // as unrecognized below. A block still spelling it `status` is reported
+        // once, as renamed, by `removedFieldIssues`.
+        const ratings = ratingsFor(kind);
+        if (ratings.length) {
+            const rating = chapter.meta[RATING_FIELD];
+            if (rating == null || (Array.isArray(rating) && rating.length === 0)) {
+                if (!("status" in chapter.meta)) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} is missing required \`rating\`, one of: ${ratings.join(", ")}.`,
+                    });
+                }
+            } else if (Array.isArray(rating) || !ratings.includes(rating)) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has status "${chapter.meta.status}" on a journey, expected one of: ${SCENARIO_STATUSES.join(", ")} — or omit it for a journey in force.`,
+                    message: `${label} has \`rating\` "${toList(rating).join(", ")}", expected one of: ${ratings.join(", ")}.`,
                 });
             }
-        } else if (!declaresStatus || chapter.meta.status === null) {
-            if (resting === null) {
-                issues.push({
-                    severity: "error",
-                    message: `${label} is missing required \`status\`.`,
-                });
-            } else if (declaresStatus) {
-                // An absence is spelled by leaving the field out, never by
-                // writing the word `null` — same discipline as `issue: null`.
-                issues.push({
-                    severity: "warning",
-                    message: `${label} sets \`status\` to a null value — omit the field instead to mean the resting value \`${resting}\`.`,
-                });
-            }
-        } else if (chapter.meta.status === resting) {
-            issues.push({
-                severity: "warning",
-                message: `${label} states \`status: ${resting}\`, which is the resting value ${builtIn.debt ? "of a debt record" : `in .${kind}`} — omit the field instead, per the omit-when-empty rule.`,
-            });
-        } else if (builtIn.debt && !allowedStatus.includes(chapter.meta.status) && folderRungs.includes(chapter.meta.status)) {
-            // A record written before the debt ladder existed holds a folder
-            // rung; it still reads, and is reported until it is moved over.
-            issues.push({
-                severity: "warning",
-                message: `${label} has status "${chapter.meta.status}", a rung of the arc42/ ladder — a debt record takes its own: ${DEBT_STATUSES.join(", ")}, \`${DEBT_RESTING_STATUS}\` by omission. See devbook-arc42.md.`,
-            });
-        } else if (!allowedStatus.includes(chapter.meta.status)) {
-            const from = configured ? ` (${configured.source})` : "";
-            issues.push({
-                severity: "error",
-                message: allowedStatus.length
-                    ? `${label} has status "${chapter.meta.status}", expected one of: ${allowedStatus.join(", ")}${from}.`
-                    : `${label} has status "${chapter.meta.status}", and no status is written on this block${from} — omit the field.`,
-            });
         }
 
         // `type` records what kind of thing this chapter or file is, in the
@@ -2661,12 +2165,6 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
 
         // Which of the folder's own fields this particular block may carry.
         for (const issue of fieldScopeIssues(kind, blockLevel, chapter.meta)) {
-            issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
-        }
-
-        // Which way the chapter and its code sync, and whether this block is
-        // one a direction may be set on.
-        for (const issue of syncIssues(relPath, blockLevel, chapter.meta, chapter.level)) {
             issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
         }
 
@@ -2751,28 +2249,6 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             }
         }
 
-        // `change` is the merge's provenance stamp, so it is one change name.
-        if (chapter.meta.change != null && !CHANGE_NAME_PATTERN.test(chapter.meta.change)) {
-            issues.push({
-                severity: "error",
-                message: `${label} has \`change\` "${chapter.meta.change}" — it names one change, as its folder under ${CHANGES_ROOT}/ spells it: lowercase kebab-case.`,
-            });
-        }
-
-        // `effort` is a story-point estimate, so it is a single non-negative
-        // integer. A list, a fraction, a negative number, or a word such as
-        // "large" is not an estimate this schema can total or compare.
-        if (chapter.meta.effort != null) {
-            const raw = chapter.meta.effort;
-            const isInteger = typeof raw === "string" && /^\d+$/.test(raw);
-            if (!isInteger) {
-                issues.push({
-                    severity: "error",
-                    message: `${label} has \`effort\` "${Array.isArray(raw) ? raw.join(", ") : raw}" — effort is a story-point estimate and must be a single non-negative integer.`,
-                });
-            }
-        }
-
         // A `.ai` chapter says where it sits on the delivery path with `stage`
         // or `layer`, and the file it is in says nothing about that — so the
         // fields are on every chapter, checked against the fixed vocabularies
@@ -2798,20 +2274,6 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
                     issues.push({
                         severity: "warning",
                         message: `${label} has \`related\` entry "${ref}" reaching into .tech — a usage names the technology it rests on in \`depends-on\`, which is what puts the tool on the loop picture; \`related\` draws nothing there.`,
-                    });
-                }
-            }
-        }
-
-        // Roadmap entries are tag slugs an application groups work by, not
-        // `<path>#<slug>` chapter references, so the tag vocabulary lives in the
-        // consuming repository and only the slug shape is checked here.
-        if (chapter.meta.roadmap != null) {
-            for (const tag of toList(chapter.meta.roadmap)) {
-                if (!ROADMAP_TAG_PATTERN.test(tag)) {
-                    issues.push({
-                        severity: "warning",
-                        message: `${label} has \`roadmap\` entry "${tag}" — roadmap tags are lowercase kebab-case slugs, not chapter references or free text.`,
                     });
                 }
             }
@@ -2846,50 +2308,7 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             }
         }
 
-        // The approval gate writes into the chapter, so the chapter is where
-        // the record is checked. The content is only fingerprinted when the
-        // chapter claims one — most do not, and hashing every block to learn
-        // that would be work for nothing.
-        // Only `domain/` and a proposal have the rungs, so only there is there a record to
-        // lint. Elsewhere the six fields are not in that folder's vocabulary at
-        // all, and the unrecognized-field check below reports each one once —
-        // running this too would report one mistake twice.
-        // A proposal's rungs are the whole change's, so its fingerprint covers
-        // every delta too — `changeHash`, which only a caller that can read the
-        // change folder supplies; without it the record is linted unhashed.
-        // A domain chapter's fingerprint folds in the demos it belongs to, read
-        // through `demoText` when the caller can reach the repository.
-        if (kind === "domain" || kind === CHANGES_FOLDER) {
-            const claimsHash =
-                chapter.meta[CONTENT_HASH_FIELD] != null || chapter.meta[ACCEPTED_HASH_FIELD] != null;
-            const contentHash =
-                kind === CHANGES_FOLDER
-                    ? changeFingerprint
-                    : claimsHash
-                      ? chapterFingerprint(relPath, markdown, chapter.line, demoText)
-                      : null;
-            for (const issue of approvalIssues(chapter.meta, contentHash)) {
-                issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
-            }
-        }
-
-        // An open question means the chapter is not agreed, so an approval
-        // standing over one is a false record: a person signed for content
-        // that still has an unanswered question in it. Reported here, and only
-        // here — an open question on any other rung is the state the fence
-        // exists for, and a gate that warned on every one would be teaching
-        // people to ignore it.
-        if (
-            (chapter.meta.status === APPROVED_STATUS || chapter.meta.status === ACCEPTED_STATUS) &&
-            openQuestions.has(chapter.line)
-        ) {
-            issues.push({
-                severity: "error",
-                message: `${label} states \`status: ${chapter.meta.status}\` while carrying an open \`kind: question\` annotation (line ${openQuestions.get(chapter.line)}) — an open question means the chapter is not agreed. Resolve and sweep the note, or take the rung off.`,
-            });
-        }
-
-        for (const issue of removedFieldIssues(chapter.meta)) {
+        for (const issue of removedFieldIssues(chapter.meta, kind)) {
             issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
         }
 
@@ -2903,9 +2322,8 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
 
         for (const [key, value] of Object.entries(chapter.meta)) {
             if (isExtensionField(key)) continue; // opaque by contract — never validated
-            if (key === "status") continue; // recognized, and fully reported above
-            if (key === "sync") continue; // reported by syncIssues in every folder
             if (key in REMOVED_FIELDS) continue; // already reported above
+            if (key === RATING_FIELD && ratings.length) continue; // reported above
             if (journeyBlock && key === "tests") continue; // reported above
             if (SCENARIO_SETUP_FIELDS.includes(key)) {
                 if (!journeyBlock) {
@@ -2994,6 +2412,11 @@ export function deltaHeaderIssues(relPath, markdown) {
     const { change, delta } = header.meta;
     if (change == null) {
         issues.push({ severity: "error", message: `is missing required \`change\` in its opening \`meta\` block.` });
+    } else if (Array.isArray(change) || !CHANGE_NAME_PATTERN.test(change)) {
+        issues.push({
+            severity: "error",
+            message: `has \`change\` "${toList(change).join(", ")}" — it names one change, as its folder under ${CHANGES_ROOT}/ spells it: lowercase kebab-case.`,
+        });
     } else if (where && change !== where.name) {
         issues.push({
             severity: "error",
@@ -3018,240 +2441,11 @@ export function deltaHeaderIssues(relPath, markdown) {
     return issues;
 }
 
-// ---------------------------------------------------------------------------
-// Annotations — the second fenced block
-// ---------------------------------------------------------------------------
-//
-// A note on a chapter belongs in the chapter. An annotation is the same device
-// as `meta`, one word different, placed in the body where the note belongs:
-//
-//     ```annotation
-//     author: jobsc
-//     date: 2026-09-02
-//     body: Is this still true now the outline rollup is a view?
-//     ```
-//
-// Writing a note as authored Markdown rather than as a row in the derived
-// database is what makes `devbook.db` wholly derived again — position is the
-// anchor, git is the sync and the backup, the pull request is the review, and
-// `git blame` is the authorship record. None of that has to be built.
-//
-// The block grammar is richer than `meta`'s deliberately flat one: a thread
-// needs a `body` that runs to a paragraph, an ordered `replies` list, and a
-// nested `ext` mapping. So annotations get their own small indentation-aware
-// reader below rather than bending `parseMetaBody`, which stays flat because
-// every field it carries is a scalar or a bracket list.
-
-const ANNOTATION_KINDS = ["comment", "question", "suggestion", "flag"];
-
-// Two states, and `resolved` is short-lived. An annotation is an open loop, not
-// a record: `resolved` lives for the rest of the branch so a reviewer sees the
-// exchange in the pull request that raised it, and the sweep deletes it before
-// the merge. git holds the history — the commit that removed the note, and the
-// change that answered it.
-const ANNOTATION_STATUSES = ["open", "resolved"];
-
-const ANNOTATION_DEFAULTS = { kind: "comment", status: "open" };
-
-// Closed core set. Anything a workflow above L0 wants to remember goes under
-// `ext:` in its own namespace, which is validated as a mapping and never read
-// into — the same seam the chapter's `meta` block already offers.
-const ANNOTATION_FIELDS = [
-    "kind",
-    "status",
-    "author",
-    "date",
-    "quote",
-    "body",
-    "replies",
-    "ext",
-];
-
-// `author` is written, never inferred: a note survives rewrites that `git blame`
-// does not follow, so the name has to travel inside the fence.
-const ANNOTATION_REQUIRED_FIELDS = ["author", "date", "body"];
-
-const ANNOTATION_REPLY_FIELDS = ["author", "date", "body"];
-
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function lineIndent(line) {
-    return /^ */.exec(line)[0].length;
-}
-
-function isBlankLine(line) {
-    return line.trim() === "";
-}
-
-/**
- * Parse the body of a fenced ```annotation block into a nested object.
- *
- * Supports exactly the shapes the annotation schema uses: `key: scalar`, a `|`
- * block scalar, a list of mappings (`replies`), and a nested mapping (`ext`).
- * Anything else in the file is not part of this schema and is reported by
- * `annotationIssues` rather than silently absorbed.
- *
- * The reader is lenient where YAML is not, so every line it reads past that a
- * YAML parser would reject goes into `problems` as `{ line, message }`, the
- * line counted from 1 at the fence body's first, and the check reports each
- * one. A fence only this reader accepts is a note every other reader drops.
- */
-export function parseAnnotationBody(body, problems = []) {
-    const lines = body.split("\n");
-    let first = 0;
-    while (first < lines.length && isBlankLine(lines[first])) first++;
-    if (first >= lines.length) return {};
-    const [value] = parseAnnotationMapping(lines, first, lines.length, lineIndent(lines[first]), problems);
-    return value;
-}
-
-// A plain scalar may not open with an indicator, and may not carry `: ` or
-// ` #` — YAML reads the first as a nested mapping and the second as a comment.
-const PLAIN_SCALAR_FIRST = /^([-?:](\s|$)|[,[\]{}#&*!|>'"%@`])/;
-
-/**
- * One inline scalar, read the way YAML reads it: a double-quoted string with
- * its escapes, a single-quoted one with `''`, or a plain scalar. One YAML
- * would not read as a string is recorded in `problems` and kept as written.
- */
-function readAnnotationScalar(raw, problems, line) {
-    const value = raw.trim();
-    const problem = (message) => problems.push({ line: line + 1, message });
-    if (value.startsWith('"')) {
-        try {
-            const parsed = JSON.parse(value);
-            if (typeof parsed === "string") return parsed;
-        } catch {
-            // reported below
-        }
-        problem(`${value} is not one well-formed double-quoted string.`);
-        return stripQuotes(value);
-    }
-    if (value.startsWith("'")) {
-        if (/^'(?:[^']|'')*'$/.test(value)) return value.slice(1, -1).replace(/''/g, "'");
-        problem(`${value} is not one well-formed single-quoted string.`);
-        return stripQuotes(value);
-    }
-    if (PLAIN_SCALAR_FIRST.test(value) || /:(\s|$)/.test(value) || /\s#/.test(value)) {
-        problem(`${value} is not a valid plain YAML scalar — quote it, or write it as a | block.`);
-    }
-    return value;
-}
-
-function parseAnnotationMapping(lines, start, end, indent, problems = []) {
-    const map = {};
-    let i = start;
-    while (i < end) {
-        if (isBlankLine(lines[i])) {
-            i++;
-            continue;
-        }
-        if (lineIndent(lines[i]) < indent) break;
-        const match = /^([^:\s][^:]*):(?:[ \t]+(.*))?$/.exec(lines[i].slice(indent));
-        if (!match) {
-            problems.push({ line: i + 1, message: `${lines[i].trim()} is not a key: value line.` });
-            i++;
-            continue;
-        }
-        const key = match[1].trim();
-        const rest = (match[2] ?? "").trim();
-        if (rest === "|" || rest === "|-" || rest === ">") {
-            const [text, next] = parseAnnotationBlockScalar(lines, i + 1, end, indent);
-            map[key] = text;
-            i = next;
-        } else if (rest === "") {
-            const [child, next] = parseAnnotationNested(lines, i + 1, end, indent, problems);
-            map[key] = child;
-            i = next;
-        } else {
-            map[key] = readAnnotationScalar(rest, problems, i);
-            i++;
-        }
-    }
-    return [map, i];
-}
-
-/** A `|` body: every more-indented line, dedented by the block's own indent. */
-function parseAnnotationBlockScalar(lines, start, end, parentIndent) {
-    const collected = [];
-    let i = start;
-    let blockIndent = null;
-    while (i < end) {
-        if (isBlankLine(lines[i])) {
-            collected.push("");
-            i++;
-            continue;
-        }
-        const indent = lineIndent(lines[i]);
-        if (indent <= parentIndent) break;
-        if (blockIndent === null) blockIndent = indent;
-        collected.push(lines[i].slice(Math.min(blockIndent, indent)));
-        i++;
-    }
-    while (collected.length && collected[collected.length - 1] === "") collected.pop();
-    return [collected.join("\n"), i];
-}
-
-/** What follows a bare `key:` — a list of items, or a nested mapping. */
-function parseAnnotationNested(lines, start, end, parentIndent, problems = []) {
-    let i = start;
-    while (i < end && isBlankLine(lines[i])) i++;
-    if (i >= end || lineIndent(lines[i]) <= parentIndent) return [null, i];
-    const childIndent = lineIndent(lines[i]);
-    if (/^-\s/.test(lines[i].slice(childIndent))) {
-        return parseAnnotationList(lines, i, end, childIndent, problems);
-    }
-    return parseAnnotationMapping(lines, i, end, childIndent, problems);
-}
-
-function parseAnnotationList(lines, start, end, indent, problems = []) {
-    const items = [];
-    let i = start;
-    while (i < end) {
-        if (isBlankLine(lines[i])) {
-            i++;
-            continue;
-        }
-        if (lineIndent(lines[i]) < indent) break;
-        if (!/^-\s/.test(lines[i].slice(indent))) break;
-
-        // Gather this item's lines, then re-indent its first line so the whole
-        // item parses as an ordinary mapping two columns in from the dash.
-        const itemLines = [`${" ".repeat(indent + 2)}${lines[i].slice(indent + 2)}`];
-        let j = i + 1;
-        while (j < end) {
-            if (isBlankLine(lines[j])) {
-                itemLines.push(lines[j]);
-                j++;
-                continue;
-            }
-            const childIndent = lineIndent(lines[j]);
-            if (childIndent <= indent) break;
-            itemLines.push(lines[j]);
-            j++;
-        }
-        while (itemLines.length && isBlankLine(itemLines[itemLines.length - 1])) itemLines.pop();
-
-        const head = itemLines[0].slice(indent + 2);
-        // An item's problems count from its own first line; shift them back.
-        const local = [];
-        if (/^[^:\s][^:]*:/.test(head)) {
-            const [value] = parseAnnotationMapping(itemLines, 0, itemLines.length, indent + 2, local);
-            items.push(value);
-        } else {
-            items.push(readAnnotationScalar(head, local, 0));
-        }
-        problems.push(...local.map((problem) => ({ ...problem, line: problem.line + i })));
-        i = j;
-    }
-    return [items, i];
-}
-
 const FENCE_PATTERN = /^(\s*)(`{3,}|~{3,})\s*([^\s`~]*)\s*$/;
 
 /**
- * The fingerprint of one block's content, for `approved-hash` and
- * `accepted-hash`.
+ * The fingerprint of one block's content, per `devbook.chapter.fingerprint@1`
+ * — the value a host records a decision on the content at.
  *
  * What is hashed is the block a reader would say they read: its heading text
  * and everything under it, down to the next heading at the same or a higher
@@ -3262,10 +2456,9 @@ const FENCE_PATTERN = /^(\s*)(`{3,}|~{3,})\s*([^\s`~]*)\s*$/;
  *
  * Three things are excluded, each for its own reason. The `meta` blocks go
  * because the hash lives in one, and a value cannot be part of what it
- * fingerprints. The `annotation` fences go because a note written after the
- * approval is not a change to the content — an open question standing over an
- * approved chapter is already its own error, and lapsing the rung for a
- * resolved note would report the sweep as an edit. Whitespace goes because a
+ * fingerprints. The `annotation` fences go because a review note is not
+ * content: `devbook.chapter.fingerprint@1` stated the exclusion before the
+ * fence retired in contract 38, and keeping it keeps every recorded value. Whitespace goes because a
  * reflowed paragraph reads identically, and a rung that came off every time
  * someone rewrapped a line would be taken off for good.
  *
@@ -3274,8 +2467,16 @@ const FENCE_PATTERN = /^(\s*)(`{3,}|~{3,})\s*([^\s`~]*)\s*$/;
  * its address and not a word of what was read.
  *
  * `line` is the block's 1-based heading line, as `parseDocument` reports it.
+ *
+ * The text hashed is `chapterText`, so a host recomputing the value per
+ * `resources/chapter-fingerprint.md` can compare the text before the hash.
  */
 export function chapterHash(markdown, line = 1) {
+    return digest(chapterText(markdown, line));
+}
+
+/** The normalised text `chapterHash` digests. */
+export function chapterText(markdown, line = 1) {
     const lines = markdown.split(/\r?\n/);
     const { chapters } = parseDocument(markdown);
 
@@ -3290,10 +2491,9 @@ export function chapterHash(markdown, line = 1) {
     }
 
     const heading = /^#{1,6}\s+(.*)$/.exec(lines[start] ?? "");
-    const normalised = [heading ? heading[1] : "", hashedText(lines, start + 1, end, ["meta", "annotation"])]
+    return [heading ? heading[1] : "", hashedText(lines, start + 1, end, ["meta", "annotation"])]
         .filter((entry) => entry !== "")
         .join("\n");
-    return digest(normalised);
 }
 
 const digest = (text) => `sha256:${createHash("sha256").update(text, "utf8").digest("hex").slice(0, 8)}`;
@@ -3356,9 +2556,9 @@ export function demoFingerprintText(text) {
 }
 
 /**
- * The fingerprint `approved-hash` and `accepted-hash` record: `chapterHash`,
- * with every demo the block belongs to folded in, so editing a demo lifts an
- * approval of what it shows exactly as editing the prose does. A demo's
+ * The fingerprint a host records a decision on a chapter at: `chapterHash`,
+ * with every demo the block belongs to folded in, so editing a demo changes it
+ * exactly as editing the prose does. A demo's
  * managed region is left out, per `demoFingerprintText`.
  *
  * A block's demos are the ones its `demo` field — or the field of any chapter
@@ -3369,8 +2569,15 @@ export function demoFingerprintText(text) {
  * recorded before demos existed changes value.
  */
 export function chapterFingerprint(relPath, markdown, line = 1, demoText = null) {
-    const base = chapterHash(markdown, line);
-    if (!demoText) return base;
+    return digest(chapterFingerprintText(relPath, markdown, line, demoText));
+}
+
+/**
+ * The text `chapterFingerprint` digests: `chapterText` for a block with no
+ * demo, else the block's `chapterHash` followed by each demo it folds in.
+ */
+export function chapterFingerprintText(relPath, markdown, line = 1, demoText = null) {
+    if (!demoText) return chapterText(markdown, line);
     const { chapters } = parseDocument(markdown);
     const index = chapters.findIndex((entry) => entry.line === line);
     const level = index === -1 ? 1 : chapters[index].level;
@@ -3391,7 +2598,7 @@ export function chapterFingerprint(relPath, markdown, line = 1, demoText = null)
         const text = demoText(demoPath);
         if (text != null) demos.push(`${demoPath}\n${demoFingerprintText(text)}`);
     }
-    return demos.length ? digest([base, ...demos].join("\n")) : base;
+    return demos.length ? [chapterHash(markdown, line), ...demos].join("\n") : chapterText(markdown, line);
 }
 
 /** Lines `from` to `end`, minus the fences labelled in `dropped`, whitespace-normalised. */
@@ -3424,20 +2631,26 @@ function hashedText(lines, from, end, dropped) {
 }
 
 /**
- * The content fingerprint of a whole change — what `approved-hash` and
- * `accepted-hash` record on its `proposal.md`, the way `chapterHash` covers a
- * chapter. A change is decided as one review, so the fingerprint is one value
- * over the proposal and every delta: editing any of them lapses both rungs.
+ * The content fingerprint of a whole change — what a host records the
+ * change's approval and acceptance at, the way `chapterHash` covers a chapter.
+ * A change is decided as one review, so the fingerprint is one value over the
+ * proposal and every delta: editing any of them moves it, and a decision
+ * recorded at the old value no longer stands.
  *
  * The proposal is hashed as its file block is. A delta keeps its `meta`
  * fences, because in a delta they are content — the header says what kind of
  * change it is, and a `MODIFIED` block is the fields it sets — and drops only
- * its annotation fences. Each delta is keyed by the devbook file it targets,
+ * its `annotation` fences, as fingerprint@1 states. Each delta is keyed by the devbook file it targets,
  * so moving one to another target is an edit. A demo delta is read as a page
  * fingerprint reads a demo, its managed region left out. `deltas` is a list of
  * `{ target, markdown }`, in any order.
  */
 export function changeHash(proposalMarkdown, deltas) {
+    return digest(changeText(proposalMarkdown, deltas));
+}
+
+/** The text `changeHash` digests. */
+export function changeText(proposalMarkdown, deltas) {
     const parts = [chapterHash(proposalMarkdown, parseDocument(proposalMarkdown).chapters.find((c) => c.level === 1)?.line ?? 1)];
     for (const delta of [...deltas].sort((a, b) => (a.target < b.target ? -1 : a.target > b.target ? 1 : 0))) {
         if (isDemoPath(delta.target)) {
@@ -3447,254 +2660,38 @@ export function changeHash(proposalMarkdown, deltas) {
         const lines = delta.markdown.split(/\r?\n/);
         parts.push(`${delta.target}\n${hashedText(lines, 0, lines.length, ["annotation"])}`);
     }
-    return digest(parts.join("\n"));
+    return parts.join("\n");
 }
 
 /**
- * Every annotation fence in a document, in reading order.
+ * The `annotation` fences left in a document, each reported as retired.
  *
- * Position is the anchor. A fence annotates the block immediately above it;
- * placed directly after a heading's `meta` block it annotates the chapter as a
- * whole. That single rule replaces content hashes, relocation prompts, and a
- * repository-wide orphaned view — the note is not pointing at the passage from
- * a distance, it is in the passage's neighbourhood, so every ordinary text
- * operation carries it along.
- *
- * Consecutive fences all attach to the last block that is not itself an
- * annotation, so a passage can carry several threads without the second one
- * claiming to annotate the first.
- *
- * Each entry carries `{ line, endLine, raw, fields, chapter, ordinal, target,
- * attachedTo }`. `ordinal` is 1-based within the chapter: a tool addresses a
- * thread as `<path>#<slug>` plus its ordinal, because devbook assigns no ids.
+ * A review note was a fence in the chapter until contract 38. It is a comment
+ * thread in the host that keeps the chapter's workflow state now, read and
+ * posted through `devbook.decision@1`, and `038-workflow-state-leaves-the-chapter`
+ * deletes every fence, open or resolved. Only a fence at the top level is one:
+ * an `annotation` opener inside another fence is that fence's content.
  */
-export function parseAnnotations(markdown) {
+export function retiredFenceIssues(markdown) {
     const lines = markdown.split(/\r?\n/);
-    const annotations = [];
-    const ordinals = new Map();
-    let chapter = null;
-    let attachedTo = null;
-    let i = 0;
-
-    while (i < lines.length) {
-        const line = lines[i];
-
-        const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-        if (heading) {
-            const text = heading[2].trim();
-            chapter = { level: heading[1].length, text, slug: slugify(text), line: i + 1 };
-            attachedTo = { kind: "heading", text, line: i + 1 };
-            i++;
-            continue;
-        }
-
-        const fence = FENCE_PATTERN.exec(line);
-        if (fence) {
-            const marker = fence[2];
-            const info = fence[3];
-            const closer = new RegExp(`^\\s*\\${marker[0]}{${marker.length},}\\s*$`);
-            const bodyLines = [];
-            let k = i + 1;
-            while (k < lines.length && !closer.test(lines[k])) {
-                bodyLines.push(lines[k]);
-                k++;
-            }
-            const raw = bodyLines.join("\n");
-            const label = info.toLowerCase();
-
-            if (label === "annotation") {
-                const key = chapter ? chapter.slug : "";
-                const ordinal = (ordinals.get(key) ?? 0) + 1;
-                ordinals.set(key, ordinal);
-                const problems = [];
-                annotations.push({
-                    line: i + 1,
-                    endLine: k + 1,
-                    raw,
-                    fields: parseAnnotationBody(raw, problems),
-                    problems,
-                    chapter,
-                    ordinal,
-                    target: attachedTo && attachedTo.kind === "text" ? "block" : "chapter",
-                    attachedTo,
-                });
-                // `attachedTo` is deliberately not reassigned: the next fence
-                // attaches to the same passage, not to this note.
-            } else if (label === "meta") {
-                attachedTo = { kind: "meta", text: raw, line: i + 1 };
-            } else {
-                attachedTo = { kind: "text", text: raw, line: i + 1 };
-            }
-            i = k + 1;
-            continue;
-        }
-
-        if (isBlankLine(line)) {
-            i++;
-            continue;
-        }
-
-        // An ordinary run of prose, table, or list lines is one block.
-        const blockStart = i;
-        const blockLines = [];
-        while (
-            i < lines.length &&
-            !isBlankLine(lines[i]) &&
-            !FENCE_PATTERN.test(lines[i]) &&
-            !/^#{1,6}\s+/.test(lines[i])
-        ) {
-            blockLines.push(lines[i]);
-            i++;
-        }
-        attachedTo = { kind: "text", text: blockLines.join("\n"), line: blockStart + 1 };
-    }
-
-    return annotations;
-}
-
-/** A note's fields with the two defaulted ones filled in. */
-export function resolveAnnotation(fields) {
-    const stated = Object.fromEntries(
-        Object.entries(fields ?? {}).filter(([, value]) => value != null)
-    );
-    return { ...ANNOTATION_DEFAULTS, ...stated };
-}
-
-export const annotationKinds = () => [...ANNOTATION_KINDS];
-export const annotationStatuses = () => [...ANNOTATION_STATUSES];
-
-/**
- * Lint every annotation fence in a document against the schema and the
- * placement rule.
- *
- * `quote` is checked against the block the note attaches to, and a quote that
- * matches nothing above is a *warning*, never an error: it is the tell that a
- * passage moved out from under its note, and a person decides what to do about
- * it. It is never used to resolve the attachment — position already did that.
- */
-export function annotationIssues(markdown) {
     const issues = [];
-    for (const note of parseAnnotations(markdown)) {
-        const where = `annotation at line ${note.line}`;
-        const fields = note.fields ?? {};
-
-        // Every other reader parses the fence as YAML and drops one that does
-        // not parse, so a fence only this reader accepts is a lost note.
-        for (const problem of note.problems ?? []) {
+    for (let i = 0; i < lines.length; i++) {
+        const fence = FENCE_PATTERN.exec(lines[i]);
+        if (!fence) continue;
+        const marker = fence[2];
+        const closer = new RegExp(`^\\s*\\${marker[0]}{${marker.length},}\\s*$`);
+        let k = i + 1;
+        while (k < lines.length && !closer.test(lines[k])) k++;
+        // An unclosed one is no note either, and the migration leaves it.
+        if (k < lines.length && fence[3].toLowerCase() === "annotation") {
             issues.push({
                 severity: "error",
-                message: `${where} is not valid YAML at line ${note.line + problem.line}: ${problem.message}`,
+                message:
+                    `has an \`annotation\` fence at line ${i + 1} — ` +
+                    movedToTooling("a review note is a comment thread in the host that keeps the chapter's workflow state, through `devbook.decision@1`"),
             });
         }
-
-        if (!note.chapter) {
-            issues.push({
-                severity: "error",
-                message: `${where} sits before the first heading — an annotation lives inside an addressable chapter.`,
-            });
-        }
-
-        for (const field of ANNOTATION_REQUIRED_FIELDS) {
-            const value = fields[field];
-            if (value == null || (typeof value === "string" && value.trim() === "")) {
-                issues.push({
-                    severity: "error",
-                    message: `${where} is missing required \`${field}\`.`,
-                });
-            }
-        }
-
-        if (fields.kind != null && !ANNOTATION_KINDS.includes(fields.kind)) {
-            issues.push({
-                severity: "error",
-                message: `${where} has kind "${fields.kind}", expected one of: ${ANNOTATION_KINDS.join(", ")}.`,
-            });
-        }
-
-        if (fields.status != null && !ANNOTATION_STATUSES.includes(fields.status)) {
-            issues.push({
-                severity: "error",
-                message: `${where} has status "${fields.status}", expected one of: ${ANNOTATION_STATUSES.join(", ")}.`,
-            });
-        }
-
-        if (typeof fields.date === "string" && !ISO_DATE_PATTERN.test(fields.date)) {
-            issues.push({
-                severity: "error",
-                message: `${where} has date "${fields.date}" — an annotation date is \`YYYY-MM-DD\`.`,
-            });
-        }
-
-        if (fields.quote != null) {
-            const passage = note.attachedTo?.kind === "text" ? note.attachedTo.text : "";
-            const normalize = (text) => String(text).replace(/\s+/g, " ").trim();
-            if (!normalize(passage).includes(normalize(fields.quote))) {
-                issues.push({
-                    severity: "warning",
-                    message: `${where} quotes "${fields.quote}", which matches nothing in the block above it — the passage may have moved out from under the note.`,
-                });
-            }
-        }
-
-        if (fields.replies != null) {
-            if (!Array.isArray(fields.replies)) {
-                issues.push({
-                    severity: "error",
-                    message: `${where} has \`replies\` that is not a list — one fence is one thread, and its replies are an ordered list of {author, date, body}.`,
-                });
-            } else {
-                fields.replies.forEach((reply, index) => {
-                    if (typeof reply !== "object" || reply === null || Array.isArray(reply)) {
-                        issues.push({
-                            severity: "error",
-                            message: `${where} reply ${index + 1} is not a mapping of {author, date, body}.`,
-                        });
-                        return;
-                    }
-                    for (const field of ANNOTATION_REPLY_FIELDS) {
-                        if (reply[field] == null || String(reply[field]).trim() === "") {
-                            issues.push({
-                                severity: "error",
-                                message: `${where} reply ${index + 1} is missing required \`${field}\`.`,
-                            });
-                        }
-                    }
-                    for (const key of Object.keys(reply)) {
-                        if (!ANNOTATION_REPLY_FIELDS.includes(key)) {
-                            issues.push({
-                                severity: "warning",
-                                message: `${where} reply ${index + 1} has unrecognized field \`${key}\`.`,
-                            });
-                        }
-                    }
-                });
-            }
-        }
-
-        // Opaque by contract: L0 checks that `ext` is a mapping of namespaces
-        // and then never looks inside one. That is the whole reason an
-        // extension can add a field and ship on its own release cadence.
-        if (fields.ext != null) {
-            const isMapping =
-                typeof fields.ext === "object" &&
-                !Array.isArray(fields.ext) &&
-                fields.ext !== null;
-            if (!isMapping) {
-                issues.push({
-                    severity: "error",
-                    message: `${where} has \`ext\` that is not a mapping of namespaces.`,
-                });
-            }
-        }
-
-        for (const key of Object.keys(fields)) {
-            if (!ANNOTATION_FIELDS.includes(key)) {
-                issues.push({
-                    severity: "warning",
-                    message: `${where} has unrecognized field \`${key}\` — the core set is closed, and extension state goes under \`ext.<namespace>\`.`,
-                });
-            }
-        }
+        i = k;
     }
     return issues;
 }

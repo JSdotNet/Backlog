@@ -1,7 +1,6 @@
 # Brain
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -40,7 +39,6 @@ Outside it:
 ## Brain folder
 
 ```meta
-status: draft
 type: setting
 key: brain.settings.json
 scope: user
@@ -85,7 +83,6 @@ behind.
 ## Lobes atlas
 
 ```meta
-status: draft
 type: feature-flag
 key: atlas-lobes
 default: off

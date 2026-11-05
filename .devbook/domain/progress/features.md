@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -16,7 +15,6 @@ the stand-up. Why goals and impediments are the model is local
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
 ```
@@ -66,7 +64,6 @@ it, and whenever goals, impediments or the iteration setting change elsewhere.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal]
 ```
 
@@ -82,7 +79,6 @@ changes. Goals are set on the desktop only.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
 
@@ -118,7 +114,6 @@ Attaching changes nothing on the task, the plan, the pull request or the session
 
 ```meta
 type: feature
-status: draft
 setting: [.devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
 related: [.devbook/domain/progress/domain.md#iteration, .devbook/domain/progress/requirements.md#choosing-the-iteration]
 ```
@@ -135,7 +130,6 @@ length covers.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/domain.md#stand-up, .devbook/domain/progress/domain.md#planned, .devbook/domain/progress/domain.md#pace, .devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
@@ -183,7 +177,6 @@ phone's, through Progress, and the stand-up is read again.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
@@ -197,7 +190,6 @@ from the reading; none is written by a model. Copying is a desktop action. Forma
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
@@ -234,7 +226,6 @@ impediment, even while the impediment reads ready to resolve.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
@@ -251,7 +242,6 @@ impediment on the person's behalf.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
@@ -275,7 +265,6 @@ back by several impediments, and may belong to a goal as well.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
@@ -293,7 +282,6 @@ impediment that holds back nothing never reads ready to resolve.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
@@ -314,7 +302,6 @@ An agent names a pull request by its repository and number, and a plan by its ta
 
 ```meta
 type: sub-feature
-status: deprecated
 related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
@@ -331,7 +318,6 @@ ready to resolve once that task is settled.
 
 ```meta
 type: feature
-status: proposed
 related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
@@ -354,7 +340,6 @@ the owner of what they draw changed.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
@@ -387,7 +372,6 @@ newer copy of the impediment reaches the phone without it, the phone shows that 
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/progress/requirements.md#syncing-goals-and-impediments]
 ```

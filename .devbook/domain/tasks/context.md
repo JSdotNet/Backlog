@@ -1,7 +1,6 @@
 # Tasks
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -21,7 +20,6 @@ answers; and the knowledge a task links to, which
 ## Task backlog
 
 ```meta
-status: draft
 type: feature-flag
 key: backlog
 default: on
@@ -33,7 +31,6 @@ Create, edit, filter, reorder, and store tasks. It is always enabled, and the ca
 ## GitHub integration
 
 ```meta
-status: draft
 type: feature-flag
 key: github-integration
 default: on
@@ -45,7 +42,6 @@ Turning it on offers GitHub access in settings, pushing an entry to an issue, an
 ## Copilot CLI
 
 ```meta
-status: draft
 type: feature-flag
 key: copilot-cli
 default: on
@@ -57,7 +53,6 @@ Turning it on offers to start GitHub Copilot CLI from an entry, and from a devbo
 ## AI assistant
 
 ```meta
-status: draft
 type: feature-flag
 key: ai-assistant
 default: on
@@ -69,7 +64,6 @@ Turning it on shows the assistant panel in the app chrome, which answers questio
 ## Clear My Day overnight
 
 ```meta
-status: draft
 type: setting
 key: my-day-preferences.json
 scope: user

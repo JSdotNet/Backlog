@@ -1,7 +1,6 @@
 # ADR 0017: HTTP error contract and Problem Details
 
 ```meta
-status: proposed
 related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md"]
 ```
 

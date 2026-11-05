@@ -67,7 +67,7 @@ public sealed class DevbookStatusRetirementTests : IDisposable
 
         await ai.UpdateStatusAsync("backlog", ".ai/01-author.md", "adopted", TestContext.Current.CancellationToken);
 
-        Assert.Contains("status: adopted", File.ReadAllText(file), StringComparison.Ordinal);
+        Assert.Contains("rating: adopted", File.ReadAllText(file), StringComparison.Ordinal);
     }
 
     public void Dispose()

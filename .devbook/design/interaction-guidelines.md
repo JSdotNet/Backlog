@@ -647,7 +647,6 @@ is the pressed state's to say, not the shape's.
 ## Combobox
 
 ```meta
-status: draft
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
 ```
 

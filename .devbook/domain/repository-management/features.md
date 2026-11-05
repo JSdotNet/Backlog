@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 ```
 
 Register the repositories the product works with:
@@ -27,7 +25,6 @@ Register the repositories the product works with:
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/repository-management/context.md#additional-repositories
 related: [.devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
@@ -53,7 +50,6 @@ time, and a repository just registered opens there, ready to be set up. An
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions]
 ```
 
@@ -119,7 +115,6 @@ remembered for the same reason, in a [Removal Record](domain.md#removal-record).
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/repository-management/domain.md#archived-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 ```
 
@@ -157,7 +152,6 @@ records why the repository stays in the registry rather than being removed.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/roadmap/features.md#telling-one-project-from-another-at-a-glance]
 ```
 
@@ -190,7 +184,6 @@ placement rather than leaving it colourless.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
@@ -210,7 +203,6 @@ showing nothing.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
 ```
 
@@ -225,7 +217,6 @@ Keep track of each repository's dependencies:
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
 related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
@@ -238,7 +229,6 @@ repository with technologies of their own.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Read each repository's GitHub side:
@@ -263,7 +253,6 @@ what it is waiting on.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
@@ -278,7 +267,6 @@ backlog folder, so the backlog itself stays safe to sync or commit.
 
 ```meta
 type: feature
-status: proposed
 related: [.devbook/domain/repository-management/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/domain/progress/features.md#pull-request-status, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
@@ -330,7 +318,6 @@ read again for another.
 
 ```meta
 type: feature
-status: proposed
 feature-flag: .devbook/domain/repository-management/context.md#pull-requests
 related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestLabelFilterTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
@@ -517,21 +504,34 @@ on the reader's behalf that the pane could neither show nor stop.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/repository-management/features.md#package-and-dependency-tracking, .devbook/domain/repository-management/features.md#github-integration]
 related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
+```
+
+**Health scoring flow**
+
+```mermaid
+flowchart TD
+    Scan["Repository Scan"] --> Packages["Package freshness"]
+    Scan --> GitHub["GitHub metrics"]
+    Scan --> Coverage["Test coverage"]
+    Scan --> Security["Security alerts"]
+    Packages --> Score["HealthScore (0-100)"]
+    GitHub --> Score
+    Coverage --> Score
+    Security --> Score
+    Score --> Action["Recommendations to Monitoring / Tasks"]
 ```
 
 Compute a health score from package freshness, the GitHub issue and pull request
 backlog, test coverage, and security alerts. Low-health repositories surface on
 their own, each with actionable recommendations
-([Health scoring flow](flow.md#health-scoring-flow)).
+([Health scoring flow](features.md#repository-health-scoring)).
 
 ## Technology trend analysis
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
@@ -543,7 +543,6 @@ and tracks how new libraries and frameworks are adopted.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/repository-management/features.md#repository-health-scoring]
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```

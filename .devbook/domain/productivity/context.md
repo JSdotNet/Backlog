@@ -1,7 +1,6 @@
 # Productivity
 
 ```meta
-status: draft
 type: context
 ```
 
@@ -23,7 +22,6 @@ answer; agent session facts, which
 ## Working week
 
 ```meta
-status: draft
 type: setting
 key: working-hours.json
 scope: user
@@ -110,7 +108,6 @@ alone, and the device's next change writes the key.
 ## Weekly usage reset
 
 ```meta
-status: draft
 type: setting
 key: usage-reset.json
 scope: user
@@ -202,7 +199,6 @@ vocabulary offers: the same reader on a second machine starts with no budgets.
 ## AI usage metrics
 
 ```meta
-status: draft
 type: feature-flag
 key: usage-metrics
 default: off
@@ -222,7 +218,6 @@ switch, decide whether it runs.
 ## Dashboard
 
 ```meta
-status: draft
 type: feature-flag
 key: dashboard
 default: on

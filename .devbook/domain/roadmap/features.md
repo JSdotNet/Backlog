@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
@@ -26,7 +24,6 @@ keeps everything else is a plan they will lose.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/requirements.md#planning-work-that-has-no-task-yet]
 ```
 
@@ -51,7 +48,6 @@ the item holds to is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
@@ -64,7 +60,6 @@ link is optional in both directions and may dangle without breaking the plan.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#milestone]
 ```
 
@@ -79,7 +74,6 @@ repository's band: a release is a fact about the plan, not about one project.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#milestone]
 ```
 
@@ -96,7 +90,6 @@ claimed it would be a plan of lines.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan, .devbook/domain/tasks/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#device, .devbook/domain/roadmap/context.md#story-points-a-week]
 ```
@@ -126,7 +119,6 @@ part of the plan and do not travel.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/requirements.md#carrying-the-pace-with-the-person]
 ```
 
@@ -155,7 +147,6 @@ writes one. What travels, and how, is in
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 ```
@@ -193,10 +184,34 @@ A new item, or one without a tag, has no copy button.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
+
+**Gathering an item's work and totalling its effort**
+
+```mermaid
+flowchart TD
+    Item["Roadmap Item<br/>(tag, task_id, knowledge_refs)"]
+    Item --> Named["By name:<br/>the named task + listed knowledge_refs"]
+    Item --> Tagged["By tag:<br/>tasks filed under the tag + chapters whose roadmap list names it"]
+    Tasks["Tasks<br/>(supplier)"] -.-> Tagged
+    Tasks -.-> Named
+    Devbook["Devbook<br/>(supplier)"] -.-> Tagged
+    Devbook -.-> Named
+    Named --> Dedup["Merge: reached both ways is counted once,<br/>and recorded as reached both ways"]
+    Tagged --> Dedup
+    Dedup --> Total["Total registered effort:<br/>sum of registered story points only"]
+    Dedup --> Unestimated["Count of gathered things that registered no estimate"]
+    Total --> Report["Reported together, side by side"]
+    Unestimated --> Report
+```
+
+The rules behind each box are in
+[Roadmap Item Gathering](domain.md#roadmap-item-gathering) and
+[its invariants](domain.invariants.md#roadmap-item-gathering). Gathering happens
+on the **read** path only and
+[writes nothing back](domain.invariants.md#invariant-gathering-never-writes).
 
 Read, for one planned item, everything that belongs to it and what it all adds up
 to in story points. An item on the plan then shows the size of the work behind it
@@ -218,7 +233,6 @@ mistaken for a small pile of work.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#planning-priority]
 ```
@@ -233,10 +247,37 @@ issues.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#dependency, .devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
+
+**Dependency validation flow**
+
+```mermaid
+flowchart TD
+    Add["Add dependency: node waits on target"] --> Exists{"Target exists<br/>in this plan?"}
+    Exists -- no --> RejectMissing["Rejected: unknown node"]
+    Exists -- yes --> Self{"Target is the<br/>node itself?"}
+    Self -- yes --> RejectSelf["Rejected: cannot wait on itself"]
+    Self -- no --> Cycle{"Would it close<br/>a cycle?"}
+    Cycle -- yes --> RejectCycle["Rejected: plan left untouched"]
+    Cycle -- no --> Accept["Accepted and stored"]
+    Accept --> Contradiction{"Does the successor open<br/>before the predecessor closes?"}
+    Contradiction -- yes --> Report["Reported as a contradiction<br/>drawn as a doubling-back arrow"]
+    Contradiction -- no --> Clean["Drawn as a plain arrow"]
+```
+
+- The three rejections are refusals to store, not warnings: an
+  [unknown node](domain.invariants.md#invariant-a-dependency-names-a-node-in-the-plan),
+  [a node waiting for itself](domain.invariants.md#invariant-nothing-waits-for-itself)
+  and [a cycle](domain.invariants.md#invariant-a-cycle-is-refused).
+- The contradiction check is the opposite:
+  [it never refuses anything](domain.invariants.md#invariant-a-contradiction-is-reported-never-corrected).
+  Dates that do not fit are a normal, temporary state of a plan being worked out.
+  The arrow that has to double back through the gutter is how the reader sees it.
+- Cycle detection walks the whole graph reachable from the target. It is an
+  invariant of the plan rather than of a node, which is why it is checked on the
+  root before the edge is accepted.
 
 Record what has to land before what, between any two things in the plan: item to
 item, item to milestone, milestone to item. This is the capability that makes a
@@ -247,7 +288,6 @@ off the plan respects it.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Reject a dependency that would make something wait, however indirectly, on
@@ -258,7 +298,6 @@ not a plan with a mistake in it; there is no order it could be executed in.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
 
@@ -274,7 +313,6 @@ own rule applied again, not a date a person chose being overruled.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registration]
 ```
@@ -287,9 +325,37 @@ and still be read one project at a time.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
+
+**Reading the plan by repository**
+
+```mermaid
+flowchart LR
+    Plan["Roadmap Plan"] --> Items["Items and milestones"]
+    Items --> Scope["Repository Scope aliases"]
+    Scope --> Resolve["Repository Scope Resolution"]
+    Registry["Repository Registry<br/>(supplier)"] -.-> Resolve
+    Resolve --> Known["Band per configured repository"]
+    Resolve --> Unresolved["No-repository band:<br/>no alias, or alias no longer configured"]
+    Known --> Lanes["Planning lanes inside each band"]
+    Unresolved --> Lanes
+    Lanes --> Draw["Spans, milestones and dependency arrows placed by date"]
+```
+
+- Resolution happens on the **read** path only, and
+  [an alias that no longer resolves is kept](domain.invariants.md#invariant-an-unresolved-scope-alias-is-kept),
+  so a repository removed today and configured again tomorrow leaves the plan
+  exactly as it was.
+- An item naming several repositories is drawn in the [band](domain.md#band) of
+  each configured repository it names. Each band draws only that repository's
+  [part](domain.md#part) of the item, so the parts can carry different dates
+  ([Placing a plan in time](features.md#placing-a-plan-in-time)). Only the item's
+  one window is stored.
+- Dragging any part moves the whole item, because a part has no dates of its own
+  to keep. The move is a [hand move](domain.md#roadmap-item), so the item is no
+  longer placed by its effort, and every part then draws over its one moved
+  window.
 
 Group the plan into one [band](domain.md#band) per repository, with the person's
 own lanes inside each. Work that names several repositories is drawn in the band
@@ -315,7 +381,6 @@ band is drawn is set by
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
@@ -328,11 +393,50 @@ not this case, because the registry still holds it.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#repository-scoped-planning]
-related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/domain/roadmap/requirements.md#reading-and-rescheduling-on-a-timeline]
+related: [.devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/domain/roadmap/requirements.md#reading-and-rescheduling-on-a-timeline]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
 ```
+
+**Rescheduling flow**
+
+A reschedule starts as a *proposal*, not a change. The view that draws the plan
+never edits it. It reports where something was dropped, the plan decides whether
+that placement stands, and the view redraws from what it gets back. Nothing is
+persisted until the plan has accepted it.
+
+```mermaid
+sequenceDiagram
+    participant Reader
+    participant View as Timeline view
+    participant Plan as Roadmap Plan
+    participant Store as Plan storage
+    participant Monitor as Monitoring
+
+    Reader->>View: drag a span, or move it with the keyboard
+    View->>View: snap to the week, preview at the target placement
+    Reader->>View: drop
+    View->>Plan: propose PlannedWindow (and lane, if it moved)
+    Plan->>Plan: validate the window (end >= start, both inclusive)
+    alt window is valid
+        Plan->>Store: persist the whole plan atomically
+        Plan-->>Monitor: RoadmapItemScheduled (with the previous window)
+        Plan-->>View: accepted plan
+        View->>Reader: redraw from the accepted plan
+    else window is not valid
+        Plan-->>View: rejected, with the reason
+        View->>Reader: put it back, and say why
+    end
+```
+
+- [A drop that moves nothing proposes nothing](requirements.md#requirement-a-drop-that-moves-nothing-proposes-nothing).
+  Picking something up and putting it down must not rewrite a plan the reader
+  only wanted to look at.
+- [A reschedule leaves the dependencies alone](domain.invariants.md#invariant-a-reschedule-leaves-the-dependencies-alone),
+  and dependent work is not dragged along. The plan is allowed to contradict
+  itself, and that contradiction is the reader's cue (see below).
+- The event carries the previous window, so a consumer can tell a first plan from
+  a change without keeping its own history.
 
 See the whole plan against time, with its bands, lanes, spans, milestones and the
 arrows between them, and change when something happens by moving it. A reschedule
@@ -353,7 +457,6 @@ view switch reopens as the roadmap view.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Every move and resize can be made from the keyboard, and each step is announced.
@@ -364,7 +467,6 @@ can edit.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
@@ -414,7 +516,6 @@ heads promise is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
@@ -436,7 +537,6 @@ press promises is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
@@ -464,7 +564,6 @@ dialog promises is in
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/requirements.md#looking-back-at-finished-plans]
 ```
 
@@ -497,7 +596,6 @@ Hours switch does, because what is shown of the plan is not part of the plan.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/requirements.md#forecasting-work-in-flight, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
@@ -564,7 +662,6 @@ by its effort stores the window its parts make, as
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/repository-management/features.md#repository-identity-colour]
 ```
 
@@ -593,7 +690,6 @@ is one.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/roadmap/features.md#dependency-planning]
 ```
@@ -614,7 +710,6 @@ an item saved with none lands in the band for work under no repository.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/roadmap/features.md#refusing-a-circular-plan]
 ```
 
@@ -628,7 +723,6 @@ the thing being looked at.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 An edit that cannot stand, such as one with no title or with dates that do not
@@ -639,7 +733,6 @@ edited. A form that closed on a refusal would look exactly like one that saved.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
 related: [.devbook/domain/roadmap/domain.md#roadmapitemscheduled, .devbook/domain/monitoring/features.md]
 ```
@@ -686,7 +779,6 @@ chapter says what the feature does, not why the rulings fell the way they did.
 
 ```meta
 type: sub-feature
-status: draft
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/roadmap/domain.md#dependency, .devbook/domain/roadmap/features.md#reading-the-plan-by-repository, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/requirements.md#placing-a-plan-in-time]
 ```
@@ -916,7 +1008,6 @@ import does not move it.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
 related: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
@@ -1003,7 +1094,6 @@ built:
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration]
 ```
 
@@ -1022,7 +1112,6 @@ would read as small precisely when it is least understood.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
 

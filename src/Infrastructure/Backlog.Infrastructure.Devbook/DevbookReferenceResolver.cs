@@ -648,8 +648,14 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
         public static Heading FromHeadingRow(DevbookChapterHeadingRow row) => new(row.Level, row.Title ?? row.Slug, row.Slug, row.Status);
 
+        // A tech/ or ai/ block's `rating` (devbook contract 38), else a legacy
+        // `status` — what the builder writes into the status column.
         public static Heading FromParsed(DevbookParsedChapter chapter) =>
-            new(chapter.Level, chapter.Text, chapter.Slug, chapter.Meta?.GetValueOrDefault("status") as string);
+            new(
+                chapter.Level,
+                chapter.Text,
+                chapter.Slug,
+                (chapter.Meta?.GetValueOrDefault("rating") as string) ?? (chapter.Meta?.GetValueOrDefault("status") as string));
     }
 
     /// <summary>What looking for a page found.</summary>

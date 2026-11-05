@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
@@ -25,7 +23,6 @@ Track what changed since the last review, per project and per repository:
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/monitoring/features.md#progress-tracking]
 ```
 
@@ -37,7 +34,6 @@ backlog counts.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Present layered dashboards across application health, backlog/GitHub progress,
@@ -47,7 +43,6 @@ queue health, and optional agent sessions.
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
 Show the application's performance metrics, such as errors, latency and
@@ -58,7 +53,6 @@ backlog status.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
@@ -69,7 +63,6 @@ flag mismatches (backlog done but issue open, or vice versa).
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/features.md#queue-health]
 ```
 
@@ -80,7 +73,6 @@ automation run status.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/sessions/features.md#session-inventory]
 ```
 
@@ -91,7 +83,6 @@ for every agent, linked to issues and tasks, and alert when one is `stalled`.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/repository-management/features.md#repository-health-scoring]
 ```
 
@@ -102,7 +93,6 @@ aggregate signals across them, and show an activity timeline per repository.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/capture/features.md#automation-capture]
 ```
 
@@ -113,7 +103,6 @@ alert on failed or missed runs, and display scan results and item counts.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Run Monitoring as a standalone team service with shared dashboards, configurable

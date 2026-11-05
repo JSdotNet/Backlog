@@ -101,6 +101,12 @@ test("the CLI prints each journey's signature and exits 1 on a path that is not 
         assert.equal(one.stdout.trim(), `${expected}  ${address}`);
         assert.equal(cli(address).stdout.trim(), `${expected}  ${address}`);
 
+        const subpage = sample.path.replace(/scenarios(?:\.[^./]+)?\.md$/, "scenarios.subject.page.md");
+        await writeFile(path.join(root, subpage), sample.markdown);
+        const sub = cli(subpage);
+        assert.equal(sub.status, 0, sub.stderr);
+        assert.equal(sub.stdout.trim(), `${await journeySignature(journeyOf(sample.markdown, subpage), root, ".devbook/scenarios")}  ${subpage}#${sample.journey}`);
+
         const mixed = cli(sample.path, ".devbook/domain/work/notes.md", `${sample.path}#nowhere`);
         assert.equal(mixed.status, 1);
         assert.match(mixed.stdout, new RegExp(expected));

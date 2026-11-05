@@ -160,7 +160,7 @@ async function main(argv) {
             continue;
         }
         if (!file.isScenarios) {
-            console.error(`${relPath}: not a scenarios file — journeys live in scenarios.md or scenarios.<name>.md in a bounded context`);
+            console.error(`${relPath}: not a scenarios file — journeys live in scenarios.md, scenarios.<name>.md, or scenarios.<name>.<page>.md in a bounded context`);
             failed = true;
             continue;
         }

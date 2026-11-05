@@ -1,7 +1,7 @@
 # Cloud Stack
 
 ```meta
-status: candidate
+rating: candidate
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
@@ -16,7 +16,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-vie
 ## ASP.NET Core Minimal APIs
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop", ".devbook/arc42/09-architecture-decisions.md"]
@@ -37,7 +37,7 @@ The HTTP surface of the cloud service.
 ## Microsoft.AspNetCore.Authentication.JwtBearer
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#aspnet-core"]
@@ -56,7 +56,7 @@ Validates the device token on every sync request.
 ## Microsoft.IdentityModel.JsonWebTokens
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "8.19.2"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -76,7 +76,7 @@ The token library the sync service issues its own device tokens with.
 ## Microsoft.AspNetCore.OpenApi
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/shared.md#aspnet-core"]
@@ -92,7 +92,7 @@ Generates the OpenAPI document for the sync API.
 ## Azure.Identity
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "1.21.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -112,7 +112,7 @@ Microsoft Entra token credentials.
 ## Azure Container Apps
 
 ```meta
-status: trial
+rating: trial
 type: platform
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#release", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
@@ -142,7 +142,7 @@ The compute host for the cloud service.
 ## Azure AI Foundry
 
 ```meta
-status: adopted
+rating: adopted
 type: service
 related: [".devbook/tech/tooling.md#bicep", ".devbook/tech/tooling.md#azure-cli", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 alternatives: ["Anthropic API directly", "local models"]
@@ -171,7 +171,7 @@ The managed model endpoint the product's own AI features call.
 ## Azure Cosmos DB
 
 ```meta
-status: trial
+rating: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
@@ -214,7 +214,7 @@ account, one database, and the containers below.
 ## Azure Blob Storage
 
 ```meta
-status: trial
+rating: trial
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/cloud.md#azure-cosmos-db"]
@@ -236,7 +236,7 @@ The attachment store beside the Cosmos replica (local ADR 0014).
 ## Azure Key Vault
 
 ```meta
-status: trial
+rating: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md"]
 ```
@@ -255,7 +255,7 @@ The secret store for the cloud service.
 ## Azure Monitor
 
 ```meta
-status: trial
+rating: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Aspire dashboard only"]
@@ -285,7 +285,7 @@ a workspace-based Application Insights resource over it.
 ## Azure Web PubSub
 
 ```meta
-status: candidate
+rating: candidate
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/05-building-block-view.md#cloud-service"]
@@ -314,7 +314,7 @@ The realtime channel to the desktops (local ADR 0039).
 ## Azure Notification Hubs
 
 ```meta
-status: candidate
+rating: candidate
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
 related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/tech/mobile.md#android"]
@@ -345,7 +345,7 @@ ADR 0039).
 ## Firebase Cloud Messaging
 
 ```meta
-status: candidate
+rating: candidate
 type: service
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```

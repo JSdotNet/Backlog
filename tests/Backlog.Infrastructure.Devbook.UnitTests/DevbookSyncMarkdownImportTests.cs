@@ -97,27 +97,17 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
     }
 
     /// <summary>
-    /// This repository's own <c>domain/</c> folder, imported and resolved: what
-    /// <c>units.mjs</c> answers for it while its <c>inbox/context.md</c> states
-    /// <c>pull</c> and its <c>sessions/context.md</c> <c>push</c>.
+    /// This repository's own <c>domain/</c> folder states no direction any more:
+    /// devbook contract 38's <c>038-workflow-state-leaves-the-chapter</c> deleted
+    /// every <c>sync</c> field once the one-time import had moved the directions
+    /// into the app's store, so the import finds nothing to bring over.
     /// </summary>
     [Fact]
-    public void This_repositorys_domain_resolves_as_units_mjs_does()
+    public void This_repositorys_domain_has_no_direction_left_to_import()
     {
         var domain = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "domain");
-        var map = DevbookSyncMarkdownImport.Read(domain, DevbookFolder.Domain)
-            .ToDictionary(entry => entry.Address, entry => entry.Direction, StringComparer.Ordinal);
 
-        Assert.Equal("pull", map["domain/inbox/context.md"]);
-        Assert.Equal("push", map["domain/sessions/context.md"]);
-
-        Assert.Equal(
-            new DevbookSyncDirection("pull", DevbookSyncLevel.Context, "domain/inbox/context.md"),
-            DevbookSync.ResolveUnit(".devbook/domain/inbox/domain.md#inbox-item", map.GetValueOrDefault));
-        Assert.Equal(
-            new DevbookSyncDirection("push", DevbookSyncLevel.Context, "domain/sessions/context.md"),
-            DevbookSync.ResolveUnit(".devbook/domain/sessions#shared-types", map.GetValueOrDefault));
-        Assert.True(DevbookSync.ResolveUnit(".devbook/domain/capture#shared-types", map.GetValueOrDefault).IsDefault);
+        Assert.Empty(DevbookSyncMarkdownImport.Read(domain, DevbookFolder.Domain));
     }
 
     public void Dispose()

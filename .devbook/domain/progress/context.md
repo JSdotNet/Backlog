@@ -1,7 +1,6 @@
 # Progress
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -53,7 +52,6 @@ the In progress view it kept for a person who had it off
 ## Iteration length
 
 ```meta
-status: draft
 type: setting
 key: goals.iteration-length
 scope: user
@@ -70,7 +68,6 @@ every device. It also sets the length whose last four iterations a
 ## Two-week start
 
 ```meta
-status: draft
 type: setting
 key: goals.iteration-anchor
 scope: user

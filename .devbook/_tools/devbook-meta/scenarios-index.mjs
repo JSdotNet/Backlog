@@ -15,11 +15,12 @@
 // them. The same reasoning as `naming.json`, per the checks-and-indexes
 // decision in the repository's devbook. Version 2 lists journeys, keyed by
 // their address `<scenarios file>#<journey>`, where version 1 listed pages by
-// stem.
+// stem. Version 3 drops a journey's `status`: since contract 38 a merged
+// journey is in force and carries none.
 
 import { REPO_SCOPE, DEVBOOK_ROOT, generatorPath } from "./graph.mjs";
 
-export const SCENARIOS_SCHEMA_VERSION = 2;
+export const SCENARIOS_SCHEMA_VERSION = 3;
 
 /**
  * Build the serializable scenario register for one scope, following the

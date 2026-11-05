@@ -1,7 +1,7 @@
 # Mobile Stack
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
@@ -11,7 +11,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strat
 ## Android
 
 ```meta
-status: adopted
+rating: adopted
 type: platform
 related: [".devbook/tech/cloud.md#firebase-cloud-messaging", ".devbook/tech/shared.md#net-maui"]
 ```
@@ -32,7 +32,7 @@ because the desktop channel uses the same framework
 ## Local Offline Store
 
 ```meta
-status: adopted
+rating: adopted
 type: library
 depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#microsoftdatasqlite", ".devbook/tech/shared.md#json"]
 related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/desktop.md#local-task-store"]
@@ -54,7 +54,7 @@ own tables.
 ## SkiaSharp
 
 ```meta
-status: adopted
+rating: adopted
 type: library
 version: "4.152.1"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -77,7 +77,7 @@ enter the outbox. It serves the Notes editor and the capture sheet's photo.
 ## Xamarin.Firebase.Messaging
 
 ```meta
-status: candidate
+rating: candidate
 type: library
 version: "125.1.3"
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
@@ -107,7 +107,7 @@ Android push through (local ADR 0039).
 ## Android SDK Build Tools
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#java-jdk"]
 related: [".devbook/tech/mobile.md#apk-packaging"]
@@ -125,7 +125,7 @@ The Android toolchain the MAUI Android head builds and signs through.
 ## Java JDK
 
 ```meta
-status: adopted
+rating: adopted
 type: runtime
 ```
 
@@ -139,7 +139,7 @@ The runtime the Android toolchain itself needs.
 ## APK Packaging
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#android-sdk-build-tools"]
 related: [".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/07-deployment-view.md#release", ".devbook/arc42/05-building-block-view.md#mobile-app"]

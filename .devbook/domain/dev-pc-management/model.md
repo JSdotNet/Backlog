@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,
@@ -97,7 +96,7 @@ classDiagram
   Compliance is computed against it, not against a live foreign aggregate.
 - Queued and executed updates are deliberately split
   (`PendingUpdate` → `UpdateRecord`), as the
-  [Tool update lifecycle](flow.md#tool-update-lifecycle) shows.
+  [Tool update lifecycle](features.md#remote-tool-updates) shows.
 - Sessions are not on this diagram ([context](context.md)).
   [Sessions](../sessions/model.md) models them per environment rather than per
   machine.

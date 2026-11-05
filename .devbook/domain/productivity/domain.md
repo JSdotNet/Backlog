@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -21,7 +20,6 @@ time saved, flow, and outcomes; it does not own task work, agent sessions
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/productivity/domain.invariants.md#productivity-ledger]
 aliases: [ProductivityLedger]
 ```
@@ -35,7 +33,6 @@ rather than edited in place. The rules the ledger holds are in
 
 ```meta
 type: entity
-status: draft
 aliases: [ProductivityEntry, productivity_entry_id]
 ```
 
@@ -47,7 +44,6 @@ if any, and what outcome was produced.
 
 ```meta
 type: value-object
-status: draft
 aliases: [WorkSubjectRef, subject_ref]
 ```
 
@@ -59,7 +55,6 @@ and `subject_id`. An entry may carry one, and need not.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 A derived measurement such as AI-assisted tasks completed, estimated time saved,
@@ -70,7 +65,6 @@ entries and never become the source of truth.
 
 ```meta
 type: enum
-status: draft
 aliases: [ActivityKind]
 ```
 
@@ -82,7 +76,6 @@ The type of productivity activity being measured: `planning`, `coding`,
 
 ```meta
 type: enum
-status: draft
 ```
 
 The AI-assisted channel used for the activity, such as Copilot CLI, GitHub
@@ -93,7 +86,6 @@ configurable because tools change faster than the domain concept.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/productivity/domain.md#productivity-ledger]
 ```
 
@@ -109,7 +101,6 @@ a report.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/productivity/domain.md#productivity-ledger]
 ```
 
@@ -141,7 +132,6 @@ Ledger.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -160,7 +150,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [AI productivity, AI-assisted productivity]
 related: [.devbook/domain/productivity/features.md#ai-productivity-tracking]
 ```
@@ -172,7 +161,6 @@ person's outcomes.
 
 ```meta
 type: term
-status: draft
 aliases: [office hours, inside office hours, outside office hours]
 related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/requirements.md#hours-worked]
 ```
@@ -198,7 +186,6 @@ its overrides together, not the hours of one date.
 
 ```meta
 type: term
-status: draft
 aliases: [spend provider, SpendProvider]
 related: [.devbook/domain/productivity/context.md#monthly-spend-budget, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
 ```

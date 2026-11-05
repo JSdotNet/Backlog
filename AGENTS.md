@@ -17,14 +17,14 @@ task-scoped context, never baseline context: load the chapters a task names, wal
 | `.devbook/ai/` | How the team works with AI, stage by stage; it records a way of working and never instructs one | `devbook-ai.md` |
 
 Every chapter carries a fenced `meta` block; write it in the same change as the content,
-per `devbook-chapter-metadata.md`. Skip `annotation` fences when loading a
-chapter as context: they hold review notes, not content.
+per `devbook-chapter-metadata.md`.
 
 Run the check before committing; it writes nothing:
 
     node .devbook/_tools/devbook-meta/build.mjs --check
 
-An annotation fence is written only through `.devbook/_tools/devbook-meta/annotations.mjs`.
+A review note is never written into a chapter: it is a comment thread in the host, posted
+through `devbook:chapter-review`.
 
 Nothing personal lives in this repository. Your own settings live under your devbook
 config directory — `$XDG_CONFIG_HOME/devbook` when set, else `%APPDATA%\devbook` on

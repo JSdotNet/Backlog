@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md]
 ```
 
@@ -16,7 +15,6 @@ hours a day and 42.5 a week. Friday 9 October 2026 is in week 41.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
 
@@ -32,7 +30,6 @@ read the roadmap on Monday 12 October.
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnOpenTaskLessItem_OffersToComplete_NeverToOpenInTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersToOpenThemInTasks_NamedForTheItem, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompletingFromTheEditor_StoresTheDay_AndDrawsTheBarDone]
 ```
 
@@ -61,7 +58,6 @@ The system SHALL offer Complete on a plan that no task carries and that is open,
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.OpenInTasksIsNotOfferedForAnItemNoTaskCarries, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.OpenInTasksIsOfferedForAnExistingItemWithATag_WhenTheShellCanOpenIt, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompleteRaisesTheItemsId_ForWorkNoTaskCarries, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.ReopenIsOfferedInsteadOfComplete_OnceTheWorkWasCompleted, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompleteIsNotOfferedForNewWork, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.ReopeningFromTheEditor_ClearsTheDay]
 ```
 
@@ -83,7 +79,6 @@ The system SHALL offer in a plan's editor Open in Tasks only while tasks carry t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ATaskLessItemCompletedByHand_IsDrawnFinished_WhereItWasPlanned_AndNeverOverdue, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ATaskLessItemCompletedByHand_IsDrawnFinished_WithoutAForecastToo]
 ```
 
@@ -100,7 +95,6 @@ The system SHALL draw a plan completed by hand over its planned window, locked a
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.TheKeepUpProjection_LeavesAnItemCompletedByHandWhereItWasPlanned
 ```
 
@@ -116,7 +110,6 @@ The system SHALL leave the window of a plan completed by hand as it is stored, e
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhatWaitsOnAnItemCompletedByHand_IsReleasedWhenItWasCompleted_NotWhenItsWindowEnds
 ```
 
@@ -132,7 +125,6 @@ The system SHALL end the wait of every item that depends on a plan completed by 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.A_task_less_item_completed_by_hand_crosses_as_finished_on_the_day_it_was_completed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.An_item_its_tasks_carry_crosses_by_its_tasks_whatever_day_was_set_by_hand]
 ```
@@ -155,7 +147,6 @@ The system SHALL report a plan completed by hand as Finished in the dashboard's 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person]
 ```
 
@@ -167,7 +158,6 @@ related: [.devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL carry the day overrides inside the working week of the synced pace document, under the working week's own change stamp, so the newer change to the working week wins together with its overrides.
@@ -188,7 +178,6 @@ The system SHALL carry the day overrides inside the working week of the synced p
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL read a working week that carries no overrides list as one with no day overrides.
@@ -203,7 +192,6 @@ The system SHALL read a working week that carries no overrides list as one with 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely]
 ```
 
@@ -215,7 +203,6 @@ related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw the head and column of every date that counts no hours, whether its weekday is not worked or the person blocked it, in the colours and hatching of a pattern weekend, and every other date as an ordinary head.
@@ -236,7 +223,6 @@ The system SHALL draw the head and column of every date that counts no hours, wh
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw a day head with the same border, fill and text it had before heads became toggles, so nothing but keyboard focus sets it apart from the original axis.
@@ -257,7 +243,6 @@ The system SHALL draw a day head with the same border, fill and text it had befo
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL put a small marker on the head of every date that carries a day override, and on no other head, without changing the look its worked or not-worked state gives it.
@@ -278,7 +263,6 @@ The system SHALL put a small marker on the head of every date that carries a day
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count as each week head's planned hours the sum of the working hours of its seven dates, day overrides included.
@@ -293,7 +277,6 @@ The system SHALL count as each week head's planned hours the sum of the working 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL put one Hours switch on the roadmap toolbar, on by default and remembered on the device without syncing, and SHALL show no hours on any head while it is off.
@@ -314,7 +297,6 @@ The system SHALL put one Hours switch on the roadmap toolbar, on by default and 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show on each day and week head that has begun, today and the current week included, its actual hours up to now alone, and on each head still to come its planned hours alone.
@@ -359,7 +341,6 @@ The system SHALL show on each day and week head that has begun, today and the cu
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count as a date's actual hours the time the person's working stretches cover on that date, over every session on every paired machine, counting overlapping time once.
@@ -428,7 +409,6 @@ The system SHALL count as a date's actual hours the time the person's working st
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL start or extend a working stretch only at a human turn.
@@ -455,7 +435,6 @@ The system SHALL start or extend a working stretch only at a human turn.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL let the person open, from the hours on a begun day or week head, the working days of that head's week with each day's total and the working stretches it adds up from.
@@ -476,7 +455,6 @@ The system SHALL let the person open, from the hours on a begun day or week head
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show no hours on a head that has begun when the actual hours cannot be read, because a planned figure there would read as hours worked.
@@ -491,7 +469,6 @@ The system SHALL show no hours on a head that has begun when the actual hours ca
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day]
 ```
 
@@ -502,7 +479,6 @@ related: [.devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL make each day column's head a button, pressed by pointer, Enter or Space, named "Block" with the date on a date that is worked and "Unblock" with the date on one that is not.
@@ -523,7 +499,6 @@ The system SHALL make each day column's head a button, pressed by pointer, Enter
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count no working hours on a date the person blocked.
@@ -538,7 +513,6 @@ The system SHALL count no working hours on a date the person blocked.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count on a date the person unblocked the hours from the start to the end its weekday stores in the weekly pattern.
@@ -553,7 +527,6 @@ The system SHALL count on a date the person unblocked the hours from the start t
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL remove a date's day override when a press makes the date match its weekday's pattern again.
@@ -568,7 +541,6 @@ The system SHALL remove a date's day override when a press makes the date match 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL let the person block or unblock a date that has passed as they would a date to come.
@@ -583,7 +555,6 @@ The system SHALL let the person block or unblock a date that has passed as they 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#setting-days-off-in-a-list]
 ```
 
@@ -594,7 +565,6 @@ related: [.devbook/domain/roadmap/features.md#setting-days-off-in-a-list]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL put a Days off button on the roadmap toolbar that opens the Days off dialog.
@@ -609,7 +579,6 @@ The system SHALL put a Days off button on the roadmap toolbar that opens the Day
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL list every day override in the Days off dialog with its date, its weekday and whether it is blocked or unblocked, the dates still to come first and soonest first, and the dates passed only after the person asks to show past.
@@ -630,7 +599,6 @@ The system SHALL list every day override in the Days off dialog with its date, i
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL block, for a range from one date to another added in the Days off dialog, every date in the range that the weekly pattern works, SHALL add no override for a date in it that the pattern leaves off, and SHALL remove an unblocked override inside the range, so every date in it is a day off.
@@ -657,7 +625,6 @@ The system SHALL block, for a range from one date to another added in the Days o
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL unblock a single date the person adds as worked in the Days off dialog when the weekly pattern leaves that date off, and SHALL add no override when the pattern already works it.
@@ -678,7 +645,6 @@ The system SHALL unblock a single date the person adds as worked in the Days off
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL remove a date's day override when the person removes its entry from the Days off dialog.
@@ -693,7 +659,6 @@ The system SHALL remove a date's day override when the person removes its entry 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL record each change made in the Days off dialog as the same day override a press on the date's head records, and SHALL lay the bars out again as soon as the change is made.
@@ -720,7 +685,6 @@ The system SHALL record each change made in the Days off dialog as the same day 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
 ```
 
@@ -731,7 +695,6 @@ related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.WithFinishedWorkHidden_AFinishedItemIsNotDrawn_NorTheArrowToIt, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandTests.TheCompletedSwitch_IsOnUntilTurnedOff_AndOffIsKeptOnThisDevice]
 ```
 
@@ -753,7 +716,6 @@ The system SHALL put one Completed switch on the roadmap toolbar beside the Hour
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#forecasting-work-in-flight]
 ```
 
@@ -764,7 +726,6 @@ related: [.devbook/domain/roadmap/features.md#forecasting-work-in-flight]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw a part whose counted tasks are all done in a done style that tells it apart from an unfinished part by more than its lock and its full fill.
@@ -797,7 +758,6 @@ plan is finished.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```
 
@@ -810,7 +770,6 @@ related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanAcrossRoadmapTests.A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemPartsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork]
 ```
 
@@ -852,7 +811,6 @@ scenario says so, and its window is still sized by its effort.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count a shared task in full in each of its bands that still holds open own tasks, else in the bands whose own work ended last, or in all its bands when none had own tasks.
@@ -884,7 +842,6 @@ plan waits on nothing.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count an effort-sized window forward over the working hours of each date, giving a blocked date none and an unblocked date its weekday's hours, and SHALL re-place the window as soon as a date is toggled.
@@ -905,7 +862,6 @@ The system SHALL count an effort-sized window forward over the working hours of 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL measure a pace as the points finished in its stretch, divided by the working hours that stretch holds with its day overrides, times the weekly pattern's total hours.
@@ -926,7 +882,6 @@ The system SHALL measure a pace as the points finished in its stretch, divided b
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.Opening_the_roadmap_stores_the_window_the_work_makes_from_today_and_draws_it, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.A_task_marked_done_stores_the_shorter_window, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnEffortPlacedItemLeftBehind_IsStoredFromToday_StillPlacedByEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.ATaskMarkedDone_PullsTheEndIn_ToWhatIsLeft, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByItsDueDate_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByHand_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.ADueDateOrAHandPlacedWindow_IsReadAsStored]
 ```
 
@@ -962,7 +917,6 @@ The scenarios use a pace of 7 points a week, and nothing in the plans has begun.
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.AWindowIsNeverShorterThanItsStartDay
 ```
 
@@ -978,7 +932,6 @@ The system SHALL give a plan sized by its effort, and each of its parts, a windo
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportedPlanPlacementTests.ADueDateEndsTheWindow_WhateverTheEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.ADueDateEndsTheWindow]
 ```
 
@@ -994,7 +947,6 @@ The system SHALL end a plan that states a due date on that date, without consult
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.An_untouched_store_reads_seven_points_a_week_and_writes_no_file, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_hand_edited_file_the_roadmap_could_not_divide_by_reads_as_the_default]
 ```
 
@@ -1016,7 +968,6 @@ The system SHALL read a pace that is unset, unreadable, not a number, or not pos
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPaceTests.A_pace_the_roadmap_could_not_divide_by_says_so_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_of_zero_or_less_is_refused_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_too_fine_to_write_down_is_refused_rather_than_rounded_away, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_that_is_not_a_number_is_refused_and_changes_nothing]
 ```
 
@@ -1043,7 +994,6 @@ The scenarios start from a pace of 4 points a week.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
 ```
 
@@ -1055,7 +1005,6 @@ related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-time
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.RoadmapTimelineTests.A_gesture_that_travelled_no_whole_week_reports_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.RoadmapTimelineTests.An_edge_that_clamps_back_to_where_it_started_reports_nothing]
 ```
 
@@ -1077,7 +1026,6 @@ The system SHALL propose no change to the plan when a bar is dropped on its own 
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/roadmap/requirements.md#planning-work-that-has-no-task-yet]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersToOpenThemInTasks_NamedForTheItem, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersNothing_WhereTheHostCannotShowTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnOpenTaskLessItem_OffersToComplete_NeverToOpenInTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ACompletedTaskLessItem_OffersNothingOnItsBar, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemInTwoBands_CarriesItsActionOnTheBarThatEndsLast_Only, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.EachItemSaysWhetherTasksCarryIt_AndWhetherItWasCompletedByHand, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_IsNotCompletedByHand_WhateverDayWasSet, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.EveryPartOfAnItemAnswersForTheItem, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.WithoutTheGatheredWork_NoItemSaysWhatItOffers]
 ```
@@ -1112,7 +1060,6 @@ The system SHALL show at the end of a plan's latest-ending bar, while that bar i
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OnceTasksCarryAnItemCompletedByHand_TheTasksWin_AndItsPassedWindowIsOverdue
 ```
 

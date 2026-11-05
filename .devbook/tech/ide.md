@@ -1,7 +1,7 @@
 # IDE Stack
 
 ```meta
-status: candidate
+rating: candidate
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
@@ -12,7 +12,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strat
 ## VS Code Extension API
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "^1.90.0"
 depends-on: [".devbook/tech/shared.md#typescript", ".devbook/tech/shared.md#nodejs"]
@@ -39,7 +39,7 @@ The extensibility model for the VS Code channel.
 ## VS Code Webview UI
 
 ```meta
-status: candidate
+rating: candidate
 type: framework
 depends-on: [".devbook/tech/ide.md#vs-code-extension-api"]
 alternatives: ["Native tree/quick-pick UI only"]
@@ -55,7 +55,7 @@ The HTML-based panel UI hosted inside the extension.
 ## Visual Studio Extensibility
 
 ```meta
-status: candidate
+rating: candidate
 type: framework
 depends-on: [".devbook/tech/shared.md#c-language"]
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices"]
@@ -71,7 +71,7 @@ The VSSDK-based extension model for the Visual Studio channel.
 ## WPF
 
 ```meta
-status: candidate
+rating: candidate
 type: framework
 depends-on: [".devbook/tech/ide.md#visual-studio-extensibility", ".devbook/tech/shared.md#net-runtime"]
 ```
