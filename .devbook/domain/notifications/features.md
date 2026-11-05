@@ -17,11 +17,12 @@ related: [.devbook/domain/notifications/requirements.md#publishing-a-notificatio
 
 A source on a desktop tells the person something with an alert, or asks them
 something with a question, through one port. The desktop that publishes becomes
-the notification's owner instance. A Claude session asking through the MCP `ask`
-tool is the first case: the tool returns the notification's id at once, and the
-agent polls `get_answer` for the answer, or withdraws its question with `close`
-once it no longer needs one. The MCP `notify` tool tells the person something the
-same way, with nothing to wait for. A session's own hooks ask through the same
+the notification's owner instance.
+
+A Claude session asking through the MCP `ask` tool is the first case. The tool
+returns the notification's id at once. The agent polls `get_answer` for the answer,
+or withdraws its question with `close`. The MCP `notify`
+tool tells the person something the same way, with nothing to wait for. A session's own hooks ask through the same
 tools with its questions in the dialog's shape, and the Sessions
 [Question Relay](../sessions/domain.md#question-relay) decides when those reach
 the person.
@@ -41,18 +42,20 @@ it.
 
 On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
 feed when it opens and when the app comes back to the front, and every 30 seconds
-while a reply made there waits for its owner. Each card shows the kind, the
-severity, the age, the owner desktop's name and whether it is online; an owner
-offline reads "delivers on wake". The detail draws the Markdown body, Mermaid
-included. A question takes choice buttons, checkboxes for multiple choice, or a
-plain-text answer, and the reply leaves through the device outbox as a
-`notification-reply` entry, so a reply made offline is kept. Once the owner's
-verdict syncs back the card reads "Answered from this phone", "Answered
-elsewhere" with the answer that won, or the owner's reason for rejecting it with
+while a reply made there waits for its owner. Each card shows:
+
+- the kind, the severity and the age;
+- the owner desktop's name;
+- whether it is online, an owner offline reading "delivers on wake".
+
+The detail draws the Markdown body, Mermaid included. A question takes choice
+buttons, checkboxes for multiple choice, or a plain-text answer. The reply leaves
+through the device outbox as a `notification-reply` entry, so a reply made offline
+is kept. Once the owner's verdict syncs back the card reads "Answered from this
+phone", "Answered elsewhere" with the answer that won, or the owner's reason for rejecting it with
 the controls back. A question that says `answerOn: owner` is read-only there.
 
-Each box that takes words can be dictated into instead of typed: the open answer,
-a choice's own words and the note. What was heard is added to that box for
+Each box that takes words (the open answer, a choice's own words, the note) can be dictated into instead of typed. What was heard is added to that box for
 the person to read, and nothing is sent until they press Send. One box listens at
 a time, and listening stops when the reply is sent or the person moves to another
 notification. Words past the box's length limit are left out, and the phone says
@@ -65,13 +68,14 @@ outbox, as a `notification-reply` entry. Another desktop sends one from its
 centre's Acknowledge. The alert leaves the stack of the device that dismissed it at
 once, and every other device's stack once the owner takes it. It stays in each
 device's list as settled, for as long as answered and closed notifications stay
-there, and reads "Acknowledged on this phone" or "Acknowledged elsewhere". Until
-the owner takes it, the list reads "Sending" while it is in the outbox, and
+there, and reads "Acknowledged on this phone" or "Acknowledged elsewhere".
+
+Until the owner takes it, the list reads "Sending" while it is in the outbox, and
 "delivers on wake" while the owner is offline. When the alert closes first, it
 reads Closed with its reason. When cloud sync refuses the acknowledgement, the
 alert comes back into the stack with the reason.
 
-The phone reads presence off the owner's own pushes: an owner desktop pushes each
+The phone reads presence off the owner's own pushes. An owner desktop pushes each
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
 
@@ -103,11 +107,20 @@ none. What the tray offers depends on the question:
 | Single choice, up to three choices | one action per choice |
 | Open answer only | an inline reply |
 | Choices with an open answer, up to two choices | the choices, then the inline reply |
-| Anything else: multiple choice, more choices than fit, a choice that takes text, `answerOn: owner`, an alert, a reply already on its way | no actions |
+| Anything else | no actions |
 
-The Personal Validation question offers four choices, Approve, Approve + follow-up,
-Revise and Reject, so the tray shows it with no actions. The person taps through to
-the app to answer it.
+Anything else covers:
+
+- multiple choice;
+- more choices than fit;
+- a choice that takes text;
+- `answerOn: owner`;
+- an alert;
+- a reply already on its way.
+
+The Personal Validation question offers Approve, Approve + follow-up,
+Revise and Reject. The tray shows it with no actions, and the person taps through to
+the app.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
 entry as a reply made in the app. A tap opens the notification in the app. A
@@ -161,29 +174,31 @@ id or by its plan and item. The follow-up is a task, never a session request:
 [only a click in the app requests a session](../sessions/requirements.md#requirement-only-a-click-in-the-app-requests-a-session),
 as §1 of local
 [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
-decides.
-An attended `execute-plan` reads the decision from the run, and runs the follow-up
+decides. An attended `execute-plan` reads the decision from the run, and runs the follow-up
 as a ready entry once the gated entry lands.
 
 spec-manager reaches the person the same way. While a desktop is signed in to an
 installation, the questions on its connected products that are assigned to the
-person, and the unassigned ones they may answer, arrive as questions: each option a
-choice, "Other" the open answer, and a note beside either. A product's "Only
-questions assigned to me" leaves the unassigned ones out. spec-manager also pushes
-each question to a phone subscribed to it, so that phone gets both pushes; the
-product's card says to switch off "Backlog question" in spec-manager's notification
-preferences on that phone to keep only Backlog's. The desktop follows
-spec-manager's notification stream and pulls on each change, every five minutes
-besides, and every two minutes while the stream is down. The answer goes back to
-spec-manager. If the product does not take answers from a connected app, or someone
-answered first, an alert says so. While the desktop is signed out, the answer
-waits, and the sign-in line asks the person to sign in. A question answered,
-deleted or reassigned away in spec-manager closes here; one answered while the
-app was closed closes at the next start with who answered and what. One that reaches the
-person again, reassigned back or let in again by turning "Only questions assigned
-to me" off, arrives as a new question. The desktop that held it asks it again,
-under an id every desktop that held the same earlier rounds derives alike; one
-answered never comes back.
+person, and the unassigned ones they may answer, arrive as questions. Each option
+is a choice, "Other" is the open answer, and a note may sit beside either. A
+product's "Only questions assigned to me" leaves the unassigned ones out.
+
+spec-manager also pushes each question to a phone subscribed to it, so that phone
+gets both pushes. The product's card says to switch off "Backlog question" in
+spec-manager's notification preferences on that phone to keep only Backlog's.
+
+The desktop follows spec-manager's notification stream and pulls on each change,
+every five minutes besides, and every two minutes while the stream is down. The
+answer goes back to spec-manager. If the product does not take answers from a
+connected app, or someone answered first, an alert says so. While the desktop is
+signed out, the answer waits, and the sign-in line asks the person to sign in.
+
+A question answered, deleted or reassigned away in spec-manager closes here. One
+answered while the app was closed closes at the next start with who answered and
+what. One that reaches the person again, reassigned back or let in again by turning
+"Only questions assigned to me" off, arrives as a new question. The desktop that
+held it asks it again, under an id every desktop that held the same earlier rounds
+derives alike. One answered never comes back.
 
 The person's other spec-manager notifications arrive as alerts on the same pulls:
 a mention, a reply, a change proposal's or an input item's fate, review work, and

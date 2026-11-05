@@ -7,7 +7,7 @@ deployment: module
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
-Tasks maintains a personal backlog of prompts, tasks, ideas, and tests across multiple projects and repos. It converts triaged
+Tasks maintains a personal backlog of prompts, tasks, ideas and tests across multiple projects and repos. It converts triaged
 [Inbox Items](../inbox/domain.md#inbox-item) into actionable,
 prioritized Tasks and projects them to external systems such as GitHub and the Copilot CLI.
 
@@ -16,6 +16,8 @@ Outside it: what arrives and how it is triaged, which the
 which order, which [Roadmap Planning](../roadmap/domain.md#roadmap-item)
 answers; and the knowledge a task links to, which
 [Brain](../brain/domain.md#knowledge-note) answers.
+
+The settings screen lists each feature flag below, except Task backlog, from the feature catalog in `AppFeatures.cs`. A person's choice is kept in `features.json` beside the app's other per-device choices.
 
 ## Task backlog
 
@@ -26,7 +28,7 @@ default: on
 related: [".devbook/domain/tasks/features.md#task-creation"]
 ```
 
-Create, edit, filter, reorder, and store tasks. It is always enabled, and the catalog offers no switch, because the app without it is not this app. It stays a chapter because the key is a persisted value. `"backlog"` is written into `features.json` and outlives this context's name, Tasks, so the key is never renamed and never retired.
+Create and edit tasks, filter and reorder them, and store them. It is always enabled, and the catalog offers no switch, because the app without it is not this app. It stays a chapter because the key is a persisted value. `"backlog"` is written into `features.json` and outlives this context's name, Tasks, so the key is never renamed and never retired.
 
 ## GitHub integration
 
@@ -37,7 +39,7 @@ default: on
 related: [".devbook/domain/tasks/features.md#issue-projection-and-state-read-back"]
 ```
 
-Turning it on offers GitHub access in settings, pushing an entry to an issue, and refreshing issue or pull request state. Turned off, the Tasks pane hides the actions that reach GitHub. It is on by default and marked `DEV`, the settings screen's mark for a feature still under construction (`AppFeatureStatus.Dev`; see [Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). The key is not the adapter of the same name in `Backlog.Infrastructure.GitHub`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the integration leaves `DEV`.
+Turning it on offers GitHub access in settings, pushing an entry to an issue, and refreshing issue or pull request state. Turned off, the Tasks pane hides the actions that reach GitHub. It is on by default and marked `DEV`, the settings screen's mark for a feature still under construction (`AppFeatureStatus.Dev`; see [Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). The key is not the adapter of the same name in `Backlog.Infrastructure.GitHub`. It is retired when the integration leaves `DEV`.
 
 ## Copilot CLI
 
@@ -48,7 +50,7 @@ default: on
 related: [".devbook/domain/tasks/features.md#hand-off-to-copilot-cli"]
 ```
 
-Turning it on offers to start GitHub Copilot CLI from an entry, and from a devbook chapter in Devbook. Two contexts read this one key, which is why it sits in the shared kernel's `AppFeatureKeys` rather than in either context. It is on by default and marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the hand-off leaves `DEV`.
+Turning it on offers to start GitHub Copilot CLI from an entry, and from a devbook chapter in Devbook. Two contexts read this one key, which is why it sits in the shared kernel's `AppFeatureKeys` rather than in either context. It is on by default and marked `DEV`. It is retired when the hand-off leaves `DEV`.
 
 ## Copy entries
 
@@ -59,7 +61,7 @@ default: on
 related: [".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/roadmap/features.md#tagging-planned-work", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry"]
 ```
 
-Turning it on shows the copy-to-clipboard button on a task's row, a board card, the open entry and the pressed plan chip, and beside the Tag field of a planned item's dialog on the roadmap. Off, those buttons are hidden, and the [queue icon](../sessions/features.md#start-a-session-from-an-entry) beside each is untouched. Tasks and Roadmap read this one key, so it sits in the shared kernel's `AppFeatureKeys` as `CopyEntries`, and it is recorded here because four of its five places are Tasks'. It is on by default and listed under Cross-cutting. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired, with the copy, once queueing a session does the copy's job.
+Turning it on shows the copy-to-clipboard button on a task's row, a board card, the open entry and the pressed plan chip, and beside the Tag field of a planned item's dialog on the roadmap. Off, those buttons are hidden, and the [queue icon](../sessions/features.md#start-a-session-from-an-entry) beside each is untouched. Tasks and Roadmap read this one key, so it sits in the shared kernel's `AppFeatureKeys` as `CopyEntries`, and it is recorded here because four of its five places are Tasks'. It is on by default and listed under Cross-cutting. It is retired, with the copy, once queueing a session does the copy's job.
 
 ## AI assistant
 
@@ -70,7 +72,7 @@ default: on
 related: [".devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog"]
 ```
 
-Turning it on shows the assistant panel in the app chrome, which answers questions about the visible task content through Azure Foundry. It is on by default and marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the assistant leaves `DEV`.
+Turning it on shows the assistant panel in the app chrome, which answers questions about the visible task content through Azure Foundry. It is on by default and marked `DEV`. It is retired when the assistant leaves `DEV`.
 
 ## Clear My Day overnight
 

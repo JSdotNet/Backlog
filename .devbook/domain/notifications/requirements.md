@@ -186,7 +186,7 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
-The system SHALL let any paired viewer acknowledge an open alert, SHALL mark the alert Acknowledged only when its owner instance takes the acknowledgement, and SHALL then take it out of every device's open stack while it stays in each device's list as settled.
+The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled in its list.
 
 #### Scenario: Dismissing an alert on the phone
 

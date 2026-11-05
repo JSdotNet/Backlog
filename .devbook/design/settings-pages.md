@@ -26,17 +26,21 @@ related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".de
 ```
 
 The screen is drawn inside `SettingsFrame`: the Dashboard's panel, so the two
-full-page surfaces read as one family. The header holds, left to right, the way
-back, the eyebrow over the headline, and the saved chip beside the search.
+full-page surfaces read as one family. The header runs from the way back on the
+left, through the eyebrow over the headline, to the saved chip beside the
+search.
 
 | Part | What it shows | Rule |
 |---|---|---|
-| Panel | `border-radius-lg`, `color-background-alt` mixed into `color-background`, `shadow-md` | A settings page MUST NOT draw a panel of its own inside the frame: the page's region in the content slot has no border, radius, padding or surface, so its cards sit directly on the panel. |
+| Panel | `border-radius-lg`, `color-background-alt` mixed into `color-background`, `shadow-md` | A settings page MUST NOT draw a panel of its own inside the frame. |
 | Way back | An arrow, 44 × 44 px, to the tasks | Its accessible name MUST be said in words (`Back to your tasks`); the arrow is `aria-hidden`. |
 | Eyebrow | `Settings · <group>`, from `SettingsPages.Eyebrow` | The group half MUST be the menu group's label, so the eyebrow and the menu never disagree. |
 | Headline | The frame's `h1`, one sentence | See *Headline*. |
 | Saved chip | A check and `Saved as you go` | Always drawn. It is the screen's statement that no save button exists. |
 | Search slot | `SettingsSearch` | Drawn empty when nothing fills it, so the header keeps its shape. |
+
+**Panel:** the page's region in the content slot has no border, radius, padding
+or surface, so its cards sit directly on the panel.
 
 Rules:
 
@@ -67,12 +71,12 @@ Rules:
 - The headline MUST be one sentence, computed from the store on each render, so
   it moves in the same render as the control that changed it.
 - A page MUST NOT render a heading of its own that restates the headline.
-- Navigation focuses the headline (`FocusOnNavigate`, `tabindex="-1"`) so a screen
-  reader announces the page, and the headline draws no focus outline for it: it
-  is never a tab stop, and a ring would cover the eyebrow on every page load. The
-  rule is a focus-visibility exemption under
-  [Focus Visibility](accessibility.md#focus-visibility); every control on the page
-  keeps its own ring. `SettingsHeadlineFocusTests` holds it.
+- Navigation focuses the headline (`FocusOnNavigate`, `tabindex="-1"`) so a
+  screen reader announces the page. The headline draws no focus outline for it:
+  it is never a tab stop, and a ring would cover the eyebrow on every page load.
+  This is a focus-visibility exemption under
+  [Focus Visibility](accessibility.md#focus-visibility); every control on the
+  page keeps its own ring. `SettingsHeadlineFocusTests` holds it.
 
 ## Saved as You Go
 
@@ -85,8 +89,8 @@ with one sharpening: a typed field commits on **blur or Enter**, and a switch,
 select or radio commits on change.
 
 - A settings page MUST NOT draw a Save, Apply or Cancel button. Actions that do
-  something other than store a value — Add account, Test connection, Remove
-  repository — are allowed.
+  something other than store a value are allowed, such as Add account, Test
+  connection and Remove repository.
 - A field whose value is refused says so in a `setting__status` line beside it
   (`role="status"`), with the input wearing `setting__input--error`. The value is
   not stored, and nothing else on the page changes.
@@ -154,18 +158,18 @@ Rules:
 - A badge MUST be a count, a fraction, a state of one or two words, or `Off`.
   It MUST NOT be a sentence; the headline is where a sentence goes.
 - A count of zero is drawn as `0`: an empty list says so.
-- A badge MUST count only what its page shows: the AI providers badge counts the
-  providers the page draws a tile for under the features as they stand, and it
-  keeps the previous GitHub connection answer while a re-check runs.
+- A badge MUST count only what its page shows. The AI providers badge counts the
+  providers the page draws a tile for under the features as they stand. It keeps
+  the previous GitHub connection answer while a re-check runs.
 - A null or blank badge draws nothing, not an empty pill.
 - A badge source MUST be registered as a singleton and MUST raise `Changed`
   whenever its value may have moved, from any thread. The menu follows a
-  setting changed anywhere — this screen, another window, a sync.
+  setting changed anywhere: this screen, another window or a sync.
 - A registered page whose `FeatureKey` is off MUST stay in the menu with the
-  `Off` badge. Opening it shows one note in place of its component — *<feature>
-  is turned off. Turn it on on the Features page to use these settings.* — with
-  the link to Features. The component is disposed, so turning the feature back
-  on starts it afresh.
+  `Off` badge. Opening it shows one note in place of its component, with the
+  link to Features: *<feature> is turned off. Turn it on on the Features page to use
+  these settings.* The component is disposed, so turning the feature back on
+  starts it afresh.
 - `Off` wins over the page's own badge source.
 
 ## Card Titles and Search
@@ -182,15 +186,15 @@ without rendering a page.
 
 - Every page MUST declare `CardTitles`: the titles of the `SettingsCard`s it
   draws, in the order it draws them. A change that adds, renames or drops a card
-  MUST change that list in the same change, and a test MUST assert the declared
+  MUST change that list in the same change. A test MUST assert the declared
   list equals the rendered `.settings-card__title`s, as the Dashboard, Model
   prices and Claude Code page tests do.
 - A page MUST declare only the cards it currently draws. A card a feature
   leaves undrawn is not declared while that feature is off, so the search never
-  lists it and its `#card-<slug>` address names nothing: with usage metrics off
-  the AI providers page declares neither *Claude usage API* nor *GitHub usage
-  API*, and with the AI assistant off it does not declare *Azure Foundry AI*
-  (`SettingsPages.BuiltInAsDrawn`).
+  lists it and its `#card-<slug>` address names nothing
+  (`SettingsPages.BuiltInAsDrawn`). With usage metrics off, the AI providers
+  page declares neither *Claude usage API* nor *GitHub usage API*, and with the
+  AI assistant off it does not declare *Azure Foundry AI*.
 - A switched-off page is matched on its title alone: it draws only the note, so
   none of its cards is there to reveal.
 - While the search has text, a matched page lists the matched cards under its
@@ -212,11 +216,14 @@ which wraps cards into columns of at least 22 rem and caps each at 640 px.
 
 | Part | Rule |
 |---|---|
-| Title | `h2` by default, `settings-card__title`. It names the card's region, so a screen reader's landmark list reads as the page's list of cards. It MUST be one of the page's declared `CardTitles`. |
+| Title | `h2` by default, `settings-card__title`. It MUST be one of the page's declared `CardTitles`. |
 | Description | One or two sentences under the title saying what the card is for. |
 | Action | One control for the whole card, in the header's corner: Add, Test connection, a count. |
 | Body | The controls. |
 | Surface | `color-background-alt`, `border-radius-md`, a hairline `color-border`. |
+
+**Title:** it names the card's region, so a screen reader's landmark list reads
+as the page's list of cards.
 
 Rules:
 
@@ -234,9 +241,9 @@ related: [".devbook/design/typography-and-layout.md#type-scale"]
 ```
 
 A page whose state is a few figures shows them first, as a row of the shared
-`MetricTile` before any card: Features' three tiles (Turned on, Unfinished and
-on, Always available), one tile per AI provider, and the Backup card's figures
-in a `MetricGrid`.
+`MetricTile` before any card. Features has three tiles: Turned on, Unfinished
+and on, and Always available. AI providers has one tile per AI provider, and the
+Backup card shows its figures in a `MetricGrid`.
 
 - A figure tile MUST be the shared `MetricTile`; a page MUST NOT draw a figure in
   a card's prose.
@@ -251,9 +258,9 @@ in a `MetricGrid`.
 related: [".devbook/design/interaction-guidelines.md#action-density-and-overflow", ".devbook/design/accessibility.md#keyboard-navigation"]
 ```
 
-A setting that is a list of things each with its own settings — repositories,
-GitHub accounts — shows one row per thing and opens that thing's editor in place,
-under its row.
+A setting that is a list of things each with its own settings, such as
+repositories or GitHub accounts, shows one row per thing and opens that thing's
+editor in place, under its row.
 
 | List | Row | Opens with |
 |---|---|---|
@@ -266,20 +273,20 @@ Rules:
   it reads, which account it uses.
 - A row's state MUST be the one its open editor would report. An account row
   reads `Active`, `Signed in` or `Not signed in` from the same credential check
-  the account's card makes, and the page's headline counts only the accounts
-  whose credential resolves: a login added that this machine cannot sign in as
-  is listed, but not counted.
+  the account's card makes. The page's headline counts only the accounts whose
+  credential resolves: a login added that this machine cannot sign in as is
+  listed, but not counted.
 - At most one row is open at a time; opening one closes the other.
 - The opening control carries `aria-expanded`, and `aria-controls` naming the
   editor while it is open.
 - The editor opens directly under its row, spanning the row's full width, as a
-  `repo-card` with its own title and its destructive action in the header: the
-  one that keeps everything first (Rename), the one that keeps nothing last
-  (Remove repository, Forget this account).
+  `repo-card` with its own title and its destructive action in the header. The
+  action that keeps everything comes first (Rename), and the one that keeps
+  nothing comes last (Remove repository, Forget this account).
 - Opening or closing the editor MUST NOT resize a row. A list laid out as a
-  grid keeps one column template in both states: the GitHub accounts list is
-  `repeat(auto-fill, …)`, never `auto-fit`, so a lone account is one track wide
-  whether its card is closed or open.
+  grid keeps one column template in both states. The GitHub accounts list is
+  `repeat(auto-fill, …)`, never `auto-fit`. A lone account is therefore one
+  track wide whether its card is closed or open.
 - A table that is too wide scrolls sideways inside its own frame; the page never
   scrolls sideways.
 - A list with nothing in it says so in a sentence, and what happens meanwhile,
@@ -294,16 +301,25 @@ tests: [e2e:dotnet:Backlog.EndToEndTests.SettingsTests.A_page_opens_by_address_a
 ```
 
 The menu and the page sit side by side while the panel has room for both. Below
-that — `50.25rem`, the menu's `13.75rem` basis, the `spacing-lg` gap and the
-page's `35rem` basis — the screen shows one of them, and the address decides
-which. The width is the frame's own, asked through the `settings-frame` container
+`50.25rem` the screen shows one of them, and the address decides which. That
+width is the menu's `13.75rem` basis, the `spacing-lg` gap and the page's `35rem`
+basis. The width is the frame's own, asked through the `settings-frame` container
 query, never the window's: Settings beside an open pane is as narrow as on a
 phone.
 
 | Address | Below `50.25rem` the screen shows |
 |---|---|
-| `settings` | The grouped list: each group's pages in one rounded card on `color-background-alt`, rows divided by a hairline, 52 px rows with the badge and a chevron, and the search on a row of its own above the groups. The header reads `Settings` in the `h1` with no eyebrow, in place of the default page's headline and group, and no row is marked current, by surface or by `aria-current`. |
-| `settings/<page>` | The page alone at full width, no menu and no search. The way back goes to `settings`, named `Back to all settings`, in place of the way back to the tasks. |
+| `settings` | The grouped list, with `Settings` as the `h1`; details below. |
+| `settings/<page>` | The page alone at full width, with no menu and no search. |
+
+- **`settings`:** each group's pages sit in one rounded card on
+  `color-background-alt`, with rows divided by a hairline. The rows are 52 px,
+  with the badge and a chevron. The search has a row of its own above the groups.
+  The header reads `Settings` in the `h1` with no eyebrow, in place of the
+  default page's headline and group. No row is marked current, by surface or by
+  `aria-current`.
+- **`settings/<page>`:** the way back goes to `settings`, named
+  `Back to all settings`, in place of the way back to the tasks.
 
 Rules:
 
@@ -317,11 +333,11 @@ Rules:
   the menu, its link keeps the raised surface and names itself current in a
   `sr-only` note the phone-width rule hides.
 - The list's `Settings` is the text of the one `h1`, swapped for the default
-  page's headline by the same rule, never a second `h1`: navigation focuses the
+  page's headline by the same rule, never a second `h1`. Navigation focuses the
   first `h1` in the document, and a hidden one would take that focus nowhere.
 - Below 720 px an open editor's `repo-card__header` stacks its title over its
-  actions, each as tall as its content and aligned to the start: no fixed
-  height, and no flex basis on the title side, which a column reads as one.
+  actions, each as tall as its content and aligned to the start. It has no fixed
+  height and no flex basis on the title side, which a column reads as one.
 
 ## Addresses
 
@@ -338,14 +354,17 @@ before and any part of the app can link to a page.
 |---|---|
 | `settings` | Features beside the menu; the grouped list at phone width |
 | `settings/<page>` | That page |
-| `settings/<page>#card-<slug>` | That page with the named card brought into view. The slug is the card title in lower case, every run of other characters one hyphen (`SettingsPages.CardFragment`). |
+| `settings/<page>#card-<slug>` | That page with the named card brought into view. |
 | `settings?page=<page>` | That page; the older link form, still honoured |
 | An id nothing offers | Features |
 
+**`settings/<page>#card-<slug>`:** the slug is the card title in lower case,
+every run of other characters one hyphen (`SettingsPages.CardFragment`).
+
 Rules:
 
-- An `Id` MUST be stable and lower-case, and MUST NOT take one of the shell's own
-  ids — `features`, `ai`, `storage`, `accounts`, `repositories` — which win a
+- An `Id` MUST be stable and lower-case. It MUST NOT take one of the shell's own
+  ids (`features`, `ai`, `storage`, `accounts`, `repositories`), which win a
   collision and leave the registered page out.
 - A link to a page MUST be built with `SettingsPages.Href` or the address above,
   never by query string.
@@ -362,16 +381,19 @@ Rules:
 
 The checklist a module's page meets, each item from a chapter above:
 
-1. A `SettingsSection` from the module's `.UI` registration extension, with a
-   stable lower-case `Id`, a `Title`, a published `Order` constant, a `Group`, and
-   the `FeatureKey` the page belongs to when it has one.
+1. A `SettingsSection` from the module's `.UI` registration extension. It has:
+   - a stable lower-case `Id`;
+   - a `Title`;
+   - a published `Order` constant;
+   - a `Group`;
+   - the `FeatureKey` the page belongs to, when it has one.
 2. `CardTitles` equal to the cards the page draws, and a test asserting it.
 3. A `SettingsHeadline` sentence when the page has a state worth counting.
 4. Cards as `SettingsCard` in `setting-columns`; figures as `MetricTile`; a
    list of things as rows that expand in place.
 5. No save button; fields commit on blur or Enter.
-6. A `BadgeSource` registered as a singleton when the menu should show a count
-   or a state, beside the section in the same registration extension.
+6. A `BadgeSource` registered as a singleton in the registration extension, when
+   the menu should show a count or a state.
 
 ## Materialization
 
@@ -389,13 +411,11 @@ The checklist a module's page meets, each item from a chapter above:
 | Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor` |
 
 The storybook shows the frame, the menu and the card on its *Settings frame*,
-*Settings menu* and *Settings card* pages, and each links back to this chapter
-from its **Design rules** block: the frame to *Panel and Header* and *Headline*,
-the menu to *Menu Groups*, *Badges and the Off State* and *Phone Width*, the
-card to *Settings Card* and *Figure Tiles*.
+*Settings menu* and *Settings card* pages. Each page's **Design rules** block
+links back to this chapter. The frame links to *Panel and Header* and
+*Headline*, the menu to *Menu Groups*, *Badges and the Off State* and *Phone
+Width*, and the card to *Settings Card* and *Figure Tiles*.
 
-`SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the desktop
-harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone Width*
-and *Addresses* name it: a page opened by its address and by the menu, Back to the
-page before, Find a setting to a card brought into view and lit, and at phone width
-the grouped list and a page alone with the way back to it.
+`SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the
+desktop harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone
+Width* and *Addresses* name it.

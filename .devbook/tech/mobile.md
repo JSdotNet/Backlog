@@ -19,9 +19,12 @@ related: [".devbook/tech/cloud.md#firebase-cloud-messaging", ".devbook/tech/shar
 The primary mobile target platform; the platform head that `.devbook/tech/shared.md#net-maui`
 uses on this channel.
 
-- **Used for** — speech-shortcut capture, share-sheet capture, launcher-shortcut
-  capture (a dynamic shortcut through `ShortcutManagerCompat`), inbox review, and
-  push notifications.
+- **Used for** — these phone features:
+  - speech-shortcut capture;
+  - share-sheet capture;
+  - launcher-shortcut capture (a dynamic shortcut through `ShortcutManagerCompat`);
+  - inbox review;
+  - push notifications.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.
 
@@ -103,7 +106,7 @@ Android push through (local ADR 0039).
   and Lifecycle past MAUI's own pins. So `Backlog.Mobile` also references their
   `-ktx` and companion packages at the matching versions, which keeps each class
   in the dex once. `Directory.Packages.props` says why beside each version.
-- **Status** — `candidate` until a push reaches a phone.
+- **Rating** — `candidate` until a push reaches a phone.
 
 ## Android SDK Build Tools
 
@@ -152,18 +155,22 @@ The packaging and release format for the Android client.
   publishing it to GitHub Releases; `build/Install-AndroidApp.ps1` uses the
   same publish shape for developer sideloads.
 - **Why** — the app is installed by sideloading rather than through Google
-  Play, and an `.apk` (not `.aab`) is required because `.aab` bundles are only
-  consumable by the Play Store.
+  Play. It requires an `.apk`, not an `.aab`, because only the Play Store can
+  consume `.aab` bundles.
 - **How** — `dotnet publish` targets `net10.0-android` with
   `AndroidPackageFormat=apk`. `ApplicationDisplayVersion` is the semantic
   version. `ApplicationVersion` is a packed integer `versionCode`
   (`major*10^7 + minor*10^5 + patch`), so `0.1.123` packs to `100123` and a
   newer release always installs over an older one. The release number comes
   from `build/Get-NextReleaseVersion.ps1`, which the desktop MSIX shares.
-- **Signing** — `.github/workflows/release-all.yml` passes the signing values
-  on the publish command line from repository secrets: `AndroidSigningKeyStore`,
-  `AndroidSigningKeyAlias`, `AndroidSigningStorePass`, and
-  `AndroidSigningKeyPass`. `Backlog.Mobile.csproj` carries none of them. The
+- **Signing** — `.github/workflows/release-all.yml` passes these signing values
+  on the publish command line from repository secrets:
+  - `AndroidSigningKeyStore`;
+  - `AndroidSigningKeyAlias`;
+  - `AndroidSigningStorePass`;
+  - `AndroidSigningKeyPass`.
+
+  `Backlog.Mobile.csproj` carries none of them. The
   workflow refuses to produce an unsigned package and runs `apksigner verify`
   before publishing. The keystore is self-signed, and Android rejects signature
   changes, so an APK signed with a different key cannot upgrade an existing

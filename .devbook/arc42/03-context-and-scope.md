@@ -17,10 +17,7 @@ related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 related: [".devbook/domain/context-map.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/inbox/domain.md#inbox-item"]
 ```
 
-The most important internal boundary distinguishes *how items enter* from *what
-happens after arrival*. `.devbook/domain/context-map.md` owns the bounded contexts,
-the `ItemCaptured` published language contract, and the relationship between them.
-This chapter records only the architectural consequence:
+The key internal boundary separates *how items enter* from *what happens after arrival*. `.devbook/domain/context-map.md` owns the bounded contexts and the `ItemCaptured` contract; this chapter records only the consequence:
 
 | Concern | Owner |
 |---|---|
@@ -29,9 +26,7 @@ This chapter records only the architectural consequence:
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue via the
 `ItemCaptured` contract (see `.devbook/domain/capture/domain.md#itemcaptured`).
-Capture stays tightly coupled to Inbox as one deployable pipeline (raw input →
-triage → route). It may split later if capture tooling becomes independently
-owned; `.devbook/arc42/11-risks-and-technical-debt.md` tracks that as R4.
+Capture stays coupled to Inbox as one deployable pipeline (raw input → triage → route). It may split if capture tooling gets its own owner, which `.devbook/arc42/11-risks-and-technical-debt.md` tracks as R4.
 
 ## External Interfaces
 
@@ -48,8 +43,7 @@ owned; `.devbook/arc42/11-risks-and-technical-debt.md` tracks that as R4.
 | **Application Insights** | in | HTTPS | Read telemetry signals for monitoring dashboards |
 | **Push Provider** (FCM) | out | HTTPS | Deliver push notifications to the Android mobile app |
 
-All inbound polling interfaces (YouTube, Websites, Email) are driven by **local
-desktop workers**, so their credentials never leave the user's machine.
+Local desktop workers drive all inbound polling (YouTube, Websites, Email), so credentials never leave the machine.
 
 ## Access Channels (Scope)
 
@@ -57,15 +51,17 @@ desktop workers**, so their credentials never leave the user's machine.
 related: [".devbook/arc42/05-building-block-view.md#container-view"]
 ```
 
-These are in scope:
-
 | Channel / component | Role |
 |---|---|
 | **Desktop App** | Local-first full client; runs all fetch workers and manages all domains. |
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code, Visual Studio & GitHub Copilot App integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
-| **MCP endpoint** (inside the Desktop App) | An AI session's tool surface over the running desktop app, on loopback: plan items, status moves, and [remarks](../domain/devbook/domain.md#remark) on devbook chapters. See local ADR 0012 in `.devbook/arc42/adr/`. |
+| **MCP endpoint** (inside the Desktop App) | An AI session's tool surface over the running desktop app, on loopback. |
+
+The MCP endpoint's tools cover plan items, status moves, and
+[remarks](../domain/devbook/domain.md#remark) on devbook chapters. See local ADR 0012 in
+`.devbook/arc42/adr/`.
 
 
 

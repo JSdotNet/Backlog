@@ -4,11 +4,7 @@
 related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md"]
 ```
 
-Domain-specific vocabulary (bounded context names, aggregates, domain events) is
-owned by `.devbook/domain` — see `.devbook/domain/context-map.md` for the subdomain
-landscape and the `## Ubiquitous Language` section of a context's
-`.devbook/domain/<context>/domain.md` for that context's canonical terms. This glossary
-lists only system-wide architecture terms that don't belong to a single domain.
+`.devbook/domain` owns domain vocabulary (context names, aggregates, events): see `.devbook/domain/context-map.md#subdomain-landscape` for the landscape and the `## Ubiquitous Language` section of a context's `.devbook/domain/<context>/domain.md`. This glossary lists only system-wide architecture terms.
 
 ## Terms
 
@@ -18,23 +14,40 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 
 | Term | Definition |
 |---|---|
-| **Local-first** | Design approach where the desktop app owns canonical data and works fully offline; the cloud is additive, never required. |
+| **Local-first** | The desktop app owns canonical data and works fully offline; the cloud is additive, never required. |
 | **Standalone mode** | Desktop running without any cloud connection; all data local, GitHub sync direct via `gh` CLI. |
 | **Connected mode** | Desktop additionally syncing state to the cloud for phone access and webhook forwarding. |
-| **Brain** | The person's own notes, one folder per user outside every repository, and the scope of everything filed against no repository. The Brain context owns the term: see [Brain](../domain/brain/domain.md#brain). |
-| **Dot-folder contract** | Scope-portable `.inbox/` folders present at workspace, repo, and project levels. A repository's devbook folders sit under `.devbook/` (`.devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md`). The Brain is one folder per user outside every repository instead (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). |
+| **Brain** | The person's own notes, one folder per user outside every repository. |
+| **Dot-folder contract** | Scope-portable `.inbox/` folders present at workspace, repo, and project levels. |
 | **Fetch worker** | A local desktop background job that polls an external source (YouTube, website, email, GitHub). |
-| **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry. It holds no domain data and fetches nothing. Its one compute beyond coordination is a stateless relay that transcribes a phone dictation and keeps neither the audio nor the text (`.devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md`). |
+| **Thin cloud** | Coordinates sync, forwards webhooks, pushes notifications, hosts the PC registry and relays dictation statelessly ([ADR 0045](adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)); holds no domain data and fetches nothing. |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
-| **Note** | An Inbox item of content kind `note`. It syncs both ways between the desktop and the phone, and either side may edit it. Not a *Knowledge Note*, which is a Devbook term. See `.devbook/domain/inbox/domain.md#note` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`. |
-| **Readiness verdict** | The one word that says whether an open pull request is ready to merge, and if not, what it waits on: Conflicts, Failing checks, Changes requested, Behind, Draft, Checks running, Review required or Ready. One function computes it from the pull request's status, and the pull requests pane, the session card and the task row all show it. Repository Management owns the term: see [One verdict per pull request](../domain/repository-management/features.md#one-verdict-per-pull-request) and `.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`. |
-| **Sanitization boundary** | The line between what a session record may carry off the machine and what stays: the record is a whitelist of fields, and the transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them. |
-| **Settled-fact cache** | A per-machine copy of a provider's answer about something that cannot change again, such as a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. |
-| **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the phone's Notes tab. Outbox kind `talk-note` sends a talk-note entry still waiting in the phone's outbox as a capture. Never called a *session note*: *session* already names a bounded context (Sessions, the record of an AI coding session), and the two must not share a word. See `.devbook/domain/capture/features.md#talk-note`. |
+| **Note** | An Inbox item of content kind `note`, synced both ways and editable on either side. |
+| **Readiness verdict** | The one word saying whether an open pull request is ready to merge, or what it waits on. |
+| **Sanitization boundary** | The line between what a session record may carry off the machine and what stays. |
+| **Settled-fact cache** | A per-machine copy of a provider's answer about something that cannot change again. |
+| **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the Notes tab. |
 
-For bounded-context names (Capture, Inbox, Devbook, etc.) and their
-business meaning, see `.devbook/domain/context-map.md#subdomain-landscape`.
+- **Brain:** also the scope of everything filed against no repository. The Brain context owns the term ([Brain](../domain/brain/domain.md#brain)).
+- **Dot-folder contract:** a repository's devbook folders sit under `.devbook/` (`.devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md`); the Brain is one folder per user outside every repository (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`).
+- **Note:** not a *Knowledge Note*, which is a Devbook term. See `.devbook/domain/inbox/domain.md#note` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
+- **Readiness verdict:** The word is one of:
+  - Conflicts
+  - Failing checks
+  - Changes requested
+  - Behind
+  - Draft
+  - Checks running
+  - Review required
+  - Ready
+
+  One function computes it from the pull request's status, and the pull requests pane, session card and task row all show it. Repository Management owns the term: see
+  [One verdict per pull request](../domain/repository-management/features.md#one-verdict-per-pull-request)
+  and `.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`.
+- **Sanitization boundary:** the record is a whitelist of fields. The transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them.
+- **Settled-fact cache:** for example a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.
+- **Talk note:** outbox kind `talk-note` sends a talk-note entry still waiting in the phone's outbox as a capture. It is never called a *session note*, because *session* already names a bounded context (Sessions, the record of an AI coding session). See `.devbook/domain/capture/features.md#talk-note`.
 
 ## Shared Data Types
 
@@ -42,6 +55,4 @@ business meaning, see `.devbook/domain/context-map.md#subdomain-landscape`.
 related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
 ```
 
-Cross-container data types and the aggregate that owns their shape are listed
-in `.devbook/arc42/08-crosscutting-concepts.md#shared-data-types`, which links out to
-the owning chapter in `.devbook/domain` for each type instead of restating fields here.
+`.devbook/arc42/08-crosscutting-concepts.md#shared-data-types` lists cross-container data types and links each to its owning chapter in `.devbook/domain`.

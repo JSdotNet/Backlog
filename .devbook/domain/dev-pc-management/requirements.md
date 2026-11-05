@@ -24,7 +24,7 @@ related: [.devbook/domain/dev-pc-management/features.md#system-tools-pane]
 type: requirement
 ```
 
-The system tools pane SHALL show, under the Claude filter, only the entries for Claude Code or Claude Desktop, under the Copilot filter only the entries for Copilot, and entries for no host only under All hosts, with every tab count following the filter.
+The system tools pane SHALL show only Claude Code and Claude Desktop entries under Claude, only Copilot entries under Copilot, and entries for no host only under All hosts, with every tab count following it.
 
 #### Scenario: Claude
 
@@ -44,7 +44,7 @@ The system tools pane SHALL show, under the Claude filter, only the entries for 
 type: requirement
 ```
 
-The system tools pane SHALL mark each kind tab with the number of its entries that are behind, missing or not confirmed, in the error tone when one is missing, the warning tone when one is behind and the neutral tone otherwise, and with no mark when none is.
+The system tools pane SHALL mark each kind tab with its count of entries behind, missing or unconfirmed: error tone if any is missing, warning if any is behind, else neutral, and none at zero.
 
 #### Scenario: A missing server
 
@@ -92,7 +92,7 @@ The system tools pane SHALL draw a catalog group with no entry needing action fo
 type: requirement
 ```
 
-The system tools pane SHALL, when the tab on show has more than one kind of outstanding entry, say how many are behind, missing and to confirm, each on its own and in that order, and SHALL keep the "n of m are behind" sentence when only one kind is outstanding.
+With several kinds outstanding on the open tab, the system tools pane SHALL count those behind, missing and to confirm, separately and in that order, and with one kind keep "n of m are behind".
 
 #### Scenario: Mixed Overview
 
@@ -112,7 +112,7 @@ The system tools pane SHALL, when the tab on show has more than one kind of outs
 type: requirement
 ```
 
-Under All, the system tools pane SHALL list an open group's entries needing action first, hold its matching entries behind one control that says how many, show them after the work once pressed and keep them shown across a re-check; under Needs action it SHALL hold nothing back.
+Under All, the system tools pane SHALL list an open group's entries needing action first, with its matching entries behind one counting control, shown once pressed, across re-checks; under Needs action it holds nothing back.
 
 #### Scenario: Reveal
 
@@ -177,7 +177,9 @@ The Overview SHALL show how many entries match the catalog out of the entries th
 type: requirement
 ```
 
-The Overview SHALL count every entry behind on exactly one line of the Updates split — under the one host it is for or the one host that reports it behind, under Both when it is for both hosts and both or neither report it, under Machine when it has no host — so the lines always sum to the Updates figure, under every host filter.
+The Overview SHALL count every entry behind on exactly one line of the Updates split: under the one host it is for or the one host that reports it behind, under Both
+when it is for both hosts and both or neither report it, under Machine when it has
+no host, so the lines always sum to the Updates figure, under every host filter.
 
 #### Scenario: Behind on both hosts
 
@@ -237,7 +239,7 @@ The Overview SHALL count only the entries the host filter shows, in every tile, 
 type: requirement
 ```
 
-The Overview SHALL show this machine's last finished run — its outcome, kind, when it finished, how many of its steps succeeded, how long it took and the last lines of its transcript, with the whole transcript a click away — and SHALL show no Last run card when there is none.
+The Overview SHALL show this machine's last finished run with its outcome, kind, finish time, steps succeeded, duration and last transcript lines, and its whole transcript a click away, and no card without one.
 
 #### Scenario: Partly failed Update all
 
@@ -271,7 +273,7 @@ The tab strip SHALL offer "Last run transcript" whenever this machine has a last
 type: requirement
 ```
 
-The Overview SHALL name at its foot the catalog this machine reads and, where the host names one, the file this machine's own choices are kept in, and SHALL offer Add tool and Import there only where the host can write the catalog.
+At its foot the Overview SHALL name the catalog this machine reads and, where named, the file of its own choices, and offer Add tool and Import only where the host can write the catalog.
 
 #### Scenario: Read-only host
 

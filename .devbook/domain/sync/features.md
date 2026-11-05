@@ -4,9 +4,6 @@
 type: features
 ```
 
-> What Sync lets a person do: join their devices together, and keep what other
-> contexts write the same on each of them.
-
 ## Pairing a device
 
 ```meta
@@ -43,10 +40,9 @@ The [Owner](domain.md#owner), [Pairing Code](domain.md#pairing-code),
 credential is never stored anywhere in the clear. Neither device ever holds the
 other's credential.
 
-A paired device can therefore reach exactly one owner's data and no one else's.
-The sync service enforces that boundary by reading the owner out of the presented
+A paired device reaches exactly one owner's data. The sync service enforces that by reading the owner out of the presented
 token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
-The cloud store does not enforce it on its own.
+The cloud store does not enforce it.
 
 The desktop that showed the code learns of the redemption by reading the owner's
 device list while the code is open, because the service does not tell it. It then
@@ -64,8 +60,14 @@ depends-on: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
 Each paired device pushes what changed on it and pulls what changed elsewhere, in
-the background. It carries four feeds: tasks and the kinds that ride with them,
-session records, Devbook remarks, and the state of devbook subjects. Each device keeps its own store as the
+the background. It carries four feeds:
+
+- tasks and the kinds that ride with them;
+- session records;
+- Devbook remarks;
+- the state of devbook subjects.
+
+Each device keeps its own store as the
 canonical copy. The replica between them is a courier, and working offline costs
 only how soon the other devices find out.
 
@@ -97,6 +99,6 @@ is not there. When the desktop routes or archives the item, it pushes a tombston
 for the capture, and the phone learns it was dealt with. There is no second sync
 path for any of it.
 
-A capture made while the service is newer than the phone's app is not lost and
-not refused: it waits in the outbox until the app is updated or the service rolled
+A capture made while the service is newer than the phone's app is neither lost nor
+refused. It waits in the outbox until the app is updated or the service rolled
 back ([A phone holds its outbox for a newer sync service](requirements.md#requirement-a-phone-holds-its-outbox-for-a-newer-sync-service)).

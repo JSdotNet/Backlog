@@ -4,9 +4,6 @@
 type: features
 ```
 
-> Features and sub-features this bounded context supports, described in
-> business/ubiquitous language rather than implementation terms.
-
 ## Technology baseline definition
 
 ```meta
@@ -14,8 +11,8 @@ type: feature
 ```
 
 Define team-approved technologies (languages, frameworks, runtimes, tools). Each
-carries version requirements (minimum, recommended) and a stable, beta, or
-deprecated status. Teams and projects can override the portfolio defaults.
+carries minimum and recommended version requirements and a status: stable, beta
+or deprecated. Teams and projects can override the portfolio defaults.
 
 ## Deprecation and migration management
 
@@ -36,9 +33,7 @@ type: feature
 related: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking, .devbook/domain/repository-management/features.md#technology-stack-inventory]
 ```
 
-Detect which technologies are in use across the portfolio, track adoption rates
-and outliers, surface adoption velocity, and report
-[Technology Sprawl](domain.md#technology-sprawl).
+Across the portfolio, detect which technologies are in use, track adoption rates and outliers, surface adoption velocity, and report [Technology Sprawl](domain.md#technology-sprawl).
 
 ## Technology recommendations
 
@@ -58,9 +53,9 @@ the ADRs that justify them.
 type: feature
 ```
 
-Define semantic-versioning expectations per tool, map version aliases (latest,
-LTS, stable) to concrete versions, and track compatibility matrices between
-technologies.
+Define semantic-versioning expectations per tool, and track compatibility matrices
+between technologies. Map the version aliases latest, LTS and stable to concrete
+versions.
 
 ## Cross-domain integration
 
