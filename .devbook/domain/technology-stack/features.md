@@ -4,9 +4,6 @@
 type: features
 ```
 
-> Features and sub-features this bounded context supports, described in
-> business/ubiquitous language rather than implementation terms.
-
 ## Technology baseline definition
 
 ```meta
@@ -36,12 +33,7 @@ type: feature
 related: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking, .devbook/domain/repository-management/features.md#technology-stack-inventory]
 ```
 
-Across the portfolio:
-
-- detect which technologies are in use;
-- track adoption rates and outliers;
-- surface adoption velocity;
-- report [Technology Sprawl](domain.md#technology-sprawl).
+Across the portfolio, detect which technologies are in use, track adoption rates and outliers, surface adoption velocity, and report [Technology Sprawl](domain.md#technology-sprawl).
 
 ## Technology recommendations
 

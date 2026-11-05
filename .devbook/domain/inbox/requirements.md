@@ -15,9 +15,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbox/features.md#add-by-hand, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/features.md#per-item-triage-actions]
 ```
 
-> The requirements of the Inbox pane's three columns: the header's capture
-> field, the rows, the kind pills and the detail's decisions.
-
 ### Requirement: Enter files the capture field's title
 
 ```meta
@@ -151,10 +148,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#act-on-several-at-once]
 ```
 
-> The requirements of picking several Inbox Items and acting on them together.
-> The feature chapter says what the capability is and why; this says what it
-> promises.
-
 ### Requirement: A shift press picks the run
 
 ```meta
@@ -275,10 +268,6 @@ The system SHALL keep picked items picked across a pane refresh while they are s
 type: requirements
 related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode]
 ```
-
-> The requirements of triaging the Inbox from the keyboard and one item at a
-> time. The feature chapter says what the keys are and why; this says what
-> they promise.
 
 ### Requirement: A key does what its button does
 
@@ -488,8 +477,7 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
 ```
 
-> The requirements of the model reading an item in triage. What is sent, and
-> why, is settled in local ADR 0023; this says what the reader can count on.
+> Local ADR 0023 settles what is sent to the model, and why.
 
 ### Requirement: The model is asked only when an item is opened in triage
 
@@ -570,8 +558,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#merge-into-a-task]
 ```
 
-> The requirements of folding a capture into the backlog task it repeats.
-
 ### Requirement: Merging comments on the task and archives the capture
 
 ```meta
@@ -593,8 +579,6 @@ The system SHALL add the capture's title, link and notes to the backlog task as 
 type: requirements
 related: [.devbook/domain/inbox/features.md#undo-a-decision]
 ```
-
-> The requirements of taking back a decision of this session.
 
 ### Requirement: Every decision of the session can be undone, newest first
 
@@ -726,8 +710,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#inbox-zero]
 ```
 
-> The requirements of what the pane shows once the session has emptied it.
-
 ### Requirement: An emptied slice reports the session
 
 ```meta
@@ -755,8 +737,6 @@ The system SHALL, when the Inbox has no item still waiting after decisions this 
 type: requirements
 related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
 ```
-
-> The requirements of the review screen the AI triage pass opens.
 
 ### Requirement: The pass proposes a decision with a reason for every item
 
@@ -875,10 +855,6 @@ The system SHALL stop Apply at the first decision refused, keep every decision a
 type: requirements
 related: [.devbook/domain/inbox/features.md#capture-attachments]
 ```
-
-> The requirements of bringing a capture's files to the desktop Inbox. The
-> feature chapter says what the capability is and why it exists. This chapter
-> says what it promises.
 
 ### Requirement: A capture lands whatever happens to its files
 
@@ -1078,9 +1054,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#delete]
 ```
 
-> The requirements of deleting an Inbox Item. The feature chapter says how it
-> differs from Archive; this says what it promises.
-
 ### Requirement: Delete removes the item after asking
 
 ```meta
@@ -1157,8 +1130,7 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#queue-health-bar]
 ```
 
-> The requirements of the Inbox's queue health bar. What Monitoring shows of
-> the same numbers is Monitoring's to promise.
+> What Monitoring shows of the same numbers is Monitoring's to promise.
 
 ### Requirement: The bar splits the whole unprocessed queue by age
 
@@ -1187,8 +1159,6 @@ The system SHALL show in the side menu the number of unprocessed items in every 
 type: requirements
 related: [.devbook/domain/inbox/features.md#classification-and-enrichment]
 ```
-
-> What the suggestion row promises the reader triaging an item.
 
 ### Requirement: Nothing is applied until the reader takes it
 
@@ -1293,8 +1263,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#route-to-tasks]
 ```
 
-> The requirements of moving one item to the backlog.
-
 ### Requirement: Sibling tasks name each other and share a tag
 
 ```meta
@@ -1322,8 +1290,6 @@ The system SHALL make one task per repository for an item assigned to several, g
 type: requirements
 related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#batch]
 ```
-
-> The requirements of routing several Inbox Items to Tasks as one plan import.
 
 ### Requirement: A batch is one plan
 
@@ -1464,8 +1430,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#dependency-tier]
 ```
 
-> The requirements of asking the plan drafter which item of a batch waits on which.
-
 ### Requirement: The drafter is asked only on the press
 
 ```meta
@@ -1569,7 +1533,7 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#route-to-brain]
 ```
 
-> The requirements of routing an item To Brain (local ADR 0026).
+> Local ADR 0026 decides the route.
 
 ### Requirement: To Brain writes the item as a note in the Brain's inbox area
 
@@ -1629,9 +1593,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#notes-on-the-phone]
 ```
 
-> The requirements of keeping and editing notes on the phone. The feature
-> chapter says what the Notes tab offers; this says what it promises.
-
 ### Requirement: A note saves itself as it is written
 
 ```meta
@@ -1673,10 +1634,6 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#notes-on-the-desktop]
 ```
 
-> The requirements of a desktop change to a note reaching the phone. The
-> feature chapter says what the desktop offers on a note; this says what it
-> promises the phone.
-
 ### Requirement: A desktop edit to a note reaches the phone
 
 ```meta
@@ -1712,11 +1669,8 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 ```
 
-> The requirements of keeping triage off the phone. The feature chapter says
-> why the desktop decides what an item becomes; this says what the phone
-> promises not to do. Every scenario starts from captures the phone made,
-> because the phone's Inbox tab shows only those until the desktop takes them
-> in.
+> Every scenario starts from captures the phone made, because the phone's
+> Inbox tab shows only those until the desktop takes them in.
 
 ### Requirement: The phone offers no triage
 

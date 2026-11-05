@@ -5,8 +5,7 @@ type: requirements
 related: [.devbook/domain/roadmap/features.md]
 ```
 
-> What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it.
+> What each feature guarantees: one SHALL sentence per requirement, with its scenarios.
 
 The scenarios use the default working week: Monday to Friday 09:00 to 17:30, 8.5
 hours a day and 42.5 a week. Friday 9 October 2026 is in week 41.
@@ -18,9 +17,7 @@ type: requirements
 related: [.devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
 
-> The requirements of completing a plan by hand. The feature chapter says why a
-> person completes it; this says what completing offers and how a completed plan
-> is read. The rules the item holds to are its
+> The item's rules are its
 > [invariants](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand).
 
 The scenarios plan "Write the launch post" from Monday 5 to Friday 9 October, and
@@ -150,10 +147,6 @@ type: requirements
 related: [.devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person]
 ```
 
-> The requirements of the working week travelling with the pace. The feature
-> chapter says what travels and why; this says what it promises about the day
-> overrides.
-
 ### Requirement: Day overrides travel inside the working week
 
 ```meta
@@ -194,10 +187,6 @@ The system SHALL read a working week that carries no overrides list as one with 
 type: requirements
 related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely]
 ```
-
-> The requirements of the day and week heads on the axis. The feature chapter
-> says how the axis is ruled and why; this says what the heads promise and how
-> they count the actual hours.
 
 ### Requirement: A date that is not worked is hatched
 
@@ -473,9 +462,6 @@ type: requirements
 related: [.devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day]
 ```
 
-> The requirements of pressing a day head. The feature chapter says why a single
-> date can differ from the week; this says what a press promises.
-
 ### Requirement: A day head is a toggle
 
 ```meta
@@ -558,9 +544,6 @@ The system SHALL let the person block or unblock a date that has passed as they 
 type: requirements
 related: [.devbook/domain/roadmap/features.md#setting-days-off-in-a-list]
 ```
-
-> The requirements of the Days off dialog. The feature chapter says why a list
-> sits beside the head toggle; this says what the dialog promises.
 
 ### Requirement: The Days off button opens the dialog
 
@@ -689,9 +672,6 @@ type: requirements
 related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
 ```
 
-> The requirements of showing or hiding finished plans. The feature chapter says
-> where a finished plan is drawn; this says what the Completed switch promises.
-
 ### Requirement: The Completed switch shows or hides finished plans
 
 ```meta
@@ -719,9 +699,6 @@ The system SHALL put one Completed switch on the roadmap toolbar beside Hours, o
 type: requirements
 related: [.devbook/domain/roadmap/features.md#forecasting-work-in-flight]
 ```
-
-> The requirements of forecasting a plan in flight. The feature chapter says how
-> each part is forecast; this says how a finished part looks beside the rest.
 
 ### Requirement: A finished part is drawn as done
 
@@ -761,11 +738,6 @@ plan is finished.
 type: requirements
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```
-
-> The requirements of placing a plan in time. The feature chapter says how a plan
-> is placed; this says how a plan filed under several repositories is laid out per
-> repository, where a shared task counts, and how the day overrides count, for a
-> plan and for a measured pace.
 
 ### Requirement: Each repository draws its own part at its own pace
 
@@ -997,10 +969,6 @@ The scenarios start from a pace of 4 points a week.
 type: requirements
 related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
 ```
-
-> The requirements of moving work on the timeline. The feature chapter says how
-> the view proposes a placement and the plan decides; this says when the view
-> proposes nothing at all.
 
 ### Requirement: A drop that moves nothing proposes nothing
 

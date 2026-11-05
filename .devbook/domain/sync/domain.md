@@ -4,8 +4,7 @@
 type: domain
 ```
 
-> The aggregates, the domain service and the value objects of the Sync context. The
-> rules they enforce are in [domain.invariants.md](domain.invariants.md). The types
+> The rules these types enforce are in [domain.invariants.md](domain.invariants.md). The types
 > live in `Backlog.Modules.Sync/DomainModels`.
 
 ## Device
@@ -68,10 +67,9 @@ holds. It compares the device stamp (`updatedAt`) and the tombstone (`deletedAt`
 of the two copies and nothing else. It never reads the payload, which is what lets
 one rule serve documents whose meaning belongs to other contexts.
 
-It exists because every device pushes everything above its own watermark, and a
-document it received sits above that watermark exactly as one it edited does. Each
+Every device pushes everything above its own watermark, and a document it received sits above that watermark exactly as one it edited does. Each
 device therefore echoes every document it pulled, once, on its next push. Without
-the rule that echo would replace whatever the replica had learned in between: a
+the rule that echo would replace what the replica learned in between: a
 tombstone would come back as the live copy, and an edit would revert.
 
 There are three copies of the rule: `TaskChangePrecedence` for the task feed,
@@ -92,8 +90,6 @@ Invocation semantics: command-invoked, by a push, once per document.
 type: shared-value-objects
 related: [.devbook/domain/sync/domain.invariants.md#shared-value-objects]
 ```
-
-> Values the aggregates, the replicas and the endpoints all use.
 
 ### OwnerId
 
@@ -184,8 +180,6 @@ machine can overwrite another's record.
 type: ubiquitous-language
 ```
 
-> The words this context owns that are not chapters above.
-
 ### Owner
 
 ```meta
@@ -200,7 +194,7 @@ first device to register mints it; every device paired to that device afterward
 registers under the same one. The sync service reads it out of a device's presented
 [Device token](#device-token) to decide which partition a call may touch.
 
-It is the partition these stored documents and files carry:
+It is the partition each stored document and file carries:
 
 - a task;
 - a session record;

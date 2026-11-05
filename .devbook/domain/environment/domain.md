@@ -4,12 +4,7 @@
 type: domain
 ```
 
-> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context; each chapter's
-> `type` records which of those it is. An Aggregate's owned Entities, Value
-> Objects, and Enums are chapters directly beneath it, typed `entity`,
-> `value-object`, and `enum`. Value Objects/Enums shared across multiple
-> aggregates get their own chapter at the end instead of being duplicated.
+> A chapter's `type` is `entity`, `value-object` or `enum` beneath its aggregate.
 
 ## Environment Catalog
 
@@ -29,13 +24,7 @@ type: entity
 aliases: [environment_id]
 ```
 
-A named destination the person wants quick access to, such as:
-
-- a local Aspire dashboard;
-- a staging web app;
-- an Azure resource group;
-- a repository preview;
-- a production admin surface.
+A named destination the person wants quick access to, such as a local Aspire dashboard, a staging web app, an Azure resource group, a repository preview or a production admin surface.
 
 ### Environment Shortcut
 
@@ -77,12 +66,7 @@ aliases: [AccessHint]
 ```
 
 A non-secret pointer that helps the person reach the environment. It never
-contains the credential itself. It can be:
-
-- the credential source name;
-- a tenant label;
-- a VPN requirement;
-- a required local profile.
+contains the credential itself. It can be the credential source name, a tenant label, a VPN requirement or a required local profile.
 
 ### Environment Type
 
@@ -126,7 +110,7 @@ sequenceDiagram
 - The health read is optional: Environment asks only when a view shows health.
 - Environment is not built, so this flow is the intended design.
 
-Resolves an Environment Shortcut into the launch action the UI can present:
+Resolves an Environment Shortcut into the launch action the UI presents:
 
 - open a URL;
 - run a command;
@@ -134,9 +118,7 @@ Resolves an Environment Shortcut into the launch action the UI can present:
 - navigate to a cloud dashboard.
 
 It is a service because it composes catalog data with supplier facts such as
-repository path or environment health rather than belonging to one shortcut's
-stored state. Invocation semantics: query/composition-oriented when a quick-access
-view is shown or a shortcut is activated.
+repository path or environment health. Invocation semantics: query/composition-oriented, when a quick-access view is shown or a shortcut is activated.
 
 ## EnvironmentShortcutUsed
 
@@ -172,5 +154,4 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Environment currently has a single aggregate, so `Environment Type` is documented
-under it. This chapter is reserved for future cross-aggregate enums.
+Environment has one aggregate, so `Environment Type` sits under it. This chapter is reserved for cross-aggregate enums.

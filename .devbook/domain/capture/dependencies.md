@@ -16,8 +16,7 @@ type: dependencies
 | External sources (listed below) | ACL | Polling / event intake via source adapters | `.devbook/domain/capture/domain.md#source-adapter` | Adapters acquire and normalize third-party content, so its formats never leak downstream. |
 
 - **Inbox:** From another device a capture travels through the sync replica. On
-  the desktop, a source monitor hands a new entry to the Inbox's `IInboxIntake`
-  port in-process.
+  the desktop, a source monitor hands a new entry to the `IInboxIntake` port in-process.
 - **External sources:**
   - YouTube;
   - websites/RSS;
@@ -40,12 +39,9 @@ type: dependencies
   - email MIME;
   - selections from an IDE or an agentic session.
 - The GitHub Copilot App adapter is planned. It would run locally against the
-  session's worktree, like the IDE extension adapters, and would add no external
-  credential surface beyond what the editor adapters already have.
+  session's worktree, like the IDE extension adapters, with no new credential surface.
 - Delivery to Inbox is intentionally one-way and fire-and-forget; Capture never
   reads Inbox state.
 - [Composable monitors](features.md#composable-monitors) may one day run on an
-  existing self-hosted automation platform instead of scheduling in-product. xyOps
-  is the candidate that prompted the idea. That platform would then sit behind the
-  same `Source Adapter` anti-corruption layer as the other external sources, and
-  gain an outbound row above. It is absent from the table until that choice is made.
+  existing self-hosted automation platform, xyOps being the candidate. It would then sit behind the
+  same `Source Adapter` layer and gain an outbound row above. The table omits it until that choice is made.

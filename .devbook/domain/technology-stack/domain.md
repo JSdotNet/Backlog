@@ -4,12 +4,7 @@
 type: domain
 ```
 
-> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context; each chapter's
-> `type` records which of those it is. An Aggregate's owned Entities, Value
-> Objects, and Enums are chapters directly beneath it, typed `entity`,
-> `value-object`, and `enum`. Value Objects/Enums shared across multiple
-> aggregates get their own chapter at the end instead of being duplicated.
+> A chapter's `type` is `entity`, `value-object` or `enum` beneath its aggregate.
 
 ## Technology Registry
 
@@ -19,14 +14,7 @@ related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook
 aliases: [TechnologyRegistry]
 ```
 
-The global singleton that owns:
-
-- all technology definitions;
-- baseline profiles;
-- deprecation notices;
-- portfolio adoption analytics.
-
-Daily snapshots populate the adoption analytics. The rules the registry holds are in
+The global singleton that owns all technology definitions, baseline profiles, deprecation notices and portfolio adoption analytics. Daily snapshots populate the analytics. The rules the registry holds are in
 [its invariants](domain.invariants.md#technology-registry).
 
 ### Technology
@@ -52,10 +40,10 @@ stateDiagram-v2
 A single tool, framework, language, or runtime, identified by `technology_id`
 (e.g. "dotnet", "nodejs", "react"). It holds:
 
-- `category` and `status`.
-- `min_version`, `recommended_version`, and `latest_available_version`.
-- An optional `eol_date` and `migration_guidance`.
-- Its owned breaking changes and daily adoption snapshots.
+- `category` and `status`;
+- `min_version`, `recommended_version` and `latest_available_version`;
+- an optional `eol_date` and `migration_guidance`;
+- its owned breaking changes and daily adoption snapshots;
 - ADR links and tags.
 
 ### Breaking Change
@@ -66,11 +54,11 @@ type: entity
 
 A significant breaking change between versions of a `Technology`. It holds:
 
-- `from_version`.
-- `description`.
-- `impact_level` (high/medium/low).
-- `migration_effort` (easy/moderate/hard).
-- Step-by-step `migration_steps`.
+- `from_version`;
+- `description`;
+- `impact_level` (high/medium/low);
+- `migration_effort` (easy/moderate/hard);
+- step-by-step `migration_steps`.
 
 ### Deprecated Tech In Use
 
@@ -81,10 +69,10 @@ type: entity
 A deprecated technology still active in the portfolio. It is tracked so phase-out
 can be reported and enforced. It holds:
 
-- `technology_id`.
-- `usage_count` and `usage_pct`.
-- `eol_date` and `last_updated`.
-- Its owned migration approvals.
+- `technology_id`;
+- `usage_count` and `usage_pct`;
+- `eol_date` and `last_updated`;
+- its owned migration approvals.
 
 ### Migration Approval
 
@@ -94,10 +82,10 @@ type: entity
 
 An approved exception to remain on deprecated technology. It holds:
 
-- The machine/repo id.
-- `deprecated_technology`.
-- `target_migration_date`.
-- `reason`.
+- the machine/repo id;
+- `deprecated_technology`;
+- `target_migration_date`;
+- `reason`;
 - `approved_by` and `approved_at`.
 
 ### Technology Baseline
@@ -113,9 +101,9 @@ Microservices, dev-pc, repositories). Its versions
 and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the-minimum).
 It holds:
 
-- `baseline_name`.
-- `technologies` (id → version).
-- `last_updated` and `updated_by`.
+- `baseline_name`;
+- `technologies` (id → version);
+- `last_updated` and `updated_by`;
 - `description`.
 
 ### Version Constraint
@@ -126,9 +114,9 @@ type: value-object
 
 A version alias with semantic meaning. It holds:
 
-- `constraint_name` (lts, latest, stable, current).
-- The concrete `version`.
-- `description`.
+- `constraint_name` (lts, latest, stable, current);
+- the concrete `version`;
+- `description`;
 - `effective_date`.
 
 ### Deprecation Notice
@@ -140,10 +128,10 @@ aliases: [DeprecationNotice]
 
 A formal phase-out announcement. It holds:
 
-- `technology_id`.
-- `announcement_date` and `eol_date`.
-- `replacement_technology`.
-- `migration_guide_url`.
+- `technology_id`;
+- `announcement_date` and `eol_date`;
+- `replacement_technology`;
+- `migration_guide_url`;
 - `support_level` (active/maintenance-only/eol).
 
 ### Adoption Snapshot
@@ -152,13 +140,7 @@ A formal phase-out announcement. It holds:
 type: value-object
 ```
 
-A point-in-time adoption view for a technology. It holds:
-
-- `date`.
-- `adoption_count` and `adoption_pct`.
-- `version_distribution`.
-
-It computes `adoption_pct = adoption_count / total_portfolio_count * 100`.
+A point-in-time adoption view for a technology. It holds `date`, `adoption_count`, `adoption_pct` and `version_distribution`. It computes `adoption_pct = adoption_count / total_portfolio_count * 100`.
 
 ### Version Usage Metric
 
@@ -168,8 +150,8 @@ type: value-object
 
 Usage distribution of one technology. It holds:
 
-- `date` and `technology_id`.
-- `version_distribution`.
+- `date` and `technology_id`;
+- `version_distribution`;
 - `on_baseline_count` and `on_baseline_pct`.
 
 ### Adoption Trend
@@ -178,11 +160,7 @@ Usage distribution of one technology. It holds:
 type: value-object
 ```
 
-Adoption velocity for a technology/version. It holds:
-
-- `technology_id` and an optional `version`.
-- `adoption_velocity`.
-- `days_to_full_adoption`.
+Adoption velocity for a technology/version. It holds `technology_id`, an optional `version`, `adoption_velocity` and `days_to_full_adoption`.
 
 ### Compatibility Matrix
 
@@ -190,11 +168,7 @@ Adoption velocity for a technology/version. It holds:
 type: value-object
 ```
 
-Known compatibility between two technologies. It holds:
-
-- `technology_a` and `technology_b`.
-- `version_mapping` (e.g. .NET 9 → ASP.NET Core 9).
-- `notes`.
+Known compatibility between two technologies. It holds `technology_a`, `technology_b`, `version_mapping` (e.g. .NET 9 → ASP.NET Core 9) and `notes`.
 
 ### Adoption Analytics
 
@@ -204,10 +178,10 @@ type: value-object
 
 Portfolio-wide rollup. It holds:
 
-- Daily `portfolio_adoption`.
-- `adoption_trends`.
-- `version_usage_metrics`.
-- `compatibility_matrix`.
+- daily `portfolio_adoption`;
+- `adoption_trends`;
+- `version_usage_metrics`;
+- `compatibility_matrix`;
 - `deprecated_in_use`.
 
 ### Tech Status
@@ -249,17 +223,15 @@ flowchart LR
 Collects daily adoption from Dev PC Management tool-version reports and
 Repository Management tech-stack scans. From them it:
 
-- computes portfolio coverage, version distribution, and adoption velocity;
+- computes portfolio coverage, version distribution and adoption velocity;
 - measures [Technology Sprawl](#technology-sprawl);
 - flags deprecated technology still in use.
 
 It is a service because it aggregates data reported by other contexts into
 portfolio analytics that no single `Technology` owns. Invocation semantics:
-scheduled/event-triggered analytics service. The
-[adoption tracking flow](domain.md#adoption-tracking) shows its inputs and outputs.
+scheduled or triggered by an incoming report.
 
-- [Adoption Tracking](domain.md#adoption-tracking) runs on a schedule or on an
-  incoming report. Only the `Technology Registry` root writes the analytics.
+- Only the `Technology Registry` root writes the analytics ([flow](domain.md#adoption-tracking)).
 - Technology Stack is not built, so none of these feeds exists in code.
   [dependencies.md](dependencies.md) names the intended contract for each.
 
@@ -274,11 +246,10 @@ Drives the deprecation lifecycle. It:
 - issues `Deprecation Notice`s with end-of-life (EOL) dates and migration guidance;
 - enforces minimum versions;
 - tracks approved exceptions as `Migration Approval`s;
-- at EOL, flags every machine and repository still on the technology as one that
-  must migrate.
+- at EOL, flags every machine and repository still on the technology as one that must migrate.
 
 It is a service because it coordinates policy across many technologies,
-baselines, and external consumers. Invocation semantics: policy service
+baselines, and consumers. Invocation semantics: policy service
 triggered by baseline changes, EOL thresholds, and approval decisions.
 
 ## Shared Enums
@@ -289,8 +260,7 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Technology Stack has a single aggregate; `Tech Status` and `Tech Category` are
-documented under it. This chapter is reserved for future cross-aggregate enums.
+Technology Stack has one aggregate, so `Tech Status` and `Tech Category` sit under it. This chapter is reserved for cross-aggregate enums.
 
 ## Ubiquitous Language
 

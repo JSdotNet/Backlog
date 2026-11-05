@@ -4,10 +4,6 @@
 type: dependencies
 ```
 
-> Dependencies this bounded context has on other bounded contexts or
-> modules, and known dependents. Note the DDD relationship pattern,
-> integration mechanism, and published contract for each relationship.
-
 ## Outbound dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
@@ -33,8 +29,7 @@ type: dependencies
 
 ## Notes
 
-- Monitoring is an observer and read context. It consumes signals from many
-  contexts, and its one write-back is
+- Monitoring is an observer and read context. Its one write-back is
   [`FollowUpCaptured`](domain.md#followupcaptured).
 - External integrations (GitHub, Application Insights) sit behind
   anti-corruption adapters so their schemas never leak into the signal model.

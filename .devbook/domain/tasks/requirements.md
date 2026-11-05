@@ -5,9 +5,6 @@ type: requirements
 related: [.devbook/domain/tasks/features.md]
 ```
 
-> What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it.
-
 ## My Day
 
 ```meta
@@ -15,10 +12,7 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-> The requirements of My Day on the desktop and the phone, and how the phone's
-> changes reach the desktop. The feature chapter says what My Day is and why;
-> this says what it promises. A carried task is defined under
-> [My Day](domain.md#my-day).
+> A carried task is defined under [My Day](domain.md#my-day).
 
 ### Requirement: Today places each task by its agenda time
 
@@ -295,10 +289,7 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#source-state, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-> Where a connected target's tasks are filed, which status each one gets, and
-> which deleted tasks come back. The feature chapter says what linked tasks
-> are; ADR 0020 §4 and §9 say why the map and the repository are per target,
-> and §5 says when a deleted task is restored.
+> ADR 0020 §4 and §9 say why the map and the repository are per target, and §5 says when a deleted task is restored.
 
 ### Requirement: A target's repository files its unfiled tasks
 
@@ -684,9 +675,7 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
-> The requirements of the automatic Projection policy, which is not built yet.
-> The feature chapter says what Projection is and why; this says what the policy
-> will promise.
+> The policy is not built yet.
 
 ### Requirement: Starting work opens one artifact per target repository
 
@@ -724,9 +713,6 @@ When a task is completed, the Projection policy SHALL close every downstream art
 type: requirements
 related: [.devbook/domain/tasks/features.md#sub-items-and-steps]
 ```
-
-> The requirements of the task's steps, written as `##` chapters of its body,
-> and of the `view:` token that body once switched on.
 
 ### Requirement: A step is written in the task's body
 
@@ -770,9 +756,6 @@ The system SHALL keep a `view:` token found on a task's metadata line, as writte
 type: requirements
 related: [.devbook/domain/tasks/features.md#recurring-tasks, .devbook/domain/tasks/domain.md#occurrence-spawning]
 ```
-
-> What [Occurrence Spawning](domain.md#occurrence-spawning) promises when a
-> repeating task is ticked off, on the desktop or through a pulled copy.
 
 ### Requirement: The tick spawns the next occurrence
 
@@ -888,8 +871,6 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#manual-ordering]
 ```
 
-> The requirements of the order a person arranges the backlog in.
-
 ### Requirement: Unranked tasks fall back to recency
 
 ```meta
@@ -912,8 +893,6 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#entry-kind]
 ```
 
-> The requirements of importing a plan, and of the paths that leave plans to it.
-
 ### Requirement: The text save refuses a plan entry
 
 ```meta
@@ -935,9 +914,6 @@ The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#en
 type: requirements
 related: [.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved]
 ```
-
-> What a follow-up entry is born with, when the person approves a run with a
-> follow-up.
 
 ### Requirement: A follow-up is filed once, after the gated entry
 
@@ -994,8 +970,7 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#archive-and-lifecycle, .devbook/domain/tasks/domain.md#completed]
 ```
 
-> What the list's checkbox and the status picker promise about the tick,
-> [Completed](domain.md#completed), and the status.
+> The tick is [Completed](domain.md#completed).
 
 ### Requirement: Ticking an open task off moves it to done
 
@@ -1063,8 +1038,6 @@ Unticking a task SHALL clear its `completed_on` and leave its status and every o
 type: requirements
 related: [.devbook/domain/tasks/features.md#multi-device-sync]
 ```
-
-> What keeping one backlog on several devices promises.
 
 ### Requirement: The later edit wins whole
 

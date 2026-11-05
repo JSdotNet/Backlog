@@ -22,8 +22,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Editing_and_resolving_stamp_the_remark_for_the_next_push, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_edit_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_deletion_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it]
 ```
 
-Editing, resolving or deleting a remark stamps it later than the copy it changed, even when that copy arrived from a device whose clock runs ahead.
-Replication tells which version is newer by the stamp, so a change stamped earlier would lose to the version it replaced.
+Editing, resolving or deleting a remark stamps it later than the copy it changed, even when that copy arrived from a device whose clock runs ahead, because replication picks the newer by stamp.
 
 Enforced at: `DevbookAnnotationStore.Edit()`, `SetResolved()` and `Delete()`, through `Stamp()`
 
@@ -46,8 +45,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_written_remark_leaves_a_tombstone_for_the_push, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationReplicaMergeTests.A_tombstone_from_elsewhere_deletes_the_local_remark]
 ```
 
-Deleting a remark that has a body leaves a tombstone in its place rather than removing it.
-The tombstone is what lets the deletion replicate too.
+Deleting a remark that has a body leaves a tombstone in its place rather than removing it, so the deletion replicates too.
 
 Enforced at: `DevbookAnnotationStore.Delete()`, which sets `DeletedAt`; `AnnotationReplicaMerge.Apply()` deletes the local remark when a tombstone wins
 
@@ -58,8 +56,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_fresh_remark_is_a_draft_on_the_block_it_was_asked_for, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_push_selects_what_changed_after_the_watermark_and_never_a_draft, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_draft_removes_it_outright]
 ```
 
-A live remark with an empty body is a draft: it is kept on this device, never replicated, and deleting it removes it outright with no tombstone.
-A draft is a remark open in the read view that the reader has not written yet, and a draft never pushed leaves nothing to replicate.
+A live remark with an empty body is a draft: it stays on this device and is never replicated, and deleting it leaves no tombstone, since a draft never pushed leaves nothing to replicate.
 
 Enforced at: `DevbookAnnotation.IsDraft`; `DevbookAnnotationStore.ListChangedSince()` leaves drafts out of a push, and `Delete()` removes a draft
 
@@ -71,8 +68,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionT
 ```
 
 A remark the sync service would refuse is left out of the push, named in a warning without its body, and offered again only after an edit.
-The service refuses a remark with no repository, a blank chapter path, a negative block index, a kind other than comment, question, suggestion or flag, or a field past its bound, the branch name included.
-The sync service refuses a push whole, so sending it would hold back every remark beside it on every cycle.
+The service refuses a remark with no repository, a blank chapter path, a negative block index, a kind other than comment, question, suggestion or flag, or a field past its bound, the branch name included. The service refuses a push whole, so one such remark would hold back every other on each cycle.
 
 Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimits.WhyRefused()`, the rule the sync endpoint runs
 
@@ -95,8 +91,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Each_repository_gets_its_own_file_under_the_storage_folder
 ```
 
-A remark is never written into a repository's devbook folders.
-That is what lets a reader remark on a branch snapshot nobody can write to.
+A remark is never written into a repository's devbook folders, so a reader can remark on a branch snapshot nobody can write to.
 
 Enforced at: `DevbookAnnotationStore`, which writes only under its own storage folder (`FolderName`), and `DevbookAnnotation`, which holds a repository alias and a chapter path rather than a path on disk
 
@@ -107,8 +102,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_overwrites_a_remark_the_store_holds, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_brings_back_a_remark_the_person_deleted, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
 ```
 
-Importing a repository's open review notes writes only the remarks the store holds no document for, so a remark already held, a tombstone included, stays as it is.
-The person may have edited, resolved or deleted the remark since, and an import that ran again would otherwise undo that.
+Importing a repository's open review notes writes only remarks the store holds no document for, so a held remark, a tombstone included, stays as it is, as the person may have changed it.
 
 Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which checks and writes under one lock; `SessionDevbookAnnotationStore.ImportIfAbsent()` holds the same rule
 
@@ -119,8 +113,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_imported_remark_stamped_in_the_past_is_not_pushed_as_a_new_change
 ```
 
-An imported remark is stamped with its review note's date, or with the time of the commit that added the chapter when the note states none, and never with the store's clock.
-Every device imports for itself under the same id, so a remark stamped in the past is not pushed as a new change.
+An imported remark is stamped with its review note's date, or with the time of the commit that added the chapter when the note states none, never with the store's clock. Every device imports under the same id, and a remark stamped in the past is not pushed as a new change.
 
 Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which writes the remark's own stamps
 

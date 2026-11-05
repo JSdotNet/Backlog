@@ -194,4 +194,4 @@ A reply, an acknowledgement included, is accepted only from a device under the s
 
 Enforced at: the sync reply endpoint, and the owner desktop's notification exchange before `Accept()`
 
-The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange compares the account the replica stamped on the reply with its own, and rejects a mismatch before the reply reaches `Accept()`. `Accept()` then checks that the reply is addressed to this owner instance (`reply.wrong_instance`).
+The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange rejects a reply whose stamped account differs from its own before `Accept()`, which then checks that the reply is addressed to this owner instance (`reply.wrong_instance`).

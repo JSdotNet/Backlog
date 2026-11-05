@@ -5,9 +5,9 @@ type: requirements
 related: [.devbook/domain/devbook/features.md]
 ```
 
-> What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it. The Brain's
-> own requirements are the [Brain's](../brain/requirements.md).
+> What each feature guarantees: one SHALL sentence per requirement, with its
+> scenarios. A review note is an `annotation` fence; a [Sync Verdict](domain.md#sync-verdict)
+> is the sweep's last word on a chapter. The Brain's are in [its own file](../brain/requirements.md).
 
 ## Unified search
 
@@ -15,9 +15,6 @@ related: [.devbook/domain/devbook/features.md]
 type: requirements
 related: [.devbook/domain/devbook/features.md#unified-search]
 ```
-
-> The requirements of one search across the Brain and every configured
-> repository's devbook.
 
 ### Requirement: Results are grouped by source, Brain first
 
@@ -81,12 +78,6 @@ The system SHALL open a result in the devbook it came from, moving the pane to t
 type: requirements
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```
-
-> The requirements of how a chapter's metadata and workflow state are shown: the
-> decision state a domain chapter carries, the state the app keeps for a decision
-> or debt record and a proposal, the state another tool keeps on a chapter, and
-> the planning fields the view leaves out. They also say how the app's store first
-> takes the states a repository's Markdown still writes.
 
 ### Requirement: Decision state is shown beside the status
 
@@ -231,10 +222,6 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 
-> The requirements of where the read view shows a reader's remark once the chapter
-> it was left on has changed, on which branch it shows, and how a repository's
-> open review notes become remarks.
-
 ### Requirement: A remark follows its passage
 
 ```meta
@@ -318,9 +305,6 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 ```
 
-> The requirements of the review notes a repository keeps in its chapters as
-> `annotation` fences.
-
 ### Requirement: A review note never travels as the chapter's content
 
 ```meta
@@ -343,8 +327,6 @@ The system SHALL leave a chapter's review notes out of everything it hands on as
 type: requirements
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
 ```
-
-> The requirements of the [Sync Verdict](domain.md#sync-verdict) a chapter shows.
 
 ### Requirement: A sweep replaces only the verdicts of the chapters it checked
 
@@ -383,8 +365,7 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
 ```
 
-> The requirements of the Devbook pane's source field: the local clone or a branch,
-> read from GitHub (local ADR 0008).
+> The source field is the local clone or a branch, read from GitHub (local ADR 0008).
 
 ### Requirement: Typing narrows the sources
 
@@ -568,9 +549,6 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#reviewing-what-a-branch-changed]
 ```
 
-> The requirements of **Review changes** in the Devbook pane, read from GitHub and
-> held in memory for the session.
-
 ### Requirement: Only a branch can be reviewed
 
 ```meta
@@ -667,9 +645,6 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 type: requirements
 related: [.devbook/domain/devbook/features.md#technology-view]
 ```
-
-> The requirements of the Technology area of the Devbook pane: its five views,
-> the measures they compute from `depends-on`, and how they are operated.
 
 ### Requirement: Five views replace the Atlas and Layers tabs
 

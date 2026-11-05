@@ -35,16 +35,14 @@ related: [".devbook/domain/capture/features.md#in-app-feedback-capture"]
 ```
 
 Turning it on puts a report action in the app chrome. The action files a Desktop
-app issue on GitHub. The issue has a title, details, and an attached screenshot.
-The action is the in-app route into Capture.
+app issue on GitHub with a title, details, and a screenshot.
 
-The flag is released: on by default, and without the `DEV`
-mark (under construction) or the `BETA` mark (built, not yet proven) that the
+The flag is released: on by default, without the `DEV` or `BETA` mark that the
 settings screen puts on an unfinished feature
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
-person's choice is kept in `features.json` beside the app's other per-device
-choices. It is retired once nobody needs to switch the report action off.
+person's choice is kept in `features.json`. It is retired once nobody needs to
+switch the report action off.
 
 ## Capture sources
 
@@ -58,8 +56,8 @@ tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.CaptureSourcesSe
 ```
 
 This setting says which sources Capture watches and what each one is pointed at.
-It holds only the [capture sources](domain.md#capture-source) that can be
-monitored: YouTube, website, and email. Each has one entry, always in that order.
+It holds the [capture sources](domain.md#capture-source) that can be
+monitored: YouTube, website, and email, one entry each, in that order.
 An entry has:
 
 - the source's kind, written as its slug (`youtube`, `website`, `email`);
@@ -68,19 +66,18 @@ An entry has:
 
 A target is a channel or
 feed URL or handle, a page URL, or a sender address. Targets are identifiers
-only, never a credential: the file is plain text meant to be read and
-hand-edited, so a mailbox password does not belong in it. Nothing is watched
-until the reader switches a source on.
+only, never a credential, because the file is plain text meant for hand-editing.
+Nothing is watched until the reader switches a source on.
 
 The reader edits it in the Sources panel on the [Inbox pane](../inbox/context.md#inbox-pane),
 where the switch and the targets commit the moment they change. The panel shows
-the file's path. [Run capture now](features.md#run-capture-now) reads it at the
-moment a run starts and polls only the sources that are switched on.
+the file's path. [Run capture now](features.md#run-capture-now) reads it when a
+run starts and polls only the sources that are on.
 
-The setting is the reader's own and kept on the machine, in `capture-sources.json`
-under `%LOCALAPPDATA%\Backlog`, and is never synced between devices. It has its
+The setting is the reader's own, kept in `capture-sources.json`
+under `%LOCALAPPDATA%\Backlog` and never synced between devices. It has its
 own file rather than a section of `settings.json`, which only points at the
-workspace. Two other files sit beside it, each for a different job:
+workspace. Two other files sit beside it:
 
 - the **capture run log**, `capture-runs.json`, keeps what the last runs found,
   per source, for the reader;
@@ -88,8 +85,8 @@ workspace. Two other files sit beside it, each for a different job:
   a run has already passed over, so a run delivers each entry once.
 
 The file is read tolerantly, so a hand-edit never stops the app from opening.
-Targets are trimmed, blank ones are dropped, and duplicates are folded into one.
-A kind nobody can read, or one that cannot be monitored, is dropped, and a
-source missing from the file comes back switched off. A corrupt or unreadable
-file falls back to nothing watched. A save that cannot be written keeps the
-change for the session and says it could not be kept for next time.
+Targets are trimmed, blank ones are dropped, and duplicates are folded.
+An unreadable or unmonitorable kind is dropped, and a
+source missing from the file comes back switched off. A corrupt file
+falls back to nothing watched. A save that cannot be written keeps the
+change for the session and says so.

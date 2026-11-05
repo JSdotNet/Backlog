@@ -24,10 +24,7 @@ related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/monitori
 aliases: [ProductivityLedger]
 ```
 
-The personal record of productivity-relevant activity. Each recorded activity is
-preserved as a `Productivity Entry`, and metrics are derived from the ledger
-rather than edited in place. The rules the ledger holds are in
-[its invariants](domain.invariants.md#productivity-ledger).
+The personal record of productivity-relevant activity. Each recorded activity is kept as a `Productivity Entry`, and metrics are derived from the ledger, never edited in place. Its rules are in [its invariants](domain.invariants.md#productivity-ledger).
 
 ### Productivity Entry
 
@@ -36,9 +33,7 @@ type: entity
 aliases: [ProductivityEntry, productivity_entry_id]
 ```
 
-An individual recorded activity, identified within the ledger. It captures when
-the activity happened, which work subject it relates to, which AI tool was used
-if any, and what outcome was produced.
+One recorded activity, identified within the ledger: when it happened, which work subject it relates to, which AI tool was used if any, and what outcome it produced.
 
 ### Work Subject Ref
 
@@ -47,8 +42,7 @@ type: value-object
 aliases: [WorkSubjectRef, subject_ref]
 ```
 
-An opaque reference to the work being measured. Equality is by `subject_type`
-and `subject_id`. An entry may carry one, and need not. It can refer to:
+An opaque reference to the work being measured; an entry may carry one. Equality is by `subject_type` and `subject_id`. It can refer to:
 
 - a task;
 - a pull request;
@@ -63,8 +57,7 @@ and `subject_id`. An entry may carry one, and need not. It can refer to:
 type: value-object
 ```
 
-A derived measurement. Metrics are recomputed from entries and never become the
-source of truth. Examples are:
+A derived measurement, recomputed from entries and never the source of truth. Examples are:
 
 - AI-assisted tasks completed;
 - estimated time saved;
@@ -96,13 +89,7 @@ The type of productivity activity being measured, one of:
 type: enum
 ```
 
-The AI-assisted channel used for the activity. The concrete values remain
-configurable because tools change faster than the domain concept. Examples are:
-
-- Copilot CLI;
-- GitHub Copilot App;
-- IDE chat;
-- another assistant.
+The AI-assisted channel used for the activity. The values stay configurable because tools change faster than the domain concept. Examples are Copilot CLI, GitHub Copilot App, IDE chat and another assistant.
 
 ## Productivity Analysis
 
@@ -119,11 +106,7 @@ Computes productivity summaries from ledger entries:
 - prompt reuse;
 - work distribution by tool, repository, environment or activity kind.
 
-It is a service because the
-behavior is query/composition-oriented and derives insight across many entries
-rather than enforcing a single entry invariant. Invocation semantics:
-query/composition-oriented when the person opens a productivity view or requests
-a report.
+It is a service because it derives insight across many entries rather than enforcing a single entry invariant. Invocation semantics: query/composition-oriented, when the person opens a productivity view or requests a report.
 
 ## ProductivityRecorded
 
@@ -193,22 +176,11 @@ aliases: [office hours, inside office hours, outside office hours]
 related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/requirements.md#hours-worked]
 ```
 
-The span of time on one date that the person meant to work. It is that date's
-start and end in the [working week](context.md#working-week), with the
-[day overrides](../roadmap/domain.md#day-override) applied. A blocked date has
-no office hours. An unblocked date has the start and end its weekday stores. A
-day whose end is not after its start has none either.
+The span of time on one date that the person meant to work: that date's start and end in the [working week](context.md#working-week), with the [day overrides](../roadmap/domain.md#day-override) applied. A blocked date has no office hours. An unblocked date has the start and end its weekday stores. A day whose end is not after its start has none either.
 
-The dashboard's [Hours worked](features.md#hours-worked) part splits the
-person's [actual hours](../roadmap/domain.md#actual-hours) by it: the time
-**inside office hours** and the time **outside office hours**. The split is to
-the minute. It does not use the hour grids' rule of outlining a whole hour that
-office hours only touch.
+The dashboard's [Hours worked](features.md#hours-worked) part splits the person's [actual hours](../roadmap/domain.md#actual-hours) by it into time **inside office hours** and time **outside office hours**. The split is to the minute, not by the hour grids' rule of outlining a whole hour that office hours only touch.
 
-The term exists because the split needs one date's span, overrides applied.
-*Working hours* is an alias of Roadmap Planning's
-[Working Week](../roadmap/domain.md#working-week), which is the weekly pattern and
-its overrides together, not the hours of one date.
+The term exists because the split needs one date's span, overrides applied. *Working hours* is an alias of Roadmap Planning's [Working Week](../roadmap/domain.md#working-week), the weekly pattern and its overrides together, not the hours of one date.
 
 ### Spend Provider
 

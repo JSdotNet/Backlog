@@ -22,23 +22,18 @@ reader sees what a thing is and who sent it before deciding on it. The selected
 item opens in a detail view shaped by its kind.
 
 The rows are grouped by how long ago they were captured: **Today**, **This
-week** and **Older than a week**, each heading with its count. A group with no
-rows is not shown. On the desktop the Inbox takes the whole screen in place of
-the main view, in three columns:
-
-- the side menu;
-- the rows;
-- the detail of the chosen item.
+week** and **Older than a week**, each heading with its count. An empty group
+is not shown. On the desktop the Inbox takes the whole screen in place of
+the main view, in three columns: the side menu, the rows, and the detail of the
+chosen item.
 
 **Deferred** is the one [slice](domain.md#slice) without age
-headings. Its rows run in the order they come back, soonest review date first,
-and splitting them by capture would scramble that.
+headings. Its rows run in the order they come back, soonest review date first.
 
 A row is a tile with the kind's mark, the title, a line saying what kind of
 thing it is and where it came from ("Article · Web clipper"), and how long ago
 it arrived. A row whose item has a [suggestion](#classification-and-enrichment)
-the reader can take and has not turned down says **suggested** under its age,
-so the rows worth a second look stand out before they are opened. Tags and
+the reader can take says **suggested** under its age. Tags and
 repositories are shown in the detail, not on the row.
 
 **Capture intake and acknowledgement**
@@ -86,9 +81,9 @@ sequenceDiagram
 ```
 
 - The intake decides by id and status and parses no token. Every case has an
-  answer and none is an error. The caller is the sync client, and an error there
+  answer and none is an error, because the caller is the sync client and an error
   would replay the page for ever. For the same reason, a file entry
-  no fetch could honour is left off the item rather than thrown. A file that
+  no fetch could honour is left off the item rather than thrown, and a file that
   fails to download leaves the item Received.
 - Only a route, archive or delete of a
   [replica-backed item](domain.md#replica-backed-item) puts an acknowledgement
@@ -96,7 +91,7 @@ sequenceDiagram
   tombstone owes nothing.
 - The acknowledgement is durable on the item, so a decision taken offline
   reaches the phone on the first push that succeeds.
-- A deleted item's acknowledgement is kept beside the item store, and it is all
+- A deleted item's acknowledgement is kept beside the item store and is all
   that is left of the item. Until it is sent, a replay of the capture is
   `AlreadyKnown` rather than a new item.
 - The desktop's own tombstone, its [sync echo](domain.md#sync-echo), comes back
@@ -115,10 +110,9 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
 ```
 
-The queue's header offers the two ways something gets into it. The **capture
-field** is for a thing the reader has in their head right now. **Capture now**
-runs the watched sources, and the **Sources** button beside it opens the
-sources those runs watch
+The queue's header offers two ways in. The **capture field** is for a thing the
+reader has in their head right now. **Capture now** runs the watched sources,
+and the **Sources** button beside it opens them
 ([Run capture now](../capture/features.md#run-capture-now)).
 
 The capture field sits in the header, always open:
@@ -128,19 +122,17 @@ The capture field sits in the header, always open:
 - **Ctrl+Enter** files the title and the notes together.
 - **Escape** closes the notes editor.
 
-It asks only for a title and optional notes. The Inbox is
-where deciding happens, so a field that asked where the item goes would be
-asking for triage before the item exists. While the notes are open, Enter in
-the field files the notes with the title too, so nothing written under it is
+It asks only for a title and optional notes, because a field that asked where
+the item goes would ask for triage before the item exists. While the notes are
+open, Enter files the notes with the title too, so nothing written under it is
 dropped. Escape discards the notes with the editor, so notes nobody can see are
 never filed with the next Enter. A capture that fails leaves the title in the
-field to try again with.
+field to try again.
 
 The result is a [Capture (manual)](domain.md#capture-manual), captured and
-received at the same instant. It lands unfiled in the queue the reader is
-filling, and opens in the detail beside it rather than anywhere else. It needs
-no paired device, which makes it the offline path and the way an inbox is
-seeded without a phone.
+received at the same instant. It lands unfiled in the queue and opens in the
+detail beside it. It needs no paired device, which makes it the offline path and
+the way an inbox is seeded without a phone.
 
 ### Capture attachments
 
@@ -152,10 +144,10 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:
 ```
 
 A thought captured on the phone often comes with a photo, a screenshot or a
-PDF. The reader sees those files on the desktop while deciding what to do with
+PDF, which the reader sees on the desktop while deciding what to do with
 the item.
 
-The files follow the item. The item arrives first with the list of files the
+The item arrives first with the list of files the
 capture named, and the desktop then downloads each file into the item's
 [attachment folder](domain.md#attachment-folder). A file that cannot be
 downloaded does not hold up the capture or the rest of the sync. The item still
@@ -167,9 +159,8 @@ action. A file still on its way reads *Waiting to download*. An item whose
 only content is pictures reads as an `image` in the queue, and an item with any
 other file reads as a `document`.
 
-When the item is routed to Tasks, its attachment folder goes with it: every
-task it becomes carries the folder as its attachment. Create plan hands it on
-the same way: every task the drafted plan makes carries the folder, and the
+When the item is routed to Tasks, every task it becomes carries its attachment
+folder as its attachment. Create plan hands it on the same way, and the
 drafter itself never sees it.
 
 ### Organise into lists and groups
@@ -184,11 +175,10 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
 A side menu beside the queue holds a fixed **Inbox** entry for what is unfiled
 and a fixed **Deferred** entry for what was put aside (see [Defer](#defer)).
 The reader's own groups and lists follow, each with a count of the items still
-waiting in it. Lists and groups are created, renamed, moved between groups,
-ungrouped and deleted in place, from the menu itself. Deleting a list returns
-its items to the inbox rather than losing them. The lists and groups are the
-reader's own. They are local to the machine and never synced, and a fresh
-workspace is seeded once with a default set to start from.
+waiting in it. Lists and groups are created, renamed, moved between groups, ungrouped and
+deleted in place, from the menu itself. Deleting a list returns its items to the
+inbox. They are the reader's own, local to the machine and never synced, and a
+fresh workspace is seeded once with a default set.
 
 ### Filter by content kind
 
@@ -226,9 +216,9 @@ The original source link and capture timestamp are kept whatever is decided.
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
 key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
-**Archive**. The bar stays in place while the detail scrolls, so a long article
-never pushes the decisions out of reach. Delete, tags and repositories stay in the detail
-itself, because they are not the decision the item is waiting for.
+**Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+repositories stay in the detail itself, because they are not the decision the
+item is waiting for.
 
 ### Act on several at once
 
@@ -240,8 +230,8 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Back
 ```
 
 Acting on several items mirrors [bulk editing](../tasks/features.md#bulk-editing) in the Tasks pane.
-Captures that belong in the same place are filed, tagged, targeted or dismissed
-once instead of item by item, and the two panes pick things the same way:
+Captures that belong in the same place are handled at once instead of item by
+item, and the two panes pick things the same way:
 
 - **Select** puts a box beside every row of the open [slice](domain.md#slice).
 - Shift extends a run from the last box pressed.
@@ -258,15 +248,13 @@ Five acts are offered across the selection:
   [batch](#route-a-batch-to-tasks).
 
 Each of the first four is the same decision the item's own detail makes,
-applied to each picked item in turn. So an item the single-item act would
-refuse is refused here too. Tags are added to what each item already carries
-rather than replacing it. Repositories replace what each item targeted before.
-An item already at the value is left alone. The tags and repositories of an
-item already routed or archived are what that decision was made with, so they
-are not changed.
+applied to each picked item in turn, so an item the single-item act would
+refuse is refused here too. Tags are added to what each item already carries.
+Repositories replace what each item targeted before. An item already at the
+value is left alone. The tags and repositories of an item already routed or
+archived are what that decision was made with, so they are not changed.
 
-Picking a set is separate from choosing the item the detail shows: one is what
-the reader is looking at, the other what the next act will reach.
+Picking a set is separate from choosing the item the detail shows.
 
 ### Quick-triage shortcuts
 
@@ -277,8 +265,7 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
 ```
 
-A triage session is a run of small decisions, and it is kept short by taking
-them from the keyboard. With the Inbox pane in use:
+With the Inbox pane in use, a triage session runs from the keyboard:
 
 | Key | Act |
 |---|---|
@@ -307,11 +294,11 @@ when it is pressed:
 - with Ctrl, Alt or Meta held;
 - while the focus is in another pane.
 
-That is decided in the browser at the moment the key goes down, because a
-decision made on the server arrives one key late.
+The browser decides this as the key goes down, because a decision made on the
+server arrives one key late.
 
-The keys are listed in the **Shortcuts** dialog in the pane's header. The
-buttons they stand for name them in their titles.
+The **Shortcuts** dialog in the pane's header lists the keys, and the buttons
+they stand for name them in their titles.
 
 ### Triage mode
 
@@ -328,8 +315,8 @@ From the top down the screen holds:
 
 - **Progress.** **Back to the list** (**Esc**), a bar, and beside it the line
   "n of total · m decided this session". The line says where the item stands
-  among the rows of the slice still open when triage first saw them. It also says
-  how many decisions the reader has taken since the app opened. A row already moved
+  among the rows of the slice still open when triage first saw them, and how
+  many decisions the reader has taken since the app opened. A row already moved
   to the backlog is stepped over and not counted. The bar fills with the rows
   decided since triage began, and an item that arrives during triage is counted
   after those rows. Previous (**k**) and **Skip** (**j**) step without deciding.
@@ -338,15 +325,14 @@ From the top down the screen holds:
 - **AI cards**, up to two, numbered **1** and **2** — see [AI triage
   cards](#ai-triage-cards). The rule-based suggestions follow, numbered after
   them. With no AI card shown, the suggestions are numbered from 1.
-- **Move to backlog in**: a repository picker that takes several repositories at
-  once, one box per configured repository, each with its [identity
+- **Move to backlog in**: a repository picker with one box per configured
+  repository, each with its [identity
   edge](../../design/color-scheme.md#the-identity-edge). The boxes start from
   the repositories the AI card answer named, marked **AI**, else from the
   item's own; ticking one writes the item's repositories. The hint says what
   **r** makes: "one entry", "n linked entries", or "one entry, in the Brain". With no
   repository ticked, the pickers read **Brain**, where the entry is filed.
-  Picking more than one makes one task per repository, linked to each other
-  ([Route to Tasks](#route-to-tasks)).
+  More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
   backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
 
@@ -356,7 +342,7 @@ decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 Each decision (archive, defer, move to a list, move to the backlog, merge into a
 task) moves on to the next row. Past the last it goes back to the first item
-still waiting, which is where a reader who skipped some with **j** left them.
+still waiting, where a reader who skipped some with **j** left them.
 When none is left, triage gives way to [Inbox zero](#inbox-zero). Tags and
 repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
@@ -373,9 +359,9 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotn
 
 When the reader opens an item in triage, the Azure Foundry model reads it
 against the open backlog and the rest of the inbox. Triage shows what it
-noticed as at most two cards, under the heading **AI noticed**. What is sent,
-and when, is settled in
-`.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`.
+noticed as at most two cards, under the heading **AI noticed**.
+`.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`
+settles what is sent, and when.
 
 - **Probably a duplicate.** The open backlog task, or the other unprocessed
   capture, this item seems to repeat, with the reason in a few words, both
@@ -389,20 +375,19 @@ and when, is settled in
   belong with this one, with the reason. Its main act, **Make the plan**, opens
   the [batch](#route-a-batch-to-tasks) panel on the item and those captures.
   **Dismiss** turns the card down. **Add to an existing plan…** is planned,
-  not yet built, and shows disabled until the Inbox can list the backlog's
-  plans. Tasks will list its plans to the Inbox through a port, and picking one
-  tags the item and those captures with that plan's `+tag`.
+  not yet built, and shows disabled until Tasks lists its plans to the Inbox
+  through a port. Picking one will tag the item and those captures with that
+  plan's `+tag`.
 
 The model is asked once per item per app session. **Ask again**, in the AI
-section, asks it again for the item shown, and its answer replaces the cards;
-it is planned, not yet built.
+section, would ask again for the item shown and replace the cards; it is
+planned, not yet built.
 
 A card shown is numbered **1**, or **2** when both are, and is taken with its
 number key, as a suggestion is. The rule-based suggestions are numbered after
 the cards. A card the model has nothing to say about is not shown.
 
-When Foundry is not configured or the call fails, no card is shown and triage
-reads as it would without AI.
+When Foundry is not configured or the call fails, no card is shown.
 
 ### Merge into a task
 
@@ -415,9 +400,9 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 
 A capture that repeats a task already in the backlog is folded into that task
 rather than filed a second time. The capture's title, link and notes are added
-to the task as a comment, and the capture is archived as a duplicate of the
-task: its `DuplicateOf` names the task. The task keeps everything it had.
-Merging counts as a decision of the session and can be undone ([Undo a
+to the task as a comment, and the capture is archived as a duplicate: its
+`DuplicateOf` names the task. The task keeps everything it had.
+Merging is a decision of the session and can be undone ([Undo a
 decision](#undo-a-decision)).
 
 ### Undo a decision
@@ -439,8 +424,8 @@ app closes:
 - merge into a task;
 - To Brain.
 
-**u**, or **Undo** beside the last decision, takes back the newest one not yet
-undone, and the item is open again where it was before.
+**u**, or **Undo** beside the last decision, takes back the
+newest one not yet undone, and the item is open again where it was before.
 
 Two decisions reach outside the Inbox, and undoing them is bounded by that:
 
@@ -452,17 +437,15 @@ Two decisions reach outside the Inbox, and undoing them is bounded by that:
 
 **Link to task** and **Archive as duplicate** are decisions too and are taken
 back the same way. Undoing a link leaves the task it named alone. A bulk act
-over several items is one decision to undo, and brings every item back at once.
-That covers a bulk archive, a bulk move, and a batch route with the duplicates
-it merged.
+over several items (a bulk archive, a bulk move, or a batch route with the
+duplicates it merged) is one decision to undo and brings every item back at once.
 
-An undo that is refused is dropped rather than kept on top, so the next **u**
-reaches the decision before it.
+An undo that is refused is dropped, so the next **u** reaches the decision before it.
 
 An undo that fails because the store could not take the decision back stays on
-top instead. The decision still stands, so it still counts, and the undo says it
-could not be done. The next **u** tries it again. In a bulk act over several
-items, only the items that failed stay on top. The sentence then says what was
+top instead. The decision still stands and counts, and the undo says it
+could not be done. The next **u** tries it again. In a bulk act, only the items
+that failed stay on top, and the sentence says what was
 refused, what failed and how many items came back.
 
 An undo outlasts the decision's [sync echo](domain.md#sync-echo).
@@ -473,8 +456,8 @@ item stays open, because the acknowledgement is older than the undo. A
 dismissal that the phone or another desktop makes after the undo still closes
 the item.
 
-Decisions are not remembered past the app: a decision from an earlier session is
-changed by deciding again, not by undo.
+Decisions are not remembered past the app: change an earlier session's decision
+by deciding again.
 
 ### Inbox zero
 
@@ -486,7 +469,7 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 
 The pane reports the session when nothing in the unfiled Inbox is still
 waiting and this session has decided something. It says the inbox is clear and
-shows what the session did in place of the list and the detail. The side menu
+shows what the session did in place of the list and the detail; the side menu
 stays. The report holds:
 
 - how many items the session decided, and its count per decision: moved to
@@ -501,8 +484,8 @@ stays. The report holds:
 
 The counts are the undo history's, so a decision taken back stops counting, and
 undoing the last one brings the item back into the list. With no decision this
-session the plain first-use empty state stays: there is no session to report
-on. A list, or Deferred, that is empty shows its own empty state.
+session the plain first-use empty state stays. A list, or Deferred, that is empty
+shows its own empty state.
 
 ### AI triage pass
 
@@ -598,7 +581,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests, unit:dotnet
 ```
 
 Read what an item is and propose where it goes, so triage starts from a
-proposal rather than from nothing. Nothing here is applied without the reader.
+proposal. Nothing here is applied without the reader.
 
 On intake, the item's `Content Kind` and source link are read from the
 captured text, or from its attachments when it has any.
@@ -612,7 +595,7 @@ It holds up to three kinds of proposal:
   most five tag chips are shown.
 - **Repositories.** Every repository whose
   [routing rule](context.md#inbox-routing-rules) the item matches. A tag rule
-  reads the tags the item carries, not the ones only suggested. So taking a
+  reads the tags the item carries, not the ones only suggested, so taking a
   suggested tag can bring its rule's repository onto the row.
 - **One destination.**
   - *Archive* for a newsletter: the item offers to unsubscribe.
@@ -638,8 +621,8 @@ next. A routed or archived item is offered nothing.
 Enriching an item with links to related tasks or knowledge notes is modelled
 and not built.
 
-These suggestions are rules, not AI, and they stay as they are with or without a
-model configured. A model may also read the item, in triage only
+These suggestions are rules, not AI, with or without a model configured. A model
+may also read the item, in triage only
 (`.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`).
 Its proposals are the [AI triage cards](#ai-triage-cards) and the
 [AI triage pass](#ai-triage-pass). In triage the suggestions are numbered after
@@ -719,19 +702,18 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:do
 
 Create one draft task per repository assigned to the item, or a single
 untargeted task when none is. Each task carries the item's id as its
-provenance. The **Move to backlog** button (**r**) takes this route. An item
-with attachments gives each task its attachment folder as the task's
-attachment. The item records the tasks it became and is routed exactly once. A
-failure on the Tasks side leaves it unrouted.
+provenance and the item's attachment folder as its attachment. The **Move to
+backlog** button (**r**) takes this route. The item records the tasks it became
+and is routed exactly once. A failure on the Tasks side leaves it unrouted.
 
-An item assigned to several repositories still makes one task per repository,
-and the tasks it makes are siblings that know about each other. Each sibling's
+An item assigned to several repositories makes one task per repository, and the
+tasks are siblings that know about each other. Each sibling's
 body carries the line "Same capture in: <repository> — <title>" for every other
-sibling. All of them share the general tag `#from-inbox-` followed by the last
-eight hex digits of the item's id. A single task needs neither. The lines
-come before the item's notes, so notes ending in a chapter or an open code block
-cannot take them in, and they name each sibling by its repository id. A batch
-links the siblings of each of its items the same way.
+sibling, naming each by its repository id. All of them share the general tag
+`#from-inbox-` followed by the last eight hex digits of the item's id. A single
+task needs neither. The lines come before the item's notes, so notes ending in a
+chapter or an open code block cannot take them in. A batch links the siblings of
+each of its items the same way.
 
 ### Create plan from an item
 
@@ -746,12 +728,11 @@ Ask an AI drafter for an import plan about the item and bring it into the
 backlog through the ordinary plan import
 (`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). The plan's
 entries land as Draft, whatever the drafter wrote, because nobody has read them
-yet. They share a [plan tag](domain.md#plan-tag) unique to the item, so two
-items with one title never clear each other's plan. The plan may name only the
-repositories the item was assigned, and a plan that names another is refused
-whole. The item is routed to the entries the import created: the same outcome
-as Route to Tasks, reached by another decision. When no drafter is configured
-the action stays visible, disabled, with its reason.
+yet. They share a [plan tag](domain.md#plan-tag) unique to the item, so two items with one title never clear each other's plan. The plan may
+name only the repositories the item was assigned, and a plan that names another
+is refused whole. The item is routed to the entries the import created, the same
+outcome as Route to Tasks. When no drafter is configured the action stays
+visible, disabled, with its reason.
 
 ### Route a batch to Tasks
 
@@ -764,8 +745,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, un
 ```
 
 A [batch](domain.md#batch) of captures that belong together lands in the
-backlog as one plan. [Batch route](features.md#routing) shows the path from
-pick to routed. A batch is formed in two ways:
+backlog as one plan ([Batch route](features.md#routing)). A batch is formed in two ways:
 
 - **Move to backlog** in the selection bar routes the picked items.
 - **Move list to backlog** in the list's toolbar routes every open item of the
@@ -774,10 +754,9 @@ pick to routed. A batch is formed in two ways:
   Its deferred items stay with it, and the confirmation says so when there are
   any.
 
-Each item becomes what Route to Tasks would make of it: a draft task per
-repository, or one untargeted task, carrying the item's id as its provenance
-and its files as the task's attachment. All the entries share the batch's plan
-tag. Each item records only the tasks it became.
+Each item becomes what Route to Tasks would make of it, carrying the item's id as
+its provenance and its files as the task's attachment. All the entries share the
+batch's plan tag. Each item records only the tasks it became.
 
 Some items are named and left out before Tasks is asked, and the rest still go:
 
@@ -785,19 +764,18 @@ Some items are named and left out before Tasks is asked, and the rest still go:
 - an item whose notes carry a top-level `#` heading or an unclosed code fence,
   which would break the document apart (routed on its own, it goes through);
 - an item assigned to a repository the workspace no longer knows. A batch never
-  registers a repository, just as a single route never does.
+  registers a repository.
 
 Tasks' import takes the rest as one document, whole or not at all. If Tasks
-refuses it, nothing is routed and every item stays in the queue, and the message
+refuses it, nothing is routed, every item stays in the queue, and the message
 says so. Only one route runs at a time: a batch waits for a single route to
 finish, and a single route waits for a batch.
 
 An item whose entries were made but which could not then be marked routed is
-named along with those entries. So routing it again, which would duplicate
-them, is not the only way to find them.
+named along with those entries, so the reader need not route it again and
+duplicate them.
 
-Which item waits on which is settled before the batch goes, in
-[Before you route](#before-you-route).
+[Before you route](#before-you-route) settles which item waits on which.
 
 ### Before you route
 
@@ -823,7 +801,7 @@ item of the batch or after an open task already in the backlog. The
 [stated](domain.md#dependency-tier) ones are always proposed, and each switch
 quotes the text that names the other thing. A person turns off any that are
 wrong. A loop is named and holds Confirm until a switch breaks it. Confirm
-routes the batch once, with the switches left on written as `after:` tokens.
+routes the batch once, writing the switches left on as `after:` tokens.
 Cancel changes nothing.
 
 ### Order a batch with the drafter
@@ -837,13 +815,12 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests, unit:d
 ```
 
 **Ask the AI to order** in the panel asks the plan drafter which item of the
-batch waits on which. It is opt-in per batch: the drafter is asked only on the
-press, one model call per press, because every ask costs one. When no drafter
-is configured the button stays visible, disabled, titled with the drafter's
-reason, as Create plan does.
+batch waits on which. It is opt-in per batch, one model call per press, because
+every ask costs one. When no drafter is configured the button stays visible,
+disabled, titled with the drafter's reason, as Create plan does.
 
-The drafter is the one Create plan uses, handed the whole batch instead of one
-item. It answers in the import grammar
+The drafter is the one Create plan uses, handed the whole batch. It answers in
+the import grammar
 (`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`): one entry
 per item, whose `id:` is the item's id and whose `after:` tokens are its
 reading of the order. The answer is only read, never imported. It is refused
@@ -858,8 +835,8 @@ between two items of the batch only, added to the panel as switches marked
 AI-inferred and on by default. One the panel already shows between the same two
 items is not added again. A person turns off any that are wrong; a loop still
 holds Confirm, and Confirm waits while the ask is out. A refused or failed ask
-says why in the panel and adds nothing. Confirm routes the batch through
-[Route a batch to Tasks](#route-a-batch-to-tasks), as it would without the ask.
+says why in the panel and adds nothing. Confirm routes the batch as it would
+without the ask.
 
 ### Route to Brain
 
@@ -876,38 +853,31 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotn
 keeping its title and its body. Under the default
 [PARA](../brain/domain.md#para-category) areas that area is the `_inbox`
 folder. It is the route for [collected material](domain.md#collected-material),
-a capture the reader wants to keep rather than act on. It is also the route for
-an Inbox [note](domain.md#note) the reader has finished with on the phone and
-wants among their own notes.
+a capture the reader wants to keep rather than act on, and for an Inbox
+[note](domain.md#note) the reader has finished with on the phone.
 
 It ends the item's triage as Route to Tasks does: the item is routed, once, and
 leaves the queue. What it writes is a Brain note, which does not reach the
 phone ([Note](domain.md#note) says why). A note routed To Brain stays on the
-phone as the Inbox note it was, as a note routed to Tasks does. The text the
-item carries is written as text, never as structure. A capture that came from
-a link keeps the link as the note's last line. With no Brain folder set up the
-route says so, in the Brain's own words, and routes nothing.
+phone as the Inbox note it was. The item's text is written as text, never as
+structure, and a capture that came from a link keeps the link as the note's last
+line. With no Brain folder set up the route says so, in the Brain's own words,
+and routes nothing.
 
 **To Brain** sits beside Move to backlog in triage and in the item's detail,
 and **b** takes it. Taking the *Keep as knowledge* suggestion does the same.
 
-The Brain cannot take a note in three cases:
-
-- no Brain folder is set;
-- the folder is missing;
-- the host has no Brain.
-
-In those cases the button is shown disabled, and the *Keep as knowledge* chip is
-offered but cannot be taken. Each gives the Brain's own reason, rather than being
-offered and then refused once pressed.
+The Brain may be unable to take a note: no folder is set, the folder is
+missing, or the host has no Brain. Then the button is shown disabled and the
+*Keep as knowledge* chip is offered but cannot be taken. Each gives the Brain's
+own reason instead of being refused once pressed.
 
 The toast names the note it wrote. Undo returns the item to the queue and
-leaves the note where it is: it is the person's file, in their own folder, by
-then. Routing the same item To Brain again reuses that note while nobody has
-edited it, meaning the file still holds exactly the text the route would write.
-The route answers with that note rather than writing a `-2` copy beside it. A
-note somebody has edited is theirs, and a second route writes a new one. Only a
-route reuses: two captures in the Brain with the same words are two notes.
+leaves the note where it is, as the person's file by then. Routing the same item
+To Brain again reuses that note while nobody has edited it, meaning the file
+still holds exactly the text the route would write, instead of writing a `-2`
+copy. A note somebody has edited is theirs, and a second route writes a new one.
+Only a route reuses: two captures in the Brain with the same words are two notes.
 
 ### Defer
 
@@ -919,10 +889,10 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit
 ```
 
 Put an item aside with an optional **Review on** date from its detail. The item
-leaves the Inbox and its list and appears under the side menu's fixed
+leaves the Inbox and appears under the side menu's fixed
 **Deferred** row, which counts every deferred item wherever it is filed and
 lists them soonest review date first, undated last. A deferred item keeps its
-list, and it can still be archived or routed. Deferring it again changes the
+list and can still be archived or routed. Deferring it again changes the
 date, and **Return to inbox** brings it back at once.
 
 It comes back as unprocessed on its own when the review date is reached,
@@ -949,17 +919,16 @@ related: [.devbook/domain/inbox/requirements.md#delete, .devbook/domain/inbox/fe
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
-Remove an item for good — a mis-capture, a duplicate, or an archive being
-cleared out. It is the opposite of Archive: archive keeps an item findable,
-delete keeps nothing, so the detail asks before it acts and says which of the
-two it is. Delete is offered on every item, decided or not, because clearing
-the archive is exactly what it is for.
+Remove an item for good, for example a mis-capture or an archive being
+cleared out. Archive keeps an item findable and delete keeps nothing, so the
+detail asks before it acts and says which of the two it is. Delete is offered on
+every item, decided or not, because clearing the archive is what it is for.
 
-An item that arrived through sync still owes the phone its acknowledgement, the
-same one archiving sends, so the phone stops offering the capture rather than
-sending it back. That acknowledgement is all that outlives the item, and only
-until the outbox has pushed it. The item's downloaded files go with it — unless
-it was routed, because routing handed that folder to the task.
+An item that arrived through sync still owes the phone the same acknowledgement
+archiving sends, so the phone stops offering the capture. That acknowledgement is
+all that outlives the item, and only until the outbox has pushed it. The item's
+downloaded files go with it, unless it was routed, because routing handed that
+folder to the task.
 
 ## Queue health
 
@@ -992,9 +961,8 @@ the bar reads the same counts to a screen reader. A part with no items takes no
 room. The header beside the pane's title repeats the short form, "n waiting ·
 oldest d days".
 
-It reads the whole queue, whichever list is open, because how the queue is doing
-is not a question about one list. The dashboard half, and the configurable
-alerts, are Monitoring's.
+It reads the whole queue, whichever list is open. The dashboard half, and the
+configurable alerts, are Monitoring's.
 
 ## Notes
 
@@ -1030,12 +998,12 @@ stateDiagram-v2
 Keep and edit [notes](domain.md#note) on the phone and the desktop. Every note
 reaches the phone, whichever device made it, and an edit on either side
 reaches the other. The later edit wins, by the rule the
-[Inbox Item](domain.md#inbox-item) sets out. The sync both ways, the desktop
+[Inbox Item](domain.md#inbox-item) sets out. Both sync directions, the desktop
 half and the phone's Notes tab are built.
 
 An Inbox note rides the task feed between the desktop and the phone and waits
 for triage (local ADR 0025). [Route to Brain](#route-to-brain) turns it into a
-Brain note (local ADR 0026), and the [Note](domain.md#note) term says how the
+Brain note (local ADR 0026); the [Note](domain.md#note) term says how the
 two differ.
 
 ### Notes on the phone
@@ -1058,18 +1026,17 @@ one, and with no match it repeats the words searched for. **New note** opens an
 empty editor, and a tap on a note opens it in the same editor.
 
 The editor holds a title, a Markdown body that dictation appends to, and
-attached photos and files. These are the
-[talk note's](../capture/features.md#talk-note) tools.
+attached photos and files, the [talk note's](../capture/features.md#talk-note)
+tools.
 
 [A note on the phone](features.md#notes) shows how it saves. The
-editor has no save button. A second after typing stops, the note is saved.
-Leaving a field or the editor saves at once. So do picking a file and the app
+editor has no save button: the note is saved a second after typing stops.
+Leaving a field or the editor saves at once, as do picking a file and the app
 going to the background, where the phone may end it before the second is up.
 
 A note made or changed on the phone is kept on the phone first and sent through
-the outbox, so it works with no signal. Pinning, a linked task, a formatting
-toolbar and turning a line into an Inbox item are not part of the phone's Notes
-tab.
+the outbox, so it works with no signal. Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
+item are not part of the phone's Notes tab.
 
 ### Notes on the desktop
 
@@ -1082,11 +1049,10 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 A note shows its kind on its row, with a mark of its own, and the kind chips
 filter it like any kind. The reader may edit its title and body in place in the
 detail column with **Edit note**, and the edit reaches the phone on the next
-sync. An archived note offers no edit, because it has left the phone. The
-reader may also triage it: routing, deferring and archiving work as for any
-item, and [To Brain](#route-to-brain) files it among the reader's own notes.
-Routing a note leaves it on the phone. Archiving or deleting a note removes it
-from the phone.
+sync. An archived note offers no edit, because it has left the phone. Routing,
+deferring and archiving work as for any item, and [To Brain](#route-to-brain)
+files it among the reader's own notes. Routing a note leaves it on the phone.
+Archiving or deleting it removes it from the phone.
 
 ### Triage stays on the desktop
 
@@ -1096,7 +1062,7 @@ related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/featur
 ```
 
 The phone does not route, defer, accept or archive any Inbox item, notes
-included, and it offers no button that would. The phone's Inbox tab
+included, and offers no button that would. The phone's Inbox tab
 shows only the captures the phone made itself, each with its sync state, until
-the desktop takes them in. Deciding what an item becomes is the desktop's job,
-because the desktop is where the backlog and the repositories are.
+the desktop takes them in. The desktop decides what an item becomes, because the
+backlog and the repositories are there.

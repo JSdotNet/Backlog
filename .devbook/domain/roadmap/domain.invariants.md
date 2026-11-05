@@ -4,9 +4,7 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one
-chapter each. A chapter gives each rule, where it is enforced, and the unit test
-that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces.
 
 ## Roadmap Plan
 
@@ -57,7 +55,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADepen
 ```
 
 A dependency names an item or milestone in this plan; an edge to an unknown id is refused (`roadmap.node_not_found`).
-An edge to nothing is not a weaker plan, it is a wrong one.
+An edge to nothing is not a weaker plan but a wrong one.
 
 Enforced at: `AddDependency()`; `Rehydrate()` drops a dangling edge, and `RemoveItem()` and `RemoveMilestone()` forget every edge to the node they remove
 
@@ -158,7 +156,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.Alias
 ```
 
 A Repository Scope holds each alias once, trimmed and in lower case, and two scopes naming the same aliases are equal whatever order they were typed in.
-The aliases are written the way the settings store writes them, so a scope and the registry compare without translation.
+The aliases are written as the settings store writes them, so a scope and the registry compare without translation.
 
 Enforced at: constructor (`RepositoryScope`): `Of()`
 
@@ -239,8 +237,7 @@ tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.ATitleThat
 ```
 
 A title the slug rule reduces to nothing gets the tag `item`.
-There must always be something to file work against, and otherwise punctuation, an
-emoji or a script the slug rule strips would leave an empty tag.
+Work needs something to be filed against, and otherwise punctuation, an emoji or a script the slug rule strips would leave an empty tag.
 
 Enforced at: constructor (`PlanningTag`): `From()` and `Of()`
 
@@ -294,7 +291,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDo
 ```
 
 Moving or editing an item changes neither its own dependencies nor the window of anything that waits on it.
-Dependent work that is not dragged along is how a date that no longer fits becomes visible.
+Dependent work not dragged along is how a date that no longer fits becomes visible.
 
 Enforced at: `Reschedule()` and `UpdateItem()`, which change the one item's window and never its `Dependencies`
 
@@ -420,7 +417,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.Overla
 ```
 
 A change that makes work open on or before the close of something it waits on is accepted, and the contradiction is reported rather than refused or repaired.
-A plan is allowed to be temporarily wrong, because that is how a person finds out a date does not fit.
+A plan may be temporarily wrong, because that is how a person finds out a date does not fit.
 
 Enforced at: `PlanSequencing.Contradictions()`, a pure query over the nodes; `AddDependency()`, `Reschedule()` and `UpdateItem()` accept the change that makes one
 
@@ -511,7 +508,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgre
 ```
 
 The finished effort is the sum of the estimates registered on finished work, and the finished count counts every finished thing, estimated or not.
-A reading drawn from effort alone would overstate how far along an item is as soon as finished work turned out to be unsized.
+A reading from effort alone would overstate how far along an item is as soon as finished work turned out to be unsized.
 
 Enforced at: `RoadmapItemRollupDto.DoneEffort` and `RoadmapItemRollupDto.DoneCount`
 
@@ -569,7 +566,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AC
 ```
 
 When every remaining step waits on another, the earliest gathered of them is released and the ordering goes on, rather than the item being refused.
-Tasks lets a person write a cycle, and a reading that failed on one would break on a typed `after:`.
+Tasks lets a person write a cycle, so a typed `after:` must not break the reading.
 
 Enforced at: `RoadmapRollup.InDependencyOrder()`
 

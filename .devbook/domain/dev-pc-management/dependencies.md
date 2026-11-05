@@ -32,13 +32,11 @@ type: dependencies
 
 ## Notes
 
-- Tool baseline ownership lives in Technology Stack. Dev PC Management only
-  consumes the baseline and reports adoption back, so it never becomes a second
-  baseline authority.
+- Technology Stack owns the tool baseline. Dev PC Management only consumes it
+  and reports adoption back, so it is never a second baseline authority.
 - Package-manager execution is behind an anti-corruption layer per tool, so
   external command semantics never leak into the `Machine` model.
 - The desktop app is dual-role: an agent that registers and reports, and a client
   that initiates connections. That is an architecture concern, not a domain split.
-- Sessions are not this context's subject. Which agent ran where is Sessions'
-  [Session Log](../sessions/domain.md#session-log), for the reason
-  [context.md](context.md) gives.
+- Which agent ran where is Sessions' [Session Log](../sessions/domain.md#session-log),
+  for the reason [context.md](context.md) gives.

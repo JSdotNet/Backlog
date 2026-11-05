@@ -4,12 +4,7 @@
 type: domain
 ```
 
-> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context; each chapter's
-> `type` records which of those it is. An Aggregate's owned Entities, Value
-> Objects, and Enums are chapters directly beneath it, typed `entity`,
-> `value-object`, and `enum`. Value Objects/Enums shared across multiple
-> aggregates get their own chapter at the end instead of being duplicated.
+> A chapter's `type` is `entity`, `value-object` or `enum` beneath its aggregate.
 
 ## Progress Signal
 
@@ -24,15 +19,9 @@ from a domain or an external source. A signal is never changed after capture; a
 correction arrives as a new signal. Signals are the raw material that dashboards
 and attention rules read.
 
-The aggregate guarantees that each signal records these at detection time:
-
-- its `Signal Type`;
-- its source;
-- its subject reference;
-- its payload.
-
-The Progress Signal aggregate is a single immutable record with no owned child
-entities; its variable payload is held in the `Signal Payload` value object.
+Each signal records its `Signal Type`, source, subject reference and payload at
+detection time. The aggregate is a single immutable record with no owned child
+entities; its variable payload is the `Signal Payload` value object.
 
 ### Signal Payload
 
@@ -106,14 +95,10 @@ sequenceDiagram
     Dashboard->>Inbox: FollowUpCaptured (title, source: monitoring)
 ```
 
-The last arrow closes the observe-and-act loop; see
-[FollowUpCaptured](domain.md#followupcaptured).
-
-Ingests signals from every source and correlates them, for example GitHub errors
+Ingests signals from every source ([FollowUpCaptured](domain.md#followupcaptured) closes the loop) and correlates them, for example GitHub errors
 against backlog delays. It detects staleness and attention conditions against
-configurable thresholds, and computes rollups, team-level aggregates among them. It
-is a service because it spans many signal sources and produces cross-cutting views
-rather than changing one aggregate.
+configurable thresholds and computes rollups, including team-level aggregates. It
+is a service because it spans many signal sources rather than changing one aggregate.
 
 Invocation semantics: event-triggered read-side service, consuming the signals other
 contexts publish.
@@ -135,8 +120,7 @@ views:
 - infrastructure: PC status and repository health.
 
 It emits `FollowUpCaptured` when a dashboard follow-up should become a new Inbox
-item. It is a service because it reads across aggregates and contexts to present
-state rather than own it.
+item. It is a service because it reads across aggregates and contexts and owns no state.
 
 Invocation semantics: query/composition service, invoked when a dashboard view or a
 follow-up decision is requested.
@@ -166,7 +150,7 @@ Published by `Dashboard` when an observed condition should become a new Inbox it
 
 - Monitoring owns the observation payload; Inbox owns the resulting item lifecycle.
 - `FollowUpCaptured` is the only write Monitoring makes into another bounded
-  context. It closes the loop from observing a condition to acting on it.
+  context.
 
 ## Shared Enums
 
@@ -176,5 +160,4 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Monitoring has a single aggregate; `Signal Type` is documented under it. This
-chapter is reserved for future cross-aggregate enums.
+Monitoring has one aggregate, so `Signal Type` sits under it. This chapter is reserved for cross-aggregate enums.

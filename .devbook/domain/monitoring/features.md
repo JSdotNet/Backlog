@@ -4,9 +4,6 @@
 type: features
 ```
 
-> Features and sub-features this bounded context supports, described in
-> business/ubiquitous language rather than implementation terms.
-
 ## Progress tracking
 
 ```meta
@@ -23,11 +20,7 @@ type: feature
 depends-on: [.devbook/domain/monitoring/features.md#progress-tracking]
 ```
 
-Show what needs a person's attention:
-
-- highlight items needing follow-up (overdue, blocked, untouched);
-- surface stale tasks and long-deferred inbox items;
-- alert on stuck queues or high backlog counts.
+Show what needs a person's attention: items needing follow-up (overdue, blocked, untouched), stale tasks, long-deferred inbox items, and stuck queues or high backlog counts.
 
 ## Multi-layer dashboards
 
@@ -35,12 +28,7 @@ Show what needs a person's attention:
 type: feature
 ```
 
-Present layered dashboards across:
-
-- application health;
-- backlog/GitHub progress;
-- queue health;
-- optional agent sessions.
+Present layered dashboards across application health, backlog/GitHub progress, queue health and optional agent sessions.
 
 ### Project dashboard (Application Insights)
 

@@ -29,10 +29,10 @@ The notification is the consistency boundary for its answer. Only the owner
 instance writes it, so only the owner decides which [Reply](#reply) becomes the
 [Answer](#answer). A viewer that wants to answer writes a reply instead.
 
-Its content is meant to be shown on every channel:
+Its content is shown on every channel:
 
 - The title holds at most 80 characters, and the summary at most 180, both plain
-  text. They are the only content that leaves the replica in an OS notification
+  text. Only they leave the replica in an OS notification
   or a push payload. A push also names the notification's id and kind, its severity
   and state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
@@ -48,8 +48,8 @@ the owner accepts an answer, the publisher closes it, or its subject ends.
 A source that asks about something with an identity of its own may name the
 notification's id, derived from that thing. Publishing an id the owner already
 holds changes nothing, whatever state it reached, so a source can publish on every
-pull. Two desktops that derive the same id both publish it; the replica keeps the
-one that pushed it first, and the other closes its own copy as "Owned by another
+pull. When two desktops derive the same id, the replica keeps the
+first pushed, and the other closes its own copy as "Owned by another
 desktop" and stays a viewer.
 
 The rules it holds are `### Invariant:` chapters in
@@ -64,8 +64,8 @@ aliases: [NotificationSource]
 
 The boundary that raised the notification, and the key inside it: for example
 `sessions` / `run-58`. The owner hands the accepted answer back to the handler
-registered for the source's boundary. An alert-only source registers no handler.
-The source routes; it is never shown. What a person reads is the
+registered for the source's boundary; an alert-only source registers none.
+The source routes and is never shown. A person reads the
 [Origin](#origin).
 
 ### Origin
@@ -88,14 +88,14 @@ notification without one is drawn by its source, as before.
 | Open link | An `http` or `https` link that opens it at its origin, or none. | |
 
 Every part is one line of plain text. The origin holds no content, so it
-travels wherever the title does, a private notification's push included.
+travels wherever the title does, a private push included.
 "System · Place" is the attribution line of a Windows notification, the
 subtitle of the phone's tray entry, and the push's `origin`, cut to 60
 characters there. The card draws the system as a badge with the place above
 the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
 a link.
 
-Who asked, as a kind, is read from the origin rather than stored, keyed on the
+Who asked, as a kind, is read from the origin, not stored, keyed on the
 words Backlog's own sources write (`NotificationOrigins`):
 
 | Asker kind | When |
@@ -109,9 +109,7 @@ words Backlog's own sources write (`NotificationOrigins`):
 - **Person.** A notification with no Via but an Asked by also counts, as a Devbook
   remark names its author.
 
-The card's asker badge draws the kind. The centre filters by the system, by the
-asker kind (AI agent or Person), and by kind: questions, alerts, or whatever is
-still open.
+The card's asker badge draws the kind.
 
 The sources inside Backlog fill it:
 
@@ -135,11 +133,10 @@ type: value-object
 aliases: [NotificationSubject]
 ```
 
-The entity the notification is about, named by its boundary, its type and its
+The entity the notification is about, named by its boundary, type and
 id: for example `sessions` / `session` / `sess-91`. The boundary that owns the
 entity says when it ends, and every open notification about it then closes. A
-subject that comes back, such as a reopened task, does not reopen its
-notifications. Two notifications are equal in subject when all three parts are
+subject that comes back, such as a reopened task, does not reopen them. Two notifications are equal in subject when all three parts are
 equal.
 
 The subjects a notification can be about, and when each ends:
@@ -162,9 +159,8 @@ A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
-about each subject at startup for the ends it missed. The probe may also name
-why a subject ended, and its notifications close with that reason, the same one
-the table gives; without one they close as "Subject ended". An end made on
+about each subject at startup for the ends it missed. The probe may name
+why a subject ended, and its notifications close with that reason, as the table gives; without one they close as "Subject ended". An end made on
 another device reaches the owner instance as that context's own change, and
 closes there the same way.
 
@@ -188,7 +184,7 @@ one of four shapes:
 Each set choice has an id, a label, and an optional style: primary or destructive.
 
 A set choice of a single-choice question may also take text, with or without an
-open answer beside it. A reply that picks it carries the person's words with it, as
+open answer beside it. A reply that picks it carries the person's words, as
 plain text within the open answer's length limit, or 2,000 characters when the
 question has no open answer. A reply that picks it with no text does not fit. A
 multiple-choice question has no choice that takes text, because a reply carries
@@ -256,9 +252,9 @@ stateDiagram-v2
 - **Closed**: the publisher closed it, or its subject ended. A closed question
   needs no answer, and a reply sent after it is rejected as closed.
 
-Only the owner makes these transitions. Read marks are per device and are not
-part of the state. A source may act on a transition outside Backlog: an alert
-raised for a spec-manager notification that is acknowledged is marked read in
+Only the owner makes these transitions. Read marks are per device and not
+part of the state. A source may act on a transition outside Backlog: acknowledging an alert
+raised for a spec-manager notification marks it read in
 spec-manager, and the publisher closes one read there.
 
 ## Reply
@@ -275,7 +271,7 @@ writes it once and never changes it; the phone writes it through its device
 outbox, so a reply made offline is kept.
 
 A reply addressed to an alert is an [Acknowledgement](#acknowledgement). It holds
-no choice, no text and no note. The owner takes the first one and moves the alert
+no choice, text or note. The owner takes the first one and moves the alert
 to Acknowledged. A later one changes nothing, and one that arrives after the alert
 closed is rejected as closed. The rest of this section is about a reply to a
 question.
@@ -304,7 +300,7 @@ aliases: [NotificationAnswer]
 
 The reply the owner accepted. A question has at most one answer. The owner stores
 it, hands it to the source's handler, and replays it to a handler that was not
-running when the answer arrived. A handler therefore receives an answer at least
+running when it arrived. A handler therefore receives an answer at least
 once and treats a second delivery for the same notification as the same answer.
 
 ## Ubiquitous Language

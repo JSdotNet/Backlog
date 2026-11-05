@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-This page holds what each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each. Each rule says where it is enforced and names the unit test that proves it. The tests are in `Backlog.Modules.Sync.UnitTests` and, for the rules the service holds at its endpoints, `Backlog.Modules.Sync.Api.UnitTests`.
+Rules of the types on [`domain.md`](domain.md). The tests are in `Backlog.Modules.Sync.UnitTests` and, for the rules held at the service's endpoints, `Backlog.Modules.Sync.Api.UnitTests`.
 
 ## Device
 
@@ -12,8 +12,6 @@ This page holds what each aggregate and domain service on [`domain.md`](domain.m
 type: invariants
 related: [.devbook/domain/sync/domain.md#device]
 ```
-
-> The rules a registered device and the secrets that stand for it are held to.
 
 ### Invariant: A presented secret is compared in constant time
 
@@ -46,8 +44,6 @@ type: invariants
 related: [.devbook/domain/sync/domain.md#pairing-code]
 ```
 
-> The rules a pairing code is held to on its way from issued to redeemed.
-
 ### Invariant: A pairing code is burned before its device is added
 
 ```meta
@@ -66,8 +62,6 @@ Enforced at: `RedeemPairingCodeCommandHandler`, `IPairingCodeStore.TryBurn()`
 type: invariants
 related: [.devbook/domain/sync/domain.md#change-precedence]
 ```
-
-> The rules on what a push may write to a replica.
 
 ### Invariant: The later stamp wins, and a tombstone wins a tie
 
@@ -123,8 +117,6 @@ Enforced at: `DevbookSubjectSyncEndpoints`, through `DevbookSubjectRecordLimits.
 type: invariants
 related: [.devbook/domain/sync/domain.md#shared-value-objects]
 ```
-
-> The rules the shared values enforce on their own.
 
 ### Invariant: A cursor carries its owner
 

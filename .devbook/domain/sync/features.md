@@ -4,9 +4,6 @@
 type: features
 ```
 
-> What Sync lets a person do: join their devices together, and keep what other
-> contexts write the same on each of them.
-
 ## Pairing a device
 
 ```meta
@@ -43,10 +40,9 @@ The [Owner](domain.md#owner), [Pairing Code](domain.md#pairing-code),
 credential is never stored anywhere in the clear. Neither device ever holds the
 other's credential.
 
-A paired device can therefore reach exactly one owner's data and no one else's.
-The sync service enforces that boundary by reading the owner out of the presented
+A paired device reaches exactly one owner's data. The sync service enforces that by reading the owner out of the presented
 token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
-The cloud store does not enforce it on its own.
+The cloud store does not enforce it.
 
 The desktop that showed the code learns of the redemption by reading the owner's
 device list while the code is open, because the service does not tell it. It then

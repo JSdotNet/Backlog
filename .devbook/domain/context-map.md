@@ -5,14 +5,7 @@ type: context-map
 related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
-> Strategic DDD view of the Backlog product domain: bounded-context roles,
-> subdomain classification, and the relationships that carry work, knowledge,
-> standards, and signals across the system.
-
-> See also: `.devbook/arc42/03-context-and-scope.md` for the system-level context this
-> map's bounded contexts sit inside, and `.devbook/arc42/05-building-block-view.md#container-view` for
-> how these contexts are realized across the desktop, mobile, IDE, and cloud
-> containers.
+> Strategic view of the Backlog domain: context roles, subdomain classification, and the relationships that carry work, knowledge, standards, and signals. System context: `.devbook/arc42/03-context-and-scope.md`. Containers: `.devbook/arc42/05-building-block-view.md#container-view`.
 
 ## Subdomain landscape
 
@@ -171,31 +164,22 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
-| Repository Management | The pull request contract, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Repository Management | The pull request contract (`.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
-**Repository Management's pull request contract** holds these, and one cache:
-
-- the status at `.devbook/domain/repository-management/domain.md#pull-request-status`;
-- the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`;
-- the commands at `.devbook/domain/repository-management/domain.md#merge-command`.
-
 ## Strategic rules
 
-- Only the owning context defines a published language. Consumers conform to that
-  contract and do not reach into the supplier's internal aggregate shape.
-- `Tasks` and `Roadmap Planning` split the word *priority* on
-  purpose, and the split is load-bearing. Tasks owns a task's **status and
+- Only the owning context defines a published language. Consumers conform to it and never reach into the supplier's aggregate shape.
+- `Tasks` and `Roadmap Planning` split the word *priority* on purpose. Tasks owns a task's **status and
   execution priority**. Roadmap owns **planning priority and sequence**. Neither
-  writes the other's value, and neither derives its own from the other. A roadmap
-  item may name the task that executes it. A plan must also hold work that has no
-  task yet, which is why the plan is stored rather than projected.
-- `Inbox` publishes `ItemTriaged` and `Tasks` conforms to it, carried in-process
+  writes or derives the other's value. A roadmap item may name the task that executes it. A plan also holds work with no
+  task yet, so the plan is stored rather than projected.
+- `Inbox` publishes `ItemTriaged` and `Tasks` conforms to it, in-process
   rather than by an asynchronous event. The payload is a DTO in the Inbox's
   Abstractions, handed over the `IInboxBacklogTarget` port. An infrastructure
-  adapter answers that port over Tasks' published `ITaskItems`. Neither module
+  adapter answers that port over Tasks' `ITaskItems`. Neither module
   references the other, and the adapter is the only place an inbox item becomes
   entry text.
 - A capture reaches the Inbox in one of two ways:
@@ -205,42 +189,33 @@ flowchart LR
     in-process and without the replica. It delivers through the same
     `IInboxIntake` port the sync path hands `capture`-kind documents to.
 
-  Both are keyed by the same deterministic per-entry id, so idempotency belongs
-  to the port, not to the transport.
+  Both use the same deterministic per-entry id, so idempotency belongs to the port.
 - `Tasks` and `Brain` are a deliberate `Partnership`: both
-  sides keep only foreign ids and the link semantics are coordinated through the
-  [Cross-Linking](brain/domain.md#cross-linking) service rather than a shared
-  aggregate.
+  keep only foreign ids, and the [Cross-Linking](brain/domain.md#cross-linking) service coordinates the links.
 - `Brain` is downstream of `Devbook` as a Customer/Supplier, not a Shared Kernel
   (local ADR 0040). It conforms to the devbook convention and reads, indexes and
   renders its notes through Devbook's machinery; a need of its own enters through
   a hook Devbook offers, and Devbook knows no PARA, area or capture. Its repo links
-  run one way, into a repository chapter: no repository devbook links into a
-  Brain, and its backlinks are read from the owner's Brain, never written into
-  the repository. Its [Lobes atlas](brain/features.md#lobes-atlas) reads the
-  devbook of every repository in Repository Management's registry through
-  Devbook's reader, the same one way: a read, never a write.
+  run one way, into a repository chapter, and its backlinks are read from the
+  owner's Brain, never written into the repository. Its [Lobes atlas](brain/features.md#lobes-atlas) reads the
+  devbook of every registered repository through Devbook's reader: a read, never a write.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
   registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
   its picker and a devbook chapter names in its `roadmap` list. Roadmap gathers
-  tasks and chapters by tag and by direct reference, and adds up their registered
-  effort. It registers no effort and defines no tag.
-- `Technology Stack` is the standards supplier for both `Repository Management`
-  and `Dev PC Management`; those contexts may cache or copy baselines locally,
-  but they do not become the authority for baseline meaning.
-- `Monitoring & Dashboard` is an observer/read context. Its only write-back into
-  the core flow is the published `FollowUpCaptured` contract into `Inbox`.
+  tasks and chapters by tag and by direct reference and adds up their effort. It registers no effort and defines no tag.
+- `Technology Stack` supplies standards to `Repository Management`
+  and `Dev PC Management`. They may cache baselines but never define what one means.
+- `Monitoring & Dashboard` is an observer context. Its only write-back is `FollowUpCaptured` into `Inbox`.
 - `Productivity` measures personal and AI-assisted work from published activity
   signals. It never changes backlog status, agent sessions (`Sessions`), or repository state.
-- `Environment` owns the user's launchable environment shortcuts and access
-  preferences. It resolves repository and health facts through suppliers instead
-  of duplicating Repository Management or Monitoring data.
+- `Environment` owns the user's launchable shortcuts and access
+  preferences. It resolves repository and health facts through suppliers and duplicates none.
 - `Sessions` is the single owner of the agent-session record. No other context
   models agent sessions. `Monitoring`'s own `copilot_session` signal kind gives way
   to this context once the two are wired together.
-- `Sessions` publishes no bounded-context domain event. It owns no row of the
-  published-language table above (it only uses Sync's replica protocol), and its
+- `Sessions` publishes no domain event and owns no row of the
+  published-language table (it only uses Sync's replica protocol). Its
   Dev PC Management and Monitoring edges stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
   reads rather than published contracts:
   - for `Productivity`, the
@@ -249,10 +224,9 @@ flowchart LR
     work badge shows.
 
   That is why those two edges draw solid without a table row. When Monitoring
-  consumes Sessions too, or Sessions publishes an event of its own, the event goes
-  into `.devbook/domain/sessions/domain.md` and into that table in the same change.
-  Sessions publishes no pull request contract either: the pull requests its
-  sessions open are Repository Management's.
+  consumes Sessions too, or Sessions publishes an event, the event goes
+  into `.devbook/domain/sessions/domain.md` and that table in the same change.
+  The pull requests its sessions open are Repository Management's.
 - `Repository Management` is the single owner of pull request state
   (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`).
   It owns each pull request's
@@ -268,9 +242,9 @@ flowchart LR
 
   No module screen reads pull request state from the GitHub adapter or sends a
   merge command there. The reverse question, which task a session or a pull request
-  belongs to, is `Tasks`' published lookup, asked by the shell. So no two contexts
-  form a cycle over pull requests. The pull request activity history the dashboard
-  and `Productivity` read answers a different question and stays outside this rule.
+  belongs to, is `Tasks`' lookup, asked by the shell, so no two contexts
+  form a cycle. The pull request activity history that the dashboard
+  and `Productivity` read is a different question and stays outside this rule.
 - A `Sessions` [Environment](sessions/domain.md#environment) is not an
   [`Environment`-context Environment](environment/domain.md#environment), and not a
   `Dev PC Management` [Machine](dev-pc-management/domain.md#machine). The two words
@@ -278,8 +252,7 @@ flowchart LR
   own under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds
   another context's identity for it. The Sessions Environment's `EnvironmentId` is
   the product-wide device identity issued by the shared kernel
-  (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
-  identity is still not Dev PC Management's Machine, so the rule stands unchanged.
+  (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns and which is still not a Machine.
 - `Progress` reads each thing it names from its owner on every reading. It names
   them by these identities:
   - a task by its id;
@@ -288,7 +261,7 @@ flowchart LR
   - a session by its agent and session id.
 
   An impediment holds back tasks, pull requests and plans by the same
-  identities. `Tasks` holds no knowledge of goals or impediments: no task
+  identities. `Tasks` knows no goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. A task's blocked mark is Tasks' alone and raises no
   impediment; Tasks does not call Progress and stores no impediment id
@@ -317,11 +290,11 @@ flowchart LR
   through different parts: the desktop sync client carries the documents, and the
   pairing flow publishes the question.
 - `Sessions` and `Tasks` supply each other through different parts, so the two
-  edges between them do not make a cycle of modules. Sessions supplies the session
-  state a task's work badge shows, and Tasks supplies
+  edges make no cycle of modules. Sessions supplies the session
+  state a task's work badge shows. Tasks supplies
   [filing a follow-up after an entry](tasks/features.md#filing-a-follow-up-after-an-entry),
   which the Sessions answer handler calls when the person approves a run with a
-  follow-up. Sessions interprets the answer and records it on the run; Tasks decides
-  what the follow-up is born with. Both go through infrastructure adapters, and
+  follow-up. Sessions records the answer on the run; Tasks decides
+  what the follow-up is born with. Both use infrastructure adapters, and
   neither module references the other. The follow-up is a task, never a session
   request (local ADR 0038 §1).

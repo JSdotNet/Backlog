@@ -4,10 +4,7 @@
 type: model
 ```
 
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships.
+> Rules and responsibilities are in `domain.md`.
 
 ## Model diagram
 

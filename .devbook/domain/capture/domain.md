@@ -21,20 +21,20 @@ aliases: [ItemCaptured]
 
 A single acquired piece of raw content from one source, before it becomes an
 Inbox Item. The aggregate guarantees that every capture is normalized into the
-standard shape (title, `body_md`, source, tags, `captured_at`). It also keeps the
+standard shape and keeps the
 original source link and capture timestamp until delivery. Each capture is a
-unique entry: the same content from two devices makes two separate captures, and
-that is acceptable. Edits follow last-write-wins by most recent timestamp.
+unique entry: the same content from two devices makes two captures. Edits follow
+last-write-wins by timestamp.
 
 A note the phone creates starts as a capture like any other, with an id the
-phone mints. Unlike the other captures, it does not end at delivery. Its Inbox
+phone mints. Unlike the others, it does not end at delivery. Its Inbox
 Item has `Content Kind` `note` and keeps syncing with the phone, which may edit
-it again. Those later edits are the Inbox Item's, not the capture's. See
+it again. Those later edits are the Inbox Item's. See
 [Note](../inbox/domain.md#note). The phone's Notes tab writes this kind of note.
 
-The Capture aggregate has no owned entities beyond its root. The `Source Metadata`
+The aggregate has no owned entities beyond its root. The `Source Metadata`
 value object and the `Capture Source` enum carry what varies between captures. The
-`Capture Attachment` value object describes the files a capture brings with it.
+`Capture Attachment` value object describes the files a capture brings.
 
 ### Source Metadata
 
@@ -51,8 +51,8 @@ Source-specific context attached to a capture, which is one of:
 - an IDE file path, line and branch.
 
 A capture from an agentic session tool such as the GitHub Copilot App uses the
-same `ide` shape. It carries a `session_id` and the local worktree path in place
-of an open-editor selection. Equality is by value. Its concrete keys depend on
+same `ide` shape, with a `session_id` and the local worktree path in place
+of an editor selection. Equality is by value. Its keys depend on
 the `Capture Source`, and downstream domains read it only as provenance.
 
 ### Capture Attachment
@@ -74,12 +74,12 @@ handout PDF. It is described by:
 
 The capture holds this description only. The bytes live in the
 attachment store under the same id, uploaded before the capture that names them
-(local ADR 0014). The client mints the id, so a phone with no network can name a
-file before it has sent it. Equality is by value.
+(local ADR 0014). The client mints the id, so an offline phone can name a
+file before sending it. Equality is by value.
 
 The store is a courier, not a home. Acknowledging the capture releases the files,
-and a capture left waiting longer than 30 days keeps its description but loses its
-bytes. Once a desktop has taken the capture in, its Inbox Item owns its own copy of
+and a capture waiting longer than 30 days keeps its description but loses its
+bytes. Once a desktop has taken the capture in, its Inbox Item owns a copy of
 each file.
 
 ### Tag
@@ -131,8 +131,7 @@ Coordinates acquisition for a given `Capture Source`. It covers:
 - offline-first buffering with background sync;
 - normalization of raw content into a Capture.
 
-Each source has a concrete
-adapter behind this service:
+Each source has a concrete adapter behind this service:
 
 | Adapter | Source | Built |
 | --- | --- | --- |
@@ -146,17 +145,13 @@ adapter behind this service:
 | GitHub Copilot App session adapter | `ide` | planned |
 | Manual import | `manual` | planned |
 
-The GitHub Copilot App adapter would run as a peer of the IDE extension adapters.
-A Copilot App session would invoke it against the session's local worktree. It would
-then read and write through the same local-first path as the Desktop App, and never
-route credentials through the optional Cloud Service.
+The GitHub Copilot App adapter would run as a peer of the IDE extension adapters,
+invoked by a session against its local worktree. It would use the same local-first
+path as the Desktop App and never route credentials through the optional Cloud Service.
 
 The behavior does not belong on the Capture aggregate. It spans external I/O,
-scheduling, and transport, which lie outside a single capture's consistency
-boundary.
-
-A command or a scheduler invokes it as an application service behind the
-per-source adapters.
+scheduling, and transport, outside a single capture's consistency boundary.
+A command or a scheduler invokes it as an application service.
 
 ## Delivery
 
@@ -169,9 +164,7 @@ Delivers a normalized Capture to the Inbox's
 [incoming queue](../inbox/features.md#incoming-queue) as an Inbox Item, and emits
 the `ItemCaptured` event. It is a service because delivery is a handoff across the
 boundary between Capture and Inbox, not a state change inside the aggregate.
-
-It runs as a handoff service after normalization completes, and its one side
-effect across the boundary is publishing `ItemCaptured`.
+It runs after normalization completes.
 
 ## ItemCaptured
 
@@ -216,6 +209,5 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Capture currently has a single aggregate, so `Capture Source` is documented
-under that aggregate rather than here. This chapter is retained as the reserved
-home for cross-aggregate enums if the context grows.
+Capture has a single aggregate, so `Capture Source` sits under it. This chapter
+is reserved for cross-aggregate enums if the context grows.

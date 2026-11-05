@@ -31,8 +31,7 @@ related: [".devbook/domain/dev-pc-management/features.md#catalog-authoring"]
 ```
 
 Turning it on offers the tools pane from the app chrome. The pane checks,
-updates, enables and disables what the [tool
-catalog](features.md#copilot-tool-catalog)
+updates, enables and disables what the [tool catalog](features.md#copilot-tool-catalog)
 says this machine should have:
 
 - Copilot and Claude plugins;
@@ -41,6 +40,5 @@ says this machine should have:
 - the applications and checks the setup guide asks for.
 
 The flag is on by default and marked `DEV`. The settings screen lists it
-from the feature catalog in `AppFeatures.cs`. A person's choice is kept in
-`features.json` beside the app's other per-device choices. The flag is retired
-when the pane leaves `DEV`.
+from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in
+`features.json`. The flag is retired when the pane leaves `DEV`.

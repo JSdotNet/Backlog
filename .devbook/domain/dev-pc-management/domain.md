@@ -43,10 +43,9 @@ holds:
 - its queued updates, and its daily uptime, compliance and update history.
 
 An `Environment` in [Sessions](../sessions/domain.md#environment) corresponds to
-a Machine when the two name the same box. That is a lookup rather than a shared
-identity: a Machine is registered, wakeable and compliance-tracked, and an
-environment is wherever an agent can run. Why a Machine holds no sessions is in
-[context.md](context.md).
+a Machine when the two name the same box. This is a lookup, not shared
+identity: a Machine is registered, wakeable and compliance-tracked; an
+environment is wherever an agent can run. [context.md](context.md) says why it holds no sessions.
 
 ### Tool Version
 
@@ -65,12 +64,9 @@ type: value-object
 
 A queued tool update. It holds:
 
-- `tool_name`;
-- `target_version`;
-- `requested_by`;
-- `requested_at`;
-- `status`;
-- optional `error_message`.
+- `tool_name`, `target_version` and `status`;
+- `requested_by` and `requested_at`;
+- an optional `error_message`.
 
 ### Uptime Metric
 
@@ -78,12 +74,7 @@ A queued tool update. It holds:
 type: value-object
 ```
 
-Daily uptime. It holds:
-
-- `date`;
-- `uptime_pct`;
-- `last_heartbeat`;
-- `downtime_min`.
+Daily uptime: `date`, `uptime_pct`, `last_heartbeat`, `downtime_min`.
 
 ### Compliance Snapshot
 
@@ -91,13 +82,9 @@ Daily uptime. It holds:
 type: value-object
 ```
 
-Daily tool compliance. It holds:
-
-- `date`;
-- `compliant_tools_count`;
-- `outdated_tools_count`;
-- `compliance_score`, computed as
-  `compliance_score = compliant / (compliant + outdated) * 100`.
+Daily tool compliance: `date`, `compliant_tools_count`,
+`outdated_tools_count`, and `compliance_score`, computed as
+`compliance_score = compliant / (compliant + outdated) * 100`.
 
 ### Update Record
 
@@ -107,12 +94,9 @@ type: value-object
 
 A completed tool update. It holds:
 
-- `date`;
-- `tool_name`;
-- `target_version`;
+- `date`, `tool_name` and `target_version`;
 - `status` (success/failed/rollback);
-- `duration_sec`;
-- `initiated_by` (auto/manual/user-id).
+- `duration_sec` and `initiated_by` (auto/manual/user-id).
 
 ### Last Tool Run
 
@@ -141,9 +125,8 @@ Its invariants are:
 A missing or unreadable record reads as none.
 
 The transcript is redacted before the record is written, because the record can
-sit inside a synced storage root. This machine's MCP token is masked by value:
-it is read, never minted to be masked. Every known secret shape a tool's output
-can carry is masked too, whoever passed it in:
+sit inside a synced storage root. This machine's MCP token is masked by value: it is read, never minted to be masked.
+Every known secret shape a tool's output can carry is masked too, whoever passed it in:
 
 - a `Bearer` credential;
 - an upper-case `…_TOKEN=`, `…_API_KEY=` or similar assignment;
@@ -163,13 +146,9 @@ type: value-object
 aliases: [DevToolRunStep]
 ```
 
-One tool's part in a Last Tool Run. It holds:
-
-- `name`;
-- `from_version` (none for an install);
-- `to_version` (the version the run was taking it to);
-- `outcome` (succeeded or failed);
-- `duration`.
+One tool's part in a Last Tool Run: `name`, `from_version` (none for an
+install), `to_version` (the version the run was taking it to), `outcome`
+(succeeded or failed), and `duration`.
 
 ### Tool Catalog Entry
 
@@ -224,14 +203,8 @@ Technology Stack domain (see `dependencies.md`).
 type: value-object
 ```
 
-Aggregate fleet status. It holds:
-
-- `date`;
-- `total_machines`;
-- `online_count`;
-- `offline_count`;
-- `average_uptime_pct`;
-- `average_compliance_score`.
+Aggregate fleet status: `date`, `total_machines`, `online_count`,
+`offline_count`, `average_uptime_pct`, `average_compliance_score`.
 
 ### Trend Metrics
 
@@ -287,8 +260,7 @@ Coordinates out-of-band actions on registered machines:
 - authorization and encryption of every wake and connect.
 
 It is a service because these actions span the cloud relay, connection
-brokering, and the target OS rather than a single machine's stored state. A
-command invokes it as an orchestration service.
+brokering, and the target OS, not one machine's stored state. A command invokes it.
 
 ## Remote Update
 
@@ -299,13 +271,11 @@ related: [.devbook/domain/technology-stack/domain.md#technology-registry]
 
 Queues and executes tool updates across machines, singly, targeted or in bulk.
 It requires authorization. The desktop app runs each update through the
-machine's native package manager and reports its progress, with rollback on
-failure. How an update moves through its states is drawn in
-[Tool update lifecycle](features.md#remote-tool-updates).
+machine's native package manager and reports progress, with rollback on
+failure. [Tool update lifecycle](features.md#remote-tool-updates) draws the states.
 
 It is a service because it orchestrates queued work against offline and online
-machines and external package managers. A command invokes it as an
-orchestration service.
+machines and external package managers. A command invokes it.
 
 ## MachineStatusChanged
 

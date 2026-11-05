@@ -21,7 +21,7 @@ the notification's owner instance.
 
 A Claude session asking through the MCP `ask` tool is the first case. The tool
 returns the notification's id at once. The agent polls `get_answer` for the answer,
-or withdraws its question with `close` once it no longer needs one. The MCP `notify`
+or withdraws its question with `close`. The MCP `notify`
 tool tells the person something the same way, with nothing to wait for. A session's own hooks ask through the same
 tools with its questions in the dialog's shape, and the Sessions
 [Question Relay](../sessions/domain.md#question-relay) decides when those reach
@@ -55,8 +55,7 @@ is kept. Once the owner's verdict syncs back the card reads "Answered from this
 phone", "Answered elsewhere" with the answer that won, or the owner's reason for rejecting it with
 the controls back. A question that says `answerOn: owner` is read-only there.
 
-Each box that takes words can be dictated into instead of typed: the open answer,
-a choice's own words and the note. What was heard is added to that box for
+Each box that takes words (the open answer, a choice's own words, the note) can be dictated into instead of typed. What was heard is added to that box for
 the person to read, and nothing is sent until they press Send. One box listens at
 a time, and listening stops when the reply is sent or the person moves to another
 notification. Words past the box's length limit are left out, and the phone says
@@ -101,9 +100,9 @@ Anything else covers:
 - an alert;
 - a reply already on its way.
 
-The Personal Validation question offers four choices, Approve, Approve + follow-up,
-Revise and Reject, so the tray shows it with no actions. The person taps through to
-the app to answer it.
+The Personal Validation question offers Approve, Approve + follow-up,
+Revise and Reject. The tray shows it with no actions, and the person taps through to
+the app.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
 entry as a reply made in the app. A tap opens the notification in the app. A

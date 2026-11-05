@@ -8,9 +8,8 @@ related: [.devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42
 ```
 
 Sync keeps one person's data the same on each of their devices. It knows which
-devices belong together, and it carries the documents other contexts write from
-one device to the next. It never becomes the authority for what those documents
-say.
+devices belong together and carries the documents other contexts write from
+one device to the next. It is never the authority for what those documents say.
 
 Inside the boundary:
 
@@ -28,10 +27,10 @@ Inside the boundary:
     each read through a signed [SyncCursor](domain.md#synccursor);
   - the `notifications` feed with its `notificationReplies` mailbox (local
     [ADR 0039](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md));
-- telling a device to pull: the Web PubSub nudge to an owner's desktops, and the
-  Android push to an owner's phones;
+- telling a device to pull: the Web PubSub nudge to desktops and the
+  Android push to phones;
 - the push installation registry: one Notification Hubs installation per phone,
-  tagged with its owner and itself, and deleted when the phone is revoked;
+  tagged with its owner and itself, deleted when the phone is revoked;
 - which pushed copy of a document wins, by
   [Change Precedence](domain.md#change-precedence);
 - attachment blobs, stored under the owner and served only through the sync
@@ -49,8 +48,8 @@ item in the [Inbox](../inbox/domain.md#inbox-item) (local
 [ADR 0009](../../arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md)).
 
 Sync stores a document whole, orders it by its stamp and tombstone, and hands it
-back. It reads no field of the payload, and the merge into a device's local store
-stays with the context that owns the document. A notification's push preview is
+back. It reads no payload field, and the merge into a device's local store
+stays with the owning context. A notification's push preview is
 not the payload: the owner writes it on the envelope, so Sync can send the
 Android push without opening the document.
 
@@ -60,11 +59,10 @@ kernel's [Device](../tasks/domain.md#device). Sync's own
 service, and is not the same identifier.
 
 Sync runs in two places. The sync service is `Backlog.Modules.Sync.Api`, which hosts
-`Backlog.Modules.Sync`. It holds the owners, devices, pairing codes and replicas in
+`Backlog.Modules.Sync` and holds the owners, devices, pairing codes and replicas in
 the cloud. The sync client (`Backlog.Infrastructure.Sync`), on the desktop and the
 phone, is the adapter each downstream context reaches the replica through, and the
-place the version check sits. The Devices settings
-page is `Backlog.Modules.Sync.UI`.
+place the version check sits. The Devices settings page is `Backlog.Modules.Sync.UI`.
 
 ## Taking part in sync
 
@@ -88,17 +86,15 @@ transcript, a working folder or a title (local ADR 0005 §Session records).
 
 It replaces three flags, `device-pairing`, `task-sync` and `session-sync`. The
 catalog entry names them as former keys, so a settings file written while any of
-them was on comes up with this one on. The three were split so a person could pair
-devices without their tasks leaving the machine. In practice the question is
-whether this machine takes part in sync, and three switches made that one answer
-look like three.
+them was on comes up with this one on. They were split so a person could pair
+devices without their tasks leaving the machine, but in practice the question is
+only whether this machine takes part in sync.
 
 It ships off and marked `BETA`
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The key is `SyncFeatures.Sync` in `Backlog.Modules.Sync.Abstractions`. The settings
 screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice
-is kept in `features.json` beside the app's other per-device choices. The flag is
-retired when sync leaves `BETA`.
+is kept in `features.json`. The flag is retired when sync leaves `BETA`.
 
 ## Dependencies
 
@@ -113,7 +109,7 @@ open host service. Each downstream context reaches it through an adapter in
 |---|---|---|---|---|
 | Shared kernel device identity | Conformist (Sync = conformist) | `IDeviceIdentitySource` in `Backlog.SharedKernel`, read by the desktop sync client (`OwnEnvironment`) | `.devbook/domain/tasks/domain.md#device` | The service stamps session records with its own [DeviceId](domain.md#deviceid), not the installation identity. |
 
-- **Shared kernel device identity:** The service issues its DeviceId at registration, and the local readers stamp the installation identity. The client maps this machine's own records back onto the shared-kernel identity, so one machine never reads as two.
+- **Shared kernel device identity:** The service issues its DeviceId at registration, and local readers stamp the installation identity. The client maps this machine's records back onto the shared-kernel identity, so one machine never reads as two.
 
 ### Inbound dependents (known)
 
@@ -126,14 +122,14 @@ open host service. Each downstream context reaches it through an adapter in
 | [Notifications](../notifications/context.md) | OHS + Published Language (Sync = supplier) | The owner desktop pushes through `POST /api/sync/notifications` and every device pulls through `GET` | `NotificationChange` with its `NotificationPushPreview`, and `RegisterPushInstallationRequest`, in `Backlog.Modules.Sync.Abstractions`; local ADR 0039 | Each notification has one writer, and a reply reaches only its own owner. |
 | [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands `capture`-kind documents to `IInboxIntake` and drains `IInboxCaptureOutbox` | local ADR 0009; attachments, local ADR 0014 | A capture reaches the desktop once, keyed by its own id. |
 
-- **Tasks:** The desktop runs `TaskSyncWorker` over the task feed, and the merge writes to the local store. A task document is stored whole. Other kinds ride the task feed under their owners' kind tokens:
+- **Tasks:** The desktop runs `TaskSyncWorker` over the task feed, and the merge writes to the local store, and a task document is stored whole. Other kinds ride the task feed under their owners' kind tokens:
   - roadmap plans (local ADR 0018);
   - GitHub settings (local ADR 0021);
   - notes (local ADR 0025);
   - Progress's `goal` and `impediment` documents, with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9).
 
   A `sprint-series` document an older build pushed is read and dropped, never taken as a task.
-- **Sessions:** Only the whitelisted metadata travels.
-- **Devbook, subject state:** The merge applies each pulled state to the subject state store. The `devbookSubjects` container keeps a state under the one id its subject has on every device. A service that has no such route answers 404, and the desktop reads that as "not yet".
-- **Notifications:** A viewer posts a reply to `…/replies`, and the owner lists and deletes its replies there. A desktop asks `GET …/negotiate` for its nudge socket, and a phone hands its FCM token to `PUT …/push`. A phone is pushed only when a notification is published or changes state.
-- **Inbox:** The client hands a capture over before the task merge, and drains the outbox into the tasks push as tombstones. The capture is one made on the phone or in the IDE, and its attachments are on the blob store before it names them.
+- **Sessions:** Only whitelisted metadata travels.
+- **Devbook, subject state:** The merge applies each pulled state to the subject state store. The `devbookSubjects` container keeps a state under the one id its subject has on every device. A service without that route answers 404, and the desktop reads that as "not yet".
+- **Notifications:** A viewer posts a reply to `…/replies`, and the owner lists and deletes replies there. A desktop asks `GET …/negotiate` for its nudge socket, and a phone hands its FCM token to `PUT …/push`. A phone is pushed only when a notification is published or changes state.
+- **Inbox:** The client hands a capture over before the task merge and drains the outbox into the tasks push as tombstones. The capture is made on the phone or in the IDE, and its attachments are on the blob store before it names them.
