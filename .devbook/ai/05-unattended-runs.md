@@ -5,9 +5,9 @@ rating: trial
 type: stage
 ```
 
-> The work agents do on a cadence with nobody watching: which schedules this repository
-> selected from the delivery-schedule catalog, what each is trusted to publish, and the
-> limits every one of them runs under.
+> The work agents do on a cadence with nobody watching: the schedules this repository
+> selected from the delivery-schedule catalog, what each may publish, and the limits all
+> share.
 
 ## What an unattended run may do
 
@@ -25,10 +25,9 @@ Every schedule runs one `schedule-*` entry point on a fresh checkout of `main`, 
 same preamble:
 
 - It [parks](concepts.md#unattended-runs-park) wherever its skill would ask a person.
-- It never pushes to `main`.
-- It never merges, approves, or deletes.
-- It closes nothing except an issue its own procedure shows already resolved, with the
-  evidence in the comment.
+- It never pushes to `main`, merges, approves, or deletes.
+- It closes only an issue its own procedure shows already resolved, with the evidence in
+  the comment.
 
 A change lands as a pull request from a `schedule/<name>/<date>` branch, as a draft whenever
 anything failed. A report with no change lands as one `schedule-report` issue, updated
@@ -63,10 +62,8 @@ flowchart LR
     label["Label the unclassified open issues"] --> close["Close the ones evidence shows done"] --> resolve["Resolve some of the rest"] --> brief["Land the brief"]
 ```
 
-It closes only the issues high-confidence evidence shows fixed, obsolete, or duplicated. It
-resolves up to its `maxResolve` of the rest, one at a time. Each resolution is a draft pull
-request whose body says what could not be proved. The brief lands as a `schedule-report`
-issue.
+It closes only issues that high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its `maxResolve` of the rest, one at a time, each as a draft pull request whose body says what could not be proved. The brief
+is a `schedule-report` issue.
 
 - **Used for** — keeping the issue list triaged and turning small issues into reviewable
   drafts.
@@ -87,9 +84,8 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`.
-It posts its verdict on each as a comment, and skips one already reviewed at its current
-head.
+Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`,
+posts its verdict on each as a comment, and skips one already reviewed at its current head.
 
 - **Used for** — a second reading of every pull request before the owner merges it.
 - **Adopted by** — the schedule, since 2026-09-26.
@@ -123,12 +119,14 @@ Four schedules look after the devbook folders.
 - **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
 - **Evidence** — `devbook-validate` has fired; nothing published yet.
 - **Moves up when** — `devbook-validate` lands its first pull request.
-- **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
-  chapter: prose and content change only through `flow-spec`. `devbook-verify` covers only
-  the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose
-  direction is `report` and skips `off`. The two sweeps below take the rest. It reads the
-  direction from the chapter, not from Backlog's map, so once a repository's chapters
-  state none it reports on every unit.
+- **Limits**
+  - `prose-check` carries no editor on purpose, and `devbook-verify` writes no
+    chapter: prose and content change only through `flow-spec`.
+  - `devbook-verify` covers only
+    the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose
+    direction is `report` and skips `off`; the two sweeps below take the rest.
+  - It reads the direction from the chapter, not Backlog's map. A repository whose
+    chapters state no direction therefore gets a report on every unit.
 
 ## Scheduled devbook sync sweeps
 
@@ -145,11 +143,12 @@ date: 2026-10-06
 Two sweeps act on the drift `devbook-verify` only reports. Each takes, in groups, the
 [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose direction in
 Backlog's direction map asks for it. Units a requirement ties together, by naming two
-aggregates and no feature, form one group. Every other unit is a group of its own.
+aggregates and no feature, form one group; every other unit is a group of its own.
 
 Both sweeps are the `backlog-tools` skill `devbook-sweep`, run as one local routine per
 repository: pull first, then push. The skill reads each unit's direction from the `backlog`
-MCP server's `list_sync_directions`. Before entry 7 of the branch-true-devbook plan, they
+MCP server's `list_sync_directions`. Before the direction map moved into Backlog's store
+([local ADR 0044](../arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md), entry 7), they
 were `delivery-schedule` catalog schedules reading a `sync` field in the chapter.
 
 | | `devbook-pull-sweep` | `devbook-push-sweep` |
@@ -165,8 +164,7 @@ verdicts conflict goes to a person.
 
 - **Used for** — two contexts, set on 2026-10-06. Sessions is `push`: its chapters are
   settled and its unit-test project covers them. Inbox is `pull`: its chapters are still
-  `draft`, but they were written from the code its tests cover. Every other unit resolves to
-  `report`.
+  `draft` but were written from code its tests cover. Every other unit is `report`.
 - **Adopted by** — nobody: no repository has a devbook sweep routine yet. `backlog-tools`'
   README says how to create one, and creating it is open.
 - **Evidence** — none.
@@ -186,8 +184,8 @@ related: [".devbook/ai/concepts.md#one-rule-one-place", ".devbook/ai/02-code.md#
 date: 2026-09-26
 ```
 
-Every Thursday, `instruction-review` reads the instruction files and rules and opens a draft
-pull request cutting what does not change an agent's behaviour, with a ledger of every cut.
+Every Thursday, `instruction-review` opens a draft pull request cutting what does not change
+an agent's behaviour from the instruction files and rules, with a ledger of every cut.
 
 - **Used for** — keeping the standing brief short enough to be read every time.
 - **Adopted by** — the schedule, since 2026-09-26.
@@ -207,8 +205,7 @@ date: 2026-09-26
 ```
 
 Every Saturday, `package-update` moves NuGet packages by minor and patch versions and opens
-one pull request, listing every package it skipped because the bump broke the build or the
-tests.
+one pull request, listing each package it skipped because the bump broke the build or tests.
 
 - **Used for** — keeping dependencies current without a person starting the work.
 - **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.
@@ -228,8 +225,8 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Two schedules report what happened. Each report is one `schedule-report` issue, and an
-unread one is extended rather than joined by another.
+Two schedules report what happened. Each report is one `schedule-report` issue, extended
+while unread rather than joined by another.
 
 | Schedule | Runs | Covers |
 | --- | --- | --- |
@@ -261,7 +258,7 @@ date: 2026-09-26
 ```
 
 The catalog's `security-review` would audit every layer weekly and open an issue per finding
-at severity `high` and above.
+at severity `high` or above.
 
 - **Used for** — nothing yet.
 - **Adopted by** — nobody: it is the one catalog schedule this repository did not select. It

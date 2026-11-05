@@ -5,9 +5,8 @@ rating: trial
 type: stage
 ```
 
-> How an approved change reaches `main`, and how a production failure finds its way back
-> into the loop. The runs that look after the repository on a cadence are in
-> `05-unattended-runs.md`.
+> How an approved change reaches `main`, and how a production failure returns to the loop.
+> Cadence runs are in `05-unattended-runs.md`.
 
 ## Merge-ready and CI repair
 
@@ -22,8 +21,8 @@ related: [".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-25
 ```
 
-An agent brings an open pull request to merge-ready: it brings the branch level with `main`,
-repairs failing checks, and answers review findings. It works through the delivery engine's
+An agent brings an open pull request to merge-ready: it levels the branch with `main`,
+repairs failing checks, and answers review findings, through the delivery engine's
 `pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills.
 
 - **Used for** — pull requests left red by a flaky runner or a moved base.

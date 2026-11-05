@@ -7,9 +7,8 @@ related: [".devbook/tech/ai-development.md"]
 ```
 
 > How this repository is developed with AI, read along the seven-stage delivery path and
-> the three layers beneath it. `.devbook/tech/ai-development.md` registers the tools
-> themselves. This folder records how they are used, at which stage or layer, and how far
-> that use has actually got.
+> the three layers beneath it. `.devbook/tech/ai-development.md` registers the tools;
+> this folder records how they are used, where, and how far.
 
 ## Usage files
 
@@ -131,10 +130,9 @@ graph LR
     classDef retired fill:#121214,stroke:#545459,color:#adb5bd
 ```
 
-The seven stages run left to right, with the pull request between `verify` and `integrate`
-and `operate` feeding `decide`. The three layers run underneath every stage. Each usage
-joins every stage or layer it lists, shaded by its rating. A labelled arrow is a hand-off
-its `feeds` records.
+The seven stages run left to right, with `operate` feeding `decide`; the three layers run
+underneath every stage. Each usage joins every stage or layer it lists, shaded by its rating.
+A labelled arrow is a hand-off its `feeds` records.
 
 ## What the loop shows
 
@@ -144,42 +142,34 @@ its `feeds` records.
   - pasted plan items and the code gate at `code`
   - the QA agent and Personal Validation at `verify`
 
-  Five more adopted usages are the `harness` they all stand on. All twelve have recorded
-  evidence. No usage in the `upkeep` loop is adopted, and neither is any whose home is
-  `integrate`, `release` or `operate`.
+  Five more adopted usages are the `harness` they stand on. All twelve have recorded evidence. No
+  usage in the `upkeep` loop is adopted, and neither is any whose home is `integrate`,
+  `release` or `operate`.
 - **Trial is wired, not proven.** None of the twelve `trial` usages has recorded evidence:
   two are `partial`, three have `fired` without publishing anything, and seven have none.
   Seven of them wait on one event. The six trial schedules and the unattended-run limits
   they run under all move up when a schedule publishes its first issue or pull request, and
   come down if none does.
-- **`verify` splits five ways, `integrate` shows its gaps.** Each part of `verify` runs on a
-  different tool:
-  - build and tests
-  - review
-  - functional QA
-  - spec conformance
-  - acceptance
-
-  At `integrate`, review and readiness have a usage each. CI checks and the merge itself
-  have none, and the merge stays the owner's by intent.
+- **`verify` splits five ways, `integrate` shows its gaps.** Build and tests, review,
+  functional QA, spec conformance, and acceptance each run on a different tool. At
+  `integrate`, review and readiness have a usage each. CI checks and the merge have none,
+  and the merge stays the owner's by intent.
 - **`release` is empty.** Deployment runs as `azd` and the release workflows and has no AI
   usage of its own. The emptiness is the finding, not a gap to fill.
-- **Production does not reach `decide` yet.** Alerts to work items is the one hand-off that
-  would close the loop from `operate`, and it is a `candidate` whose workflow fails its
-  preflight. The security review would open issues for the issue sweep, and is kept out on
-  purpose.
+- **Production does not reach `decide` yet.** Alerts to work items would close the loop
+  from `operate`, but it is a `candidate` whose workflow fails its preflight. The security
+  review would open issues for the issue sweep, and is kept out on purpose.
 - **The layers carry the rest.** The spec ↔ code thread is written at `specify` and checked
-  at `verify`. The sync sweeps that would level it between runs are a `candidate`. The
-  upkeep loop's three schedules land their work as pull requests at `integrate`. The
-  harness holds what every session stands on: the roles, worktrees and rules, plus run
-  tracking and telemetry. It also holds the limits every schedule runs under, and the
-  retired guidance servers.
+  at `verify`; the sync sweeps that would level it between runs are a `candidate`. The
+  upkeep loop's three schedules land pull requests at `integrate`. The harness holds what
+  every session stands on: roles, worktrees, rules, run tracking, and telemetry. It also
+  holds the limits every schedule runs under, and the retired guidance servers.
 
 ## What the adoption left out
 
-The `devbook-adoption` plan took the stack almost whole. Local ADR 0016's status table
-records what landed. Three parts were left out on purpose, and none of them has a chapter,
-because nobody works that way here:
+The `devbook-adoption` plan took the stack almost whole; local ADR 0016's status table
+records what landed. Three parts were left out on purpose, and none has a chapter, because
+nobody works that way here:
 
 | Left out | Why |
 | --- | --- |
@@ -193,7 +183,7 @@ keeps the `security-review` schedule as a `candidate`.
 ## Reading and extending the folder
 
 Every chapter carries `rating` and `date`, and says where it works with `stage`, `layer`,
-or both. The file it sits in places nothing. Three more fields say how it connects:
+or both; its file places nothing. Three more fields say how it connects:
 
 - `substage` names the part of a stage it works in.
 - `feeds` names the chapters it hands work to.
@@ -201,9 +191,9 @@ or both. The file it sits in places nothing. Three more fields say how it connec
 
 `rating` rates the **usage** on the ladder `.devbook/tech` uses, from `candidate` through
 `trial` and `adopted` to `hold` and `retired`. It moves only when the **Adopted by** line
-says the way of working changed. Below `adopted`, the **Moves up when** bullet names the
-event that would move it.
+says the way of working changed. Below `adopted`, **Moves up when** names the event that
+would move it.
 
-A new chapter goes in the file for the part of the flow it belongs to. Register its tool in
-`.devbook/tech` first and name it in `depends-on`. Change the table and diagram above in the
-same edit.
+A new chapter goes in the file for its part of the flow. Register its tool in
+`.devbook/tech` first, name it in `depends-on`, and change the table and diagram above in
+the same edit.

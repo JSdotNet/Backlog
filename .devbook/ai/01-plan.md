@@ -38,11 +38,8 @@ flowchart LR
 
 The bound agent is the one the flow's `phase-drafting` entry binds for the folder.
 
-- **Used for** — this work:
-  - decision records
-  - domain model changes
-  - technology ratings
-  - the adoption record itself
+- **Used for** — decision records, domain model changes, technology ratings, and the
+  adoption record itself.
 - **Adopted by** — every session that edits a devbook folder, routed there by the delivery
   engine's session context.
 - **Evidence** — the devbook-adoption plan's documentation items, this chapter included,
@@ -64,10 +61,10 @@ related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-i
 date: 2026-09-25
 ```
 
-`import-plan` turns an agreed specification into a Backlog import plan. The plan has one
-`plan` entry, which Import turns into a Roadmap Item, and the step entries under it. An agent
-session runs a `prompt` step, and only a person does a `task` or `test` step. Each step's
-`after:` field orders it behind the steps it waits for.
+`import-plan` turns an agreed specification into a Backlog import plan: one `plan` entry,
+which Import turns into a Roadmap Item, and the step entries under it. An agent session runs
+a `prompt` step; only a person does a `task` or `test` step. Each step's `after:` field
+orders it behind the steps it waits for.
 
 - **Used for** — breaking a multi-session feature into roadmap items and the prompts that
   deliver them, with a review page beside the raw plan.
@@ -116,10 +113,10 @@ related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-a
 date: 2026-09-26
 ```
 
-A [remark](../domain/devbook/domain.md#remark) is the note a person leaves on
-a devbook chapter while reading it in the app. `handle-remarks` reads the open remarks over the
-Backlog MCP server and answers each one in the chapter as an `annotation` fence. Only then does
-it resolve the remark in the app.
+A [remark](../domain/devbook/domain.md#remark) is the note a person leaves on a devbook
+chapter while reading it in the app. `handle-remarks` reads the open remarks over the Backlog
+MCP server, answers each in the chapter as an `annotation` fence, and only then resolves the
+remark in the app.
 
 - **Used for** — turning a reader's questions into written answers next to the passage they
   were asked about.

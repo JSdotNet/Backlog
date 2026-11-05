@@ -23,7 +23,7 @@ date: 2026-09-26
 ```
 
 Before the first write under `src/` or `tests/`, a session routes the work through the
-delivery engine's `flow-code`. This is the
+delivery engine's `flow-code`: the
 [gate before the first write](concepts.md#gate-before-the-first-write), applied to code.
 
 ```mermaid
@@ -31,12 +31,7 @@ flowchart LR
     kind["Derive the kind: feature, fix, refactor or config"] --> impl["Implement the change"] --> run["Run build, tests and validation"] --> pv["Stop at Personal Validation"]
 ```
 
-- **Used for** — every change of these kinds:
-  - feature
-  - fix
-  - refactor
-  - tooling change
-  - dependency move
+- **Used for** — every feature, fix, refactor, tooling change, and dependency move.
 - **Adopted by** — every agent session in this repository.
 - **Evidence** — the merged pull requests each carry a flow run on the delivery surfaces.
 - **Limits** — work confined to the devbook folders goes through `flow-spec`.
@@ -64,14 +59,14 @@ flowchart LR
     outstanding["Establish the item is still outstanding"] --> after["Check its after: items have landed"] --> gate["Run the instructions through the gate"]
 ```
 
-The skill reads the entry's status over MCP, and falls back to git when it cannot. The
+The skill reads the entry's status over MCP and falls back to git when it cannot. The
 instructions then go through the gate like any other request, once the `after:` items have
 landed.
 
 - **Used for** — every `prompt` step of an imported plan.
 - **Adopted by** — the repository owner, for every multi-session feature.
-- **Evidence** — the `devbook-adoption` plan's items, each linked from its entry to the
-  session and pull request that ran it.
+- **Evidence** — the `devbook-adoption` plan's items, each linked to the session and pull
+  request that ran it.
 - **Limits** — it refuses a `plan`, `task`, or `test` entry. It never redoes an item the
   evidence says has landed, and pasting twice is expected.
 
@@ -120,9 +115,9 @@ related: [".devbook/ai/concepts.md#isolation-per-session", ".devbook/ai/02-code.
 date: 2026-09-25
 ```
 
-Each change runs in its own git worktree and agent session under `.claude/worktrees/`.
-Several sessions therefore build, test, and run the app in parallel. Aspire starts
-`--isolated`, so ports and user secrets stay per session.
+Each change runs in its own git worktree and agent session under `.claude/worktrees/`, so
+several sessions build, test, and run the app in parallel. Aspire starts `--isolated`, so
+ports and user secrets stay per session.
 
 - **Used for** — every change.
 - **Adopted by** — the repository owner, routinely with several sessions at once.
@@ -147,15 +142,10 @@ date: 2026-09-25
 A rule is written once under `.agents/rules/`. A one-sentence wrapper in `.claude/rules/`
 reaches it, and the wrapper's `paths` say which files the rule governs. `AGENTS.md` is the
 standing brief `CLAUDE.md` imports. The devbook plugin also installs a wrapper per rule in
-`.github/instructions/`, because it writes one for every host it supports.
+`.github/instructions/`, one for every host it supports.
 
-- **Used for** — these rules:
-  - shared component adoption
-  - storybook authoring
-  - naming
-  - context loading
-  - MCP usage
-  - the devbook folder rules
+- **Used for** — the rules for shared component adoption, storybook authoring, naming,
+  context loading, MCP usage, and the devbook folders.
 - **Adopted by** — every session, on every matching file read.
 - **Evidence** — the wrappers under `.claude/rules/`.
 - **Limits** — a rule fires on a read, so a file authored from scratch may not trigger it.
@@ -173,9 +163,9 @@ related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-a
 date: 2026-09-25
 ```
 
-The product manages its own construction. The running desktop app serves the `backlog` MCP
-server, and `.devbook/config.json` binds it as the delivery tracker. Both flows also list it
-under `mcp` on `phase-scope` and `phase-create-pr`.
+The product manages its own construction. The running desktop app serves the `backlog` MCP server, and `.devbook/config.json` binds
+it as the delivery tracker. Both flows also list it under `mcp` on `phase-scope` and
+`phase-create-pr`.
 
 ```mermaid
 sequenceDiagram
@@ -208,8 +198,8 @@ date: 2026-09-25
 ```
 
 Every flow run opens on each bound delivery surface: the Backlog app's Sessions pane and a
-local run dashboard. As it goes, the run records its stages and their output there. It also
-records the QA scenarios, their evidence, and the Personal Validation decision.
+local run dashboard. The run records its stages and output there, plus the QA scenarios,
+their evidence, and the Personal Validation decision.
 
 - **Used for** — watching a run, and reattaching a resumed session to the run it left.
 - **Adopted by** — every flow run.
@@ -235,7 +225,7 @@ date: 2026-09-26
 - each compaction
 - the session end
 
-The app attributes them to the delivery run the session is driving. It shows the tool calls
+The app attributes them to the delivery run the session is driving and shows the tool calls
 and agents under the run's row, with the token use and the context gauge.
 
 - **Used for** — seeing where a run's time and tokens went.
