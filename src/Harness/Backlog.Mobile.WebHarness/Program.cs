@@ -42,10 +42,24 @@ builder.Services.AddHttpClient<CloudSyncClient>(client =>
     client.BaseAddress = new Uri("https+http://sync"))
     .AddSyncPipeline();
 
-// The browser half of ISpeechTranscriber. The MAUI head registers the Android
-// recogniser against the same abstraction; neither implementation runs in the
-// other's host, which is why there are two registrations rather than one.
-builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
+// Cloud dictation's upload (local ADR 0045 §6): the same bearer and version check
+// as the data client, and none of AddServiceDefaults' standard pipeline, whose ten
+// seconds an attempt and three retries would cut a recording off and send it again.
+// The client bounds each call at sixty seconds itself, on the harness's clock.
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers: experimental in shape, not behaviour.
+builder.Services.AddHttpClient<CloudTranscriptionClient>(client =>
+        client.BaseAddress = new Uri("https+http://sync"))
+    .RemoveAllResilienceHandlers()
+    .AddSyncPipeline();
+#pragma warning restore EXTEXP0001
+
+// The browser half of dictation. The device engine is the Web Speech recogniser,
+// the cloud engine records through MediaRecorder; the selecting transcriber the
+// screens inject picks one each turn. The MAUI head registers the Android
+// recogniser and recorder against the same abstractions; neither implementation
+// runs in the other's host, which is why there are two registrations rather than one.
+builder.Services.AddScoped<IAudioRecorder, WebAudioRecorder>();
+builder.Services.AddDictation<WebSpeechTranscriber>();
 
 // The browser half of IAttachmentPicker: hidden <InputFile> elements on the
 // Note page, which Playwright can hand a fixture to. The MAUI head registers the

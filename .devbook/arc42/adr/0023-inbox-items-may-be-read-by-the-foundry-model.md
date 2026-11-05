@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-08
-related: [".devbook/domain/inbox/features.md#classification-and-enrichment", ".devbook/domain/inbox/features.md#ai-triage-cards", ".devbook/domain/inbox/features.md#ai-triage-pass", ".devbook/domain/inbox/features.md#create-plan-from-an-item", ".devbook/domain/inbox/features.md#order-a-batch-with-the-drafter", ".devbook/domain/inbox/requirements.md#ai-triage", ".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md"]
+related: [".devbook/domain/inbox/features.md#classification-and-enrichment", ".devbook/domain/inbox/features.md#ai-triage-cards", ".devbook/domain/inbox/features.md#ai-triage-pass", ".devbook/domain/inbox/features.md#create-plan-from-an-item", ".devbook/domain/inbox/features.md#order-a-batch-with-the-drafter", ".devbook/domain/inbox/requirements.md#ai-triage", ".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 While the reader triages, the Inbox may send an item, and the backlog and inbox

@@ -47,8 +47,8 @@ stateDiagram-v2
 - Filing in a list (`list_id`) is not a transition.
 - The rules each transition is held to are the `Inbox Item` chapters of
   [`domain.invariants.md`](domain.invariants.md#inbox-item).
-- `Deferred → Unprocessed` happens two ways. A person returns the item by hand,
-  whatever its date, or the [resurface sweep](domain.md#resurface-sweep) finds
+- `Deferred → Unprocessed` happens when a person returns the item by hand,
+  whatever its date, or when the [resurface sweep](domain.md#resurface-sweep) finds
   its review date reached.
 - Undo reopens a decision only within the app session that took it
   ([Undo a decision](features.md#undo-a-decision)).
@@ -76,8 +76,7 @@ sequenceDiagram
 - The echo may arrive on the next pull or days later, on a full replay.
 - The stamps come from different clocks when the tombstone is not this
   desktop's own. A dismissal made after the undo but stamped at or before it by
-  a skewed clock is ignored. That is accepted rather than an undo that does not
-  hold.
+  a skewed clock is ignored. That is accepted so that an undo holds.
 
 A single unit of captured information moving through triage. The aggregate
 guarantees three things:
@@ -90,23 +89,23 @@ A deferred item carries an optional `deferred_until` review date, and the
 [resurface sweep](#resurface-sweep) returns it when that date is reached. A
 deferral with no date comes back only when a person returns it.
 
-Before triage decides where an item goes, a reader has to be able to see what
+Before triage decides where an item goes, a reader has to see what
 it is and where it came from. So an item states its `Content Kind`: what the
-captured content *is*. That is a different fact from the `Capture Source`
+captured content *is*, a different fact from the `Capture Source`
 channel it arrived through. A video is a video whether the YouTube monitor found
 it, the phone shared it, or somebody pasted the link. Its `Source` keeps that
-channel together with the person who shared it, when someone did.
+channel with the person who shared it, when someone did.
 
-While an item waits, a reader may prepare it and put it somewhere: assign it
-`Tags`, assign the repositories (`repo_ids`) the work will belong to, and file
+While an item waits, a reader may assign it `Tags`, assign the repositories
+(`repo_ids`) the work will belong to, and file
 it in an [Inbox List](#inbox-list) through `list_id`. Filing is organisation,
-not triage — an item in a list with no routing decision is still `unprocessed`,
+not triage: an item in a list with no routing decision is still `unprocessed`,
 and an archived item may still be moved between lists.
 
 The item also remembers which of [Classification](#classification)'s
 suggestions the reader turned down, as `dismissed_suggestions`. Each is kept
 by its key: `tag:sync`, `repository:owner/name` or `destination:tasks`. The
-key names what was proposed, not why, so a suggestion the reader refused is
+key names what was proposed, not why, so a refused suggestion is
 not offered again, even when something new would propose it. It sits on the
 item because the refusal is the reader's decision about this item.
 
@@ -120,47 +119,44 @@ An item archived as the same capture as something else remembers what, as
 The Inbox cannot see a task, so a link to one ends a duplicate chain.
 
 An item is born one of two ways. A capture pulled from the replica becomes an
-item that **reuses the capture's id**. That is what makes intake idempotent: a
+item that **reuses the capture's id**. That makes intake idempotent: a
 replayed page, or the [sync echo](#sync-echo) of the desktop's own
 acknowledgement, finds the row it already has. A thought typed into the capture
 field in the Inbox header becomes a [Capture (manual)](#capture-manual), with a
 fresh id.
 
 An item the reader reopens by undo records when, as `restored_at`. Restoring it
-from the archive sets the stamp, and so does returning it from the backlog. The
-desktop cannot call back an acknowledgement it already sent, so the intake reads
-each later tombstone against `restored_at`.
-[Undo and a returning tombstone](domain.md#inbox-item) shows
-the timing. The stamp is sync bookkeeping, kept apart from `updated_at`. Filing
-and tagging restamp `updated_at`, which would hide a phone dismissal made in
-between.
+from the archive sets the stamp, and so does returning it from the backlog.
+[Undo and a returning tombstone](domain.md#inbox-item) shows how the intake reads
+later tombstones against it. The stamp is sync bookkeeping, kept
+apart from `updated_at`, because filing and tagging restamp `updated_at` and
+would hide a phone dismissal made in between.
 
-A capture can also bring files — a photo, a screenshot, a PDF the phone
+A capture can also bring files, such as a photo, a screenshot or a PDF the phone
 shared. The item owns them as [Attachments](#attachment): the file belongs to the
-thought, so it lives inside the item's boundary and not beside it, and it stays
-with the item whatever triage later decides.
+thought, so it lives inside the item's boundary and stays with it whatever triage later decides.
 
 An item of kind `note` is a [Note](#note), the one kind that lives on the phone
-as well as the desktop. The phone and the desktop may each change its title,
-body and files. Both sides keep the later edit, by the last-write-wins rule the
+as well as the desktop. Each side may change its title,
+body and files, and both keep the later edit, by the last-write-wins rule the
 task feed uses
 (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`).
-A note keeps its id on every device. It is not acknowledged away from the phone
-when the desktop takes it in, as a `text` capture is, nor when the desktop routes
-it. A note stops syncing only when the desktop archives or deletes it. The phone
-then drops it from its list.
+
+A note keeps its id on every device. Unlike a `text` capture, it is not
+acknowledged away from the phone when the desktop takes it in or routes
+it. A note stops syncing only when the desktop archives or deletes it, and the
+phone then drops it from its list.
 
 A note carries its own last-write-wins stamp, `edited_at`, apart from the item's
 `updated_at`. It moves when the title, body or files change and when the note is
 archived or deleted, and nowhere else. Filing, tagging and a file arriving
-restamp `updated_at` only. A note pushed for such a change would otherwise carry a
-stamp later than an edit the phone made meanwhile, and would overwrite that edit
+restamp `updated_at` only. Otherwise a note pushed for such a change would carry a
+stamp later than an edit the phone made meanwhile, and overwrite that edit
 with the older text. A note taken in from the phone keeps the phone's stamp.
 
 Triage stays on the desktop for every kind, notes included. The phone may create
 a note and edit any note, but it never routes, defers, accepts or archives an
-item. A note waits in the queue as `unprocessed` like any other item, and the
-desktop may triage it like any other.
+item. A note waits in the queue as `unprocessed` like any other item, and the desktop may triage it like any other.
 
 The rules the item and its attachments are held to are `### Invariant:`
 chapters in [`domain.invariants.md`](domain.invariants.md#inbox-item).
@@ -182,7 +178,7 @@ The destination chosen during triage. It holds four fields:
 - `routed_at`: when it was routed.
 
 It is immutable once set, and equality is by value. The task ids name
-aggregates in another context that may since have been deleted there. That is
+aggregates in another context that may since have been deleted there, which is
 why they are ids and not references.
 
 ### Tag
@@ -210,11 +206,10 @@ aliases: [InboxSource, person]
 
 Where the item came from: the `Capture Source` channel it arrived through and,
 optionally, the `person` who shared it as a stored `@name` tag. These are two
-facts and not one, because they answer different questions. A link shared by a
-colleague and the same link clipped alone arrive through different channels.
-They mean different things to the reader triaging them. The channel is provenance mirrored
-from Capture; the person is provenance the channel cannot carry. Immutable once
-set; equality is by value.
+facts, because a link shared by a colleague and the same link clipped alone
+mean different things to the reader triaging them. The channel is provenance
+mirrored from Capture; the person is provenance the channel cannot carry. It is
+immutable once set, and equality is by value.
 
 ### Attachment
 
@@ -226,9 +221,6 @@ aliases: [InboxAttachment, InboxAttachmentDto, inbox_item_attachments, file]
 ```
 
 **Attachment lifecycle**
-
-One file on an item, as this machine holds it. The bytes come from the attachment
-store (local ADR 0014), never from the replica.
 
 ```mermaid
 stateDiagram-v2
@@ -247,10 +239,13 @@ stateDiagram-v2
 One file an item arrived with, and whether this machine has it. It has two
 halves, because they come from two places and change at different rates.
 
-- **What the capture said**: the id the phone minted for the file, its name,
-  its content type, its size, and the sha256 of its bytes. This is a record of
-  what was sent, like the capture instant, so it does not change after it is
-  recorded.
+- **What the capture said** is a record of what was sent, like the capture
+  instant, so it does not change after it is recorded. It holds:
+  - the id the phone minted for the file;
+  - its name;
+  - its content type;
+  - its size;
+  - the sha256 of its bytes.
 - **This machine's copy**: where the file is kept (`local_path`), when it was
   written (`downloaded_at`), and why the last attempt failed (`last_error`).
   This half changes each time the desktop tries to fetch the file. Another
@@ -258,8 +253,7 @@ halves, because they come from two places and change at different rates.
 
 The bytes do not travel on the replica. The capture names the file, and the
 desktop fetches it from the sync service's attachment store afterwards (local
-ADR 0014). The [attachment lifecycle](domain.md#attachment) shows the
-states a file moves through. A Recorded file is shown in the pane as *Waiting
+ADR 0014). The [attachment lifecycle](domain.md#attachment) shows the states. A Recorded file is shown in the pane as *Waiting
 to download*. A Downloaded file is in the item's
 [attachment folder](#attachment-folder). A Failed file keeps its reason and
 waits for the person to press Retry, which ends in Downloaded or in Failed with
@@ -267,9 +261,9 @@ a new reason.
 
 A file that did not arrive does not make the thought any less captured, so the
 item is Received whatever happens to its files. A picture is a file whose
-content type is `image/*`. This is the one thing the pane and
+content type is `image/*`, the one thing the pane and
 [Classification](#classification) ask of a file. Equality is by value. A
-change is a new attachment that the item swaps in, and only the item does so.
+change is a new attachment that only the item swaps in.
 
 ### Content Kind
 
@@ -299,10 +293,9 @@ It is distinct from `Capture Source`, which says how it arrived:
 - `voice` — a dictated memo from the mobile app.
 - `claude-artifact` — an artifact a Claude session produced and shared.
 
-The set will grow. A kind nobody has drawn yet is shown as its plain word rather
-than breaking the queue. Seven of the kinds are
-[collected material](#collected-material). `note` is the only kind that changes
-after it is captured: every other kind records what arrived and keeps it.
+The set will grow. A kind nobody has drawn yet is shown as its plain word.
+Seven of the kinds are [collected material](#collected-material). `note` is the
+only kind that changes after it is captured.
 
 ### Inbox Status
 
@@ -332,10 +325,9 @@ aliases: [CaptureSource, source, channel]
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
 `website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
 channel of a [Capture (manual)](#capture-manual). `import` is the channel of an
-item read from an import manifest. Such an item can arrive filed in the Inbox
-List the manifest names. It is still `unprocessed` like any other capture,
-because filing is not triage. A channel token nobody recognises is kept as written rather than folded
-into a default.
+item read from an import manifest, which can arrive filed in the Inbox
+List the manifest names. It is still `unprocessed`, because filing is not
+triage. A channel token nobody recognises is kept as written.
 
 ## Inbox List
 
@@ -348,10 +340,10 @@ aliases: [InboxList, InboxListDto, list_id, inbox_lists]
 
 A named place a reader files waiting items, the leaf of the pane's side menu.
 It has a `name`, an `order` among its siblings, and optionally the
-[Inbox Group](#inbox-group) it sits in. It is its own small root rather than a
+[Inbox Group](#inbox-group) it sits in. It is its own small root, not a
 child of the item, because a list exists before anything is in it and after
 everything has left. Deleting one is a write across every item it held, which
-returns each to the unfiled inbox, rather than a cascade. The fixed **Inbox**
+returns each to the unfiled inbox. The fixed **Inbox**
 entry above the lists in the side menu is not a list: it is the items whose
 `list_id` is empty.
 
@@ -359,9 +351,11 @@ Lists are local-only organisation and are hard-deleted. Tombstoning exists for
 documents that travel (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`),
 and nothing replicates a list. Names are unique among siblings without regard
 to case. The create and rename commands apply that rule, because the aggregate
-cannot see its siblings. A workspace with neither lists nor groups is seeded
-once with a default set of lists and groups: groups `Areas`, `Projects` and
-`Archive`, and lists `Resources`, `Someday/Maybe`, `Updates` and `Wishlist`.
+cannot see its siblings.
+
+A workspace with neither lists nor groups is seeded once with a default set. The
+groups are `Areas`, `Projects` and `Archive`. The lists are `Resources`,
+`Someday/Maybe`, `Updates` and `Wishlist`.
 
 ## Inbox Group
 
@@ -374,8 +368,8 @@ aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
 
 A fold in the side menu that holds lists. It has a `name` and an `order`; the
 membership is recorded on the list (`group_id`), not on the group, so a group
-is never the owner of what its lists hold. Local-only and hard-deleted, for the
-reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
+is never the owner of what its lists hold. It is local-only and hard-deleted, for
+the reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
 and then removes the group, so no list is ever deleted by deleting its group.
 
 ## Triage
@@ -388,17 +382,17 @@ aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, 
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting
-cross-context handoff. It does one of three things:
+handoff. It routes the item to Tasks or **To Brain**, or
+sets it to deferred or archived. Each route emits `ItemTriaged`:
 
-- route the item to Tasks, emitting `ItemTriaged` with title, `body_md`,
-  `source_url`, tags, `repo_ids` and `source_inbox_id`;
-- route it **To Brain**, emitting `ItemTriaged` with title, `body_md`, topic
-  and tags;
-- set it to deferred or archived.
+| Route | `ItemTriaged` carries |
+|---|---|
+| Tasks | title, `body_md`, `source_url`, tags, `repo_ids`, `source_inbox_id` |
+| **To Brain** | title, `body_md`, topic, tags |
 
-It lives as a service because routing crosses bounded-context boundaries rather
-than mutating a single aggregate. Invocation semantics: command-invoked
-application service, triggered by a human or automated triage decision.
+It is a service because routing crosses bounded-context boundaries rather
+than mutating a single aggregate. A command invokes it on a human or automated
+triage decision.
 
 Three decisions route to Tasks, and all end in the same `Routing Target`:
 
@@ -423,29 +417,25 @@ Three decisions route to Tasks, and all end in the same `Routing Target`:
   - an item naming a repository the workspace does not know.
 
   A batch never registers a repository. The dependencies left on in the panel
-  before it goes travel as `after:` tokens; see
-  [Dependency tier](#dependency-tier). [Batch route](features.md#routing) shows
-  the whole path.
+  before it goes travel as `after:` tokens; see [Dependency tier](#dependency-tier).
+  [Batch route](features.md#routing) shows the path.
 
 An item with attachments hands its [attachment folder](#attachment-folder) to
 every task Route to Tasks, Route a batch or Create plan creates, as that task's
-attachment. The file goes where the work goes.
+attachment.
 
 A fourth decision reaches Tasks without making anything. **Merge into a task**
 folds an open item into a task it repeats. The item's title, then its link when
-it has one, then its notes are written on the task as one comment. The comment
-goes through the same rule the `backlog` MCP server's `comment` tool writes
-through. The item is then archived with `DuplicateOf` naming the task.
+it has one, then its notes are written on the task as one comment, through the
+rule the `backlog` MCP server's `comment` tool uses.
+The item is then archived with `DuplicateOf` naming the task.
 
-The Inbox refuses before it writes anything when:
-
-- the item is already decided;
-- the backlog no longer has the task.
-
-A comment Tasks will not take as prose leaves the item open. That happens when
-the notes hold a heading, a checklist item or a fence. The comment is written
-first, so a failure never leaves an item archived against a task that never
-heard of it. [Merge and To Brain](features.md#routing) shows the order.
+The Inbox refuses before it writes anything when the item is already decided or
+the backlog no longer has the task. A comment Tasks will not take as prose, because
+the notes hold a heading, a checklist item or a fence, leaves the item open.
+The comment is written first, so a failure never leaves an item archived against
+a task that never heard of it. [Merge and To Brain](features.md#routing) shows
+the order.
 
 **To Brain** writes a capture or a note into the person's
 [Brain](../brain/domain.md#brain) as a new Knowledge Note in its inbox area,
@@ -453,9 +443,8 @@ title and body kept. It records the routing target as `devbook`, with no
 repository and no task. Devbook is asked first, through the `IInboxBrainTarget`
 port, and the item is routed only once the note is written. The route is
 refused when no Brain folder is set up, and a failed write leaves the item
-unrouted. A
-note routed To Brain stays on the phone as the Inbox note it was, as one routed
-to Tasks does.
+unrouted. A note routed To Brain stays on the phone as the Inbox note it was,
+as one routed to Tasks does.
 
 ## Classification
 
@@ -497,9 +486,14 @@ Each suggestion carries a key, the value it would apply, and a sentence saying
 why it was proposed. It leaves out anything the item already has, and anything
 the reader turned down for it (the item's `dismissed_suggestions`).
 
-Taking a suggestion goes through the ordinary act it names: set the tags,
-assign the repositories, route, or archive. Classification adds no second way
-to change an item.
+Taking a suggestion goes through the ordinary act it names:
+
+- set the tags;
+- assign the repositories;
+- route;
+- archive.
+
+Classification adds no second way to change an item.
 
 It is a service because a suggestion draws on the backlog and on the reader's
 rules, which are outside any single item's state.
@@ -512,7 +506,7 @@ Modelled and not built:
 
 Invocation semantics:
 
-- On intake, it is called by the intake and capture commands.
+- On intake, the intake and capture commands call it.
 - Otherwise it is a query (`SuggestQuery`) the pane asks for whenever the item
   on screen changes.
 - A refusal is the `DismissSuggestionCommand`.
@@ -525,7 +519,7 @@ related: [.devbook/domain/inbox/domain.md#triage]
 ```
 
 Published by `Triage` when an Inbox Item is routed out of the inbox. The route
-shape is stable even though the destination-specific fields differ.
+shape is stable although the destination-specific fields differ.
 
 ### Payload
 
@@ -549,8 +543,8 @@ shape is stable even though the destination-specific fields differ.
 - Tasks, which creates one draft `Task` per targeted repository, each stamped
   with `source_inbox_id`.
 - Devbook, which writes a `Knowledge Note` into the Brain's inbox area for the
-  `devbook` route, To Brain, through the in-process `IInboxBrainTarget` port
-  (realised as `InboxBrainNoteRequestDto`) rather than an event.
+  `devbook` route, through the in-process `IInboxBrainTarget` port
+  (realised as `InboxBrainNoteRequestDto`), not an event.
 
 ### Published language rules
 
@@ -558,15 +552,15 @@ shape is stable even though the destination-specific fields differ.
   depending on `Inbox Item` internals.
 - Route-specific fields are optional outside their route; consumers ignore fields
   not relevant to their own destination.
-- On the desktop the Tasks route is realised in-process, not as an asynchronous
+- On the desktop the Tasks route is in-process, not an asynchronous
   event. The payload is `InboxRouteRequestDto` in
   `Backlog.Modules.Inbox.Abstractions`, carried over the `IInboxBacklogTarget`
-  port. An infrastructure adapter over Tasks' published `ITaskItems` answers it.
+  port and answered by an adapter over Tasks' published `ITaskItems`.
 - The adapter is the only place an inbox item becomes entry text
   (`.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md`).
-  The module hands over facts and never composes a line of markdown.
-- The same port carries a drafted plan to Tasks' import. The item's
-  repositories go with it, as the only ones the plan may name.
+  The module hands over facts and never composes markdown.
+- The same port carries a drafted plan to Tasks' import, with the item's
+  repositories as the only ones the plan may name.
 
 ## Shared Enums
 
@@ -577,8 +571,7 @@ type: shared-enums
 > Enums used by more than one aggregate in this bounded context.
 
 `Inbox Status`, `Content Kind` and `Capture Source` belong to the Inbox Item
-alone; `Inbox List` and `Inbox Group` carry no enums. This chapter is reserved
-for future cross-aggregate enums.
+alone; `Inbox List` and `Inbox Group` carry no enums. This chapter is reserved for future cross-aggregate enums.
 
 ## Ubiquitous Language
 
@@ -594,10 +587,10 @@ aliases: [CaptureItemCommand, manual, ManualChannel]
 related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/inbox/features.md#add-by-hand]
 ```
 
-A thought typed straight into the desktop through the capture field in the
-Inbox header: a title and, optionally, notes that become the item's body. It
+A thought typed into the capture field in the Inbox header: a title and,
+optionally, notes that become the item's body. It
 becomes an `unprocessed` Inbox Item with a fresh id, channel `manual`, and no
-replica behind it. `CaptureItemCommand` is the command that makes it, and
+replica behind it. `CaptureItemCommand` makes it, and
 `InboxEnumMap.ManualChannel` is the token. It is distinct from a `Capture` in
 the Capture context, which arrives from a device through sync.
 
@@ -616,7 +609,7 @@ item is different: it is a thought waiting to be sorted, and the phone forgets
 it once the desktop takes it in.
 
 A note is not a *Brain note*, a
-[Knowledge Note](../brain/domain.md#knowledge-note). A Brain note is a file in
+[Knowledge Note](../brain/domain.md#knowledge-note), which is a file in
 the person's [Brain](../brain/domain.md#brain). The folder's own sync carries
 it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
@@ -654,10 +647,11 @@ related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/dom
 ```
 
 A set of Inbox Items routed to Tasks together, as one plan import under one
-[plan tag](#plan-tag). A batch is formed from the reader's selection or from a
+[plan tag](#plan-tag), formed from the reader's selection or from a
 list's open items. It lives only for the route: nothing stores it, and
-afterwards each item keeps its own Routing Target naming only the tasks it
-became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
+afterwards each item keeps its own Routing Target naming only its tasks.
+It is never called a *group*, because an `Inbox Group` is a fold in the
+side menu.
 
 ### Dependency tier
 
@@ -722,9 +716,18 @@ related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/do
 ```
 
 The content kinds that hold material the reader collected rather than a thought
-of their own: `article`, `link`, `youtube`, `image`, `document`, `email` and
-`claude-artifact`. [Classification](#classification) proposes the To Brain
-route for collected material.
+of their own:
+
+- `article`
+- `link`
+- `youtube`
+- `image`
+- `document`
+- `email`
+- `claude-artifact`
+
+[Classification](#classification) proposes the To Brain route for collected
+material.
 
 ### Slice
 
@@ -745,10 +748,10 @@ aliases: [acknowledgement echo]
 related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbox/features.md#undo-a-decision]
 ```
 
-The tombstone this desktop sent for a decision, delivered back to it by a later
-pull. The replica keeps every tombstone, so the echo may come on the next pull
-or days later. The intake answers it `AlreadyKnown` and writes nothing. After an
-undo, the intake reads it against the item's `restored_at`
+The tombstone this desktop sent for a decision, delivered back by a later
+pull, possibly days later because the replica keeps every tombstone. The intake
+answers it `AlreadyKnown` and writes nothing. After an
+undo, it reads the echo against the item's `restored_at`
 ([Undo and a returning tombstone](domain.md#inbox-item)).
 
 ### Replica-backed item

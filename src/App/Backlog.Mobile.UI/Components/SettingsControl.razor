@@ -4,7 +4,10 @@
 @*
     The app bar's settings button and the sheet it opens: the phone's settings,
     which are this device's and never sync. One group today, Dictation, holding
-    the language the recogniser listens for (ISpeechSettingsStore).
+    the language the recogniser listens for and the engine that takes a turn - the
+    device's recogniser or the cloud (local ADR 0045 §6) - both in ISpeechSettingsStore.
+    The engine's hint line is the consent ADR 0045 §7 asks for: choosing Cloud is
+    choosing to send each recording.
 
     A sheet risen from the bottom edge, like the update window beside it, rather
     than a page: the phone has a handful of settings, not a menu of them, and a
@@ -37,12 +40,26 @@
                     OptionTestId="@(language => $"dictation-language-{language.ToString().ToLowerInvariant()}")"
                     aria-labelledby="@LanguageLabelId"
                     TestId="dictation-language" />
+
+        <span class="app-settings-sheet__label app-settings-sheet__label--next" id="@EngineLabelId">Engine</span>
+        <RadioGroup TValue="DictationEngine"
+                    Options="Engines"
+                    Value="_engine"
+                    ValueChanged="ChooseEngine"
+                    OptionLabel="EngineLabel"
+                    OptionTestId="@(engine => $"dictation-engine-{engine.ToString().ToLowerInvariant()}")"
+                    aria-labelledby="@EngineLabelId"
+                    aria-describedby="@EngineHintId"
+                    TestId="dictation-engine" />
+        <p class="app-settings-sheet__hint" id="@EngineHintId">Cloud sends each recording to Backlog's Azure model, which keeps none of it.</p>
     </SettingsCard>
 </DetailSheet>
 
 @code {
     private const string ButtonId = "app-settings-button";
     private const string LanguageLabelId = "app-settings-dictation-language";
+    private const string EngineLabelId = "app-settings-dictation-engine";
+    private const string EngineHintId = "app-settings-dictation-engine-hint";
 
     private static readonly IReadOnlyList<DictationLanguage> Languages =
     [
@@ -52,8 +69,15 @@
         DictationLanguage.PhoneLanguage
     ];
 
+    private static readonly IReadOnlyList<DictationEngine> Engines =
+    [
+        DictationEngine.OnDevice,
+        DictationEngine.Cloud
+    ];
+
     private bool _open;
     private DictationLanguage _language;
+    private DictationEngine _engine;
 
     /// <summary>What a Dictation language says in the sheet.</summary>
     public static string Label(DictationLanguage language) => language switch
@@ -64,11 +88,19 @@
         _ => "Dutch and English"
     };
 
+    /// <summary>What a Dictation engine says in the sheet.</summary>
+    public static string EngineLabel(DictationEngine engine) => engine switch
+    {
+        DictationEngine.Cloud => "Cloud",
+        _ => "On-device"
+    };
+
     private void Open()
     {
         // Read on every opening rather than once: the store is the truth, and the sheet
         // only shows it.
         _language = Speech.Language;
+        _engine = Speech.Engine;
         _open = true;
     }
 
@@ -76,5 +108,11 @@
     {
         _language = language;
         Speech.Language = language;
+    }
+
+    private void ChooseEngine(DictationEngine engine)
+    {
+        _engine = engine;
+        Speech.Engine = engine;
     }
 }

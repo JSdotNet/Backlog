@@ -55,7 +55,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Neither_the_draft_nor_the_notification_carries_a_deadline_or_a_default_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_question_nobody_answered_is_still_open_however_much_time_passes]
 ```
 
-A notification carries no deadline and no default answer, so time alone never settles a question (`notification.deadline_not_supported`).
+A notification carries no deadline and no default answer, so time alone never settles a question.
 
 Enforced at: constructor
 
@@ -100,10 +100,16 @@ tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTe
 ```
 
 An [origin](domain.md#origin) names its system. Its system holds at most 40
-characters, its place 120, who asked 80 and how 40, each one line of plain text
-(`notification.content_too_long`, `notification.origin_invalid`): no line feed,
-carriage return, next line (U+0085), line separator (U+2028) or paragraph
-separator (U+2029). Its link is an absolute `http` or `https` address.
+characters, its place 120, who asked 80 and how 40. Each of those four is one line of plain text
+(`notification.content_too_long`, `notification.origin_invalid`), which holds none of these:
+
+- line feed;
+- carriage return;
+- next line (U+0085);
+- line separator (U+2028);
+- paragraph separator (U+2029).
+
+Its link is an absolute `http` or `https` address.
 
 Enforced at: constructor
 
@@ -123,7 +129,13 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_single_choice_reply_picks_exactly_one_offered_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_multiple_choice_reply_picks_offered_choices_within_the_limits, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_open_reply_is_plain_text_within_the_length_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Choices_with_open_take_one_choice_or_the_open_answer_but_not_both, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_choice_that_takes_no_text_is_refused_with_text, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_choices_text_runs_to_2000_characters_when_the_question_has_no_open_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_choices_text_keeps_within_the_open_answers_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_note_goes_beside_a_choice_or_an_open_answer_within_its_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_without_a_note_takes_no_note]
 ```
 
-A reply holds only choice ids the answer spec offers, within its count limits, text only where the spec allows it, as the open answer or with a choice that takes text, and within its length, and a note only where the spec takes one and within its length (`reply.invalid`). A choice's text keeps to the open answer's limit, or to 2,000 characters when the question has no open answer. A note never stands in for a choice's words: the words travel as the reply's text, the note beside them.
+A reply holds only what the answer spec allows (`reply.invalid`):
+
+- choice ids the spec offers, within its count limits;
+- text where the spec allows it, as the open answer or with a choice that takes text, within its length;
+- a note where the spec takes one, within its length.
+
+A choice's text keeps to the open answer's limit, or to 2,000 characters when the question has no open answer. A note never stands in for a choice's words: the words travel as the reply's text, the note beside them.
 
 Enforced at: `Accept()` on the Notification
 
@@ -182,4 +194,4 @@ A reply, an acknowledgement included, is accepted only from a device under the s
 
 Enforced at: the sync reply endpoint, and the owner desktop's notification exchange before `Accept()`
 
-The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange compares the account the replica stamped on the reply with its own and rejects a mismatch before the reply reaches `Accept()`, which then checks that it is addressed to this owner instance (`reply.wrong_instance`).
+The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange rejects a reply whose stamped account differs from its own before `Accept()`, which then checks that the reply is addressed to this owner instance (`reply.wrong_instance`).

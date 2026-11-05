@@ -19,7 +19,12 @@
     A horizontal swipe (swipe-pager.js) moves to the next or previous item and never
     answers: it is ignored when it starts on a control, and a mostly vertical drag is
     the page scrolling. Previous and Next buttons beside it do the same, because every
-    gesture has a control beside it (design/component-libraries.md).
+    gesture has a control beside it (design/component-libraries.md). While a reply
+    is kept they are busy, not disabled: they keep their tab stop, say aria-disabled
+    and ignore a press (.devbook/design/interaction-guidelines.md#accessibility). Previous
+    on the first card, and Next on the end screen, have nowhere to go: unavailable
+    rather than waiting, they keep the native disabled. Neither shows the spinner: the pressed
+    answer is the trigger and carries it.
 
     An answer is a tap on the controls. The reply is queued through
     NotificationViewProjection.ReplyAsync, the only write; the confirmation names the
@@ -38,7 +43,8 @@
 <section class="notifications-pager" aria-label="Notifications, one at a time" data-testid="notifications-pager">
     <div class="notifications-pager__nav">
         <AppButton Variant="ButtonVariant.Secondary"
-                   Disabled="@(!_stack.CanGoPrevious || _answering)"
+                   Disabled="@(!_stack.CanGoPrevious)"
+                   aria-disabled="@Blocked"
                    CssClass="notifications-pager__step"
                    TestId="notifications-pager-previous"
                    OnClick="Previous">Previous</AppButton>
@@ -57,7 +63,8 @@
         </span>
 
         <AppButton Variant="ButtonVariant.Secondary"
-                   Disabled="@(!_stack.CanGoNext || _answering)"
+                   Disabled="@(!_stack.CanGoNext)"
+                   aria-disabled="@Blocked"
                    CssClass="notifications-pager__step"
                    TestId="notifications-pager-next"
                    OnClick="Next">Next</AppButton>
@@ -144,6 +151,11 @@
     public NotificationFilter? Filter { get; set; }
 
     private NotificationFilter? _filtered;
+
+    /// <summary>aria-disabled for Previous and Next while a reply is kept. Never the native
+    /// attribute: that would drop the button from the tab order and take the focus off it
+    /// mid-act. Next and Previous drop the press themselves.</summary>
+    private string? Blocked => _answering ? "true" : null;
 
     /// <summary>"n / total" on a card — the accessible position the dots only echo — and
     /// nothing past the end, where the end screen speaks for itself.</summary>

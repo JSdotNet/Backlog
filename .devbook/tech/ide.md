@@ -5,9 +5,9 @@ rating: candidate
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
-> Two separate extension stacks that bring backlog items, prompts, and project
-> knowledge into the editor where the work actually happens. The VS Code side
-> exists; the Visual Studio side is still a named intention.
+> Two extension stacks that bring backlog items, prompts, and project knowledge
+> into the editor. The VS Code side exists; the Visual Studio side is a named
+> intention.
 
 ## VS Code Extension API
 
@@ -30,11 +30,11 @@ The extensibility model for the VS Code channel.
 - **How** — the AppHost registers two explicit-start resources for it:
   `ide-vscode-build` runs `npm run watch` to keep `out/extension.js` current, and
   `ide-vscode-host` launches an Extension Development Host with the extension
-  side-loaded. Because Aspire assigns a dynamic port per run, `backlog.cloudUrl`
-  has no default — it is copied from the dashboard. The pairing, token and inbox
+  side-loaded. Aspire assigns a dynamic port per run, so `backlog.cloudUrl` has no
+  default, and a person copies it from the dashboard. The pairing, token and inbox
   calls live in `src/sync-client.ts`, which imports nothing from `vscode`, so
-  `npm test` runs it under Node's built-in `node:test` runner with a stub
-  `fetch`; the `vscode-extension` job in `pull-request.yml` runs that too.
+  `npm test` runs it under Node's `node:test` runner with a stub `fetch`. The
+  `vscode-extension` job in `pull-request.yml` runs that too.
 
 ## VS Code Webview UI
 

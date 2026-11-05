@@ -119,6 +119,19 @@ public static class SyncRoutes
     /// <summary>The full path for one attachment.</summary>
     public static string AttachmentFor(Guid id) => $"{Base}/attachments/{id:D}";
 
+    /// <summary>One dictation's recorded audio in, its text out (local ADR 0045): POST the
+    /// raw audio as the body with its <c>Content-Type</c>, and an optional
+    /// <see cref="TranscriptionLanguageQuery"/>. Bearer, and owner-scoped like every other
+    /// route; the service relays the audio to Foundry and keeps none of it. A service older
+    /// than the phone has no such route and answers 404, which the phone reads as "cloud
+    /// dictation is unavailable here".</summary>
+    public const string Transcriptions = "/transcriptions";
+
+    /// <summary>The query value that carries the language hint on
+    /// <see cref="Transcriptions"/> — one of <see cref="SyncTranscriptionLimits.Languages"/>,
+    /// or absent for the model to detect.</summary>
+    public const string TranscriptionLanguageQuery = "language";
+
     /// <summary>The full path a client posts to.</summary>
     public static string Absolute(string route) => Base + route;
 

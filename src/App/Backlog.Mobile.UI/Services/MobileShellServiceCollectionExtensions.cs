@@ -86,6 +86,35 @@ public static class MobileShellServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Dictation as the screens inject it (local ADR 0045 §6): <typeparamref name="TOnDevice"/>,
+    /// the host's own recogniser, and the cloud engine, behind the
+    /// <see cref="SelectingSpeechTranscriber"/> that picks one each turn.
+    /// </summary>
+    /// <remarks>
+    /// The host registers the rest, because each is its own: the <see cref="IAudioRecorder"/>
+    /// for its platform, and <see cref="CloudTranscriptionClient"/> as a typed client against
+    /// its sync address with the sync pipeline and no retry. Scoped, like the recognisers:
+    /// one turn per screen's circuit or web view. The per-run fallback is a singleton.
+    /// </remarks>
+    public static IServiceCollection AddDictation<TOnDevice>(this IServiceCollection services)
+        where TOnDevice : class, ISpeechTranscriber
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddScoped<TOnDevice>();
+        services.TryAddSingleton<CloudDictationAvailability>();
+        services.AddScoped<CloudSpeechTranscriber>();
+        services.AddScoped<ISpeechTranscriber>(provider => new SelectingSpeechTranscriber(
+            provider.GetRequiredService<TOnDevice>(),
+            provider.GetRequiredService<CloudSpeechTranscriber>(),
+            provider.GetRequiredService<ISpeechSettingsStore>(),
+            provider.GetRequiredService<CloudDictationAvailability>(),
+            provider.GetRequiredService<ISyncStatusSource>()));
+
+        return services;
+    }
+
+    /// <summary>
     /// The device store in <paramref name="databasePath"/>, the outbox over it, and
     /// the kinds it sends. Singletons: one file per device, and one flush over it —
     /// two would send the same entry twice.

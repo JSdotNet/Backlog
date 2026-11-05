@@ -14,6 +14,10 @@ public interface ISpeechSettingsStore
 {
     /// <summary>Which language dictation listens for.</summary>
     DictationLanguage Language { get; set; }
+
+    /// <summary>Which engine takes a turn: the device's recogniser, or the cloud
+    /// (local ADR 0045 §6).</summary>
+    DictationEngine Engine { get; set; }
 }
 
 /// <summary>
@@ -23,11 +27,19 @@ public interface ISpeechSettingsStore
 public sealed class InMemorySpeechSettingsStore : ISpeechSettingsStore
 {
     private int _language;
+    private int _engine;
 
     /// <inheritdoc />
     public DictationLanguage Language
     {
         get => (DictationLanguage)Volatile.Read(ref _language);
         set => Volatile.Write(ref _language, (int)value);
+    }
+
+    /// <inheritdoc />
+    public DictationEngine Engine
+    {
+        get => (DictationEngine)Volatile.Read(ref _engine);
+        set => Volatile.Write(ref _engine, (int)value);
     }
 }

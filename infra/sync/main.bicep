@@ -83,6 +83,31 @@ param logDailyQuotaGb int = 1
 @description('HMAC key the sync service signs device tokens with: base64, at least 32 bytes once decoded. azd supplies this from SYNC_TOKEN_SIGNING_KEY.')
 param tokenSigningKey string
 
+// The Foundry account the dictation relay calls (local ADR 0045). It is provisioned by
+// infra/foundry/, not here: this template only grants the sync identity Cognitive Services
+// OpenAI User on it and points the container at its endpoint. The group defaults to this
+// one, which is where both templates are deployed.
+//
+// Off by default, on purpose. The relay needs the account to carry the transcription
+// deployment, and infra/foundry/ deploys gpt-4o-transcribe only behind includeSpeechModel,
+// which defaults to false. Pointed at an account without it, every call is a 404
+// DeploymentNotFound that reads as a 502, and the phone shows a failed turn instead of
+// falling back to on-device. An empty name grants nothing and sets no endpoint, so the route
+// answers 503 and every phone dictates on the device. Set it — through the azd environment
+// value SYNC_FOUNDRY_ACCOUNT_NAME (main.parameters.json), e.g. 'backlog-foundry' — only once
+// that account's speech deployment exists (backlog-ai.bicepparam turns it on).
+@description('Name of the existing Foundry account the dictation relay transcribes through; it must carry the transcriptionDeployment. Empty (the default) turns cloud dictation off.')
+param foundryAccountName string = ''
+
+@description('Resource group of the Foundry account. Defaults to this resource group.')
+param foundryResourceGroupName string = resourceGroup().name
+
+@description('Foundry transcription deployment the dictation relay calls (infra/foundry/ declares gpt-4o-transcribe behind includeSpeechModel).')
+param transcriptionDeployment string = 'gpt-4o-transcribe'
+
+@description('Azure OpenAI api-version of the transcription call.')
+param transcriptionApiVersion string = '2025-03-01-preview'
+
 @description('Tags applied to every resource.')
 param tags object = {
   workload: 'Backlog'
@@ -789,6 +814,50 @@ resource webPubSubServiceOwner 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 // ---------------------------------------------------------------------------
+// Foundry transcription
+//
+// The dictation relay (local ADR 0045 §5). The sync service sends a phone's recording to
+// the Foundry transcription deployment with its managed identity and keeps none of it, so
+// the identity needs Cognitive Services OpenAI User on that one account — scoped to the
+// account, never the group — and no key exists anywhere. The account is infra/foundry/'s;
+// the grant is a module because the account's group may not be this one.
+// ---------------------------------------------------------------------------
+
+var transcriptionEnabled = !empty(foundryAccountName)
+
+module foundryTranscriptionRole 'foundry-transcription-role.bicep' = if (transcriptionEnabled) {
+  name: 'foundry-transcription-role-${resourceToken}'
+  scope: resourceGroup(foundryResourceGroupName)
+  params: {
+    accountName: foundryAccountName
+    principalId: syncIdentity.properties.principalId
+  }
+}
+
+// The container's transcription settings, only where there is an account to call: with
+// none, the endpoint stays unset and the route answers 503.
+var transcriptionEnv = transcriptionEnabled
+  ? [
+      {
+        name: 'Modules__Sync__Transcription__Endpoint'
+        value: foundryTranscriptionRole!.outputs.endpoint
+      }
+      {
+        name: 'Modules__Sync__Transcription__Deployment'
+        value: transcriptionDeployment
+      }
+      {
+        name: 'Modules__Sync__Transcription__ApiVersion'
+        value: transcriptionApiVersion
+      }
+      {
+        name: 'Modules__Sync__Transcription__Credential'
+        value: 'ManagedIdentity'
+      }
+    ]
+  : []
+
+// ---------------------------------------------------------------------------
 // Notification Hubs
 //
 // The Android push to the phones (local ADR 0039 §4). When a notification is published
@@ -1005,7 +1074,9 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: [
+          // The dictation relay's settings are appended, and only where there is a Foundry
+          // account to call (see the Foundry transcription section).
+          env: concat([
             // Tells DefaultAzureCredential which user-assigned identity to present.
             {
               name: 'AZURE_CLIENT_ID'
@@ -1122,7 +1193,7 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'applicationinsights-connection-string'
             }
-          ]
+          ], transcriptionEnv)
         }
       ]
       scale: {

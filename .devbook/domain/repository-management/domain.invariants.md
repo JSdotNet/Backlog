@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces: each rule, where it is enforced, and the unit test that proves it.
 
 ## Repository Registry
 

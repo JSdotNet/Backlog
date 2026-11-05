@@ -16,6 +16,9 @@
     },
     "tokenSigningKey": {
       "value": "${SYNC_TOKEN_SIGNING_KEY}"
+    },
+    "foundryAccountName": {
+      "value": "${SYNC_FOUNDRY_ACCOUNT_NAME=}"
     }
   }
 }

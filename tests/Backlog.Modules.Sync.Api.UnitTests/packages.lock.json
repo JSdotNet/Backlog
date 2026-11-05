@@ -963,6 +963,19 @@
           "OpenTelemetry.Instrumentation.Runtime": "[1.19.0, )"
         }
       },
+      "backlog.infrastructure.azurefoundry": {
+        "type": "Project",
+        "dependencies": {
+          "Azure.Identity": "[1.21.0, )",
+          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
+          "Microsoft.Extensions.Http": "[10.0.14, )",
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
+        }
+      },
       "backlog.infrastructure.blobstorage": {
         "type": "Project",
         "dependencies": {
@@ -1041,6 +1054,12 @@
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "Microsoft.Extensions.Http": "[10.0.14, )",
           "SkiaSharp": "[4.153.1, )"
+        }
+      },
+      "backlog.modules.dashboard.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
       "backlog.modules.devbook.abstractions": {
@@ -1129,6 +1148,7 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Aspire.ServiceDefaults": "[1.0.0, )",
+          "Backlog.Infrastructure.AzureFoundry": "[1.0.0, )",
           "Backlog.Infrastructure.BlobStorage": "[1.0.0, )",
           "Backlog.Infrastructure.Cosmos": "[1.0.0, )",
           "Backlog.Infrastructure.NotificationHubs": "[1.0.0, )",

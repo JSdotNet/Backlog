@@ -33,6 +33,15 @@ app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string d
     });
 });
 
+// The transcription stand-in the sync service relays a phone's dictation to under Aspire
+// (local ADR 0045 §5). Mapped before the catch-all below, which binds a JSON body and would
+// refuse the multipart one this route takes.
+app.MapPost(
+    "/openai/deployments/{deployment}/audio/transcriptions",
+    (string deployment, HttpRequest request, CancellationToken cancellationToken) =>
+        LocalAzureFoundryTranscription.Answer(deployment, request, cancellationToken))
+    .DisableAntiforgery();
+
 // Cost Management's query, at any scope: the desktop client posts to
 // {scope}/providers/Microsoft.CostManagement/query, and the scope is a path of
 // its own, so the route is a catch-all checked for that suffix.
