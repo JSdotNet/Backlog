@@ -10,7 +10,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// on what a folder's status words are.
 ///
 /// <para>They are two independent copies of one vocabulary. The generator's
-/// <c>STATUS_BY_FOLDER</c> in <c>.devbook/_tools/devbook-meta/metadata.mjs</c>
+/// <c>RATING_BY_FOLDER</c> in <c>.devbook/_tools/devbook-meta/metadata.mjs</c>
 /// decides what CI accepts in a <c>meta</c> block; this class decides what the
 /// Devbook panels offer in the chapter editor and which value gets a badge
 /// rather than being drawn as an unknown. Nothing connects them — the generator
@@ -33,16 +33,19 @@ public class DevbookStatusVocabularyTests
 {
     /// <summary>The installed generator's copy, by the key it uses for each folder.
     ///
+    /// <para>Only <c>tech/</c> and <c>ai/</c>: devbook contract 38 keeps a
+    /// <c>rating</c> in the Markdown for those two alone, and moved every other
+    /// folder's workflow state into Backlog's own store (local ADR 0044), so the
+    /// application's list is the only one for <c>domain/</c>, <c>arc42/</c>, and
+    /// <c>design/</c>.</para>
+    ///
     /// <para><see cref="DevbookFolder.Backlog"/> is not here: the root-level
     /// <c>.backlog</c> folder has no <c>.devbook/</c> successor (local ADR 0016), so
     /// the generator defines no ladder for it and the application's own list is the
     /// only one.</para></summary>
     private static readonly Dictionary<DevbookFolder, string> GeneratorKeys = new()
     {
-        [DevbookFolder.Domain] = "domain",
-        [DevbookFolder.Arc42] = "arc42",
         [DevbookFolder.Tech] = "tech",
-        [DevbookFolder.Design] = "design",
         [DevbookFolder.Ai] = "ai"
     };
 
@@ -67,7 +70,7 @@ public class DevbookStatusVocabularyTests
         {
             Assert.True(
                 generator.ContainsKey(key),
-                $"metadata.mjs has no STATUS_BY_FOLDER entry for '{key}'. Either the generator "
+                $"metadata.mjs has no RATING_BY_FOLDER entry for '{key}'. Either the generator "
                 + "dropped the folder or the key it uses changed, and this mapping is stale.");
 
             Assert.True(
@@ -100,9 +103,9 @@ public class DevbookStatusVocabularyTests
     }
 
     /// <summary>
-    /// <c>STATUS_BY_FOLDER</c> as the installed generator declares it: a
-    /// folder key per line, each holding a bracketed list of quoted values or of
-    /// names the module declares as <c>const NAME = "value";</c>.
+    /// <c>RATING_BY_FOLDER</c> as the installed generator declares it: a folder
+    /// key holding either a bracketed list of quoted values or string constants,
+    /// or the name of an array the module declares as <c>const NAME = [ … ];</c>.
     /// </summary>
     private static Dictionary<string, string[]> StatusByFolder()
     {
@@ -110,24 +113,35 @@ public class DevbookStatusVocabularyTests
 
         var constants = Regex.Matches(source, @"^const (?<name>[A-Z_]+) = ""(?<value>[^""]*)"";", RegexOptions.Multiline)
             .ToDictionary(match => match.Groups["name"].Value, match => match.Groups["value"].Value);
+        var arrays = Regex.Matches(source, @"^const (?<name>[A-Z_]+) = \[(?<values>[^\]]*)\];", RegexOptions.Multiline)
+            .ToDictionary(match => match.Groups["name"].Value, match => match.Groups["values"].Value);
 
-        var block = Regex.Match(source, @"const STATUS_BY_FOLDER = \{(.*?)\};", RegexOptions.Singleline);
+        var block = Regex.Match(source, @"const RATING_BY_FOLDER = \{(.*?)\};", RegexOptions.Singleline);
         Assert.True(
             block.Success,
-            "Could not find `const STATUS_BY_FOLDER = { ... };` in metadata.mjs. The generator was "
-            + "refreshed and declares its status ladders differently now, so this test reads nothing "
+            "Could not find `const RATING_BY_FOLDER = { ... };` in metadata.mjs. The generator was "
+            + "refreshed and declares its rating ladders differently now, so this test reads nothing "
             + "and would pass on an empty list.");
 
-        var ladders = Regex.Matches(block.Groups[1].Value, @"(?<folder>[a-z0-9]+):\s*\[(?<values>[^\]]*)\]")
+        var ladders = Regex.Matches(block.Groups[1].Value, @"(?<folder>[a-z0-9]+):\s*(?:\[(?<values>[^\]]*)\]|(?<array>[A-Z_]+))")
             .ToDictionary(
                 match => match.Groups["folder"].Value,
-                match => match.Groups["values"].Value
+                match => List(match, arrays)
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(value => Resolve(value, constants))
                     .ToArray());
 
         Assert.NotEmpty(ladders);
         return ladders;
+    }
+
+    private static string List(Match entry, Dictionary<string, string> arrays)
+    {
+        if (!entry.Groups["array"].Success) return entry.Groups["values"].Value;
+
+        var name = entry.Groups["array"].Value;
+        Assert.True(arrays.TryGetValue(name, out var values), $"RATING_BY_FOLDER names {name}, which metadata.mjs does not declare as an array.");
+        return values!;
     }
 
     /// <summary>A quoted value as written, or a named constant's value.</summary>
@@ -140,7 +154,7 @@ public class DevbookStatusVocabularyTests
 
         Assert.True(
             constants.TryGetValue(value, out var resolved),
-            $"STATUS_BY_FOLDER names {value}, which metadata.mjs does not declare as a string constant.");
+            $"RATING_BY_FOLDER names {value}, which metadata.mjs does not declare as a string constant.");
         return resolved!;
     }
 }

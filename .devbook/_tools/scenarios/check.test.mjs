@@ -88,6 +88,15 @@ test("journey-without-spec", async () => {
     assert.deepEqual(await findings({ [SPEC]: null }), [["journey-without-spec", `${FILE}:7`]]);
 });
 
+test("a journey in a scenarios subpage is checked like any other", async () => {
+    const subpage = ".devbook/domain/work/scenarios.board.mobile.md";
+    const subSpec = "e2e/tests/work/scenarios.board/mobile/move-an-item.spec.ts";
+    const own = signatureOf(parseScenariosFile(SCENARIOS, subpage).journeys[0]);
+    assert.deepEqual(await findings({ [subpage]: SCENARIOS, [subSpec]: spec(own, ["after-drag"], `${subpage}#move-an-item`) }), []);
+    assert.deepEqual(await findings({ [subpage]: SCENARIOS }), [["journey-without-spec", `${subpage}:7`]]);
+    assert.deepEqual(await findings({ [subpage]: SCENARIOS.replace("I drag it", "I move it"), [subSpec]: spec(own, ["after-drag"], `${subpage}#move-an-item`) }), [["signature-mismatch", subSpec]]);
+});
+
 test("spec-without-journey, for an address that names no journey and for a bare file", async () => {
     assert.deepEqual(await findings({ "e2e/tests/gone.spec.ts": spec(signature, [], `${FILE}#gone`) }), [["spec-without-journey", "e2e/tests/gone.spec.ts"]]);
     assert.deepEqual(await findings({ "e2e/tests/bare.spec.ts": spec(signature, [], FILE) }), [["spec-without-journey", "e2e/tests/bare.spec.ts"]]);

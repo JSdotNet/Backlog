@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,

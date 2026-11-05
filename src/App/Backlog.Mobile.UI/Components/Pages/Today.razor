@@ -25,7 +25,8 @@
 <header class="today-heading">
     <div class="today-heading__titles">
         <span class="today-heading__date" data-testid="today-date">@DateLabel</span>
-        <h1>Today</h1>
+        @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+        <h1 class="sr-only">Today</h1>
     </div>
     <IconButton AriaLabel="Refresh Today" Title="Refresh Today" Disabled="_refreshing"
                 OnClick="RefreshAsync" CssClass="today-heading__refresh" TestId="tasks-refresh">

@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-15
-status: proposed
 related: [".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/tech/desktop.md#github-cli", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization"]
 ```
 

@@ -36,7 +36,8 @@
 // *imports* the installed generator's exported seam, which `generator.mjs`
 // finds — `buildGraph` for the nodes and edges, `buildOutlineDocument` for the
 // reading order, `parseDocument` for the chapters, `collectAnnotations` and
-// `openCountsByAddress` for each chapter's open-note count, `folderKindForPath`
+// `openCountsByAddress` for each chapter's open-note count — zero from devbook
+// contract 38 on, which retired the `annotation` fence — `folderKindForPath`
 // for the folder a path belongs to, `discoverScopes` for the folders this
 // repository actually adopts. Nothing about the corpus is parsed here — the C#
 // builder's port of the same parse is what the parity test holds to this output.
@@ -322,7 +323,9 @@ function insertGraph(db, graph, listAttributes = []) {
             data.slug ?? null,
             data.level ?? null,
             data.line ?? null,
-            data.status ?? null,
+            // A `tech/` or `ai/` chapter's `rating` (devbook contract 38), in
+            // the column its `status` used to fill; no other folder carries one.
+            data.rating ?? data.status ?? null,
             // A node outside the knowledge folders altogether: a reference
             // target that resolves to no chapter here. See devbook-schema.mjs.
             data.folder ? 0 : 1,
@@ -367,9 +370,9 @@ function insertOutline(db, scope, entries, folderKindForPath) {
                 entry.name,
                 entry.path,
                 entry.title ?? null,
-                // The generator's resolved status: a file that omits it in an
-                // editorial folder is at that folder's resting value.
-                entry.status ?? null,
+                // The file's `rating` (devbook contract 38), else the status an
+                // older generator resolved; nothing rests at a folder value now.
+                entry.rating ?? entry.status ?? null,
                 // The entry's own kind where the generator gives one — an
                 // area's folder, a file's resolved `type` — and otherwise one
                 // derived from the path, so a reader can filter any row by
@@ -451,7 +454,7 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
                     chapter.slug,
                     chapter.level,
                     chapter.text,
-                    chapter.meta?.status ?? null,
+                    chapter.meta?.rating ?? chapter.meta?.status ?? null,
                     // As written; a list is no direction, so it is left out as
                     // the C# builder's `as string` leaves it.
                     typeof chapter.meta?.sync === 'string' ? chapter.meta.sync : null,
@@ -661,8 +664,10 @@ export async function buildDatabase(repoRoot, target, generator = null) {
             }
         }
 
-        const threads = await generator.collectAnnotations(repoRoot, folders);
-        const openCounts = generator.openCountsByAddress(threads);
+        // Contract 38 retired the `annotation` fence, so a current generator
+        // collects nothing and every count is zero (generator.mjs).
+        const threads = (await generator.collectAnnotations?.(repoRoot, folders)) ?? [];
+        const openCounts = generator.openCountsByAddress?.(threads) ?? new Map();
 
         const chapters = await insertChapters(db, repoRoot, folders, generator, openCounts);
         counts.chapter = chapters.chapter;

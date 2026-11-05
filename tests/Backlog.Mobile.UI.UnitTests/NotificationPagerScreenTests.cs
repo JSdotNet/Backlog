@@ -1,8 +1,10 @@
 using Backlog.Mobile.UI.Components;
 using Bunit.TestDoubles;
 using Backlog.Mobile.UI.Components.Notifications;
+using Backlog.Mobile.UI.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Mobile.UI.UnitTests;
@@ -106,6 +108,65 @@ public sealed class NotificationPagerScreenTests
 
         app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
         Assert.Equal(Older.Title, Title(app));
+    }
+
+    [Fact]
+    public async Task While_a_reply_is_kept_next_is_busy_not_disabled_and_ignores_a_press()
+    {
+        var (host, service, clock) = Phone(Newer, Older);
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
+
+        app.Find("[data-testid='notification-choice-yes']").Click();
+        app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='notifications-pager-confirmation']")));
+
+        // Waiting, not unavailable: Next keeps its tab stop and says aria-disabled.
+        var next = app.Find("[data-testid='notifications-pager-next']");
+        Assert.Equal("true", next.GetAttribute("aria-disabled"));
+        Assert.False(next.HasAttribute("disabled"));
+        // At the first card Previous is unavailable, so it stays natively disabled.
+        Assert.True(app.Find("[data-testid='notifications-pager-previous']").HasAttribute("disabled"));
+
+        next.Click();
+        // A swipe goes through the same guard.
+        await app.FindComponent<NotificationPager>().Instance.OnSwiped("next");
+
+        Assert.Equal("1 / 2", Position(app));
+        Assert.Equal(Older.Title, Title(app));
+
+        clock.Advance(NotificationPager.ConfirmationPause);
+
+        app.WaitForAssertion(() => Assert.Equal(Newer.Title, Title(app)));
+        Assert.Single(service.Replies);
+        Assert.False(app.Find("[data-testid='notifications-pager-next']").HasAttribute("aria-disabled"));
+    }
+
+    [Fact]
+    public void While_a_reply_is_kept_previous_is_busy_not_disabled_and_ignores_a_press()
+    {
+        var (host, _, _) = Phone(Newer, Older);
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
+        app.Find("[data-testid='notifications-pager-next']").Click();
+        app.WaitForAssertion(() => Assert.Equal("2 / 2", Position(app)));
+
+        app.Find("[data-testid='notification-choice-yes']").Click();
+        app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='notifications-pager-confirmation']")));
+
+        var previous = app.Find("[data-testid='notifications-pager-previous']");
+        Assert.Equal("true", previous.GetAttribute("aria-disabled"));
+        Assert.False(previous.HasAttribute("disabled"));
+        // Next leads past the last card to the end screen, so it is waiting too, not unavailable.
+        var next = app.Find("[data-testid='notifications-pager-next']");
+        Assert.Equal("true", next.GetAttribute("aria-disabled"));
+        Assert.False(next.HasAttribute("disabled"));
+
+        previous.Click();
+
+        Assert.Equal("2 / 2", Position(app));
+        Assert.Equal(Newer.Title, Title(app));
     }
 
     [Fact]
@@ -346,5 +407,130 @@ public sealed class NotificationPagerScreenTests
 
         app.WaitForAssertion(() => Assert.Equal(Newer.Title, Title(app)));
         Assert.Equal("1 / 1", Position(app));
+    }
+
+    [Fact]
+    public async Task Swiping_away_while_dictating_stops_the_mic_and_the_next_card_starts_empty()
+    {
+        var older = TestNotifications.Question("What should the release note say?", Now.AddMinutes(-30), TestNotifications.ReleaseNote);
+        var newer = TestNotifications.Question("What should the changelog say?", Now.AddMinutes(-5), TestNotifications.ReleaseNote);
+        var (host, service, _) = Phone(newer, older);
+        using var disposing = host;
+        host.Speech.Supported = true;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='notification-open-dictate']").HasAttribute("disabled")));
+        app.Find("[data-testid='notification-text'] textarea").Input("For the first");
+        app.Find("[data-testid='notification-open-dictate']").Click();
+        app.WaitForAssertion(() => Assert.True(host.Speech.IsListening));
+
+        await app.FindComponent<NotificationPager>().Instance.OnSwiped("next");
+        app.WaitForAssertion(() => Assert.Equal(newer.Title, Title(app)));
+        app.WaitForAssertion(() => Assert.Equal(1, host.Speech.StopCount));
+
+        // Words the first card's turn hears after the swipe go nowhere.
+        host.Speech.Complete(SpeechTranscript.Heard("too late"));
+
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(string.Empty, app.Find("[data-testid='notification-text'] textarea").GetAttribute("value") ?? string.Empty);
+            Assert.Equal("false", app.Find("[data-testid='notification-open-dictate']").GetAttribute("aria-pressed"));
+        });
+        Assert.Empty(app.FindAll("[data-testid='notification-speech-status']"));
+        Assert.Empty(service.Replies);
+        Assert.Empty(host.Outbox.Entries);
+    }
+
+    [Fact]
+    public void Dictating_on_the_pager_fills_the_box_and_waits_for_send()
+    {
+        var question = TestNotifications.Question("What should the release note say?", Now.AddMinutes(-30), TestNotifications.ReleaseNote);
+        var (host, service, _) = Phone(question);
+        using var disposing = host;
+        host.Speech.Supported = true;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='notification-open-dictate']").HasAttribute("disabled")));
+
+        app.Find("[data-testid='notification-open-dictate']").Click();
+        app.WaitForAssertion(() => Assert.True(host.Speech.IsListening));
+        host.Speech.Complete(SpeechTranscript.Heard("Phones answer questions now"));
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "Phones answer questions now",
+            app.Find("[data-testid='notification-text'] textarea").GetAttribute("value")));
+        Assert.Empty(service.Replies);
+        Assert.Empty(host.Outbox.Entries);
+    }
+
+    [Fact]
+    public void A_busy_card_keeps_its_mics_focusable_and_ignores_their_press()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var speech = new ScriptedSpeechTranscriber { Supported = true };
+        context.Services.AddSingleton<ISpeechTranscriber>(speech);
+        var question = TestNotifications.Question("What should the release note say?", Now.AddMinutes(-30), TestNotifications.ReleaseNote);
+        var notification = new PhoneNotification(question, "WORKSTATION-01", OwnerPresence.Online, Now, NotificationStanding.Answerable, null, null);
+
+        var controls = context.Render<NotificationAnswerControls>(parameters => parameters
+            .Add(p => p.Notification, notification)
+            .Add(p => p.Busy, true));
+
+        controls.WaitForAssertion(() =>
+        {
+            var mic = controls.Find("[data-testid='notification-open-dictate']");
+            Assert.Equal("true", mic.GetAttribute("aria-disabled"));
+            Assert.False(mic.HasAttribute("disabled"));
+        });
+
+        controls.Find("[data-testid='notification-open-dictate']").Click();
+
+        Assert.False(speech.IsListening);
+        Assert.Equal("false", controls.Find("[data-testid='notification-open-dictate']").GetAttribute("aria-pressed"));
+
+        controls.Render(parameters => parameters.Add(p => p.Busy, false));
+
+        controls.WaitForAssertion(() =>
+        {
+            var mic = controls.Find("[data-testid='notification-open-dictate']");
+            Assert.False(mic.HasAttribute("aria-disabled"));
+            Assert.False(mic.HasAttribute("disabled"));
+        });
+    }
+
+    [Fact]
+    public void A_card_that_stops_taking_answers_mid_turn_stops_the_mic_and_drops_its_words()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var speech = new ScriptedSpeechTranscriber { Supported = true };
+        context.Services.AddSingleton<ISpeechTranscriber>(speech);
+        var question = TestNotifications.Question("What should the release note say?", Now.AddMinutes(-30), TestNotifications.ReleaseNote);
+        var answerable = new PhoneNotification(question, "WORKSTATION-01", OwnerPresence.Online, Now, NotificationStanding.Answerable, null, null);
+
+        var controls = context.Render<NotificationAnswerControls>(parameters => parameters
+            .Add(p => p.Notification, answerable));
+        controls.WaitForAssertion(() => Assert.False(controls.Find("[data-testid='notification-open-dictate']").HasAttribute("disabled")));
+        controls.Find("[data-testid='notification-text'] textarea").Input("Typed first");
+        controls.Find("[data-testid='notification-open-dictate']").Click();
+        controls.WaitForAssertion(() => Assert.True(speech.IsListening));
+
+        // Answered on another device while this phone was still listening.
+        controls.Render(parameters => parameters.Add(p => p.Notification, answerable with { Standing = NotificationStanding.AnsweredElsewhere }));
+
+        controls.WaitForAssertion(() => Assert.Equal(1, speech.StopCount));
+        Assert.Empty(controls.FindAll("[data-testid='notification-open-dictate']"));
+
+        // Words the turn hears after the card stopped taking answers go nowhere.
+        speech.Complete(SpeechTranscript.Heard("too late"));
+
+        // Should the question take answers here again, its box holds only what was typed.
+        controls.Render(parameters => parameters.Add(p => p.Notification, answerable with { Standing = NotificationStanding.Rejected }));
+
+        controls.WaitForAssertion(() =>
+        {
+            Assert.Equal("Typed first", controls.Find("[data-testid='notification-text'] textarea").GetAttribute("value"));
+            Assert.Equal("false", controls.Find("[data-testid='notification-open-dictate']").GetAttribute("aria-pressed"));
+        });
+        Assert.Empty(controls.FindAll("[data-testid='notification-speech-status']"));
     }
 }

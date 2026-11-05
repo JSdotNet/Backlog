@@ -483,7 +483,6 @@ no push reaches a phone until the hub has its FCM credential.
 ## Feature Enablement
 
 ```meta
-status: proposed
 related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 

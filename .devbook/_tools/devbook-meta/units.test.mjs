@@ -1,14 +1,14 @@
 // Asserts units.mjs: what each unit holds, which chapter belongs where, the
 // one tie that joins units into a group and the links that never do, the
-// effective direction and its level, a group's roll-up, the set-asides, the
-// orphans, and the flags.
+// set-asides, the orphans, and the flags. No unit carries a direction: since
+// contract 38 the tool that runs a sweep keeps it.
 //
 // Run: `node units.test.mjs`
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildGraph } from "./graph.mjs";
-import { collectUnits, groupUnits, listUnits, main, rollUpDirection, summaryLine } from "./units.mjs";
+import { collectUnits, groupUnits, listUnits, main, summaryLine } from "./units.mjs";
 
 let failed = 0;
 const check = (ok, name, detail) => {
@@ -31,60 +31,60 @@ const I = `${CTX}/domain.invariants.md`;
 const files = {
     ".devbook/domain/context-map.md": `# Context Map\n\n${fence("type: context-map\n")}`,
     [`${CTX}/context.md`]: [
-        `# Ordering\n\n${fence("type: context\nsync: pull\n")}`,
-        `## Express Checkout\n\n${fence("type: feature-flag\nstatus: draft\n")}\nA switch.\n`,
-        `## Payment Callback\n\n${fence("type: technical\nstatus: draft\n")}\nConfirms a payment.\n`,
+        `# Ordering\n\n${fence("type: context\n")}`,
+        `## Express Checkout\n\n${fence("type: feature-flag\n")}\nA switch.\n`,
+        `## Payment Callback\n\n${fence("type: technical\n")}\nConfirms a payment.\n`,
     ].join("\n"),
     [`${CTX}/actors.md`]: [
-        `# Actors\n\n${fence("type: actors\nsync: push\n")}`,
-        `## Buyer\n\n${fence("type: user\nstatus: draft\nrole: Buyer\n")}\nBuys.\n`,
-        `## Card Issuer\n\n${fence("type: organisation\nstatus: draft\n")}\nIssues the card.\n`,
+        `# Actors\n\n${fence("type: actors\n")}`,
+        `## Buyer\n\n${fence("type: user\nrole: Buyer\n")}\nBuys.\n`,
+        `## Card Issuer\n\n${fence("type: organisation\n")}\nIssues the card.\n`,
     ].join("\n"),
     [D]: [
-        `# Domain\n\n${fence("type: domain\nsync: sync\n")}`,
-        `## Order\n\n${fence(`type: aggregate\nstatus: draft\nsync: push\naliases: [PurchaseOrder]\nrelated: [${I}#order]\n`)}\nAn order.\n`,
-        `### OrderLine\n\n${fence("type: entity\nstatus: draft\n")}\nA line.\n`,
-        `### OrderStatus\n\n${fence("type: enum\nstatus: draft\n")}\nA status.\n`,
-        `## Customer\n\n${fence("type: aggregate\nstatus: draft\n")}\nA customer.\n`,
-        `### Address\n\n${fence("type: value-object\nstatus: draft\n")}\nAn address.\n`,
-        `## Pricing\n\n${fence("type: domain-service\nstatus: draft\n")}\nPrices.\n`,
-        `## Shared Value Objects\n\n${fence(`type: shared-value-objects\nstatus: draft\nrelated: [${I}#shared-value-objects]\n`)}\nShared.\n`,
-        `### Money\n\n${fence("type: value-object\nstatus: draft\n")}\nMoney.\n`,
+        `# Domain\n\n${fence("type: domain\n")}`,
+        `## Order\n\n${fence(`type: aggregate\naliases: [PurchaseOrder]\nrelated: [${I}#order]\n`)}\nAn order.\n`,
+        `### OrderLine\n\n${fence("type: entity\n")}\nA line.\n`,
+        `### OrderStatus\n\n${fence("type: enum\n")}\nA status.\n`,
+        `## Customer\n\n${fence("type: aggregate\n")}\nA customer.\n`,
+        `### Address\n\n${fence("type: value-object\n")}\nAn address.\n`,
+        `## Pricing\n\n${fence("type: domain-service\n")}\nPrices.\n`,
+        `## Shared Value Objects\n\n${fence(`type: shared-value-objects\nrelated: [${I}#shared-value-objects]\n`)}\nShared.\n`,
+        `### Money\n\n${fence("type: value-object\n")}\nMoney.\n`,
         `## Domain Events\n\nThe events.\n`,
-        `### OrderPlaced\n\n${fence(`type: domain-event\nstatus: draft\nrelated: [${D}#order]\n`)}\nPlaced.\n`,
-        `### PriceComputed\n\n${fence(`type: domain-event\nstatus: draft\nrelated: [${D}#pricing, ${F}#checkout]\n`)}\nComputed.\n`,
-        `### SomethingHappened\n\n${fence("type: domain-event\nstatus: draft\n")}\nUnraised.\n`,
-        `## Ubiquitous Language\n\n${fence("type: ubiquitous-language\nstatus: draft\n")}\nTerms.\n`,
-        `### Purchase Order\n\n${fence("type: term\nstatus: draft\naliases: [PurchaseOrder]\n")}\nAn order, as sales says it.\n`,
-        `### Account\n\n${fence("type: term\nstatus: draft\naliases: [Customer, Order]\n")}\nTwo homes.\n`,
-        `### Basket\n\n${fence("type: term\nstatus: draft\n")}\nNo home: context.\n`,
+        `### OrderPlaced\n\n${fence(`type: domain-event\nrelated: [${D}#order]\n`)}\nPlaced.\n`,
+        `### PriceComputed\n\n${fence(`type: domain-event\nrelated: [${D}#pricing, ${F}#checkout]\n`)}\nComputed.\n`,
+        `### SomethingHappened\n\n${fence("type: domain-event\n")}\nUnraised.\n`,
+        `## Ubiquitous Language\n\n${fence("type: ubiquitous-language\n")}\nTerms.\n`,
+        `### Purchase Order\n\n${fence("type: term\naliases: [PurchaseOrder]\n")}\nAn order, as sales says it.\n`,
+        `### Account\n\n${fence("type: term\naliases: [Customer, Order]\n")}\nTwo homes.\n`,
+        `### Basket\n\n${fence("type: term\n")}\nNo home: context.\n`,
     ].join("\n"),
     [I]: [
         `# Invariants\n\n${fence("type: invariants\n")}`,
-        `## Order\n\n${fence(`type: invariants\nstatus: draft\nrelated: [${D}#order, ${F}#checkout]\n`)}`,
-        `### Invariant: An order has a line\n\n${fence("type: invariant\nstatus: draft\n")}\nAn order has at least one line.\n\nEnforced at: constructor\n`,
-        `## Shared Value Objects\n\n${fence(`type: invariants\nstatus: draft\nrelated: [${D}#shared-value-objects]\n`)}`,
-        `### Invariant: Money is never negative\n\n${fence("type: invariant\nstatus: draft\n")}\nMoney is never negative.\n\nEnforced at: constructor\n`,
+        `## Order\n\n${fence(`type: invariants\nrelated: [${D}#order, ${F}#checkout]\n`)}`,
+        `### Invariant: An order has a line\n\n${fence("type: invariant\n")}\nAn order has at least one line.\n\nEnforced at: constructor\n`,
+        `## Shared Value Objects\n\n${fence(`type: invariants\nrelated: [${D}#shared-value-objects]\n`)}`,
+        `### Invariant: Money is never negative\n\n${fence("type: invariant\n")}\nMoney is never negative.\n\nEnforced at: constructor\n`,
     ].join("\n"),
     [F]: [
         `# Features\n\n${fence("type: features\n")}`,
-        `## Checkout\n\n${fence(`type: feature\nstatus: draft\ndepends-on: [${D}#order, ${D}#customer]\nrelated: [${R}#checkout]\n`)}\nCheck out.\n`,
-        `### Guest Checkout\n\n${fence("type: sub-feature\nstatus: draft\n")}\nAs a guest.\n`,
+        `## Checkout\n\n${fence(`type: feature\ndepends-on: [${D}#order, ${D}#customer]\nrelated: [${R}#checkout]\n`)}\nCheck out.\n`,
+        `### Guest Checkout\n\n${fence("type: sub-feature\n")}\nAs a guest.\n`,
     ].join("\n"),
     [R]: [
         `# Requirements\n\n${fence("type: requirements\n")}`,
-        `## Checkout\n\n${fence(`type: requirements\nstatus: draft\nrelated: [${F}#checkout]\n`)}`,
-        `### Requirement: Checkout SHALL confirm\n\n${fence("type: requirement\nstatus: draft\n")}\nThe system SHALL confirm.\n`,
-        `### Requirement: An order SHALL name its customer\n\n${fence(`type: requirement\nstatus: draft\nrelated: [${D}#order, ${D}#customer]\n`)}\nAn order SHALL name its customer.\n`,
-        `### Requirement: A guest order SHALL price\n\n${fence(`type: requirement\nstatus: draft\nrelated: [${F}#guest-checkout, ${D}#order, ${D}#pricing]\n`)}\nIt SHALL price.\n`,
+        `## Checkout\n\n${fence(`type: requirements\nrelated: [${F}#checkout]\n`)}`,
+        `### Requirement: Checkout SHALL confirm\n\n${fence("type: requirement\n")}\nThe system SHALL confirm.\n`,
+        `### Requirement: An order SHALL name its customer\n\n${fence(`type: requirement\nrelated: [${D}#order, ${D}#customer]\n`)}\nAn order SHALL name its customer.\n`,
+        `### Requirement: A guest order SHALL price\n\n${fence(`type: requirement\nrelated: [${F}#guest-checkout, ${D}#order, ${D}#pricing]\n`)}\nIt SHALL price.\n`,
     ].join("\n"),
-    ".devbook/arc42/05-building-block-view.md": `# Building Block View\n\n${fence("sync: report\n")}\nThe blocks.\n`,
+    ".devbook/arc42/05-building-block-view.md": `# Building Block View\n\n${fence("")}\nThe blocks.\n`,
     ".devbook/arc42/building-blocks/README.md": `# Building Blocks\n\n${fence("index: root\n")}\nThe index.\n`,
-    ".devbook/arc42/building-blocks/billing.md": `# billing\n\n${fence("sync: off\n")}\nBilling.\n\n## Interfaces\n\n${fence("")}\nIts interfaces.\n`,
+    ".devbook/arc42/building-blocks/billing.md": `# billing\n\n${fence("")}\nBilling.\n\n## Interfaces\n\n${fence("")}\nIts interfaces.\n`,
     ".devbook/design/component-libraries.md": [
         `# Component Libraries\n\n${fence("")}`,
         `## Button\n\n${fence("")}\nA button.\n`,
-        `### Requirement: A button SHALL focus\n\n${fence("type: requirement\nstatus: draft\n")}\nIt SHALL focus.\n`,
+        `### Requirement: A button SHALL focus\n\n${fence("type: requirement\n")}\nIt SHALL focus.\n`,
     ].join("\n"),
 };
 
@@ -165,34 +165,17 @@ try {
         dump(unit(`${CTX}/actors.md#buyer`))
     );
 
-    // --- Orphans and unused directions ----------------------------------------
+    // --- Orphans ------------------------------------------------------------------
 
     const orphan = (id) => collected.orphans.find((o) => o.id === id);
     check(orphan(`${D}#somethinghappened`)?.reason.includes("no raiser"), "an event naming no raiser is an orphan", dump(collected.orphans));
     check(orphan(`${D}#account`)?.reason.includes("2 units"), "a term whose aliases resolve into two units is an orphan", dump(collected.orphans));
     check(collected.orphans.length === 2, "nothing else is an orphan", dump(collected.orphans));
+    check(!("unused" in collected), "there is no direction left to inherit, so nothing lists one", dump(Object.keys(collected)));
     check(
-        !collected.unused.some((u) => u.id === `${CTX}/actors.md`) && collected.unused.some((u) => u.id === ".devbook/arc42/05-building-block-view.md"),
-        "a direction no unit inherits is listed — a folder whose only block states its own — and actors.md, read by its user, is not",
-        dump(collected.unused)
-    );
-
-    // --- Direction ---------------------------------------------------------------
-
-    const dir = (id) => [unit(id).sync, unit(id).syncLevel, unit(id).syncFrom];
-    check(JSON.stringify(dir(order)) === JSON.stringify(["push", "unit", order]), "a unit's own direction wins", dump(dir(order)));
-    check(JSON.stringify(dir(`${D}#customer`)) === JSON.stringify(["sync", "page", D]), "the page's direction comes next", dump(dir(`${D}#customer`)));
-    check(JSON.stringify(dir(`${CTX}#shared-types`)) === JSON.stringify(["sync", "page", D]), "the shared-types unit reads its page");
-    check(JSON.stringify(dir(feature)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]), "then the context", dump(dir(feature)));
-    check(JSON.stringify(dir(`${CTX}/context.md#express-checkout`)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]), "a switch's page is its context");
-    check(JSON.stringify(dir(`${CTX}/actors.md#buyer`)) === JSON.stringify(["push", "page", `${CTX}/actors.md`]), "a user actor reads actors.md as its page");
-    check(
-        JSON.stringify(dir(`${CTX}/context.md#payment-callback`)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]),
-        "an actor still in context.md reads it as page and context"
-    );
-    check(
-        JSON.stringify(dir(".devbook/design/component-libraries.md#button")) === JSON.stringify(["report", "default", null]),
-        "report, from nowhere, when nothing states one"
+        collected.units.every((u) => !("sync" in u) && !("syncFrom" in u) && !("syncLevel" in u)),
+        "a unit carries no direction",
+        dump(collected.units[0])
     );
 
     // --- Groups --------------------------------------------------------------------
@@ -209,13 +192,8 @@ try {
         "a group names the requirements that tie it",
         dump(groupOf(order))
     );
-    check(groupOf(order).direction === "push" && groupOf(order).setAside === null, "a push unit and a sync unit roll up to push");
+    check(!("direction" in groupOf(order)) && groupOf(order).setAside === null, "a group carries no direction, and is not set aside");
     check(groupOf(order).slug === "ordering-customer", "a group's slug is its context and its first unit", groupOf(order).slug);
-
-    check(rollUpDirection(["sync", "pull"]) === "pull", "roll-up: sync goes with pull");
-    check(rollUpDirection(["sync", "sync"]) === "sync", "roll-up: all sync stays sync");
-    check(rollUpDirection(["push", "pull"]) === null, "roll-up: push and pull are mixed");
-    check(rollUpDirection(["report", "sync", "report"]) === "report", "roll-up: one other direction wins");
 
     const small = groupUnits(collected, { maxGroupChapters: 5 });
     check(small.find((g) => g.id === `${D}#customer`)?.setAside === "oversized", "a group past maxGroupChapters is set aside, not split", dump(small.find((g) => g.id === `${D}#customer`)));
@@ -223,36 +201,18 @@ try {
 
     // --- listUnits and the flags -----------------------------------------------------
 
-    const pull = await listUnits(root, { direction: "pull" });
+    const all = await listUnits(root);
     check(
-        JSON.stringify(pull.units.map((u) => u.id)) ===
-            JSON.stringify([
-                `${CTX}#shared-types`,
-                `${CTX}/context.md#express-checkout`,
-                `${CTX}/context.md#payment-callback`,
-                `${D}#customer`,
-                `${D}#pricing`,
-                feature,
-            ]),
-        "--direction pull lists pull and sync units",
-        dump(pull.units.map((u) => u.id))
+        JSON.stringify(all.units.map((u) => u.id)) === JSON.stringify(collected.units.map((u) => u.id)) && !("direction" in all),
+        "listUnits lists every unit, with no direction filter",
+        dump(all.units.map((u) => u.id))
     );
-    const push = await listUnits(root, { direction: "push", groups: true });
+    const grouped = await listUnits(root, { groups: true });
+    check(grouped.groups.length === collected.units.length - 1 && grouped.setAside.length === 0, "--groups lists every group", dump(grouped.groups.map((g) => g.id)));
     check(
-        JSON.stringify(push.groups.map((g) => g.id)) === JSON.stringify([`${CTX}#shared-types`, `${CTX}/actors.md#buyer`, `${D}#customer`, `${D}#pricing`]),
-        "--direction push --groups lists the push and sync groups",
-        dump(push.groups.map((g) => g.id))
-    );
-    const report = await listUnits(root, { direction: "report", groups: true });
-    check(
-        JSON.stringify(report.groups.map((g) => g.id)) === JSON.stringify([".devbook/design/component-libraries.md#button"]),
-        "--direction report lists only report groups; off is in none",
-        dump(report.groups.map((g) => g.id))
-    );
-    check(
-        summaryLine(push) === "4 groups of 5 units picked up by push; 0 set aside; 2 orphans.",
+        summaryLine(grouped) === "9 groups of 10 units; 0 set aside; 2 orphans.",
         "the summary line counts groups, units, set-asides, and orphans",
-        summaryLine(push)
+        summaryLine(grouped)
     );
 
     const first = JSON.stringify(await listUnits(root, { groups: true }));
@@ -262,12 +222,12 @@ try {
     const logs = [];
     const log = console.log;
     console.log = (line) => logs.push(line);
-    const code = await main(["--root", root, "--groups", "--json", "--direction", "pull"]);
-    const bad = await main(["--root", root, "--direction", "sideways"]);
+    const code = await main(["--root", root, "--groups", "--json"]);
+    const bad = await main(["--root", root, "--direction", "pull"]);
     console.log = log;
     const printed = JSON.parse(logs[0]);
-    check(code === 0 && printed.version === 1 && printed.direction === "pull" && Array.isArray(printed.groups), "--json prints the result", logs[0]?.slice(0, 200));
-    check(bad === 1, "an unknown direction is refused");
+    check(code === 0 && printed.version === 2 && !("direction" in printed) && Array.isArray(printed.groups), "--json prints the result, version 2, with no direction", logs[0]?.slice(0, 200));
+    check(bad === 1, "--direction is gone: it is an unknown argument");
 } finally {
     await rm(root, { recursive: true, force: true });
 }
@@ -294,23 +254,6 @@ try {
     } finally {
         await rm(bare, { recursive: true, force: true });
         await rm(withWorkspace, { recursive: true, force: true });
-    }
-}
-
-// --- Mixed directions ---------------------------------------------------------------
-
-{
-    const mixed = await fixture({
-        [D]: files[D].replace("## Customer\n\n```meta\ntype: aggregate\n", "## Customer\n\n```meta\ntype: aggregate\nsync: pull\n"),
-    });
-    try {
-        const result = await listUnits(mixed, { direction: "pull", groups: true });
-        const aside = result.setAside.find((g) => g.id === `${D}#customer`);
-        check(aside?.setAside === "mixed" && aside.direction === null, "a group whose units go push and pull is set aside as mixed", dump(result.setAside));
-        check(!result.groups.some((g) => g.id === `${D}#customer`), "a mixed group is picked up by neither sweep");
-        check(summaryLine(result).includes("1 set aside (1 mixed)"), "the summary names the set-aside reason", summaryLine(result));
-    } finally {
-        await rm(mixed, { recursive: true, force: true });
     }
 }
 

@@ -7,8 +7,8 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The <c>sync</c> field of devbook contract 25: where a block may state it, how a
 /// unit resolves it, what the findings report, and the vocabulary pinned against
-/// the rule text this repository vendors under <c>.agents/rules/</c> — the copy
-/// <c>devbook:update</c> keeps, which is contract 25 while the fixtures
+/// the contract-36 rule text under <c>tests/Fixtures/devbook-rules/contract-36/</c>,
+/// the last contract whose Markdown carried <c>sync</c>, while the fixtures
 /// <c>DevbookRuleTextContractTests</c> reads are still contract 19.
 /// </summary>
 public sealed class DevbookSyncTests
@@ -161,7 +161,9 @@ public sealed class DevbookSyncTests
         DevbookFolder folder, string block, string fileName, DevbookMetadataLevel level = DevbookMetadataLevel.Chapter) =>
         DevbookMetadataFindings.For(folder, level, MetadataReader.Parse(block), fileName);
 
-    private static readonly string Rule = File.ReadAllText(RepositoryRoot.File([".agents", "rules", "devbook-chapter-metadata.md"]))
+    // Contract 38 took sync out of the Markdown into Backlog's direction map
+    // (local ADR 0044), so the vocabulary is pinned to the last rule that wrote it.
+    private static readonly string Rule = File.ReadAllText(RepositoryRoot.File(["tests", "Fixtures", "devbook-rules", "contract-36", "devbook-chapter-metadata.md"]))
         .Replace("\r\n", "\n", StringComparison.Ordinal);
 
     private static string Section(string from, string to)

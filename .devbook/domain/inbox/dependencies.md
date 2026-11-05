@@ -2,7 +2,6 @@
 
 ```meta
 type: dependencies
-status: draft
 related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
 ```
 

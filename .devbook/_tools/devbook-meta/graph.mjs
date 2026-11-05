@@ -16,27 +16,21 @@ import {
     domainFileName,
     folderKindForPath,
     resolveType,
-    resolveStatus,
     validateDocument,
     slugify,
     documentNumber,
     isExtensionField,
-    parseAnnotations,
     proseLinks,
-    resolveAnnotation,
     changePathParts,
-    changeHash,
-    syncLevel,
-    syncSources,
+    isUnitRoot,
     parseFeed,
-    SYNC_DIRECTIONS,
+    RATING_FIELD,
     DEVBOOK_FOLDER_NAMES,
     DEVBOOK_ROOT,
     CHANGES_ROOT,
 } from "./metadata.mjs";
-import { loadStatusLadder } from "./statuses.mjs";
-import { changeDecisionIssues, changeFiles, checkDelta, readChange } from "./delta.mjs";
-import { demoProblems, demoReader, linkedWalkthroughs, requirementScenarios } from "./demo.mjs";
+import { changeFiles, checkDelta } from "./delta.mjs";
+import { demoProblems, linkedWalkthroughs, requirementScenarios } from "./demo.mjs";
 import { scenarioProblems } from "./scenario.mjs";
 import { c4Graph } from "./c4-graph.mjs";
 
@@ -296,7 +290,25 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // fingerprint. A playthrough that skips a part, or whose journey does not name
 // the feature, is warned. Both are added fields with a safe default, so a
 // corpus written under 35 validates unchanged and no migration is owed.
-export const CONTRACT_VERSION = 36;
+//
+// 37 retires `domain/`'s flow page: `flow.md` and every `flow.<name>.md`. A
+// diagram opens the chapter of what it draws, and a file typed `flow` is an
+// error. `037-flows-in-their-chapters` moves each section into its chapter.
+//
+// 38 takes workflow state off the chapter: a branch's devbook is true of its
+// code, a merged chapter is in force, and the tool that runs a workflow keeps
+// the state of a change proposal, a decision record, and a debt record through
+// `devbook.decision@1`. `status` outside `tech/` and `ai/`, the two decision
+// rungs and their six record fields, `sync`, `issue`, `effort`, `roadmap`, and
+// `change` are errors naming `038-workflow-state-leaves-the-chapter`, which
+// deletes them; a `tech/` or `ai/` rating is `rating`, which the same migration
+// renames. `.devbook/statuses.json` is no longer read. A node carries `rating`
+// where it has one and no `status` or `statusDeclared`, and the summary counts
+// `nodesByRating`. The `annotation` fence retires with it: a review note is a
+// comment thread in that tool, a fence left in a chapter is an error the same
+// migration deletes, a node carries no `openNotes`, and `annotations.json` is
+// no longer written.
+export const CONTRACT_VERSION = 38;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -404,34 +416,20 @@ const RAISER_KINDS = ["aggregate", "domain-service"];
 // (`file`/`chapter`/`heading`/`external`). `.tech` nodes have always carried
 // `kind`; the field is simply populated for every folder now.
 const ATTRIBUTE_FIELDS = [
+    // `.tech` and `.ai`: where the chapter stands on the adoption ladder.
+    RATING_FIELD,
     "version",
-    "issue",
     "aliases",
     "alternatives",
     "key",
     "default",
     "scope",
     "deployment",
-    // Which way the chapter and its code sync. Carried as written; the
-    // effective direction of a unit is resolved from `syncSources`.
-    "sync",
     "date",
     // `.ai`: how much the chapter's rating rests on.
     "evidence",
-    "approved-by",
-    "approved-at",
-    // Carried so a consumer can tell "approved, and the content has not moved"
-    // from a bare "approved" without re-reading the Markdown or asking git.
-    "approved-hash",
-    // The rung above it: who accepted the built work against this chapter, and
-    // when. The approval record stays beside it — the two are a stack.
-    "accepted-by",
-    "accepted-at",
-    "accepted-hash",
-    // The change folder's own: a proposal's category, and on any chapter the
-    // change whose merge last touched it.
+    // The change folder's own: a proposal's category.
     "category",
-    "change",
     // What a debt record costs while it stands, on its top-level block.
     "severity",
 ];
@@ -442,7 +440,7 @@ const ATTRIBUTE_FIELDS = [
 //
 // `tests` is here rather than in REFERENCE_FIELDS because a test identifier
 // names something in a test project, not a chapter, so it produces no edge — the
-// same reason `role`, `roadmap`, and `.ai`'s `stage` stay attributes — a `role`
+// same reason `role` and `.ai`'s `stage` stay attributes — a `role`
 // names something in the authorization configuration.
 //
 // `demo` is here for the same reason: it names a place in a click demo, which
@@ -453,13 +451,7 @@ const ATTRIBUTE_FIELDS = [
 // `code` names a building block's folders, which are no nodes; `c4` and
 // `c4-touches` are carried as written too, beside the edges c4-graph.mjs draws
 // from them to the workspace's elements.
-const LIST_ATTRIBUTE_FIELDS = ["role", "roadmap", "stage", "substage", "layer", "tests", "demo", "playthrough", "code", "c4", "c4-touches"];
-
-// Fields authored as an integer scalar. The parser hands back the raw string,
-// so they are coerced here and a viewer can sum or threshold them directly.
-// A value that is not a non-negative integer is left off the node — the lint in
-// metadata.mjs is what reports it, and the graph never carries a bad number.
-const NUMERIC_ATTRIBUTE_FIELDS = ["effort"];
+const LIST_ATTRIBUTE_FIELDS = ["role", "stage", "substage", "layer", "tests", "demo", "playthrough", "code", "c4", "c4-touches"];
 
 /** Recursively collect Markdown files under a folder, as repo-relative posix paths. */
 async function collectMarkdown(repoRoot, relFolder) {
@@ -486,19 +478,8 @@ function asList(value) {
     return Array.isArray(value) ? value : [value];
 }
 
-function applyMeta(node, meta, folder, relPath = null, blockLevel = null) {
+function applyMeta(node, meta, folder) {
     if (!meta) return;
-    // An omitted status in an editorial folder means that folder's resting
-    // value, so the node carries the resolved word — a viewer that read
-    // `meta.status` straight through would badge a few hundred resting
-    // chapters as unknown and collapse `nodesByStatus`. `statusDeclared` is
-    // written only when it is false, both to keep the distinction between "at
-    // rest" and "nobody said" available and to leave every already-declared
-    // node byte-identical to what earlier versions emitted.
-    // A debt record's top-level block rests at `identified`, not `active`.
-    const { status, declared } = resolveStatus(folder, meta, relPath, blockLevel);
-    node.status = status;
-    if (!declared && status !== null) node.statusDeclared = false;
     const declaredType = resolveType(folder, meta);
     if (declaredType !== null) node.kind = declaredType;
     for (const field of ATTRIBUTE_FIELDS) {
@@ -507,10 +488,6 @@ function applyMeta(node, meta, folder, relPath = null, blockLevel = null) {
     for (const field of LIST_ATTRIBUTE_FIELDS) {
         const values = asList(meta[field]);
         if (values.length) node[field] = values;
-    }
-    for (const field of NUMERIC_ATTRIBUTE_FIELDS) {
-        const raw = meta[field];
-        if (typeof raw === "string" && /^\d+$/.test(raw)) node[field] = Number(raw);
     }
     for (const field of Object.keys(REFERENCE_FIELDS)) {
         const refs = asList(meta[field]);
@@ -529,8 +506,8 @@ function applyMeta(node, meta, folder, relPath = null, blockLevel = null) {
 
 /**
  * A chapter's lede: its first paragraph or blockquote, joined to one line with
- * its inline Markdown kept as written. Fences — the `meta` block, an
- * `annotation`, a diagram — are stepped over, and the next heading ends the
+ * its inline Markdown kept as written. Fences — the `meta` block, a
+ * diagram — are stepped over, and the next heading ends the
  * search, so a chapter that opens straight into a sub-chapter has none.
  *
  * Read from the lines `buildGraph` already holds, so the term register gets
@@ -617,10 +594,9 @@ export async function buildGraph(repoRoot, folders = null) {
     // term pointing at a Value Object sub-chapter covered by its parent
     // aggregate's block — so they are materialized on demand.
     const headingIndex = new Map();
-    // The sync level of every block that may state `sync` — every unit root
-    // among them — keyed by node id. Kept off the nodes: the level follows
-    // from the path and the type. `units.mjs` reads it to find the roots.
-    const syncLevels = new Map();
+    // The node id of every block that roots a sync unit. Kept off the nodes:
+    // a root follows from the path and the type. `units.mjs` reads it.
+    const unitRoots = new Set();
     // Each chapter's lede, by node id. Kept off the nodes so graph.json does
     // not change shape; the term register is its one reader.
     const ledes = new Map();
@@ -629,9 +605,8 @@ export async function buildGraph(repoRoot, folders = null) {
     const anchors = new Map();
     const links = [];
     // Every block carrying a `demo` field, resolved against the demos once the
-    // corpus is read; and the reader both that and the fingerprints share.
+    // corpus is read.
     const demoHolders = [];
-    const demoText = demoReader(repoRoot);
     // Every document as read, for the scenario pass that needs the whole
     // corpus at once.
     const docs = [];
@@ -648,10 +623,17 @@ export async function buildGraph(repoRoot, folders = null) {
         });
     }
 
-    // The repository's own status ladder, if it declares one. A configuration
-    // error is reported here, once, instead of on every block it would fail.
-    const { ladder, issues: ladderIssues } = await loadStatusLadder(repoRoot);
-    problems.push(...ladderIssues);
+    // A repository's own status ladders were read from `.devbook/statuses.json`
+    // until contract 38. Workflow state is the tool's now, and so are its
+    // ladders; a file left behind is reported once, so nobody edits it expecting
+    // the check to read it.
+    if (await stat(path.join(repoRoot, DEVBOOK_ROOT, "statuses.json")).then(() => true, () => false)) {
+        problems.push({
+            severity: "warning",
+            path: `${DEVBOOK_ROOT}/statuses.json`,
+            message: `${DEVBOOK_ROOT}/statuses.json is no longer read: a change proposal's, a decision record's, and a debt record's state, and their ladders, are kept by the tool that runs the workflow. Delete the file once each host has imported it.`,
+        });
+    }
 
     // The change folder is checked beside the folders whenever it exists, but
     // it is no part of the graph: a change points at the devbook, never the
@@ -663,17 +645,9 @@ export async function buildGraph(repoRoot, folders = null) {
         const parts = changePathParts(relPath);
         // A delta is checked by the merge that would apply it: its header, its
         // shape, every chapter it names resolved in its target, and the merged
-        // target through the schema lint. A proposal's rungs decide the whole
-        // change, so its fingerprint and its open questions are read across
-        // the proposal and every delta.
-        const proposalOf = parts.part === "proposal" ? await readChange(repoRoot, parts.name) : null;
+        // target through the schema lint. A proposal is linted as it stands.
         const fileIssues =
-            parts.part === "delta"
-                ? (await checkDelta(repoRoot, relPath, raw, { ladder, demoText })).issues
-                : [
-                      ...validateDocument(relPath, raw, { ladder, changeHash: changeHash(proposalOf.proposal, proposalOf.deltas) }),
-                      ...changeDecisionIssues(proposalOf),
-                  ];
+            parts.part === "delta" ? (await checkDelta(repoRoot, relPath, raw)).issues : validateDocument(relPath, raw);
         for (const issue of fileIssues) {
             problems.push({ severity: issue.severity, path: relPath, message: `${relPath} ${issue.message}` });
         }
@@ -690,17 +664,6 @@ export async function buildGraph(repoRoot, folders = null) {
         anchors.set(relPath, fileAnchors(chapters));
         links.push(...proseLinks(raw).map((link) => ({ ...link, from: relPath })));
 
-        // Open notes per chapter, counted from the same read. Carrying the
-        // count on the node is what lets the canvas badge the chapters nobody
-        // has answered — and because the canvas imports this module, the live
-        // view and the committed graph.json can never disagree about it.
-        const openNotes = new Map();
-        for (const note of parseAnnotations(raw)) {
-            if (resolveAnnotation(note.fields).status !== "open") continue;
-            const key = note.chapter?.slug ?? null;
-            openNotes.set(key, (openNotes.get(key) ?? 0) + 1);
-        }
-
         const fileMeta = chapters.find((c) => c.level === 1)?.meta ?? null;
         docs.push({ relPath, raw, chapters, fileMeta });
         const fileNode = {
@@ -716,27 +679,22 @@ export async function buildGraph(repoRoot, folders = null) {
 
         // An .arc42 file is exactly one top-level chapter, so its level-1 block
         // serves as the file-level block; other folders follow the same shape.
-        applyMeta(fileNode, fileMeta, folder, relPath, "file");
-        const fileSync = syncLevel(relPath, "file", fileMeta, 1);
-        if (fileSync.level) syncLevels.set(fileNode.id, fileSync.level);
+        applyMeta(fileNode, fileMeta, folder);
+        if (isUnitRoot(relPath, "file", fileMeta, 1)) unitRoots.add(fileNode.id);
         // Set outside applyMeta because it also comes from the filename, which
         // no metadata field can supply.
         const number = documentNumber(relPath, fileMeta);
         if (number !== null) fileNode.number = number;
-        // Omitted rather than emitted as 0, so adding this did not churn every
-        // node of every existing index.
-        const fileOpenNotes = [...openNotes.values()].reduce((a, b) => a + b, 0);
-        if (fileOpenNotes) fileNode.openNotes = fileOpenNotes;
         nodes.set(fileNode.id, fileNode);
 
         // The schema lint, over every block in the file at once. It is the only
-        // implementation of the per-block rules — the status ladders, the value
+        // implementation of the per-block rules — the ratings, the value
         // shapes, the unrecognized-field sweep, a heading carrying no `meta`
         // block at all — so the gate runs it here rather than leaving it to the
         // editor extension, which not every author has open. Each issue keeps
         // its own severity: a warning stays a warning, and only an error fails
         // the run.
-        for (const issue of validateDocument(relPath, raw, { ladder, demoText })) {
+        for (const issue of validateDocument(relPath, raw)) {
             problems.push({
                 severity: issue.severity,
                 path: relPath,
@@ -807,9 +765,7 @@ export async function buildGraph(repoRoot, folders = null) {
                 line: chapter.line,
             };
             applyMeta(node, chapter.meta, folder);
-            const chapterSync = syncLevel(relPath, "chapter", chapter.meta, chapter.level);
-            if (chapterSync.level) syncLevels.set(id, chapterSync.level);
-            if (openNotes.get(chapter.slug)) node.openNotes = openNotes.get(chapter.slug);
+            if (isUnitRoot(relPath, "chapter", chapter.meta, chapter.level)) unitRoots.add(id);
             nodes.set(id, node);
             const lede = chapterLede(lines, chapter.line);
             if (lede) ledes.set(id, lede);
@@ -1019,26 +975,6 @@ export async function buildGraph(repoRoot, folders = null) {
         });
     }
 
-    // A stated direction no unit inherits does nothing: every unit below it
-    // states its own, or the level holds no unit at all (an `actors.md` of
-    // organisations only). Each unit resolves nearest-wins through
-    // `syncSources`; whatever no unit resolved to is reported.
-    const inherited = new Set();
-    for (const [id, level] of syncLevels) {
-        if (level !== "unit") continue;
-        const source = syncSources(id).find((ref) => syncLevels.has(ref) && nodes.get(ref)?.sync != null);
-        if (source) inherited.add(source);
-    }
-    for (const [id, level] of syncLevels) {
-        const node = nodes.get(id);
-        if (level === "unit" || inherited.has(id) || !SYNC_DIRECTIONS.includes(node?.sync)) continue;
-        problems.push({
-            severity: "warning",
-            path: node.path,
-            message: `${id} has \`sync: ${node.sync}\`, which no unit inherits — every unit under it states its own direction, or none sits under it. Remove it, or set it where a unit reads it.`,
-        });
-    }
-
     // The C4 model: the workspace's elements and views as nodes, its
     // containment and relationships as edges, and the `embeds`, `c4`, and
     // `c4-touches` edges from the chapters, each checked against the rule.
@@ -1052,7 +988,7 @@ export async function buildGraph(repoRoot, folders = null) {
 
     // The scenario register rides beside the nodes, like the ledes, so
     // graph.json does not change shape; `scenarios-index.mjs` is its one reader.
-    return { nodes: [...nodes.values()], edges, problems, ledes, syncLevels, scenarios: scenarios.register };
+    return { nodes: [...nodes.values()], edges, problems, ledes, unitRoots, scenarios: scenarios.register };
 }
 
 /**
@@ -1154,7 +1090,7 @@ function summarize(nodes, edges) {
         nodesByFolder: count(nodes, "folder"),
         nodesByType: count(nodes, "type"),
         nodesByKind: count(nodes, "kind"),
-        nodesByStatus: count(nodes, "status"),
+        nodesByRating: count(nodes.filter((node) => node[RATING_FIELD] != null), RATING_FIELD),
         edgesByType: count(edges, "type"),
     };
 }

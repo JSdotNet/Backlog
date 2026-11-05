@@ -1,7 +1,7 @@
 # Code
 
 ```meta
-status: adopted
+rating: adopted
 type: stage
 ```
 
@@ -11,7 +11,7 @@ type: stage
 ## Code gate through flow-code
 
 ```meta
-status: adopted
+rating: adopted
 type: guardrail
 stage: [code, verify]
 substage: [code/start, code/implement, verify/build-test, verify/review]
@@ -37,7 +37,7 @@ Validation.
 ## Plan items pasted into a session
 
 ```meta
-status: adopted
+rating: adopted
 type: skill
 stage: [code]
 substage: [code/start]
@@ -65,7 +65,7 @@ same plugin notices the entry marker and nudges the session to invoke the skill.
 ## Roles bound to specialist agents
 
 ```meta
-status: adopted
+rating: adopted
 type: agent
 layer: [harness]
 evidence: recorded
@@ -98,7 +98,7 @@ hands that phase to it, and a phase with no entry runs inline in the session.
 ## Worktree session per change
 
 ```meta
-status: adopted
+rating: adopted
 type: practice
 layer: [harness]
 evidence: recorded
@@ -122,7 +122,7 @@ ports and user secrets stay per session.
 ## Rules wrapped per host
 
 ```meta
-status: adopted
+rating: adopted
 type: practice
 layer: [harness]
 evidence: recorded
@@ -145,7 +145,7 @@ standing brief `CLAUDE.md` imports. The devbook plugin also installs a wrapper p
 ## Backlog as the delivery tracker
 
 ```meta
-status: adopted
+rating: adopted
 type: mcp-server
 stage: [decide]
 feeds: [".devbook/ai/01-plan.md#devbook-chapters-through-flow-spec: what you pick"]
@@ -181,7 +181,7 @@ sequenceDiagram
 ## Run tracking on delivery surfaces
 
 ```meta
-status: adopted
+rating: adopted
 type: mcp-server
 layer: [harness]
 evidence: recorded
@@ -201,7 +201,7 @@ QA scenarios and their evidence and the Personal Validation decision.
 ## Session telemetry to the app
 
 ```meta
-status: adopted
+rating: adopted
 type: hook
 layer: [harness]
 evidence: recorded
@@ -225,7 +225,7 @@ run's row.
 ## Out-of-scope findings become issues
 
 ```meta
-status: retired
+rating: retired
 type: hook
 stage: [decide]
 evidence: recorded
@@ -248,7 +248,7 @@ this repository, skipping a title already open.
 ## Guidance from MCP servers
 
 ```meta
-status: retired
+rating: retired
 type: mcp-server
 layer: [harness]
 evidence: recorded

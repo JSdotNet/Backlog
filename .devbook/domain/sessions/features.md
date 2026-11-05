@@ -14,6 +14,61 @@ type: feature
 related: [.devbook/domain/sessions/domain.md#session-log]
 ```
 
+**How an environment's sessions are read**
+
+```mermaid
+sequenceDiagram
+    participant Reader
+    participant Log as Session Log
+    participant Desktop as Claude desktop app's store
+    participant Claude as Claude records
+    participant Copilot as Copilot records
+    participant Liveness as Liveness Assessment
+
+    Reader->>Log: what has been running here?
+    Log->>Desktop: which sessions are still open?
+    Desktop-->>Log: archived flag and scheduled task per session
+    par per agent, independently
+        Log->>Claude: live records, then recent history plus every open one
+        Claude-->>Log: sessions found + how many exist
+    and
+        Log->>Copilot: recent records
+        Copilot-->>Log: sessions found + how many exist
+    end
+    Log->>Log: collapse duplicate records of one session
+    Log->>Liveness: for each session with liveness evidence
+    Liveness-->>Log: running or stalled
+    Log-->>Reader: Session Catalog — sessions, unreadable sources, discovered count
+```
+
+- **The agents are asked independently, and their failures are collected, not
+  thrown.** An environment with only one agent installed is the ordinary case, and
+  [one unreadable source costs only its own sessions](requirements.md#requirement-one-unreadable-source-costs-only-its-own-sessions).
+  Each source either
+  contributes its sessions or contributes its name to `unreadable`.
+- **The desktop app's store is read once per reading, before the agents.** It is the
+  only record of which Claude sessions the desktop app still holds open. A store that
+  cannot be walked costs only its two facts: "Claude desktop app" goes on
+  `unreadable`, and the Claude sessions still answer, unstamped. A malformed record
+  costs only itself, and a missing store is a machine without the desktop app.
+- **Duplicates are collapsed before anything else.** One session can leave more than
+  one record. It may leave a live marker per process beside its own transcript, or two
+  transcripts when it changed folder and was filed under both. The aggregate's first
+  invariant is that it appears once. The most recent record wins: it is the one the
+  agent went on writing, and for a live session it is the process actually running.
+  The collapse comes before the cap and before the count. So a session filed twice
+  costs one place in the list rather than two, and the number travelling back is a
+  number of sessions.
+- **Liveness is assessed last, per session, against one clock.** A single clock per
+  reading is what makes two sessions in the same list comparable. Assessing each
+  against its own would let one row be stale relative to another.
+- **How many exist travels back with what was described.** A reading for a list may
+  stop at the most recent sessions per agent, except for the open ones, which it reads
+  whatever their age. So the count of what it found is part of the answer, not
+  something the reader has to go and check. The answer also says how many of the open
+  ones are older than the newest session it left out. A reading since a horizon
+  stops nowhere inside it, which makes it the shape a count reads.
+
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
@@ -344,7 +399,6 @@ caveat on every row.
 
 ```meta
 type: sub-feature
-status: deprecated
 ```
 
 A section per agent, so Claude's sessions and Copilot's could be read separately
@@ -1394,7 +1448,6 @@ session where they can see it happen.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/sessions/features.md#session-inventory]
 related: [.devbook/domain/sessions/domain.md#session-activity-publishing, .devbook/domain/sessions/domain.md#session-activity-enrichment]
 ```
@@ -1411,7 +1464,6 @@ adds timeline and correlation detail to that same row.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/domain.md#session-activity-publishing, .devbook/domain/sessions/domain.md#collections-mcp]
 ```
 
@@ -1426,7 +1478,6 @@ Detecting the capability is ordinary product behavior. Missing configuration rea
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/domain.md#session-enrichment-summary, .devbook/domain/sessions/domain.md#session-activity-entry]
 ```
 
@@ -1441,7 +1492,6 @@ without turning the session list into a transcript or a tool log.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/domain.md#reporting-capability]
 ```
 
@@ -1456,7 +1506,6 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-status: deprecated
 related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
@@ -1567,7 +1616,6 @@ this product show me sessions at all" is a single question.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/sessions/context.md#session-requests
 related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
 ```
@@ -1633,7 +1681,6 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.md#question-relay, .devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/features.md#answering-from-another-device]
 ```
 

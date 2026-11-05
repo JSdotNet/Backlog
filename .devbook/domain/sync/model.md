@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code]
 ```
 

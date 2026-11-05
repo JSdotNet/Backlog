@@ -37,9 +37,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// never called from this class — <see cref="DecisionTools"/>' note operations
 /// post and reply through <c>Add</c> and <c>Edit</c>, as <c>devbook.decision@1</c>
 /// asks — and no chapter file is opened for anything but reading — local ADR 0012
-/// §6: the MCP server never writes a fence. The
-/// answer itself is a devbook <c>annotation</c> fence the session writes in its
-/// own checkout, with the plugin's own tool, and this marks the inbox afterwards.
+/// §6: the MCP server never writes a fence. Nor does a session: devbook contract
+/// 38 retired the <c>annotation</c> fence, so a default-branch note is answered by
+/// a reply in this store (<c>devbook_post_note</c> with <c>replyTo</c>, local ADR
+/// 0044) and a note that tool refuses — a branch snapshot's, a Brain note's — in
+/// the session's own report; this marks the note resolved afterwards.
 /// <see cref="CaptureNoteAsync"/> is the other: a <em>new</em> note in the
 /// Brain's inbox area, through <see cref="IBrainNoteWriter"/> — the writer the
 /// pane's Capture and Inbox triage's To Brain go through — which creates a file
@@ -391,7 +393,7 @@ public sealed class DevbookTools(
         + "snapshot, else the default branch — the same ones the app's chapter view shows and `read_knowledge_chapter` "
         + "returns with `review`. For " + BrainMcpScope.Value
         + ", the notes on one Brain note. `archived` is true when the repository is archived: its devbook is "
-        + "read-only, so write no `annotation` fence into it and do not resolve its notes. Read-only.")]
+        + "read-only, so do not answer or resolve its notes. Read-only.")]
     public AnnotationsPayload ListAnnotationsOn(
         [Description(RepositoryDescription)]
         string repository,
@@ -444,10 +446,13 @@ public sealed class DevbookTools(
         Destructive = false,
         OpenWorld = false)]
     [Description(
-        "Marks one of the reader's own private notes on a devbook chapter as dealt with. Write the answer into the "
-        + "chapter first, as a devbook `annotation` fence, with the devbook tooling in your own checkout — then call "
-        + "this. That order matters: a fence nobody resolved can still be found, while a note resolved without its "
-        + "answer written has lost the only record of where the answer is. Resolving a note that is already resolved "
+        "Marks one of the reader's own private notes on a devbook chapter as dealt with. Answer it first. A "
+        + "repository's note on its default branch: reply with devbook_post_note, replyTo the note's id, and resolve "
+        + "it with devbook_resolve_note. A note those refuse — unknown-note, a note left on a branch snapshot, a "
+        + "Brain note — has no reply here: give the answer in your own report, then call this. Never write an "
+        + "`annotation` fence into the chapter; devbook retired it and its checker rejects one. That order matters: "
+        + "an answered note still open can be found, while a note resolved without its answer has lost it. "
+        + "Resolving a note that is already resolved "
         + "changes nothing. A note left on a Brain note is resolved under " + BrainMcpScope.Value + ". Refused for an "
         + "archived repository, whose devbook is read-only.")]
     public ChapterNotePayload ResolveAnnotationFor(
@@ -459,8 +464,8 @@ public sealed class DevbookTools(
         var scope = ScopeOf(repository);
 
         // Local ADR 0029 §4: an archived repository's devbook is read-only, so no
-        // fence answering a note can have been written there — and resolving a
-        // note with no answer written loses the only record of the remark. Asked
+        // reply answering a note can have been posted there — and resolving a
+        // note with no answer loses the only record of the remark. Asked
         // before the note, so the refusal is the same whichever id was sent.
         if (scope.Archived)
         {

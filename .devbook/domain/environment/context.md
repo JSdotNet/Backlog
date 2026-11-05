@@ -1,7 +1,6 @@
 # Environment
 
 ```meta
-status: draft
 index: root
 type: context
 ```

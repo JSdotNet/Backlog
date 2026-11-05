@@ -4,7 +4,11 @@ namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
 /// The open review notes of one document, by the chapter row that carries them —
-/// what <c>chapter.open_annotations</c> holds.
+/// what <c>chapter.open_annotations</c> held until devbook contract 38 retired the
+/// <c>annotation</c> fence. Nothing in production calls it any more: the builder
+/// writes zero, as <c>tools/devbook/build-database.mjs</c> does with a generator
+/// that has no annotation index. It is kept only for its unit tests, until the
+/// <c>open_annotations</c> column is dropped and it goes with it.
 ///
 /// <para>A port of as much of the devbook generator as that one number needs:
 /// <c>parseAnnotations</c>, <c>parseAnnotationBody</c> and <c>resolveAnnotation</c>

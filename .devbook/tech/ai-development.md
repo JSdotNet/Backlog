@@ -1,7 +1,7 @@
 # AI-Assisted Development Stack
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/tech/technology-graph.md#ai-development-vocabulary", ".devbook/arc42/02-constraints.md#organizational--process-constraints"]
 ```
 
@@ -21,7 +21,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/tech/technology-graph.m
 ## Claude Code
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 related: [".devbook/tech/shared.md#anthropic-claude-platform"]
 ```
@@ -40,7 +40,7 @@ forms.
 ## Claude Code Plugins
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code"]
 related: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
@@ -73,7 +73,7 @@ repository uses.
 ## Agent Skills
 
 ```meta
-status: adopted
+rating: adopted
 type: skill
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#markdown", ".devbook/tech/shared.md#yaml"]
 related: [".devbook/tech/ai-development.md#repository-instruction-files"]
@@ -92,7 +92,7 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 ## Subagents
 
 ```meta
-status: adopted
+rating: adopted
 type: agent
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 ```
@@ -110,7 +110,7 @@ marketplace.
 ## Delivery Engine
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/ai-development.md#subagents"]
@@ -134,7 +134,7 @@ through, and the stack config they read.
 ## Delivery Schedule
 
 ```meta
-status: trial
+rating: trial
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#claude-code"]
 version: "1.18.0"
@@ -153,7 +153,7 @@ skills that register them with the host's scheduler.
 ## Delivery Surfaces
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/tech/ai-development.md#delivery-engine"]
 version: "1.18.0"
@@ -172,7 +172,7 @@ MCP servers a flow run reports its stages to, released together with the engine.
 ## Model Context Protocol Servers
 
 ```meta
-status: adopted
+rating: adopted
 type: protocol
 depends-on: [".devbook/tech/ai-development.md#claude-code"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/testing.md#playwright", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
@@ -194,7 +194,7 @@ themselves.
 ## Repository Instruction Files
 
 ```meta
-status: adopted
+rating: adopted
 type: format
 depends-on: [".devbook/tech/shared.md#markdown"]
 related: [".devbook/tech/ai-development.md#claude-code", ".devbook/tech/ai-development.md#agent-skills"]
@@ -216,7 +216,7 @@ it pulls in per task.
 ## Claude Code Hooks
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code"]
 related: [".devbook/tech/tooling.md#powershell", ".devbook/tech/shared.md#nodejs"]
@@ -234,7 +234,7 @@ Deterministic commands the harness runs around a session event or a tool call.
 ## Backlog Tools Plugin
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#claude-code-hooks"]
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
@@ -255,7 +255,7 @@ This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manife
 ## Devbook Plugin
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
@@ -294,7 +294,7 @@ convention this repository follows and the repository procedures.
 ## Devbook Config
 
 ```meta
-status: adopted
+rating: adopted
 type: plugin
 version: "1.18.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#json"]
@@ -315,7 +315,7 @@ of the personal overlay beside it.
 ## Devbook Procedures
 
 ```meta
-status: retired
+rating: retired
 type: skill
 version: "1.13.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills"]

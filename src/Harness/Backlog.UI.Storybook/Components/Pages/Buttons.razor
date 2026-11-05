@@ -153,12 +153,15 @@ Lead is placement, not styling. A footer is a flex row that pushes its children 
     </Story>
 
     <Story Name="ToggleButton"
-           Description="Two-way bound to page state — the pressed state below is the page's, not the button's."
+           Description="Two-way bound to page state — the pressed state below is the page's, not the button's.
+
+Busy is AppButton's Busy without the spinner: the act the toggle belongs to is running, so a press is ignored, but the toggle keeps its tab stop and says `aria-disabled`. Disabled is a standing state — the control is unavailable — and is the native attribute."
            Code="@ToggleCode">
         <div class="sb-row">
             <ToggleButton @bind-Pressed="_showDone" AriaLabel="Show completed entries">Show completed</ToggleButton>
             <ToggleButton @bind-Pressed="_compact" AriaLabel="Compact rows">Compact rows</ToggleButton>
             <ToggleButton Pressed="true" Disabled="true" AriaLabel="Locked filter">Locked on</ToggleButton>
+            <ToggleButton @bind-Pressed="_busyToggle" Busy="true" AriaLabel="Dictate while sending" TestId="toggle-busy">Busy</ToggleButton>
         </div>
         <p class="sb-state" data-testid="toggle-state">
             Show completed: @_showDone &nbsp;|&nbsp; Compact rows: @_compact
@@ -377,6 +380,7 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
 
     private int _clicks;
     private bool _busy;
+    private bool _busyToggle;
     private bool _showDone = true;
     private bool _compact;
 
@@ -459,6 +463,7 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
 
     private const string ToggleCode = """
         <ToggleButton @bind-Pressed="_showDone" AriaLabel="Show completed entries">Show completed</ToggleButton>
+        <ToggleButton @bind-Pressed="_dictating" Busy="@_sending" AriaLabel="Dictate">Dictate</ToggleButton>
         """;
 
     private const string BaseClassCode = """

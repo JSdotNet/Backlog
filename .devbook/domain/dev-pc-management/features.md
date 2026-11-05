@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 ```
 
 The desktop app registers its machine with the cloud on startup. It reports the
@@ -24,7 +22,6 @@ is removed after a period of inactivity.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#pc-registration]
 ```
 
@@ -57,7 +54,6 @@ the relay waits in the cloud's queue until it can be sent.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#pc-registration]
 ```
 
@@ -69,7 +65,6 @@ session to a machine behind NAT or a firewall.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
@@ -81,7 +76,6 @@ optionally shut down.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
@@ -93,7 +87,6 @@ incompatible.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
@@ -119,7 +112,6 @@ acknowledgement instead.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
@@ -143,7 +135,6 @@ into a stale combination.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 related: [.devbook/domain/dev-pc-management/requirements.md#system-tools-pane]
@@ -187,7 +178,6 @@ open; the next Escape closes the pane.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#system-tools-pane, .devbook/domain/dev-pc-management/features.md#last-run-record]
 related: [.devbook/domain/dev-pc-management/requirements.md#overview-tab]
@@ -254,19 +244,38 @@ than a sentence.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking]
 ```
 
+**Tool update lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Queued : update requested and authorized
+    Queued --> InProgress : machine online, package manager runs
+    InProgress --> Succeeded : update completed
+    InProgress --> Failed : update failed
+    Failed --> RolledBack : previous version restored
+    Succeeded --> [*] : archived as an Update Record
+    Failed --> [*] : archived as an Update Record
+    RolledBack --> [*] : archived as an Update Record
+```
+
+A queued update is a [Pending Update](domain.md#pending-update) and waits while
+its machine is offline. [Remote Update](domain.md#remote-update) runs it through
+the machine's native package manager. Once it completes or fails, it leaves
+`pending_updates` for `updates_history` as an
+[Update Record](domain.md#update-record), whose status is success, failed, or
+rollback.
+
 Trigger single, targeted, or bulk tool updates from the dashboard. Updates queue
 for offline PCs, report progress with rollback on failure, and can require
-explicit confirmation ([Tool update lifecycle](flow.md#tool-update-lifecycle)).
+explicit confirmation ([Tool update lifecycle](features.md#remote-tool-updates)).
 
 ### Local tool enablement and updates
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
@@ -298,7 +307,6 @@ run starts, and the run's transcript stays open beside it.
 
 ```meta
 type: sub-feature
-status: draft
 feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#local-tool-enablement-and-updates]
 related: [.devbook/domain/dev-pc-management/domain.md#last-tool-run]
@@ -319,7 +327,6 @@ as a failed run with no tool steps and the refusal as its transcript.
 
 ```meta
 type: feature
-status: draft
 ```
 
 Require authentication for registration and connections, and explicit

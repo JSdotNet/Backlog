@@ -574,7 +574,7 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -582,7 +582,7 @@ and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
 The shell (`MainLayout`) is a title bar carrying the version control and the sync
-status, the page, and three tabs along the bottom, withheld until the device is
+status, the page, and the tabs along the bottom, withheld until the device is
 paired.
 
 The **version control** (`AppUpdateControl`) is the app bar's title. It names the
@@ -616,6 +616,10 @@ The tabs are:
 - **Tasks** — My Day, read from `task_view`, and the phone's writes to tasks. It
   adds a task picked for today. For a task in today's My Day it marks it done or
   undone, ticks one of its steps, or moves it to tomorrow.
+- **Notifications** — the notifications the paired desktops published, as a
+  list, a detail and a pager that swipes between them. A question is answered
+  there, and each of its answer boxes can be dictated into through the speech
+  transcriber. The reply leaves through the outbox as `notification-reply`.
 
 Its local SQLite file holds no canonical task data. It holds:
 
@@ -645,10 +649,11 @@ graph TB
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
+    NotificationsTab["Notifications tab\n(list, detail, pager, answer)"]
   end
 
   subgraph "Device store (SQLite)"
-    Outbox["Outbox\n(capture, note, task, talk-note)"]
+    Outbox["Outbox\n(capture, note, task, notification-reply, talk-note)"]
     InboxCache["Last pulled inbox"]
     TaskView["task_view\n(fold of the task feed)"]
     NoteView["note_view\n(fold of note documents)"]
@@ -689,6 +694,9 @@ graph TB
   Shell --> CaptureSheet
   TasksTab --> TaskView
   TasksTab --> Outbox
+  Shell --> NotificationsTab
+  NotificationsTab --> Outbox
+  NotificationsTab --> Speech
   Files -->|"PUT /api/sync/attachments/{id}"| API
   Speech -.->|"POST /api/sync/transcriptions (Cloud engine)"| API
   Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API

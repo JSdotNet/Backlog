@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/repository-management/domain.md#repository-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/environment/domain.invariants.md#environment-catalog]
 aliases: [EnvironmentCatalog]
 ```
@@ -28,7 +26,6 @@ The personal catalog of launchable environments. The rules it holds are in
 
 ```meta
 type: entity
-status: draft
 aliases: [environment_id]
 ```
 
@@ -40,7 +37,6 @@ production admin surface.
 
 ```meta
 type: entity
-status: draft
 aliases: [EnvironmentShortcut, shortcut_id]
 ```
 
@@ -51,7 +47,6 @@ order, pinned/hidden state, and optional deep-link details.
 
 ```meta
 type: value-object
-status: draft
 aliases: [LaunchTarget, target_ref]
 ```
 
@@ -63,7 +58,6 @@ target type and target value.
 
 ```meta
 type: value-object
-status: draft
 aliases: [AccessHint]
 ```
 
@@ -75,7 +69,6 @@ It never contains the credential itself.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Classifies the destination: `local`, `development`, `test`, `staging`,
@@ -85,9 +78,26 @@ Classifies the destination: `local`, `development`, `test`, `staging`,
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/environment/domain.md#environment-catalog, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/domain/monitoring/domain.md#progress-signal]
 ```
+
+**Shortcut activation**
+
+```mermaid
+sequenceDiagram
+    participant User as Person
+    participant Env as Environment
+    participant Repo as Repository Management
+    participant Monitor as Monitoring & Dashboard
+
+    User->>Env: Activate Environment Shortcut
+    Env->>Repo: Resolve repository or workspace target when needed
+    Env->>Monitor: Read current health signal when available
+    Env-->>User: Launch action and access hints
+```
+
+- The health read is optional: Environment asks only when a view shows health.
+- Environment is not built, so this flow is the intended design.
 
 Resolves an Environment Shortcut into the launch action the UI can present: open
 a URL, run a command, focus a local workspace, or navigate to a cloud dashboard.
@@ -100,7 +110,6 @@ view is shown or a shortcut is activated.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/environment/domain.md#environment-catalog]
 ```
 
@@ -127,7 +136,6 @@ Published when the person activates an Environment Shortcut.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.

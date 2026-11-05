@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/dev-pc-management/features.md]
 ```
 
@@ -13,7 +12,6 @@ related: [.devbook/domain/dev-pc-management/features.md]
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/dev-pc-management/features.md#system-tools-pane]
 ```
 
@@ -24,7 +22,6 @@ related: [.devbook/domain/dev-pc-management/features.md#system-tools-pane]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL show, under the Claude filter, only the entries for Claude Code or Claude Desktop, under the Copilot filter only the entries for Copilot, and entries for no host only under All hosts, with every tab count following the filter.
@@ -45,7 +42,6 @@ The system tools pane SHALL show, under the Claude filter, only the entries for 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL mark each kind tab with the number of its entries that are behind, missing or not confirmed, in the error tone when one is missing, the warning tone when one is behind and the neutral tone otherwise, and with no mark when none is.
@@ -66,7 +62,6 @@ The system tools pane SHALL mark each kind tab with the number of its entries th
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL list the applications confirmed by hand under the Checklist tab and every other application under the Applications tab.
@@ -81,7 +76,6 @@ The system tools pane SHALL list the applications confirmed by hand under the Ch
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL draw a catalog group with no entry needing action folded, saying all up to date, and a group with one open, its fold naming its title, how many entries of the tab's kind it holds and, when any do, how many need action.
@@ -96,7 +90,6 @@ The system tools pane SHALL draw a catalog group with no entry needing action fo
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL, when the tab on show has more than one kind of outstanding entry, say how many are behind, missing and to confirm, each on its own and in that order, and SHALL keep the "n of m are behind" sentence when only one kind is outstanding.
@@ -117,7 +110,6 @@ The system tools pane SHALL, when the tab on show has more than one kind of outs
 
 ```meta
 type: requirement
-status: draft
 ```
 
 Under All, the system tools pane SHALL list an open group's entries needing action first, hold its matching entries behind one control that says how many, show them after the work once pressed and keep them shown across a re-check; under Needs action it SHALL hold nothing back.
@@ -132,7 +124,6 @@ Under All, the system tools pane SHALL list an open group's entries needing acti
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL reopen on the tab and the host filter it was last left on, on the same machine.
@@ -147,7 +138,6 @@ The system tools pane SHALL reopen on the tab and the host filter it was last le
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/dev-pc-management/features.md#overview-tab]
 ```
 
@@ -157,7 +147,6 @@ related: [.devbook/domain/dev-pc-management/features.md#overview-tab]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system tools pane SHALL open on the Overview tab on a machine that has no remembered tab.
@@ -172,7 +161,6 @@ The system tools pane SHALL open on the Overview tab on a machine that has no re
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL show how many entries match the catalog out of the entries this machine wants and whose version was looked up, with the matching, behind, missing and unconfirmed shares said in words, the entries behind split by host, the missing entries split into those installable from here and those installed by hand, and the count of cached versions nothing loads.
@@ -187,7 +175,6 @@ The Overview SHALL show how many entries match the catalog out of the entries th
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL count every entry behind on exactly one line of the Updates split — under the one host it is for or the one host that reports it behind, under Both when it is for both hosts and both or neither report it, under Machine when it has no host — so the lines always sum to the Updates figure, under every host filter.
@@ -208,7 +195,6 @@ The Overview SHALL count every entry behind on exactly one line of the Updates s
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL list one card per entry needing action, updates first, then missing entries, then unconfirmed checklist items, then the stale cache, each carrying exactly one control — Update, Install, a link to the download page for an entry installed by hand, Done here for a checklist item, or Clear for the stale cache, and SHALL say under the detail of a card whose step failed in the last Update all why it failed, until the next run starts.
@@ -235,7 +221,6 @@ The Overview SHALL list one card per entry needing action, updates first, then m
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL count only the entries the host filter shows, in every tile, in Needs you and in every kind bar.
@@ -250,7 +235,6 @@ The Overview SHALL count only the entries the host filter shows, in every tile, 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL show this machine's last finished run — its outcome, kind, when it finished, how many of its steps succeeded, how long it took and the last lines of its transcript, with the whole transcript a click away — and SHALL show no Last run card when there is none.
@@ -271,7 +255,6 @@ The Overview SHALL show this machine's last finished run — its outcome, kind, 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The tab strip SHALL offer "Last run transcript" whenever this machine has a last finished run, opening that run's whole transcript as the Last run card does, and while the pane has command output but no last run, SHALL open that output instead.
@@ -286,7 +269,6 @@ The tab strip SHALL offer "Last run transcript" whenever this machine has a last
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Overview SHALL name at its foot the catalog this machine reads and, where the host names one, the file this machine's own choices are kept in, and SHALL offer Add tool and Import there only where the host can write the catalog.

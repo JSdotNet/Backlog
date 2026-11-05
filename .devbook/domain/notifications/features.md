@@ -1,7 +1,6 @@
 # Features
 
 ```meta
-status: draft
 type: features
 ```
 
@@ -12,7 +11,6 @@ type: features
 ## Publishing a notification
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#publishing-a-notification]
 ```
@@ -31,7 +29,6 @@ the person.
 ## Answering from another device
 
 ```meta
-status: proposed
 type: feature
 related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply]
 ```
@@ -53,6 +50,14 @@ plain-text answer, and the reply leaves through the device outbox as a
 verdict syncs back the card reads "Answered from this phone", "Answered
 elsewhere" with the answer that won, or the owner's reason for rejecting it with
 the controls back. A question that says `answerOn: owner` is read-only there.
+
+Each box that takes words can be dictated into instead of typed: the open answer,
+a choice's own words and the note. What was heard is added to that box for
+the person to read, and nothing is sent until they press Send. One box listens at
+a time, and listening stops when the reply is sent or the person moves to another
+notification. Words past the box's length limit are left out, and the phone says
+so. A phone with no speech recogniser shows the dictation control unavailable,
+and the box still takes typing.
 
 An open alert on the phone offers Dismiss, which sends an
 [Acknowledgement](domain.md#acknowledgement) to the owner desktop through the same
@@ -100,7 +105,6 @@ whether a phone showed it.
 ## Asking from the contexts
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
@@ -174,7 +178,6 @@ spec-manager. One read in spec-manager closes here as "Read in spec-manager".
 ## Closing a notification
 
 ```meta
-status: draft
 type: feature
 related: [.devbook/domain/notifications/requirements.md#closing-a-notification]
 ```

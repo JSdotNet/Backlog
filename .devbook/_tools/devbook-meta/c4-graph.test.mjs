@@ -2,7 +2,7 @@
 //
 // The per-block rules are validateDocument's: `c4` and `c4-touches` on
 // arc42/ and domain/ blocks, `code` on a building block's top-level block,
-// `severity` and the debt ladder on a debt record's. The corpus rules are the
+// `severity` on a debt record's. The corpus rules are the
 // graph build's, through c4-graph.mjs: the workspace's elements, views,
 // containment, and relationships as nodes and edges; `embeds`, `c4`, and
 // `c4-touches` edges; and every error and the warning `devbook-arc42.md` asks
@@ -12,9 +12,8 @@
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { documentDigest, validateDocument, resolveStatus } from "./metadata.mjs";
+import { documentDigest, validateDocument } from "./metadata.mjs";
 import { buildGraph, CONTRACT_VERSION } from "./graph.mjs";
-import { compileStatusLadder } from "./statuses.mjs";
 import { c4Embeds } from "./c4-graph.mjs";
 
 let failed = 0;
@@ -45,7 +44,7 @@ const doc = (meta, body = "") => `# Title\n\n${fence(meta)}\nProse.\n${body}`;
     check(!has(issues, "unrecognized field"), "c4 and c4-touches are domain/ fields too", dump(issues));
 }
 {
-    const issues = validateDocument(".devbook/tech/x.md", doc("status: trial\nc4: [shop]\n"));
+    const issues = validateDocument(".devbook/tech/x.md", doc("rating: trial\nc4: [shop]\n"));
     check(has(warnings(issues), "unrecognized field `c4`"), "c4 outside arc42/ and domain/ is an unrecognized field", dump(issues));
 }
 {
@@ -87,65 +86,14 @@ for (const [where, relPath, markdown] of [
 }
 check(!has(validateDocument(".devbook/arc42/tdr/README.md", doc("index: root\n")), "without `severity`"), "the tdr/ index owes no severity");
 
-// ── metadata: the debt ladder ──────────────────────────────────────────────
+// ── metadata: a debt record's state is the tool's ─────────────────────────
 
-for (const status of ["planned", "in-progress", "resolved"]) {
+for (const status of ["identified", "planned", "in-progress", "resolved"]) {
     const issues = validateDocument(TDR, doc(`severity: low\nstatus: ${status}\n`));
-    check(errors(issues).length === 0 && warnings(issues).length === 0, `status: ${status} is on the debt ladder`, dump(issues));
-}
-{
-    const issues = validateDocument(TDR, doc("severity: low\nstatus: identified\n"));
-    check(has(warnings(issues), "resting value of a debt record"), "status: identified is the resting value and is reported when written", dump(issues));
-}
-{
-    const issues = validateDocument(TDR, doc("severity: low\nstatus: draft\n"));
-    check(has(warnings(issues), "a rung of the arc42/ ladder") && errors(issues).length === 0, "an arc42 rung on a debt record is a warning, not an error", dump(issues));
-}
-{
-    const issues = validateDocument(TDR, doc("severity: low\nstatus: paid\n"));
-    check(has(errors(issues), "expected one of: identified, planned, in-progress, resolved"), "a word on neither ladder is an error", dump(issues));
-}
-{
-    const issues = validateDocument(".devbook/arc42/05-building-block-view.md", doc("status: planned\n"));
-    check(has(errors(issues), "expected one of: draft, proposed, active, deprecated"), "the debt ladder does not apply elsewhere in arc42/", dump(issues));
-}
-{
-    const issues = validateDocument(TDR, doc("severity: low\n", `\n## Impact\n\n${fence("status: planned\n")}\nProse.\n`));
-    check(has(errors(issues), "## Impact") && has(errors(issues), "expected one of: draft, proposed, active, deprecated"), "a debt record's sections keep the arc42/ ladder", dump(issues));
-}
-{
-    const issues = validateDocument(".devbook/arc42/tdr/README.md", doc("index: root\nstatus: planned\n"));
-    check(has(errors(issues), "expected one of: draft, proposed, active, deprecated"), "the tdr/ index keeps the arc42/ ladder", dump(issues));
-}
-check(resolveStatus("arc42", {}, TDR, "file").status === "identified", "an omitted status on a debt record resolves to identified");
-check(resolveStatus("arc42", {}, ".devbook/arc42/05-building-block-view.md", "file").status === "active", "an omitted status elsewhere in arc42/ resolves to active");
-{
-    const { ladder, issues } = compileStatusLadder({
-        folders: { arc42: { rules: [{ files: ["**"], statuses: ["draft"] }, { files: ["tdr/**"], scope: "file", statuses: ["planned"] }] } },
-    });
-    check(issues.length === 0, "a tdr/ rule may list debt rungs", dump(issues));
-    const narrowed = validateDocument(TDR, doc("severity: low\nstatus: resolved\n"), { ladder });
-    check(has(errors(narrowed), "expected one of: planned"), "a tdr/ rule replaces the debt ladder, and a folder-wide rule does not", dump(narrowed));
-    check(errors(validateDocument(TDR, doc("severity: low\nstatus: planned\n"), { ladder })).length === 0, "the tdr/ rule's rung is accepted");
-    const { issues: restingIssues } = compileStatusLadder({ folders: { arc42: { rules: [{ files: ["tdr/**"], statuses: ["identified", "planned"] }] } } });
-    check(has(warnings(restingIssues), "lists `identified`, the resting value of a debt record") && errors(restingIssues).length === 0, "a tdr/ rule listing identified is a warning, as it was a rung under 31", dump(restingIssues));
+    check(has(errors(issues), "038-workflow-state-leaves-the-chapter"), `status: ${status} on a debt record is moved to tooling`, dump(issues));
 }
 
-// ── what validated under contract 32 still does ────────────────────────────
-
-{
-    const { ladder } = compileStatusLadder({ folders: { arc42: { rules: [{ files: ["**/*.md"], statuses: ["draft", "superseded"] }] } } });
-    const issues = validateDocument(TDR, doc("severity: low\nstatus: superseded\n"), { ladder });
-    check(errors(issues).length === 0 && has(warnings(issues), "a rung of the arc42/ ladder"), "a folder-wide rule's rung on a debt record is a warning", dump(issues));
-}
-{
-    const { ladder } = compileStatusLadder({ folders: { arc42: { rules: [{ files: ["tdr/*.md"], statuses: ["planned"] }] } } });
-    const issues = validateDocument(TDR, doc("severity: low\nstatus: active\n"), { ladder });
-    check(errors(issues).length === 0 && warnings(issues).length === 1, "status: active on a debt record under a tdr/ rule is a warning", dump(issues));
-    const index = validateDocument(".devbook/arc42/tdr/README.md", doc("index: root\nstatus: proposed\n"), { ladder });
-    check(errors(index).length === 0, "a tdr/ rule does not narrow the tdr/ index", dump(index));
-}
-for (const [relPath, meta] of [[".devbook/design/x.md", "severity: low\n"], [".devbook/tech/x.md", "status: trial\ncode: [src]\n"], [".devbook/domain/orders/domain.md", "type: domain\nseverity: low\n"]]) {
+for (const [relPath, meta] of [[".devbook/design/x.md", "severity: low\n"], [".devbook/tech/x.md", "rating: trial\ncode: [src]\n"], [".devbook/domain/orders/domain.md", "type: domain\nseverity: low\n"]]) {
     const issues = validateDocument(relPath, doc(meta));
     check(errors(issues).length === 0 && has(warnings(issues), "unrecognized field"), `${meta.trim().split("\n").pop()} in ${relPath} stays an unrecognized-field warning`, dump(issues));
 }

@@ -2,7 +2,6 @@
 
 ```meta
 type: context-map
-status: draft
 related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
