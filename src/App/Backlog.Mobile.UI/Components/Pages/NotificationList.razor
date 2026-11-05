@@ -31,7 +31,8 @@
 <header class="notifications-heading">
     <div class="notifications-heading__titles">
         <span class="notifications-heading__lede" data-testid="notifications-count">@CountLabel</span>
-        <h1>Notifications</h1>
+        @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+        <h1 class="sr-only">Notifications</h1>
     </div>
     <span class="notifications-heading__actions">
         <AppButton Variant="ButtonVariant.Ghost" CssClass="notifications-heading__toggle" TestId="notifications-view-toggle"
