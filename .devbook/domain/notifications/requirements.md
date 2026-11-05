@@ -167,7 +167,6 @@ The system SHALL reject a reply that does not fit the answer spec with its reaso
 ### Requirement: A dictated answer is sent only when the person sends it
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Dictating_an_open_answer_adds_the_words_and_sends_nothing_until_send, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationPagerScreenTests.Dictating_on_the_pager_fills_the_box_and_waits_for_send]
 ```
