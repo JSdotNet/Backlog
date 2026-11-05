@@ -22,8 +22,8 @@ own devbook folders.
 - **Used for** — the text of an entry, held as a column in the SQLite store; the
   documents in the five `.devbook/` folders; and the knowledge notes the product
   manages.
-- **Why** — plain text is durable, diffable, greppable, and editable without the
-  app.
+- **Why** — plain text is durable and diffable, and anyone can grep and edit it
+  without the app.
   [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md)
   draws the boundary: markdown is the *content* of a task, not its *storage
   format*.
@@ -38,9 +38,12 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 The derived-data and settings format sitting beside the canonical stores.
 
-- **Used for** — the Archify artifact indexes (`_archify/index.json`), settings, the repo registry
-  (`config/repos.json`), the dev-tool catalog the DevPc module reads, and the
-  owned-collection columns inside the SQLite schema.
+- **Used for** — these stores:
+  - the Archify artifact indexes (`_archify/index.json`);
+  - settings;
+  - the repo registry (`config/repos.json`);
+  - the dev-tool catalog the DevPc module reads;
+  - the owned-collection columns inside the SQLite schema.
 - **Why** — cheap to write from every channel's stack and fast to load, with no
   migration story needed for data that is either rebuildable or user-scoped.
 
@@ -91,7 +94,7 @@ cloud channels.
 
 - **Used for** — hosting every C#-based component of the system. `net10.0` is
   set once in the root `Directory.Build.props`; only the MAUI heads override it
-  with a platform TFM.
+  with a platform target framework moniker (TFM).
 - **Why** — the organization's governed .NET guidance applies to the cloud
   service, and reusing one runtime across channels maximizes shared code.
 
@@ -107,11 +110,16 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices"]
 
 The main implementation language of the system.
 
-- **Used for** — desktop, mobile, Visual Studio extension, cloud service,
-  harness hosts, and the whole test suite.
+- **Used for** — these parts of the system:
+  - desktop;
+  - mobile;
+  - Visual Studio extension;
+  - cloud service;
+  - harness hosts;
+  - the whole test suite.
 - **Why** — one language across four of the five channels keeps domain logic and
-  contracts shareable. `LangVersion=latest`, with `Nullable` and
-  `ImplicitUsings` enabled solution-wide.
+  contracts shareable. The solution sets `LangVersion=latest` and enables `Nullable` and
+  `ImplicitUsings` everywhere.
 
 ## Node.js
 
@@ -125,10 +133,12 @@ related: [".devbook/tech/ide.md#vs-code-extension-api"]
 The JavaScript runtime hosting the VS Code extension and every repository-local
 tool.
 
-- **Used for** — the VS Code extension host, the devbook plugin's checker and
-  inventory scripts under `.devbook/_tools/`, the repository's own
-  `tools/devbook` writer and metadata check, the vendored Archify renderer, and
-  the `tools/diagrams` artifact commands.
+- **Used for** — these tools:
+  - the VS Code extension host;
+  - the devbook plugin's checker and inventory scripts under `.devbook/_tools/`;
+  - the repository's own `tools/devbook` writer and metadata check;
+  - the vendored Archify renderer;
+  - the `tools/diagrams` artifact commands.
 - **Why** — mandated by the VS Code extension model, already present on
   developer machines, and it lets the repository's own tooling run with nothing
   installed beyond Node itself.
@@ -192,11 +202,12 @@ alternatives: ["XAML-only MAUI UI", "Plain WinUI 3", "Blazor WebAssembly PWA"]
 Razor Components rendered inside the MAUI shell's embedded WebView, through
 `Microsoft.AspNetCore.Components.WebView.Maui`.
 
-- **Used for** — the desktop client's entire UI. The desktop UI is Razor
-  components, not XAML, so Playwright can attach over WebView2's CDP debugging
-  port. The Android head renders the same components: `Backlog.Mobile` hosts a
-  `BlazorWebView` over `Backlog.Mobile.UI`.
-- **Why** — ADR 0001 accepts it for desktop. Unlike plain MAUI XAML, it gives
+- **Used for** — the desktop client's entire UI. The Android head renders the same
+  components, with `Backlog.Mobile` hosting a `BlazorWebView` over
+  `Backlog.Mobile.UI`.
+- **Why** — ADR 0001 accepts it for desktop. The desktop UI is Razor components,
+  not XAML, so Playwright can attach over WebView2's Chrome DevTools Protocol (CDP)
+  debugging port. Unlike plain MAUI XAML, it gives
   desktop a Chromium-based, Playwright-drivable UI surface and keeps full native
   filesystem and background-worker access.
 
@@ -327,7 +338,8 @@ related: [".devbook/arc42/08-crosscutting-concepts.md", ".devbook/arc42/09-archi
 
 The observability stack wired into every host through `ServiceDefaults`.
 
-- **Used for** — traces, metrics, and logs exported over OTLP to the Aspire
+- **Used for** — traces, metrics, and logs exported over the OpenTelemetry
+  Protocol (OTLP) to the Aspire
   dashboard, with HTTP-client and runtime instrumentation enabled
   (`OpenTelemetry.Extensions.Hosting`, `.Exporter.OpenTelemetryProtocol`,
   `.Instrumentation.Http`, `.Instrumentation.Runtime`).
@@ -428,14 +440,15 @@ Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
 - **Used for** — the standard resilience handler `Backlog.Aspire.ServiceDefaults`
   applies to every registered client. The `capture-feeds` client in
   `Backlog.Infrastructure.Capture` replaces that default with a pipeline of its
-  own. Its own pipeline makes one retry, with a 10-second attempt timeout and 15
-  seconds in total. It differs because a feed poll is a button press on the
-  user's own machine, not a background job. `Backlog.Infrastructure.Sync`
-  references the package directly, because its three replication clients also
-  replace the default. Their pipeline never retries a push, since a re-sent
-  push that already landed reports its items as refused.
+  own, with one retry, a 10-second attempt timeout and 15 seconds in total.
+  `Backlog.Infrastructure.Sync` references the package directly, because its three
+  replication clients also replace the default with a pipeline that never retries
+  a push.
 - **Why** — every external call in this system crosses a network the app does not
-  control, and the shipped defaults beat per-call ad-hoc retries.
+  control, and the shipped defaults beat per-call ad-hoc retries. The `capture-feeds`
+  client differs because a feed poll is a button press on the user's own machine,
+  not a background job. The replication clients never retry a push, since a
+  re-sent push that already landed reports its items as refused.
 
 ## Polly
 
@@ -525,8 +538,13 @@ related: [".devbook/arc42/02-constraints.md#organizational--process-constraints"
 
 The external system of record for issues, repositories, and automation.
 
-- **Used for** — backlog issue sync, webhooks into the cloud service, repository
-  health signals, release hosting, CI/CD, and this repository itself.
+- **Used for** — these things:
+  - backlog issue sync;
+  - webhooks into the cloud service;
+  - repository health signals;
+  - release hosting;
+  - CI/CD;
+  - this repository itself.
 - **Why** — a hard organizational constraint: GitHub is the external issue
   system, so the product integrates with it rather than replacing it.
 
@@ -545,8 +563,8 @@ Code session activity.
 - **Used for** — importing usage evidence for productivity metrics through the
   Admin API's usage, cost, and Claude Code reports, via
   `Backlog.Infrastructure.Claude`.
-- **Why** — it is the only authoritative record of what was actually spent. It
-  stays a candidate because the reports are organization-scoped. Anthropic
+- **Why** — it is the only authoritative record of what was spent.
+- **Why `candidate`** — the reports are organization-scoped. Anthropic
   documents the Admin API as unavailable to individual accounts, so this
   dependency pays off only for a person whose subscription sits behind an
   organization. The recorded alternative covers everyone else.

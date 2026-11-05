@@ -9,9 +9,13 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 > they layer on each other, and how mature each choice is. Individual
 > technologies are documented as chapters in the layer files listed below.
 
-Bootstrap is over for most of the stack. The shared runtimes and frameworks, the
-desktop channel, the testing layer, and everything used to build and govern the
-repository are in daily use and marked `adopted`.
+Bootstrap is over for most of the stack. These are in daily use and marked
+`adopted`:
+
+- the shared runtimes and frameworks;
+- the desktop channel;
+- the testing layer;
+- everything used to build and govern the repository.
 
 These are still `candidate`:
 
@@ -19,8 +23,9 @@ These are still `candidate`:
   VS Code webview UI;
 - the desktop's background workers, which are designed but not yet implemented;
 - `Azure Web PubSub` and `Azure Notification Hubs`, the realtime nudge to the
-  desktops and the phone, `Firebase Cloud Messaging`, the push transport behind
-  the hub, and `Xamarin.Firebase.Messaging`, its binding on the phone;
+  desktops and the phone;
+- `Firebase Cloud Messaging`, the push transport behind the hub;
+- `Xamarin.Firebase.Messaging`, its binding on the phone;
 - the `Anthropic Claude Platform` and the `GitHub Copilot Usage APIs`, the two
   sources of measured AI usage.
 
@@ -51,17 +56,28 @@ devbook convention pins them, with the layers between them by name.
 
 The application reads this metadata into the
 [Technology view](../domain/devbook/features.md#technology-view) of its Devbook
-pane: five views over the same graph, switched from one tab bar. **Overview**
-tables every technology with its measures, **Dependencies** follows one
-technology's edges hop by hop, **Complexity** places each by how many use it
-against how much sits under it, **Clusters** opens the stack layer file by layer
-file, and **Type lenses** reads one technology through the section its type
-chooses. Every measure is computed from `depends-on`: used by, what breaks if it
-changes, what it rests on, its depth, and a complexity band. A technology is
-coloured by its type's family and drawn hollow until it is `adopted`, so its
-place on the ladder below never rests on colour. Every pointer view has a list
-or table companion the keyboard operates, and its status is changed from the
-inspector, written back to its chapter here.
+pane. One tab bar switches between five views over the same graph:
+
+- **Overview** tables every technology with its measures.
+- **Dependencies** follows one technology's edges hop by hop.
+- **Complexity** places each technology by how many use it against how much sits
+  under it.
+- **Clusters** opens the stack layer file by layer file.
+- **Type lenses** reads one technology through the section its type chooses.
+
+The application computes every measure from `depends-on`:
+
+- used by;
+- what breaks if it changes;
+- what it rests on;
+- its depth;
+- a complexity band.
+
+The application colours a technology by its type's family and draws it hollow
+until it is `adopted`, so its place on the ladder below never rests on colour.
+Every pointer view has a list or table companion the keyboard operates. A person
+changes a technology's rating from the inspector, which writes it back to the
+technology's chapter here.
 
 The source Mermaid graph below remains the portable fallback, for reading this
 file anywhere the application is not. It keeps edges pointing from a technology
@@ -385,7 +401,7 @@ below them. They fall into five groups:
 
 ## Status ladder
 
-| Status | Meaning |
+| Rating | Meaning |
 |---|---|
 | `candidate` | Named as the intended choice, not yet validated by real use |
 | `trial` | Being tried out in a limited, reversible way |
@@ -409,52 +425,65 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Model provider | Two, in two different roles: the harness's own provider (Anthropic, via [Claude Code](ai-development.md#claude-code)), and the product's, [Azure AI Foundry](cloud.md#azure-ai-foundry) — `gpt-5-4`, `gpt-5-5`, `gpt-5-6-luna`, with a balanced model, a speech model and an embedding model behind Bicep parameters |
+| Model provider | Two: Anthropic for the harness, via [Claude Code](ai-development.md#claude-code), and [Azure AI Foundry](cloud.md#azure-ai-foundry) for the product |
 | Model, inference, next-token prediction, parameters, training | Vendor-side concepts. Nothing here configures them. |
 | Harness | [Claude Code](ai-development.md#claude-code) |
-| Effort | Not configured. `CLAUDE.md` records that this repository sets no model or effort override; runs take each plugin's default. |
-| Token, input/output tokens, cache tokens, prefix cache | Measured, not configured: `Backlog.Infrastructure.Claude` imports token counts and cost from the Admin API, and `Backlog.Infrastructure.GitHub` does the same for Copilot, for the Productivity domain. |
-| Non-determinism | Why the [testing layer](testing.md) exists in the shape it does — deterministic checks (`dotnet test`, the devbook-meta check, CodeQL) gate what a non-deterministic agent produces. |
+| Effort | Not configured. `CLAUDE.md` records that this repository sets no model or effort override. |
+| Token, input/output tokens, cache tokens, prefix cache | Measured for the Productivity domain, not configured. |
+| Non-determinism | Why the [testing layer](testing.md) exists in the shape it does. |
+
+- **Model provider:** Azure AI Foundry serves `gpt-5-4`, `gpt-5-5`, and `gpt-5-6-luna`.
+  A balanced model, a speech model and an embedding model sit behind Bicep parameters.
+- **Effort:** Runs take each plugin's default.
+- **Token:** `Backlog.Infrastructure.Claude` imports token counts and cost from the Admin
+  API, and `Backlog.Infrastructure.GitHub` does the same for Copilot.
+- **Non-determinism:** Deterministic checks (`dotnet test`, the devbook-meta check, CodeQL)
+  gate what a non-deterministic agent produces.
 
 ### Sessions, context windows, and turns
 
 | Term | In this repository |
 |---|---|
-| Agent | Every `flow-*` run of the [delivery engine](ai-development.md#delivery-engine), plus the specialist [subagents](ai-development.md#subagents) a stage is handed to |
-| Session | One worktree's run: a [worktree session per change](../ai/02-code.md#worktree-session-per-change) is the isolation unit, on [Git](tooling.md#git); `.claude/` holds per-session state. |
+| Agent | Every `flow-*` run of the [delivery engine](ai-development.md#delivery-engine), plus its [subagents](ai-development.md#subagents) |
+| Session | One worktree's run, the isolation unit: a [worktree session per change](../ai/02-code.md#worktree-session-per-change), on [Git](tooling.md#git) |
 | System prompt | Composed from the harness plus [repository instruction files](ai-development.md#repository-instruction-files) |
-| Context window | The budget a run's record on the [delivery surfaces](ai-development.md#delivery-surfaces) exists to survive: a resumed session reattaches to it |
+| Context window | The budget a run's record on the [delivery surfaces](ai-development.md#delivery-surfaces) outlives: a resumed session reattaches to it |
 | Turn, stateful, stateless | Harness-level. The repository's own statefulness is the dashboard run record and the checked-in devbook folders. |
+
+- **Session:** `.claude/` holds per-session state.
 
 ### Tools and environment
 
 | Term | In this repository |
 |---|---|
-| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): Backlog's own server, the Aspire and [Playwright](testing.md#playwright) servers, Microsoft Learn, and the [delivery surfaces](ai-development.md#delivery-surfaces). Guidance is not one of them — it is checked in under `.devbook/arc42/adr/guidelines/` and `.devbook/design/`. |
+| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers) |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
-| Environment | The Aspire app model: [.NET Aspire](shared.md#net-aspire) is what gives an agent a running system to observe, with logs and traces |
+| Environment | The app model of [.NET Aspire](shared.md#net-aspire), which gives an agent a running system, logs, and traces to observe |
 | Filesystem | The worktree. `.agents/rules/context-loading.md` limits which devbook folders a given workflow may read. |
 | Sandbox | The git worktree, plus `aspire start --isolated` for ports and user-secrets state |
-| Permission mode, permission request | Harness-level; the repository does not pin one. The equivalent repository-level gate is Personal Validation, which no run may skip. |
+| Permission mode, permission request | Harness-level and unpinned. The repository-level equivalent is Personal Validation, which no run may skip. |
+
+- **MCP:** The servers are Backlog's own, Aspire, [Playwright](testing.md#playwright), Microsoft Learn, and the [delivery surfaces](ai-development.md#delivery-surfaces). Guidance is not one of them. It is checked in under
+  `.devbook/arc42/adr/guidelines/` and `.devbook/design/`.
 
 ### Failure modes
 
 | Term | In this repository |
 |---|---|
-| Knowledge cutoff | Why the `microsoft-learn` MCP server and the checked-in guidelines under `.devbook/arc42/adr/guidelines/` are consulted rather than answered from memory |
+| Knowledge cutoff | Why agents consult the `microsoft-learn` MCP server and the guidelines under `.devbook/arc42/adr/guidelines/` rather than memory |
 | Parametric vs. contextual knowledge | The whole reason the five `.devbook/` folders are checked in: project facts are read, not recalled |
 | Attention degradation, smart zone | Why long runs hand off rather than continue, and why chapters are kept short |
 | Hallucination | What deterministic checks catch: a broken `depends-on` fails the devbook-meta check, a wrong API fails the build |
-| Sycophancy | Addressed procedurally: every `flow-*` run closes on a review and on Personal Validation, where a person rather than the agent decides |
+| Sycophancy | Every `flow-*` run closes on a review and on Personal Validation, where a person decides, not the agent |
 
 ### Handoffs
 
 | Term | In this repository |
 |---|---|
 | Handoff, handoff artifact | The run record on the [delivery surfaces](ai-development.md#delivery-surfaces), so a resumed session reattaches instead of opening a duplicate |
-| Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the devbook folders. |
+| Compaction, autocompact, clearing | Harness-level. The standing brief and the devbook folders make a fresh session cheap to start. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
-| Secondary source | This folder. `.devbook/tech` records outcomes; `.devbook/arc42` keeps the reasoning, and where the two disagree `.devbook/arc42` wins. |
+| Secondary source | This folder. `.devbook/tech` records outcomes and `.devbook/arc42` the reasoning; `.devbook/arc42` wins a disagreement. |
 | Spec, ticket | Backlog entries (local ADR 0007) and the GitHub issues they sync with |
 
 ### Memory and steering
@@ -463,24 +492,32 @@ Terms below are the dictionary's; the right-hand column is this repository.
 |---|---|
 | AGENTS.md | `AGENTS.md`, imported by `CLAUDE.md` — see [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
-| Progressive disclosure | The design of the whole devbook convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
+| Progressive disclosure | The design of the whole devbook convention, from a short brief down to its chapters |
 | Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |
-| Memory system | Not adopted in the repository. Cross-session state is deliberately the checked-in devbook folders and the run record on the delivery surfaces, both of which a human can read. |
+| Memory system | Not adopted. Cross-session state is the checked-in devbook folders and the delivery surfaces' run record. |
+
+- **Progressive disclosure:** A short brief points at scoped instruction files, which point
+  at chapters, which point at each other.
+- **Memory system:** Keeping cross-session state in those two places is deliberate, because
+  a human can read both.
 
 ### Patterns of work
 
 | Term | In this repository |
 |---|---|
-| Automated check | `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, `apksigner verify`, Archify's 9/9 validation |
+| Automated check | The deterministic gates listed below |
 | Automated review | The [scheduled merge review](../ai/05-unattended-runs.md#scheduled-merge-review), and the `phase-verify` stage every code-modifying flow runs |
 | Human review | [Personal Validation](../ai/03-test.md#personal-validation-gate) — the gate no flow may skip and no agent may self-approve |
 | Human-in-the-loop | The default mode of every `flow-*` run |
 | AFK | The [unattended runs](../ai/05-unattended-runs.md) selected from the `delivery-schedule` catalog |
-| AX | What `src/Harness/` is for: MAUI heads cannot be driven by an agent, so the same UI is given a URL that can be |
+| AX | What `src/Harness/` is for: it gives the UI a URL an agent can drive |
 | DX | The Aspire one-command start, and MSBuild defaults a new project cannot forget |
 | Design concept, grilling, prototyping | `.devbook/design/` and the `ux-design` plugin's wireframe and review skills |
-| Vibe coding | Explicitly not the model here — the [code gate](../ai/02-code.md#code-gate-through-flow-code) exists to prevent it |
+| Vibe coding | Explicitly not the model here: the [code gate](../ai/02-code.md#code-gate-through-flow-code) exists to prevent it |
+
+- **Automated check:** `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, `apksigner verify`, and Archify's 9/9 validation.
+- **AX:** An agent cannot drive a MAUI head, so the harnesses serve the same UI at a URL.
 
 ## How to read and extend this graph
 

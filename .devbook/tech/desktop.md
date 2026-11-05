@@ -33,7 +33,11 @@ depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-ru
 
 The modern Windows application platform underneath the UI framework.
 
-- **Used for** — windowing, app lifecycle, notifications, and OS integration.
+- **Used for** — these platform services:
+  - windowing;
+  - app lifecycle;
+  - notifications;
+  - OS integration.
 - **Why** — the supported foundation for WinUI 3 desktop apps.
 
 ## WinUI 3
@@ -48,7 +52,7 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 The native Windows head that `.devbook/tech/shared.md#net-maui` uses on this platform.
 
 - **Used for** — hosting the desktop client's native shell, windowing, and OS
-  integration; also hosts the WebView2 surface that renders the app's actual UI
+  integration; also hosts the WebView2 surface that renders the app's UI
   (`.devbook/tech/shared.md#blazor-hybrid`).
 - **Why** — [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)
   chose a MAUI shell over a plain WinUI 3 app, and MAUI's Windows head is WinUI 3.
@@ -64,11 +68,11 @@ depends-on: [".devbook/tech/desktop.md#windows-app-sdk"]
 related: [".devbook/tech/shared.md#blazor-hybrid", ".devbook/tech/testing.md#playwright", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-The Chromium-based embedded browser the desktop UI actually renders in.
+The Chromium-based embedded browser the desktop UI renders in.
 
 - **Used for** — hosting the `BlazorWebView` that draws every screen, and
-  exposing a CDP debugging port so Playwright can attach to the running desktop
-  app rather than only to the web harness.
+  exposing a Chrome DevTools Protocol (CDP) debugging port so Playwright can attach
+  to the running desktop app rather than only to the web harness.
 - **Why** — that debugging port is one of the two decisive reasons ADR 0001 chose
   Blazor Hybrid over plain MAUI XAML. It is why Debug builds stay unpackaged:
   MSIX would break both the Aspire desktop resource and the CDP attach.
@@ -108,11 +112,14 @@ related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
 
 In-process hosted services that poll external sources on the local machine.
 
-- **Used for** — YouTube, website, and email capture, GitHub issue sync, and
-  stale-item detection. It stays `candidate`: no hosted service is implemented
-  yet, and the capture paths run on demand.
+- **Used for** — three jobs:
+  - YouTube, website, and email capture;
+  - GitHub issue sync;
+  - stale-item detection.
 - **Why** — keeping fetching local is what keeps external credentials off the
   cloud (quality goal 2).
+- **Why `candidate`** — no hosted service is implemented yet, and the capture
+  paths run on demand.
 
 ## System.Security.Cryptography.ProtectedData
 
@@ -124,7 +131,7 @@ depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-ru
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
 ```
 
-The .NET wrapper over Windows DPAPI.
+The .NET wrapper over the Windows Data Protection API (DPAPI).
 
 - **Used for** — every credential the app stores, under `CurrentUser` scope:
   - `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync` seals the
@@ -173,15 +180,26 @@ alternatives: ["Octokit.NET", "raw REST calls"]
 
 The local integration path to GitHub from the desktop (`gh`).
 
+```mermaid
+sequenceDiagram
+    participant Transport as ResolvingGitHubTransport
+    participant Gh as gh
+    participant Api as github.com
+    Transport->>Gh: who is signed in?
+    Gh-->>Transport: the login
+    Transport->>Gh: that login's token
+    Gh-->>Transport: the token, held in memory for five minutes
+    Transport->>Api: the call, over HTTP
+```
+
 - **Used for** — creating and updating issues from backlog items without routing
   credentials through the cloud service. `ResolvingGitHubTransport` in
-  `Backlog.Infrastructure.GitHub` is the seam. For a call that names no account, it
-  asks `gh api user` who is signed in and borrows that login's github.com token
-  with `gh auth token`. It holds that token in memory only, for five minutes, and
-  sends the call over HTTP. `GhCliTransport`, one `gh api` process per call, is the
+  `Backlog.Infrastructure.GitHub` is the seam. The diagram shows a call that names
+  no account, where `gh api user` answers the first question and `gh auth token`
+  the second. `GhCliTransport`, one `gh api` process per call, is the
   fallback when `gh` holds no github.com token or points at another host. The
   clients above the seam (issues, activity, billing, identity) never see a token.
-- **Why** — reuses the developer's existing authenticated GitHub session; also
+- **Why** — it reuses the developer's existing authenticated GitHub session, and it is
   already the mandated tool for GitHub operations in this repository.
 
 ## MSIX Packaging
@@ -258,8 +276,9 @@ sequenceDiagram
   `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
   own `Uri` points at the `latest` release download, which is stable. A tag,
   dispatch or Deploy All release takes Latest; a scheduled nightly takes it only
-  when no higher-versioned release holds it. `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
-  and `ProcessorArchitecture` are kept identical to the signed MSIX.
+  when no higher-versioned release holds it. `MainPackage/@Uri` points at the
+  tagged release asset. `Name`, `Publisher`, and `ProcessorArchitecture` are kept
+  identical to the signed MSIX.
 - **Version name** — `PackageManager` only answers whether an update exists. The
   app therefore reads the manifest back through `AppInstallerManifest` to name
   the version it would install. When the manifest is unreachable, the update is

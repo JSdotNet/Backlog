@@ -8,13 +8,13 @@ related: [".devbook/tech/technology-graph.md", ".devbook/tech/technology-graph.m
 > The agent harnesses, plugins, protocols, and file conventions this repository
 > is built *with*, registered at the maturity each has here as a technology.
 >
-> How they are used — at which stage of the loop, by whom, and how far that use
-> has got — is not recorded here. That is the AI adoption record,
+> This file does not record how they are used: at which stage of the loop, by whom,
+> and how far that use has got. That is the AI adoption record,
 > [`.devbook/ai/`](../ai/adoption-map.md), which points back at these chapters.
 >
-> The vocabulary these chapters use — agent, harness, skill, subagent, context
-> window, handoff — is the one defined at
-> [aicodingdictionary.com](https://www.aicodingdictionary.com/). The mapping from
+> These chapters use the vocabulary defined at
+> [aicodingdictionary.com](https://www.aicodingdictionary.com/), such as agent,
+> harness, skill, subagent, context window, and handoff. The mapping from
 > each term to where this repository uses it is tabulated once, in
 > [`technology-graph.md`](technology-graph.md#ai-development-vocabulary).
 
@@ -81,11 +81,13 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 
 `SKILL.md` — a Markdown file with YAML front matter, loaded on demand by name.
 
-- **Used for** — the plugin-provided `flow-*`, `phase-*`, and `schedule-*`
-  skills, and the repository-owned procedures with their wrappers. The `run`
-  recipe is at `.claude/skills/run-backlog/SKILL.md`; `capture`, `diagnose`, and
-  `estimate` are under `.agents/skills/`. The `update-devbook-index` command sits
-  beside them.
+- **Used for** — two kinds of skill:
+  - the plugin-provided `flow-*`, `phase-*`, and `schedule-*` skills;
+  - the repository-owned procedures with their wrappers.
+
+  The `run` recipe is at `.claude/skills/run-backlog/SKILL.md`; `capture`,
+  `diagnose`, and `estimate` are under `.agents/skills/`. The
+  `update-devbook-index` command sits beside them.
 - **Why** — a skill is loaded only when its name is invoked, so a large body of
   procedure costs nothing until it is needed.
 
@@ -100,10 +102,16 @@ depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 Specialist agents a flow hands a stage to, from the `JSdotNet/ai-plugins`
 marketplace.
 
-- **Used for** — `architecture:architect`, `domain-design:domain-architect`,
-  `ux-design:ux-designer`, `documentation:documentation`, `csharp-coding:coding`,
-  and `qa:qa` with `qa:qa-monitor`. Which role each one fills is the adoption
-  record's: [roles bound to specialist agents](../ai/02-code.md#roles-bound-to-specialist-agents).
+- **Used for** — these agents:
+  - `architecture:architect`;
+  - `domain-design:domain-architect`;
+  - `ux-design:ux-designer`;
+  - `documentation:documentation`;
+  - `csharp-coding:coding`;
+  - `qa:qa` with `qa:qa-monitor`.
+
+  Which role each one fills is the adoption record's:
+  [roles bound to specialist agents](../ai/02-code.md#roles-bound-to-specialist-agents).
 - **Why** — a stage runs with only the tools and instructions it needs, and its
   work does not consume the driving session's context.
 
@@ -243,11 +251,21 @@ version: "0.17.0"
 
 This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
-- **Used for** — five skills: `import-plan`, `run-plan-item`, `execute-plan`,
-  `import-inbox`, and `handle-remarks`. It also ships three hooks: the plan-item
-  nudge, the telemetry forwarder, and the function-hook module
-  `hooks/register.tsx`, which draws the plan-progress band and pane. It is
-  installed on demand from this repository as a marketplace; see its
+- **Used for** — five skills:
+  - `import-plan`;
+  - `run-plan-item`;
+  - `execute-plan`;
+  - `import-inbox`;
+  - `handle-remarks`.
+
+  It also ships three hooks:
+
+  - the plan-item nudge;
+  - the telemetry forwarder;
+  - the function-hook module `hooks/register.tsx`, which draws the plan-progress
+    band and pane.
+
+  It is installed on demand from this repository as a marketplace; see its
   `README.md`.
 - **Why** — the skills speak Backlog's own entry grammar and MCP tools, so they
   ship with the product rather than in a general-purpose marketplace.
@@ -275,11 +293,11 @@ convention this repository follows and the repository procedures.
   - the chapter skills `validate`, `capture-specs`, `apply-change`,
     `verify-change`, `prose-check`, and `tech-update`.
 
-  Its release, contract, adopted folders, materialized files, and migration
-  ledger are stamped under `components.devbook` in `.devbook/config.json`.
+  `components.devbook` in `.devbook/config.json` stamps its release and contract,
+  the adopted folders, the materialized files and the migration ledger.
 - **Procedures** — `run`, `capture`, `diagnose`, and `estimate`, listed under
   `components.devbook.procedures`. Each one has a body this repository wrote from
-  what it actually does, and a managed wrapper per host that the plugin
+  what it does, and a managed wrapper per host that the plugin
   refreshes. `run` is a Claude Code recipe at `.claude/skills/run-backlog/SKILL.md`
   with a Copilot twin at `.github/skills/run/SKILL.md`. The other bodies live
   under `.agents/skills/`. The delivery engine reaches `run` through

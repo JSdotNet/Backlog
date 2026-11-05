@@ -57,8 +57,13 @@ related: [".devbook/tech/testing.md#microsofttestingplatform"]
 
 The build and test toolchain for every C# component.
 
-- **Used for** — `dotnet build`, `dotnet test`, and `dotnet publish` across
-  desktop, mobile, IDE, cloud, and harness projects.
+- **Used for** — `dotnet build`, `dotnet test`, and `dotnet publish` across these
+  projects:
+  - desktop;
+  - mobile;
+  - IDE;
+  - cloud;
+  - harness.
 - **Why** — the single toolchain for the .NET side of the stack. `global.json`
   selects Microsoft.Testing.Platform as the test runner, which changes the
   command-line contract of `dotnet test`.
@@ -144,12 +149,16 @@ type: language
 
 The scripting language for build, release, and hook automation on Windows.
 
-- **Used for** — the scripts under `build/` (packaging, `Deploy-Azure.ps1`,
-  `Get-SyncServiceVersion.ps1`, `Initialize-SelfHostedRunner.ps1`,
-  `Install-AndroidApp.ps1`, `stop-aspire-before-pr.ps1`), and the `run:` steps of
-  both release workflows and the Foundry deployment.
-- **Why** — the release workflows run on Windows runners, and packaging, signing,
-  and certificate handling are all PowerShell-native there.
+- **Used for** — the `run:` steps of both release workflows and the Foundry
+  deployment, and the scripts under `build/`:
+  - packaging;
+  - `Deploy-Azure.ps1`;
+  - `Get-SyncServiceVersion.ps1`;
+  - `Initialize-SelfHostedRunner.ps1`;
+  - `Install-AndroidApp.ps1`;
+  - `stop-aspire-before-pr.ps1`.
+- **Why** — the release workflows run on Windows runners. Packaging, signing, and
+  certificate handling are all PowerShell-native there.
 
 ## Bicep
 
@@ -181,9 +190,9 @@ related: [".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/tooling.md#g
 
 The deployment and diagnostics entry point for Azure.
 
-- **Used for** — `.github/workflows/deploy-foundry.yml`, which builds the Bicep,
-  validates, runs `deployment group what-if`, and then creates the deployment on
-  a self-hosted runner.
+- **Used for** — `.github/workflows/deploy-foundry.yml`, which runs these steps on
+  a self-hosted runner: build the Bicep → validate → `deployment group what-if` →
+  create the deployment.
 - **Why** — it is what the self-hosted runner is already signed in to. When it
   is not, the workflow fails with an explicit message rather than deploying into
   the wrong subscription.
@@ -211,7 +220,7 @@ The provision-and-deploy driver for the cloud sync tier.
 - **How** — it is scoped to a resource group, so `azd` deploys into a group
   created by hand rather than creating one. With
   `azd auth login --federated-credential-provider github` the workflow stores no
-  secret; the runner mints a short-lived OIDC token instead. See
+  secret; the runner mints a short-lived OpenID Connect (OIDC) token instead. See
   `docs/deployment/sync.md`.
 
 ## Aspire CLI
@@ -225,7 +234,7 @@ depends-on: [".devbook/tech/shared.md#net-aspire"]
 The local orchestration and diagnostics entry point.
 
 - **Used for** — `aspire start --isolated --non-interactive --apphost …` for
-  local runs, plus logs, traces, and deployment artifacts during QA.
+  local runs. During QA it also gives logs, traces, and deployment artifacts.
 - **Why** — the paired CLI for the app model. `--isolated` keeps parallel
   worktree sessions from fighting over ports and user-secrets state. How
   `dotnet run` on the AppHost reaches this CLI is in
@@ -243,8 +252,8 @@ related: [".devbook/arc42/07-deployment-view.md#release"]
 The CI/CD automation platform.
 
 - **Used for** — the workflows under `.github/workflows/`:
-  - `pull-request`: build, test, the TRX artifact, and the VS Code extension
-    compile.
+  - `pull-request`: builds and tests, uploads the TRX artifact, and compiles the
+    VS Code extension.
   - `nightly-tests`: the same build and suite at default parallelism, so a
     parallel flake surfaces there first.
   - `auto-merge`: turns on GitHub auto-merge for every pull request that is not
@@ -410,9 +419,11 @@ flowchart LR
   still had to be ignored per layout, and it existed only if somebody had run
   the script (local ADR 0015). Building it into the app's own storage gives every
   clone, worktree and branch snapshot search without a step.
-- **How** — the Node writer imports the generator rather than forking it, for
-  the graph, the outline, and each chapter's open-note count. No authored order
-  file exists: the outline is the convention's (local ADR 0016). The Node writer
+- **How** — the Node writer imports the generator rather than forking it. The
+  import supplies the graph, the outline, and each chapter's open-note count. No authored order
+  file exists: the outline is the convention's (local ADR 0016).
+
+  The Node writer
   builds the `.devbook/` layout only; the C# builder also reads a root-layout
   repository. `node:sqlite` provides SQLite and FTS5 with no dependency added.
   `.github/workflows/devbook-metadata.yml` runs the writer's tests and then
@@ -473,9 +484,8 @@ A browser-based visual editor for C4 architecture diagrams that saves Structuriz
 DSL, under the Apache-2.0 licence. It is **not vendored and not a runtime
 dependency**.
 
-- **Used for** — authoring `.devbook/arc42/workspace.dsl` and the files it includes
-  from `.devbook/arc42/c4/`, the C4 model kept beside
-  the architecture chapters. The desktop app reads that DSL and draws it itself
+- **Used for** — authoring `.devbook/arc42/workspace.dsl`, the C4 model kept beside the architecture
+  chapters. The desktop app reads that DSL and draws it itself
   on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
   tab's rules and what it offers. c4hero is what a person opens to change the model.
@@ -487,7 +497,7 @@ dependency**.
   exporters already read it.
 - **How** — a person opens it at `app.c4hero.com`, or runs it from a clone
   (Node 22+), and points it at the `.devbook/arc42/` folder. Nothing here installs it,
-  vendors it, or shells out to it, and it has no CLI. The app reads the DSL with
+  vendors it, or shells out to it. It has no CLI. The app reads the DSL with
   its own reader in `src/Core/Backlog.UI.Components/Diagrams/C4/`, not through
   anything c4hero ships. That reader is a second implementation of c4hero's
   dialect. It is pinned against c4hero's own conformance fixture and must report

@@ -22,7 +22,12 @@ related: [".devbook/tech/testing.md#microsofttestingplatform"]
 The unit-test framework for every test project, referenced once in
 `tests/Directory.Build.props`.
 
-- **Used for** — module, infrastructure, UI-component, and architecture tests.
+- **Used for** — these kinds of test:
+  - module;
+  - infrastructure;
+  - UI-component;
+  - architecture.
+
   `Backlog.ArchitectureTests` uses it to enforce repository rules that no
   compiler can, such as shared-control adoption and the fence keeping
   `src/Harness/` out of shipping code.
@@ -165,7 +170,10 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 `FakeTimeProvider`, a clock a test moves by hand.
 
 - **Used for** — the unit-test projects whose code takes a `TimeProvider`:
-  token lifetimes, sync cycles, deferral and resurfacing, and roadmap dates.
+  - token lifetimes;
+  - sync cycles;
+  - deferral and resurfacing;
+  - roadmap dates.
 - **Why** — time-dependent behaviour is asserted without sleeping and without
   flaking on a slow machine.
 
@@ -184,7 +192,8 @@ Browser automation for end-to-end validation.
 - **Used for** — two things:
   - The `phase-verify` stage of a code-modifying `flow-*` run. It drives the Blazor
     Server harnesses and the storybook, captures screenshots and video as evidence,
-    and attaches to the desktop head over WebView2's CDP debugging port.
+    and attaches to the desktop head over WebView2's Chrome DevTools Protocol (CDP)
+    debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
     `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
     reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.
