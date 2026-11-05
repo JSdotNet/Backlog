@@ -18,7 +18,8 @@ falls back to it whenever the cloud cannot answer.
 ```
 
 Accepted, 2026-11-05, at the Personal Validation gate of the flow-spec run `run-mw3bbhti-kv1pz8` that drafted it.
-Not yet built when accepted: the flow-code change that follows builds it.
+Built in the flow-code change that follows it, in the same pull request, as the
+History records.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline".
@@ -152,13 +153,16 @@ phone sent one.
 | `Deployment` | `gpt-4o-transcribe` |
 | `ApiVersion` | `2025-03-01-preview` |
 
-- **Where it lives.** A port in `Backlog.Modules.Sync` declares the transcriber,
-  beside `IAttachmentStore`. The adapter lives in
-  `Backlog.Infrastructure.AzureFoundry`, configured from these settings and never
-  from the desktop's `AzureFoundrySettingsStore`. With no endpoint set, the module
-  composes a stand-in that answers "unavailable", as `NoNotificationPushChannel`
-  does for push. This keeps guideline 0005's rule that an adapter project alone
-  references its provider.
+- **Where it lives.** A port in `Backlog.Modules.Sync`, `IDictationTranscriber`,
+  declares the transcriber, beside `IAttachmentStore`. The Foundry call lives in
+  `Backlog.Infrastructure.AzureFoundry` as a client of its own,
+  `AzureFoundryTranscriptionClient`, configured from these settings and never
+  from the desktop's `AzureFoundrySettingsStore`. The sync host joins the two with
+  a small bridge, so the adapter project needs no reference to the Sync module and
+  the desktop, which also references the adapter, never loads the server module.
+  With no endpoint set, the module composes a stand-in that answers "unavailable",
+  as `NoNotificationPushChannel` does for push. This keeps guideline 0005's rule
+  that an adapter project alone references its provider.
 - **Resilience.** Per guideline 0015, the call has a timeout and one retry on a
   `429` or a `5xx`. The whole call, retry included, is bounded at 50 seconds, so
   the service answers before the phone's 60-second upload timeout.
@@ -333,4 +337,5 @@ Negative, and accepted:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-05 | Built: the route, the Foundry transcription client and the host bridge, the stand-in route, the AppHost wiring, the role grant in `infra/sync` (off until `SYNC_FOUNDRY_ACCOUNT_NAME` names the account), and on the phone the Engine setting, the recorders, and the cloud and selecting transcribers. §3 now names the host bridge. | The decision was accepted with no code behind it. |
 | 2026-11-05 | Accepted at the flow-spec gate. Proposed: the sync service relays a phone dictation to `gpt-4o-transcribe` through `POST /api/sync/transcriptions` and keeps none of it, behind an opt-in Cloud engine with on-device as default and fallback. | The phone had one dictation engine, and the speech deployment was provisioned with no caller. |

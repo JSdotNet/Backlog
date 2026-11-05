@@ -58,6 +58,12 @@ var attachments = builder.AddAzureStorage("storage")
         .WithLifetime(ContainerLifetime.Persistent))
     .AddBlobContainer("attachments");
 
+// Local Azure Foundry-compatible endpoint used only by Aspire development runs: the
+// desktop harness's chat stand-in, and the transcription stand-in the sync service relays
+// a phone's dictation to (local ADR 0045 §5). A harness, not a shipped channel — declared
+// here rather than with the others below only because `sync` names it.
+var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\Harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
+
 // Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
 //
 // Referenced, not waited on, and that is deliberate on both sides. The sync service
@@ -71,17 +77,23 @@ var attachments = builder.AddAzureStorage("storage")
 // No Web PubSub, on purpose (local ADR 0039 §4). There is no emulator for it, and the nudge
 // holds no data: with no hub configured the sync service's negotiate hands out no URL, and
 // every desktop harness stays on its two-minute reply poll.
+//
+// The dictation relay (local ADR 0045) points at the Foundry stand-in above, with no
+// credential: the stand-in takes none, and there is no key to send. Waited on, unlike the
+// stores — it is a small process that is up in seconds, and a phone's first Cloud turn
+// should not meet a 502 for it.
 var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
     .WithReference(cosmosDatabase)
-    .WithReference(attachments);
+    .WithReference(attachments)
+    .WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
+    .WithEnvironment("Modules__Sync__Transcription__Credential", "None")
+    .WaitFor(azureFoundryTest);
 
 // --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts
 // and local doubles so Aspire and Playwright can exercise app behavior without
-// deploying cloud dependencies or MAUI heads.
-
-// Local Azure Foundry-compatible endpoint used only by Aspire development runs.
-var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\Harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
+// deploying cloud dependencies or MAUI heads. (azure-foundry-test is one of them,
+// declared above because `sync` references it.)
 
 // Foundry Local — a real small model on this machine, beside the stand-in above
 // rather than instead of it. The two answer different questions: the harness is

@@ -68,6 +68,44 @@ public sealed class SettingsSheetTests
     }
 
     [Fact]
+    public void The_dictation_group_offers_the_engine_on_the_device_until_the_person_chooses_the_cloud()
+    {
+        using var host = ShellHost.Paired();
+        var app = host.Open();
+
+        app.Find("[data-testid='app-settings']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(
+            ["On-device", "Cloud"],
+            app.FindAll("[data-testid='dictation-engine'] [role='radio']").Select(option => option.TextContent.Trim())));
+        Assert.Equal("true", app.Find("[data-testid='dictation-engine-ondevice']").GetAttribute("aria-checked"));
+        Assert.Contains(
+            "Cloud sends each recording to Backlog's Azure model, which keeps none of it.",
+            app.Find("[data-testid='app-settings-dictation']").TextContent);
+    }
+
+    [Fact]
+    public void Choosing_the_cloud_engine_is_kept_in_the_phone_settings()
+    {
+        using var host = ShellHost.Paired();
+        var app = host.Open();
+
+        app.Find("[data-testid='app-settings']").Click();
+        app.WaitForAssertion(() => app.Find("[data-testid='dictation-engine-cloud']").Click());
+
+        Assert.Equal(DictationEngine.Cloud, host.SpeechSettings.Engine);
+        Assert.Equal(DictationLanguage.DutchAndEnglish, host.SpeechSettings.Language);
+
+        app.Find("[data-testid='app-settings-sheet'] [aria-label='Close settings']").Click();
+        app.WaitForAssertion(() => Assert.Equal("false", app.Find("[data-testid='app-settings-sheet']").GetAttribute("data-open")));
+        app.Find("[data-testid='app-settings']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "true",
+            app.Find("[data-testid='dictation-engine-cloud']").GetAttribute("aria-checked")));
+    }
+
+    [Fact]
     public void The_next_dictation_listens_in_the_language_chosen()
     {
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));

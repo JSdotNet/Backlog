@@ -91,8 +91,6 @@
 }
 
 @code {
-    private const string Listening = "Listening…";
-
     /// <summary>The route templates this app's own pages answer on, split into
     /// segments, so a `from` that is not one of them goes nowhere but Today.
     /// Templates without a parameter first: a literal segment wins over an id.</summary>
@@ -118,6 +116,7 @@
     private string? _speechStatus;
     private string? _speechError;
     private bool _disposed;
+    private DictationSession? _dictation;
 
     /// <summary>The page the sheet was opened from, by its route: "" is Today.</summary>
     [SupplyParameterFromQuery(Name = "from")]
@@ -159,8 +158,9 @@
         _disposed = true;
         if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
 
-        // Leaving while dictating must not leave the microphone on.
-        if (_listening) await Speech.StopAsync();
+        // Leaving while dictating must not leave the microphone on, nor send a
+        // recording the person walked away from.
+        await Dictation.LeaveAsync();
 
         // A photo staged and never saved has nothing left to go with.
         foreach (var photo in _photos) TalkNoteFiles.Discard(photo);
@@ -353,33 +353,31 @@
         if (!listen)
         {
             // Stop only asks; the words arrive on the listening turn below.
-            await Speech.StopAsync();
+            await Dictation.StopAsync();
             return;
         }
 
+        // No status yet: the engine that takes the turn words the first one.
         _listening = true;
         _speechError = null;
-        _speechStatus = Listening;
+        _speechStatus = null;
 
         // Not awaited: ListenAsync ends when recognition does, and the pressed
         // state has to reach the screen before that.
         _ = ListenAsync();
     }
 
+    private DictationSession Dictation => _dictation ??= new DictationSession(Speech);
+
     private async Task ListenAsync()
     {
-        SpeechTranscript result;
+        var result = await Dictation.ListenAsync(InvokeAsync, status =>
+        {
+            if (_disposed) return;
 
-        try
-        {
-            result = await Speech.ListenAsync();
-        }
-        catch (Exception ex)
-        {
-            // The transcribers report failures as results; anything still
-            // thrown would otherwise leave the mic stuck on.
-            result = SpeechTranscript.Failed(ex.Message);
-        }
+            _speechStatus = status;
+            StateHasChanged();
+        });
 
         _listening = false;
         if (_disposed) return;

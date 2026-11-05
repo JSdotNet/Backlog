@@ -446,6 +446,41 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Cloud dictation's upload is sent once (local ADR 0045 §6). The harness's
+    /// <c>AddServiceDefaults()</c> puts the standard pipeline on every client, and on
+    /// this one its ten seconds an attempt and three retries would cut a recording off
+    /// and send it again; the host takes it off again before adding the sync pipeline.
+    /// The data client beside it keeps it, which is what shows the walk can see one.
+    /// </summary>
+    [Fact]
+    public void The_mobile_harness_sends_a_dictation_recording_with_no_retry()
+    {
+        using var harness = new Harness<MobileHarness::Program>();
+
+        var handlers = harness.Services.GetRequiredService<IHttpMessageHandlerFactory>();
+        var upload = HandlerChain(handlers.CreateHandler(nameof(Backlog.Mobile.UI.Services.CloudTranscriptionClient)));
+        var data = HandlerChain(handlers.CreateHandler(nameof(Backlog.Mobile.UI.Services.CloudSyncClient)));
+
+        Assert.DoesNotContain(upload, handler => handler is Microsoft.Extensions.Http.Resilience.ResilienceHandler);
+        Assert.Contains(upload, handler => handler is Backlog.Infrastructure.Sync.SyncAuthenticationHandler);
+        Assert.Contains(data, handler => handler is Microsoft.Extensions.Http.Resilience.ResilienceHandler);
+    }
+
+    /// <summary>The factory's handler, the additional handlers in order, and the primary
+    /// handler last — walked the way a request travels.</summary>
+    private static List<HttpMessageHandler> HandlerChain(HttpMessageHandler handler)
+    {
+        var chain = new List<HttpMessageHandler>();
+
+        for (var current = handler; current is not null; current = (current as DelegatingHandler)?.InnerHandler)
+        {
+            chain.Add(current);
+        }
+
+        return chain;
+    }
+
+    /// <summary>
     /// The desktop harness registers the Inbox's settings section, so its settings
     /// screen carries the routing rules the way the desktop app's does. The shell
     /// holds no copy of its own: without the registration the page is simply gone.

@@ -142,6 +142,19 @@ internal static class SyncResults
 
         // A push hub that did not keep the installation just now: the phone registers again later.
         SyncErrorCodes.PushUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // No transcription model on this service (local ADR 0045 §6): the phone falls back
+        // to on-device dictation for the rest of its run rather than asking again.
+        SyncErrorCodes.TranscriptionUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // The model failed or ran out of time. 502 says it was the upstream, and the phone
+        // shows a failed turn the person can retry rather than falling back.
+        SyncErrorCodes.TranscriptionFailed => StatusCodes.Status502BadGateway,
+
+        // A recording over the cap, or of a type off the audio list: the same 413 and 415
+        // as an attachment, under the relay's own codes.
+        SyncErrorCodes.TranscriptionTooLarge => StatusCodes.Status413PayloadTooLarge,
+        SyncErrorCodes.TranscriptionTypeNotAllowed => StatusCodes.Status415UnsupportedMediaType,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
@@ -158,9 +171,10 @@ internal static class SyncResults
         StatusCodes.Status403Forbidden => "This device may not do that.",
         StatusCodes.Status404NotFound => "There is no such thing here.",
         StatusCodes.Status409Conflict => "The request conflicts with the current state.",
-        StatusCodes.Status413PayloadTooLarge => "That is more than the sync service will store.",
-        StatusCodes.Status415UnsupportedMediaType => "The sync service does not store that type of file.",
+        StatusCodes.Status413PayloadTooLarge => "That is more than the sync service accepts.",
+        StatusCodes.Status415UnsupportedMediaType => "The sync service does not accept that type of file.",
         StatusCodes.Status429TooManyRequests => "The sync service is busy.",
+        StatusCodes.Status502BadGateway => "A service the sync service relies on did not answer.",
         StatusCodes.Status503ServiceUnavailable => "The sync service is not ready yet.",
         _ => "The sync service could not complete the request.",
     };

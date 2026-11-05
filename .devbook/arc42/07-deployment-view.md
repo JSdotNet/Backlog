@@ -348,7 +348,7 @@ Deployment considerations:
 - **The FCM credential is entered by hand** — the hub's FCM v1 credential
   (project id, client email, private key) is not in Bicep. A person enters it on
   the hub once Firebase is set up. Until then no phone is pushed.
-- **Dictation relay to Foundry** *(local ADR 0045, accepted, not yet built)* —
+- **Dictation relay to Foundry** *(local ADR 0045)* —
   the service hands a phone dictation to the `gpt-4o-transcribe` deployment on
   `backlog-foundry` and keeps neither the audio nor the text.
   - The sync identity gets **Cognitive Services OpenAI User**, scoped to the Foundry
@@ -357,6 +357,9 @@ Deployment considerations:
   - The container gains the `Modules:Sync:Transcription` settings: `Endpoint`,
     `Deployment` (`gpt-4o-transcribe`), `ApiVersion` (`2025-03-01-preview`),
     `MaxBytes` (25 MB) and `ContentTypes`. No key is issued.
+  - Off until the azd value `SYNC_FOUNDRY_ACCOUNT_NAME` names the Foundry account
+    (`docs/deployment/sync.md`): with it empty, the template grants nothing and the
+    route answers `503`, so every phone dictates on-device.
   - Locally, the AppHost points `Endpoint` at a transcription stand-in in
     `Backlog.AzureFoundry.TestService`.
 - **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs

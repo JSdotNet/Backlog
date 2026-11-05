@@ -700,8 +700,7 @@ graph TB
 
 The speech transcriber listens on-device by default. With the Cloud engine picked
 in Settings, it records the turn and sends it to the sync API for transcription.
-It falls back to on-device when the cloud cannot answer (local ADR 0045, accepted,
-not yet built).
+It falls back to on-device when the cloud cannot answer (local ADR 0045).
 
 The phone reaches the cloud only through the sync API. No device store goes
 through a file-sync product (`.devbook/arc42/02-constraints.md#technical-constraints`).
@@ -899,11 +898,11 @@ route. The per-file cap and the type allowlist are `Modules:Sync:Attachments`
 settings. A capture names its files as metadata. The acknowledgement tombstone,
 the phone's own or the desktop's pushed one, releases them, best effort.
 
-*Accepted, not yet built (local ADR 0045).* `POST /api/sync/transcriptions` takes
+Local ADR 0045: `POST /api/sync/transcriptions` takes
 one phone dictation's audio and answers its text. It sits behind the same
 authorization and owner-scope filters as every other sync route. The service hands
 the audio to the Azure Foundry `gpt-4o-transcribe` deployment through
-`Backlog.Infrastructure.AzureFoundry`, with its managed identity, and keeps neither
+`Backlog.Infrastructure.AzureFoundry`, with its managed identity, through a bridge in the host, and keeps neither
 the audio nor the text. The cap, the audio allowlist, the endpoint, the deployment
 and the api-version are `Modules:Sync:Transcription` settings. With no endpoint set,
 the route answers `503 sync.transcription_unavailable`, and the phone dictates

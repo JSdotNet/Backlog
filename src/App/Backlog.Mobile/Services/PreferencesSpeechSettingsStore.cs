@@ -14,13 +14,25 @@ namespace Backlog.Mobile.Services;
 public sealed class PreferencesSpeechSettingsStore(IPreferences preferences) : ISpeechSettingsStore
 {
     private const string LanguageKey = "dictation.language";
+    private const string EngineKey = "dictation.engine";
 
     public DictationLanguage Language
     {
-        get => Enum.TryParse<DictationLanguage>(preferences.Get(LanguageKey, string.Empty), ignoreCase: false, out var language)
-               && Enum.IsDefined(language)
-            ? language
-            : default;
+        get => Read<DictationLanguage>(LanguageKey);
         set => preferences.Set(LanguageKey, value.ToString());
     }
+
+    /// <summary>On-device unless the person chose the cloud: a name this build does not know
+    /// reads as the default, so no recording leaves the phone on a guess.</summary>
+    public DictationEngine Engine
+    {
+        get => Read<DictationEngine>(EngineKey);
+        set => preferences.Set(EngineKey, value.ToString());
+    }
+
+    private TEnum Read<TEnum>(string key) where TEnum : struct, Enum =>
+        Enum.TryParse<TEnum>(preferences.Get(key, string.Empty), ignoreCase: false, out var value)
+        && Enum.IsDefined(value)
+            ? value
+            : default;
 }
