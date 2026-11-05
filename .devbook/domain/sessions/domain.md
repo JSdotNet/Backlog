@@ -1041,8 +1041,46 @@ recently updated first. Ordering for display is `Session Grouping`'s job.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/flow.md]
+related: [.devbook/domain/sessions/domain.md#session-state]
 ```
+
+**How a session reads**
+
+The states below are **the result of a reading, not a stored lifecycle.** Nothing in
+this context transitions a session. Each reading looks at the evidence available at
+that moment and says what it means. That is why the edges are labelled with what the
+evidence shows rather than with events. It is also why every state can be reached
+directly from a fresh reading.
+
+```mermaid
+stateDiagram-v2
+    [*] --> running: liveness evidence, activity within the stale threshold
+    [*] --> stalled: liveness evidence, silent for longer than the threshold
+    [*] --> finished: a record, but no liveness evidence
+
+    running --> stalled: silence passes the threshold
+    stalled --> running: the agent writes again
+    running --> finished: liveness evidence gone
+    stalled --> finished: liveness evidence gone
+
+    finished --> [*]
+```
+
+- `running` and `stalled` are the same evidence read against a different clock. That
+  is why the pair can move back and forth. A session that goes quiet for an hour and
+  then resumes was never anything but running.
+- `finished` is terminal **for a given identity**. Nothing brings a session back from
+  it. What would have to reappear is the agent's liveness record, which is written per
+  process, and a resumed session is a new process, not a revived one.
+- There is no `failed`. A record that stops says nothing about whether the session was
+  answered, abandoned or crashed, and this context does not guess between them.
+- A reader's `Session View` is deliberately **not** on this diagram. It reads the three
+  states and moves a session between none of them. A finished session that a live view
+  is not showing is finished, not in a fourth state and not in transit towards one.
+  Whether a row is on screen is a property of the reading being displayed. Putting it
+  here would turn the reader's own choice into something that happens to a session.
+  The Open view and its Idle badge are off it for the same reason: an Idle row still
+  reads Finished.
 
 Decides whether a session with liveness evidence is `running` or `stalled`, by
 comparing its `last_activity_at` against the `Stale Threshold`.
@@ -1221,7 +1259,6 @@ state.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/context.md#session-requests, .devbook/domain/sessions/domain.invariants.md#session-request-queue]
 ```
 
@@ -1255,7 +1292,6 @@ dispatcher passes the brief on and never writes its own. All four sit behind the
 
 ```meta
 type: entity
-status: draft
 aliases: [SessionRequest, session request, entry request, plan request, dispatcher, Manager session]
 related: [.devbook/domain/sessions/domain.md#agent-session, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
 ```
@@ -1329,7 +1365,6 @@ the claim it made.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.invariants.md#question-relay, .devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/context.md]
 ```
 
@@ -1392,7 +1427,6 @@ reports a non-blocking hook error.
 
 ```meta
 type: entity
-status: draft
 aliases: [WaitingQuestion, waiting question, relay question, delivery, answer delivery]
 related: [.devbook/domain/sessions/domain.md#session-state, .devbook/domain/notifications/domain.md#notification, .devbook/domain/notifications/domain.md#answer]
 ```
@@ -1462,7 +1496,6 @@ at two scopes that both register the same dialog get the same question back.
 
 ```meta
 type: value-object
-status: draft
 aliases: [presence, away, at the keyboard, away after, notify after, dialog wait]
 related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
 ```
@@ -1508,9 +1541,38 @@ refused with the setting named.
 
 ```meta
 type: domain-service
-status: proposed
-related: [.devbook/domain/sessions/features.md#session-activity-enrichment, .devbook/domain/sessions/flow.md, .devbook/domain/sessions/dependencies.md]
+related: [.devbook/domain/sessions/features.md#session-activity-enrichment, .devbook/domain/sessions/domain.md#liveness-assessment, .devbook/domain/sessions/dependencies.md]
 ```
+
+**How optional session activity reporting works**
+
+```mermaid
+sequenceDiagram
+    participant Session as Running session
+    participant Capability as Reporting Capability
+    participant Publisher as Session Activity Publishing
+    participant MCP as Collections MCP
+
+    Session->>Capability: is reporting configured and reachable?
+    alt reporting enabled
+        Session->>Publisher: started / meaningful activity / finished
+        Publisher->>Publisher: sanitize, assign event_id and sequence
+        Publisher->>MCP: append or upsert activity update
+        MCP-->>Publisher: acknowledged
+    else reporting disabled
+        Capability-->>Session: local-only session
+    else reporting degraded
+        Publisher->>Publisher: keep local session work moving
+        Publisher-->>Session: reporting marked degraded
+    end
+```
+
+- **Reporting is milestone-based, not transcript-shaped.** The session emits start,
+  meaningful deltas, and finish, because those are the facts a later reader can use.
+  Token streams and tool bodies would bloat the evidence without improving the answer.
+- **Capability is checked as a path state, not guessed from missing events.** No
+  external updates can mean "not configured" or "temporarily unreachable", so the
+  reporting path carries its own reading.
 
 Emits sanitized activity updates for a running session to the optional Collections
 MCP when that session has reporting configured and reaches a meaningful milestone.
@@ -1528,9 +1590,39 @@ work. It may fall back to local-only behavior when reporting is unavailable.
 
 ```meta
 type: domain-service
-status: proposed
-related: [.devbook/domain/sessions/features.md#session-activity-enrichment, .devbook/domain/sessions/flow.md, .devbook/domain/sessions/dependencies.md]
+related: [.devbook/domain/sessions/features.md#session-activity-enrichment, .devbook/domain/sessions/domain.md#liveness-assessment, .devbook/domain/sessions/dependencies.md]
 ```
+
+**How external activity enriches a reading**
+
+```mermaid
+sequenceDiagram
+    participant Reader
+    participant Log as Session Log
+    participant Local as Local agent records
+    participant MCP as Collections MCP
+    participant Merge as Session Activity Enrichment
+    participant Liveness as Liveness Assessment
+
+    Reader->>Log: what have my agents been doing here?
+    Log->>Local: read local session evidence
+    Local-->>Log: sessions found
+    opt activity reporting available
+        Log->>MCP: read activity streams for known sessions
+        MCP-->>Merge: activity entries by session identity
+        Log->>Merge: local sessions + external activity
+        Merge-->>Log: enriched sessions + reporting capability
+    end
+    Log->>Liveness: assess local activity windows
+    Liveness-->>Log: running / stalled / finished
+    Log-->>Reader: Session Catalog with optional enrichment
+```
+
+- **The enrichment path starts from known local sessions.** The MCP adds depth to a
+  row the log already has; it does not manufacture a second session list of its own.
+- **Ordering and de-duplication belong to the merge, not to the storage.** The
+  Collections MCP is allowed to deliver duplicates or late arrivals; the Sessions
+  context is what gives them their domain meaning.
 
 Layers optional `Session Activity Stream` evidence onto the locally read `Agent
 Session` so the session row can say more than the local record alone can say.
@@ -1621,7 +1713,6 @@ component.
 
 ```meta
 type: term
-status: proposed
 aliases: [collections mcp, collection store, activity collection]
 related: [.devbook/domain/sessions/dependencies.md]
 ```

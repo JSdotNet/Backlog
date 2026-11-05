@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -21,7 +20,6 @@ every reading.
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/domain.md#iteration]
 aliases: [goal, goals]
 ```
@@ -57,7 +55,6 @@ it held are unchanged and belong to no goal from then on.
 
 ```meta
 type: value-object
-status: draft
 aliases: [attached item, GoalAttachment]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
@@ -94,7 +91,6 @@ Equality is by kind and identity. The attachment also stores the day it was made
 
 ```meta
 type: value-object
-status: draft
 aliases: [progress, done/total, GoalProgress]
 related: [.devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
 ```
@@ -124,7 +120,6 @@ is by value.
 
 ```meta
 type: value-object
-status: draft
 aliases: [forecast, landing date, lands, At risk, On track, GoalForecast]
 related: [.devbook/domain/progress/requirements.md#the-goals-view]
 ```
@@ -147,7 +142,6 @@ iterations has no landing date, and is At risk while it has open items.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#goal-assignment, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
 aliases: [GoalAssignment]
 ```
@@ -169,7 +163,6 @@ Invocation semantics: command-invoked, on every attach. Its rules are in
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#impediment, .devbook/domain/progress/features.md#tracking-an-impediment]
 aliases: [impediment, impediments, blocker]
 ```
@@ -204,7 +197,6 @@ nothing on it. Its age is the working days since it was raised, counted in the p
 
 ```meta
 type: enum
-status: draft
 aliases: [ImpedimentState, impediment state]
 related: [.devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
@@ -234,7 +226,6 @@ stateDiagram-v2
 
 ```meta
 type: entity
-status: draft
 aliases: [history, StateChange]
 ```
 
@@ -246,7 +237,6 @@ in the order the steps happened, and the first step is always `New`.
 
 ```meta
 type: value-object
-status: draft
 aliases: [holds back, held-back item, blocks, HoldsBack]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.invariants.md#impediment]
 ```
@@ -274,7 +264,6 @@ afresh on every reading. An item stays held back once its work is
 
 ```meta
 type: domain-service
-status: deprecated
 related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 aliases: [BlockedTaskPolicy]
 ```
@@ -297,7 +286,6 @@ Progress that heard every task written on the device. Nothing runs it now.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
 aliases: [StandUpReading]
 ```
@@ -322,7 +310,6 @@ impediment.
 
 ```meta
 type: shared-value-objects
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#iteration]
 ```
 
@@ -332,7 +319,6 @@ related: [.devbook/domain/progress/domain.invariants.md#iteration]
 
 ```meta
 type: value-object
-status: draft
 aliases: [iteration, window, last, next, Iteration]
 related: [.devbook/domain/progress/domain.invariants.md#iteration, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
 ```
@@ -358,14 +344,12 @@ Equality is by length and first day.
 
 ```meta
 type: ubiquitous-language
-status: draft
 ```
 
 ### Done
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed, .devbook/domain/sessions/domain.md#session-state]
 ```
 
@@ -385,7 +369,6 @@ and the day its last linked task was done.
 
 ```meta
 type: term
-status: draft
 aliases: [settled]
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ```
@@ -413,7 +396,6 @@ an item, or resolves the impediment, by hand.
 
 ```meta
 type: term
-status: draft
 aliases: [Ready to resolve, ready to resolve, resolvable]
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
 ```
@@ -433,7 +415,6 @@ never ready to resolve: nothing it names can tell it is out of the way.
 
 ```meta
 type: term
-status: draft
 aliases: [standup, stand-up]
 related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/domain.md#stand-up-reading]
 ```
@@ -446,7 +427,6 @@ impediments.
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
 ```
 
@@ -462,7 +442,6 @@ three sources, each item listed once:
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/roadmap/context.md#story-points-a-week]
 ```
 

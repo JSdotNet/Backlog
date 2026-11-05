@@ -33,9 +33,8 @@ stable, reviewable, offline copy:
 - Token names and values are written out concretely, not linked to only.
 - When a chapter restates upstream guidance, keep it short and prescriptive; do
   not copy long-form documentation into the folder.
-- If the authoritative source is unavailable, state that it could not be
-  verified, mark the affected chapter `status: draft`, and note the gap in the
-  chapter itself.
+- If the authoritative source is unavailable, state in the affected chapter
+  that it could not be verified, and note the gap there.
 
 When no upstream source exists, `design/` is itself authoritative and its
 chapters carry the rationale directly.
@@ -137,8 +136,8 @@ The sortable list SHALL let every item be moved without a pointer.
 
 A design requirement is proved `e2e`: the rendered component driven by
 keyboard or pointer, or compared by a visual test. A requirement with no
-scenario, or whose `tests` reach no `e2e`, is reported as a coverage warning;
-one at `status: deprecated` is not asked for a scenario.
+scenario, or whose `tests` reach no `e2e`, is reported as a coverage warning.
+A requirement that no longer holds is removed by a change's `REMOVED` delta.
 Guidance a component cannot break on its own — a principle, a rationale, a
 comparison — stays prose in the component chapter.
 
@@ -147,31 +146,14 @@ comparison — stays prose in the component chapter.
 Every `design/` file and every `##` chapter carries a metadata block per
 `devbook-chapter-metadata.md`.
 
-Allowed `status` values in `design/`:
-
-| Status | Meaning |
-|---|---|
-| `draft` | Written but not yet agreed, or not yet grounded in the authoritative design source. |
-| `active` | Agreed and binding for implementation. **Resting value — omit the field.** |
-| `deprecated` | Superseded; kept for history, must not be followed. |
-
-That is the built-in ladder; a repository replaces its transitional rungs per
-file in `.devbook/statuses.json`, per `devbook-chapter-metadata.md`.
-
-There is no `approved` or `accepted` rung here. The two decision rungs are
-`domain/`'s alone — see `devbook-domain.md`.
-
-`status` is therefore **optional** here. State it only while a chapter is
-`draft` or `deprecated`; an agreed, binding guideline says so by leaving the
-field out. A design system is almost entirely agreed and binding — that is what
-makes it a system — so writing `active` on every chapter marks nothing, and the
-one `draft` colour token stops standing out. Writing `status: active` explicitly
-is reported.
+A block carries no `status`: a merged guideline is agreed and binding for
+implementation. A guideline that is no longer to be followed is removed by a
+change's `REMOVED` delta, per `devbook-changes.md`; one still being written is
+an open change, not a chapter here.
 
 `type` is `requirement` on a requirement chapter and absent everywhere else, so
-a settled guideline's block ends up empty. **Keep the empty `meta` fence** — it
+a guideline's block ends up empty. **Keep the empty `meta` fence** — it
 is what makes the heading an addressable chapter, and deleting it drops the
 chapter out of the derived graph and out of every reference pointing at it.
 
-`design/` defines no folder-specific relation fields — use `related` (and
-`issue` when tracked) only.
+`design/` defines no folder-specific relation fields — use `related` only.

@@ -1,9 +1,10 @@
-// content-hash.test.mjs — `approved-hash`, the fingerprint that turns "the rung
-// comes off when the content changes" from a rule people remember into a check.
+// content-hash.test.mjs — the chapter fingerprint `chapterHash` computes, which
+// a host records a decision at (`devbook.chapter.fingerprint@1`). Since contract
+// 38 no chapter carries the hash; these pin the normalisation a host recomputes.
 //
 // Run: node plugins/devbook/tools/devbook-meta/content-hash.test.mjs
 
-import { validateDocument, chapterHash } from "./metadata.mjs";
+import { chapterHash } from "./metadata.mjs";
 
 let failed = 0;
 const check = (ok, name, detail) => {
@@ -14,59 +15,12 @@ const check = (ok, name, detail) => {
 const fence = (body) => "```meta\n" + body + "```\n";
 const note = (body) => "```annotation\n" + body + "```\n";
 
-// One approved chapter in a domain file, with whatever meta the case needs.
+// One chapter in a domain file, with whatever meta the case needs.
 const chapter = (meta, body = "Prose.\n") =>
     "# Ordering\n\n" + fence("type: domain\n") +
     "\n## Order\n\n" + fence("type: aggregate\n" + meta) + "\n" + body;
 
-const find = (issues, severity, needle) =>
-    issues.find((i) => i.severity === severity && i.message.includes(needle));
-const dump = (issues) => JSON.stringify(issues, null, 2);
-
-const PATH = ".devbook/domain/ordering/domain.md";
-const approved = "status: approved\napproved-by: Job\napproved-at: 2026-09-22\n";
-
-// The hash of the chapter as `chapter()` builds it — every case below is
-// written against this one value, so a change to the normalisation fails
-// loudly here instead of silently everywhere.
-const HASH = chapterHash(chapter(approved), 7);
-
-{
-    const issues = validateDocument(PATH, chapter(approved + `approved-hash: ${HASH}\n`));
-    check(!issues.some((i) => i.message.includes("approved-hash")), "a matching fingerprint is silent", dump(issues));
-}
-
-{
-    const issues = validateDocument(PATH, chapter(approved + "approved-hash: sha256:deadbeef\n"));
-    check(Boolean(find(issues, "error", "content that has changed")), "a mismatching fingerprint errors", dump(issues));
-}
-
-{
-    const issues = validateDocument(PATH, chapter(approved));
-    check(!issues.some((i) => i.message.includes("approved-hash")), "no fingerprint is not a finding — the field is optional", dump(issues));
-}
-
-{
-    const issues = validateDocument(PATH, chapter(approved + "approved-hash: beef\n"));
-    check(Boolean(find(issues, "error", "eight lowercase hex")), "a malformed fingerprint errors", dump(issues));
-}
-
-{
-    const issues = validateDocument(PATH, chapter(approved + `approved-hash: [${HASH}]\n`));
-    check(Boolean(find(issues, "error", "empty or list value")), "a list of fingerprints errors — a chapter has one content", dump(issues));
-}
-
-{
-    // An empty value is caught by the omit-when-empty rule that covers every
-    // field, before the approval lint sees it — exactly as `approved-by:` is.
-    const issues = validateDocument(PATH, chapter(approved + "approved-hash:\n"));
-    check(Boolean(find(issues, "warning", "omit the field instead")), "an empty fingerprint is the omit-when-empty warning", dump(issues));
-}
-
-{
-    const issues = validateDocument(PATH, chapter(`status: active\napproved-hash: ${HASH}\n`));
-    check(Boolean(find(issues, "warning", "without `status: approved`")), "an orphaned fingerprint warns, as an orphaned approver does", dump(issues));
-}
+const approved = "date: 2026-09-22\n";
 
 // The normalisation itself. Each pair must hash the same, or differently, for
 // a stated reason — these are the promises the rule makes to an author.
@@ -95,11 +49,11 @@ const HASH = chapterHash(chapter(approved), 7);
 }
 
 {
-    // The `meta` block holds the hash, so it cannot be part of what is hashed:
-    // writing the field must not change the value it records.
+    // The `meta` block is not content: a field written in it must not change
+    // the fingerprint a decision was recorded at.
     const before = chapterHash(chapter(approved), 7);
-    const after = chapterHash(chapter(approved + `approved-hash: ${before}\n`), 7);
-    check(before === after, "writing the fingerprint does not change the fingerprint");
+    const after = chapterHash(chapter(approved + "related: [.devbook/domain/ordering/features.md]\n"), 7);
+    check(before === after, "a field written in the meta block does not change the fingerprint");
 }
 
 {

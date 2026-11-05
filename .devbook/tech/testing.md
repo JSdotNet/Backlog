@@ -1,7 +1,7 @@
 # Testing Stack
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requirements.md"]
 ```
 
@@ -12,7 +12,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requir
 ## xUnit v3
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "4.0.1"
 depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
@@ -35,7 +35,7 @@ The unit-test framework for every test project, referenced once in
 ## Microsoft.Testing.Platform
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 depends-on: [".devbook/tech/testing.md#xunit-v3"]
 related: [".devbook/tech/tooling.md#net-sdk"]
@@ -53,7 +53,7 @@ The test host that replaces VSTest for this solution.
 ## Microsoft.NET.Test.Sdk
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "18.9.0"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
@@ -68,7 +68,7 @@ The MSBuild targets that make a project a test project.
 ## xunit.runner.visualstudio
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "4.0.0"
 depends-on: [".devbook/tech/testing.md#xunit-v3"]
@@ -83,7 +83,7 @@ The test adapter that surfaces xUnit tests to IDE test explorers.
 ## Microsoft.Testing.Extensions.TrxReport
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "2.4.1"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
@@ -100,7 +100,7 @@ The TRX report writer.
 ## Microsoft.Testing.Extensions.CodeCoverage
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "18.11.2"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
@@ -120,7 +120,7 @@ The code-coverage collector, referenced from `tests/Directory.Build.props`.
 ## bUnit
 
 ```meta
-status: adopted
+rating: adopted
 type: framework
 version: "2.11.3"
 depends-on: [".devbook/tech/shared.md#razor-components", ".devbook/tech/testing.md#xunit-v3"]
@@ -139,7 +139,7 @@ The Razor component test framework.
 ## Microsoft.AspNetCore.Mvc.Testing
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xunit-v3"]
@@ -156,7 +156,7 @@ In-memory hosting of an ASP.NET Core app under test.
 ## Microsoft.Extensions.TimeProvider.Testing
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "10.10.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
@@ -172,7 +172,7 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 ## Playwright
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 version: "1.63.0"
 depends-on: [".devbook/tech/shared.md#blazor-server", ".devbook/tech/desktop.md#webview2"]

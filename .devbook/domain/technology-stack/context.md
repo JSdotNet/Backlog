@@ -1,7 +1,6 @@
 # Technology Stack
 
 ```meta
-status: draft
 index: root
 type: context
 ```

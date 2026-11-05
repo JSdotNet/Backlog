@@ -1,7 +1,6 @@
 # Sync
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: service
@@ -66,7 +65,6 @@ page is `Backlog.Modules.Sync.UI`.
 ## Taking part in sync
 
 ```meta
-status: draft
 type: feature-flag
 key: sync
 default: off

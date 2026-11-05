@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: draft
 ```
 
 > What the Brain lets a person do, in business language.
@@ -292,7 +291,6 @@ drawing an empty map.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/brain/features.md#atlas-edges]
 feature-flag: .devbook/domain/brain/context.md#lobes-atlas
 related: [.devbook/domain/brain/requirements.md#lobes-atlas, .devbook/domain/brain/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent, .devbook/design/interaction-guidelines.md#motion-and-reduced-motion]

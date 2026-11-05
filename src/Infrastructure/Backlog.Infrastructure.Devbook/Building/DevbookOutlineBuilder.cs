@@ -130,7 +130,7 @@ internal static class DevbookOutlineBuilder
                     name,
                     document.Path,
                     document.Title ?? Path.GetFileNameWithoutExtension(name),
-                    ResolveStatus(fileFolder, document.Meta, DevbookBuildLayout.IsDebtRecord(layout, document.Path, document.Meta)),
+                    Rating(document.Meta),
                     // The file's resolved `type` where it has one, as the
                     // generator's entry carries it; otherwise the row derives its
                     // folder kind from the path when it is written.
@@ -242,10 +242,12 @@ internal static class DevbookOutlineBuilder
         return DevbookReadingConvention.FileNumber(name);
     }
 
-    /// <summary>The generator's <c>resolveStatus</c>: the declared status, else the
-    /// folder's resting one — a debt record's own, <c>identified</c>.</summary>
-    private static string? ResolveStatus(string? folder, IReadOnlyDictionary<string, object?> meta, bool debtRecord) =>
-        meta.GetValueOrDefault("status") is { } declared ? Scalar(declared) : DevbookBuildLayout.RestingStatusFor(folder, debtRecord);
+    /// <summary>The file's <c>rating</c> where it states a non-empty one, which
+    /// the <c>status</c> column holds: from devbook contract 38 a <c>tech/</c> or
+    /// <c>ai/</c> file states its rating, nothing else carries one, and nothing
+    /// rests at a folder value (outline.mjs).</summary>
+    private static string? Rating(IReadOnlyDictionary<string, object?> meta) =>
+        meta.GetValueOrDefault("rating") is string { Length: > 0 } rating ? rating : null;
 
     private static string Scalar(object value) =>
         value is IReadOnlyList<string> list ? string.Join(',', list) : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;

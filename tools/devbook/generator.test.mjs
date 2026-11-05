@@ -73,7 +73,7 @@ test('a .devbook/ holding only configuration is the root layout, which is not bu
     }
 });
 
-test('a devbook-layout repository uses its own generator, outline and annotation index included', async () => {
+test('a devbook-layout repository uses its own generator, outline included', async () => {
     const root = await writeTree(FIXTURE, { withGenerator: true });
     try {
         const generator = await loadGenerator(root);
@@ -85,6 +85,21 @@ test('a devbook-layout repository uses its own generator, outline and annotation
             'buildOutlineDocument', 'collectAnnotations', 'openCountsByAddress']) {
             assert.equal(typeof generator[name], 'function', `${name} is not loaded`);
         }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('a generator without the annotation index collects no threads and counts nothing open', async () => {
+    // Devbook contract 38 deleted `annotations-index.mjs` with the fence.
+    const root = await writeTree(FIXTURE, { withGenerator: true });
+    try {
+        assert.equal(await exists(join(root, '.devbook', '_tools', 'devbook-meta', 'annotations-index.mjs')), false);
+        const generator = await loadGenerator(root);
+
+        const threads = await generator.collectAnnotations(root, generator.folders);
+        assert.deepEqual(threads, []);
+        assert.equal(generator.openCountsByAddress(threads).size, 0);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

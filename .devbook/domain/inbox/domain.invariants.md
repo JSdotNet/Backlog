@@ -1,7 +1,6 @@
 # Invariants
 
 ```meta
-status: draft
 type: invariants
 ```
 
@@ -11,7 +10,6 @@ What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggreg
 
 ```meta
 type: invariants
-status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/domain.md#attachment]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
 ```
@@ -21,7 +19,6 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
 ### Invariant: Source link and capture instant never change
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.The_capture_instant_and_the_source_url_have_no_setter
 ```
@@ -33,19 +30,17 @@ Enforced at: constructor (neither has a setter)
 ### Invariant: Status follows the lifecycle
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_item_that_is_still_open_can_be_archived
 ```
 
-Status moves only along the [lifecycle](flow.md#inbox-item-lifecycle): an `unprocessed` item is routed (`triaged`), deferred or archived. A `deferred` item returns to `unprocessed`, or is routed or archived.
+Status moves only along the [lifecycle](domain.md#inbox-item): an `unprocessed` item is routed (`triaged`), deferred or archived. A `deferred` item returns to `unprocessed`, or is routed or archived.
 
 Enforced at: `Defer()`, `Resurface()`, `Archive()`, `RouteToBacklog()`
 
 ### Invariant: One routing target
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Routing_happens_exactly_once
 ```
@@ -57,7 +52,6 @@ Enforced at: `RouteToBacklog()`
 ### Invariant: A routed item is never archived
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_routed_item_cannot_be_archived
 ```
@@ -69,7 +63,6 @@ Enforced at: `Archive()`
 ### Invariant: An archived item is never routed
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_archived_item_cannot_be_routed
 ```
@@ -81,7 +74,6 @@ Enforced at: `RouteToBacklog()`
 ### Invariant: A deleted item still owes the phone what it owed
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_decided_item_whose_acknowledgement_has_not_left_keeps_it]
 ```
@@ -93,7 +85,6 @@ Enforced at: `Delete()`
 ### Invariant: Reopening an item records when
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Restoring_stamps_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Returning_from_the_backlog_stamps_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_records_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Returning_records_when_the_item_was_reopened]
 ```
@@ -105,7 +96,6 @@ Enforced at: `Restore()`, `ReturnFromBacklog()`
 ### Invariant: A reopened item outlasts its own tombstone
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_reopened_item_was_restored_since_a_withdrawal_at_or_before_the_reopening_and_not_after, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_before_the_item_was_restored_leaves_it_open, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_before_the_item_was_returned_from_the_backlog_leaves_it_open, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_after_the_restore_still_archives_the_item]
 ```
@@ -118,7 +108,6 @@ Enforced at: `IsRestoredSince()`, applied by `ReceiveCapture`
 ### Invariant: A deferred item resurfaces
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.The_sweep_returns_every_deferred_item_whose_date_is_reached_and_touches_nothing_else
 ```
@@ -130,7 +119,6 @@ Enforced at: `ResurfaceIfDue()`, applied by the `ResurfaceDueItems` sweep the pa
 ### Invariant: Deferring again changes the review date
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.A_deferred_item_can_be_deferred_again_to_a_new_date
 ```
@@ -142,7 +130,6 @@ Enforced at: `Defer()`
 ### Invariant: Every item has a content kind
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_unknown_kind_slug_survives_as_its_own_word
 ```
@@ -154,7 +141,6 @@ Enforced at: constructor, `SetKind()`
 ### Invariant: A source person is an @name tag
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_capture_with_tags_and_a_person_files_both
 ```
@@ -166,7 +152,6 @@ Enforced at: constructor; `ReceiveCapture` adds the `@` however the capture sent
 ### Invariant: A person is never a tag
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_person_is_refused_as_a_tag
 ```
@@ -178,7 +163,6 @@ Enforced at: `SetTags()`
 ### Invariant: Tags are bare and distinct
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Tags_are_stored_bare_and_deduplicated_by_name
 ```
@@ -190,7 +174,6 @@ Enforced at: `SetTags()`
 ### Invariant: Repositories are distinct
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Repositories_are_distinct_without_regard_to_case
 ```
@@ -202,7 +185,6 @@ Enforced at: `SetRepoIds()`
 ### Invariant: Filing is not triage
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Filing_is_allowed_in_every_state_including_archived
 ```
@@ -214,7 +196,6 @@ Enforced at: `MoveToList()`
 ### Invariant: A synced item keeps the capture's id
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_replica_capture_keeps_the_captures_id
 ```
@@ -226,7 +207,6 @@ Enforced at: constructor (`FromCapture`)
 ### Invariant: Capture tags go through SetTags
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_capture_with_tags_and_a_person_files_both
 ```
@@ -238,7 +218,6 @@ Enforced at: `ReceiveCapture`
 ### Invariant: A person among capture tags is refused
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_person_among_the_tags_is_refused_as_a_tag_and_the_capture_still_lands
 ```
@@ -250,7 +229,6 @@ Enforced at: `ReceiveCapture`
 ### Invariant: The capture's person travels as its one @name tag
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeCaptureTests.A_captures_person_tag_arrives_as_its_person_and_its_body_as_its_body
 ```
@@ -262,7 +240,6 @@ Enforced at: `InboxEndpoints.OutOfBounds`, `TaskReplicaMerge.ToCapture`
 ### Invariant: A resent capture is the same capture
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEndpointTests.A_retry_with_the_same_id_answers_the_stored_capture_and_writes_nothing
 ```
@@ -275,7 +252,6 @@ Enforced at: `CaptureInboxItemCommandHandler`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.A_file_is_recorded_once_by_id
 ```
 
@@ -289,7 +265,6 @@ Enforced at: `RecordAttachments()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.Recording_again_does_not_reset_a_downloaded_file
 ```
 
@@ -303,7 +278,6 @@ Enforced at: `RecordAttachments()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.A_file_is_recorded_once_by_id
 ```
 
@@ -317,7 +291,6 @@ Enforced at: `InboxAttachment` (no setters; `Downloaded()` and `Failed()` copy t
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.A_file_is_downloaded_or_failed_never_both
 ```
 
@@ -331,7 +304,6 @@ Enforced at: `MarkAttachmentDownloaded()`, `MarkAttachmentFailed()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.A_file_no_fetch_could_honour_is_refused
 ```
 
@@ -345,7 +317,6 @@ Enforced at: `InboxAttachment.Named()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.A_file_with_no_name_or_type_is_still_a_file
 ```
 
@@ -358,7 +329,6 @@ Enforced at: `InboxAttachment.Named()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests.File_names_are_safe_and_the_second_file_under_a_name_gets_its_id
 ```
 
@@ -373,7 +343,6 @@ Enforced at: `AttachmentFileName()`
 ### Invariant: A merged item names its task as a task
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.A_merge_hands_the_captures_title_link_and_notes_to_the_task_and_archives_it_as_the_tasks_duplicate, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.An_item_archived_without_a_duplicate_names_no_task]
 ```
@@ -389,7 +358,6 @@ Enforced at: `Archive()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Dismissing_twice_writes_once_and_a_blank_key_or_a_missing_item_is_refused
 ```
 
@@ -402,7 +370,6 @@ Enforced at: `DismissSuggestion()`
 ## Inbox List
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/inbox/domain.md#inbox-list]
 ```
@@ -410,7 +377,6 @@ related: [.devbook/domain/inbox/domain.md#inbox-list]
 ### Invariant: A list is named
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Renaming_trims_and_refuses_a_blank
 ```
@@ -422,7 +388,6 @@ Enforced at: constructor, `Rename()`
 ### Invariant: Deleting a list unfiles its items
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Deleting_a_list_returns_its_items_to_the_inbox
 ```
@@ -434,7 +399,6 @@ Enforced at: `DeleteList` command
 ### Invariant: Items are filed only in lists that exist
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Filing_an_item_in_a_list_that_does_not_exist_is_refused
 ```
@@ -446,7 +410,6 @@ Enforced at: `MoveToList` command
 ## Inbox Group
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/inbox/domain.md#inbox-group]
 ```
@@ -454,7 +417,6 @@ related: [.devbook/domain/inbox/domain.md#inbox-group]
 ### Invariant: A group is named
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.A_group_is_named_uniquely_and_renamed_under_the_same_rule
 ```
@@ -466,7 +428,6 @@ Enforced at: constructor, `Rename()`
 ### Invariant: Removing a group never removes a list
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Ungrouping_moves_the_lists_to_the_top_level_and_removes_the_group
 ```
@@ -479,7 +440,6 @@ Enforced at: `UngroupLists` command
 
 ```meta
 type: invariants
-status: draft
 related: [.devbook/domain/inbox/domain.md#classification]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests]
 ```
@@ -490,7 +450,6 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests]
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Suggesting_changes_nothing_about_the_item
 ```
 
@@ -503,7 +462,6 @@ Enforced at: `InboxClassifier.Suggest()`
 
 ```meta
 type: invariant
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_dismissed_suggestion_is_not_offered_again_whatever_proposes_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_dismissed_destination_is_not_replaced_by_another_guess]
 ```
 
@@ -517,7 +475,6 @@ Enforced at: `InboxClassifier.Suggest()`
 
 ```meta
 type: invariant
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_routed_or_archived_item_is_offered_nothing
 ```
 
@@ -530,7 +487,6 @@ Enforced at: `InboxClassifier.Suggest()`
 
 ```meta
 type: invariant
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_tag_the_item_already_carries_is_not_offered, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_repository_already_assigned_is_not_offered_and_two_rules_for_one_repository_offer_it_once]
 ```
 

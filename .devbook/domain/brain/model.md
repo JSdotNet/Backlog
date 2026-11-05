@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 ```
 
 > Structural view of the Brain's domain model: the aggregate, its value objects,

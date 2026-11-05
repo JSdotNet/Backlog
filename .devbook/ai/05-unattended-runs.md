@@ -1,7 +1,7 @@
 # Unattended Runs
 
 ```meta
-status: trial
+rating: trial
 type: stage
 ```
 
@@ -12,7 +12,7 @@ type: stage
 ## What an unattended run may do
 
 ```meta
-status: trial
+rating: trial
 type: guardrail
 layer: [harness]
 evidence: none
@@ -41,7 +41,7 @@ rather than duplicated.
 ## Scheduled issue sweep
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 stage: [decide, code]
 substage: [code/implement]
@@ -66,7 +66,7 @@ says what could not be proved. The brief lands as a `schedule-report` issue.
 ## Scheduled merge review
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 stage: [integrate]
 substage: [integrate/review]
@@ -88,7 +88,7 @@ head.
 ## Scheduled devbook upkeep
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 layer: [upkeep]
 feeds: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps: drift issues"]
@@ -118,7 +118,7 @@ the technology graph from the package inventories as a draft pull request.
 ## Scheduled devbook sync sweeps
 
 ```meta
-status: candidate
+rating: candidate
 type: workflow
 layer: [thread]
 feeds: [".devbook/ai/03-test.md#personal-validation-gate: draft pull requests"]
@@ -161,7 +161,7 @@ verdicts conflict goes to a person.
 ## Scheduled instruction review
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 layer: [upkeep]
 evidence: none
@@ -182,7 +182,7 @@ pull request cutting what does not change an agent's behaviour, with a ledger of
 ## Scheduled package update
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 layer: [upkeep]
 evidence: fired
@@ -203,7 +203,7 @@ tests.
 ## Scheduled reports
 
 ```meta
-status: trial
+rating: trial
 type: workflow
 stage: [operate]
 substage: [operate/reporting]
@@ -234,7 +234,7 @@ under devbook's branch-true decision.
 ## Scheduled security review
 
 ```meta
-status: candidate
+rating: candidate
 type: workflow
 stage: [operate]
 substage: [operate/security]

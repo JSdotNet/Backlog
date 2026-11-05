@@ -1,7 +1,7 @@
 # Build and Governance Tooling
 
 ```meta
-status: adopted
+rating: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/tech/ai-development.md"]
 ```
 
@@ -12,7 +12,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/tech/ai-development.md"
 ## Git
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 ```
 
@@ -27,7 +27,7 @@ Source control for the repository and its worktree-based session model.
 ## MSBuild
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#net-sdk"]
 related: [".devbook/tech/tooling.md#central-package-management"]
@@ -49,7 +49,7 @@ The build engine, and the directory-scoped property files that configure it.
 ## .NET SDK
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/tech/testing.md#microsofttestingplatform"]
@@ -66,7 +66,7 @@ The build and test toolchain for every C# component.
 ## .NET MAUI Workloads
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#net-sdk", ".devbook/tech/shared.md#net-maui"]
 ```
@@ -82,7 +82,7 @@ The optional SDK workloads the two app heads need to build.
 ## NuGet
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#net-sdk"]
 ```
@@ -96,7 +96,7 @@ The package manager for .NET dependencies.
 ## Central Package Management
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#nuget"]
 related: [".devbook/tech/shared.md#yamldotnet"]
@@ -120,7 +120,7 @@ One file declaring every package version in the solution.
 ## npm
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#nodejs"]
 ```
@@ -138,7 +138,7 @@ The package manager for JavaScript/TypeScript dependencies.
 ## PowerShell
 
 ```meta
-status: adopted
+rating: adopted
 type: language
 ```
 
@@ -154,7 +154,7 @@ The scripting language for build, release, and hook automation on Windows.
 ## Bicep
 
 ```meta
-status: adopted
+rating: adopted
 type: language
 depends-on: [".devbook/tech/tooling.md#azure-cli"]
 related: [".devbook/tech/cloud.md#azure-ai-foundry"]
@@ -174,7 +174,7 @@ deploys.
 ## Azure CLI
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 related: [".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/tooling.md#github-actions"]
 ```
@@ -191,7 +191,7 @@ The deployment and diagnostics entry point for Azure.
 ## Azure Developer CLI
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#bicep"]
 related: [".devbook/tech/cloud.md#azure-cosmos-db", ".devbook/tech/cloud.md#azure-container-apps", ".devbook/tech/tooling.md#github-actions", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery"]
@@ -217,7 +217,7 @@ The provision-and-deploy driver for the cloud sync tier.
 ## Aspire CLI
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#net-aspire"]
 ```
@@ -234,7 +234,7 @@ The local orchestration and diagnostics entry point.
 ## GitHub Actions
 
 ```meta
-status: adopted
+rating: adopted
 type: service
 depends-on: [".devbook/tech/shared.md#github-platform"]
 related: [".devbook/arc42/07-deployment-view.md#release"]
@@ -262,7 +262,7 @@ The CI/CD automation platform.
 ## CodeQL
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/tooling.md#github-actions"]
 ```
@@ -276,7 +276,7 @@ Static application security testing.
 ## Dependabot
 
 ```meta
-status: adopted
+rating: adopted
 type: service
 depends-on: [".devbook/tech/shared.md#github-platform"]
 related: [".devbook/tech/tooling.md#central-package-management"]
@@ -291,7 +291,7 @@ Automated dependency and security updates.
 ## devbook-meta Generator
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 version: "1.24.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
@@ -335,7 +335,7 @@ everything under `.devbook/_tools/` is refreshed rather than edited here.
 ## devbook-tech Inventory Scripts
 
 ```meta
-status: trial
+rating: trial
 type: tool
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#central-package-management", ".devbook/tech/tooling.md#npm"]
@@ -356,7 +356,7 @@ The devbook plugin's deterministic package scanners, materialized at
 ## Devbook Database Writer
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#sqlite"]
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
@@ -429,7 +429,7 @@ flowchart LR
 ## Archify
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 version: "2.16.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#mermaid"]
@@ -462,7 +462,7 @@ A JSON-IR diagram renderer, vendored under `tools/archify/`.
 ## c4hero
 
 ```meta
-status: adopted
+rating: adopted
 type: tool
 version: "0.4.0"
 depends-on: [".devbook/tech/shared.md#nodejs"]
@@ -496,7 +496,7 @@ dependency**.
 ## Ajv
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "^8.17.1"
 depends-on: [".devbook/tech/tooling.md#archify", ".devbook/tech/shared.md#json"]
@@ -513,7 +513,7 @@ JSON Schema validation.
 ## simple-icons
 
 ```meta
-status: adopted
+rating: adopted
 type: package
 version: "16.28.0"
 depends-on: [".devbook/tech/tooling.md#archify"]

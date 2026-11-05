@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,10 +15,54 @@ status: draft
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.invariants.md#task]
 aliases: [TaskItem, task_id, BacklogEntry, backlog_entry_id, backlog_item_id]
 ```
+
+**Task lifecycle**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft : Created
+    Draft --> Ready : Refined and actionable
+    Ready --> InProgress : Work started (TaskProjected, not yet emitted)
+    InProgress --> Done : Work completed (TaskCompleted, not yet emitted)
+    Done --> Archived : Archived
+    Archived --> Draft : Restored
+    Ready --> Draft : Revision needed
+    InProgress --> Ready : Paused
+    Done --> InProgress : Reopened
+    Draft --> Archived : Dropped with its archived repository
+    Ready --> Archived : Dropped with its archived repository
+    InProgress --> Archived : Dropped with its archived repository
+```
+
+- The edges from `Draft`, `Ready` and `InProgress` to `Archived` are
+  [dropping an archived repository's open tasks](../repository-management/requirements.md#archiving-a-repository).
+  `RefileRepositoryTasksCommand` sets each open task filed under that
+  repository to `Archived` through `TaskItem.SetStatus`, outside the
+  lifecycle's own transitions, as a person's `!archived` edit does. The task
+  keeps its filing and nothing is deleted. `Done` and `Archived` tasks are left
+  alone.
+
+- The `Ready → InProgress` transition would emit `TaskProjected`, and `Done`
+  would emit `TaskCompleted`. Both are documented, not yet emitted; see
+  [Projection](domain.md#projection) for the policy and
+  [its requirements](requirements.md#projection) for what it will do on each.
+- [The first move into `InProgress` stamps Started](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start),
+  and pausing or reopening leaves the stamp where it is. A linked task's sync
+  that only passes through `InProgress` on the way to `Done`
+  [stamps no start](requirements.md#requirement-the-sync-walks-the-status-along-the-lifecycle).
+- `Done` and `Archived` say the work is over. The tick that says the person has
+  dealt with the task is [Completed](domain.md#completed), a separate fact and
+  not a state in this diagram.
+  [The list's checkbox also moves an open task to `done`](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
+  in the same save. A finished task that still read "in progress" would be the
+  list contradicting itself.
+- Scheduling attributes do not appear in this diagram, and that is deliberate.
+  A due date, a reminder, a repeat and a My Day stamp are facts about when work
+  is wanted, not lifecycle states. An overdue task is still `ready`, and nothing
+  has to move a task between states as a clock advances.
 
 A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
@@ -187,7 +230,6 @@ authority. See
 
 ```meta
 type: entity
-status: draft
 aliases: [SubItem]
 ```
 
@@ -209,7 +251,6 @@ step that needed its own priority would be a task rather than a step.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 An immutable link to a downstream external artifact created from the task:
@@ -222,7 +263,6 @@ that nothing creates yet. Equality is by value. It points outward. The inbound c
 
 ```meta
 type: value-object
-status: proposed
 aliases: [SourceRef, source_ref]
 related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
@@ -250,7 +290,6 @@ from the task.
 
 ```meta
 type: value-object
-status: draft
 aliases: [Repeat, repeat, recurrence, RepeatLabel, RecurrenceUnit, DayOfWeek]
 ```
 
@@ -309,7 +348,6 @@ date.
 
 ```meta
 type: value-object
-status: draft
 aliases: [attachment, files, attached folder, attached material]
 ```
 
@@ -351,7 +389,6 @@ somebody added a file.
 
 ```meta
 type: value-object
-status: draft
 ```
 
 An immutable audit record of a prompt copy/use: `timestamp` and `action`.
@@ -361,7 +398,6 @@ Equality is by value.
 
 ```meta
 type: value-object
-status: draft
 aliases: [AIWorkLog, AIWorkLogged]
 ```
 
@@ -373,7 +409,6 @@ An immutable record that an AI-assisted action contributed to the task:
 
 ```meta
 type: enum
-status: draft
 related: [.devbook/domain/tasks/domain.md#dependency]
 aliases: [TaskType]
 ```
@@ -387,7 +422,6 @@ Classification of the task: `prompt`, `task`, `idea`, `test`. A follow-up is a
 
 ```meta
 type: enum
-status: draft
 aliases: [TaskStatus]
 ```
 
@@ -397,7 +431,6 @@ Lifecycle state: `draft`, `ready`, `in_progress`, `done`, `archived`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Ranking of the task: `low`, `medium`, `high`, `critical`.
@@ -406,7 +439,6 @@ Ranking of the task: `low`, `medium`, `high`, `critical`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 Completion state of a sub-item: `pending`, `done`.
@@ -415,7 +447,6 @@ Completion state of a sub-item: `pending`, `done`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 The period a repeat is counted in: `day`, `week`, `month`, `year`.
@@ -424,7 +455,6 @@ The period a repeat is counted in: `day`, `week`, `month`, `year`.
 
 ```meta
 type: enum
-status: draft
 ```
 
 A day of the week, `monday` through `sunday`. Used only to restrict a weekly
@@ -434,9 +464,28 @@ A day of the week, `monday` through `sunday`. Used only to restrict a weekly
 
 ```meta
 type: enum
-status: draft
 aliases: [TaskReadiness, ready, blocked]
 ```
+
+**Readiness derivation**
+
+```mermaid
+flowchart TD
+    A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
+    A -->|no| B{"does every id in depends_on resolve to a completed task?"}
+    B -->|yes| R["Readiness: ready"]
+    B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
+```
+
+- Completing one task unblocks its dependents with nothing to recalculate or keep
+  in sync, because
+  [readiness is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored).
+- The first question is the [tick](domain.md#completed), not `Task Status`; see
+  [Readiness](domain.md#readiness) and
+  [A ticked task reads done](domain.invariants.md#invariant-a-ticked-task-reads-done).
+- [An id that resolves to no visible task leaves the task blocked](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks),
+  and [a dependency loop leaves every member blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
+  [Dependency](domain.md#dependency) says why.
 
 Where a task stands once the tasks it waits on are taken into account:
 `done`, `ready`, `blocked`. It is read from `depends_on`, and
@@ -457,7 +506,6 @@ ticked task reads is
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/06-runtime-view.md#task-to-github-issue, .devbook/domain/tasks/requirements.md#projection]
 aliases: [ProjectionRef]
 ```
@@ -493,9 +541,42 @@ and
 
 ```meta
 type: domain-service
-status: proposed
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#taskcompleted, .devbook/domain/tasks/domain.md#occurrencespawned, .devbook/domain/tasks/requirements.md#recurring-tasks]
 ```
+
+**Recurring task occurrences**
+
+```mermaid
+flowchart TD
+    N["Occurrence N — due 21 Aug"] -->|"ticked off by a save (completed_on set)"| E["Save use case"]
+    E --> Q{"carries a Recurrence?"}
+    Q -->|no| S["Stays ticked — end of the line"]
+    Q -->|yes| P["Occurrence Spawning policy"]
+    P --> K["Occurrence N stays ticked — the record of what was done"]
+    P --> C["Occurrence N+1 created: ready, due 28 Aug, sub-items pending, recurrence_source_id points at N"]
+    C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Monitoring would read the series"]
+```
+
+- Completion is the [tick](domain.md#completed), the save that sets
+  `completed_on` from unset, and not the status reaching `done`:
+  [the tick spawns the next occurrence](requirements.md#requirement-the-tick-spawns-the-next-occurrence),
+  whatever the task's status is by then.
+- Completion does not roll one task forward. It leaves the finished occurrence
+  in place and creates the next as a separate aggregate with its own lifecycle.
+  The link between them, `recurrence_source_id`, is provenance, not ownership.
+- The spawn is a synchronous step inside the save that completed the task, drawn
+  with a solid arrow. The dashed arrow is the event that would tell Monitoring
+  about it, which this context documents but does not yet emit. A consumer
+  therefore reads a series today by following `recurrence_source_id` rather
+  than by subscribing.
+- A tick made on the phone reaches the desktop through the replica merge, which
+  runs the same spawn when the pulled copy ticks off a task it held unticked.
+  [An occurrence has at most one successor](requirements.md#requirement-an-occurrence-has-at-most-one-successor),
+  because the successor's id is derived from the occurrence's.
+- The next due date is calculated from the completed occurrence's `due_on`, not
+  from the date it was actually finished, so lateness does not drift a schedule.
+- [Occurrence Spawning](domain.md#occurrence-spawning) lists what the new
+  occurrence carries over and what starts fresh.
 
 Creates the next occurrence of a repeating task. When a save ticks off a task
 that carries a `Recurrence`, setting `completed_on` where it was unset, it
@@ -577,7 +658,6 @@ a separate task with its own lifecycle.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
@@ -604,7 +684,6 @@ Published when a `Task` changes `Task Status`.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
@@ -633,7 +712,6 @@ policy creates one downstream artifact per targeted repository.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
@@ -659,7 +737,6 @@ Published when a completed `Task` closes its downstream projections.
 
 ```meta
 type: domain-event
-status: proposed
 related: [.devbook/domain/tasks/domain.md#occurrence-spawning]
 ```
 
@@ -688,7 +765,6 @@ Published when a completed repeating `Task` produces its successor.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
@@ -723,7 +799,6 @@ the work item.
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -741,7 +816,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: draft
 aliases: [EntryKind]
 related: [.devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/domain/tasks/requirements.md#import]
 ```
@@ -765,7 +839,6 @@ word the task model cannot hold.
 
 ```meta
 type: term
-status: draft
 aliases: [completed_on, tick, ticked off, checkbox]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/requirements.md#archive-and-lifecycle]
 ```
@@ -788,7 +861,6 @@ occurrence.
 
 ```meta
 type: term
-status: draft
 aliases: [started_on, started]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed]
 ```
@@ -803,7 +875,6 @@ took.
 
 ```meta
 type: term
-status: draft
 aliases: [area]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -817,7 +888,6 @@ product. A task with no area is unfiled.
 
 ```meta
 type: term
-status: proposed
 aliases: [due_on, due, Due]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -831,7 +901,6 @@ How the date is worded on screen belongs to the channel showing it.
 
 ```meta
 type: term
-status: proposed
 aliases: [planned_hours, hours block, Planned hours]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#effort]
 ```
@@ -850,7 +919,6 @@ the roadmap places or paces reads them.
 
 ```meta
 type: term
-status: proposed
 aliases: [remind_at, remind, Reminder]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -864,7 +932,6 @@ whose time has passed reads as overdue until it is cleared.
 
 ```meta
 type: term
-status: proposed
 aliases: [in_my_day_on, myday, InMyDay]
 related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
@@ -891,7 +958,6 @@ date to the next day, which
 
 ```meta
 type: term
-status: proposed
 aliases: [depends_on, DependsOn, after, predecessor]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
@@ -916,7 +982,6 @@ wrong.
 
 ```meta
 type: term
-status: proposed
 aliases: [recurrence_source_id, OccurrenceSpawned]
 related: [.devbook/domain/tasks/domain.md#occurrence-spawning]
 ```
@@ -930,7 +995,6 @@ task that moves, so the record of each completion survives.
 
 ```meta
 type: term
-status: draft
 aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/domain.md#effort]
 ```
@@ -948,7 +1012,6 @@ owned here; Roadmap Planning reads and totals it but never sets it.
 
 ```meta
 type: term
-status: draft
 aliases: [roadmap tag]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag]
 ```
@@ -970,7 +1033,6 @@ vocabulary rather than invent. The canonical concept lives in
 
 ```meta
 type: term
-status: deprecated
 aliases: [Roadmap planning, Roadmap view]
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/features.md#roadmap-planning]
 ```
@@ -1006,7 +1068,6 @@ with, are the [Sync](../sync/context.md) context's: see
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/features.md#restoring-deleted-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -1031,7 +1092,6 @@ it survives only far enough for the other devices to learn that it went.
 
 ```meta
 type: term
-status: proposed
 aliases: [linked tasks, external task, synced task]
 related: [.devbook/domain/tasks/domain.md#source-ref, .devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/features.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/tasks/requirements.md#linked-tasks]
 ```
@@ -1064,7 +1124,6 @@ with a flag rather than deleting it.
 
 ```meta
 type: term
-status: proposed
 aliases: [ITaskConnector, connector, GitHubConnector, SpecManagerConnector]
 related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
@@ -1100,7 +1159,6 @@ descriptors.
 
 ```meta
 type: term
-status: proposed
 aliases: [connected repository, connected product, target]
 related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/domain.md#source-state, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
@@ -1139,9 +1197,8 @@ the ones deleted one by one included.
 
 ```meta
 type: term
-status: proposed
 aliases: [normalised state, SourceState]
-related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 An item's state at its source, normalised by its connector to one of four

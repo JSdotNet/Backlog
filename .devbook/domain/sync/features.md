@@ -1,7 +1,6 @@
 # Features
 
 ```meta
-status: draft
 type: features
 ```
 
@@ -11,7 +10,6 @@ type: features
 ## Pairing a device
 
 ```meta
-status: draft
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
 related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
@@ -59,7 +57,6 @@ revokes it, so its credential mints no further token.
 ## Syncing between devices
 
 ```meta
-status: draft
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
 related: [.devbook/domain/sync/requirements.md#syncing-between-devices, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync]
@@ -87,7 +84,6 @@ update Backlog, and keeps everything it had waiting
 ## Carrying captures to the Inbox
 
 ```meta
-status: draft
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
 related: [.devbook/domain/sync/requirements.md#syncing-between-devices, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/dependencies.md]
