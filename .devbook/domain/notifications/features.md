@@ -31,7 +31,7 @@ the person.
 
 ```meta
 type: feature
-related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply]
+related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply, .devbook/domain/notifications/context.md#owner-screens, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
 ```
 
 The person sees a notification on the Android phone or on another desktop and
@@ -78,6 +78,24 @@ alert comes back into the stack with the reason.
 The phone reads presence off the owner's own pushes. An owner desktop pushes each
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
+
+Two filters sit over the tab and narrow both its views, the pager and the list:
+
+- **From** — the system a notification came from, by the rule the desktop
+  centre's From filter keeps: [Origin](domain.md#origin)'s system, else the
+  source's label.
+- **Repository** — the repository the owner desktop published with the
+  notification ([Owner screens](context.md#owner-screens)), and **Brain** for
+  those about no repository. A notification whose repository is not known stays
+  under every choice, as it does on the desktop.
+
+Each starts at All, and each option counts what it would keep under the other
+filter. A filter with fewer than two options is not shown. The phone remembers
+both on the device, and **Clear filters** sets both back to All. A filter that
+leaves nothing shows an empty state with **Clear filters**, not "No
+notifications". The filters change only what the tab shows: the waiting count
+and the tab's badge count every open question, and the Android push is sent
+whatever they hold.
 
 The phone also hears of a notification without being opened, through an Android
 push. When a notification is published or changes state, the phone gets an

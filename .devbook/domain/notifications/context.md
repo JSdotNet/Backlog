@@ -149,6 +149,15 @@ could not be read, is listed under every scope, so a failing source never
 hides a question. Opening the centre on a notification the scope hides shows
 every repository until the scope is pressed again.
 
+The owner desktop publishes that answer with each notification it pushes, worked
+out by the same rule when it pushes: the repository's alias, the name its header
+scope shows, or the Brain for a notification about no repository. One it could
+not work out goes out with neither and reads as not known, as does every
+notification an owner pushed before it published a repository. The phone keeps
+no aliases of its own, so this is what its Repository filter reads
+([Answering from another device](features.md#answering-from-another-device);
+local ADR 0039).
+
 Three filters sit over the list, each option counting what it would keep under
 the other two:
 

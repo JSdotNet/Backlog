@@ -401,7 +401,7 @@ Each group of the page is a card, and its headline says whether this device is p
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 The mobile app is an Android-first, offline-first capture app serving Capture, Inbox and lightweight Tasks. It owns mobile UI, push plumbing and sync transport, not domain lifecycle rules.
@@ -457,7 +457,7 @@ graph TB
 
   subgraph "Platform (Backlog.Mobile)"
     Picker["Attachment picker\n(camera, pictures, files)"]
-    Speech["Speech transcriber"]
+    Speech["Speech transcriber\n(on-device, or Cloud engine)"]
     Share["Share target"]
     Shortcut["Launcher shortcut (Capture)"]
     Creds["Secure storage\n(device credential)"]
@@ -492,12 +492,17 @@ graph TB
   NotificationsTab --> Outbox
   NotificationsTab --> Speech
   Files -->|"PUT /api/sync/attachments/{id}"| API
+  Speech -.->|"POST /api/sync/transcriptions (Cloud engine)"| API
   Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API
   API -->|"GET /api/sync/inbox"| InboxCache
   API -->|"GET /api/sync/tasks (task feed)"| TaskView
   API -->|"GET /api/sync/tasks (note documents)"| NoteView
   Creds -.->|bearer| API
 ```
+
+The speech transcriber listens on-device by default. With the Cloud engine picked
+in Settings, it records the turn and sends it to the sync API for transcription.
+It falls back to on-device when the cloud cannot answer (local ADR 0045).
 
 The phone reaches the cloud only through the sync API. No device store goes
 through a file-sync product (`.devbook/arc42/02-constraints.md#technical-constraints`).
@@ -563,7 +568,7 @@ This capture channel is distinct from the session record Sessions keeps for moni
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`), deliberately not the backbone. It persists only sync-oriented state, much of it TTL-based, and never canonical domain data or external credentials (local ADR 0005).
@@ -656,6 +661,16 @@ settings. A capture names its files as metadata. The acknowledgement tombstone,
 the phone's own or the desktop's pushed one, releases them, best effort; the container's 30-day lifecycle rule is the backstop.
 
 ![Component Diagram — Cloud Service](c4:components-cloud)
+
+Local ADR 0045: `POST /api/sync/transcriptions` takes
+one phone dictation's audio and answers its text. It sits behind the same
+authorization and owner-scope filters as every other sync route. The service hands
+the audio to the Azure Foundry `gpt-4o-transcribe` deployment through
+`Backlog.Infrastructure.AzureFoundry`, with its managed identity, through a bridge in the host, and keeps neither
+the audio nor the text. The cap, the audio allowlist, the endpoint, the deployment
+and the api-version are `Modules:Sync:Transcription` settings. With no endpoint set,
+the route answers `503 sync.transcription_unavailable`, and the phone dictates
+on-device.
 
 Cloud components:
 

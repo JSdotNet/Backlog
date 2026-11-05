@@ -94,18 +94,27 @@ rating: adopted
 type: package
 version: "1.21.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/tech/cloud.md#azure-ai-foundry"]
+related: [".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 Microsoft Entra token credentials.
 
-- **Used for** — `DeveloperSignInTokenSource` in
-  `Backlog.Infrastructure.AzureFoundry`, behind the `IAzureManagementTokenSource`
-  port. It reads Foundry cost data from the management plane through an explicit
-  `ChainedTokenCredential` of Azure CLI, Azure Developer CLI, and Visual Studio,
-  not `DefaultAzureCredential` and its probing chain.
-- **Why** — the governed way to obtain an Entra token. Chat completions use the
-  API key, so this is the cost reader's only credential.
+- **Used for** — three callers, each with the credential it needs:
+  - `DeveloperSignInTokenSource` in `Backlog.Infrastructure.AzureFoundry`,
+    behind the `IAzureManagementTokenSource` port, reads Foundry cost data from
+    the management plane. It uses an explicit `ChainedTokenCredential` of Azure
+    CLI, Azure Developer CLI, and Visual Studio, not `DefaultAzureCredential`
+    and its probing chain.
+  - `AzureFoundryTranscriptionRegistration`, in the same project, gives the
+    sync service's transcription client a `ManagedIdentityCredential` for the
+    Foundry data plane (local ADR 0045).
+  - `Backlog.Infrastructure.WebPubSub` reaches the hub through
+    `Aspire.Azure.Messaging.WebPubSub`, which registers the service client with
+    `DefaultAzureCredential`. In Azure that resolves to the sync service's
+    managed identity.
+- **Why** — the governed way to obtain an Entra token, so the sync service holds
+  no key. The desktop's chat completions still use the API key and take no
+  Entra token.
 
 ## Azure Container Apps
 
@@ -141,29 +150,40 @@ The compute host for the cloud service.
 ```meta
 rating: adopted
 type: service
-related: [".devbook/tech/tooling.md#bicep", ".devbook/tech/tooling.md#azure-cli", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
+related: [".devbook/tech/tooling.md#bicep", ".devbook/tech/tooling.md#azure-cli", ".devbook/tech/cloud.md#azureidentity", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 alternatives: ["Anthropic API directly", "local models"]
 ```
 
-The managed model endpoint the product's own AI features call.
+The managed model endpoint the product's own AI features call. It has two
+callers, each configured on its own.
 
-- **Used for** — chat completions from `Backlog.Infrastructure.AzureFoundry`,
-  which keeps endpoint settings, API-key storage, and HTTP details out of the UI
-  and the modules.
+- **Used for** — two calls, both made from `Backlog.Infrastructure.AzureFoundry`,
+  which keeps the endpoint settings, the credentials, and the HTTP details out of
+  the UI and the modules:
+  - **Chat completions from the desktop**, with the API key the desktop stores.
+  - **Transcription from the sync service.** `AzureFoundryTranscriptionClient`
+    sends a phone dictation's audio to the `gpt-4o-transcribe` deployment and
+    returns the text, keeping neither (local ADR 0045). It authenticates with the
+    sync service's managed identity, which holds Cognitive Services OpenAI User
+    on the account. `infra/sync/main.bicep` grants that role only once
+    `SYNC_FOUNDRY_ACCOUNT_NAME` names the account.
 - **Why** — one governed Azure resource with per-model deployments and a content
   filter policy, rather than a vendor key per developer machine.
 - **How** — `infra/foundry/main.bicep` declares a `Microsoft.CognitiveServices`
   account of kind `AIServices` and its deployments, each behind a parameter.
   Three models are required. Three are optional: a balanced model, speech
-  transcription, and a `text-embedding-3-small` deployment behind
-  `includeEmbeddingModel`. The devbook database's semantic tier would call the
-  embedding deployment; nothing does yet, and the database is correct without it
+  transcription behind `includeSpeechModel`, and a `text-embedding-3-small`
+  deployment behind `includeEmbeddingModel`. The sync service calls the speech
+  deployment. The devbook database's semantic tier would call the embedding
+  deployment; nothing does yet, and the database is correct without it
   (`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`).
   `.github/workflows/deploy-foundry.yml` runs build → validate → what-if → deploy
   from a self-hosted runner.
-- **Local runs** — development runs never touch it: the Aspire AppHost starts `Backlog.AzureFoundry.TestService`
-  instead and points the desktop harness at it through
-  `BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT`.
+- **Local runs** — development runs never touch it: the Aspire AppHost starts
+  `Backlog.AzureFoundry.TestService` instead. It points the desktop harness at
+  it through `BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT`, and the sync service at its
+  transcription stand-in through `Modules__Sync__Transcription__Endpoint`, with
+  no credential.
 
 ## Azure Cosmos DB
 

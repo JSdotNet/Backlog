@@ -68,14 +68,48 @@ the same answer as one that sends everything.
 
 ```meta
 type: sub-feature
+related: [.devbook/domain/capture/requirements.md#speech-to-text-capture, .devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md, .devbook/arc42/05-building-block-view.md#mobile-app]
 ```
 
-On-device transcription of voice notes into usable markdown, with retry on
-transcription failure, preserving source metadata.
+```mermaid
+flowchart TD
+    Mic[Person presses the mic] --> Chosen{Engine is Cloud?}
+    Chosen -- no --> Device[On-device: words appear as heard]
+    Chosen -- yes --> Ready{Online, cloud not found unavailable, phone can record?}
+    Ready -- no --> Device
+    Ready -- yes --> Record[Record until stop, at most 5 minutes]
+    Record --> Send[The cloud transcribes the recording]
+    Send -- text --> Field[Text added to the field]
+    Send -- cannot serve --> Notice[Notice, then on-device for the rest of the app run]
+    Send -- transcription failed --> Retry[Failed turn: try again]
+```
 
-On the phone, the capture sheet, the Notes editor and a notification's answer
-boxes take dictation. What was heard is shown and appended to the field, so
-nothing is sent unread.
+Dictation turns speech into text in a field on the phone, keeping the capture's source. The capture sheet, the Notes editor and a notification's answer boxes take it. What was heard is shown and appended to the field, so nothing is sent unread.
+
+The phone has two engines, chosen under **Settings › Dictation › Engine**, beside
+the Dictation **Language**:
+
+| Engine | How a turn reads | Where the audio goes |
+| --- | --- | --- |
+| **On-device** (the default) | Words appear as they are heard. | Nowhere: the phone's own recogniser listens. |
+| **Cloud** | `Recording…`, then `Transcribing…`, then the text. | To the sync service, which hands it to Backlog's Azure model and keeps none of it. |
+
+- **Why:** Cloud is opt-in because the audio leaves the phone. Choosing it is the
+  person's consent, and the phone sends audio only on a turn the person starts.
+- **Why:** On-device stays the default and the fallback, so dictation works with
+  no cloud at all.
+
+A phone that is offline listens on the device at once, with no notice. A sync
+service that cannot transcribe answers with the notice "Cloud dictation is
+unavailable here; using on-device." The phone then dictates on the device until
+the app next starts. A transcription that fails is no fallback: the recording is
+already made, so the person simply tries again.
+
+With one Dictation language chosen, Dutch or English, a cloud turn tells the model
+which. With Dutch and English, or the phone's language, the model detects it.
+[ADR 0045](../../arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)
+records the relay, its limits and what the service never keeps. The rules are in
+[the requirements](requirements.md#speech-to-text-capture).
 
 ### Offline-first sync
 

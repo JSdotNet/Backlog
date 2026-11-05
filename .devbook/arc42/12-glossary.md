@@ -9,7 +9,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devb
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
 ```
 
 | Term | Definition |
@@ -20,7 +20,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Brain** | The person's own notes, one folder per user outside every repository. |
 | **Dot-folder contract** | Scope-portable `.inbox/` folders present at workspace, repo, and project levels. |
 | **Fetch worker** | A local desktop background job that polls an external source (YouTube, website, email, GitHub). |
-| **Thin cloud** | Coordinates sync, forwards webhooks, pushes notifications and hosts the PC registry; holds no domain data and fetches nothing. |
+| **Thin cloud** | Coordinates sync, forwards webhooks, pushes notifications, hosts the PC registry and relays dictation statelessly ([ADR 0045](adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)); holds no domain data and fetches nothing. |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
 | **Note** | An Inbox item of content kind `note`, synced both ways and editable on either side. |

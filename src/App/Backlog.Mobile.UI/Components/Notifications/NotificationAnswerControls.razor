@@ -16,9 +16,11 @@
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
-    Seven or eight choices wrap into two even columns. A question that takes a
-    note adds a plain-text box, "Add a note (optional)", under the answers, and
-    whatever is in it goes with the answer.
+    The choices stack full width, one per row, so every button is the same width;
+    seven or eight wrap into two even columns. A question that takes a note adds
+    "Add a note (optional)" beside the last Send or Answer (on its own row under
+    choice buttons alone), folded until the person opens it; the box opens under
+    the answers, and whatever is in it goes with the answer.
 
     Nothing is drawn unless the phone may answer now (PhoneNotification.CanAnswer):
     a question that says answerOn: owner, an alert, and a reply on its way draw none.
@@ -27,9 +29,15 @@
     one listening turn of ISpeechTranscriber, and what was heard is added to that
     box for the person to read before they send it - dictation never answers on its
     own (.devbook/domain/capture/features.md#speech-to-text-capture). One box listens
-    at a time; a device with no recogniser draws the mic disabled. While a reply is
-    on its way the mics are busy, not disabled: they keep their tab stop and ignore
-    a press (.devbook/design/interaction-guidelines.md#accessibility).
+    at a time; a device with no recogniser draws the mic disabled.
+
+    While a reply is on its way every control is busy, not disabled: it keeps its
+    tab stop, says aria-disabled, and ignores a press or an edit
+    (.devbook/design/interaction-guidelines.md#accessibility). The pressed choice, or
+    Answer or Send, shows the spinner; the other choices, Cancel, the checkboxes and
+    the mics only wait, and the boxes turn read-only. A control that is unavailable
+    rather than waiting - Answer with nothing picked, Send with an empty box, a mic
+    with no recogniser - keeps the native disabled.
 
     The controls answer nothing themselves. They raise OnReply, and the host queues
     the reply through the outbox. Handed another notification, they start over, and
@@ -49,7 +57,7 @@
                     <Checkbox Label="@choice.Label"
                               Checked="@_picked.Contains(choice.Id)"
                               CheckedChanged="@(on => Toggle(choice.Id, on))"
-                              Disabled="@Busy"
+                              Busy="@Busy"
                               TestId="@($"notification-check-{choice.Id}")" />
                 }
             </fieldset>
@@ -60,6 +68,10 @@
                            Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
                            TestId="notification-submit"
                            OnClick="SubmitPicksAsync">Answer</AppButton>
+                @if (spec.Open is null)
+                {
+                    @NoteToggle(spec)
+                }
             </div>
         }
         else if (spec.Choices.Count > 0)
@@ -68,7 +80,9 @@
                 @foreach (var choice in spec.Choices)
                 {
                     <AppButton Variant="@VariantFor(choice.Style)"
-                               Disabled="@Busy"
+                               Busy="@(Busy && _answering == choice.Id)"
+                               BusyLabel="Answering"
+                               aria-disabled="@Blocked"
                                TestId="@($"notification-choice-{choice.Id}")"
                                OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
                 }
@@ -80,7 +94,8 @@
                     <TextArea Label="@($"{composing.Label}: in your own words")"
                               @bind-Value="_choiceText"
                               Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
-                              Disabled="@Busy"
+                              Readonly="@Busy"
+                              aria-disabled="@Blocked"
                               Rows="2"
                               maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
                     <div class="phone-notification__choices">
@@ -91,7 +106,7 @@
                                    TestId="notification-choice-send"
                                    OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
                         <AppButton Variant="ButtonVariant.Secondary"
-                                   Disabled="@Busy"
+                                   aria-disabled="@Blocked"
                                    TestId="notification-choice-cancel"
                                    OnClick="CancelChoiceTextAsync">Cancel</AppButton>
                         @Mic(AnswerBox.ChoiceText, "Dictate your words", "notification-choice-dictate")
@@ -107,7 +122,8 @@
                 <TextArea Label="@(spec.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
                           @bind-Value="_text"
                           Placeholder="@(open.Placeholder ?? "Write an answer…")"
-                          Disabled="@Busy"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
                           Rows="2"
                           TestId="notification-text"
                           maxlength="@open.MaxLength" />
@@ -119,6 +135,7 @@
                                TestId="notification-send"
                                OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
                     @Mic(AnswerBox.Open, "Dictate your answer", "notification-open-dictate")
+                    @NoteToggle(spec)
                 </div>
                 @SpeechStatus(AnswerBox.Open)
             </div>
@@ -126,11 +143,16 @@
 
         @if (spec.Note is { } note)
         {
-            <div class="phone-notification__note" data-testid="notification-note">
-                <TextArea Label="Add a note (optional)"
+            @if (spec.Open is null && !spec.AllowMultiple)
+            {
+                <div class="phone-notification__choices">@NoteToggle(spec)</div>
+            }
+            <div class="phone-notification__note" id="@_noteRegionId" hidden="@(!_noteOpen)" data-testid="notification-note">
+                <TextArea Label="Note"
                           @bind-Value="_note"
                           Placeholder="@note.Placeholder"
-                          Disabled="@Busy"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
                           Rows="2"
                           TestId="notification-note-text"
                           maxlength="@note.MaxLength" />
@@ -151,7 +173,15 @@
     private string? _composing;
     private string? _choiceText;
     private string? _note;
+    private string? _answering;
+    private bool _noteOpen;
+    private readonly string _noteRegionId = "notification-note-" + Guid.NewGuid().ToString("N");
     private Guid _shownId;
+
+    /// <summary>aria-disabled for a control that waits on a reply on its way. It is
+    /// never the native attribute: that would drop the control from the tab order and
+    /// take the focus off it mid-act (.devbook/design/interaction-guidelines.md#accessibility).</summary>
+    private string? Blocked => Busy ? "true" : null;
 
     private bool? _speechSupported;
     private AnswerBox? _listeningTo;
@@ -204,6 +234,7 @@
         _composing = null;
         _choiceText = null;
         _note = null;
+        _noteOpen = false;
 
         await StopDictatingAsync();
     }
@@ -225,10 +256,23 @@
         await StopDictatingAsync();
     }
 
-    /// <summary>Seven or eight choices wrap into an even grid rather than one long row.</summary>
+    /// <summary>
+    /// The fold that opens the note box. It sits beside the last Send or Answer, so a
+    /// folded note costs no row of its own; with only choice buttons it gets one.
+    /// </summary>
+    private RenderFragment NoteToggle(AnswerSpec spec) => spec.Note is null
+        ? _ => { }
+        : @<FoldControl Label="Add a note (optional)"
+                        Expanded="_noteOpen"
+                        ExpandedChanged="open => _noteOpen = open"
+                        Controls="@_noteRegionId"
+                        CssClass="phone-notification__note-toggle"
+                        TestId="notification-note-toggle" />;
+
+    /// <summary>The choices stack full width, one per row; seven or eight wrap into two even columns.</summary>
     private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
         ? "phone-notification__choices phone-notification__choices--many"
-        : "phone-notification__choices";
+        : "phone-notification__choices phone-notification__choices--stack";
 
     private static string PickHint(AnswerSpec spec)
     {
@@ -258,6 +302,9 @@
 
     private async Task ChooseAsync(AnswerChoice choice)
     {
+        // A busy choice is still focusable and pressable, so the press is dropped here.
+        if (Busy) return;
+
         if (choice.TakesText)
         {
             // Its words come first: the box opens and nothing is queued until Send.
@@ -272,11 +319,22 @@
             return;
         }
 
-        await ReplyAsync([choice.Id], null);
+        // The pressed choice carries the spinner while its reply is kept; the others only wait.
+        _answering = choice.Id;
+        try
+        {
+            await ReplyAsync([choice.Id], null);
+        }
+        finally
+        {
+            _answering = null;
+        }
     }
 
     private async Task CancelChoiceTextAsync()
     {
+        if (Busy) return;
+
         _composing = null;
         _choiceText = null;
 
@@ -301,6 +359,7 @@
         _composing = null;
         _choiceText = null;
         _note = null;
+        _noteOpen = false;
     }
 
     /// <summary>A mic for one box, pressed while that box is listening.</summary>

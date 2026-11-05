@@ -3,6 +3,10 @@
   <ItemGroup>
     <!-- FakeTimeProvider: the clock the developer sign-in token cache is tested against. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- WebApplicationFactory: the transcription stand-in in the local test service is
+         driven over its real pipeline, so its route order before the catch-all is
+         what is tested (local ADR 0045). -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>

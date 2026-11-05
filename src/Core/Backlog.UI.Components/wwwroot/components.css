@@ -9606,6 +9606,13 @@ textarea {
     cursor: default;
 }
 
+/* A box blocked while a reply is on its way is read-only and aria-disabled
+   rather than disabled, so it keeps its tab stop; it reads as disabled does. */
+.field__input[aria-disabled="true"] {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
 .field--invalid .field__input {
     border-color: var(--color-border-strong);
     border-width: var(--border-width-2);
@@ -9996,6 +10003,13 @@ select.field__input {
 .checkbox__input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* Busy: the box keeps its tab stop but ignores a change, so it reads as a
+   disabled one does and a press on it does not look lost. */
+.checkbox:has(> .checkbox__input[aria-disabled="true"]) {
+    cursor: default;
+    opacity: 0.55;
 }
 
 /*

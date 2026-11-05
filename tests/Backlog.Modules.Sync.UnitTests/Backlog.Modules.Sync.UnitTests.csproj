@@ -8,6 +8,9 @@
     <!-- FakeTimeProvider: the pairing-code window is ten minutes, and a test
          that proves expiry has to move the clock rather than wait for it. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- The container, for what AddSyncModule() composes when a host brings no
+         transcriber and when it brings its own. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
 </Project>

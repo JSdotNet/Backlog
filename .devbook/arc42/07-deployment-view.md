@@ -160,7 +160,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service runs in Azure as a single-region, low-cost footprint sized for sync coordination and webhook forwarding.
@@ -173,6 +173,7 @@ The optional cloud service runs in Azure as a single-region, low-cost footprint 
 - **Notification Hubs:** the service uses SAS Send and Manage keys. The hub reaches Firebase Cloud Messaging over FCM v1, which delivers a data-only push to the mobile app.
 - **Pull now:** Web PubSub tells the desktop to pull.
 - **GitHub:** webhook events arrive at the service.
+- **Azure AI Foundry:** the service's managed identity reaches `backlog-foundry` and its `gpt-4o-transcribe` deployment as Cognitive Services OpenAI User.
 
 Deployment considerations:
 
@@ -199,6 +200,20 @@ Deployment considerations:
 - **Two Notification Hubs keys, because that service takes no identity** *(local
   ADR 0039 §5)* — the only data credentials handed to the service are the connection strings of the hub's `sync-send` and `sync-manage` rules. Bicep reads them with `listKeys()` into the container app secrets `notification-hubs-send-connection-string` and `notification-hubs-manage-connection-string`. The service reads them as `Sync__NotificationHubs__SendConnectionString` and `…ManageConnectionString`, beside `Sync__NotificationHubs__Hub`. No output echoes either; `docs/deployment/sync.md` lists the resources.
 - **The FCM credential is entered by hand** — the hub's FCM v1 credential (project id, client email, private key) is not in Bicep. A person enters it on the hub once Firebase is set up; until then no phone is pushed.
+- **Dictation relay to Foundry** *(local ADR 0045)* —
+  the service hands a phone dictation to the `gpt-4o-transcribe` deployment on
+  `backlog-foundry` and keeps neither the audio nor the text.
+  - The sync identity gets **Cognitive Services OpenAI User**, scoped to the Foundry
+    account, granted from `infra/sync/main.bicep`. When the two templates sit in
+    different resource groups, a module scoped to Foundry's group makes the grant.
+  - The container gains the `Modules:Sync:Transcription` settings: `Endpoint`,
+    `Deployment` (`gpt-4o-transcribe`), `ApiVersion` (`2025-03-01-preview`),
+    `MaxBytes` (25 MB) and `ContentTypes`. No key is issued.
+  - Off until the azd value `SYNC_FOUNDRY_ACCOUNT_NAME` names the Foundry account
+    (`docs/deployment/sync.md`): with it empty, the template grants nothing and the
+    route answers `503`, so every phone dictates on-device.
+  - Locally, the AppHost points `Endpoint` at a transcription stand-in in
+    `Backlog.AzureFoundry.TestService`.
 - **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs
   resources in `infra/sync/main.bicep` exist in Azure, and the sync container app
   carries their settings. Pushes wait on the hub's FCM credential.

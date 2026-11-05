@@ -415,7 +415,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.26.0",
+      "pluginVersion": "1.34.0",
       "enabled": [
         "issue-sweep",
         "merge-review",
