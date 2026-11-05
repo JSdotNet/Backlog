@@ -114,7 +114,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   the phone's own captures as cards the library draws (CaptureRow). Colours are
   the library's tokens.
 */
-.inbox-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .inbox-heading__titles { display: grid; gap: .125rem; }
 .inbox-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
@@ -170,7 +170,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   only lays them out down the screen and pins the capture button above the tab
   bar, where a thumb already is. Colours are the library's tokens.
 */
-.today-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.today-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .today-heading__titles { display: grid; gap: .125rem; }
 .today-heading__date { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .today-heading h1 { margin: 0; font-family: var(--font-family-heading); }
@@ -302,7 +302,8 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   this file lays them out down the screen. Every target keeps the 44px touch
   minimum, and the colours are the library's tokens.
 */
-.standup-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+/* The heading is screen-reader only, so the refresh is the one thing on the row: keep it at the end. */
+.standup-heading { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin-bottom: .75rem; }
 .standup-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 /* The artboard's refresh: a 44px box on the raised surface, inside the border. */
 .standup-heading__refresh {
@@ -426,7 +427,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   as small tags with the age across from them, the title, the summary, the answer
   controls, where it stands, and the desktop that owns it in the mono line.
 */
-.notifications-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.notifications-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .notifications-heading__titles { display: grid; gap: .125rem; }
 .notifications-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .notifications-heading h1 { margin: 0; font-family: var(--font-family-heading); }
