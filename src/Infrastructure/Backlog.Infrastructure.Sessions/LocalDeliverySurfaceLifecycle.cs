@@ -32,19 +32,23 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly IDevbookSyncVerdicts? _verdicts;
     private readonly Func<INotifications?>? _notifications;
     private readonly ILogger _logger;
+    private readonly ISessionRepositoryResolver? _repositories;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
     /// profile, this device's identity, whatever is showing the application — which
     /// may be nothing, on a host that composed the port without a window — and where
     /// chapter verdicts are kept, which may also be nothing: the run keeps its own
     /// verdicts either way. And Notifications, told when a run finishes so a question
-    /// about it closes — nothing, on a host that composed no notifications.</summary>
+    /// about it closes — nothing, on a host that composed no notifications. And which
+    /// registered clone a worktree lies in, for the run's question when the run sent no
+    /// repository — nothing, on a head without a repository list.</summary>
     internal LocalDeliverySurfaceLifecycle(
         IDeviceIdentitySource identity,
         ISessionsSurfaceActivator? shell = null,
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        ISessionRepositoryResolver? repositories = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
@@ -52,7 +56,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             shell,
             verdicts,
             notifications,
-            logger)
+            logger,
+            repositories)
     {
     }
 
@@ -65,7 +70,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         ISessionsSurfaceActivator? shell = null,
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        ISessionRepositoryResolver? repositories = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
@@ -73,6 +79,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         _verdicts = verdicts;
         _notifications = notifications;
         _logger = logger ?? NullLogger.Instance;
+        _repositories = repositories;
     }
 
     private static string IdOf(IDeviceIdentitySource identity)
@@ -484,7 +491,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // run in the same write. What this call passes, not what the stage holds: an
         // earlier attempt's links and output are still on it.
         await ValidationQuestions.OnStageAsync(
-            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, cancellationToken).ConfigureAwait(false);
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, _repositories, cancellationToken).ConfigureAwait(false);
 
         WritePhaseDoneCounts(run);
 

@@ -55,7 +55,7 @@ answer.
 5. **Resolve the note**, by the table: `devbook_resolve_note` for a default-branch note,
    `resolve_annotation` for the rest. Answer first, resolve second, always: an answered note
    still open can be found, while a note resolved without its answer has lost it.
-6. **Report.** Name every note answered and how, with the full answer for each note answered
+6. **Report**, opened with the `show-me` skill's orientation card when it has one. Name every note answered and how, with the full answer for each note answered
    in the report alone; every note left open with the reason; and every fix handed to the
    gate. **Never push**, and never open a pull request.
 

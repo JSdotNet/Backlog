@@ -125,7 +125,7 @@ To add a tool, add a row here and a sniff in step 1.
    say to open it in a browser. The page parses the embedded manifest itself, so it cannot
    disagree with the file. When a check fails, fix the manifest and rebuild the view.
    Never patch the view.
-10. **Report**: the manifest's path, the view's link or path, and the counts — items
+10. **Report**, opened with the `show-me` skill's orientation card when it has one: the manifest's path, the view's link or path, and the counts — items
     written, per Inbox List and unfiled; completed tasks dropped, per source list; ids
     that fell back; and every label and list left unmapped. Name the Inbox Lists that
     must exist before the import runs. Then stop: never open the app, import, or delete

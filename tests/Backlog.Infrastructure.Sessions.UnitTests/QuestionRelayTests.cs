@@ -154,6 +154,120 @@ public sealed class QuestionRelayTests : IDisposable
         Assert.Equal("Database", QuestionRelay.Draft(dialog, 0).Title);
     }
 
+    [Fact]
+    public async Task A_known_session_titles_its_question_with_repository_change_and_header()
+    {
+        var source = new FixedSource(Known("session-1"));
+        _presence.IsAway = true;
+
+        await Relay(source).AskAsync("session-1", "toolu_1", [Pick], Ct);
+
+        var draft = Assert.Single(_notifications.Published).Draft;
+        Assert.Equal("Backlog · Notification titles · Answer: Database", draft.Title);
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), draft.Origin);
+    }
+
+    [Fact]
+    public async Task A_known_session_titles_a_question_without_a_header_by_what_to_do()
+    {
+        _presence.IsAway = true;
+
+        await Relay(new FixedSource(Known("session-1"))).AskAsync("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], Ct);
+
+        Assert.Equal("Backlog · Notification titles · Answer the question", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
+    /// <summary>The session is looked up once for the dialog, not once per question.</summary>
+    [Fact]
+    public async Task A_known_session_titles_each_of_several_questions_by_its_place_in_the_dialog()
+    {
+        var bare = new RelayQuestion("Which tags apply?", Options: [new RelayOption("ui"), new RelayOption("api")]);
+        var source = new FixedSource(Known("session-1"));
+        _presence.IsAway = true;
+
+        await Relay(source).AskAsync("session-1", "toolu_1", [Pick, bare], Ct);
+
+        Assert.Equal(
+            ["Backlog · Notification titles · Answer: Database", "Backlog · Notification titles · Answer 2 of 2"],
+            _notifications.Published.Select(published => published.Draft.Title));
+        Assert.Equal(1, source.Reads);
+    }
+
+    [Fact]
+    public async Task A_session_listed_in_another_case_is_still_found()
+    {
+        _presence.IsAway = true;
+
+        await Relay(new FixedSource(Known("SESSION-1"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
+
+        Assert.Equal("Backlog · Notification titles · Answer: Database", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
+    [Fact]
+    public void A_session_without_a_resolved_repository_uses_the_one_it_recorded()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+        var session = Known("session-1") with { ResolvedRepository = null, Repository = "JSdotNet/Recorded" };
+
+        Assert.Equal("Recorded · Notification titles · Answer: Database", QuestionRelay.Draft(asked, 0, session).Title);
+    }
+
+    [Fact]
+    public void A_session_with_neither_repository_nor_title_keeps_todays_title()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+        var session = Known("session-1") with { ResolvedRepository = null, Repository = " ", Title = " " };
+
+        Assert.Equal("Database", QuestionRelay.Draft(asked, 0, session).Title);
+    }
+
+    [Fact]
+    public void The_sidebars_name_for_a_session_comes_before_its_transcripts()
+    {
+        var asked = WaitingQuestions.Ask("session-1", "toolu_1", [Pick], true, NotifyAfter, Noon);
+        var session = Known("session-1") with { Title = "glance-first-output-984a2b", DesktopTitle = "Glance first output" };
+
+        Assert.Equal("Backlog · Glance first output · Answer: Database", QuestionRelay.Draft(asked, 0, session).Title);
+    }
+
+    [Fact]
+    public async Task A_catalog_too_slow_to_answer_still_publishes_with_todays_title()
+    {
+        _presence.IsAway = true;
+
+        var asking = Relay(new HangingSource()).AskAsync("session-1", "toolu_1", [Pick], Ct);
+
+        while (!asking.IsCompleted)
+        {
+            _clock.Advance(QuestionRelay.SessionLookupLimit);
+            await Task.Delay(10, Ct);
+        }
+
+        Assert.Equal(WaitingQuestionState.Notified, (await asking).Value.State);
+        Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
+    [Fact]
+    public async Task A_catalog_that_throws_still_publishes_with_todays_title()
+    {
+        _presence.IsAway = true;
+
+        var asked = await Relay(new ThrowingSource()).AskAsync("session-1", "toolu_1", [Pick], Ct);
+
+        Assert.Equal(WaitingQuestionState.Notified, asked.Value.State);
+        Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
+    [Fact]
+    public async Task A_session_the_catalog_does_not_hold_keeps_todays_title()
+    {
+        _presence.IsAway = true;
+
+        await Relay(new FixedSource(Known("session-2"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
+
+        Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
     /// <summary>Both cards draw the body under the summary, so a question the summary holds
     /// whole is not repeated: the body keeps the choices alone.</summary>
     [Fact]
@@ -591,6 +705,12 @@ public sealed class QuestionRelayTests : IDisposable
     private static AgentSession Session(string id, AgentSessionState state) =>
         new(id, AgentSessionKind.Claude, "machine", "PC", id, @"D:\work", null, null, Noon, Noon, state, null, AgentSessionOrigin.Local);
 
+    private QuestionRelay Relay(IAgentSessionSource source) =>
+        new(_store, _presence, () => NotifyAfter, () => _notifications, _clock, sessions: () => source);
+
+    private static AgentSession Known(string id) =>
+        Session(id, AgentSessionState.Running) with { Title = "Notification titles", ResolvedRepository = "JSdotNet/Backlog" };
+
     private sealed class FakePresence : IPresence
     {
         public bool IsAway { get; set; }
@@ -600,15 +720,38 @@ public sealed class QuestionRelayTests : IDisposable
         public DateTimeOffset? LastPromptAt(string sessionId) => null;
     }
 
-    private sealed class FixedSource(params AgentSession[] sessions) : IAgentSessionSource
+    private sealed class HangingSource : IAgentSessionSource
     {
-        public AgentSession[] Sessions { get; set; } = sessions;
-
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
 
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Length));
+            new TaskCompletionSource<AgentSessionCatalog>().Task;
+    }
+
+    private sealed class FixedSource(params AgentSession[] sessions) : IAgentSessionSource
+    {
+        public AgentSession[] Sessions { get; set; } = sessions;
+
+        public int Reads { get; private set; }
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            return Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Length));
+        }
+    }
+
+    private sealed class ThrowingSource : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            throw new IOException("The profile could not be read.");
     }
 
     /// <summary>Notifications whose publish holds until <see cref="Release"/>, so a test can

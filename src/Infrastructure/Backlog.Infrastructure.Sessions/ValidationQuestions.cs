@@ -9,9 +9,9 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
-/// The question Sessions asks when a delivery run reaches Personal Validation: "Approve the
-/// validation of &lt;run&gt;?", with the gate's handoff as its body and the choices Approve,
-/// Approve + follow-up, Revise and Reject
+/// The question Sessions asks when a delivery run reaches Personal Validation, titled
+/// "&lt;repository&gt; · &lt;run&gt; · Approve or revise", with the gate's handoff as its body and
+/// the choices Approve, Approve + follow-up, Revise and Reject
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
 /// file as the gate decision — the pull request is still opened at the desktop.
@@ -34,6 +34,7 @@ internal static class ValidationQuestions
 {
     private const string Key = "validationQuestion";
     private const int MaxTitleLength = 80;
+    private const string TitleAsk = "Approve or revise";
 
     /// <summary>The body's bound, in UTF-8 bytes
     /// (<c>.devbook/domain/notifications/domain.invariants.md#invariant-title-and-summary-stay-within-their-bounds</c>).
@@ -67,7 +68,8 @@ internal static class ValidationQuestions
         string runId,
         Func<INotifications?>? notifications,
         ILogger logger,
-        CancellationToken cancellationToken)
+        ISessionRepositoryResolver? repositories = null,
+        CancellationToken cancellationToken = default)
     {
         if (notifications is null || !DeliveryRunStageResolution.IsGate(stageName)) return;
 
@@ -99,7 +101,7 @@ internal static class ValidationQuestions
 
                 if (asked is null || !Flag(asked, "armed") || (handoff is null && shown.Count == 0)) return;
 
-                var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown), cancellationToken).ConfigureAwait(false);
+                var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown, repositories), cancellationToken).ConfigureAwait(false);
 
                 if (published.IsFailure)
                 {
@@ -238,12 +240,15 @@ internal static class ValidationQuestions
         string runId,
         string worktree,
         string? handoff,
-        IReadOnlyList<DeliveryStageLink> links)
+        IReadOnlyList<DeliveryStageLink> links,
+        ISessionRepositoryResolver? repositories = null)
     {
         var title = OneLine(Text(run, "title"));
         if (title.Length == 0) title = runId;
 
-        var repository = Text(run, "repo");
+        // An attended run sends no repository, so the worktree's registered clone answers.
+        var sent = Text(run, "repo");
+        var repository = string.IsNullOrWhiteSpace(sent) ? repositories?.RepositoryOf(worktree) : sent;
         var followUp = GatedEntryOf(run) is not null;
 
         return new NotificationDraft(
@@ -251,7 +256,7 @@ internal static class ValidationQuestions
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Run, runId),
             NotificationKind.Question,
             NotificationSeverity.Info,
-            Title(title),
+            NotificationText.Glance(repository, title, TitleAsk, MaxTitleLength),
             "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
             Body(title, repository, followUp, handoff, links),
             new AnswerSpec(
@@ -263,10 +268,9 @@ internal static class ValidationQuestions
                     new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
                     new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
                 ]),
-            Origin: NotificationOrigin.Fit(
-                NotificationOrigins.ClaudeCode,
-                string.IsNullOrWhiteSpace(repository) ? title : $"{repository.Trim()}{NotificationOrigin.Separator}{title}",
-                via: NotificationOrigins.AgentSession));
+            // The title names the run, so the place is the repository alone and the card does
+            // not print the run twice.
+            Origin: NotificationOrigin.Fit(NotificationOrigins.ClaudeCode, repository, via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>
@@ -322,16 +326,6 @@ internal static class ValidationQuestions
         while (room > 0 && (bytes[room] & 0xC0) == 0x80) room--;
 
         return Encoding.UTF8.GetString(bytes, 0, room).TrimEnd() + tail;
-    }
-
-    /// <summary>"Approve the validation of &lt;run&gt;?", the run's title shortened to fit
-    /// the title's 80 characters.</summary>
-    private static string Title(string run)
-    {
-        const string Before = "Approve the validation of ";
-        var room = MaxTitleLength - Before.Length - 1;
-
-        return $"{Before}{NotificationText.Cut(run, room)}?";
     }
 
     private static bool Waiting(JsonObject run, NotificationAnswer answer, out JsonObject asked)
