@@ -331,13 +331,13 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 type: requirement
 ```
 
-The system SHALL count every open question in the tab's waiting count and badge and SHALL push every notification to the phone, whatever the phone's filters hold.
+The system SHALL count every open question in the tab's waiting count and SHALL push every notification to the phone, whatever the phone's filters hold.
 
 #### Scenario: A question outside the filter
 
 - **Given** the person picked spec-manager under From
 - **When** Desktop A publishes a Claude Code question
-- **Then** the phone's tray shows it, and the waiting count and the tab's badge count it, though neither view lists it
+- **Then** the phone's tray shows it, and the waiting count counts it, though neither view lists it
 
 ### Requirement: Android is the only phone platform
 
