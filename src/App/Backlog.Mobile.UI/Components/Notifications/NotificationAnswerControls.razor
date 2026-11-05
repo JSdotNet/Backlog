@@ -29,9 +29,15 @@
     one listening turn of ISpeechTranscriber, and what was heard is added to that
     box for the person to read before they send it - dictation never answers on its
     own (.devbook/domain/capture/features.md#speech-to-text-capture). One box listens
-    at a time; a device with no recogniser draws the mic disabled. While a reply is
-    on its way the mics are busy, not disabled: they keep their tab stop and ignore
-    a press (.devbook/design/interaction-guidelines.md#accessibility).
+    at a time; a device with no recogniser draws the mic disabled.
+
+    While a reply is on its way every control is busy, not disabled: it keeps its
+    tab stop, says aria-disabled, and ignores a press or an edit
+    (.devbook/design/interaction-guidelines.md#accessibility). The pressed choice, or
+    Answer or Send, shows the spinner; the other choices, Cancel, the checkboxes and
+    the mics only wait, and the boxes turn read-only. A control that is unavailable
+    rather than waiting - Answer with nothing picked, Send with an empty box, a mic
+    with no recogniser - keeps the native disabled.
 
     The controls answer nothing themselves. They raise OnReply, and the host queues
     the reply through the outbox. Handed another notification, they start over, and
@@ -51,7 +57,7 @@
                     <Checkbox Label="@choice.Label"
                               Checked="@_picked.Contains(choice.Id)"
                               CheckedChanged="@(on => Toggle(choice.Id, on))"
-                              Disabled="@Busy"
+                              Busy="@Busy"
                               TestId="@($"notification-check-{choice.Id}")" />
                 }
             </fieldset>
@@ -74,7 +80,9 @@
                 @foreach (var choice in spec.Choices)
                 {
                     <AppButton Variant="@VariantFor(choice.Style)"
-                               Disabled="@Busy"
+                               Busy="@(Busy && _answering == choice.Id)"
+                               BusyLabel="Answering"
+                               aria-disabled="@Blocked"
                                TestId="@($"notification-choice-{choice.Id}")"
                                OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
                 }
@@ -86,7 +94,8 @@
                     <TextArea Label="@($"{composing.Label}: in your own words")"
                               @bind-Value="_choiceText"
                               Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
-                              Disabled="@Busy"
+                              Readonly="@Busy"
+                              aria-disabled="@Blocked"
                               Rows="2"
                               maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
                     <div class="phone-notification__choices">
@@ -97,7 +106,7 @@
                                    TestId="notification-choice-send"
                                    OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
                         <AppButton Variant="ButtonVariant.Secondary"
-                                   Disabled="@Busy"
+                                   aria-disabled="@Blocked"
                                    TestId="notification-choice-cancel"
                                    OnClick="CancelChoiceTextAsync">Cancel</AppButton>
                         @Mic(AnswerBox.ChoiceText, "Dictate your words", "notification-choice-dictate")
@@ -113,7 +122,8 @@
                 <TextArea Label="@(spec.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
                           @bind-Value="_text"
                           Placeholder="@(open.Placeholder ?? "Write an answer…")"
-                          Disabled="@Busy"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
                           Rows="2"
                           TestId="notification-text"
                           maxlength="@open.MaxLength" />
@@ -141,7 +151,8 @@
                 <TextArea Label="Note"
                           @bind-Value="_note"
                           Placeholder="@note.Placeholder"
-                          Disabled="@Busy"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
                           Rows="2"
                           TestId="notification-note-text"
                           maxlength="@note.MaxLength" />
@@ -162,9 +173,15 @@
     private string? _composing;
     private string? _choiceText;
     private string? _note;
+    private string? _answering;
     private bool _noteOpen;
     private readonly string _noteRegionId = "notification-note-" + Guid.NewGuid().ToString("N");
     private Guid _shownId;
+
+    /// <summary>aria-disabled for a control that waits on a reply on its way. It is
+    /// never the native attribute: that would drop the control from the tab order and
+    /// take the focus off it mid-act (.devbook/design/interaction-guidelines.md#accessibility).</summary>
+    private string? Blocked => Busy ? "true" : null;
 
     private bool? _speechSupported;
     private AnswerBox? _listeningTo;
@@ -285,6 +302,9 @@
 
     private async Task ChooseAsync(AnswerChoice choice)
     {
+        // A busy choice is still focusable and pressable, so the press is dropped here.
+        if (Busy) return;
+
         if (choice.TakesText)
         {
             // Its words come first: the box opens and nothing is queued until Send.
@@ -299,11 +319,22 @@
             return;
         }
 
-        await ReplyAsync([choice.Id], null);
+        // The pressed choice carries the spinner while its reply is kept; the others only wait.
+        _answering = choice.Id;
+        try
+        {
+            await ReplyAsync([choice.Id], null);
+        }
+        finally
+        {
+            _answering = null;
+        }
     }
 
     private async Task CancelChoiceTextAsync()
     {
+        if (Busy) return;
+
         _composing = null;
         _choiceText = null;
 
