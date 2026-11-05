@@ -111,6 +111,65 @@ public sealed class NotificationPagerScreenTests
     }
 
     [Fact]
+    public async Task While_a_reply_is_kept_next_is_busy_not_disabled_and_ignores_a_press()
+    {
+        var (host, service, clock) = Phone(Newer, Older);
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
+
+        app.Find("[data-testid='notification-choice-yes']").Click();
+        app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='notifications-pager-confirmation']")));
+
+        // Waiting, not unavailable: Next keeps its tab stop and says aria-disabled.
+        var next = app.Find("[data-testid='notifications-pager-next']");
+        Assert.Equal("true", next.GetAttribute("aria-disabled"));
+        Assert.False(next.HasAttribute("disabled"));
+        // At the first card Previous is unavailable, so it stays natively disabled.
+        Assert.True(app.Find("[data-testid='notifications-pager-previous']").HasAttribute("disabled"));
+
+        next.Click();
+        // A swipe goes through the same guard.
+        await app.FindComponent<NotificationPager>().Instance.OnSwiped("next");
+
+        Assert.Equal("1 / 2", Position(app));
+        Assert.Equal(Older.Title, Title(app));
+
+        clock.Advance(NotificationPager.ConfirmationPause);
+
+        app.WaitForAssertion(() => Assert.Equal(Newer.Title, Title(app)));
+        Assert.Single(service.Replies);
+        Assert.False(app.Find("[data-testid='notifications-pager-next']").HasAttribute("aria-disabled"));
+    }
+
+    [Fact]
+    public void While_a_reply_is_kept_previous_is_busy_not_disabled_and_ignores_a_press()
+    {
+        var (host, _, _) = Phone(Newer, Older);
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
+        app.Find("[data-testid='notifications-pager-next']").Click();
+        app.WaitForAssertion(() => Assert.Equal("2 / 2", Position(app)));
+
+        app.Find("[data-testid='notification-choice-yes']").Click();
+        app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='notifications-pager-confirmation']")));
+
+        var previous = app.Find("[data-testid='notifications-pager-previous']");
+        Assert.Equal("true", previous.GetAttribute("aria-disabled"));
+        Assert.False(previous.HasAttribute("disabled"));
+        // Next leads past the last card to the end screen, so it is waiting too, not unavailable.
+        var next = app.Find("[data-testid='notifications-pager-next']");
+        Assert.Equal("true", next.GetAttribute("aria-disabled"));
+        Assert.False(next.HasAttribute("disabled"));
+
+        previous.Click();
+
+        Assert.Equal("2 / 2", Position(app));
+        Assert.Equal(Newer.Title, Title(app));
+    }
+
+    [Fact]
     public async Task A_swipe_moves_between_items_and_never_answers()
     {
         var (host, service, _) = Phone(Newer, Older);
