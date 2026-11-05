@@ -574,16 +574,16 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/design/settings-pages.md"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
-The shell (`MainLayout`) is a title bar carrying the version control and the sync
-status, the page, and three tabs along the bottom, withheld until the device is
-paired.
+The shell (`MainLayout`) is a title bar carrying the version control, the sync
+status and a settings button, the page, and three tabs along the bottom, withheld
+until the device is paired.
 
 The **version control** (`AppUpdateControl`) is the app bar's title. It names the
 app and the running version, and opens the update bottom sheet, the phone's
@@ -595,6 +595,17 @@ registers `ApkAppUpdateService` for it (`Backlog.Mobile.UI/AppUpdate`), which
 checks GitHub Releases and installs through `AndroidApkInstaller`
 (`Backlog.Mobile/Services`). `.devbook/arc42/07-deployment-view.md#installation-and-updates-mobile`
 describes the update path.
+
+The **settings button** (`SettingsControl`) opens the Settings bottom sheet. It
+holds the phone's own settings, which belong to this device and never sync. Its
+one group today is Dictation, which picks the language dictation listens for. The
+sheet keeps the choice through the port `ISpeechSettingsStore` in
+`Backlog.Mobile.UI`, where `AddMobileShell` registers an in-memory default. The
+Android head answers it with `PreferencesSpeechSettingsStore` over MAUI
+`IPreferences`, so the choice outlives a launch. Both speech transcribers read it
+at the start of every listening turn and turn it into a recogniser request through
+`DictationRequest.For`. They are the Android recogniser and Web Speech in the
+browser harness. `.devbook/design/settings-pages.md` describes the sheet.
 
 The tabs are:
 
@@ -637,6 +648,7 @@ graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
     Version["Version control\n(update bottom sheet)"]
+    Settings["Settings sheet\n(Dictation language)"]
     InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
@@ -655,6 +667,7 @@ graph TB
   subgraph "Platform (Backlog.Mobile)"
     Picker["Attachment picker\n(camera, pictures, files)"]
     Speech["Speech transcriber"]
+    Prefs["Preferences\n(speech settings)"]
     Share["Share target"]
     Creds["Secure storage\n(device credential)"]
     Installer["APK installer\n(PackageInstaller)"]
@@ -667,6 +680,9 @@ graph TB
   Version -->|"list releases"| Releases
   Version -->|"on the person's tap"| Installer
   Installer -->|"download APK"| Releases
+  Shell --> Settings
+  Settings --> Prefs
+  Speech -->|"language each turn"| Prefs
   Shell --> InboxTab
   Shell --> NoteTab
   Shell --> TasksTab

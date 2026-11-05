@@ -67,6 +67,7 @@ the same answer as one that sends everything.
 ```meta
 type: sub-feature
 status: draft
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.DictationRequestTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.SettingsSheetTests]
 ```
 
 On-device transcription of voice notes into usable markdown, with retry on
@@ -75,6 +76,23 @@ transcription failure, preserving source metadata.
 On the phone, dictation is the capture sheet's. What was heard is shown on a
 line and appended to what is already in the field, so nothing is sent that the
 person has not read first.
+
+Dictation listens in the language the person picks in the phone's Settings
+sheet, under Dictation › Language:
+
+| Language | What dictation listens for |
+| --- | --- |
+| **Dutch and English** (the default) | On Android 14 and later, the phone works out which of the two is spoken and may switch between them within one turn. Earlier versions listen for Dutch. |
+| **Dutch** | Dutch alone. |
+| **English** | English alone. |
+| **Phone language** | The phone's own language, as dictation did before the setting existed. |
+
+The phone keeps the choice across launches and reads it at the start of every
+turn, so a change applies to the next dictation. A turn ends after about two and
+a half seconds of silence, though Android may not honour that. When the phone
+lacks the speech model for the language, the message says to download it in
+Google's speech recognition settings or to choose one language — or, with one
+chosen, another — in Settings.
 
 ### Offline-first sync
 

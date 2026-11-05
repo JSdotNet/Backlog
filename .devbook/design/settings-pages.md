@@ -323,6 +323,34 @@ Rules:
   actions, each as tall as its content and aligned to the start: no fixed
   height, and no flex basis on the title side, which a column reads as one.
 
+## The Phone's Settings Sheet
+
+```meta
+related: [".devbook/design/settings-pages.md#settings-card", ".devbook/design/settings-pages.md#saved-as-you-go", ".devbook/arc42/05-building-block-view.md#mobile-app"]
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.SettingsSheetTests.The_app_bar_opens_a_settings_sheet_with_the_dictation_language, unit:dotnet:Backlog.Mobile.UI.UnitTests.SettingsSheetTests.Dutch_and_English_is_chosen_until_the_person_chooses_otherwise, unit:dotnet:Backlog.Mobile.UI.UnitTests.SettingsSheetTests.A_choice_is_kept_in_the_phone_settings_and_shown_on_the_next_opening, unit:dotnet:Backlog.Mobile.UI.UnitTests.SettingsSheetTests.The_next_dictation_listens_in_the_language_chosen]
+```
+
+The phone app has no Settings screen. Its settings are a bottom sheet, a
+`DetailSheet` titled `Settings`, which the cog at the end of the app bar opens.
+The cog sits beside the sync status as an `IconButton` named `Settings`, with a
+44 px target. `SettingsControl` in `Backlog.Mobile.UI` draws both.
+
+| Part | What it shows |
+|---|---|
+| Group | A `SettingsCard` with its title at `h3`, under the sheet's title, then one sentence and the control. |
+| Dictation | A `Language` `RadioGroup`: Dutch and English (the default), Dutch, English, Phone language. Its sentence says Dutch and English detects the language spoken on Android 14 and later. |
+
+A choice is stored the moment it is tapped, as *Saved as You Go* says, so the
+sheet has no Save button. The sheet holds a handful of settings, so it has no
+menu, search, declared card titles or addresses. The grouped list under
+*Phone Width* is the navigation of the address-based screen, not this sheet.
+
+Rules:
+
+- A new phone setting MUST join the sheet as its own `SettingsCard`.
+- When the sheet outgrows one screen, revisit it: that is the point for a
+  grouped list and addresses.
+
 ## Addresses
 
 ```meta
