@@ -318,11 +318,14 @@ html, body { background-color: var(--color-background); color: var(--color-text-
     color: var(--color-text-secondary);
 }
 
-.standup, .standup-detail { display: grid; gap: 1.5rem; padding-bottom: 1.5rem; }
-.standup__iteration { display: grid; gap: .75rem; }
+/* Every stand-up grid holds one column no wider than the screen: an auto column would
+   grow to its widest one-line content (an impediment's ellipsised meta line) and push
+   the whole page past the phone's edge. */
+.standup, .standup-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding-bottom: 1.5rem; }
+.standup__iteration { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
 .standup__windows { color: var(--color-text-secondary); font-size: .8125rem; }
 
-.standup__block { display: grid; gap: .5rem; }
+.standup__block { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
 .standup__block-head { display: flex; align-items: center; gap: .5rem; }
 .standup__block-head .standup__block-title { flex: 1; }
 .standup__block-title {
@@ -346,6 +349,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 
 .standup__impediments {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     overflow: hidden;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
