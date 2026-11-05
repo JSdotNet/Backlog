@@ -337,11 +337,19 @@ public sealed class NotificationScreenTests
         var (host, service, _) = Phone(TestNotifications.Question("Which rounding rule applies to invoice totals?", Now.AddMinutes(-4), spec));
         using var disposing = host;
         var app = host.Open("notifications?view=list");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-note-text'] textarea")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-note-toggle']")));
 
         Assert.Equal(8, app.FindAll("button[data-testid^='notification-choice-']").Count);
         Assert.Contains("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
-        Assert.Contains("Add a note (optional)", app.Find("[data-testid='notification-note']").TextContent);
+
+        // The note is folded until the person opens it.
+        var toggle = app.Find("[data-testid='notification-note-toggle']");
+        Assert.Contains("Add a note (optional)", toggle.TextContent);
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.True(app.Find("[data-testid='notification-note']").HasAttribute("hidden"));
+
+        toggle.Click();
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='notification-note']").HasAttribute("hidden")));
         Assert.Equal("4000", app.Find("[data-testid='notification-note-text'] textarea").GetAttribute("maxlength"));
 
         app.Find("[data-testid='notification-note-text'] textarea").Input("Only for invoice totals");
@@ -361,6 +369,7 @@ public sealed class NotificationScreenTests
 
         Assert.Empty(app.FindAll("[data-testid='notification-note']"));
         Assert.DoesNotContain("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
+        Assert.Contains("phone-notification__choices--stack", app.Find("[data-testid='notification-choices']").ClassList);
     }
 
     [Fact]
