@@ -5,17 +5,13 @@ rating: adopted
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/domain/devbook/features.md#technology-view"]
 ```
 
-> The root view of `.devbook/tech`: which technologies this project is built with, how
-> they layer on each other, and how mature each choice is. Individual
-> technologies are documented as chapters in the layer files listed below.
+> The root view of `.devbook/tech`: which technologies this project is built with,
+> how they layer on each other, and how mature each choice is. The layer files
+> below hold the chapters.
 
-Bootstrap is over for most of the stack. These are in daily use and marked
-`adopted`:
-
-- the shared runtimes and frameworks;
-- the desktop channel;
-- the testing layer;
-- everything used to build and govern the repository.
+Bootstrap is over for most of the stack. The shared runtimes and frameworks, the
+desktop channel, the testing layer, and everything that builds and governs the
+repository are in daily use and `adopted`.
 
 These are still `candidate`:
 
@@ -31,10 +27,9 @@ These are still `candidate`:
 
 Three things sit at `trial`:
 
-- the Azure tier the sync service runs on, provisioned and deployed by hand but
-  not yet through its workflow or in real use;
+- the Azure tier the sync service runs on, provisioned and deployed by hand, not yet through its workflow or in real use;
 - the unattended schedules;
-- the inventory scripts this graph's package versions are checked against.
+- the inventory scripts that check this graph's package versions.
 
 ## Layers
 
@@ -49,8 +44,8 @@ Three things sit at `trial`:
 | AI development | [`ai-development.md`](ai-development.md) | The agent harnesses, protocols, and file conventions this repository is built *with* |
 | Tooling | [`tooling.md`](tooling.md) | Build, packaging, CI/CD, deployment, and governance tooling |
 
-The table is in reading order: `shared.md` first and `tooling.md` last, as the
-devbook convention pins them, with the layers between them by name.
+The table is in reading order: `shared.md` first, `tooling.md` last, and the layers
+between them by name.
 
 ## Graph
 
@@ -65,23 +60,17 @@ pane. One tab bar switches between five views over the same graph:
 - **Clusters** opens the stack layer file by layer file.
 - **Type lenses** reads one technology through the section its type chooses.
 
-The application computes every measure from `depends-on`:
+The application computes every measure from `depends-on`: used by, what breaks if
+it changes, what it rests on, its depth, and a complexity band.
 
-- used by;
-- what breaks if it changes;
-- what it rests on;
-- its depth;
-- a complexity band.
+It colours a technology by its type's family and draws it hollow until it is
+`adopted`, so the ladder position never rests on colour. Every pointer view has a
+list or table companion the keyboard operates. A person changes a rating from
+the inspector, which writes it back to the technology's chapter.
 
-The application colours a technology by its type's family and draws it hollow
-until it is `adopted`, so its place on the ladder below never rests on colour.
-Every pointer view has a list or table companion the keyboard operates. A person
-changes a technology's rating from the inspector, which writes it back to the
-technology's chapter here.
-
-The source Mermaid graph below remains the portable fallback, for reading this
-file anywhere the application is not. It keeps edges pointing from a technology
-to what it sits on top of, mirroring each chapter's `depends-on` field.
+The Mermaid graph below is the portable fallback for reading this file without
+the application. Its edges point from a technology to what it sits on, mirroring
+each chapter's `depends-on` field.
 
 <details>
 <summary>Mermaid source graph</summary>
@@ -388,8 +377,8 @@ flowchart LR
 
 </details>
 
-Nodes without an outgoing edge are foundations: nothing in this project sits
-below them. They fall into five groups:
+Nodes without an outgoing edge are foundations, with nothing below them in this
+project. They fall into five groups:
 
 - the three text formats: `Markdown`, `JSON`, `YAML`;
 - the two base runtimes: `.NET Runtime`, `Node.js`;
@@ -412,14 +401,11 @@ below them. They fall into five groups:
 ## AI development vocabulary
 
 The [AI Coding Dictionary](https://www.aicodingdictionary.com/) names the
-concepts of agent-driven development. This project is built that way, so its
-terms describe real, checked-in things here rather than background theory. This
-table is the index: it says what each term denotes **in this repository**, and
-which chapter of [`ai-development.md`](ai-development.md) carries the technology
-behind it. How each is used, stage by stage, is the AI adoption record in
+concepts of agent-driven development. The tables below index its terms: the
+right-hand column says what each denotes **in this repository** and which chapter
+of [`ai-development.md`](ai-development.md) carries the technology behind it.
+How each is used, stage by stage, is the AI adoption record in
 [`.devbook/ai/`](../ai/adoption-map.md).
-
-Terms below are the dictionary's; the right-hand column is this repository.
 
 ### The model
 
@@ -521,33 +507,27 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 ## How to read and extend this graph
 
-- Each `## <Technology>` chapter in a layer file is one node. Its
-  `depends-on` list is its outgoing edges, using
-  `<path>#<heading-slug>` references.
+- Each `## <Technology>` chapter in a layer file is one node. Its `depends-on`
+  list, in `<path>#<heading-slug>` references, is its outgoing edges.
 - A technology is documented **once**, in the layer that owns it. Anything used
   by two or more channels moves to `shared.md`.
-- Rationale lives in `.devbook/arc42` (solution strategy, ADRs). Chapters here link to
-  it with `related` instead of restating it.
-- When a node or edge changes, update the Mermaid source graph in the same
-  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`.
-- The Technology view is generated from the `.devbook/tech` metadata and needs
-  no editing of its own. The app reads the technologies and their edges from the
-  layer files themselves, so it draws the same graph whether or not the devbook
-  database has been built (local ADR 0004).
+- Rationale lives in `.devbook/arc42`. Chapters here link to it with `related`.
+- When a node or edge changes, update the Mermaid graph in the same change and
+  run `node .devbook/_tools/devbook-meta/build.mjs --check`.
+- The Technology view needs no editing of its own. The app reads the technologies
+  and edges from the layer files, so it draws the same graph with or without the
+  devbook database (local ADR 0004).
 
 Full authoring rules: `.agents/rules/devbook-tech.md`.
 
 ## Open questions
 
-- Mobile's shape has no ADR. `Backlog.Mobile` is implemented as .NET MAUI with
-  Blazor Hybrid: its `MainPage` hosts a `BlazorWebView` over `Backlog.Mobile.UI`.
-  Desktop's shape is recorded in
-  [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md): MAUI Blazor
-  Hybrid with a WinUI 3 head.
+- Mobile's shape has no ADR. `Backlog.Mobile` is .NET MAUI with Blazor Hybrid: its
+  `MainPage` hosts a `BlazorWebView` over `Backlog.Mobile.UI`. Desktop's shape is
+  in [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md).
 - Transitive package pinning is off on purpose
-  ([Central Package Management](tooling.md#central-package-management)). Turning
-  it on is a reviewed change nobody has scheduled. `YamlDotNet` is its visible
-  symptom: no project references it, and it arrives only transitively, with no
-  central pin.
+  ([Central Package Management](tooling.md#central-package-management)), and
+  nobody has scheduled the reviewed change that turns it on. `YamlDotNet` is the
+  visible symptom: no project references it, it arrives only transitively, and it has no central pin.
 - The Visual Studio channel has no project yet, so `Visual Studio Extensibility`
-  and `WPF` remain named intentions rather than validated choices.
+  and `WPF` remain named intentions.

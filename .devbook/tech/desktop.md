@@ -34,10 +34,10 @@ depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-ru
 The modern Windows application platform underneath the UI framework.
 
 - **Used for** — these platform services:
-  - windowing;
-  - app lifecycle;
-  - notifications;
-  - OS integration.
+  - windowing
+  - app lifecycle
+  - notifications
+  - OS integration
 - **Why** — the supported foundation for WinUI 3 desktop apps.
 
 ## WinUI 3
@@ -51,13 +51,13 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 
 The native Windows head that `.devbook/tech/shared.md#net-maui` uses on this platform.
 
-- **Used for** — hosting the desktop client's native shell, windowing, and OS
-  integration; also hosts the WebView2 surface that renders the app's UI
+- **Used for** — the desktop client's native shell, windowing, and OS
+  integration, and the WebView2 surface that renders the UI
   (`.devbook/tech/shared.md#blazor-hybrid`).
 - **Why** — [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)
   chose a MAUI shell over a plain WinUI 3 app, and MAUI's Windows head is WinUI 3.
-  The app is authored as Razor components rather than WinUI XAML, and it keeps
-  WinUI 3's native filesystem access and background workers.
+  The app is Razor components, not WinUI XAML, and keeps WinUI 3's native
+  filesystem access and background workers.
 
 ## WebView2
 
@@ -71,11 +71,11 @@ related: [".devbook/tech/shared.md#blazor-hybrid", ".devbook/tech/testing.md#pla
 The Chromium-based embedded browser the desktop UI renders in.
 
 - **Used for** — hosting the `BlazorWebView` that draws every screen, and
-  exposing a Chrome DevTools Protocol (CDP) debugging port so Playwright can attach
-  to the running desktop app rather than only to the web harness.
-- **Why** — that debugging port is one of the two decisive reasons ADR 0001 chose
-  Blazor Hybrid over plain MAUI XAML. It is why Debug builds stay unpackaged:
-  MSIX would break both the Aspire desktop resource and the CDP attach.
+  exposing a Chrome DevTools Protocol (CDP) debugging port so Playwright can
+  attach to the running desktop app, not only the web harness.
+- **Why** — that port is one of the two decisive reasons ADR 0001 chose Blazor
+  Hybrid over plain MAUI XAML. It is why Debug builds stay unpackaged: MSIX would
+  break the Aspire desktop resource and the CDP attach.
 
 ## Local Task Store
 
@@ -92,14 +92,12 @@ The file-backed persistence layer, implemented in-app rather than bought in.
 - **Used for** — `Backlog.Infrastructure.Sqlite` holds the tables
   [SQLite](shared.md#sqlite) lists. `RootedSqliteTaskRepository`,
   `RootedSqliteRoadmapPlanRepository` and `RootedSqliteInboxRepository` bind them
-  to the workspace root the user chose. The desktop head and the web harness
-  therefore open the same database the same way. Each adapter creates only its
-  own tables. Settings and feature flags stay JSON files beside the database,
-  per device on purpose.
+  to the user's workspace root, so the desktop head and the web harness open the
+  same database the same way. Each adapter creates only its own tables. Settings
+  and feature flags stay JSON files beside the database, per device on purpose.
 - **Why** — [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md)
-  chose one database that cannot disagree with itself over a markdown-document
-  store with two derived indexes. Markdown remains the *content* of an entry, as
-  a text column, not its storage format.
+  chose one self-consistent database over a markdown-document store with two
+  derived indexes. Markdown remains the *content* of an entry, as a text column.
 
 ## Background Workers
 
@@ -112,10 +110,8 @@ related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
 
 In-process hosted services that poll external sources on the local machine.
 
-- **Used for** — three jobs:
-  - YouTube, website, and email capture;
-  - GitHub issue sync;
-  - stale-item detection.
+- **Used for** — YouTube, website, and email capture; GitHub issue sync; and
+  stale-item detection.
 - **Why** — keeping fetching local is what keeps external credentials off the
   cloud (quality goal 2).
 - **Why `candidate`** — no hosted service is implemented yet, and the capture
@@ -136,8 +132,8 @@ The .NET wrapper over the Windows Data Protection API (DPAPI).
 - **Used for** — every credential the app stores, under `CurrentUser` scope:
   - `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync` seals the
     device's registration credential. On the desktop head it lives at
-    `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its own
-    copy under its own path, so the two harnesses register as distinct devices.
+    `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its
+    own copy, so the two harnesses register as distinct devices.
   - `DpapiSpecManagerTokenStore` in `Backlog.Infrastructure.SpecManager` seals the
     spec-manager sign-in tokens.
   - `SecretEnvelope` seals the token and key values in `github.json`,
@@ -145,7 +141,7 @@ The .NET wrapper over the Windows Data Protection API (DPAPI).
     Claude and Azure Foundry adapters compile it in.
 - **Why** — it is the OS credential store local ADR 0005's Identity section names
   for Windows, and local ADR 0030 makes it the rule for every stored credential.
-  The app has no key of its own to generate, rotate, or leak.
+  The app has no key to generate, rotate, or leak.
 
 ## Model Context Protocol C# SDK
 
@@ -157,15 +153,14 @@ depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#net
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/tech/ai-development.md#model-context-protocol-servers"]
 ```
 
-The `ModelContextProtocol` packages the desktop app serves its own MCP server
-with.
+The `ModelContextProtocol` packages behind the desktop app's own MCP server.
 
 - **Used for** — `ModelContextProtocol.Core` in `Backlog.Infrastructure.Mcp`
   defines the tools, and `Backlog.Desktop.UI` references `ModelContextProtocol`.
   `ModelContextProtocol.AspNetCore` in the desktop head and its web harness hosts
   the Streamable HTTP endpoint that agents reach as the `backlog` server.
 - **Why** — local ADR 0012 puts the server inside the running app, so it reads
-  the same store the person does. The official SDK carries the protocol, so the
+  the store the person does. The official SDK carries the protocol; the
   repository writes only tools.
 
 ## GitHub CLI
@@ -194,13 +189,13 @@ sequenceDiagram
 
 - **Used for** — creating and updating issues from backlog items without routing
   credentials through the cloud service. `ResolvingGitHubTransport` in
-  `Backlog.Infrastructure.GitHub` is the seam. The diagram shows a call that names
-  no account, where `gh api user` answers the first question and `gh auth token`
-  the second. `GhCliTransport`, one `gh api` process per call, is the
-  fallback when `gh` holds no github.com token or points at another host. The
-  clients above the seam (issues, activity, billing, identity) never see a token.
-- **Why** — it reuses the developer's existing authenticated GitHub session, and it is
-  already the mandated tool for GitHub operations in this repository.
+  `Backlog.Infrastructure.GitHub` is the seam. For a call that names no account,
+  `gh api user` answers the first question and `gh auth token` the second.
+  `GhCliTransport`, one `gh api` process per call, is the fallback when `gh`
+  holds no github.com token or points at another host. The clients above the seam
+  (issues, activity, billing, identity) never see a token.
+- **Why** — it reuses the developer's authenticated GitHub session and is already
+  the mandated tool for GitHub operations in this repository.
 
 ## MSIX Packaging
 
@@ -218,24 +213,23 @@ The packaging and update format for the Windows client.
 - **Why** — the standard distribution model for Windows App SDK applications.
 - **How** — Release builds for Windows switch to `WindowsPackageType=MSIX` and
   emit a single signed MSIX (`AppxBundle=Never`, `SideloadOnly`). Debug stays
-  unpackaged (`WindowsPackageType=None`), so the Aspire desktop resource and the
-  WebView2 CDP attach used by Playwright keep working. The MSIX is published as a
-  GitHub Release asset and installed by sideloading rather than through the
-  Microsoft Store. Its `Identity Name` (`JSdotNet.Backlog.Desktop`) and
-  `Publisher` (`CN=JSdotNet`) must match the App Installer's `MainPackage`
-  exactly, or updates will not apply. The package is self-signed, so the signing
-  certificate has to be trusted on the target machine before the first install.
+  unpackaged (`WindowsPackageType=None`), so the Aspire desktop resource and
+  Playwright's WebView2 CDP attach keep working. The MSIX is published as a GitHub
+  Release asset and sideloaded, not distributed through the Microsoft Store. Its
+  `Identity Name` (`JSdotNet.Backlog.Desktop`) and `Publisher` (`CN=JSdotNet`)
+  must match the App Installer's `MainPackage` exactly, or updates will not apply.
+  The package is self-signed, so the target machine must trust the signing
+  certificate before the first install.
 - **Where it writes** — the manifest sets
   `desktop6:FileSystemWriteVirtualization` to `disabled`, with the
-  `unvirtualizedResources` capability that requires. The packaged app therefore
-  writes to the `%LOCALAPPDATA%\Backlog` it names on the Storage settings page,
-  not to the package's `LocalCache\Local` redirect. Installs from before that
-  opt-out left their state in the redirect, and `PackagedAppData` adopts it on
-  the first start (see
+  `unvirtualizedResources` capability that requires. The packaged app writes to
+  the `%LOCALAPPDATA%\Backlog` named on the Storage settings page, not the
+  package's `LocalCache\Local` redirect. Earlier installs left state in the
+  redirect, and `PackagedAppData` adopts it on first start (see
   [Installation and Updates](../arc42/07-deployment-view.md#installation-and-updates)).
 - **Checking a manifest change** — only a packaged Release build runs MakeAppx
-  over the manifest, and PR CI builds with `WindowsPackageType=None`. A manifest
-  change is therefore checked with an unsigned local publish
+  over the manifest, and PR CI builds with `WindowsPackageType=None`. Check a
+  manifest change with an unsigned local publish
   (`-p:AppxPackageSigningEnabled=false`, MSIX left on).
 
 ## App Installer (`.appinstaller`)
@@ -274,12 +268,11 @@ sequenceDiagram
   the same mechanism through `PackageManager`.
 - **How** — `build/New-AppInstaller.ps1` generates it from
   `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
-  own `Uri` points at the `latest` release download, which is stable. A tag,
-  dispatch or Deploy All release takes Latest; a scheduled nightly takes it only
-  when no higher-versioned release holds it. `MainPackage/@Uri` points at the
-  tagged release asset. `Name`, `Publisher`, and `ProcessorArchitecture` are kept
-  identical to the signed MSIX.
-- **Version name** — `PackageManager` only answers whether an update exists. The
-  app therefore reads the manifest back through `AppInstallerManifest` to name
-  the version it would install. When the manifest is unreachable, the update is
-  still offered without a version.
+  own `Uri` points at the stable `latest` release download. A tag, dispatch or
+  Deploy All release takes Latest; a scheduled nightly takes it only when no
+  higher-versioned release holds it. `MainPackage/@Uri` points at the tagged
+  release asset. `Name`, `Publisher`, and `ProcessorArchitecture` match the
+  signed MSIX.
+- **Version name** — `PackageManager` only answers whether an update exists, so
+  the app reads the manifest back through `AppInstallerManifest` to name the
+  version. If the manifest is unreachable, the update is offered without one.
