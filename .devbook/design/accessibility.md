@@ -20,9 +20,17 @@ related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".de
 | Rule | Requirement |
 |---|---|
 | Conformance | Every channel MUST meet **WCAG 2.1 AA**. Primary body text targets AAA contrast (see `color-scheme.md`). |
-| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API — UIA/`AutomationProperties` for native shell chrome (desktop's thin MAUI/WinUI 3 shell, WPF) and SemanticProperties for any native MAUI XAML on mobile; ARIA for webview-rendered content (the desktop's and the mobile head's Razor UI in their WebViews, VS Code / VS webviews). |
-| Parity | Accessibility parity across channels is required; a feature usable by mouse MUST be usable by keyboard and assistive tech on every channel. |
+| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API; webview content uses ARIA. |
+| Parity | A feature usable by mouse MUST be usable by keyboard and assistive tech on every channel. |
 | Testable | Each rule below is a review acceptance criterion. |
+
+**Platform APIs** map to channels as follows:
+
+- UIA/`AutomationProperties` apply to native shell chrome: desktop's thin
+  MAUI/WinUI 3 shell, and WPF.
+- SemanticProperties apply to any native MAUI XAML on mobile.
+- ARIA applies to webview-rendered content: the desktop's and the mobile head's
+  Razor UI in their WebViews, and VS Code / VS webviews.
 
 ## Contrast
 
@@ -46,13 +54,18 @@ related: [".devbook/design/design-principles.md#keyboard-first", ".devbook/desig
 
 | Rule | Requirement |
 |---|---|
-| Full operability | Every interactive element and command MUST be operable by keyboard alone, with no keyboard traps (except intentional modal focus traps that release on close). |
+| Full operability | Every interactive element and command MUST be operable by keyboard alone, with no keyboard traps. |
 | Logical order | Tab order MUST follow visual/reading order. |
-| Standard keys | Activation via Enter/Space; Escape closes menus/dialogs and cancels an in-progress reorder; arrow keys navigate within composite widgets (menus, tabs, lists, slash menu). |
+| Standard keys | Enter/Space activate; Escape closes menus/dialogs and cancels an in-progress reorder; arrow keys navigate composite widgets. |
 | Reorder without a mouse | Reordering items and chapters MUST be fully possible via keyboard (grab/move model + explicit Move up/down/top/bottom commands) — see `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Editing without a mouse | The Markdown editor, slash menu, raw-Markdown toggle, and all block insertions MUST be keyboard-operable (see `content-editing.md`). |
 | Shortcuts discoverable | Keyboard shortcuts MUST be discoverable via the command palette and documented; they MUST NOT clobber platform/assistive-tech shortcuts. |
 | Non-native controls | Elements not natively focusable that become interactive MUST get `tabindex="0"` (or platform equivalent) and explicit focus styles. |
+
+- **Full operability:** intentional modal focus traps that release on close are
+  the one exception.
+- **Standard keys:** composite widgets are menus, tabs, lists and the slash
+  menu.
 
 ### Sync Direction Arrow Pad
 
@@ -78,8 +91,8 @@ next press.
   stop, to the key they reached.
 - A held arrow states once: repeats are ignored, because each change writes a
   file.
-- An arrow held with Alt, Ctrl, Meta or Shift is not the pad's — Alt+ArrowLeft
-  stays the browser's Back — and passes through untouched.
+- An arrow held with Alt, Ctrl, Meta or Shift is not the pad's and passes
+  through untouched. Alt+ArrowLeft stays the browser's Back.
 - Each key carries `aria-keyshortcuts` and `aria-pressed`; the pad is
   `role="group"` named by its label.
 
@@ -152,8 +165,12 @@ related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabu
 
 | Rule | Requirement |
 |---|---|
-| Names & roles | Every control MUST expose an accessible name, role, and state to the platform a11y API (ARIA / UIA / SemanticProperties). Icon-only controls MUST have an explicit label (see `#iconography-accessibility`). |
+| Names & roles | Every control MUST expose an accessible name, role and state to the platform a11y API. |
 | Live regions | Transient status MUST be announced via an appropriate live region without moving focus. |
+
+- **Names & roles:** the platform a11y API is ARIA, UIA or SemanticProperties.
+  Icon-only controls MUST have an explicit label (see
+  `#iconography-accessibility`).
 
 ### Save-State Announcements
 
@@ -209,10 +226,15 @@ related: [".devbook/design/interaction-guidelines.md#focus-and-selection"]
 | Rule | Requirement |
 |---|---|
 | Always visible | Keyboard focus MUST always be visible; `outline: none` (or platform equivalent) without a compliant replacement is prohibited. |
-| Style | Focus uses `color-border-focus` outline at `border-width-2` with a 2 px offset; use `outline` (not shadow-only) so it survives Windows High Contrast. |
+| Style | Focus uses a `color-border-focus` outline at `border-width-2` with a 2 px offset. |
 | Contrast | The focus indicator MUST meet 3:1 against adjacent surfaces. |
-| Restore | Closing a modal/drawer MUST return focus to the triggering control; after a keyboard reorder, focus MUST stay on the moved item's handle. |
+| Restore | Closing a modal/drawer MUST return focus to the triggering control. |
 | Distinct states | Focus, hover, and selection MUST be visually distinguishable. |
+
+- **Style:** use `outline` (not shadow-only) so it survives Windows High
+  Contrast.
+- **Restore:** after a keyboard reorder, focus MUST stay on the moved item's
+  handle.
 
 ## Reduced Motion
 
@@ -223,8 +245,12 @@ related: [".devbook/design/interaction-guidelines.md#motion-and-reduced-motion"]
 | Rule | Requirement |
 |---|---|
 | Honor preference | The product MUST honor `prefers-reduced-motion` (and the platform equivalent on WinUI/MAUI). |
-| Degrade gracefully | Under reduced motion: no translate/scale/rotate, no slide-ins, no parallax; use instant changes or opacity-only fades; spinners show a static/indeterminate state; skeleton pulse is disabled. |
+| Degrade gracefully | Under reduced motion, use instant changes or opacity-only fades. |
 | Function preserved | Reduced motion MUST NOT remove functionality — drag autoscroll, reorder, and save feedback still work, just without decorative motion. |
+
+- **Degrade gracefully:** translate/scale/rotate, slide-ins and parallax all
+  stop. Spinners show a static or indeterminate state, and the skeleton pulse is
+  disabled.
 
 ## Target Sizes and Text
 
@@ -234,18 +260,25 @@ related: [".devbook/design/typography-and-layout.md#iconography"]
 
 | Rule | Requirement |
 |---|---|
-| Touch/click targets | Interactive targets MUST be ≥ 44 × 44 px (including icon-only buttons and drag handles), even when the visual glyph is smaller. |
+| Touch/click targets | Interactive targets MUST be ≥ 44 × 44 px, even when the visual glyph is smaller. |
 | Spacing | Adjacent targets MUST have enough spacing to prevent mis-activation (use the spacing scale). |
 | Minimum text | Readable text MUST NOT be smaller than `font-size-sm` (14 px). |
-| Respect user scale | Use scale tokens (rem / device-independent units) so OS/browser font-size and zoom settings are respected; layouts MUST reflow without loss of content up to 200% zoom. |
+| Respect user scale | Use scale tokens (rem / device-independent units); layouts MUST reflow without loss of content up to 200% zoom. |
 | Not meaning by style alone | Do not convey meaning by weight, italic, or color alone — pair with text or icon. |
+
+- **Touch/click targets:** the minimum includes icon-only buttons and drag
+  handles.
+- **Respect user scale:** scale tokens let OS and browser font-size and zoom
+  settings take effect.
 
 **Exception — the sync direction arrow pad.** Its four keys are 24 × 24 px
 (1.5rem, WCAG 2.2's 2.5.8 AA minimum), not 44 × 44 px. Each key's hit area
-reaches a further `spacing-sm` outward, the way its arrow points, and never
-inward or sideways, so a loose press on one key cannot land on the centre or a
-neighbour. The exception holds because the pad is an inline control beside a
-block's status. Three rows of 44 px keys would stand far taller than the
+reaches a further `spacing-sm` outward in the direction of its arrow. It never
+reaches inward or sideways, so a loose press on one key cannot land on the
+centre or a neighbour.
+
+The exception holds because the pad is an inline control beside a
+block's status, and three rows of 44 px keys would stand far taller than the
 heading the pad sits on. It is bounded:
 
 - Every direction stays reachable without a pointer, per
@@ -257,9 +290,11 @@ heading the pad sits on. It is bounded:
 **Exception — the dots on the Technology Clusters map.** On All layers each
 technology is a dot button that opens its layer on it. A dot's press area is its
 own cell in the cluster's grid, and the dot is drawn at 0.8 of that cell. The
-cell is at most 2% of the map's width, and smaller in a crowded cluster. Press areas tile the cluster and never
-overlap a neighbour's. The exception holds under WCAG 2.2's 2.5.8 equivalent-control
-clause, because the side panel offers the same action at full size. It is bounded:
+cell is at most 2% of the map's width, and smaller in a crowded cluster. Press
+areas tile the cluster and never overlap a neighbour's.
+
+The exception holds under WCAG 2.2's 2.5.8 equivalent-control clause, because
+the side panel offers the same action at full size. It is bounded:
 
 - The side panel's layer list opens any layer, and its technology list picks any
   technology in the open layer.
@@ -268,8 +303,8 @@ clause, because the side panel offers the same action at full size. It is bounde
 - The exception covers these dots only. The cluster circles, pills and
   satellites on the same map are not covered by it.
 
-**Exception — the drag grips.** A grip that is an item's only press origin — a
-goal card's, a No goal row's — is 1.5rem (24 px) wide, WCAG 2.2's 2.5.8 AA
+**Exception — the drag grips.** A grip that is an item's only press origin, as
+on a goal card or a No goal row, is 1.5rem (24 px) wide, WCAG 2.2's 2.5.8 AA
 minimum, and 2.75rem (44 px) tall. A wider grip would take the row's width from
 its title on every row of a dense list. The exception holds because the grip is
 the pointer's shortcut for a move the row already offers. It is bounded:
@@ -302,9 +337,19 @@ related: [".devbook/design/component-libraries.md", ".devbook/arc42/04-solution-
 
 | Channel | Accessibility notes |
 |---|---|
-| Desktop — .NET MAUI Blazor Hybrid | UI is Razor in WebView2 (ADR 0001): use ARIA for the app content, same as the IDE webviews; `AutomationProperties` still applies to the thin native shell/window chrome; verify with Accessibility Insights; ensure High Contrast rendering keeps focus visible (outline-based). |
-| Mobile — .NET MAUI Blazor Hybrid | UI is Razor in a `BlazorWebView` (`Backlog.Mobile.UI` over the shared library): use ARIA for the app content, as on desktop; `SemanticProperties` applies only to native MAUI XAML; support platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling; ensure single-column reorder is keyboard/switch accessible. |
-| IDE webviews (VS Code / VS) | Use ARIA; announce via `aria-live`; respect the host's reduced-motion and high-contrast signals but keep product tokens for content contrast; keep focus visible against the webview surface. |
+| Desktop — .NET MAUI Blazor Hybrid | UI is Razor in WebView2 (ADR 0001): use ARIA for the app content, same as the IDE webviews. |
+| Mobile — .NET MAUI Blazor Hybrid | UI is Razor in a `BlazorWebView`: use ARIA for the app content, as on desktop. |
+| IDE webviews (VS Code / VS) | Use ARIA; announce via `aria-live`; keep focus visible against the webview surface. |
+
+- **Desktop:** `AutomationProperties` still applies to the thin native
+  shell/window chrome. Verify with Accessibility Insights, and ensure High
+  Contrast rendering keeps focus visible (outline-based).
+- **Mobile:** the `BlazorWebView` holds `Backlog.Mobile.UI` over the shared
+  library. `SemanticProperties` applies only to native MAUI XAML. Support
+  platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling, and
+  ensure single-column reorder is keyboard/switch accessible.
+- **IDE webviews:** respect the host's reduced-motion and high-contrast signals,
+  but keep product tokens for content contrast.
 
 `[TODO: clarify]` whether a formal accessibility audit / VPAT is required per
 release, and which assistive technologies are in the supported test matrix.
@@ -320,16 +365,60 @@ with the semantics it ships with. Roles, labels, focus order and focus
 visibility can therefore be checked one component at a time, not only inside a
 screen.
 
-What holds today:
+What holds today. Rows that say "listed below" are detailed after the table.
 
 | Rule | Materialized as |
 |---|---|
-| Names & roles | Composite widgets declare theirs — `role="tree"`/`treeitem` (TreeView), `role="tablist"`/`tab` (Tabs), `role="menu"`/`menuitem` (MenuList), `role="switch"` (Toggle, because a checkbox role would announce the wrong control), `role="separator"` (SplitPane resizer), `role="search"` (SearchBox), `role="region"` with a label (FileView, CodeView, GraphView) |
-| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label, and `CopyButton` draws that same result as a glyph as well, because a task row and the task panel hide the line and keep only its announcement; `TaskListView` and `RoadmapTimeline` each carry one for reorder, per `#reorder-announcements` |
-| Focus visibility | Every interactive component sets its own `:focus-visible` outline in `color-border-focus` at `border-width-2` with a 2 px offset — `outline`, never a shadow |
+| Names & roles | Composite widgets declare their roles. |
+| Live regions | Each transient status has its live region. |
+| Focus visibility | Every interactive component sets its own `:focus-visible` outline. |
 | Non-native focus targets | Scrollable regions that take focus say so and show it (`FileView` body, `CodeView` body) |
-| Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, the skeleton stops altogether rather than substituting one, graph cards keep colour transitions only, and the copy confirmation keeps its cross-fade but stops scaling |
-| Not by colour alone | Save state carries text, not just a dot; badges carry their label; the inert-link style is a dotted underline as well as a colour; an address in a task title, which a pointer follows though it is no anchor, wears the link colour, the same dotted underline and a pointer cursor, and keeps the underline and cursor on a finished task, whose title colour it takes |
+| Reduced motion | Honored per component. |
+| Not by colour alone | Each state carries more than colour. |
+
+**Names & roles** by widget:
+
+- `role="tree"`/`treeitem` (TreeView)
+- `role="tablist"`/`tab` (Tabs)
+- `role="menu"`/`menuitem` (MenuList)
+- `role="switch"` (Toggle, because a checkbox role would announce the wrong
+  control)
+- `role="separator"` (SplitPane resizer)
+- `role="search"` (SearchBox)
+- `role="region"` with a label (FileView, CodeView, GraphView)
+
+**Live regions** by component:
+
+- `SaveIndicator` is `role="status"` + `aria-live="polite"`.
+- `ToastHost` is one polite live region for the page, with warnings and errors
+  raised to `role="alert"` inside it.
+- `CodeView`'s copy result is a `role="status"` line rather than a changed
+  button label.
+- `CopyButton` draws that same result as a glyph as well, because a task row and
+  the task panel hide the line and keep only its announcement.
+- `TaskListView` and `RoadmapTimeline` each carry one for reorder, per
+  `#reorder-announcements`.
+
+**Focus visibility:** the outline is `color-border-focus` at `border-width-2`
+with a 2 px offset. It is an `outline`, never a shadow.
+
+**Reduced motion** by component:
+
+- The fold chevron and toggle drop their transitions.
+- The spinner stops turning and becomes an opacity-only pulse.
+- The skeleton stops altogether rather than substituting one.
+- Graph cards keep colour transitions only.
+- The copy confirmation keeps its cross-fade but stops scaling.
+
+**Not by colour alone** by element:
+
+- Save state carries text, not just a dot.
+- Badges carry their label.
+- The inert-link style is a dotted underline as well as a colour.
+- An address in a task title, which a pointer follows though it is no anchor,
+  wears the link colour, the same dotted underline and a pointer cursor. It
+  keeps the underline and cursor on a finished task, whose title colour it
+  takes.
 
 Gaps, tracked rather than assumed:
 

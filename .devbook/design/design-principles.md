@@ -45,7 +45,7 @@ The product is **local-first**, as `.devbook/arc42/12-glossary.md` defines it.
 | Offline is a first-class state | Offline MUST be shown as a calm, persistent status — not an error modal. See `interaction-guidelines.md#save-state-indicator-vocabulary`. |
 | Optimistic UI | Edits MUST reflect immediately in the UI and persist locally first; sync happens in the background. |
 | No data loss on disconnect | Writes made offline MUST be preserved locally and reconciled on reconnect per the last-write-wins rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. |
-| Sync is background | Sync progress MUST NOT block editing; it is surfaced through the save-state indicator, never a blocking spinner over content. |
+| Sync is background | Sync progress MUST NOT block editing; the save-state indicator shows it, never a blocking spinner over content. |
 
 ## No Save Buttons — Auto-Save Everywhere
 
@@ -58,7 +58,7 @@ specifies how auto-save behaves.
 
 | Rule | Requirement |
 |---|---|
-| No save affordance | There MUST NOT be a "Save" button, menu item, or keyboard-only save gesture as the means of persistence anywhere in the product. |
+| No save affordance | The product MUST NOT persist through a "Save" button, menu item, or keyboard-only save gesture. |
 | Continuous persistence | All edits MUST auto-save; full behavior (debounce, indicator vocabulary, conflict handling) is specified in `interaction-guidelines.md#auto-save-no-save-buttons`. |
 | Visible save state | The current save state (saving / saved / offline / conflict) MUST be visible without user action. |
 
@@ -86,7 +86,7 @@ pointer is an accelerator, not a requirement.
 
 | Rule | Requirement |
 |---|---|
-| Minimize persistent chrome | Toolbars and rails MUST be minimal; prefer contextual and on-demand affordances (hover handles, slash commands) over always-visible button rows. |
+| Minimize persistent chrome | Toolbars and rails MUST be minimal; prefer contextual, on-demand affordances (hover handles, slash commands) over always-visible button rows. |
 | No redundant controls | Because there are no save buttons, toolbars MUST NOT reintroduce save/commit affordances. |
 | Content contrast priority | The highest-contrast text token (`color-text-primary`) is reserved for content; chrome uses `color-text-secondary`. |
 | Progressive disclosure | Advanced actions SHOULD be revealed on focus/hover or via the command surface, not shown permanently. |
@@ -103,10 +103,12 @@ suggestions and Copilot session context.
 | Rule | Requirement |
 |---|---|
 | Suggestions are non-blocking | AI suggestions MUST appear as dismissible, optimistic surfaces that never block manual editing. |
-| Clearly attributed | AI-generated or AI-suggested content MUST be visually distinguishable from user content (e.g. a distinct chip/accent) and MUST be labelled for assistive tech. |
+| Clearly attributed | AI-generated or AI-suggested content MUST look distinct from user content and MUST be labelled for assistive tech. |
 | User stays in control | AI actions that modify content MUST be reversible via undo/history (see `interaction-guidelines.md#undo-and-history`). |
 | Consistent invocation | AI SHOULD be invoked through the same command/slash surface as other commands, for a single mental model. |
 | Local-first honored | AI surfaces MUST degrade gracefully offline and MUST NOT imply that local editing depends on them. |
+
+A distinct chip or accent is one way to set AI content apart.
 
 ## Consistency Across Channels
 
@@ -122,7 +124,7 @@ component library each one uses.
 |---|---|
 | Shared tokens | All channels MUST consume the same logical token set (`color-scheme.md`, `typography-and-layout.md`); tokens are the shared layer, not components. |
 | Same vocabulary | Save-state, reorder, and editing vocabulary MUST be identical across channels (same words, same states). |
-| Platform-native input | Each channel MAY use platform-native controls, but MUST map them to the shared tokens and honor the principles above. |
+| Platform-native input | A channel MAY use platform-native controls but MUST map them to shared tokens and honor these principles. |
 | No per-channel drift | A pattern defined here MUST NOT be re-invented differently per channel; deviations require an explicit, recorded decision. |
 
 ## Materialization
@@ -138,10 +140,30 @@ first.
 
 | Principle | Standing |
 |---|---|
-| Dark mode only | **Held.** One `:root`, one palette, no light column and no toggle anywhere in the library, the desktop app, or the storybook. The syntax theme is authored for dark surfaces rather than borrowed (`color-scheme.md#syntax-highlighting-tokens`). |
-| No save buttons | **Held.** No save affordance exists; the storybook's *Entry edit* page runs the real save sequence, and its *Feedback* page shows the indicator on its own. |
+| Dark mode only | **Held.** One palette, with no light column and no toggle. |
+| No save buttons | **Held.** No save affordance exists. |
 | Local-first | **Held in the product; broken in one place.** Mermaid is fetched from a CDN (`component-libraries.md#materialization`). |
-| Keyboard-first | **Partly held.** Components are keyboard-operable and reorder has arrow-key equivalents, but there is no command palette and no slash surface, so "primary actions reachable through a command surface" has nothing behind it. |
-| Low-chrome, content-first | **Held in layout, inverted in colour** — the Markdown read view currently uses `color-text-secondary` for body text (`content-editing.md#materialization`). Scrollbars are treated as chrome and dressed in the border tokens by the library itself, so every host gets them rather than only the desktop. |
-| AI-first surfaces | **Partly held.** The desktop integrates the Copilot CLI, but there is no shared command surface to invoke it through, and AI-attributed content has no distinct rendering yet. |
-| Consistency across channels | **Untested.** The desktop and the Android head both render the shared library in a WebView, so they share its tokens by construction. The VS Code extension draws only a native tree view and a command, and no IDE webview exists yet to diverge. |
+| Keyboard-first | **Partly held.** Keyboard operation and reorder work; no command surface exists. |
+| Low-chrome, content-first | **Held in layout, inverted in colour.** |
+| AI-first surfaces | **Partly held.** The Copilot CLI is integrated, without a shared command surface. |
+| Consistency across channels | **Untested.** The apps share tokens; no IDE webview exists yet. |
+
+What each row rests on:
+
+- **Dark mode only:** the library, the desktop app and the storybook hold one
+  `:root`. The syntax theme is authored for dark surfaces rather than borrowed
+  (`color-scheme.md#syntax-highlighting-tokens`).
+- **No save buttons:** the storybook's *Entry edit* page runs the real save
+  sequence, and its *Feedback* page shows the indicator on its own.
+- **Keyboard-first:** components are keyboard-operable and reorder has arrow-key
+  equivalents. There is no command palette and no slash surface, so "primary
+  actions reachable through a command surface" has nothing behind it.
+- **Low-chrome, content-first:** the Markdown read view currently uses
+  `color-text-secondary` for body text (`content-editing.md#materialization`).
+  Scrollbars are treated as chrome and dressed in the border tokens by the
+  library itself, so every host gets them rather than only the desktop.
+- **AI-first surfaces:** AI-attributed content has no distinct rendering yet.
+- **Consistency across channels:** the desktop and the Android head both render
+  the shared library in a WebView, so they share its tokens by construction. The
+  VS Code extension draws only a native tree view and a command, so nothing
+  there can diverge yet.

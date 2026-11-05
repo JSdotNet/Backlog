@@ -43,7 +43,7 @@ every channel and component:
 
 | # | Principle | What it means | Detailed in |
 |---|---|---|---|
-| 1 | **Dark mode only** | There is no light theme and no theme toggle. All palette, contrast, and elevation rules are authored for dark surfaces only. | `color-scheme.md`, `design-principles.md#dark-mode-only` |
+| 1 | **Dark mode only** | No light theme and no toggle; every palette, contrast and elevation rule targets dark surfaces. | `color-scheme.md`, `design-principles.md#dark-mode-only` |
 | 2 | **No save buttons** | Every edit auto-saves, and a save-state indicator shows the state. | `design-principles.md#no-save-buttons--auto-save-everywhere`, `interaction-guidelines.md#auto-save-no-save-buttons` |
 
 ## How to Use This Folder
@@ -53,9 +53,10 @@ every channel and component:
 
 - Treat every rule marked with **MUST** / **MUST NOT** as testable acceptance
   criteria for design review.
-- When building a screen or component, read `color-scheme.md`,
-  `typography-and-layout.md`, and `interaction-guidelines.md` first; they cover
-  the majority of decisions.
+- Read `color-scheme.md`, `typography-and-layout.md` and
+  `interaction-guidelines.md`
+  first when building a screen or component. They cover the majority of
+  decisions.
 - Token names are canonical. Reference tokens by name (e.g. `color-primary`),
   never by raw hex value, in product code. `color-scheme.md` and
   `typography-and-layout.md` are the only files that declare token values;
@@ -97,15 +98,62 @@ Page map — each file here and the storybook pages that show it:
 
 | File | Storybook pages |
 |---|---|
-| `design-principles.md` | *Foundations* (one dark palette, no light column); *Entry edit* (edits auto-save, no save button); *Integrations* → **AI in the document** (AI attribution) |
-| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges*, *Devbook* → **State**, *Task detail* and *Focus*; `#chart-roles` → *Usage metrics*, *Productivity over time*, *Stand-up*; `#impediment-state-tones` and `#goal-forecast-badges` → *Goals view*, *Stand-up*; `#pull-request-status-marks` → *Pull request status*, *Goals view*, *Work cards*; `#integration-roles` → the *Integrations* pages |
+| `design-principles.md` | *Foundations*, *Entry edit*, and *Integrations* → **AI in the document** |
+| `color-scheme.md` | *Foundations* → **Colour**, plus one set of pages per chapter |
 | `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion**; `#metadata-lines` → *Task list*, *Integrations* → **References** |
-| `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton); *Overlays*; *Capture* (the phone's capture sheet and its Inbox row); *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*, *Today*, *Task detail*, *Focus*; `#optimistic-ui` → *Today*, *Capture*; `#auto-save-no-save-buttons` → *Notes* (a note that saves a second after typing stops, and its Saved / Waiting to sync line); `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#focus-and-selection` → *Selection bar*, *Goals* (the goal picker's dialog: searching, nothing to choose, the note before a move); `#empty-states`, `#error-states` and `#busy-actions` → *Goals*; `#combobox` → *Inputs*; `#popover-button` → *Overlays*; `#timelines-and-roadmaps` → *Roadmap* |
-| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *Live editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
+| `interaction-guidelines.md` | *Feedback*, *Overlays*, *Capture*, *Entry edit*, plus one set of pages per chapter |
+| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *Live editing*, *File view*, *Code*, *Entry edit*, *Section comparison* |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
-| `component-libraries.md` | *Diagrams*, *Diagrams in markdown* (Mermaid); *Graph explorer*, *Graph atlas* and *Lobes atlas* (the first-party canvas renderer, which draws the Brain's and a repository devbook's atlas, and the Lobes atlas); *Technology page* (the technology graph, drawn with CSS-positioned components); plus the library itself |
-| `effort-and-mode-chips.md` | `#effort-chips` → *Session list* (the effort ladder, an effort nobody recorded, and the stage strip beside it); `#mode-chips`, `#stage-marks` and `#legend` → *Badges* |
-| `settings-pages.md` | *Settings frame* (panel, headline, Saved as you go, the phone-width grouped list), *Settings menu* (groups, badges, matched cards), *Settings card*. Those pages do not yet link back to it, as its *Materialization* chapter says. |
+| `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer*, *Graph atlas*, *Lobes atlas*, *Technology page*, plus the library itself |
+| `effort-and-mode-chips.md` | *Session list* for the effort chips; *Badges* for the rest |
+| `settings-pages.md` | *Settings frame*, *Settings menu*, *Settings card* |
+
+What each row shows:
+
+- **`design-principles.md`:** *Foundations* shows one dark palette with no light
+  column. *Entry edit* shows edits that auto-save with no save button.
+  *Integrations* → **AI in the document** shows AI attribution.
+- **`color-scheme.md`:** *Foundations* → **Colour** measures each token's
+  contrast in the live document against the thresholds in
+  `#contrast-rules-wcag-aa-minimum`. The chapters map to pages as follows:
+  - `#badge-and-chip-tones` → *Badges*, *Devbook* → **State**, *Task detail* and
+    *Focus*
+  - `#chart-roles` → *Usage metrics*, *Productivity over time*, *Stand-up*
+  - `#impediment-state-tones` and `#goal-forecast-badges` → *Goals view*,
+    *Stand-up*
+  - `#pull-request-status-marks` → *Pull request status*, *Goals view*, *Work
+    cards*
+  - `#integration-roles` → the *Integrations* pages
+- **`interaction-guidelines.md`:** the general pages show these subjects:
+  - *Feedback*: SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton
+  - *Capture*: the phone's capture sheet and its Inbox row
+  - *Entry edit*: debounced text save, immediate task-toggle save
+
+  The chapters map to pages as follows:
+  - `#task-rows` → *Task list*, *Today*, *Task detail*, *Focus*
+  - `#optimistic-ui` → *Today*, *Capture*
+  - `#auto-save-no-save-buttons` → *Notes*, with a note that saves a second
+    after typing stops and its Saved / Waiting to sync line
+  - `#action-density-and-overflow` → *Integrations* → **Density and overflow**
+  - `#focus-and-selection` → *Selection bar*, *Goals*, in the goal picker's
+    dialog: searching, nothing to choose, the note before a move
+  - `#empty-states`, `#error-states` and `#busy-actions` → *Goals*
+  - `#combobox` → *Inputs*
+  - `#popover-button` → *Overlays*
+  - `#timelines-and-roadmaps` → *Roadmap*
+- **`content-editing.md`:** `#ai-proposals-in-a-document` → *Integrations* →
+  **AI in the document**.
+- **`component-libraries.md`:** the diagram pages show Mermaid. The atlas and
+  explorer pages show the first-party canvas renderer, which draws the Brain's
+  and a repository devbook's atlas, and the Lobes atlas. *Technology page* shows
+  the technology graph, drawn with CSS-positioned components.
+- **`effort-and-mode-chips.md`:** `#effort-chips` → *Session list*, which shows
+  the effort ladder and an effort nobody recorded, with the stage strip beside
+  it. `#mode-chips`, `#stage-marks` and `#legend` → *Badges*.
+- **`settings-pages.md`:** *Settings frame* shows the panel, headline, Saved as
+  you go and the phone-width grouped list. *Settings menu* shows groups, badges
+  and matched cards. Those pages do not yet link back to it, as its
+  *Materialization* chapter says.
 
 The storybook's own order is a rule of its own: **nothing is shown before its
 parts.** Its groups run in this order:
@@ -113,8 +161,8 @@ parts.** Its groups run in this order:
 1. Parts: input and action, structure, feedback, content, knowledge metadata.
 2. Subjects that are a convention rather than a component: Integrations, Task
    list, Roadmap, Dashboard.
-3. *Combined usage*, where whole surfaces are composed out of everything above:
-   a document, a file, a folder, an editor, a comparison.
+3. *Combined usage*: whole surfaces composed from everything above, namely a
+   document, a file, a folder, an editor, a comparison.
 
 A reviewer reading top to bottom therefore meets every component before the
 thing built out of it.
@@ -170,14 +218,32 @@ Rules:
 | File | Scope |
 |---|---|
 | [`design-principles.md`](design-principles.md) | Product-level UX principles: local-first/offline UX, keyboard-first, low-chrome, AI-first surfaces, dark-mode-only. |
-| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic token table, badge and chip tones, chart and integration roles, contrast rules, elevation-by-color, per-stack token mapping. |
+| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic token table, role tokens, contrast rules, elevation-by-color, per-stack token mapping. |
 | [`typography-and-layout.md`](typography-and-layout.md) | Type scale, font choices, spacing scale, density, grid/layout rules, iconography, metadata lines. |
-| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, drag-and-drop reordering of items and chapters, keyboard alternatives, feedback, motion, empty/loading/error states, task rows, the shell header, workspace panes, group shapes, the combobox, action density and overflow, timelines. |
+| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, reordering, feedback, motion, screen states, and the patterns of the desktop shell. |
 | [`content-editing.md`](content-editing.md) | Direct Markdown editing where Markdown is canonical, and what AI may propose against a document. |
 | [`accessibility.md`](accessibility.md) | WCAG AA target, keyboard nav, screen-reader announcements, focus visibility, reduced motion, target sizes. |
 | [`component-libraries.md`](component-libraries.md) | Per-channel component-library research and recommendation. |
-| [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, the not-as-configured and inferred marks, and the legend of a delivery run's stage list. |
-| [`settings-pages.md`](settings-pages.md) | The Settings screen pattern a registered page follows: panel and headline, menu groups, badges and the Off state, declared card titles and search, the settings card and figure tiles, lists that expand in place, phone width, and `settings/{page}` addresses. |
+| [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, two stage marks, and the stage-list legend. |
+| [`settings-pages.md`](settings-pages.md) | The Settings screen pattern a registered page follows. |
+
+What four of these rows also cover:
+
+- **`color-scheme.md`:** badge and chip tones, and chart and integration roles.
+- **`interaction-guidelines.md`:**
+  - drag-and-drop reordering of items and chapters, and keyboard alternatives;
+  - empty, loading and error states;
+  - task rows, the shell header, workspace panes and group shapes;
+  - the combobox, action density and overflow, and timelines.
+- **`effort-and-mode-chips.md`:** the marks are not-as-configured and inferred,
+  and the legend belongs to a delivery run's stage list.
+- **`settings-pages.md`:**
+  - panel and headline, and menu groups;
+  - badges and the Off state;
+  - declared card titles and search;
+  - the settings card and figure tiles;
+  - lists that expand in place;
+  - phone width, and `settings/{page}` addresses.
 
 ## Provenance
 

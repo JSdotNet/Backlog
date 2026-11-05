@@ -65,10 +65,10 @@ UI colors, and do not invent a second, stronger semantic palette.
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-success` | `#1A3A22` | Success banners, confirmation panels, positive status surfaces |
-| `color-success-text` | `#72C086` | Success text and icons — the legible foreground for the `color-success` surface, and for a confirmation line with no surface behind it |
+| `color-success-text` | `#72C086` | Legible success text and icons, on `color-success` or on a confirmation line with no surface |
 | `color-warning` | `#3D2E00` | Warning banners, caution panels, non-blocking alert surfaces |
 | `color-error` | `#3D0A0D` | Error banners, validation summaries, destructive-status surfaces |
-| `color-error-text` | `#EC8E97` | Error text, icons and input outlines — the legible foreground for the `color-error` surface, and for error text with no surface behind it |
+| `color-error-text` | `#EC8E97` | Legible error text, icons and input outlines, on `color-error` or with no surface behind them |
 | `color-info` | `#0A2C31` | Informational notices, neutral announcement surfaces |
 
 `color-error-text` and `color-success-text` are the two exceptions to "surfaces
@@ -93,13 +93,14 @@ This token is the sanctioned answer to both.
 **The value is derived, not picked.** The incumbent `#E4626F` is
 hsl(354, 70.7%, 63.9%). It measures 5.59:1 on `color-background`, 4.86:1 on
 `color-background-alt` and **3.65:1** on `color-background-raised`, so it fails
-the 4.5:1 this document requires of a foreground on a semantic surface. No error
-message sits on a raised surface today, because dialogs and modals are built on
-`color-background`. Keeping the incumbent and restricting it to the two surfaces
-it clears was therefore an option, and it was rejected. The author of every
-future error rule would have to honour the restriction, and nothing would
+the 4.5:1 this document requires of a foreground on a semantic surface.
+
+No error message sits on a raised surface today, because dialogs and modals are
+built on `color-background`. Keeping the incumbent and restricting it to the two
+surfaces it clears was therefore an option, and it was rejected. The author of
+every future error rule would have to honour the restriction, and nothing would
 enforce it. The contrast table below also states the requirement for a
-foreground on *any* semantic surface. `#EC8E97` is hsl(354, 70.7%, **74.0%**).
+foreground on *any* semantic surface. The chosen `#EC8E97` is hsl(354, 70.7%, **74.0%**).
 
 | Pairing | Required | `color-error-text` |
 |---|---|---|
@@ -355,11 +356,21 @@ use one:
 | An entry row whose area resolves to a repository | the identity edge below |
 | An agent session row under such an entry | the identity edge below |
 | The repository cell of a row in the Sessions area | the identity edge below |
-| A repository's band in the dashboard's sessions-by-repository columns (`MetricStackedBars` with `IdentityOf`), while the header's Colors switch is on | the band painting below — a fill, as the roadmap's bars are, with the alias beside it in the legend so the fill is never the sole carrier |
+| A repository's band in the dashboard's sessions-by-repository columns (`MetricStackedBars` with `IdentityOf`), while the header's Colors switch is on | the band painting below, as a fill |
 | A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 | The **Brain** chip leading the repository scope in the app header | the identity edge below, in `color-band-2`; see [The Brain's accent](#the-brains-accent) |
-| The header's Devbook toggle while it reads **Brain**, the **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, a Brain note's Tasks section, the **◆ n note** badge on a task row, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
+| The Brain's surfaces on the Devbook, on tasks and in its atlas, listed below | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
+
+- **The dashboard band:** the fill matches the roadmap's bars, with the alias
+  beside it in the legend, so the fill is never the sole carrier.
+- **The Brain's surfaces:**
+  - the header's Devbook toggle while it reads **Brain**
+  - the **Brain** badge after the Devbook pane's title
+  - the **From your Brain** box under a repository chapter
+  - a Brain note's Tasks section
+  - the **◆ n note** badge on a task row
+  - a Brain note's edges in the Brain's atlas
 
 The roadmap's bars, the dashboard's repository bands and the Settings picker
 paint a hue as a fill; every other consumer takes the identity edge. The
@@ -401,10 +412,13 @@ rule reserves the code token names, not their values.
 ```meta
 ```
 
-A band colour is painted three ways: a 4px left border on the band's own label,
-the label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
-`color-text-primary` on that surface. A border is a non-text mark and owes 3:1.
-Ink on a surface owes the 4.5:1 in
+A band colour is painted three ways:
+
+- a 4px left border on the band's own label;
+- the label's surface, as `color-mix(in srgb, <token> 24%, color-background)`;
+- `color-text-primary` on that surface.
+
+A border is a non-text mark and owes 3:1. Ink on a surface owes the 4.5:1 in
 [#contrast-rules-wcag-aa-minimum](#contrast-rules-wcag-aa-minimum).
 
 | Token | Border vs `color-background` | Border vs `color-background-alt` | 24% label surface | `color-text-primary` on it |
@@ -495,7 +509,8 @@ Rules:
   page, off until somebody turns it on. These are two controls because they answer
   two questions: the hue is set once and left alone, and the switch is about the
   screen in front of you. The consumer table therefore says which surfaces *may*
-  carry an identity, not which ones always do. With the layer off, each surface
+  carry an identity, not which ones always do.
+- **With the layer off, the alias is all that is left.** Each surface
   renders the uncoloured presentation it has for a repository with no colour,
   and the Settings picker still shows its swatches. Because the whole layer can be
   off, *colour is never the sole carrier* is not a formality: with the hues gone,
@@ -534,15 +549,24 @@ repository's devbook*.
 | Surface | Mark |
 |---|---|
 | The Brain chip in the header's repository scope | the identity edge along the chip's bottom, as a repository chip's |
-| The header's Devbook toggle, which reads **Brain** while the pane shows the Brain | the identity edge along its bottom, pressed or not; pressed, `color-band-2` takes `color-primary`'s place on its border and a 16% fill, with `color-text-primary` ink |
+| The header's Devbook toggle, which reads **Brain** while the pane shows the Brain | the identity edge along its bottom, pressed or not, plus the pressed treatment below |
 | The Brain badge after the Devbook pane's title, while the pane shows the Brain | a badge in the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
 | The **From your Brain** box under a repository chapter | the band painting on the box's leading edge and surface |
 | The **Brain** card on Settings › Storage | a 1px `color-band-2` border round the card and a 10px `color-band-2` swatch before its title, which reads *Brain* |
 | The edge from a Brain note in the Brain's atlas | `color-band-2` stroke, solid when the link resolves and dashed when it does not |
-| A resolved `repo:` link chip in a Brain note | gold: the `live` tone of [Badge and chip tones](#badge-and-chip-tones), the followable-badge rule, since following it opens a repository devbook |
+| A resolved `repo:` link chip in a Brain note | gold: the `live` tone of [Badge and chip tones](#badge-and-chip-tones), by the followable-badge rule |
 | An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
-| The **Tasks** section of a Brain note, and the **◆ n note** badge on a task row naming the Brain notes that link to it | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
-| A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task, since following it opens the task; the `quiet` tone inside a dashed `color-border-strong` edge, with *not in this backlog* in words, when it does not |
+| A Brain note's **Tasks** section, and the **◆ n note** badge on a task row | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
+| A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task; otherwise the `quiet` tone |
+
+- **The header's Devbook toggle, pressed:** `color-band-2` takes
+  `color-primary`'s place on its border and a 16% fill, with
+  `color-text-primary` ink.
+- **A resolved `repo:` link chip:** following it opens a repository devbook.
+- **The ◆ n note badge:** it names the Brain notes that link to the task.
+- **A task chip:** following a gold chip opens the task. A `quiet` chip sits
+  inside a dashed `color-border-strong` edge, with *not in this backlog* in
+  words.
 
 Rules:
 
@@ -570,8 +594,8 @@ related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/desig
 Two component families need role names the palette does not provide:
 
 - A chart needs a series colour, a track, a gridline and a baseline.
-- An integration affordance needs a live state, a landed one, a quiet one, and
-  the two surfaces the product acts on.
+- An integration affordance needs three states (live, landed and quiet) and the
+  two surfaces the product acts on.
 
 Like the code theme, these are **themes, not a second palette**. Unlike the code
 theme, **every value below is derived.** Each is a `var()` of a palette token, or
@@ -620,7 +644,7 @@ Rules:
   its own surface. The semantic tokens are 1.04:1 to 1.31:1 against the raised
   surface, so as boundaries they are invisible. [Integration roles](#integration-roles)
   records the same finding for state chips. The one exception is a `fault` chip,
-  which may take its own ink, `color-error-text`, as its boundary: the ink
+  which may take its own ink, `color-error-text`, as its boundary. The ink
   already clears its surroundings, and the red edge keeps the chip loud where it
   sits on a coloured surface such as a roadmap bar.
 - A badge's text is small, so it MUST clear the 4.5:1 that
@@ -644,9 +668,9 @@ Rules:
   `live` ink and edge, and the other keeps its quiet treatment. Hover and focus
   are not enough, because a reader who does not already suspect a link never
   finds out. The fill stays out of it: filled means the product acts on it, and
-  following a link is the reader acting. `gh` badges are exempt, and they are why
-  the rule is worded this way. They are already anchors, and their state colours
-  are the cue.
+  following a link is the reader acting.
+- **`gh` badges are exempt from that rule.** They are already anchors, and their
+  state colours are the cue, which is why the rule is worded as it is.
 
 Devbook chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways. `DevbookStatus`
@@ -688,9 +712,9 @@ Rules:
 - The stand-up's state picker wears the same badge as a read-only state, so an
   editable state and a shown one look alike.
 
-Review surface: storybook → *Progress* → **Goals view** (the stories
-*Impediment New* through *Impediment Resolved*, and *Stand-up*), and the phone's
-storybook → *Stand-up*, **Badges** and **State list**.
+Review surface: storybook → *Progress* → **Goals view**, in the stories
+*Impediment New* through *Impediment Resolved* and in *Stand-up*. The phone's
+storybook shows it on *Stand-up*, **Badges** and **State list**.
 
 ### Goal forecast badges
 
@@ -733,11 +757,11 @@ follows the marks with a "your review" label.
 Rules:
 
 - The words "checks" and "approvals" MUST NOT be printed on the row. Each mark
-  carries them as visually hidden text, together with the variant, and the
-  visible count is hidden from assistive technology, so a screen reader hears
-  one phrase: "9 of 14 checks running", "1 of 13 checks failing", "1 of 2
-  approvals". A failing mark's phrase counts the failed checks; its visible
-  count stays `passed/total`, `12/13`.
+  carries them as visually hidden text, together with the variant. The visible
+  count is hidden from assistive technology, so a screen reader hears one
+  phrase: "9 of 14 checks running", "1 of 13 checks failing", "1 of 2 approvals".
+  A failing mark's phrase counts the failed checks; its visible count stays
+  `passed/total`, such as `12/13`.
 - The glyph is decorative and hidden from assistive technology, per
   `accessibility.md#iconography-accessibility`. The count and the hidden words
   carry the meaning, so the ink is never the sole carrier.
@@ -801,7 +825,7 @@ Rules:
   kind of quantity, which is the claim the single hue exists to avoid.
 - **Deviation: category hues on a stack.** A stacked chart whose bands are
   repositories or models, not measures, may ask for `chart-category-*` so each
-  band's size reads against its neighbours. Shades of one hue stop doing that past
+  band's size reads against its neighbours, which shades of one hue stop doing past
   two or three bands. The hues are the band identity set, reused by position, so
   the palette gains nothing. They are drawn only while no band on the chart wears
   an identity: with the header's Colors switch on, a category hue beside a
@@ -811,14 +835,14 @@ Rules:
 - **Deviation: category hues on a map and a scatter.** The Technology views
   colour each technology by its type family, which is a kind and not a measure.
   The Clusters map and the Complexity scatter draw many families side by side,
-  and shades of one hue cannot tell nine of them apart. Nine `--tech-family-*`
-  aliases name the family hues, measured in the table after these rules.
-  `app.css` declares them once, on
-  `.tech-devbook-pane`, and every Technology view takes its family colour from
-  them. Each alias derives from a chart role and never from a semantic token, so
-  a framework never reads as an error or as primary. Five category hues cannot
-  cover nine families. Three families therefore take a 50% `color-mix()` of two
-  category hues, Protocol takes the muted ink and Other takes the axis grey.
+  and shades of one hue cannot tell nine of them apart.
+- **The Technology family hues.** Nine `--tech-family-*` aliases name the family
+  hues, measured in the table after these rules. `app.css` declares them once,
+  on `.tech-devbook-pane`, and every Technology view takes its family colour
+  from them. Each alias derives from a chart role and never from a semantic
+  token, so a framework never reads as an error or as primary. Five category
+  hues cannot cover nine families, so three families take a 50% `color-mix()` of
+  two category hues, Protocol takes the muted ink and Other takes the axis grey.
   The palette gains nothing.
 - On the Clusters map, the lines from a picked technology to what it sits on
   take `chart-series`, and the lines to what uses it take `chart-category-5`.
@@ -895,8 +919,8 @@ Rules:
   mix rather than a new hue because the palette carries one saturated hue and
   this file forbids inventing a second semantic set to get another.
 - A provider mark MUST be drawn on an affordance exactly when the work it names
-  leaves this application: a hand-off to a Claude or GitHub Copilot session, or
-  the session that comes back to be tracked.
+  leaves this application. That work is a hand-off to a Claude or GitHub Copilot
+  session, or the session that comes back to be tracked.
 - A provider mark MUST NOT be drawn on the product's own AI features, whose output
   is attributed to "AI" and to no vendor. The mark is the reader's only cue that
   something went somewhere; it is not a logo.
@@ -1002,8 +1026,11 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 
 | Aspect | Where |
 |---|---|
-| Declaration | `src/Core/Backlog.UI.Components/wwwroot/components.css`, `:root` — the only place these values exist in code. The desktop's `app.css` links it and adds app-specific values only. |
+| Declaration | `src/Core/Backlog.UI.Components/wwwroot/components.css`, `:root`, the only place these values exist in code. |
 | Review surface | Storybook → *Foundations* → **Colour** |
+
+The desktop's `app.css` links that declaration and adds app-specific values
+only.
 
 The Foundations page does not transcribe this file. It reads the tokens out of
 the live document, computes each ratio, and scores it against the thresholds in

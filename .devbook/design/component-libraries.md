@@ -84,11 +84,30 @@ rendering technology as the IDE webviews.
 
 | Aspect | Recommendation |
 |---|---|
-| Base controls | **A web component library shared with the IDE webviews** (see IDE recommendation below), rendered via Razor/`BlazorWebView` — not native WinUI 3 XAML controls. |
-| Theming (EC1/EC2) | Expose the product `--color-*` CSS custom properties, same as the webview channels (`color-scheme.md#per-stack-token-mapping`); no separate WinUI `ResourceDictionary` is authored for app UI. |
+| Base controls | **A web component library shared with the IDE webviews**, rendered via Razor/`BlazorWebView`, not native WinUI 3 XAML controls. |
+| Theming (EC1/EC2) | Expose the product `--color-*` CSS custom properties, like the webview channels; author no separate WinUI `ResourceDictionary`. |
 | Markdown editor (EC3) | Host the shared **web editor** directly in the same WebView2 surface — no separate desktop editor implementation needed. |
-| Reorder (EC4) | **Hand-rolled on pointer events in the shared library**, and not a drag-and-drop library at all: WebView2 in the MAUI desktop head aborts a native HTML5 drag about five milliseconds after it opens — `dragstart` fires, `pointercancel` follows, `dragend` arrives, and no `dragover` or `drop` is ever delivered, measured on the running app over its WebView2 debugging port, ten gestures out of ten. A library built on the drag events has nothing left to hook, so both halves of the gesture come from pointer events: one implementation for every host, rather than a second one kept only where native drag happens to work. The edge autoscroll such a library would have supplied is hand-rolled with it. **Keyboard reorder must still be added explicitly** per `interaction-guidelines.md#keyboard-accessible-reordering`. |
-| A11y (EC5) | ARIA within the WebView2 content; native `AutomationProperties` still apply to the thin MAUI/WinUI 3 shell chrome (window, title bar); verify both with Accessibility Insights. |
+| Reorder (EC4) | **Hand-rolled on pointer events in the shared library**, and not a drag-and-drop library at all. |
+| A11y (EC5) | ARIA within the WebView2 content; native `AutomationProperties` on the thin MAUI/WinUI 3 shell chrome. |
+
+- **Base controls:** the IDE recommendation below names the library.
+- **Theming (EC1/EC2):** the mapping is
+  `color-scheme.md#per-stack-token-mapping`. The rule covers app UI.
+- **Reorder (EC4):** WebView2 in the MAUI desktop head aborts a native HTML5
+  drag about five milliseconds after it opens. `dragstart` fires and
+  `pointercancel` follows. `dragend` then arrives, and no `dragover` or `drop`
+  is ever delivered. We measured this on the running app over its WebView2
+  debugging port, ten gestures out of ten.
+  - A library built on the drag events has nothing left to hook, so both halves
+    of the gesture come from pointer events.
+  - That gives one implementation for every host, rather than a second one kept
+    only where native drag happens to work.
+  - The edge autoscroll such a library would have supplied is hand-rolled with
+    it.
+  - **Keyboard reorder must still be added explicitly** per
+    `interaction-guidelines.md#keyboard-accessible-reordering`.
+- **A11y (EC5):** the shell chrome is the window and title bar. Verify both with
+  Accessibility Insights.
 
 ### Mobile — .NET MAUI
 
@@ -100,8 +119,11 @@ rendering technology as the IDE webviews.
 | Base controls | **.NET MAUI + .NET MAUI Community Toolkit.** Preferred per architecture. Fallbacks: Blazor Hybrid / Blazor WASM PWA. |
 | Theming (EC1/EC2) | Single dark resource dictionary of the same tokens; disable system light/dark switching (`UserAppTheme = Dark`, no toggle). |
 | Markdown editor (EC3) | Host the shared **web editor via `BlazorWebView`/WebView**; native MAUI has no first-class Markdown WYSIWYG control. |
-| Reorder (EC4) | `CollectionView` supports drag reorder (`CanReorderItems`); **keyboard/switch-accessible reorder commands must be added** and single-column drag must autoscroll. None of it is built yet — see `#materialization`. |
+| Reorder (EC4) | `CollectionView` supports drag reorder (`CanReorderItems`); **keyboard/switch-accessible reorder commands must be added**, and single-column autoscroll. |
 | A11y (EC5) | `SemanticProperties`; test Narrator/VoiceOver/TalkBack + OS text scaling. |
+
+**Reorder (EC4):** single-column drag must autoscroll. None of this is built yet;
+see `#materialization`.
 
 ### IDE — VS Code extension (TypeScript webview)
 
@@ -110,11 +132,15 @@ rendering technology as the IDE webviews.
 
 | Aspect | Recommendation |
 |---|---|
-| Base controls | **`@vscode-elements/elements`** (the maintained successor to the deprecated VS Code Webview UI Toolkit) or **Fluent UI Web Components** for a richer set; either themes from CSS variables. |
-| Theming (EC1/EC2) | Expose the product `--color-*` CSS custom properties; product dark tokens take precedence over host theme vars for content surfaces. |
-| Markdown editor (EC3) | **TipTap (on ProseMirror)** or **Milkdown** for WYSIWYG; **Monaco** for the raw-Markdown escape hatch (Monaco already ships with VS Code). |
+| Base controls | **`@vscode-elements/elements`**, or **Fluent UI Web Components** for a richer set; either themes from CSS variables. |
+| Theming (EC1/EC2) | Expose the product `--color-*` CSS custom properties; product dark tokens beat host theme vars on content surfaces. |
+| Markdown editor (EC3) | **TipTap (on ProseMirror)** or **Milkdown** for WYSIWYG; **Monaco** for the raw-Markdown escape hatch. |
 | Reorder (EC4) | **dnd-kit** (accessible, keyboard support, `@dnd-kit/sortable` + tree) preferred; **SortableJS** is lighter but weaker on built-in keyboard a11y. |
 | A11y (EC5) | ARIA + `aria-live`; respect host reduced-motion/high-contrast. |
+
+- **Base controls:** `@vscode-elements/elements` is the maintained successor to
+  the deprecated VS Code Webview UI Toolkit.
+- **Markdown editor (EC3):** Monaco already ships with VS Code.
 
 ### IDE — Visual Studio extension (C#, WPF)
 
@@ -124,9 +150,11 @@ rendering technology as the IDE webviews.
 | Aspect | Recommendation |
 |---|---|
 | Base controls | **WPF** with VS shell theming; reuse the same token set as a WPF `ResourceDictionary`. |
-| Markdown editor (EC3) | Host the **shared web editor in WebView2** for parity with the other channels (recommended), avoiding a second editor implementation. |
+| Markdown editor (EC3) | Host the **shared web editor in WebView2** for parity with the other channels (recommended). |
 | Reorder (EC4) | WPF `ItemsControl`/`TreeView` drag reorder + explicit keyboard Move commands. |
 | A11y (EC5) | UIA/`AutomationProperties`. |
+
+**Markdown editor (EC3):** this avoids a second editor implementation.
 
 ### Cloud — ASP.NET Core Minimal APIs
 
@@ -172,18 +200,39 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 
 | Layer | Recommendation | Rationale |
 |---|---|---|
-| Shared design layer | **Tokens, not components** — one logical token set (`color-scheme.md`) emitted to XAML + CSS. | No cross-stack component library exists that also covers mobile's native XAML; tokens are the durable shared contract. |
-| Desktop | **A web component library shared with VS Code** (e.g. `@vscode-elements`/Fluent Web Components) + product CSS tokens, rendered via Razor/`BlazorWebView`. | Per ADR 0001, desktop UI is Razor in WebView2, not native WinUI 3 XAML — it shares the webview channels' rendering technology and reuse story. |
+| Shared design layer | **Tokens, not components** — one logical token set (`color-scheme.md`) emitted to XAML + CSS. | No cross-stack component library also covers mobile's native XAML; tokens are the durable shared contract. |
+| Desktop | **A web component library shared with VS Code** (e.g. `@vscode-elements`/Fluent Web Components) + product CSS tokens, via Razor/`BlazorWebView`. | Per ADR 0001, desktop UI is Razor in WebView2, sharing the webview channels' rendering technology. |
 | Mobile | **.NET MAUI + Community Toolkit** (`UserAppTheme = Dark`). | Preferred stack; native mobile feel. |
 | VS Code | **`@vscode-elements`/Fluent Web Components** + product CSS tokens. | Themeable, host-aligned, maintained. |
 | Visual Studio | **WPF + shared tokens**, editor via WebView2. | Reuses the shared web editor; avoids a second editor. |
-| Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in the desktop's and VS's WebView2, in VS Code's webview, and in mobile MAUI's `BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
-| Drag-and-drop reorder (IDE webview channels) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies EC4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. Not the desktop, which cannot run a drag-event library at all — see the reorder row in `#desktop--net-maui-blazor-hybrid-razor-in-webview2`. |
+| Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, in every channel's web host. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
+| Drag-and-drop reorder (IDE webview channels) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements, which satisfy EC4/`interaction-guidelines`. |
 | Devbook Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in devbook folders without a binary diagram format. |
-| Technology graph | **Blazor components positioned with CSS**, drawing the `.devbook/tech` graph as the views of the Technology area. | Every technology is a real `button`, so the picture is in the accessibility tree as well as in its list companion. A stack is tens of nodes; CSS places that many without a layout engine. |
-| Knowledge graphs | **A first-party canvas renderer** in `Backlog.UI.Components`, drawing a 3D-projected, area-clustered atlas over the Brain and over a repository's devbook. | Both graphs are local Markdown on a local-first desktop. A general-purpose graph library is sized for data this product does not have, and the only way it was ever going to arrive here was over a CDN — which `#risks-and-gaps` forbids in production. Writing the projection is smaller than vendoring the alternative. |
-| Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Still true, and still future. Both are editing tools, and nothing in the product edits a diagram yet — the atlas only reads, and the Technology area writes back one field of a chapter, not a diagram. Either would arrive vendored, not from a CDN. |
+| Technology graph | **Blazor components positioned with CSS**, drawing the `.devbook/tech` graph as the views of the Technology area. | Every technology is a real `button`, in the accessibility tree; CSS places tens of nodes unaided. |
+| Knowledge graphs | **A first-party canvas renderer** in `Backlog.UI.Components`, drawing a 3D-projected, area-clustered atlas. | Both graphs are local Markdown; writing the projection is smaller than vendoring the alternative. |
+| Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Still true, and still future: nothing in the product edits a diagram yet. |
 | Charts and dashboards | **Apache ECharts**. | Broad chart coverage, active maintenance, permissive license, dark theme support, and strong dashboard fit. |
+
+What the longer rows rest on:
+
+- **Desktop:** its UI is not native WinUI 3 XAML, and it shares the webview
+  channels' reuse story.
+- **Markdown WYSIWYG editor (shared):** the web hosts are the desktop's and VS's
+  WebView2, VS Code's webview, and mobile MAUI's `BlazorWebView`.
+- **Drag-and-drop reorder (IDE webview channels):** native channels add explicit
+  keyboard Move commands. The desktop is not covered, because it cannot run a
+  drag-event library at all; see the reorder row in
+  `#desktop--net-maui-blazor-hybrid-razor-in-webview2`.
+- **Technology graph:** the picture is in the accessibility tree as well as in
+  its list companion. A stack is tens of nodes, and CSS places that many without
+  a layout engine.
+- **Knowledge graphs:** the atlas draws over the Brain and over a repository's
+  devbook, on a local-first desktop. A general-purpose graph library is sized
+  for data this product does not have. The only way it was ever going to arrive
+  here was over a CDN, which `#risks-and-gaps` forbids in production.
+- **Future editable diagramming:** both options are editing tools. The atlas
+  only reads, and the Technology area writes back one field of a chapter, not a
+  diagram. Either would arrive vendored, not from a CDN.
 
 
 ## Diagram and Graph Strategy
@@ -196,14 +245,47 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 
 | Need | Choice | Guidance |
 |---|---|---|
-| Flow, C4, sequence, state, class/domain-model diagrams in devbook Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside devbook-folder Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
-| A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
-| A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL wherever a chapter embeds a view as `![…](c4:<view key>)`. Mermaid cannot be themed into the shape a C4 view wants: it sizes its own boxes, draws no glyph and writes every colour inline. See `#c4-workspaces` below. |
-| Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). The Clusters map and the Complexity scatter place each technology with CSS, and every technology is a real `button`, so the picture is in the accessibility tree and nothing is drawn on a canvas. Colour marks the type family; status is fill, hollow until `adopted`, so it never rests on colour. Each pointer view keeps the list or table companion below. |
-| Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas, and the repository devbook atlas over every folder but `.devbook/tech`, as a 3D-projected map: one cluster per area, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles`. The keyboard companion below is part of the renderer, not an addition to it. The same renderer also draws the [Lobes atlas](../domain/brain/features.md#lobes-atlas): the Brain and every devbook as brains, one region per lobe — `backlogLobesAtlas`, hosted by `GraphAtlas` over a `LobesAtlasModel`, its colours the Brain's accent and gold from `color-scheme.md`, its canvas `aria-hidden` beside the same index. |
-| Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than a read-and-select atlas is. |
+| Flow, C4, sequence, state, class/domain-model diagrams in devbook Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside devbook-folder Markdown. |
+| A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. |
+| A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL. |
+| Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). |
+| Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas and the repository devbook atlas as a 3D-projected map. |
+| Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
-| Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor is more valuable than Markdown-first diagrams. Bundle assets locally if embedded. |
+| Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor outweighs Markdown-first diagrams. |
+
+What the longer rows add:
+
+- **Mermaid:** keep Markdown as the canonical source, and show the source
+  fallback when rendering fails or assets are unavailable.
+- **Archify:** it never replaces Mermaid and is never automatic. A fence with no
+  artifact, or whose text has moved on, is drawn by Mermaid. See
+  `#archify-artifacts` below.
+- **c4hero and the first-party renderer:** the app draws wherever a chapter
+  embeds a view as `![…](c4:<view key>)`. Mermaid cannot be themed into the
+  shape a C4 view wants: it sizes its own boxes, draws no glyph and writes every
+  colour inline. See `#c4-workspaces` below.
+- **Blazor components positioned with CSS:**
+  - The Clusters map and the Complexity scatter place each technology with CSS.
+  - Every technology is a real `button`, so the picture is in the accessibility
+    tree and nothing is drawn on a canvas.
+  - Colour marks the type family. Status is fill, hollow until `adopted`, so it
+    never rests on colour.
+  - Each pointer view keeps the list or table companion below.
+- **A first-party canvas renderer:**
+  - The repository devbook atlas covers every folder but `.devbook/tech`.
+  - The map has one cluster per area and sizes nodes by in-degree. It draws
+    curved edges, and a camera moves to what is selected.
+  - Colour comes from `color-scheme.md#chart-roles`.
+  - The keyboard companion below is part of the renderer, not an addition to it.
+  - The same renderer also draws the [Lobes
+    atlas](../domain/brain/features.md#lobes-atlas): the Brain and every devbook
+    as brains, one region per lobe. That is `backlogLobesAtlas`, hosted by
+    `GraphAtlas` over a `LobesAtlasModel`. Its colours are the Brain's accent
+    and gold from `color-scheme.md`, and its canvas is `aria-hidden` beside the
+    same index.
+- **AntV X6:** it is better suited to diagram editing than a read-and-select
+  atlas is.
 
 All diagram and graph rendering must follow the product defaults:
 
@@ -220,15 +302,20 @@ layout allows is also roughly a third of the 44px target
 `accessibility.md#target-sizes-and-text` requires. The pointer surface therefore
 cannot be the primary one, however carefully it is labelled. The canvas is
 `aria-hidden`, and the graph is **also** rendered as a focusable list of its
-nodes. The list is on screen rather than visually hidden, ordered as the folder
-reads, and carries each node's status and relation counts as text. Selection is
-one model behind both, announced once through a polite live region as position,
-status and counts. The list is one tab stop. Its arrows, Home and End move the
-focus and the canvas's spotlight from row to row and leave the selection alone.
-Enter or Space selects, as a click does, so a detail sheet that opens on a
-selection opens only when the reader asks. Escape closes the sheet and gives the
-focus back to its row. A reviewer should be able to unplug the mouse and lose
-nothing but the picture.
+nodes:
+
+- The list is on screen rather than visually hidden, ordered as the folder
+  reads. It carries each node's status and relation counts as text.
+- Selection is one model behind both, announced once through a polite live
+  region
+  as position, status and counts.
+- The list is one tab stop. Its arrows, Home and End move the focus and the
+  canvas's spotlight from row to row and leave the selection alone.
+- Enter or Space selects, as a click does, so a detail sheet that opens on a
+  selection opens only when the reader asks.
+- Escape closes the sheet and gives the focus back to its row.
+
+A reviewer should be able to unplug the mouse and lose nothing but the picture.
 
 ### C4 workspaces
 
@@ -247,23 +334,50 @@ The Architecture panel's C4 tab, `C4Explorer`, offers these affordances:
   keyboard equivalent;
 - a breadcrumb, and a Back button that walks the history;
 - search over element names, descriptions, technologies and view titles;
-- the Highlighter, which filters by tag, technology, team and status;
+- the Highlighter for filtering by tag, technology, team and status;
 - pan and zoom;
 - a minimap;
 - presentation mode.
 
 | Rule | Guidance |
 |---|---|
-| Drawn here, in this palette | A view is laid out and drawn by the product rather than by a diagram library, because a library that sizes its own boxes and writes its own colours cannot be made to sit inside a section. Levels are told apart by weight and glyph on the single hue `#chart-roles` allows — solid for the subject, outline for anything outside it — never by a hue per level. |
-| A tab beside the chapters, not an entry inside them | The Architecture panel keeps two tabs, the shape Technology already uses: chapters on the first, the model on the second. A C4 view is not a chapter, so it does not belong in the chapter list, even though the section that embeds it draws it inline — and the tab is absent rather than empty when there is no workspace. |
-| Every gesture has a control beside it | Drilling in by clicking a box is discoverable and invisible to a keyboard, so the same move is also a button — the Views panel and the Drill into row. `accessibility.md#target-sizes-and-text` is the rule; a shape in an SVG is not a focusable target, so the pointer cannot be the only way. |
-| Where you are and how you got here are two controls | The breadcrumb is derived from the open view's scope and the Back button walks the history. Collapsing them into one makes the survivor a worse version of both. |
-| Dimmed, not hidden | The Highlighter takes non-matching elements down to a low opacity and leaves them in place, so the shape of the diagram stays readable and a filter reads as emphasis rather than as a different picture. |
-| The reference is drawn on both sides | A view names the chapter section that documents it; a chapter lists the views it embeds. Same single authored statement — the section's `![…](c4:<view key>)` embed — read from either end, so the two cannot disagree. A view no chapter embeds says so in words rather than showing an empty row. |
-| What could not be read is said, not hidden | A workspace the reader only partly understood still draws a complete-looking picture. The unreadable constructs appear as a plain list under the diagram: a footnote under something that rendered, not an error that stopped one. |
-| The generated Mermaid is never shown as the source | The `.dsl` is the authored text. A reader who wants the source wants the workspace, not the Mermaid it was turned into on the way to the screen. |
+| Drawn here, in this palette | The product lays out and draws a view on one hue, never a hue per level. |
+| A tab beside the chapters, not an entry inside them | The Architecture panel keeps two tabs: chapters on the first, the model on the second. |
+| Every gesture has a control beside it | Drilling in by clicking a box is also a button: the Views panel and the Drill into row. |
+| Where you are and how you got here are two controls | The breadcrumb derives from the open view's scope, and the Back button walks the history. |
+| Dimmed, not hidden | The Highlighter takes non-matching elements down to a low opacity and leaves them in place. |
+| The reference is drawn on both sides | A view names the chapter section that documents it; a chapter lists the views it embeds. |
+| What could not be read is said, not hidden | The unreadable constructs appear as a plain list under the diagram. |
+| The generated Mermaid is never shown as the source | The `.dsl` is the authored text, not the Mermaid generated from it. |
 
-Off by default, behind `c4-diagrams`. `tools/diagrams/C4.md` carries the
+- **Drawn here, in this palette:** a library that sizes its own boxes and writes
+  its own colours cannot be made to sit inside a section. Levels are told apart
+  by weight and glyph on the single hue `color-scheme.md#chart-roles` allows:
+  solid for the subject, outline for anything outside it.
+- **A tab beside the chapters, not an entry inside them:** this is the shape
+  Technology already uses. A C4 view is not a chapter, so it does not belong in
+  the chapter list, even though the section that embeds it draws it inline. The
+  tab is absent rather than empty when there is no workspace.
+- **Every gesture has a control beside it:** drilling in by clicking a box is
+  discoverable and invisible to a keyboard.
+  `accessibility.md#target-sizes-and-text` is the rule; a shape in an SVG is not
+  a focusable target, so the pointer cannot be the only way.
+- **Where you are and how you got here are two controls:** collapsing them into
+  one makes the survivor a worse version of both.
+- **Dimmed, not hidden:** the shape of the diagram stays readable, and a filter
+  reads as emphasis rather than as a different picture.
+- **The reference is drawn on both sides:** both read the same single authored
+  statement, the section's `![…](c4:<view key>)` embed, from either end, so the
+  two cannot disagree. A view no chapter embeds says so in words rather than
+  showing an empty row.
+- **What could not be read is said, not hidden:** a workspace the reader only
+  partly understood still draws a complete-looking picture. The list is a
+  footnote under something that rendered, not an error that stopped one.
+- **The generated Mermaid is never shown as the source:** a reader who wants the
+  source wants the workspace, not the Mermaid it was turned into on the way to
+  the screen.
+
+C4 workspaces are off by default, behind `c4-diagrams`. `tools/diagrams/C4.md` carries the
 arrangement, the DSL subset, and what the drawing cannot say.
 
 ### Archify artifacts
@@ -278,15 +392,31 @@ without it reading as a foreign object.
 
 | Rule | Guidance |
 |---|---|
-| The reader chooses the renderer | A diagram with an artifact carries an Archify/Mermaid switch. An artifact is a *re-authoring* of the fence, not a rendering of it, so a reader who doubts the picture must be able to see the fence drawn instead. Both wear the same badge as the rest of the header, with the selected one highlighted. |
-| The frame is sized to the drawing | Never a fixed height. An artifact's height follows the width it is given, and it differs per diagram — a landscape runtime view and a portrait building-block view are not the same shape. A fixed frame clips one and leaves the other in empty space. |
-| The diagram sits on the chapter | The artifact's own background, panel and grid are cleared so the drawing composites onto the pane. A diagram in a body is part of the prose, not a card laid on top of it. |
-| No control that visibly refuses | The artifact's theme toggle is hidden, because the app pins the dark theme from outside per `design-principles.md`; its visual-style picker is hidden when it offers fewer than two options. Everything the viewer can actually do — zoom, drag-to-pan, presets, presentation, export — stays. |
-| It is a document, not an image | The frame is not labelled `role="img"`: that would collapse a structured document into one opaque graphic for a screen reader. The frame's title carries the accessible name instead, and what is inside stays reachable. |
+| The reader chooses the renderer | A diagram with an artifact carries an Archify/Mermaid switch, with the selected one highlighted. |
+| The frame is sized to the drawing | Never a fixed height: an artifact's height follows the width it is given. |
+| The diagram sits on the chapter | The artifact's own background, panel and grid are cleared so the drawing composites onto the pane. |
+| No control that visibly refuses | The app hides the artifact's theme toggle, and its visual-style picker when under two options. |
+| It is a document, not an image | The frame is not labelled `role="img"`; the frame's title carries the accessible name instead. |
 
-**Not every diagram can have one.** Archify has five types — architecture,
-workflow, sequence, dataflow, lifecycle. Class and ER diagrams have none, so a
-bounded context's aggregate model is always Mermaid, and the app offers nothing
+- **The reader chooses the renderer:** an artifact is a *re-authoring* of the
+  fence, not a rendering of it, so a reader who doubts the picture must be able
+  to see the fence drawn instead. Both wear the same badge as the rest of the
+  header.
+- **The frame is sized to the drawing:** the height differs per diagram, since a
+  landscape runtime view and a portrait building-block view are not the same
+  shape. A fixed frame clips one and leaves the other in empty space.
+- **The diagram sits on the chapter:** a diagram in a body is part of the prose,
+  not a card laid on top of it.
+- **No control that visibly refuses:** the app pins the dark theme from outside
+  per `design-principles.md`. Everything the viewer can actually do stays: zoom,
+  drag-to-pan, presets, presentation and export.
+- **It is a document, not an image:** the role would collapse a structured
+  document into one opaque graphic for a screen reader. What is inside stays
+  reachable.
+
+**Not every diagram can have one.** Archify has five types: architecture,
+workflow, sequence, dataflow and lifecycle. Class and ER diagrams have none, so
+a bounded context's aggregate model is always Mermaid, and the app offers nothing
 for it rather than offering something it cannot deliver.
 
 The review surface is Storybook → *Diagrams*, in two stories that exercise the
@@ -305,9 +435,18 @@ governs the frame.
 
 | Rule | Guidance |
 |---|---|
-| The demo keeps its own look | The document goes in unchanged. The app pins no theme and lays no stylesheet over it, so a demo is the one framed document the dark-mode default does not reach. |
-| The sandbox allows scripts and nothing else | The frame carries `sandbox="allow-scripts"` without `allow-same-origin`, as the contract requires of every host. The demo talks to the pane only through its messages. |
-| The places a chapter names are chips | Every address the page's or its chapters' `demo` fields name is a chip above the frame, in the badge style of the renderer switch. The first is sent as `demo:goto` once the demo reports `demo:ready`, and the chip that is open reads as pressed. A demo shown for its page alone has no chip row. |
+| The demo keeps its own look | The document goes in unchanged: the app pins no theme and lays no stylesheet over it. |
+| The sandbox allows scripts and nothing else | The frame carries `sandbox="allow-scripts"` without `allow-same-origin`, as the contract requires of every host. |
+| The places a chapter names are chips | Every address the page's or its chapters' `demo` fields name is a chip above the frame. |
+
+- **The demo keeps its own look:** a demo is the one framed document the
+  dark-mode default does not reach.
+- **The sandbox allows scripts and nothing else:** the demo talks to the pane
+  only through its messages.
+- **The places a chapter names are chips:** the chips take the badge style of
+  the renderer switch. The first is sent as `demo:goto` once the demo reports
+  `demo:ready`, and the chip that is open reads as pressed. A demo shown for its
+  page alone has no chip row.
 
 The frame reloads only when the document's text changes, so a save of the
 chapter beside it keeps the place the reader clicked to. The review surface is
@@ -321,18 +460,45 @@ sample demo.
 
 | Risk / gap | Impact | Mitigation |
 |---|---|---|
-| No shared cross-stack component library covering mobile | Duplicated component effort between mobile's native MAUI XAML and the web-rendered channels | Accept it; invest in the shared **token pipeline** and the shared **web editor** as the reuse points. Desktop does not duplicate this effort, because ADR 0001 puts its UI in Razor/WebView2. |
-| Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1 (also flagged in `color-scheme.md#per-stack-token-mapping`). |
-| Native controls lack accessible keyboard reorder out of the box | EC4 gap on mobile MAUI/WPF (desktop reuses neither: it has its own pointer gesture in the shared library, with the arrow-key route built in) | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
+| No shared cross-stack component library covering mobile | Duplicated component effort between mobile's native MAUI XAML and the web-rendered channels | Accept it; invest in the shared **token pipeline** and the shared **web editor** as the reuse points. |
+| Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1. |
+| Native controls lack accessible keyboard reorder out of the box | EC4 gap on mobile MAUI/WPF | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Web editor hosted in WebView2/BlazorWebView | Startup cost, bridge complexity, offline asset bundling | Bundle editor assets locally (local-first); measure cold-start; keep a native raw-text fallback. |
-| Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, X6, and ECharts in production; remote loading is acceptable only as a development fallback with source-visible fallback rendering. This is what took the graph renderer first-party — see `#materialization`. |
-| Canvas graphics have no native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | The focusable node list in `#diagram-and-graph-strategy` is the answer, and it is the primary surface rather than an alternative to one. Preserve the layer cards, relationship chips and source Markdown alongside it; announce selection state before adding editable graph interactions. |
-| A first-party renderer inherits every semantic a library would have brought | Keyboard operability, focus order, announcements and reduced motion are all the product's own work | Pin them: a test that fails when the node list stops matching the model is cheaper than the gap it prevents. |
-| A hand-written projection has no upstream to inherit fixes from | Layout bugs, depth-sorting artefacts and performance regressions are found here or not at all | Keep the renderer data-driven and free of domain knowledge, as `components.js` already is, so it can be exercised from the storybook against models the app never produces. |
-| Round-trip Markdown fidelity | Editor could rewrite/lose untouched content | Enforce `content-editing.md#round-trip-fidelity`; prefer Markdown-native editors (Milkdown/ProseMirror with a strict serializer); add round-trip tests. |
+| Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, X6, and ECharts in production. |
+| Canvas graphics have no native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | The focusable node list in `#diagram-and-graph-strategy` is the answer, and the primary surface. |
+| A first-party renderer inherits every semantic a library would have brought | Keyboard operability, focus order, announcements and reduced motion are all the product's own work | Pin them with a test that fails when the node list stops matching the model. |
+| A hand-written projection has no upstream to inherit fixes from | Layout bugs, depth-sorting artefacts and performance regressions are found here or not at all | Keep the renderer data-driven and free of domain knowledge, as `components.js` already is. |
+| Round-trip Markdown fidelity | Editor could rewrite/lose untouched content | Enforce `content-editing.md#round-trip-fidelity` and add round-trip tests. |
 | TipTap "Pro" modules / SortableJS keyboard a11y | Cost or accessibility shortfall | Prefer TipTap/ProseMirror OSS core or Milkdown; prefer dnd-kit over SortableJS for accessible reorder. |
 | Fluent/Mud default palettes are light-oriented | Fighting built-in light themes (EC1) | Override with product dark tokens; verify no light defaults leak; test high-contrast. |
-| Blazor Hybrid fallback (mobile) reduces native feel | UX divergence if fallback is used | Keep MAUI native as primary for mobile; treat Blazor Hybrid strictly as a fallback there, per architecture. This does not apply to desktop, where Blazor Hybrid is the accepted choice (ADR 0001). |
+| Blazor Hybrid fallback (mobile) reduces native feel | UX divergence if fallback is used | Keep MAUI native primary on mobile; Blazor Hybrid is only the fallback, per architecture. |
+
+What the longer rows add:
+
+- **No shared cross-stack component library covering mobile:** desktop does not
+  duplicate this effort, because ADR 0001 puts its UI in Razor/WebView2.
+- **Token pipeline not yet decided:** this is also flagged in
+  `color-scheme.md#per-stack-token-mapping`.
+- **Native controls lack accessible keyboard reorder out of the box:** desktop
+  reuses neither. It has its own pointer gesture in the shared library, with the
+  arrow-key route built in.
+- **Diagram libraries can become remote-CDN dependencies:** remote loading is
+  acceptable only as a development fallback with source-visible fallback
+  rendering. This is what took the graph renderer first-party; see
+  `#materialization`.
+- **Canvas graphics have no native keyboard semantics:** the list is not an
+  alternative to a primary surface. Preserve the layer cards, relationship chips
+  and source Markdown alongside it, and announce selection state before adding
+  editable graph interactions.
+- **A first-party renderer inherits every semantic a library would have
+  brought:** the test is cheaper than the gap it prevents.
+- **A hand-written projection has no upstream to inherit fixes from:** the
+  renderer can then be exercised from the storybook against models the app never
+  produces.
+- **Round-trip Markdown fidelity:** prefer Markdown-native editors, Milkdown or
+  ProseMirror with a strict serializer.
+- **Blazor Hybrid fallback (mobile) reduces native feel:** this does not apply
+  to desktop, where Blazor Hybrid is the accepted choice (ADR 0001).
 
 `[TODO: clarify]` final selection between **TipTap** vs **Milkdown** for the
 shared editor, and whether the token pipeline is delivered in the first release.
@@ -343,20 +509,52 @@ shared editor, and whether the token pipeline is delivered in the first release.
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/tech/shared.md#mermaid", ".devbook/tech/shared.md#net-maui"]
 ```
 
-What the product actually uses today, against the recommendations above:
+What the product actually uses today, against the recommendations above. For
+Diagrams, the Technology graph and the knowledge graphs, it uses what was
+recommended.
 
 | Layer | Recommended | In use |
 |---|---|---|
-| Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`** — a first-party Razor class library with no domain in it, at `src/Core/Backlog.UI.Components`, rendered on its own in the storybook |
-| Design tokens | One logical set emitted per stack | One `:root` block in `components.css`, linked by every host. This is the shared layer working as intended — it is just hand-maintained, not generated |
-| Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None of the candidates. `MarkdownEditor`, a formatting toolbar over the Markdown source, with a live read view beside it; and `MarkdownLiveEditor`, every block rendered except the one holding the caret, which opens as its own source — storybook only, no product screen yet. See `content-editing.md#materialization` |
-| Reorder — web surfaces | dnd-kit | A hand-written pointer gesture with arrow-key equivalents, in the shared library and reviewed in the storybook. Why it is hand-written rather than a library's is in the desktop recommendation above; where its halves live is in `interaction-guidelines.md#materialization` |
-| Mobile base controls | .NET MAUI + Community Toolkit | None. The Android head hosts `Backlog.Mobile.UI`, Razor components over `Backlog.UI.Components`, in a `BlazorWebView`, so mobile renders the same library as the desktop |
-| Reorder — mobile | `CollectionView` with `CanReorderItems`, plus explicit move commands and autoscroll | None. `src/App/Backlog.Mobile*` holds no `CollectionView` and reorders nothing, so the mobile row in `#per-channel-recommendations` is a requirement rather than a description of anything |
-| Diagrams | Mermaid | **Mermaid**, as recommended — `DiagramView`, storybook *Diagrams* |
-| Technology graph | Blazor components positioned with CSS | **Blazor components positioned with CSS**, as recommended — `TechnologyClustersView` and `TechnologyComplexityView` in the Devbook module, beside the Technology area's other views; storybook *Technology page* for the library parts they draw on |
-| Knowledge graphs | A first-party canvas renderer | **A first-party canvas renderer**, as recommended — `GraphAtlas` over the Brain and over a repository's devbook, its `.tech` chapters left out, with `GraphView` and `GraphExplorer` still drawing the list, lane, spine and cluster layouts beside it; and `backlogLobesAtlas` drawing the Lobes atlas through the same host; storybook *Graph atlas*, *Lobes atlas* and *Graph explorer* |
+| Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`**, a first-party Razor class library at `src/Core/Backlog.UI.Components` |
+| Design tokens | One logical set emitted per stack | One `:root` block in `components.css`, linked by every host; hand-maintained, not generated |
+| Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None of the candidates: `MarkdownEditor` and `MarkdownLiveEditor` |
+| Reorder — web surfaces | dnd-kit | A hand-written pointer gesture with arrow-key equivalents, in the shared library |
+| Mobile base controls | .NET MAUI + Community Toolkit | None. The Android head hosts `Backlog.Mobile.UI` in a `BlazorWebView` |
+| Reorder — mobile | `CollectionView` with `CanReorderItems`, plus explicit move commands and autoscroll | None. `src/App/Backlog.Mobile*` holds no `CollectionView` and reorders nothing |
+| Diagrams | Mermaid | `DiagramView`, storybook *Diagrams* |
+| Technology graph | Blazor components positioned with CSS | `TechnologyClustersView` and `TechnologyComplexityView` |
+| Knowledge graphs | A first-party canvas renderer | `GraphAtlas` and `backlogLobesAtlas` |
 | Charts | Apache ECharts | None yet |
+
+What the longer rows add:
+
+- **Desktop base controls:** the library has no domain in it and renders on its
+  own in the storybook.
+- **Design tokens:** this is the shared layer working as intended.
+- **Markdown editor:**
+  - `MarkdownEditor` is a formatting toolbar over the Markdown source, with a
+    live read view beside it.
+  - `MarkdownLiveEditor` renders every block except the one holding the caret,
+    which opens as its own source. It is storybook only, with no product screen
+    yet.
+  - See `content-editing.md#materialization`.
+- **Reorder, web surfaces:** the gesture is reviewed in the storybook. Why it is
+  hand-written rather than a library's is in the desktop recommendation above;
+  where its halves live is in `interaction-guidelines.md#materialization`.
+- **Mobile base controls:** `Backlog.Mobile.UI` is Razor components over
+  `Backlog.UI.Components`, so mobile renders the same library as the desktop.
+- **Reorder, mobile:** the mobile row in `#per-channel-recommendations` is
+  therefore a requirement rather than a description of anything.
+- **Technology graph:** both views live in the Devbook module, beside the
+  Technology area's other views. Storybook *Technology page* shows the library
+  parts they draw on.
+- **Knowledge graphs:**
+  - `GraphAtlas` draws over the Brain and over a repository's devbook, its
+    `.devbook/tech` chapters left out.
+  - `GraphView` and `GraphExplorer` still draw the list, lane, spine and cluster
+    layouts beside it.
+  - `backlogLobesAtlas` draws the Lobes atlas through the same host.
+  - The storybook pages are *Graph atlas*, *Lobes atlas* and *Graph explorer*.
 
 Notes:
 
