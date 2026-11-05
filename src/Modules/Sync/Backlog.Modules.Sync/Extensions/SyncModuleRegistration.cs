@@ -26,6 +26,7 @@ using Backlog.Modules.Sync.Features.RedeemPairingCode;
 using Backlog.Modules.Sync.Features.RegisterPushInstallation;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Features.StoreAttachment;
+using Backlog.Modules.Sync.Features.TranscribeDictation;
 using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Handlers;
@@ -80,6 +81,7 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<StoreAttachmentCommand, Result<StoreAttachmentOutcome>>, StoreAttachmentCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<AttachmentContent>>, ReadAttachmentQueryHandler>();
+        services.AddScoped<ICommandHandler<TranscribeDictationCommand, Result<TranscriptionResponse>>, TranscribeDictationCommandHandler>();
         services.AddScoped<CaptureAttachmentRelease>();
 
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
@@ -102,6 +104,10 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<INotificationNudgeChannel, NoNotificationNudgeChannel>();
         services.TryAddSingleton<INotificationPushChannel, NoNotificationPushChannel>();
         services.TryAddSingleton<IAttachmentStore, InMemoryAttachmentStore>();
+
+        // No transcription service unless the host brings one (local ADR 0045 §3): the route
+        // answers 503 and the phone dictates on the device.
+        services.TryAddSingleton<IDictationTranscriber, NoDictationTranscriber>();
 
         return services;
     }

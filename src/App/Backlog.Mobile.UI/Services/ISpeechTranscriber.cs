@@ -51,8 +51,52 @@ public interface ISpeechTranscriber : IAsyncDisposable
     Task<SpeechTranscript> ListenAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// <see cref="ListenAsync(CancellationToken)"/>, telling <paramref name="onStage"/> as
+    /// each stage of the turn begins, the first included, so the screen words the turn the
+    /// way the engine that took it runs it. An on-device recogniser listens and recognises
+    /// at once: it keeps this default, which says <see cref="SpeechTurnStage.Listening"/>
+    /// and nothing after. The cloud engine records and then transcribes (local ADR 0045 §6).
+    /// </summary>
+    /// <param name="onStage">Called as a stage begins, possibly off the render thread.</param>
+    /// <param name="cancellationToken">Ends the turn.</param>
+    Task<SpeechTranscript> ListenAsync(Action<SpeechTurnStage>? onStage, CancellationToken cancellationToken = default)
+    {
+        onStage?.Invoke(SpeechTurnStage.Listening);
+        return ListenAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Asks the recogniser to finish and hand back whatever it heard. Safe to
     /// call when nothing is listening.
     /// </summary>
     ValueTask StopAsync();
+}
+
+/// <summary>
+/// Where a turn has got to: "Listening…" for a recogniser that hears as it goes, and
+/// "Recording…" then "Transcribing…" for one that records before it transcribes, rather
+/// than one "Listening…" for both.
+/// </summary>
+public enum SpeechTurnStage
+{
+    /// <summary>The device's recogniser is hearing and recognising; nothing leaves the phone.</summary>
+    Listening,
+
+    /// <summary>The microphone is on; the words are not yet anywhere.</summary>
+    Recording,
+
+    /// <summary>The recording has ended and is on its way to be transcribed.</summary>
+    Transcribing
+}
+
+/// <summary>What the screens say for a <see cref="SpeechTurnStage"/>.</summary>
+public static class SpeechTurnStages
+{
+    /// <summary>The status line for <paramref name="stage"/>.</summary>
+    public static string Describe(this SpeechTurnStage stage) => stage switch
+    {
+        SpeechTurnStage.Listening => "Listening…",
+        SpeechTurnStage.Recording => "Recording…",
+        SpeechTurnStage.Transcribing => "Transcribing…"
+    };
 }

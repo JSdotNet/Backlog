@@ -157,6 +157,8 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 /* The settings sheet (SettingsControl) rises the same way; a group's control sits
    under a small label naming it. */
 .app-settings-sheet__label { display: block; margin-bottom: var(--spacing-2xs); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.app-settings-sheet__label--next { margin-top: var(--spacing-sm); }
+.app-settings-sheet__hint { margin: var(--spacing-2xs) 0 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 
 /* The update window's status line. AppUpdatePresentation composes these names
    in C#, the same ones the desktop window wears, so each head colours them. */

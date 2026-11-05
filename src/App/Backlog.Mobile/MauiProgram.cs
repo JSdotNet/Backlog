@@ -68,11 +68,22 @@ public static class MauiProgram
 			client.BaseAddress = syncBaseAddress)
 			.AddSyncPipeline();
 
+		// Cloud dictation's upload (local ADR 0045 §6), with the same bearer and
+		// version check as the data client. This head composes no ServiceDefaults,
+		// so there is no retry to take off; the client bounds each call at sixty
+		// seconds itself.
+		builder.Services.AddHttpClient<CloudTranscriptionClient>(client =>
+			client.BaseAddress = syncBaseAddress)
+			.AddSyncPipeline();
+
 		// The Android recogniser, not the Web Speech one: the System WebView
 		// generally has no webkitSpeechRecognition, so the browser implementation
-		// would look wired up here and then do nothing on a device. The browser
-		// harness registers WebSpeechTranscriber against the same abstraction.
-		builder.Services.AddScoped<ISpeechTranscriber, AndroidSpeechTranscriber>();
+		// would look wired up here and then do nothing on a device. The cloud
+		// engine records m4a through Android's MediaRecorder. The browser harness
+		// registers WebSpeechTranscriber and WebAudioRecorder against the same
+		// abstractions; the selecting transcriber the screens inject picks one each turn.
+		builder.Services.AddScoped<IAudioRecorder, AndroidAudioRecorder>();
+		builder.Services.AddDictation<AndroidSpeechTranscriber>();
 
 		// The camera and the platform pickers for a talk note's attachments. The
 		// browser harness registers WebAttachmentPicker, over <InputFile>, instead.

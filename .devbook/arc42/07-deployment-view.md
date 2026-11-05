@@ -229,7 +229,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
@@ -257,6 +257,7 @@ flowchart TB
     subgraph "External"
         GitHub["GitHub\n(webhooks in)"]
         FCM["Firebase Cloud Messaging\n(Android push)"]
+        Foundry["Azure AI Foundry\nbacklog-foundry, gpt-4o-transcribe"]
 
     end
 
@@ -281,6 +282,7 @@ flowchart TB
     AppService -->|"SAS: Send / Manage"| NotificationHubs
     NotificationHubs -->|"FCM v1"| FCM
     FCM -.->|"Data-only push"| Mobile
+    AppService -.->|"Managed identity — Cognitive Services OpenAI User"| Foundry
 
 ```
 
@@ -346,6 +348,20 @@ Deployment considerations:
 - **The FCM credential is entered by hand** — the hub's FCM v1 credential
   (project id, client email, private key) is not in Bicep. A person enters it on
   the hub once Firebase is set up. Until then no phone is pushed.
+- **Dictation relay to Foundry** *(local ADR 0045)* —
+  the service hands a phone dictation to the `gpt-4o-transcribe` deployment on
+  `backlog-foundry` and keeps neither the audio nor the text.
+  - The sync identity gets **Cognitive Services OpenAI User**, scoped to the Foundry
+    account, granted from `infra/sync/main.bicep`. When the two templates sit in
+    different resource groups, a module scoped to Foundry's group makes the grant.
+  - The container gains the `Modules:Sync:Transcription` settings: `Endpoint`,
+    `Deployment` (`gpt-4o-transcribe`), `ApiVersion` (`2025-03-01-preview`),
+    `MaxBytes` (25 MB) and `ContentTypes`. No key is issued.
+  - Off until the azd value `SYNC_FOUNDRY_ACCOUNT_NAME` names the Foundry account
+    (`docs/deployment/sync.md`): with it empty, the template grants nothing and the
+    route answers `503`, so every phone dictates on-device.
+  - Locally, the AppHost points `Endpoint` at a transcription stand-in in
+    `Backlog.AzureFoundry.TestService`.
 - **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs
   resources in `infra/sync/main.bicep` exist in Azure, and the sync container app
   carries their settings. Pushes wait on the hub's FCM credential.
