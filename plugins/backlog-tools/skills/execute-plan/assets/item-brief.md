@@ -50,7 +50,8 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
      acceptance criteria, the evidence paths — as `output`: the first report of the attempt
      with either is what asks the person on their devices, with this call's content as the
      question's body, so never send them in two calls. At every gate, return `gate` with the
-     handoff, leaving the application running; **Attendance** in `landing-modes.md` says why
+     handoff, opened with the `show-me` skill's orientation card when it has one, leaving the
+     application running; **Attendance** in `landing-modes.md` says why
      you do not park. The answer comes back as one of the lines below; one marked
      `from notification` is already recorded on the run, so record it only when it came from chat:
      - `approved`: continue. Words on an `approved … from notification` line came with a
@@ -75,8 +76,8 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
    this worktree's application, the way the repository's run procedure stops it scoped to this
    worktree, before every return except `gate`.
 6. **Return** by ending the turn: the first line of your final message is `done-before` with
-   the evidence, `gate` with the handoff or question, `pr <url>`, or `blocked <stage>: <reason>`. Leave the
-   worktree in place: it is the host's, and a later message from the orchestrator — a gate's
+   the evidence, `gate` with the handoff or question, `pr <url>`, or `blocked <stage>: <reason>`; a card goes
+   under that line, never above it. Leave the worktree in place: it is the host's, and a later message from the orchestrator — a gate's
    decision, a fix pass — continues this brief in it.
 
 Entry:

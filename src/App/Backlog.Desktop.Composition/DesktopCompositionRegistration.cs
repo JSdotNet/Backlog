@@ -454,7 +454,10 @@ public static class DesktopCompositionRegistration
                 sp.GetService<INotifications>,
                 sp.GetService<TimeProvider>(),
                 sp.GetService<ILogger<QuestionRelay>>(),
-                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true);
+                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true,
+                // The keyed local reader: a reading of the plain port's decorators can close
+                // questions, which must not happen in the middle of this publish.
+                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey));
         });
         // The same relay as the port the MCP ask, get_answer and close tools reach it through.
         services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
