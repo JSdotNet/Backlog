@@ -522,6 +522,12 @@ public static class DesktopCompositionRegistration
         // owns and, while a question is open, takes the replies addressed to it every two
         // minutes. Answers to the sync switch and to the notifications switch.
         services.AddNotificationSyncClient(SyncServiceAddress);
+        // The repository each pushed notification is about (local ADR 0039 §6), by the rule
+        // the centre's header scope keeps — run off any window, so a linked task is read
+        // through its own scope rather than the window's rows. Each port is asked for per
+        // push, so one this head did not compose leaves its notifications not known.
+        services.AddSingleton<Backlog.Infrastructure.Sync.Notifications.INotificationRepositorySource>(
+            PublishedNotificationRepositories.Compose);
 
         // Which registered clone a session's working folder lies inside, read off the
         // repository list the Repositories screen writes, so a header scoped to one

@@ -271,6 +271,23 @@ public sealed class NotificationStackTests
         Assert.Equal(("C", 2), (stack.Current?.Notification.Title, stack.Position));
     }
 
+    /// <summary>A filter that leaves the item on screen out hands the stack only what it keeps:
+    /// the pager lands on the next kept item after it, and counts only the kept ones.</summary>
+    [Fact]
+    public void A_current_item_a_filter_leaves_out_gives_way_to_the_next_kept_one_and_the_count_is_the_kept_ones()
+    {
+        var a = Phone("A", 4);
+        var b = Phone("B", 3);
+        var c = Phone("C", 2);
+        var d = Phone("D", 1);
+        var stack = new NotificationStack([d, c, b, a]);
+        stack.Next();
+
+        stack.Refresh([d, a]);
+
+        Assert.Equal(("D", 2, 2), (stack.Current?.Notification.Title, stack.Position, stack.Total));
+    }
+
     [Fact]
     public void A_last_item_that_left_gives_way_to_the_end()
     {

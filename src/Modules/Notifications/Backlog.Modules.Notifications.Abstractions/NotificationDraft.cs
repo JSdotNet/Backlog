@@ -116,6 +116,25 @@ public static class NotificationOrigins
 
     /// <summary>Typed by a person in spec-manager, not asked by an agent there.</summary>
     public const string TypedInSpecManager = "typed in spec-manager";
+
+    /// <summary>Who raised it, by its source alone — "Sessions", "MCP", "Devbook": a context of
+    /// three letters or fewer upper-cased, any other capitalised. What a notification without an
+    /// origin is drawn by.</summary>
+    public static string SourceLabel(NotificationSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        var context = source.Context.Trim();
+        if (context.Length == 0) return context;
+        if (context.Length <= 3) return context.ToUpperInvariant();
+        return char.ToUpperInvariant(context[0]) + context[1..];
+    }
+
+    /// <summary>The system a notification comes from, which every From filter picks by — the
+    /// desktop centre's and the phone's: its origin's system, or its source for one that names
+    /// no origin (<c>.devbook/domain/notifications/domain.md#origin</c>).</summary>
+    public static string From(NotificationOrigin? origin, NotificationSource source) =>
+        origin?.System ?? SourceLabel(source);
 }
 
 /// <summary>

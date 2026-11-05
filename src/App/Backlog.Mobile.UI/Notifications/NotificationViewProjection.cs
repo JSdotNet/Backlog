@@ -248,7 +248,7 @@ public sealed class NotificationViewProjection : IDisposable
 
         var waiting = mine.LastOrDefault() is { } last && queued.TryGetValue(last.Id, out var entry) ? entry : null;
 
-        return new PhoneNotification(notification, payload.OwnerName, presence, seenAt, standing, verdict, waiting);
+        return new PhoneNotification(notification, payload.OwnerName, presence, seenAt, standing, verdict, waiting, payload.Repository);
     }
 
     /// <summary>A reply leaving the outbox, or parking there, moves its card.</summary>

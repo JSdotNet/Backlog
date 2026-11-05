@@ -432,6 +432,13 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .notifications-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .notifications-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
+/* The From and Repository filters under the heading, side by side while they fit, Clear
+   filters at the row's end; both views share them. */
+.notifications-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; margin-bottom: .75rem; }
+.notifications-filters__filter { flex: 1 1 9rem; min-width: 0; margin: 0; }
+.notifications-filters__filter .field__input { min-height: 44px; width: 100%; }
+.notifications-filters__clear { min-height: 44px; }
+
 .notifications { padding-bottom: 1.5rem; }
 .notifications__list { display: grid; gap: .75rem; list-style: none; padding: 0; margin: 0; }
 
