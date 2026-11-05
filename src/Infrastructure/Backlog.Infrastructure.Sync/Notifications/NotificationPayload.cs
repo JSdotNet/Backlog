@@ -23,10 +23,37 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// <param name="OwnerName">What the owner instance calls itself — the name it paired under,
 /// such as its machine name — so a viewer can say which desktop holds the question. Null from
 /// an owner that predates the field.</param>
+/// <param name="Repository">The repository the owner worked out the notification is about, at
+/// the push that wrote it (local ADR 0039 §6): its alias, or the Brain. Null — left out on the
+/// wire — when the owner could not work it out, and from an owner that predates the field; a
+/// viewer keeps such a notification under every repository choice.</param>
 public sealed record NotificationPayload(
     NotificationSnapshot Notification,
     IReadOnlyList<NotificationReplyRejection> RejectedReplies,
-    string? OwnerName = null);
+    string? OwnerName = null,
+    PublishedRepository? Repository = null);
+
+/// <summary>
+/// The repository a published notification is about, as its owner worked it out (local ADR 0039
+/// §6): the alias the owner's header scope shows, or — <see cref="Alias"/> null — the Brain, per
+/// local ADR 0027 §2. "Not known" is no value of this type: it is its absence on the payload, so
+/// the Brain and "not known" can never be read for one another.
+/// </summary>
+/// <param name="Alias">The owner's alias for the repository; null for the Brain.</param>
+public sealed record PublishedRepository(string? Alias)
+{
+    /// <summary>About no repository: the Brain's.</summary>
+    public static PublishedRepository Brain { get; } = new((string?)null);
+
+    /// <summary>Whether it is the Brain's rather than a repository's.</summary>
+    [JsonIgnore]
+    public bool IsBrain => string.IsNullOrWhiteSpace(Alias);
+
+    /// <summary>The answer for an alias as the owner's resolution gives it — null or blank for
+    /// the Brain's.</summary>
+    public static PublishedRepository Of(string? alias) =>
+        string.IsNullOrWhiteSpace(alias) ? Brain : new PublishedRepository(alias.Trim());
+}
 
 /// <summary>A reply the owner instance rejected, and why.</summary>
 /// <param name="ReplyId">The reply.</param>
@@ -91,14 +118,17 @@ public static class NotificationPayloads
     };
 
     /// <summary>The change to push for <paramref name="snapshot"/>, stamped
-    /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/>, with the
-    /// Android push preview on its envelope (local ADR 0039 §4) — a private notification's
-    /// without its summary, which then never leaves this desktop in a push.</summary>
+    /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/> and the
+    /// repository it is about as <paramref name="repository"/> — null when not known, which
+    /// leaves it off the document — with the Android push preview on its envelope (local ADR
+    /// 0039 §4) — a private notification's without its summary, which then never leaves this
+    /// desktop in a push. The repository rides on the document only, never the preview (§6).</summary>
     public static NotificationChange ToChange(
         NotificationSnapshot snapshot,
         IReadOnlyList<NotificationReplyRejection> rejected,
         DateTimeOffset updatedAt,
-        string? ownerName = null)
+        string? ownerName = null,
+        PublishedRepository? repository = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(rejected);
@@ -108,7 +138,7 @@ public static class NotificationPayloads
             snapshot.OwnerInstanceId,
             StateOf(snapshot.State),
             updatedAt,
-            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected, ownerName), Options),
+            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected, ownerName, repository), Options),
             PreviewOf(snapshot));
     }
 

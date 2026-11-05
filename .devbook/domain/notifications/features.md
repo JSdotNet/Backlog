@@ -94,8 +94,7 @@ filter. A filter with fewer than two options is not shown. The phone remembers
 both on the device, and **Clear filters** sets both back to All. A filter that
 leaves nothing shows an empty state with **Clear filters**, not "No
 notifications". The filters change only what the tab shows: the waiting count
-and the tab's badge count every open question, and the Android push is sent
-whatever they hold.
+counts every open question, and the Android push is sent whatever they hold.
 
 The phone also hears of a notification without being opened, through an Android
 push. When a notification is published or changes state, the phone gets an
