@@ -51,6 +51,14 @@ verdict syncs back the card reads "Answered from this phone", "Answered
 elsewhere" with the answer that won, or the owner's reason for rejecting it with
 the controls back. A question that says `answerOn: owner` is read-only there.
 
+Each box that takes words can be dictated into instead of typed: the open answer,
+a choice's own words and the note. What was heard is added to that box for
+the person to read, and nothing is sent until they press Send. One box listens at
+a time, and listening stops when the reply is sent or the person moves to another
+notification. Words past the box's length limit are left out, and the phone says
+so. A phone with no speech recogniser shows the dictation control unavailable,
+and the box still takes typing.
+
 An open alert on the phone offers Dismiss, which sends an
 [Acknowledgement](domain.md#acknowledgement) to the owner desktop through the same
 outbox, as a `notification-reply` entry. Another desktop sends one from its
