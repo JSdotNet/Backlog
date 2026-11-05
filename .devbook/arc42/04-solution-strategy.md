@@ -12,15 +12,15 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints"]
 
 The desktop app is fully functional standalone and owns the canonical data:
 
-- **All capture runs locally** — YouTube, website, and email polling happen on the
+- **All capture runs locally.** YouTube, website and email polling happen on the
   desktop via background workers.
-- **Cloud is optional** — it adds multi-device sync (mobile), GitHub webhook
-  forwarding, and the Remote PC registry.
-- **No cloud dependency for core workflows** — capture, triage, backlog, knowledge,
+- **Cloud is optional.** It adds multi-device sync (mobile), GitHub webhook
+  forwarding and the Remote PC registry.
+- **No cloud dependency for core workflows.** Capture, triage, backlog, knowledge
   and monitoring all work offline.
-- **Standalone or connected** — the desktop runs in either mode the glossary defines
+- **Standalone or connected.** The desktop runs in either mode the glossary defines
   (`.devbook/arc42/12-glossary.md#terms`), and the cloud never gates a feature.
-- **No account required** — a personal-use system that syncs without login.
+- **No account required.** A personal-use system syncs without login.
 
 This directly serves quality goals 1 (availability) and 2 (credential privacy) in
 `.devbook/arc42/01-introduction-and-goals.md#quality-goals`.
@@ -60,10 +60,17 @@ related: [".devbook/arc42/09-architecture-decisions.md"]
 
 | Channel | Stack |
 |---|---|
-| **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head on Windows, Razor UI in WebView2); SQLite for tasks, JSON for settings. `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` records why: an Aspire AppHost can launch it and Playwright can drive it end to end. |
-| **Mobile** | .NET MAUI Blazor Hybrid on Android; a SQLite file on the device holds the outbox and the pulled views (`.devbook/arc42/05-building-block-view.md#mobile-app`) |
+| **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head, Razor UI in WebView2); SQLite for tasks, JSON for settings. |
+| **Mobile** | .NET MAUI Blazor Hybrid on Android; a device SQLite file holds the outbox and the pulled views. |
 | **IDE** | VS Code extension (TypeScript). Visual Studio has no extension; `.devbook/tech/ide.md` lists it as a candidate |
-| **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure Container Apps (consumption, scale-to-zero), Cosmos DB for NoSQL (serverless). `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` records why Cosmos DB won over PostgreSQL and Container Apps over App Service. |
+| **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure Container Apps (consumption, scale-to-zero), Cosmos DB for NoSQL (serverless). |
+
+- **Desktop:** The WinUI 3 head is the Windows one. `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` records why:
+  an Aspire AppHost can launch it and Playwright can drive it end to end.
+- **Mobile:** `.devbook/arc42/05-building-block-view.md#mobile-app` describes the device
+  store.
+- **Cloud:** `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`
+  records why Cosmos DB won over PostgreSQL and Container Apps over App Service.
 
 The cloud-service stack follows the organization's .NET ADRs (see
 `.devbook/arc42/09-architecture-decisions.md`). Desktop, mobile, and IDE stacks are chosen

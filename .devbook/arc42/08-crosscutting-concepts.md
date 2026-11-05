@@ -13,19 +13,22 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   source of truth. Tasks live in one SQLite database, `backlog.db`, under the
   workspace root, with a task's content held as markdown text. Markdown is the
   content of a task, not the storage format. The roadmap plan is one document row
-  in the same database. Three owners share the file and not the schema: Tasks
-  (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`,
-  `inbox_lists`, `inbox_groups`). JSON files hold the workspace settings and
-  feature flags, which are per-device. See
-  `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+  in the same database. JSON files hold the workspace settings and feature flags,
+  which are per-device.
+
+  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+  Three owners share the file and not the schema:
+  - Tasks (`tasks`)
+  - Roadmap Planning (`roadmap_plan`)
+  - the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`)
 - **The Devbook is the other way round.** A repository's devbook folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: the app owns a task, and the repository owns a
   devbook chapter, which is edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
-- **Configurable repo paths** via a repo registry (`config/repos.json`).
+- **Repository paths are configurable.** A repo registry in `config/repos.json` holds them.
 
-Optional cloud sync carries this state between a person's devices:
+Optional cloud sync carries this state between a person's devices. Every kind rides the `tasks` container and reconciles by last-write-wins, unless its row says otherwise:
 
 | State | Travels as | Reconciled by | Decision |
 |---|---|---|---|
@@ -38,12 +41,13 @@ Optional cloud sync carries this state between a person's devices:
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |
 | My Day preferences | kind `my-day-preferences` in `tasks`, written by a desktop and folded read-only by the phone | last-write-wins | local ADR 0032 |
 | Goal | kind `goal` in `tasks`, one document per goal under its own id | last-write-wins per goal on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
-| Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
+| Impediment | kind `impediment` in `tasks`, one document per impediment under its own id | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 | Devbook subject state | one document per subject in the `devbookSubjects` container, under an id every device derives alike | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0044 |
-| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0039 |
+| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled; see [Notifications](#notifications) | local ADR 0039 |
 
+- **The phone's impediment edits go through the device outbox.**
 - **A capture is a task-shaped document with its own kind token.** On the desktop
   it is handed to the Inbox's intake before the task merge. It becomes an inbox
   item with the capture's own id, never a task row. The desktop acknowledges it by
@@ -52,12 +56,12 @@ Optional cloud sync carries this state between a person's devices:
   kept as one JSON file per repository in `devbook-annotations/` under the storage
   folder, and moves with the backlog. It is never in the generated devbook
   database and never a table in `backlog.db`. A remark carries the branch it was
-  left on, none for the default branch, and a kind: `comment`, `question`,
+  left on, none for the default branch. It also carries a kind: `comment`, `question`,
   `suggestion` or `flag`. Both travel as optional members of its payload.
 - **A devbook subject's workflow state is Devbook's own record too.** The state of
   a change proposal, a decision record or a debt record is kept as one JSON file
-  per repository in `devbook-subjects/` under the storage folder, on a remark's
-  terms. It is never written into the chapter, so setting it commits nothing and
+  per repository in `devbook-subjects/` under the storage folder. It travels on a
+  remark's terms. It is never written into the chapter, so setting it commits nothing and
   works on a branch snapshot. See
   `.devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md`.
 - **A repository's devbook is imported once per device.** The states and open
@@ -89,7 +93,9 @@ This state deliberately stays on the machine:
 | Inbox lists and groups | The lists and groups the Inbox organises items into are this machine's | `backlog.db` |
 | Derived knowledge layer | Regenerated on the second machine, not shipped to it | app storage ([Devbook Database](#devbook-database)) |
 | Branch snapshot cache | The index of a named commit plus the files read so far; refetched, and safe to delete | the devbook cache folder |
-| [Settled-fact caches](12-glossary.md#terms) of the dashboard | A copy of a provider's answer about something that cannot change again; refetched, and safe to delete | `activity-cache`, `spend-cache` and `session-activity-cache`, beside the per-user settings |
+| [Settled-fact caches](12-glossary.md#terms) of the dashboard | A copy of a provider's answer about something that cannot change again | `activity-cache`, `spend-cache` and `session-activity-cache`, beside the per-user settings |
+
+The branch snapshot cache and the dashboard caches are refetched and safe to delete.
 
 The three dashboard caches hold different answers. `activity-cache` holds the
 merged pull requests, closed issues and per-pull-request detail a listing walk
@@ -101,12 +107,17 @@ carried by a file-sync product is the hazard
 `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists
 to remove.
 
-- **Eight containers in the cloud.** The replicas `tasks`, `sessions`,
-  `annotations`, `devbookSubjects`, `notifications` and `notificationReplies` are
-  all partitioned on `/ownerId`. They are separate because each
-  wants its own change feed, indexing policy, and retention, and serverless
-  billing levies no per-container charge to trade against. Beside them, `devices`
-  and `pairingCodes` hold the device registry. They are not replicas, since no
+- **Eight containers in the cloud.** Six are replicas, all partitioned on `/ownerId`:
+  - `tasks`
+  - `sessions`
+  - `annotations`
+  - `devbookSubjects`
+  - `notifications`
+  - `notificationReplies`
+
+  The replicas are separate because each wants its own change feed, indexing policy, and
+  retention. Serverless billing levies no per-container charge to trade against. Beside
+  them, `devices` and `pairingCodes` hold the device registry. They are not replicas, since no
   change feed is read from them. They are partitioned on `/id`, because the read
   on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
@@ -127,7 +138,7 @@ to remove.
   unmergeable, and its WAL sidecars sync out of step with it, so committed
   transactions silently roll back. Multi-device use goes through the sync service.
   See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
-- **Desktop works fully standalone**; the cloud connection is purely additive. The
+- **Desktop works fully standalone.** The cloud connection is purely additive. The
   one qualification is a repository configured to read its knowledge from a branch
   rather than from a clone. That needs the network to list the branch and the
   first time each area is opened, and what has been opened reads offline
@@ -150,9 +161,14 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
 ```
 
 Local ADR 0005 settles the direction for the Task aggregate. Everything below is
-built: the identity model (pairing, tokens, and the query-scoping check), the
-Cosmos replica, the change feed over it, and the reconciliation it carries. The
-service is provisioned by hand
+built:
+
+- the identity model (pairing, tokens, and the query-scoping check);
+- the Cosmos replica;
+- the change feed over it;
+- the reconciliation it carries.
+
+The service is provisioned by hand
 (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop
 half sits behind the `Beta`-status `sync` feature flag, off by default. Tombstone
 expiry is the one behaviour here that nothing local can exercise.
@@ -163,7 +179,7 @@ under [Session Record Sync](#session-record-sync).
 
 **Reconciliation between equals, not client and server.** Each device's SQLite
 database is canonical for that device. Azure holds a replica and the change feed
-over it, and carries no invariant, no query path, and no domain logic.
+over it. That replica carries no invariants, query paths, or domain logic.
 
 ```mermaid
 sequenceDiagram
@@ -195,7 +211,7 @@ sequenceDiagram
   held has one answer at both ends. The replica on a push and the device on a pull
   take only a later version by `updated_at`, or a tombstone of the very version
   held (local ADR 0005).
-- **Whole-document resolution**, matching how the aggregate is already persisted
+- **Resolution is per whole document.** That matches how the aggregate is already persisted
   everywhere else. A per-field merge would invent a reconciliation the domain has
   no rule for.
 - **A local write is pushed within seconds, not on the next tick.** The
@@ -276,8 +292,9 @@ its record. The local reading of a session wins wherever there is one.
 A pull keeps what it read in one write, made when the pull ends. That holds
 whichever way it ends: at the end of the feed, on a failed page, on an exception or
 on a cancellation. Only then does it save the cursor that covers those records. The
-activity log names the sessions the pull received only after both writes. The
-replica store writes its file to a sibling and moves it over the original, so the
+activity log names the sessions the pull received only after both writes.
+
+The replica store writes its file to a sibling and moves it over the original, so the
 file is replaced whole or not at all. The cursor therefore never runs ahead of the
 records it covers. A pull the process did not survive is read again from the last
 cursor it saved. That costs repeated work and loses nothing, because a record
@@ -307,13 +324,26 @@ fields and nothing else:
 
 | Group | Fields |
 |---|---|
-| Identity | session id, agent kind, machine id (stamped by the service from the token), machine name (a display label only) |
-| Place | repository alias (never a path); resolved repository alias (the registered clone the working folder lay in, as an alias); branch; worktree key (the folder's leaf and eight hex characters of a one-way hash of its path) |
-| Time | started at, last activity at, turn count, duration, runs and waits (pairs of timestamps), human turns (instants), usage-limit refusals |
+| Identity | session id, agent kind, machine id, machine name |
+| Place | repository alias, resolved repository alias, branch, worktree key |
+| Time | started at, last activity at, turn count, duration, runs and waits, human turns, usage-limit refusals |
 | Description | title, entrypoint (`claude-desktop`, `cli`), the pull requests the session linked, token usage per model |
 
-A record never carries a prompt, tool output, file contents, or a working folder's
-path. The title is the one prompt-derived exception. Adding a field is a decision
+- **Identity:** The service stamps the machine id from the token. The machine name is a
+  display label only.
+- **Place:** The repository alias is never a path. The resolved repository alias names the
+  registered clone the working folder lay in, as an alias. The worktree key is the
+  folder's leaf and eight hex characters of a one-way hash of its path.
+- **Time:** Runs and waits are pairs of timestamps, and human turns are instants.
+
+A record never carries:
+
+- a prompt;
+- tool output;
+- file contents;
+- a working folder's path.
+
+The title is the one prompt-derived exception. Adding a field is a decision
 taken in local ADR 0005, which argues each one, and never in the pushing code.
 
 - **Sections key on the machine id.** The machine name is a label, and a rename
@@ -332,10 +362,15 @@ taken in local ADR 0005, which argues each one, and never in the pushing code.
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
 
-- **Markdown is canonical and the layer over it is generated.** The graph between
-  chapters, the resolved reading outline, the retrieval indexes, the diagram
-  artifact index, the click demo index and the C4 nodes and edges are all derived. Nothing derived is
-  authoritative, and nothing authored lives only in the derived layer.
+- **Markdown is canonical and the layer over it is generated.** All of these are derived:
+  - the graph between chapters;
+  - the resolved reading outline;
+  - the retrieval indexes;
+  - the diagram artifact index;
+  - the click demo index;
+  - the C4 nodes and edges.
+
+  Nothing derived is authoritative, and nothing authored lives only in the derived layer.
 - **One generated SQLite database per repository path, in the app's storage.** It
   sits at `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the
   branch snapshots use, keyed by the repository root's absolute path. It is
@@ -343,24 +378,27 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
 - **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace, `workspace.dsl` in the arc42 folder with any files
-  it includes from its `c4/` folder, are committed and reviewed in diffs. Only what a generator produces goes into the database. The
-  rendered Archify pages are not committed at all: the app draws them on demand
-  from the specifications into `_archify-renders/` beside `_databases/` (local
-  ADR 0034). The
-  reading order is not authored at all. Both writers derive it the way the devbook
-  generator does, from `index: root`, the folder's convention root and the numbers
-  in filenames (local ADR 0016). The C4 workspace's derived half is its graph:
-  both writers add an `element` node per element and a `view` node per view, with
-  `contains`, `relationship`, `embeds`, `c4` and `c4-touches` edges. The app draws
-  each view from the DSL on demand, so no rendering of it is stored.
+  the Structurizr C4 workspace are committed and reviewed in diffs. The workspace is
+  `workspace.dsl` in the arc42 folder, with any files it includes from its `c4/` folder.
+  Only what a generator produces goes into the database.
+  - The rendered Archify pages are not committed at all. The app draws them on demand
+    from the specifications into `_archify-renders/` beside `_databases/` (local ADR 0034).
+  - The reading order is not authored either. Both writers derive it the way the
+    devbook generator does, from `index: root`, the folder's convention root and the
+    numbers in filenames (local ADR 0016).
+  - The C4 workspace's derived half is its graph. Both writers add an `element` node per
+    element and a `view` node per view, with `contains` and `relationship` edges, plus
+    `embeds`, `c4` and `c4-touches` edges.
+  - The app draws each view from the DSL on demand, so no rendering of it is stored.
 - **Structural first, semantic optional.** The structural tier is deterministic and
   builds offline. Embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,
-  falling back to full-text search. The app fills it after each check, through the
-  Foundry deployment `text-embedding-3-small`, embedding only the chapter texts the
-  database has no vector for and carrying the rest across a rebuild; with no
-  deployment configured it calls nothing.
+  falling back to full-text search.
+
+  The app fills the semantic tier after each check, through the
+  Foundry deployment `text-embedding-3-small`. It embeds only the chapter texts the
+  database has no vector for and carries the rest across a rebuild. With no deployment
+  configured it calls nothing.
 - **The app builds it.** A C# builder beside the reader parses the folders the
   way the devbook generator does and writes every table; the reader stays
   read-only. `tools/devbook/build-database.mjs` remains as CI's build check. It is
@@ -431,24 +469,41 @@ publishes through one port, `INotifications`, in
 `Backlog.Modules.Notifications.Abstractions`. No context builds its own channel
 between devices. Local ADR 0039 records the decision, and the
 [Notifications context](../domain/notifications/context.md) owns the model.
-The owner's side is built: the port, the handler and probe contracts, the
-`notifications` table in `backlog.db`, the answer replay and the startup probe
-pass, and each subject context's close and probe. So is the transport: the two
-replica containers, the sync routes and the owner desktop's exchange, and the
-desktops' Web PubSub nudge. So are the first publishers: a run's Personal
-Validation, the device that redeemed a pairing code, and a remark left on another
-device. So are the screens: the desktop's notification centre and the phone's
-list and answer screens. So is the Android phone push, deployed on 2026-11-04;
-no push reaches a phone until the hub has its FCM credential.
 
-| Concern | How it works |
-|---|---|
-| Publishing | A source on a desktop calls `PublishAsync` with an alert or a question. That desktop becomes the notification's owner instance. |
-| Answering | A source that asks questions registers an `INotificationAnswerHandler` for its source name. The owner hands it the accepted answer, at least once. |
-| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
-| Storage | The owner keeps SQLite as its local store. Notifications replicate through the `notifications` container, which expires them 30 days after they close. Replies wait in `notificationReplies` until the owner deletes them. |
-| Exchange | The owner desktop pushes what it published or settled, and while a question is open lists the replies addressed to it every two minutes. It accepts the first valid reply, rejects the rest as already answered, closed or invalid, and puts each rejection on the notification it pushes next. A quiet desktop sends nothing. |
-| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a socket the sync service's negotiate route hands out. The Android phone gets it through Azure Notification Hubs to FCM, as a data-only push with the tray text, sent only when a notification is published or changes state. While a desktop's socket is down, its two-minute reply poll is the fallback. |
+These parts are built:
+
+- **The owner's side:** the port, the handler and probe contracts, the `notifications`
+  table in `backlog.db`, the answer replay and the startup probe pass, and each subject
+  context's close and probe.
+- **The transport:** the two replica containers, the sync routes and the owner desktop's
+  exchange, and the desktops' Web PubSub nudge.
+- **The first publishers:** a run's Personal Validation, the device that redeemed a
+  pairing code, and a remark left on another device.
+- **The screens:** the desktop's notification centre and the phone's list and answer
+  screens.
+- **The Android phone push:** deployed on 2026-11-04. No push reaches a phone until the
+  hub has its FCM credential.
+
+- **Publishing:** A source on a desktop calls `PublishAsync` to publish an alert or a
+  question, and that desktop becomes the notification's owner instance.
+- **Answering:** A source that asks questions registers an `INotificationAnswerHandler`
+  for its source name. The owner hands the handler the accepted answer, at least once.
+- **Ending:** The context that owns a notification's subject calls `CloseForSubjectAsync`
+  from wherever it notices the end, a change synced in from another device included,
+  since the context applies that change itself. Its `INotificationSubjectProbe` answers
+  at startup and after a sync, to catch an end the owner missed.
+- **Storage:** The owner keeps SQLite as its local store, and notifications replicate
+  through the `notifications` container, which expires them 30 days after they close.
+  Replies wait in `notificationReplies` until the owner deletes them.
+- **Exchange:** The owner desktop pushes what it published or settled. It lists the
+  replies addressed to it every two minutes while a question is open. It accepts
+  the first valid reply, rejects the rest as already answered, closed or invalid, and puts
+  each rejection on the notification it pushes next. A quiet desktop sends nothing.
+- **Realtime:** A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a
+  socket the sync service's negotiate route hands out. The Android phone gets it through
+  Azure Notification Hubs to FCM, as a data-only push with the tray text, sent only when a
+  notification is published or changes state. While a desktop's socket is down, its
+  two-minute reply poll is the fallback.
 
 - **One writer per document.** Only the owner instance writes a notification. A
   viewer writes a reply document once, and the owner accepts or rejects it. The
@@ -486,14 +541,22 @@ no push reaches a phone until the hub has its FCM credential.
 related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 
-- **Optional capabilities are switchable per installation** — repository knowledge,
-  the individual knowledge areas, additional repositories, system tools, GitHub
-  integration, feedback reporting, Copilot CLI, and AI assistance can each be turned
-  on. Core backlog editing is always available and is never switchable.
+- **Optional capabilities are switchable per installation.** Each of these can be turned
+  on:
+  - repository knowledge;
+  - the individual knowledge areas;
+  - additional repositories;
+  - system tools;
+  - GitHub integration;
+  - feedback reporting;
+  - Copilot CLI;
+  - AI assistance.
+
+  Core backlog editing is always available and is never switchable.
 - **Disabled is the default**; the stored setting records only what has been switched
   *on*, so a capability added later stays out of the way until it is deliberately
   chosen.
-- **A disabled capability leaves no surface behind** — its entry points are absent
+- **A disabled capability leaves no surface behind.** Its entry points are absent
   rather than present-but-inert, and dependent settings disappear with it.
 - **The switch is local to the installation**, kept with the other machine-local
   settings rather than inside the backlog folder, so it never travels with synced
@@ -526,10 +589,7 @@ screen can be relied on.
 related: [".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
-- `#tags` embedded inside markdown, multiple per item.
-- Project tags, cross-cutting tags, and PARA-inspired grouping (Projects, Areas,
-  Resources, Archive).
-- A tag index enables search across all domains.
+Items carry several `#tags` embedded inside markdown. Project tags, cross-cutting tags and PARA-inspired grouping (Projects, Areas, Resources, Archive) all use them, and a tag index enables search across all domains.
 
 Tags are not drawn from a single vocabulary. Alongside freely authored tags, every
 roadmap item contributes its own slug as an available tag in both the backlog and the
@@ -546,27 +606,29 @@ references, they stay node attributes and produce no edges in the knowledge grap
 related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
 ```
 
-- **No account required** for personal use in standalone mode.
-- **OAuth 2.0** for GitHub integration (issue sync, webhook registration).
-- **Cloud connection uses device-based auth**: JWT device sessions, and no user
+- **No account is required** for personal use in standalone mode.
+- **GitHub integration uses OAuth 2.0** for issue sync and webhook registration.
+- **The cloud connection uses device-based auth.** It uses JWT device sessions and no user
   login. `Backlog.Modules.Sync.Api` implements it:
   - every sync request is bearer-only;
-  - the JWT's issuer, audience, lifetime, signature, and algorithm are all validated;
+  - the service validates the JWT's issuer, audience and lifetime, plus its signature and algorithm;
   - a fallback-deny policy covers any endpoint not explicitly opened;
   - an owner-scoping filter reads the owner out of the token and refuses to serve a
     query outside it.
 
   [Task Sync](#task-sync) has the pairing flow that issues the token.
-- The current architecture assumes a single personal user and does not include team-oriented authorization roles.
+- **One personal user.** The current architecture assumes a single personal user and has no team-oriented authorization roles.
 - **Credentials at rest are sealed by the OS.** Every third-party key or token the
   app stores is sealed under the signed-in Windows user with DPAPI, or in the
   platform secure store on Android. The settings files seal only the secret value
   and stay legible otherwise. The MCP server's loopback token is the one stated
   exception. Local ADR 0030 has the threat model.
 
-For the cloud service specifically, the inherited identity, authorization, and
-error-contract decisions apply — `.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md`,
-`0013-authorization-zero-trust.md`, and `0017-http-error-contract-and-problem-details.md`.
+For the cloud service specifically, three inherited decisions apply:
+
+- identity: `.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md`;
+- authorization: `0013-authorization-zero-trust.md`;
+- the error contract: `0017-http-error-contract-and-problem-details.md`.
 
 ## Observability
 

@@ -237,52 +237,17 @@ footprint sized only for sync coordination and webhook forwarding.
 
 ![Cloud Deployment](c4:deployment-azure)
 
-```mermaid
-flowchart TB
-    subgraph "Azure"
-        subgraph "Compute"
-            AppService["Azure Container Apps\n(consumption, scale-to-zero)"]
-        end
-        subgraph "Data"
-            CosmosDB["Azure Cosmos DB (serverless)\ntasks, sessions, annotations,\ndevbookSubjects, notifications,\nnotificationReplies, devices,\npairingCodes containers,\nchange feed per replica container"]
-            KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
-            Storage["Azure Storage (Standard LRS)\nprivate container attachments,\n30-day lifecycle rule"]
-        end
-        subgraph "Messaging"
-            WebPubSub["Azure Web PubSub (Free_F1)\nhub notifications"]
-            NotificationHubs["Azure Notification Hubs (Free)\nnamespace ntfns, hub backlog"]
-        end
-    end
+These facts sit outside the embedded view:
 
-    subgraph "External"
-        GitHub["GitHub\n(webhooks in)"]
-        FCM["Firebase Cloud Messaging\n(Android push)"]
-
-    end
-
-    subgraph "Clients"
-        Desktop["Desktop App"]
-        Mobile["Mobile App"]
-        IDE["IDE Extensions"]
-    end
-
-    Desktop -->|"HTTPS — state sync"| AppService
-    Mobile -->|"HTTPS — sync and offline flush"| AppService
-    IDE -->|"HTTPS — state sync"| AppService
-
-    AppService -->|"Managed identity — data-plane role"| CosmosDB
-    AppService --> KeyVault
-    AppService -->|"Managed identity — Blob Data Contributor"| Storage
-
-    GitHub -->|"Webhook events"| AppService
-
-    AppService -->|"Managed identity — Web PubSub Service Owner"| WebPubSub
-    WebPubSub -.->|"Pull now"| Desktop
-    AppService -->|"SAS: Send / Manage"| NotificationHubs
-    NotificationHubs -->|"FCM v1"| FCM
-    FCM -.->|"Data-only push"| Mobile
-
-```
+- **Cosmos DB:** [Cloud Service](05-building-block-view.md#cloud-service) names the eight containers.
+- **Clients:** the desktop app and the IDE extensions reach the service over HTTPS for state sync. The
+  mobile app does so for sync and its offline flush.
+- **Identity:** the service reaches Cosmos DB through a managed identity with a data-plane role, and
+  Storage through one with Blob Data Contributor. Web PubSub takes Web PubSub Service Owner.
+- **Notification Hubs:** the service uses SAS Send and Manage keys. The hub reaches Firebase Cloud
+  Messaging over FCM v1, which delivers a data-only push to the mobile app.
+- **Pull now:** Web PubSub tells the desktop to pull.
+- **GitHub:** webhook events arrive at the service.
 
 Deployment considerations:
 
@@ -317,21 +282,24 @@ Deployment considerations:
 
   `ConnectionStrings__attachments` tells the service where it is: an endpoint and
   a container name, and no key. Locally it is the AppHost's `storage` resource,
-  Azurite in a persistent container, with the same container declared. Devices
-  upload and download a phone capture's files only through the sync service
+  Azurite in a persistent container, with the same container declared.
+
+  Devices upload and download a phone capture's files only through the sync service
   (`PUT`/`GET /api/sync/attachments/{id}`), owner-scoped from the token, with a
   size cap and a content-type allowlist. They never hold a storage credential. The
-  capture document holds metadata only. The desktop's acknowledgement tombstone
-  releases a capture's blobs. A 30-day lifecycle rule removes anything left
-  behind, in Azure only, because Azurite runs no management policies. A task's own
-  attachment stays a path on the desktop's local file system.
+  capture document holds metadata only.
+
+  The desktop's acknowledgement tombstone releases a capture's blobs. A 30-day
+  lifecycle rule removes anything left behind, in Azure only, because Azurite runs no
+  management policies. A task's own attachment stays a path on the desktop's local
+  file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
 - **No keys for Cosmos or Storage** — the container app reaches Cosmos through a
   user-assigned managed identity with a data-plane role assignment. The account
   carries `disableLocalAuth`, so a key cannot be used even if one existed. No
-  Cosmos or Storage connection string or account key is issued, per inherited ADR
-  0013. The identity is user-assigned because a system-assigned one does not
+  Cosmos or Storage connection string or account key is issued, per inherited ADR 0013.
+  The identity is user-assigned because a system-assigned one does not
   exist until its container app does. The app could then not be granted the
   registry pull it needs in order to start.
 - **Two Notification Hubs keys, because that service takes no identity** *(local
@@ -387,9 +355,10 @@ variables and the credential now work. These are still unverified:
 
 **Two callers, two scopes.** A person starts every infrastructure run, from
 Deploy Sync itself or from Deploy All. Deploy All's sync component previews or
-provisions and never deploys the service, because its release component does. The service
-itself deploys unattended: every Release All run that publishes calls Deploy Sync
-in `service` mode, the nightly included ([Release](#release)). That mode runs
+provisions and never deploys the service, because its release component does.
+
+The service itself deploys unattended: every Release All run that publishes calls Deploy
+Sync in `service` mode, the nightly included ([Release](#release)). That mode runs
 `azd deploy` alone and provisions nothing. A provision reads the running
 container's image back and hands it to the template, so it keeps the service
 that is running. Only the first provision, with no app yet, runs the
@@ -409,12 +378,30 @@ syncing while the service reports a version above its own (local ADR 0005
 
 | Concern | Approach |
 |---|---|
-| **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. Resource-group scoped, so it deploys into a group created by hand rather than creating one. |
+| **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. |
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
-| **CI/CD** | GitHub Actions, authenticating with **OIDC federated credentials**. Infrastructure is **started by hand** (`Deploy Sync` or `Deploy All`). The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. There is no publish profile and no service principal secret in the repository; the one secret carried is the service's own token signing key. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same five containers. Azurite is the `storage` resource, with the `attachments` container (local ADR 0014). The sync path, attachments included, builds and tests with no cloud account. |
-| **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Only application telemetry goes to either. No domain data does, because a telemetry pipeline samples and drops under load, and nothing a dashboard answers from may inherit that. The workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop against runaway logging. Once it is reached, Azure drops the rest of the day, exceptions included. That is intended: on such a day the volume is the incident. See `docs/deployment/sync.md`. |
+| **CI/CD** | GitHub Actions, authenticating with **OIDC federated credentials**. Infrastructure is **started by hand**. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same five containers. |
+| **Observability** | Log Analytics and Application Insights, with only application telemetry going to either. |
+
+- **Infrastructure as code:** The template is resource-group scoped, so it deploys into a
+  group created by hand rather than creating one.
+- **CI/CD:** A person starts infrastructure from `Deploy Sync` or `Deploy All`. The service
+  deploys through Release All, nightly and on every release, in Deploy Sync's `service`
+  mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. The
+  repository holds no publish profile and no service principal secret; the one secret
+  carried is the service's own token signing key.
+- **Local development:** Azurite is the `storage` resource, with the `attachments`
+  container (local ADR 0014). The sync path, attachments included, builds and tests with no
+  cloud account.
+- **Observability:** OpenTelemetry already flows through `AddServiceDefaults()`, so this is
+  wiring rather than design. No domain data goes to either, because a telemetry pipeline
+  samples and drops under load, and nothing a dashboard answers from may inherit that. The
+  workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop
+  against runaway logging. Once it is reached, Azure drops the rest of the day, exceptions
+  included. That is intended: on such a day the volume is the incident. See
+  `docs/deployment/sync.md`.
 
 The Bicep declares one resource ADR 0005 did not name: a container registry.
 `azd` deploying a container app has to push the built image somewhere. The
@@ -452,9 +439,14 @@ related: [".devbook/arc42/07-deployment-view.md#installation-and-updates", ".dev
 
 One workflow, Release All (`.github/workflows/release-all.yml`), releases every
 channel from one commit under one number. Each run that publishes creates one
-GitHub Release `vX.Y.Z`. It carries the desktop MSIX, its `.appinstaller`, the
-public signing certificate (`.cer`), and the Android APK. The same run deploys
-the sync service under that number.
+GitHub Release `vX.Y.Z`, which carries:
+
+- the desktop MSIX;
+- its `.appinstaller`;
+- the public signing certificate (`.cer`);
+- the Android APK.
+
+The same run deploys the sync service under that number.
 
 ```mermaid
 flowchart LR

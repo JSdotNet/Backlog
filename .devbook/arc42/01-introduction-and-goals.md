@@ -4,10 +4,15 @@
 index: root
 ```
 
-Backlog is a personal, AI-first productivity system. It captures input from many
-sources, organizes project knowledge, keeps a personal backlog, and monitors progress
-across repositories and projects. It runs fully standalone on a single desktop and
-optionally connects to a thin cloud layer for multi-device sync.
+Backlog is a personal, AI-first productivity system. It does four things:
+
+- It captures input from many sources.
+- It organizes project knowledge.
+- It keeps a personal backlog.
+- It monitors progress across repositories and projects.
+
+It runs fully standalone on a single desktop and optionally connects to a thin cloud
+layer for multi-device sync.
 
 The overriding architectural driver is **local-first**, as
 `.devbook/arc42/12-glossary.md` defines it; the desktop application also runs all
@@ -18,8 +23,8 @@ capture workers locally.
 ```meta
 ```
 
-The system is decomposed into independent functional domains, each designable,
-buildable, and extendable on its own. `.devbook/domain/context-map.md#subdomain-landscape`
+The system is decomposed into independent functional domains. Each one can be designed,
+built and extended on its own. `.devbook/domain/context-map.md#subdomain-landscape`
 classifies them.
 
 | Domain | Purpose |

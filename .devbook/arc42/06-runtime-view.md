@@ -15,29 +15,16 @@ one GitHub issue per targeted repo.
 
 ![Capturing an item and pushing it to GitHub](c4:capture-to-issue)
 
-```mermaid
-sequenceDiagram
-    actor ME
-    participant UI as Desktop UI
-    participant Backlog as Backlog Service
-    participant Store as Local SQLite Store
-    participant GitHub as GitHub API
+Inside the desktop, the flow runs in these steps:
 
-    ME->>UI: Create task
-    UI->>Backlog: createTask(title, body, repo_ids, tags)
-    Backlog->>Store: Upsert task row
-    Backlog-->>UI: Task created (id)
-
-    Note over Backlog,GitHub: Async GitHub sync - one issue per repo_id
-    loop For each repo_id
-        Backlog->>GitHub: POST /repos/{repo}/issues
-        GitHub-->>Backlog: 201 Created (issue_number, html_url)
-        Backlog->>Store: Update entry with github_issue_ids
-    end
-
-    Backlog-->>UI: github_issue_ids available
-    UI-->>ME: Entry visible with GitHub issue links
-```
+1. ME creates a task in the desktop UI.
+2. The UI calls the Backlog service with `createTask(title, body, repo_ids, tags)`.
+3. The Backlog service upserts the task row in the local SQLite store.
+4. The Backlog service returns the created task's id to the UI.
+5. For each `repo_id`, the Backlog service asynchronously sends `POST /repos/{repo}/issues` to the GitHub API.
+6. GitHub answers `201 Created` with `issue_number` and `html_url`.
+7. The Backlog service updates the entry in the store with `github_issue_ids`.
+8. Once `github_issue_ids` are available, the UI shows ME the entry with its GitHub issue links.
 
 ## State Sync and Webhook Forwarding
 
@@ -49,34 +36,20 @@ In connected mode the desktop pushes its task changes to the sync service, and t
 phone pulls them from the task feed. `.devbook/arc42/08-crosscutting-concepts.md#task-sync`
 has the reconciliation.
 
-> Webhook forwarding is not built: no route receives GitHub webhooks. The last part of
-> the diagram is the intended flow.
+> Webhook forwarding is not built: no route receives GitHub webhooks. Steps 6 to 9 below
+> are the intended flow.
 
-```mermaid
-sequenceDiagram
-    participant Desktop as Desktop App
-    participant Cloud as Cloud Service
-    participant DB as Cloud Database
-    participant Phone as Phone App
-    participant GH as GitHub
+![Syncing task state between devices](c4:state-sync)
 
-    Desktop->>+Cloud: POST /api/sync/tasks (changed since watermark)
-    Cloud->>DB: Upsert documents (tasks container)
-    Cloud-->>-Desktop: 200 OK
-
-    Note over Phone,Cloud: Phone comes online
-    Phone->>+Cloud: GET /api/sync/tasks?since=cursor
-    Cloud->>DB: Read the change feed from the cursor
-    DB-->>Cloud: Changed documents
-    Cloud-->>-Phone: 200 OK (documents, next cursor)
-
-    Note over GH,Cloud: Not built: GitHub webhook received
-    GH->>+Cloud: POST webhook
-    Cloud->>Cloud: Validate HMAC signature
-    Cloud->>DB: Store WebhookEvent (TTL 24h)
-    Cloud-->>-GH: 202 Accepted
-    Cloud-)Desktop: SSE - github.event forwarded
-```
+1. The desktop sends `POST /api/sync/tasks` with what changed since its watermark.
+2. The service upserts the documents in the `tasks` container and answers 200.
+3. The phone comes online and sends `GET /api/sync/tasks?since=cursor`.
+4. The service reads the change feed from the cursor.
+5. The service answers 200 with the documents and the next cursor.
+6. Not built: GitHub posts a webhook to the service.
+7. Not built: the service validates the HMAC signature.
+8. Not built: the service stores a `WebhookEvent` with a TTL of 24 hours and answers 202.
+9. Not built: the service forwards `github.event` to the desktop over SSE.
 
 ## Mobile Capture and Sync
 
@@ -104,14 +77,19 @@ when the service answers.
 - **Held while the service is newer.** A 426 is the phone's own answer when the
   service reports a version above the app's (local ADR 0005 §Version
   compatibility); nothing was sent. The head entry keeps its place and its
-  attempts, the flush stops, and it is tried again when the verdict is next due,
+  attempts, and the flush stops. It is tried again when the verdict is next due,
   ten minutes on, so a rolled-back service takes the queue without a tap.
 - **Same id on every attempt.** The id is minted (`Guid.CreateVersion7()`) when
   the capture is queued. The service answers a repeat of it with 200 and the
   capture it already holds, so a retry after a lost 201 delivers it once.
-- **Flush triggers.** Queuing an entry, the backoff timer, the app returning to
-  the foreground, the network coming back, and a tap on a parked entry. The
-  last three skip the pending wait and give a parked entry its attempts back,
+- **Flush triggers.** Five events start a flush:
+  - queuing an entry;
+  - the backoff timer;
+  - the app returning to the foreground;
+  - the network coming back;
+  - a tap on a parked entry.
+
+  The last three skip the pending wait and give a parked entry its attempts back,
   since each is a sign that the reason for the wait has gone.
 - **The list outlives the service.** Every successful pull is kept in the same
   file with its time. A failed pull, including 503 `sync.replica_unavailable`
@@ -183,7 +161,7 @@ metadata. All three sides are built. On the phone, a note's files take this path
 - **The desktop fetches** each file with `GET /api/sync/attachments/{id}`,
   served as a download with `nosniff`. Another owner's id is a 404. The Inbox
   intake records the files the capture names in `inbox_item_attachments` and
-  saves the item first, then downloads each one, checks its SHA-256, and writes
+  saves the item first. It then downloads each one, checks its SHA-256, and writes
   it into the item's folder under the workspace. A file that fails keeps its
   reason and waits for Retry; the item is received either way. See
   `.devbook/domain/inbox/requirements.md#capture-attachments`.
@@ -193,42 +171,21 @@ metadata. All three sides are built. On the phone, a note's files take this path
   logged and left to the container's 30-day lifecycle rule; the acknowledgement
   never fails on it.
 
-```mermaid
-sequenceDiagram
-    participant Phone as Phone App
-    participant Sync as Sync Service
-    participant Blob as Attachment Store
-    participant Cosmos as Task Replica
-    participant Desktop as Desktop App
+![A capture's files travelling beside it](c4:capture-attachments)
 
-    Phone->>+Sync: PUT /api/sync/attachments/{id} (Content-Type, X-Attachment-Sha256)
-    Sync->>Sync: Allowlist, cap, digest shape
-    Sync->>Blob: Stage blocks {ownerId}/{id} while hashing
-    alt Digest matches
-        Sync->>Blob: Commit block list (content type, sha256)
-        Sync-->>Phone: 201 StoredAttachment
-    else Mismatch, over the cap
-        Sync-->>-Phone: 400 / 413 — nothing committed
-    end
-
-    Phone->>+Sync: POST /api/sync/inbox (attachments: metadata)
-    Sync->>Blob: Find each {ownerId}/{id}: size + sha256
-    alt All stored as claimed
-        Sync->>Cosmos: Upsert capture document (metadata only)
-        Sync-->>Phone: 201 InboxItem
-    else Any missing or mismatched
-        Sync-->>-Phone: 400 inbox.capture_attachment_missing (ids)
-    end
-
-    Desktop->>+Sync: GET /api/sync/attachments/{id}
-    Sync->>Blob: Download {ownerId}/{id}
-    Sync-->>-Desktop: Bytes (attachment, nosniff)
-
-    Desktop->>+Sync: POST /api/sync/tasks (capture tombstone)
-    Sync->>Cosmos: Find held capture, then upsert tombstone
-    Sync->>Blob: Delete the held capture's files (best effort)
-    Sync-->>-Desktop: 200
-```
+1. The phone sends `PUT /api/sync/attachments/{id}` with `Content-Type` and `X-Attachment-Sha256`.
+2. The service checks the allowlist, the cap and the digest's shape.
+3. The service stages blocks at `{ownerId}/{id}` while hashing.
+4. If the digest matches, it commits the block list and answers 201 `StoredAttachment`.
+5. On a mismatch or over the cap, it answers 400 or 413 and commits nothing.
+6. The phone sends `POST /api/sync/inbox` with the `attachments` metadata.
+7. The service finds each `{ownerId}/{id}` and compares size and SHA-256.
+8. If all are stored as claimed, it upserts the capture document, metadata only, and answers 201 `InboxItem`.
+9. If any is missing or mismatched, it answers 400 `inbox.capture_attachment_missing` with the ids.
+10. The desktop sends `GET /api/sync/attachments/{id}` and gets the bytes, as an attachment with `nosniff`.
+11. The desktop sends `POST /api/sync/tasks` with the capture tombstone.
+12. The service finds the held capture, then upserts the tombstone.
+13. The service deletes the held capture's files, best effort, and answers 200.
 
 ## Talk Note Upload
 
@@ -259,9 +216,9 @@ since an outbox row holds JSON.
   already uploaded, and the flush stops until the verdict is next due.
 - **Released on delivery.** The files are deleted from the phone once the
   capture is taken (201, or 200 for an id the service already holds).
-- **Status from the outbox.** *synced* once the entry is gone, *uploading i of
-  n* while an attempt is sending its files, *waiting* otherwise, and *waiting —
-  tap to retry* once parked.
+- **Status from the outbox.** The row reads *synced* once the entry is gone,
+  *uploading i of n* while an attempt is sending its files, *waiting* otherwise,
+  and *waiting — tap to retry* once parked.
 
 ```mermaid
 sequenceDiagram
@@ -330,7 +287,9 @@ projection of the feed.
   the phone's current local date and whose status is not `archived`. With it off,
   an unfinished row with an earlier `in_my_day_on` stays in the list too. A row
   with `completed_on` today is in Done today, and a row completed earlier is out.
-  The phone applies the same rule as the desktop (ADR 0032 §5). The other rows are
+  The phone applies the same rule as the desktop (ADR 0032 §5).
+
+  The other rows are
   grouped by their agenda time against the phone's clock into Now, Agenda and
   Anytime today, as `.devbook/domain/tasks/features.md#my-day` describes. A
   carried row has no agenda time, so it sits in Anytime today.
@@ -338,12 +297,15 @@ projection of the feed.
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on
   screen with one line saying why.
-- **Adding is a push.** The phone builds the task as a `TaskChange` with a
-  `Guid.CreateVersion7()` id, the typed title, type `task`, status `draft`,
-  priority `medium`, `CreatedAt` now and `InMyDayOn` today. Added here means
-  picked for today. The task is queued as outbox kind `task` and posted to
-  `POST /api/sync/tasks`, with the same order, backoff and waiting marker as a
-  capture. A retry sends the same id, and the replica's whole-document upsert
+- **Adding is a push.** The phone builds the task as a `TaskChange` with these values:
+  - a `Guid.CreateVersion7()` id;
+  - the typed title;
+  - type `task`, status `draft` and priority `medium`;
+  - `CreatedAt` now and `InMyDayOn` today.
+
+  Added here means picked for today. The task is queued as outbox kind `task` and
+  posted to `POST /api/sync/tasks`, with the same order, backoff and waiting marker as
+  a capture. A retry sends the same id, and the replica's whole-document upsert
   makes that idempotent (ADR 0005).
 - **At once, then replaced.** The row is written into `task_view` when the task
   is queued, with server stamp 0, so it is in today's list immediately and marked
@@ -355,6 +317,7 @@ projection of the feed.
   stamps `UpdatedAt` now and queues the whole `TaskChange` as outbox kind `task`.
   When the phone's clock is behind the stamp the row already carries, the edit
   is stamped one millisecond past it instead, so it is still the later write.
+
   Done ticks the task as the desktop's checkbox does. Undone clears
   `completed_on`. A step edit changes one sub-item's status. Move to tomorrow
   sets `InMyDayOn` to the phone's local date plus one day and drops the agenda
@@ -365,7 +328,9 @@ projection of the feed.
   fields. It builds the task's title, a metadata line and its body from
   `ContentMd`, then applies the same `EntryTextParser` rewrite the desktop's
   control uses. It reads status, `completed_on` and `in_my_day_on` back off the
-  result. When the body changed, it also reads the body and the steps'
+  result.
+
+  When the body changed, it also reads the body and the steps'
   statuses, by position, as the desktop's save syncs them. So done writes
   `!done` on to every step chapter, and a step tick flips a `[ ]` marker or
   writes the step's own `!done` or `!ready`. A step that has no place in the
@@ -375,7 +340,9 @@ projection of the feed.
   entry id, carrying the task's own id in the `TaskChange`. A retry sends the
   same document, so the replica's upsert keeps it idempotent. Entries queue
   behind the ones before them, so two quick taps on the same task arrive
-  in the order they were made. The edit is applied to `task_view` at once and
+  in the order they were made.
+
+  The edit is applied to `task_view` at once and
   marked waiting, the same as an added task. Because an edit's entry id is not
   the task's, the waiting marker looks for the task's id inside the queued
   document, not for an entry with that id. A pull that brings back an older
@@ -506,48 +473,30 @@ stateDiagram-v2
 related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 ```
 
-```mermaid
-sequenceDiagram
-    actor ME
-    participant Desk as Desktop app
-    participant Ext as VS Code extension
-    participant Secrets as SecretStorage
-    participant Sync as Sync Service
+![Capturing from the VS Code extension](c4:ide-capture)
 
-    opt Not paired yet, or the credential was rejected
-        ME->>Desk: Settings > Devices, Generate a code
-        Desk->>Sync: POST /api/sync/devices/codes (Bearer)
-        Sync-->>Desk: code, expiresAt
-        ME->>Ext: Run backlog.pair, type the code
-        Ext->>+Sync: POST /api/sync/devices/pair (code, deviceName)
-        Sync-->>-Ext: 201 deviceId, credential (shown once)
-        Ext->>Secrets: Store deviceId + credential
-    end
+When the extension is not paired, or its credential was rejected:
 
-    ME->>Ext: Select text, run backlog.capture
-    Ext->>ME: Title box, pre-filled with the selection's first line
-    ME->>Ext: Confirm the title
-    opt No token cached, or it expires within two minutes
-        Ext->>Secrets: Read deviceId + credential
-        Ext->>+Sync: POST /api/sync/devices/token (deviceId, credential)
-        Sync-->>-Ext: accessToken, expiresAt
-    end
-    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode), Bearer
-    alt Token accepted
-        Sync-->>Ext: 201 Created
-        Ext-->>ME: "Backlog: captured …"
-    else 401 on the inbox
-        Sync-->>-Ext: 401
-        Ext->>Sync: New token, then the same POST once more
-    end
-    opt 401 from the token endpoint
-        Ext->>Secrets: Delete the credential
-        Ext-->>ME: Offer Pair with Desktop
-    end
-```
+1. ME generates a code in the desktop's Settings > Devices.
+2. The desktop sends `POST /api/sync/devices/codes` with its Bearer token and gets a code and `expiresAt`.
+3. ME runs `backlog.pair` and types the code.
+4. The extension sends `POST /api/sync/devices/pair` with the code and `deviceName`.
+5. The service answers 201 with `deviceId` and a credential shown once.
+6. The extension stores `deviceId` and the credential in `SecretStorage`.
 
-The extension sends the selection as a title only. It carries no repository
-context (file, line, branch), caches nothing but the token, and reaches the sync
+Every capture then runs these steps:
+
+1. ME selects text and runs `backlog.capture`.
+2. The extension shows a title box, pre-filled with the selection's first line, and ME confirms it.
+3. With no token cached, or one expiring within two minutes, the extension reads `SecretStorage`.
+4. It then sends `POST /api/sync/devices/token` and gets `accessToken` and `expiresAt`.
+5. The extension sends `POST /api/sync/inbox` with the title and `source=vscode`, and its Bearer token.
+6. On 201 Created, the extension shows "Backlog: captured …".
+7. On a 401 from the inbox, it gets a new token and sends the same POST once more.
+8. On a 401 from the token endpoint, it deletes the credential and offers Pair with Desktop.
+
+The extension sends the selection as a title only, with no repository
+context (file, line, branch). It caches nothing but the token and reaches the sync
 service at `backlog.cloudUrl` rather than the desktop
 (`.devbook/arc42/05-building-block-view.md#ide-extensions`).
 
@@ -672,32 +621,18 @@ which reads `note_view`, are built.
 `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the
 task feed.
 
-```mermaid
-sequenceDiagram
-    actor ME
-    participant Notes as Phone Notes tab
-    participant View as note_view (SQLite)
-    participant Outbox as SQLite Outbox
-    participant Sync as Sync Service
-    participant Desktop as Desktop App
+![A note syncing both ways](c4:mobile-note-sync)
 
-    ME->>Notes: Create or edit a note
-    Notes->>View: UPSERT row (UpdatedAt now, server stamp 0)
-    Notes->>Outbox: INSERT outbox (kind=note, whole note document)
-    Outbox->>+Sync: POST /api/sync/tasks (type note, same id every attempt)
-    Sync-->>-Outbox: 200 Accepted
-
-    Desktop->>+Sync: GET /api/sync/tasks?since=cursor
-    Sync-->>-Desktop: note document
-    Desktop->>Desktop: Inbox intake: create or update the item of kind note (later UpdatedAt wins)
-
-    ME->>Desktop: Edit, archive or delete the note
-    Desktop->>Sync: POST /api/sync/tasks (note document, or its tombstone)
-
-    Notes->>+Sync: GET /api/sync/tasks?since=cursor
-    Sync-->>-Notes: Changed documents
-    Notes->>View: Fold notes (later UpdatedAt wins, tombstone hides the row)
-```
+1. ME creates or edits a note in the phone's Notes tab.
+2. The tab upserts the `note_view` row with `UpdatedAt` now and server stamp 0.
+3. The tab inserts an outbox entry of kind `note` holding the whole document.
+4. The outbox sends `POST /api/sync/tasks` with type `note`, the same id on every attempt, and gets 200.
+5. The desktop sends `GET /api/sync/tasks?since=cursor` and gets the note document.
+6. The Inbox intake creates or updates the item of kind `note`, and the later `UpdatedAt` wins.
+7. ME edits, archives or deletes the note on the desktop.
+8. The desktop sends `POST /api/sync/tasks` with the note document or its tombstone.
+9. The phone sends `GET /api/sync/tasks?since=cursor` and gets the changed documents.
+10. The tab folds them into `note_view`: the later `UpdatedAt` wins, and a tombstone hides the row.
 
 - **A third document kind.** A note travels on the replica as a task-shaped
   document in the `tasks` container with its own kind token, `type: "note"`,
@@ -711,7 +646,7 @@ sequenceDiagram
   later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and
   a `DeletedAt` hides the row. The note pull keeps its own cursor beside
   `task_view`'s, so neither view's progress depends on the other's. The task fold
-  skips `note` documents. The Notes tab reads `note_view` and searches it on the
+  skips `note` documents, and the Notes tab reads `note_view` and searches it on the
   phone.
 - **Pushed through the outbox.** A note the phone creates or edits is written
   into `note_view` at once, then queued as outbox kind `note` and posted whole to
@@ -726,7 +661,9 @@ sequenceDiagram
   changed itself and has not pushed yet, as a note document. That is a flag on
   the note rather than a watermark, because a note's stamp may come from the
   phone's clock. A note it only pulled is never sent back. A change made here is
-  stamped after the copy it replaces, whatever the two clocks say. When the desktop
+  stamped after the copy it replaces, whatever the two clocks say.
+
+  When the desktop
   archives or deletes a note, the acknowledgement outbox pushes the note's
   tombstone as a `note` document, and the phone drops the row on its next pull. A
   phone edit that arrives after the archive or the deletion leaves it standing
@@ -783,8 +720,8 @@ sequenceDiagram
   new or changes state. The owner's 10-minute presence re-push sends nothing.
 - **The tray answers only what fits.** A single-choice question with up to three
   choices gets one action per choice. An open answer gets an inline reply, beside
-  up to two choices. Anything else, an owner-only question included, gets no
-  actions, and a tap opens the notification in the app.
+  up to two choices. Any other question, an owner-only one included, gets no
+  actions. A tap then opens the notification in the app.
 - **An offline owner delays the answer, not the reply.** The reply waits in the
   `notificationReplies` container. The phone shows "delivers on wake" until Desktop A
   wakes, pulls the reply and accepts it.

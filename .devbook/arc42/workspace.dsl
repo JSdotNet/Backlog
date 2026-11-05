@@ -49,7 +49,12 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
             ide = container "IDE Extensions" "VS Code, Visual Studio and Copilot App integrations." "TypeScript, C#"
 
-            cloud = container "Cloud Service" "Thin optional sync layer: device sync, webhook forwarding, push, PC registry." "ASP.NET Core"
+            cloud = container "Cloud Service" "Thin optional sync layer: device sync, webhook forwarding, push, PC registry." "ASP.NET Core" {
+                gateway = component "API Gateway & Auth" "Minimal REST surface, device sessions and rate limiting." "ASP.NET Core"
+                syncService = component "Sync Service" "The only domain-aware service: stores sync state and serves the delta feeds." "ASP.NET Core"
+                webhookReceiver = component "GitHub Webhook Receiver" "Validates and forwards GitHub webhook events; not built." "ASP.NET Core"
+                notificationService = component "Notification Service" "Tells a device to pull notifications, and carries no document itself." "Web PubSub, Notification Hubs"
+            }
 
             taskStore = container "Local Task Store" "Canonical store for tasks; a task's content is markdown text inside the database." "SQLite" "Database"
 
@@ -140,12 +145,21 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
         deploymentEnvironment "Azure" {
             azure = deploymentNode "Azure" "Additive and optional: nothing in the core workflows depends on it being up." "Azure subscription" {
-                appService = deploymentNode "App Service" "Hosts the cloud sync service." "Linux, .NET" {
+                containerApps = deploymentNode "Azure Container Apps" "Hosts the cloud sync service, on the consumption plan and scaling to zero." "Consumption" {
                     containerInstance backlog.cloud
                 }
-
                 data = deploymentNode "Managed data" "The cloud replica and attachment stores the sync service writes to." "PaaS" {
-                    containerInstance backlog.cloudDb
+                    cosmos = deploymentNode "Azure Cosmos DB" "Serverless account with eight containers and a change feed per replica container." "Serverless" {
+                        containerInstance backlog.cloudDb
+                    }
+                    storage = deploymentNode "Azure Storage" "Private attachments container with a 30-day lifecycle rule." "Standard LRS" {
+                        containerInstance backlog.attachments
+                    }
+                    keyVault = infrastructureNode "Azure Key Vault" "Holds webhook secrets and OAuth tokens when they arrive." "Key Vault"
+                }
+                messaging = deploymentNode "Messaging" "The services that tell a device to pull." "PaaS" {
+                    webPubSub = infrastructureNode "Azure Web PubSub" "The notifications hub desktops hold a socket to." "Free_F1"
+                    notificationHubs = infrastructureNode "Azure Notification Hubs" "Namespace ntfns, hub backlog; relays pushes to FCM." "Free"
                 }
             }
         }
@@ -168,6 +182,17 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         backlog.ide -> backlog.cloud "Reads and posts inbox items as a paired device" "HTTPS /api/sync/inbox, Bearer"
         backlog.cloud -> backlog.attachments "Stores and serves attachments" "Blob SDK"
         backlog.cloud -> github "Receives webhooks" "HTTPS"
+        backlog.mobile -> backlog.cloud.gateway "Syncs captures" "HTTPS"
+        backlog.desktop -> backlog.cloud.gateway "Syncs state" "HTTPS"
+        backlog.ide -> backlog.cloud.gateway "Syncs state" "HTTPS"
+        backlog.cloud.gateway -> backlog.cloud.syncService "Routes requests"
+        backlog.cloud.syncService -> backlog.cloudDb "Reads and writes sync state" "TCP"
+        backlog.cloud.syncService -> backlog.attachments "Uploads and downloads, owner-prefixed" "Blob SDK"
+        github -> backlog.cloud.webhookReceiver "Delivers webhooks" "HTTPS"
+        backlog.cloud.webhookReceiver -> backlog.cloud.syncService "Forwards the event"
+        backlog.cloud.syncService -> backlog.cloud.notificationService "Asks for a nudge"
+        backlog.cloud.notificationService -> backlog.mobile "Pull now" "Notification Hubs to FCM"
+        backlog.cloud.notificationService -> backlog.desktop "Pull now" "Web PubSub"
     }
 
     views {
@@ -189,6 +214,53 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         deployment backlog "Local machine" "deployment-local" "Local Deployment — the canonical one" {
             include *
             autolayout tb
+        }
+
+        component backlog.cloud "components-cloud" "Component Diagram — Cloud Service" {
+            include *
+            autolayout tb
+        }
+
+        dynamic backlog "state-sync" "Syncing task state between devices" {
+            backlog.desktop -> backlog.cloud "Pushes changes since the watermark"
+            backlog.cloud -> backlog.cloudDb "Upserts documents"
+            backlog.mobile -> backlog.cloud "Pulls from its cursor"
+            backlog.cloud -> backlog.cloudDb "Reads the change feed"
+            github -> backlog.cloud "Delivers a webhook (not built)"
+            backlog.cloud -> backlog.cloudDb "Stores the event (not built)"
+            backlog.cloud -> backlog.desktop "Forwards the event (not built)"
+            autolayout lr
+        }
+
+        dynamic backlog "capture-attachments" "A capture's files travelling beside it" {
+            backlog.mobile -> backlog.cloud "Uploads a file"
+            backlog.cloud -> backlog.attachments "Stages, then commits the blocks"
+            backlog.mobile -> backlog.cloud "Posts the capture"
+            backlog.cloud -> backlog.attachments "Finds each named file"
+            backlog.cloud -> backlog.cloudDb "Upserts the capture document"
+            backlog.desktop -> backlog.cloud "Downloads a file"
+            backlog.cloud -> backlog.attachments "Downloads the blob"
+            backlog.desktop -> backlog.cloud "Pushes the capture tombstone"
+            backlog.cloud -> backlog.cloudDb "Finds the capture, upserts the tombstone"
+            backlog.cloud -> backlog.attachments "Deletes the capture's files"
+            autolayout lr
+        }
+
+        dynamic backlog "ide-capture" "Capturing from the VS Code extension" {
+            me -> backlog.desktop "Generates a pairing code"
+            backlog.desktop -> backlog.cloud "Requests the code"
+            me -> backlog.ide "Pairs, then runs the capture command"
+            backlog.ide -> backlog.cloud "Pairs, gets a token, posts the capture"
+            autolayout lr
+        }
+
+        dynamic backlog "mobile-note-sync" "A note syncing both ways" {
+            me -> backlog.mobile "Creates or edits a note"
+            backlog.mobile -> backlog.cloud "Posts the note document"
+            backlog.desktop -> backlog.cloud "Pulls the note, later pushes its edit or tombstone"
+            me -> backlog.desktop "Edits, archives or deletes the note"
+            backlog.mobile -> backlog.cloud "Pulls changed documents"
+            autolayout lr
         }
 
         deployment backlog "Azure" "deployment-azure" "Cloud Deployment — optional and additive" {

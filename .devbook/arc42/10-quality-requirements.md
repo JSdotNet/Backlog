@@ -4,8 +4,7 @@
 related: [".devbook/arc42/01-introduction-and-goals.md#quality-goals"]
 ```
 
-The chapter is marked `draft` because target values are indicative and need
-validation against real usage.
+The target values are indicative and need validation against real usage.
 
 ## Quality Scenarios
 
@@ -22,7 +21,10 @@ validation against real usage.
 | Q6 | **Conflict handling** | Same item edited on two devices. | Edits resolve last-write-wins; new items never overwrite; conflicts are surfaced for manual review. |
 | Q7 | **Operational cost** | Cloud service under normal personal load. | Runs on a single Container App instance; TTL cleanup keeps storage bounded. |
 | Q8 | **Search performance** | Full-text search across all domains on the desktop. | Returns from the local devbook SQLite database with no cloud round-trip. |
-| Q9 | **Portability** | Same domain data accessed at workspace, repo, and project scope. | The dot-folder contract (`.inbox/`) and each repository's `.devbook/` resolve consistently at every scope. The Brain is one folder per user outside every repository (local ADRs 0026 and 0027), so it has no per-scope copy. |
+| Q9 | **Portability** | Same domain data accessed at workspace, repo, and project scope. | The dot-folder contract (`.inbox/`) and each repository's `.devbook/` resolve consistently at every scope. |
+
+- **Q9:** The Brain is one folder per user outside every repository (local ADRs 0026 and
+  0027), so it has no per-scope copy.
 
 These scenarios should be reviewed once MVP scope per domain and per channel is
 defined (see `.devbook/arc42/11-risks-and-technical-debt.md`).
