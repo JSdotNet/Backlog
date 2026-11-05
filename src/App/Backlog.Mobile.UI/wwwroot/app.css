@@ -474,6 +474,9 @@ h1.phone-notification__title { font-family: var(--font-family-heading); font-siz
 .phone-notification__checks { display: grid; gap: .25rem; margin: 0; padding: 0; border: 0; }
 .phone-notification__legend { padding: 0; margin-bottom: .25rem; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .phone-notification__open { display: grid; gap: .375rem; }
+/* The mic sits at the far end of its box's button row, the Send beside the box staying where the thumb expects it. */
+.phone-notification__mic { margin-inline-start: auto; }
+.phone-notification__answer .capture__status { margin: 0; }
 .phone-notification__standing { margin: 0; font-size: var(--font-size-sm); overflow-wrap: anywhere; }
 .phone-notification[data-standing="answered-here"] .phone-notification__standing { color: var(--color-success-text); }
 .phone-notification__owner {
