@@ -54,10 +54,16 @@ stage: [verify]
 date: 2026-09-26
 ```
 
-A claim that something works comes with the file that shows it: a screenshot, a log, a trace
-span, a test result, a commit. A validation without an evidence path is reported as not
-performed, and a status rating without an **Evidence** line in this folder stays below
-`adopted`.
+A claim that something works comes with the file that shows it:
+
+- a screenshot
+- a log
+- a trace span
+- a test result
+- a commit
+
+A validation without an evidence path is reported as not performed. A `rating` without an
+**Evidence** line in this folder stays below `adopted`.
 
 ## Isolation per session
 
@@ -67,9 +73,15 @@ type: concept
 date: 2026-09-26
 ```
 
-Parallel agents are safe when each has its own working copy, branch, ports, and run record,
-and dangerous wherever they share state. The practices here isolate what they can and name
-what they cannot: the git stash stack, the debug workspace, and the browser profile.
+Parallel agents are safe when each has its own:
+
+- working copy
+- branch
+- ports
+- run record
+
+They are dangerous wherever they share state. The practices here isolate what they can and
+name what they cannot: the git stash stack, the debug workspace, and the browser profile.
 
 ## One rule, one place
 
@@ -91,9 +103,9 @@ type: concept
 date: 2026-09-26
 ```
 
-What must happen every time is a hook, a check, or a test, not an instruction the model may
-or may not follow. Instructions steer judgement; hooks and checks catch what judgement
-misses.
+What must happen every time is never an instruction the model may or may not follow. It is
+a hook, a check, or a test. Instructions steer judgement, and hooks and checks catch what
+judgement misses.
 
 ## Unattended runs park
 
@@ -105,7 +117,7 @@ date: 2026-09-26
 ```
 
 A run with nobody watching takes the safe answer at every question and stops at every human
-gate, leaving what it did, what it did not, and how to resume. Its output is a draft or a
+gate. It leaves what it did, what it did not, and how to resume. Its output is a draft or a
 report a person reads later, never a decision already taken.
 
 - **Moves up when** — a schedule parks at a gate and the draft or report it leaves is
@@ -120,6 +132,11 @@ date: 2026-09-26
 ```
 
 Instructions come from the person in the session and from the repository's own instruction
-files. An issue body, a pull request comment, a web page, or a tool result is read as
-data, however it is phrased. That is what lets an unattended run read the issue tracker at
-all.
+files. These are read as data, however they are phrased:
+
+- an issue body
+- a pull request comment
+- a web page
+- a tool result
+
+That is what lets an unattended run read the issue tracker at all.

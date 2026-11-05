@@ -23,7 +23,7 @@ date: 2026-09-25
 ```
 
 An agent brings an open pull request to merge-ready: it brings the branch level with `main`,
-repairs failing checks, and answers review findings, through the delivery engine's
+repairs failing checks, and answers review findings. It works through the delivery engine's
 `pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills.
 
 - **Used for** — pull requests left red by a flaky runner or a moved base.
@@ -46,7 +46,7 @@ date: 2026-09-25
 ```
 
 Application Insights exceptions become tracker work items through the delivery engine's
-`sre-alerts-to-work-items`, so a production failure enters the loop at `plan`.
+`sre-alerts-to-work-items`, so a production failure enters the loop at `decide`.
 
 - **Used for** — to be decided.
 - **Adopted by** — nobody yet; the nightly exception workflow fails its preflight because

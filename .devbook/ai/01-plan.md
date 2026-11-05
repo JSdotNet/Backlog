@@ -22,13 +22,27 @@ related: [".devbook/ai/concepts.md#task-scoped-context", ".devbook/ai/03-test.md
 date: 2026-09-26
 ```
 
-A change to an arc42 chapter, a decision record, a bounded context, the technology graph,
-a design guideline, or this record runs through the delivery engine's `flow-spec`. It loads
-the folder's own rule, drafts through the agent its `phase-drafting` entry binds for the
-folder, runs the devbook check, and stops at Personal Validation before a pull request.
+A change to any of these runs through the delivery engine's `flow-spec`:
 
-- **Used for** — decision records, domain model changes, technology ratings, and the
-  adoption record itself.
+- an arc42 chapter
+- a decision record
+- a bounded context
+- the technology graph
+- a design guideline
+- this record
+
+```mermaid
+flowchart LR
+    rule["Load the folder's own rule"] --> draft["Draft through the bound agent"] --> check["Run the devbook check"] --> pv["Stop at Personal Validation"] --> pr["Pull request"]
+```
+
+The bound agent is the one the flow's `phase-drafting` entry binds for the folder.
+
+- **Used for** — this work:
+  - decision records
+  - domain model changes
+  - technology ratings
+  - the adoption record itself
 - **Adopted by** — every session that edits a devbook folder, routed there by the delivery
   engine's session context.
 - **Evidence** — the devbook-adoption plan's documentation items, this chapter included,
@@ -77,8 +91,8 @@ date: 2026-09-26
 ```
 
 A unit of work gets story points on the 1/2/3/5/8/13/21 scale through the repository's own
-`estimate` procedure, sized against a table of Backlog's own finished work and naming the
-reference each estimate was compared with.
+`estimate` procedure. The procedure sizes it against a table of Backlog's own finished work
+and names the reference each estimate was compared with.
 
 - **Used for** — the `effort:` on plan entries and issues.
 - **Adopted by** — the procedure was adopted on 2026-09-26; plan entries written before it

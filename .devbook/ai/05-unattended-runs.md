@@ -22,9 +22,14 @@ date: 2026-09-26
 ```
 
 Every schedule runs one `schedule-*` entry point on a fresh checkout of `main`, under the
-same preamble. It [parks](concepts.md#unattended-runs-park) wherever its skill would ask a
-person. It never pushes to `main`, and never merges, approves, or deletes. It closes nothing
-except an issue its own procedure shows already resolved, with the evidence in the comment.
+same preamble:
+
+- It [parks](concepts.md#unattended-runs-park) wherever its skill would ask a person.
+- It never pushes to `main`.
+- It never merges, approves, or deletes.
+- It closes nothing except an issue its own procedure shows already resolved, with the
+  evidence in the comment.
+
 A change lands as a pull request from a `schedule/<name>/<date>` branch, as a draft whenever
 anything failed. A report with no change lands as one `schedule-report` issue, updated
 rather than duplicated.
@@ -51,10 +56,17 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech
 date: 2026-09-26
 ```
 
-Every weekday, `issue-sweep` labels the open issues nobody has classified. It closes the ones
-high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its
-`maxResolve` of the rest, one at a time. Each resolution is a draft pull request whose body
-says what could not be proved. The brief lands as a `schedule-report` issue.
+`issue-sweep` runs every weekday.
+
+```mermaid
+flowchart LR
+    label["Label the unclassified open issues"] --> close["Close the ones evidence shows done"] --> resolve["Resolve some of the rest"] --> brief["Land the brief"]
+```
+
+It closes only the issues high-confidence evidence shows fixed, obsolete, or duplicated. It
+resolves up to its `maxResolve` of the rest, one at a time. Each resolution is a draft pull
+request whose body says what could not be proved. The brief lands as a `schedule-report`
+issue.
 
 - **Used for** — keeping the issue list triaged and turning small issues into reviewable
   drafts.
@@ -75,8 +87,8 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`
-and posts its verdict on each as a comment, skipping one already reviewed at its current
+Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`.
+It posts its verdict on each as a comment, and skips one already reviewed at its current
 head.
 
 - **Used for** — a second reading of every pull request before the owner merges it.
@@ -98,11 +110,14 @@ related: [".devbook/ai/03-test.md#devbook-checks-around-a-flow"]
 date: 2026-09-26
 ```
 
-Four schedules look after the devbook folders. `devbook-validate` runs daily and lands the
-structural fixes the check reports as a pull request. `devbook-verify` runs weekly and opens
-a `devbook-drift` issue for each chapter the code has moved past. `prose-check` runs weekly
-and reports the prose that does not earn its lines. `tech-update` runs weekly and refreshes
-the technology graph from the package inventories as a draft pull request.
+Four schedules look after the devbook folders.
+
+| Schedule | Runs | Does |
+| --- | --- | --- |
+| `devbook-validate` | daily | Lands the structural fixes the check reports as a pull request. |
+| `devbook-verify` | weekly | Opens a `devbook-drift` issue for each chapter the code has moved past. |
+| `prose-check` | weekly | Reports the prose that does not earn its lines. |
+| `tech-update` | weekly | Refreshes the technology graph from the package inventories as a draft pull request. |
 
 - **Used for** — keeping the chapters true between the changes that touch them.
 - **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
@@ -110,8 +125,8 @@ the technology graph from the package inventories as a draft pull request.
 - **Moves up when** — `devbook-validate` lands its first pull request.
 - **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
   chapter: prose and content change only through `flow-spec`. `devbook-verify` covers only
-  the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
-  direction is `report` and skips `off`; the two sweeps below take the rest. It reads the
+  the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose
+  direction is `report` and skips `off`. The two sweeps below take the rest. It reads the
   direction from the chapter, not from Backlog's map, so once a repository's chapters
   state none it reports on every unit.
 
@@ -127,14 +142,15 @@ depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin", ".devbook/t
 date: 2026-10-06
 ```
 
-Two sweeps act on the drift `devbook-verify` only reports. Each takes the
-[sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
-direction in Backlog's direction map asks for it, in groups. Both are the
-`backlog-tools` skill `devbook-sweep`, run as one local routine per repository: pull
-first, then push. The skill reads each unit's direction from the `backlog` MCP server's
-`list_sync_directions`. Before branch-true-devbook entry 7 they were `delivery-schedule`
-catalog schedules reading a `sync` field in the chapter. Units a requirement ties together, by naming two
-aggregates and no feature, form one group; every other unit is a group of its own.
+Two sweeps act on the drift `devbook-verify` only reports. Each takes, in groups, the
+[sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose direction in
+Backlog's direction map asks for it. Units a requirement ties together, by naming two
+aggregates and no feature, form one group. Every other unit is a group of its own.
+
+Both sweeps are the `backlog-tools` skill `devbook-sweep`, run as one local routine per
+repository: pull first, then push. The skill reads each unit's direction from the `backlog`
+MCP server's `list_sync_directions`. Before entry 7 of the branch-true-devbook plan, they
+were `delivery-schedule` catalog schedules reading a `sync` field in the chapter.
 
 | | `devbook-pull-sweep` | `devbook-push-sweep` |
 | --- | --- | --- |
@@ -248,9 +264,8 @@ The catalog's `security-review` would audit every layer weekly and open an issue
 at severity `high` and above.
 
 - **Used for** — nothing yet.
-- **Adopted by** — nobody: it is the one catalog schedule this repository did not select.
-  CodeQL and Dependabot run in CI instead.
+- **Adopted by** — nobody: it is the one catalog schedule this repository did not select. It
+  stays out on purpose while CodeQL and Dependabot run in CI.
 - **Evidence** — none.
-- **Moves up when** — the owner selects it; it stays out on purpose while CodeQL and
-  Dependabot run in CI.
+- **Moves up when** — the owner selects it.
 - **Limits** — it would open issues, never fix them.
