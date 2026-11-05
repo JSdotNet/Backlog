@@ -30,10 +30,10 @@ related: [.devbook/domain/productivity/features.md#personal-productivity-dashboa
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
 ```
 
-Which hours the reader meant to be working, as seven independent days — each one
-worked or not, and each with its own start and end. Seven days rather than one
-range plus a set of working days, because a reader who starts at seven on
-Fridays cannot say so with a single range.
+Which hours the reader meant to be working, as seven independent days. Each day is
+worked or not, and each has its own start and end. The setting holds seven days
+rather than one range plus a set of working days, because a reader who starts at
+seven on Fridays cannot say so with a single range.
 
 On the dashboard the working week is presentation, and deliberately only that.
 The hour grids outline the hours the week claims, and nothing else changes. No
@@ -57,7 +57,7 @@ roadmap, by pressing a day head
 ([Blocking and unblocking a day](../roadmap/features.md#blocking-and-unblocking-a-day))
 or in the Days off dialog
 ([Setting days off in a list](../roadmap/features.md#setting-days-off-in-a-list)).
-It travels inside the same `workingWeek` key.
+A day override travels inside the same `workingWeek` key.
 
 The dashboard's hour grids still read the weekly pattern only. They ignore the
 overrides. The dashboard's
@@ -86,16 +86,19 @@ Per value:
 The person changes it on the settings screen, one day at a time. It is stored
 beside the app's other per-device choices, in its own file. A section of the
 workspace pointer would be rewritten every time somebody moved Friday's finishing
-time. Times are written as `HH:mm`, so the file, the field, and the reader all
-spell them the same way.
+time. Times are written as `HH:mm`, so the file and the field spell them the way
+the reader does.
 
-The Working week page's headline says the week in force in one sentence:
-`You work Mon–Fri, 09:00–17:30.` A run of three worked days or more reads as a
-range and the rest as a list, so `Mon, Tue, Thu, Fri` shows where the gap is.
-The hours are named only when every worked day shares them; otherwise the
-sentence ends `each day at its own hours`, and a week with no worked day says
-`You have no working days set.` It reads the stored week, so a refused time
-never reaches it.
+The Working week page's headline says the week in force in one sentence. It reads
+the stored week, so a refused time never reaches it. The sentence follows these
+rules:
+
+- The usual week reads `You work Mon–Fri, 09:00–17:30.`
+- A run of three worked days or more reads as a range and the rest as a list, so
+  `Mon, Tue, Thu, Fri` shows where the gap is.
+- The hours are named only when every worked day shares them. Otherwise the
+  sentence ends `each day at its own hours`.
+- A week with no worked day says `You have no working days set.`
 
 `scope: user` fits: the choice is one person's, and it follows that person. With
 sync on, the week travels as a `workingWeek` key inside the roadmap's synced
@@ -149,10 +152,10 @@ outranks a detected one on purpose. The usage records on a machine may come from
 an older plan or an older month. The surface says which of the three cuts won,
 rather than leaving the reader to guess.
 
-Set and cleared on the settings screen; clearing removes the file and hands the
-week back to detection. Stored per device beside the working week. Unlike the
-working week, nothing syncs it, so `scope: user` is only the nearest rung the
-vocabulary offers: the same reader on a second machine starts again unset.
+The person sets and clears it on the settings screen. Clearing removes the file and
+hands the week back to detection. It is stored per device beside the working week.
+Unlike the working week, nothing syncs it, so `scope: user` is only the nearest rung
+the vocabulary offers: the same reader on a second machine starts again unset.
 
 ## Monthly spend budget
 
@@ -191,8 +194,8 @@ spent at all. A negative amount, or text that is not an amount, is refused with 
 message, and the budget in force stays. A file entry that cannot be read is
 dropped, and the other budgets in the file are kept.
 
-Set in Dashboard settings and stored per device beside the weekly usage reset.
-Clearing the last budget removes the file.
+The person sets it in Dashboard settings, and it is stored per device beside the
+weekly usage reset. Clearing the last budget removes the file.
 Like the reset, nothing syncs it, so `scope: user` is the nearest rung the
 vocabulary offers: the same reader on a second machine starts with no budgets.
 
@@ -205,10 +208,10 @@ default: off
 related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import"]
 ```
 
-Turning it on reads Claude and GitHub Copilot usage from their organization APIs
+Turning the `usage-metrics` flag on reads Claude and GitHub Copilot usage from their organization APIs
 as evidence for the productivity figures. Both sources are organization-scoped,
 which is why it ships off. Claude needs an API key an organization admin can use,
-and GitHub needs organization-owner access. It is marked `DEV`.
+and GitHub needs organization-owner access. The flag is marked `DEV`.
 
 The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
 person's choice is kept in `features.json` beside the app's other per-device
@@ -224,7 +227,7 @@ default: on
 related: [".devbook/domain/productivity/features.md#personal-productivity-dashboard"]
 ```
 
-Turning it on lets the reader open, from the app chrome, the full-screen dashboard
+Turning the `dashboard` flag on lets the reader open, from the app chrome, the full-screen dashboard
 of their productivity and what their assistants cost. What its tabs hold and how
 its controls narrow them is in
 [Six tabs and what each answers](features.md#six-tabs-and-what-each-answers).

@@ -32,7 +32,7 @@ refinement, and a planning tool that first demands a refined work item is a tool
 that gets used after the decisions have already been made somewhere else.
 
 Some of that work is never refined at all: a launch post, a call, a decision. No
-task will ever say it is done, so the person says it: they **complete the item by
+task will ever say it is done, so the person says it. They **complete the item by
 hand**, from the end of its bar or from its editor, and reopen it if they were
 wrong. The item is then a record of finished work, drawn where it was planned and
 read as finished wherever the plan is read.
@@ -63,8 +63,14 @@ type: sub-feature
 related: [.devbook/domain/roadmap/domain.md#milestone]
 ```
 
-Mark the fixed points a plan is read against: a release, a freeze, a review, or a
-commitment made to someone else. A milestone is a day, not a short piece of work,
+Mark the fixed points a plan is read against:
+
+- a release;
+- a freeze;
+- a review;
+- a commitment made to someone else.
+
+A milestone is a day, not a short piece of work,
 and it can be depended on exactly as an item can.
 
 Dates share one place at the top of the plan rather than a line inside each
@@ -97,9 +103,16 @@ related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .
 Keep one plan on every device the person has paired, so the plan drawn on one
 PC is the plan the next one opens. The whole plan travels beside the tasks the
 devices already sync
-([Multi-device sync](../tasks/features.md#multi-device-sync)): its items,
-milestones, dependencies, lanes, dates and band colours. It travels only while
-sync is on and the device is paired. Otherwise the plan is that device's own.
+([Multi-device sync](../tasks/features.md#multi-device-sync)):
+
+- its items;
+- its milestones;
+- its dependencies;
+- its lanes;
+- its dates;
+- its band colours.
+
+The plan travels only while sync is on and the device is paired. Otherwise the plan is that device's own.
 
 The plan is replaced whole, never merged. When two devices have both saved the
 plan since they last synced, the **newer save wins on every device** and the
@@ -135,8 +148,9 @@ The working week travels with the pace, inside the same document and under the
 same newer-wins rule
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
 [day overrides](domain.md#day-override) travel inside it. Every device then
-counts a bar over the same hours and draws it the same length. The person has one
-working week. The dashboard's hour grids read its weekly pattern only, and the
+counts a bar over the same hours and draws it the same length.
+
+The person has one working week. The dashboard's hour grids read its weekly pattern only, and the
 dashboard's Hours worked part reads the overrides too
 ([Working week](../productivity/context.md#working-week)). A pace saved without a
 working week reads the device's own until the next change to the pace or the week
@@ -157,8 +171,8 @@ plan item" without the plan having to name it first. The tag is derived from the
 item's title when the item is created, so a person does not invent it, and is
 then editable on its own.
 
-The tag's chapter holds its rules. It does not move when the title is renamed,
-every item has one, and two items may share one. Renaming the title and retagging
+The tag follows three rules: it does not move when the title is renamed, every
+item has one, and two items may share one. Renaming the title and retagging
 the item are two different acts, and keeping them apart is what makes a tag safe
 to write elsewhere. The plan can list the tags in use and show the items under
 any one of them, so grouping planned work under a shared tag is a first-class
@@ -176,11 +190,13 @@ settles the two spellings.
 A saved item's dialog offers a copy button beside the Tag field. It copies the tag
 with its plan sigil, `+release-q4`: the spelling a Task is filed under, which the
 Tasks filter bar's plan chip copies too. The copy button is there while the
-[`copy-entries`](../tasks/context.md#copy-entries) flag is on, which it is by default,
-whether or not the [`session-requests`](../sessions/context.md#session-requests) flag is
-on; with that one on, the plan's
-[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it and
-stays when `copy-entries` is off. A new item, or one without a tag, has no copy button.
+[`copy-entries`](../tasks/context.md#copy-entries) flag is on, which it is by
+default, whether or not the
+[`session-requests`](../sessions/context.md#session-requests) flag is on. While
+`session-requests` is on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside the
+copy button and stays when `copy-entries` is off. A new item, or one without a tag,
+has no copy button.
 
 ## Gathering work under an item and totalling its effort
 
@@ -269,6 +285,11 @@ flowchart TD
     Contradiction -- no --> Clean["Drawn as a plain arrow"]
 ```
 
+Record what has to land before what, between any two things in the plan: item to
+item, item to milestone, milestone to item. This is the capability that makes a
+roadmap more than a list of dates. The order is stated once, and everything read
+off the plan respects it.
+
 - The three rejections are refusals to store, not warnings: an
   [unknown node](domain.invariants.md#invariant-a-dependency-names-a-node-in-the-plan),
   [a node waiting for itself](domain.invariants.md#invariant-nothing-waits-for-itself)
@@ -280,11 +301,6 @@ flowchart TD
 - Cycle detection walks the whole graph reachable from the target. It is an
   invariant of the plan rather than of a node, which is why it is checked on the
   root before the edge is accepted.
-
-Record what has to land before what, between any two things in the plan: item to
-item, item to milestone, milestone to item. This is the capability that makes a
-roadmap more than a list of dates. The order is stated once, and everything read
-off the plan respects it.
 
 ### Refusing a circular plan
 
@@ -345,6 +361,11 @@ flowchart LR
     Lanes --> Draw["Spans, milestones and dependency arrows placed by date"]
 ```
 
+Group the plan into one [band](domain.md#band) per repository, with the person's
+own lanes inside each. Each band draws only that repository's [part](domain.md#part)
+of a piece of work, placed at that repository's own pace ([Placing a plan in time](#placing-a-plan-in-time)).
+The work stays findable under any of its repositories.
+
 - Resolution happens on the **read** path only, and
   [an alias that no longer resolves is kept](domain.invariants.md#invariant-an-unresolved-scope-alias-is-kept),
   so a repository removed today and configured again tomorrow leaves the plan
@@ -359,12 +380,6 @@ flowchart LR
   longer placed by its effort, and every part then draws over its one moved
   window.
 
-Group the plan into one [band](domain.md#band) per repository, with the person's
-own lanes inside each. Work that names several repositories is drawn in the band
-of each of them. Each band draws only that repository's [part](domain.md#part) of
-the work, placed at that repository's own pace, so the bars can carry different
-dates ([Placing a plan in time](#placing-a-plan-in-time)). The work stays findable
-under any of its repositories.
 
 Work that names no repository, or names only repositories that are not configured,
 sits in a last band of its own rather than being hidden. That band takes no colour
@@ -445,11 +460,13 @@ arrows between them, and change when something happens by moving it. A reschedul
 is a change to the plan and is stored as one. The view proposes a new placement
 and the plan decides whether it stands.
 
-The roadmap is one of the views in the header's view switch, last after Tasks,
-Board and Calendar, under its own Planning heading row and without the Tasks
-filter bar. It is a view, not a takeover, so only another view replaces it. The
+The roadmap is the last of the views in the header's view switch, after Tasks,
+Board and Calendar. It sits under its own Planning heading row and without the
+Tasks filter bar. It is a view, not a takeover, so only another view replaces it. The
 Inbox and the Devbook take the screen over it as they do over the task list, and
-closing either returns to the roadmap. Escape does not leave it. On the roadmap, Escape puts a grabbed bar back and
+closing either returns to the roadmap.
+
+Escape does not leave the roadmap. There, Escape puts a grabbed bar back and
 dismisses the planning dialogs. A narrower window never closes it. Opening the
 Dashboard, Tools, the session list or the pull requests list from it and closing
 them again comes back to the roadmap. A roadmap a person left open from before the
@@ -501,8 +518,9 @@ working hours. A head that has begun, today and the current week included, shows
 the [actual hours](domain.md#actual-hours) the person worked so far instead, such
 as "6.2h", or "0h" for a worked day with no work recorded. A head never shows
 both, because two figures side by side were hard to read. The tooltip can name
-both, such as "6.2h worked of 8.5h planned". A wide column reads the figure
-inline, such as "Wed 23 · 8.5h" and "W41 · 42.5h". A narrow one shows it on a
+both, such as "6.2h worked of 8.5h planned".
+
+A wide column reads the figure inline, such as "Wed 23 · 8.5h" and "W41 · 42.5h". A narrow one shows it on a
 line under the label. The Hours switch on the toolbar hides the line. It is on
 by default and stays with the device, because how the axis is read is not part
 of the plan.
@@ -587,11 +605,11 @@ plan still being worked on is drawn from its work too, to a forecast end
 ([Forecasting work in flight](#forecasting-work-in-flight)).
 
 The Completed switch on the toolbar, beside Hours, takes the finished plans off
-the chart when the person wants only what is left to do. It is the one narrowing
-the roadmap offers: a filter bar by repository, priority, lane or tag was dropped,
-because the bands already sort the plan by repository and a plan is small enough
+the chart when the person wants only what is left to do. The switch is the one narrowing
+the roadmap offers. A filter bar by repository, priority, lane or tag was dropped.
+The bands already sort the plan by repository, and a plan is small enough
 to read whole. Off, the lanes close up over the open work, and an arrow to a
-hidden plan goes with it. It is on by default and stays with the device, as the
+hidden plan goes with it. The switch is on by default and stays with the device, as the
 Hours switch does, because what is shown of the plan is not part of the plan.
 
 ### Forecasting work in flight
@@ -622,8 +640,7 @@ flowchart TD
     Pinned -- no --> Forecast["Keeps its forecast end"]
 ```
 
-The plan's forecast end is the latest part end. The rest is what the chart leaves
-out:
+The plan's forecast end is the latest part end. These rules apply on top of it:
 
 - A begun part may start earlier or later than the plan's planned start, and that
   holds for a plan placed by hand too. A task's start is its own started date,
@@ -674,8 +691,8 @@ label.
 The colour is an **identity and nothing more**: it says which repository, never a
 status, a severity or a priority. It is never the only thing saying it either. The
 band is labelled and every span names its band when read aloud, so a reader who
-cannot tell two hues apart loses nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
-colour and stays that way.
+cannot tell two hues apart loses nothing. Priority on a plan is the ordinal shade
+ramp on the spans, which is one colour and stays that way.
 
 **The plan does not decide the colour and does not store it.** Which colour a
 repository wears is a fact about that repository, settled in the registry, and the
@@ -803,9 +820,10 @@ never shorter than its start day. It takes one working week when nothing is
 gathered yet or nothing is sized. The hours are the person's
 [working week](domain.md#working-week), so a date they blocked on the axis counts
 none and a day off they unblocked counts its hours
-([requirements](requirements.md#placing-a-plan-in-time)). A due date that falls
-before the plan could start is kept. The plan is then placed on that one day, so
-the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
+([requirements](requirements.md#placing-a-plan-in-time)).
+
+A due date that falls before the plan could start is kept. The plan is then placed
+on that one day, so the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.
 
 The pace is the person's own reading pace, not an estimate the plan registers. It
@@ -882,12 +900,15 @@ work has begun is drawn from the day that work began, as
 [Forecasting work in flight](#forecasting-work-in-flight) says, and the plan keeps
 the earliest part start as its own. A plan nobody has started whose start has
 passed starts today, or on the next working day when the person does not work
-today. Finished tasks do not count toward its length. A plan that ran late
+today.
+
+Finished tasks do not count toward the plan's length. A plan that ran late
 therefore shows the day the rest of its work will actually land, and one that ran
 ahead pulls its end in. Changing a pace, or a measured pace moving as work is
-finished, re-draws the same way. A finished plan keeps its window and is drawn
-over the days its work actually ran. A plan moved by hand, or ending on its due
-date, keeps its dates (ADR 0013, ruling 5 as amended on 2026-09-27 and on
+finished, re-draws the same way.
+
+A finished plan keeps its window and is drawn over the days its work actually
+ran. A plan moved by hand, or ending on its due date, keeps its dates (ADR 0013, ruling 5 as amended on 2026-09-27 and on
 2026-10-07).
 
 An item the import placed remembers that it did, in `placed_by_import`. The first
@@ -937,6 +958,7 @@ waits on what, with ties broken by which was written first. Each step is as wide
 as its share of the plan's effort. A step nobody sized is drawn at a fixed small
 width and marked as unsized, so a plan of unestimated work reads as a row of
 question marks rather than as nothing. Each step wears its task's status colour.
+
 The item's bar fills with the effort already done over the effort registered,
 with the count of unsized steps written beside it. A small fill over a pile of
 unsized work then cannot pass for a plan nearly finished.
@@ -999,10 +1021,10 @@ The Tasks [Calendar](../tasks/features.md#calendar-view) offers the same shelf a
 **Plans without a window**, and there a plan is dropped on a day instead. The same
 import places it, with one difference. The window opens on the first worked day
 on or after the day it was dropped on, or today for a day already past. Its end is
-counted from there as it would be from today. That holds when some of the plan's
-work has already begun: the window still opens on the day it was dropped on, and
-its end is counted from there for the points still open. Because a person chose
-that day, the window is theirs from then on, as one dragged on the timeline is. It
+counted from there as it would be from today.
+
+The window opens there even when some of the plan's work has already begun, and
+its end is counted for the points still open. Because a person chose that day, the window is theirs from then on, as one dragged on the timeline is. It
 does not [keep up with its work](#placing-a-plan-in-time) from today, and a later
 import does not move it.
 
@@ -1036,7 +1058,7 @@ forecast, which a dated plan cannot give. A
 [Planned Window](domain.md#planned-window) tells you two items overlap in *time*,
 never whether they overlap in *code*.
 
-It would be built on what this context already has, not beside it.
+The idea would be built on what this context already has, not beside it:
 
 - The chain is the existing [Dependency](domain.md#dependency). Acyclicity, and
   [Plan Sequencing](domain.md#plan-sequencing)'s reachability answers, are
@@ -1051,9 +1073,9 @@ It would be built on what this context already has, not beside it.
 built:
 
 - **Replacement or addition?** *Answered: addition, so dates stay.*
-  - The question: if dated planning went, the Planned Window, the timeline
-    reading, and [RoadmapItemScheduled](domain.md#roadmapitemscheduled) would go
-    with it. That event is the one contract
+  - The question: if dated planning went, the Planned Window and the timeline
+    reading would go with it, and so would
+    [RoadmapItemScheduled](domain.md#roadmapitemscheduled). That event is the one contract
     [Monitoring](../monitoring/domain.md#progress-signal) consumes, so comparing
     intent against delivery would need a new answer or a different question. If
     both were kept, one plan would carry two ways of ordering the same work, and
@@ -1073,7 +1095,7 @@ built:
   drawn by hand, with no plan behind it, is a lane or an item stays open.
 - **What is an "area", and who decides that two areas cannot collide?** The safety
   claim rests entirely on this. If an area is the person's own word, as a lane is,
-  the guarantee is their judgement, and the plan should say so rather than imply
+  the guarantee is their judgement. The plan should then say so rather than imply
   otherwise. If the product derives it from paths the repository actually has,
   Roadmap starts holding repository facts it has deliberately never owned.
   [Repository Scope](domain.md#repository-scope) keeps opaque aliases for exactly
@@ -1118,7 +1140,7 @@ related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
 
 Ask the plan what is safe to start now: the head of every track whose predecessor
-has landed, with the tracks sharing an area held back rather than offered. One
+has landed, with the tracks sharing an area held back rather than offered. That is one
 question, answered from the chain and the areas, in place of comparing two spans
 on a timeline by eye.
 

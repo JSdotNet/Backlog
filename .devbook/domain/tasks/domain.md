@@ -66,7 +66,7 @@ stateDiagram-v2
 
 A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
-of truth: one logical item with one priority and one status even when it targets
+of truth on the device that holds it: one logical item with one priority and one status even when it targets
 multiple repositories. The rules it holds are in
 [its invariants](domain.invariants.md#task).
 
@@ -106,8 +106,8 @@ All are optional, and none is load-bearing for the lifecycle.
 `completed_on` records that the task is [Completed](#completed); that term says
 how the tick differs from `status`. The tick carries no invariant. The list's
 checkbox writes two facts at once, because a person who ticks something off has
-finished the work. That is the checkbox's choice, not a rule on the task, so what
-it does to the status is a requirement of
+finished the work. That is the checkbox's choice, not a rule on the task. What it
+does to the status is therefore a requirement of
 [Archive and lifecycle](requirements.md#archive-and-lifecycle), and a
 `completed:` token typed into the text moves no status. The phone's done and
 undone are
@@ -116,13 +116,14 @@ undone are
 `started_on` records that the task is [Started](#started).
 [The first move into progress stamps it](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start)
 from the local date, whether the move is a lifecycle step or a status set from
-the text. It is written on the
+the text. Nothing in this context reads it. It is recorded for the roadmap, which
+draws a finished plan from its first task's start to its last task's tick.
+
+It is written on the
 metadata line as a `started:` token just before `completed:`. A token typed there
 sets the date, and deleting it clears the date. A task still `in_progress` is
 then stamped with today again on that save. Work that was already under way
 before the stamp existed has none until its next transition into `in_progress`.
-Nothing in this context reads it. It is recorded for the roadmap, which draws a
-finished plan from its first task's start to its last task's tick.
 
 `depends_on` lists the task's [Dependencies](#dependency), held as plain
 identifiers, the same rule `repo_ids` follows. Every `Task` is its own aggregate
@@ -143,7 +144,7 @@ this one.
 
 `attachment` names the one place on disk where the task's material lives, as an
 [Attachment](#attachment). It carries no invariant and is never validated. Its
-spelling on the metadata line is
+spelling on the metadata line is defined in
 `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
 
 The task also carries one attribute that is not a fact about the work at all.
@@ -154,7 +155,7 @@ makes `view` a retired display preference, kept because it is stored. Nothing in
 the lifecycle reads it, no invariant depends on it, and a task that never
 carried one has none.
 
-It is named here because it is stored on the task. It is written on the task's
+It is written on the task's
 metadata line, so every save of the text carries it through the aggregate, and
 [it survives that save](requirements.md#requirement-a-view-token-on-the-line-survives-a-save).
 Held on the task, it also travels to the person's other devices with the task
@@ -197,9 +198,9 @@ re-import of the plan leaves it alone.
 
 The task also carries an optional `effort`, its [Effort](#effort), within
 [the bounds the task enforces](domain.invariants.md#invariant-effort-is-never-negative).
-Deriving the estimate is not built here. This is the
-point at which the value becomes registrable and visible, and the model does not
-care whether a person or an AI agent put the number there. Roadmap Planning
+Deriving the estimate is not built here. The value
+can be registered and shown, and the model does not care whether a person or an AI
+agent set it. Roadmap Planning
 totals it through
 [Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering).
 
@@ -217,10 +218,10 @@ device writes both.
 They are here rather than in the storage adapter because reconciliation is a
 domain rule, not a persistence detail. When the same task is edited on two
 machines, [the later edit wins whole](requirements.md#requirement-the-later-edit-wins-whole).
-Only the task itself can answer which edit is later. A deletion has the same problem in sharper form,
-which is why it leaves a [Tombstone](#tombstone).
+Only the task itself can answer which edit is later. A deletion has the same
+problem in sharper form, which is why it leaves a [Tombstone](#tombstone).
 
-The task is the single source of truth **on the device that holds it**. Where a
+Where a
 second device holds its own copy, the two reconcile with each other. The cloud
 holds a replica used to carry changes between them and is never itself the
 authority. See
@@ -234,18 +235,18 @@ aliases: [SubItem]
 ```
 
 An ordered breakdown step owned by the task, with its own `title`,
-`Sub-Item Status`, optional `notes`, and `order`. It has identity within the
+`Sub-Item Status`, optional `notes` and `order`. It has identity within the
 aggregate but no meaning outside it. Sub-items can be reordered, added, or removed
 independently. They may project to task-list checkboxes inside the task's own
 GitHub issue. A sub-item is never projected as an issue of its own. `Projection
 Ref` is owned by the task and there is nowhere on a step to record one, so a step
 filed separately could be filed again with nothing able to tell.
 
-A step, in the product's language, is a sub-item; there is no second concept for
-one. A sub-item carries only its title, status, notes and order. The task's type,
-priority, status vocabulary, tags, scheduling and dependency attributes stay on
-the task. A step inherits its parent's deadline by belonging to it. A breakdown
-step that needed its own priority would be a task rather than a step.
+A step, in the product's language, is a sub-item. There is no second concept for
+one. A step inherits its parent's deadline by belonging to it. A breakdown step
+that needed its own priority would be a task rather than a step. A step carries none of
+the task's own attributes. Type, priority, status vocabulary, tags and scheduling or
+dependency attributes all stay on the task.
 
 ### Projection Ref
 
@@ -256,8 +257,8 @@ type: value-object
 An immutable link to a downstream external artifact created from the task:
 `repo_id`, `external_id`, and `target_type`. The target types in use are `issue`,
 `pull-request` and `session`. A Copilot CLI task is an intended target, `cli-task`,
-that nothing creates yet. Equality is by value. It points outward. The inbound counterpart is the
-[Source Ref](#source-ref).
+that nothing creates yet. Equality is by value. It points outward, where the
+[Source Ref](#source-ref) points inward.
 
 ### Source Ref
 
@@ -267,10 +268,16 @@ aliases: [SourceRef, source_ref]
 related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-Where a [Linked Task](#linked-task) came from. It holds seven values:
-`connector_id`, `external_id`, `url`, `display_key`, `assignee`,
-`source_state` and `source_updated_at`. Equality is by value. A task has at
-most one, and a task without one is local work.
+Where a [Linked Task](#linked-task) came from. Equality is by value. A task has at
+most one, and a task without one is local work. It holds seven values:
+
+- `connector_id`
+- `external_id`
+- `url`
+- `display_key`
+- `assignee`
+- `source_state`
+- `source_updated_at`
 
 `connector_id` is a string, not an enum, so a new
 [Task Connector](#task-connector) needs no schema change. A device that does not
@@ -319,20 +326,19 @@ value.
 The time carries no zone, the same as a [Reminder](#reminder): 10:45 means 10:45
 on the reader's clock. What makes a valid pair is an
 [invariant of the task](domain.invariants.md#task) that owns it:
-[a duration without a start is no agenda time](domain.invariants.md#invariant-a-duration-without-a-start-is-no-agenda-time),
-[a start alone is thirty minutes](domain.invariants.md#invariant-a-start-alone-is-thirty-minutes),
-and
-[a duration is a positive whole number of minutes](domain.invariants.md#invariant-an-agenda-duration-is-a-positive-whole-number-of-minutes).
+
+- [a duration without a start is no agenda time](domain.invariants.md#invariant-a-duration-without-a-start-is-no-agenda-time);
+- [a start alone is thirty minutes](domain.invariants.md#invariant-a-start-alone-is-thirty-minutes);
+- [a duration is a positive whole number of minutes](domain.invariants.md#invariant-an-agenda-duration-is-a-positive-whole-number-of-minutes).
 
 An agenda time has no date of its own. It borrows the date of
 [My Day](#my-day), so it means something only while the task is in the reader's
-My Day, and the [Task](#task) holds it on those terms:
-[a task outside My Day holds none](domain.invariants.md#invariant-a-task-outside-my-day-holds-no-agenda-time),
-[a new My Day date drops it](domain.invariants.md#invariant-a-new-my-day-date-drops-the-agenda-time),
-and
-[a text save that moves My Day drops the slot carried along](domain.invariants.md#invariant-a-text-save-that-moves-my-day-drops-the-slot-carried-along).
-A task whose My Day date has passed keeps the value until that next change, but
-nothing reads it.
+My Day. A task whose My Day date has passed keeps the value until the next change,
+but nothing reads it. The [Task](#task) holds it on these terms:
+
+- [a task outside My Day holds none](domain.invariants.md#invariant-a-task-outside-my-day-holds-no-agenda-time);
+- [a new My Day date drops it](domain.invariants.md#invariant-a-new-my-day-date-drops-the-agenda-time);
+- [a text save that moves My Day drops the slot carried along](domain.invariants.md#invariant-a-text-save-that-moves-my-day-drops-the-slot-carried-along).
 
 The agenda time crosses the sync task feed as two plain values beside
 `in_my_day_on`: the start as `HH:MM` and the duration in minutes. Both are absent
@@ -363,8 +369,9 @@ or a different task.
 **A path and not a copy.** Task attachments are machine-local
 (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`):
 nothing is imported, nothing is stored beside the task, and the material stays
-where its owner put it. So the task points, and pointing is all it does. Whether
-the path still resolves is the file system's answer, and a different answer on a
+where its owner put it. So the task points, and pointing is all it does.
+
+Whether the path still resolves is the file system's answer, and a different answer on a
 different machine. The value therefore carries no invariant and is never
 validated. A task written on the desktop and read on the phone is not invalid for
 naming a drive the phone has never seen. Attaching is a claim about where
@@ -401,9 +408,14 @@ type: value-object
 aliases: [AIWorkLog, AIWorkLogged]
 ```
 
-An immutable record that an AI-assisted action contributed to the task:
-`timestamp`, `ai_tool`, `activity_kind`, optional `session_id`, and optional
-`outcome_ref`. Equality is by value.
+An immutable record that an AI-assisted action contributed to the task. Equality
+is by value. It holds:
+
+- `timestamp`
+- `ai_tool`
+- `activity_kind`
+- optional `session_id`
+- optional `outcome_ref`
 
 ### Task Type
 
@@ -527,15 +539,15 @@ emitted yet; see [Occurrence Spawning](#occurrence-spawning) for why this contex
 publishes none.
 
 A `Projection Ref` recorded by hand, such as a session or pull request linked to
-a task, records the work whatever state it is in: a pull request that merged or
+a task, records the work whatever state it is in. A pull request that merged or
 closed before its task was linked is linked as an open one is, from a repository
 registered in Settings; see
 [From a task's side panel](../sessions/features.md#from-a-tasks-side-panel). It
 can be taken off again. What unlinking does is held by the task:
-[it removes every reference to the named artifact](domain.invariants.md#invariant-unlinking-removes-every-reference-to-the-named-artifact),
-[leaves the task's repositories as they are](domain.invariants.md#invariant-unlinking-leaves-the-tasks-repositories-as-they-are),
-and
-[changes nothing for a reference the task does not hold](domain.invariants.md#invariant-unlinking-what-the-task-does-not-hold-changes-nothing).
+
+- [it removes every reference to the named artifact](domain.invariants.md#invariant-unlinking-removes-every-reference-to-the-named-artifact);
+- [it leaves the task's repositories as they are](domain.invariants.md#invariant-unlinking-leaves-the-tasks-repositories-as-they-are);
+- [it changes nothing for a reference the task does not hold](domain.invariants.md#invariant-unlinking-what-the-task-does-not-hold-changes-nothing).
 
 ## Occurrence Spawning
 
@@ -569,14 +581,8 @@ flowchart TD
   about it, which this context documents but does not yet emit. A consumer
   therefore reads a series today by following `recurrence_source_id` rather
   than by subscribing.
-- A tick made on the phone reaches the desktop through the replica merge, which
-  runs the same spawn when the pulled copy ticks off a task it held unticked.
-  [An occurrence has at most one successor](requirements.md#requirement-an-occurrence-has-at-most-one-successor),
-  because the successor's id is derived from the occurrence's.
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
-- [Occurrence Spawning](domain.md#occurrence-spawning) lists what the new
-  occurrence carries over and what starts fresh.
 
 Creates the next occurrence of a repeating task. When a save ticks off a task
 that carries a `Recurrence`, setting `completed_on` where it was unset, it
@@ -593,7 +599,9 @@ task with its own lifecycle.
 
 Invocation semantics: called synchronously by the use case that completes the
 task. It is deliberately not an event-triggered policy, unlike the intended
-`Projection`. This context publishes no domain events yet. Guideline ADR 0006
+`Projection`. This context publishes no domain events yet.
+
+Guideline ADR 0006
 ([Lightweight CQRS, no mediator](../../arc42/adr/guidelines/0006-cqrs-for-api-projects.md))
 rejected putting a mediator behind its handlers: a caller that already knows the
 use case it means gains nothing from the indirection. `OccurrenceSpawned` below
@@ -632,7 +640,7 @@ policy: completed occurrences archive out of default views like any other
 finished task.
 
 Two use cases run it. The desktop's own save runs it when the save ticks the
-task off. The desktop's replica merge runs it when a pulled copy ticks off a
+task off, and the desktop's replica merge runs it when a pulled copy ticks off a
 task the desktop held unticked. That is how a tick made on the phone or on
 another desktop gets its successor.
 [A task that arrives ticked spawns nothing](requirements.md#requirement-a-task-that-arrives-ticked-spawns-nothing),
@@ -847,15 +855,16 @@ A task the person has ticked off their list, recorded as `completed_on`, the
 day it happened. It is independent of `Task Status`, and the
 [Archive and lifecycle requirements](requirements.md#archive-and-lifecycle)
 keep the two apart:
-[ticking a finished task keeps its status](requirements.md#requirement-ticking-a-finished-task-keeps-its-status),
-[reaching done through the status picker does not tick](requirements.md#requirement-reaching-done-through-the-status-picker-does-not-tick),
-and [unticking clears only the tick](requirements.md#requirement-unticking-clears-only-the-tick).
+
+- [ticking a finished task keeps its status](requirements.md#requirement-ticking-a-finished-task-keeps-its-status);
+- [reaching done through the status picker does not tick](requirements.md#requirement-reaching-done-through-the-status-picker-does-not-tick);
+- [unticking clears only the tick](requirements.md#requirement-unticking-clears-only-the-tick).
 
 `done` and `archived` say the work is over; the tick says the person has dealt
 with the task. Finished work can therefore sit on the open list until they have
-looked at it. "Finished" anywhere in this context means this tick. That covers
-the Completed section, tag counts, dependency readiness, and a repeat's next
-occurrence.
+looked at it. "Finished" anywhere in this context means this tick: the
+Completed section, tag counts, dependency readiness and a repeat's next
+occurrence all read it.
 
 ### Started
 
@@ -879,9 +888,9 @@ aliases: [area]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-A self-chosen grouping the person files a task under — "repos", "projects",
-"inbox", or whatever vocabulary they actually use. Deliberately a free-form
-string rather than an enum: the taxonomy belongs to the person, not the
+A self-chosen grouping the person files a task under, in whatever vocabulary they
+actually use, such as "repos", "projects" or "inbox". It is deliberately a
+free-form string rather than an enum: the taxonomy belongs to the person, not the
 product. A task with no area is unfiled.
 
 ### Due Date
@@ -892,8 +901,8 @@ aliases: [due_on, due, Due]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-The calendar day a task is committed to. A date, carrying no time and no
-timezone, so it means the same day wherever the device is. Distinct from a
+The calendar day a task is committed to. It is a date, carrying no time and no
+timezone, so it means the same day wherever the device is. It is distinct from a
 `Reminder`, which is a moment, and from `My Day`, which is a choice about today.
 How the date is worded on screen belongs to the channel showing it.
 
@@ -924,8 +933,8 @@ related: [.devbook/domain/tasks/domain.md#task]
 ```
 
 A local date and time the person asked to be reminded of a task at, held as
-wall-clock intent: 09:00 means 09:00 wherever they are when it arrives. A
-request recorded on the task rather than a promise about delivery — a reminder
+wall-clock intent: 09:00 means 09:00 wherever they are when it arrives. It is a
+request recorded on the task rather than a promise about delivery. A reminder
 whose time has passed reads as overdue until it is cleared.
 
 ### My Day
@@ -936,8 +945,8 @@ aliases: [in_my_day_on, myday, InMyDay]
 related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-The set of tasks a person picked to work on today. Held as the date it was
-picked for, not as a flag. Membership is derived when My Day is read, from that
+The set of tasks a person picked to work on today. It is held as the date a task
+was picked for, not as a flag. Membership is derived when My Day is read, from that
 date, the reader's current local date and the person's
 [Clear My Day overnight](context.md#clear-my-day-overnight) setting. Nothing
 rewrites the date when a day passes.
@@ -947,7 +956,7 @@ yesterday's list expires without a timer. With it off, an unfinished task with
 an earlier date stays in My Day as a **carried task** until it is ticked off or
 taken out. A task with a later date is never in today's My Day.
 
-Deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
+It is deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
 a commitment. A task in My Day may also carry an [Agenda Time](#agenda-time),
 which places it at a time within the day it was picked for. A carried task's
 slot is therefore not shown. Moving a task to tomorrow sets the
@@ -1129,26 +1138,34 @@ related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/dom
 ```
 
 One outside system seen through the one contract Tasks knows,
-`ITaskConnector`. A connector describes itself with an id, a name, an icon and a
-colour token. It fetches the items of a [Connected Target](#connected-target)
-and names each one by a display key. For each item it reports its
-[Source State](#source-state) and whether it is blocked, and why. It also reports
-what the system can do. A connector a person signs in to names the account
-that is signed in. It lists the statuses a target uses, each with its Source
-State, so a person can map them; a connector with nothing to map lists none. A
-connector that can list its targets offers them by name to pick from, and the
-person types any other target in.
+`ITaskConnector`. A connector:
+
+- describes itself with an id, a name, an icon and a colour token;
+- fetches the items of a [Connected Target](#connected-target) and names each one
+  by a display key;
+- reports for each item its [Source State](#source-state) and whether it is
+  blocked, and why;
+- reports what the system can do;
+- names the account that is signed in, when a person signs in to it;
+- lists the statuses a target uses, each with its Source State, so a person can
+  map them, or lists none when it has nothing to map;
+- offers its targets by name to pick from, when it can list them, and the person
+  types any other target in.
 
 A fetch that fails for a reason the connector recognises fails with a sentence
-the person can act on. The reasons are a target that is not there, an account
-that may not read it, a source Backlog's settings do not name, and nobody
-signed in. Any other failure reads as the source not being reached.
+the person can act on. Any other failure reads as the source not being reached.
+The reasons it recognises are:
 
-Of what a connector declares it can do, only three things change anything yet:
-whether it can complete an item at the source, whether a target is a code
-repository, and whether it asks the person questions about its items. Effort,
-dependencies, setting a status and commenting are declared but drive nothing. A
-connector a person signs in to may also say what it asks of them beside the
+- a target that is not there;
+- an account that may not read it;
+- a source Backlog's settings do not name;
+- nobody signed in.
+
+A connector declares what it can do, but only three things change anything yet:
+completing an item at the source, marking a target as a code repository, and
+asking the person questions about its items. Effort,
+dependencies, setting a status and commenting are declared but drive nothing.
+A connector a person signs in to may also say what it asks of them beside the
 sign-in, such as signing in again to send answers that wait.
 
 GitHub and spec-manager are the first two. This context never names a

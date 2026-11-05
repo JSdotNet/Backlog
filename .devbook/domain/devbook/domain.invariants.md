@@ -71,7 +71,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionT
 ```
 
 A remark the sync service would refuse is left out of the push, named in a warning without its body, and offered again only after an edit.
-The service refuses a remark filed under no repository, one with a blank chapter path or a negative block index, one whose kind is not comment, question, suggestion or flag, and one with a field past its bound, its branch name included.
+The service refuses a remark with no repository, a blank chapter path, a negative block index, a kind other than comment, question, suggestion or flag, or a field past its bound, the branch name included.
 The sync service refuses a push whole, so sending it would hold back every remark beside it on every cycle.
 
 Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimits.WhyRefused()`, the rule the sync endpoint runs
@@ -222,7 +222,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.The_id_is_the_same_on_every_device_for_the_same_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.Another_repository_or_pull_request_is_another_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.An_alias_names_one_repository_whatever_its_case, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_record_filed_under_another_id_than_its_subjects_is_not_taken]
 ```
 
-A subject's state has the same id on every device, derived from the repository's alias, whatever its case, and the subject's name, and a pulled state filed under any other id is not taken.
+On every device a subject's state has the same id, derived from the case-insensitive repository alias and the subject's name, and a pulled state filed under any other id is not taken.
 Two devices that set a state on one subject before either has synced would otherwise keep two states with nothing to say which is current.
 
 Enforced at: `DevbookSubject.IdFor()`, through `AliasKey()`; `DevbookSubjectReplicaMerge.ToState()` refuses a record whose id is not its subject's
@@ -234,7 +234,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectSyncSessionTests.A_state_the_service_would_refuse_is_left_out_and_named_without_holding_back_the_rest, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_change_the_service_would_not_store_is_refused_with_a_reason]
 ```
 
-A state filed under no repository, with a kind or state the contract does not have, with a decision on anything but a proposal, or with a field past its bound, is left out of the push and named in a warning.
+A state with no repository, a kind or state outside the contract, a decision on anything but a proposal, or a field past its bound stays out of the push, named in a warning.
 It is offered again only once its state is set again. The sync service refuses a push whole, so sending it would hold back every state beside it on every cycle.
 
 Enforced at: `DevbookSubjectSyncSession.PushAsync()`, through `DevbookSubjectRecordLimits.WhyRefused()`, the rule the sync endpoint runs

@@ -47,9 +47,15 @@ type: value-object
 aliases: [WorkSubjectRef, subject_ref]
 ```
 
-An opaque reference to the work being measured, such as a task, pull
-request, commit, issue, note, or Copilot session. Equality is by `subject_type`
-and `subject_id`. An entry may carry one, and need not.
+An opaque reference to the work being measured. Equality is by `subject_type`
+and `subject_id`. An entry may carry one, and need not. It can refer to:
+
+- a task;
+- a pull request;
+- a commit;
+- an issue;
+- a note;
+- a Copilot session.
 
 ### Productivity Metric
 
@@ -57,9 +63,14 @@ and `subject_id`. An entry may carry one, and need not.
 type: value-object
 ```
 
-A derived measurement such as AI-assisted tasks completed, estimated time saved,
-prompt reuse, review cycles avoided, or focus streak. Metrics are recomputed from
-entries and never become the source of truth.
+A derived measurement. Metrics are recomputed from entries and never become the
+source of truth. Examples are:
+
+- AI-assisted tasks completed;
+- estimated time saved;
+- prompt reuse;
+- review cycles avoided;
+- focus streak.
 
 ### Activity Kind
 
@@ -68,9 +79,16 @@ type: enum
 aliases: [ActivityKind]
 ```
 
-The type of productivity activity being measured: `planning`, `coding`,
-`review`, `research`, `summarization`, `documentation`, `automation`, or
-`other`.
+The type of productivity activity being measured, one of:
+
+- `planning`;
+- `coding`;
+- `review`;
+- `research`;
+- `summarization`;
+- `documentation`;
+- `automation`;
+- `other`.
 
 ### AI Tool
 
@@ -78,9 +96,13 @@ The type of productivity activity being measured: `planning`, `coding`,
 type: enum
 ```
 
-The AI-assisted channel used for the activity, such as Copilot CLI, GitHub
-Copilot App, IDE chat, or another assistant. The concrete values remain
-configurable because tools change faster than the domain concept.
+The AI-assisted channel used for the activity. The concrete values remain
+configurable because tools change faster than the domain concept. Examples are:
+
+- Copilot CLI;
+- GitHub Copilot App;
+- IDE chat;
+- another assistant.
 
 ## Productivity Analysis
 
@@ -89,9 +111,15 @@ type: domain-service
 related: [.devbook/domain/productivity/domain.md#productivity-ledger]
 ```
 
-Computes productivity summaries from ledger entries: AI-assisted work volume,
-time-saved estimates, completion trends, prompt reuse, and work distribution by
-tool, repository, environment, or activity kind. It is a service because the
+Computes productivity summaries from ledger entries:
+
+- AI-assisted work volume;
+- time-saved estimates;
+- completion trends;
+- prompt reuse;
+- work distribution by tool, repository, environment or activity kind.
+
+It is a service because the
 behavior is query/composition-oriented and derives insight across many entries
 rather than enforcing a single entry invariant. Invocation semantics:
 query/composition-oriented when the person opens a productivity view or requests

@@ -35,8 +35,10 @@ related: [".devbook/domain/capture/features.md#in-app-feedback-capture"]
 ```
 
 Turning it on puts a report action in the app chrome. The action files a Desktop
-app issue on GitHub with a title, details, and an attached screenshot, and is the
-in-app route into Capture. It is released: on by default, and without the `DEV`
+app issue on GitHub. The issue has a title, details, and an attached screenshot.
+The action is the in-app route into Capture.
+
+The flag is released: on by default, and without the `DEV`
 mark (under construction) or the `BETA` mark (built, not yet proven) that the
 settings screen puts on an unfinished feature
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
@@ -55,11 +57,16 @@ related: [.devbook/domain/capture/features.md#run-capture-now, .devbook/domain/c
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.CaptureSourcesSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.CaptureSourcesPanelTests, unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests]
 ```
 
-Which sources Capture watches, and what each one is pointed at. It holds the
-[capture sources](domain.md#capture-source) that can be monitored, and only
-those: YouTube, website, and email, one entry each and always in that order.
-Each entry has the source's kind, written as its slug (`youtube`, `website`,
-`email`), whether it is on, and its list of targets. A target is a channel or
+This setting says which sources Capture watches and what each one is pointed at.
+It holds only the [capture sources](domain.md#capture-source) that can be
+monitored: YouTube, website, and email. Each has one entry, always in that order.
+An entry has:
+
+- the source's kind, written as its slug (`youtube`, `website`, `email`);
+- whether it is on;
+- its list of targets.
+
+A target is a channel or
 feed URL or handle, a page URL, or a sender address. Targets are identifiers
 only, never a credential: the file is plain text meant to be read and
 hand-edited, so a mailbox password does not belong in it. Nothing is watched

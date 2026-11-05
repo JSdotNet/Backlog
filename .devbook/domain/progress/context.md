@@ -7,14 +7,14 @@ deployment: module
 related: [.devbook/arc42/05-building-block-view.md#desktop-app, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
-Progress owns what a person is working towards and what stands in the way: the
-goals their work is attached to, the impediments that hold it back, and the
-stand-up that reads both over an iteration.
+Progress owns what a person is working towards and what stands in the way. That
+means the goals their work is attached to, the impediments that hold it back, and
+the stand-up that reads both over an iteration.
 
 Inside the boundary:
 
-- each [Goal](domain.md#goal), with its title, outcome line, due date and the
-  plans, tasks, pull requests and sessions attached to it;
+- each [Goal](domain.md#goal), with its title, outcome line and due date, and the
+  work attached to it: plans, tasks, pull requests and sessions;
 - how far a goal has come, counted per item, and whether it is
   [At risk or On track](domain.md#goal-forecast);
 - each [Impediment](domain.md#impediment), its state and history, the tasks, pull
@@ -26,12 +26,20 @@ Inside the boundary:
 
 Outside it: the task itself. [Tasks](../tasks/domain.md#task) owns a task's status,
 due date, effort, the mark that it is blocked and its linked pull requests, and holds
-no knowledge of goals or impediments. Progress names a task by its id, a plan by its
-[plan tag](../roadmap/domain.md#roadmap-tag), a pull request by its repository and
-number and a session by its agent and session id, and reads each from its owner on
-every reading. An impediment names the work it holds back the same way, sessions
+no knowledge of goals or impediments.
+
+Progress reads each piece of work from its owner on every reading, and names it this way:
+
+- a task by its id;
+- a plan by its [plan tag](../roadmap/domain.md#roadmap-tag);
+- a pull request by its repository and number;
+- a session by its agent and session id.
+
+An impediment names the work it holds back the same way, sessions
 excepted. A session is [Sessions](../sessions/context.md)'s, and attaching one
-writes nothing there. A task's blocked mark is Tasks' alone and raises nothing in
+writes nothing there.
+
+A task's blocked mark is Tasks' alone and raises nothing in
 Progress: a person raises an impediment and links the task. Tasks does not call
 Progress and stores no impediment id. The pace a stand-up plans against is
 [Roadmap Planning](../roadmap/context.md#story-points-a-week)'s. Why goals and
@@ -45,8 +53,8 @@ their settings and the parts of local
 that described them, and the plan `+goals-standup` retired their code.
 
 Goals, impediments and the stand-up are always on. The `goals` flag that switched the
-whole context while it was built was retired with the plan's last entry, and with it
-the In progress view it kept for a person who had it off
+whole context while it was built was retired with the plan's last entry. The In
+progress view it kept for a person who had it off went with it
 (local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)).
 
 ## Iteration length

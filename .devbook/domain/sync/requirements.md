@@ -56,7 +56,7 @@ type: requirement
 tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it]
 ```
 
-The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let the device whose code paired another revoke it, and no other device, after which the revoked device's credential mints no token.
+The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let only the device whose code paired another revoke it, after which its credential mints no token.
 
 #### Scenario: The person refuses a device
 

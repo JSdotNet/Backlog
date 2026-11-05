@@ -16,10 +16,14 @@ related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 
 Frictionless capture from a phone while away from the desktop, offline first.
 
-A capture needs only a title and where it came from. Everything else is
-optional: a Markdown body, tags, the one person it is about or from, and files.
-The files are pictures, PDFs, text and Office documents that travel beside the
-capture. The phone names every capture with an id of its own before the first
+A capture needs only a title and where it came from. Everything else is optional:
+
+- a Markdown body;
+- tags;
+- the one person it is about or from;
+- files: pictures, PDFs, text and Office documents that travel beside the capture.
+
+The phone names every capture with an id of its own before the first
 send, so sending it again is never a second capture. The sub-features below each
 use part of that:
 
@@ -74,9 +78,8 @@ On-device transcription of voice notes into usable markdown, with retry on
 transcription failure, preserving source metadata.
 
 On the phone, the capture sheet, the Notes editor and a notification's answer
-boxes take dictation. What was heard is shown on a
-line and appended to what is already in the field, so nothing is sent that the
-person has not read first.
+boxes take dictation. What was heard is shown on a line and appended to what is
+already in the field, so nothing is sent that the person has not read first.
 
 ### Offline-first sync
 
@@ -146,9 +149,13 @@ the per-file limit, or one that is not a picture, PDF, text or Office file. Such
 file stays off the note, with the reason written under it, until it is taken off
 the list of files not attached.
 
-Pictures are made smaller before they leave: at most 1600 pixels on the longest
-side, as JPEG, with the location, camera and time details removed and only the
-way-up kept. Files go as they are. Each file is uploaded before the note that
+Pictures are made smaller before they leave:
+
+- at most 1600 pixels on the longest side;
+- as JPEG;
+- with the location, camera and time details removed, and only the way-up kept.
+
+Files go as they are. Each file is uploaded before the note that
 names it. A file that already went is never sent again, and a failed one is
 retried on its own. A note saved without a title is named after the first line of
 its body. With no body it is named "Photo · <date>" when a picture is attached, or
@@ -206,9 +213,10 @@ window rather than an archive (the capture run log in
 type: sub-feature
 ```
 
-Polls a subscribed channel's video feed for new videos. The channel is given as a
-feed URL, a channel id, or a handle, user or `c` page that resolves to one. New
-videos go straight into the Inbox. There is no folder filing and no
+Polls a subscribed channel's video feed for new videos. The channel is given as
+a feed URL, a channel id, or a handle, user or `c` page that resolves to one.
+
+New videos go straight into the Inbox. There is no folder filing and no
 `#capture/youtube` auto-tag yet.
 
 ### Website monitor
@@ -254,7 +262,7 @@ with. A composed monitor carries the same schedule, retry/backoff, and
 failure-logging guarantees as a built-in one. It still delivers a normalized
 capture, so nothing downstream can tell the two apart.
 
-Recorded as a possibility, not a commitment. What prompted it is xyOps
+This chapter records it as a possibility, not a commitment. What prompted it is xyOps
 (<https://github.com/pixlcore/xyops>), a self-hosted automation platform. It wires
 events, triggers, actions, and monitors into pipelines through a visual editor,
 and files the result carrying its own context. This chapter does not settle the
@@ -273,8 +281,14 @@ about the product's own health continue to reach the Inbox as Monitoring's
 type: feature
 ```
 
-A browser extension or bookmarklet that clips web content: the URL, the title, the
-selected text, and the page metadata. It converts the clip to markdown and keeps
+A browser extension or bookmarklet clips web content:
+
+- the URL;
+- the title;
+- the selected text;
+- the page metadata.
+
+It converts the clip to markdown and keeps
 the source link.
 
 ## IDE capture
@@ -284,7 +298,7 @@ type: feature
 ```
 
 An adapter that lets an IDE-class host capture selected code or text, or a note
-taken in a session. It attaches context metadata: the file path, line number, and
+taken in a session. It attaches context metadata: either the file path, line number and
 branch, or the session and worktree. It covers editor extensions (VS Code, Visual
 Studio) and agentic session tools (GitHub Copilot App).
 
@@ -307,8 +321,9 @@ machine. The desktop's source monitors work under the same local-first rule.
 type: feature
 ```
 
-Drag-and-drop files or paste content directly, convert to markdown (MarkItDown
-or equivalent), and extract tags, links, and source metadata automatically.
+The reader drags and drops files or pastes content directly. The product converts
+it to markdown (MarkItDown or equivalent) and extracts tags, links, and source
+metadata automatically.
 
 ### Import manifest
 
@@ -324,9 +339,11 @@ the manifest. It leaves out completed items. It maps the tool's lists to Inbox
 Lists, and the labels the person chooses to tags.
 
 The manifest is Markdown with front matter. A `---` block names the `schema` and
-the `tool`. Then comes one `#`-titled item per capture. Each item has a `meta`
-fence carrying `external_id` and `captured_at`, and optionally `url`, `kind`,
-`tags`, `person`, and `list`, followed by its notes as the body.
+the `tool`. Then comes one `#`-titled item per capture. Each item has its notes as the body,
+after a `meta` fence that carries:
+
+- `external_id` and `captured_at`;
+- optionally `url`, `kind`, `tags`, `person`, and `list`.
 
 The Inbox's Sources panel has an **Import file…** row below the monitors. A
 manifest picked or dropped there is imported at once, through the same run the

@@ -18,9 +18,12 @@ aliases: [NotificationDraft, NotificationId]
 ```
 
 One message a [Source](#source) raises on an [Owner instance](#owner-instance).
-It has a [kind](#notification-kind), a [severity](#severity), a title, a short
-summary, a Markdown body and a [lifecycle](#notification-state). It may be about
-a [Subject](#subject).
+It may be about a [Subject](#subject). It has:
+
+- a [kind](#notification-kind) and a [severity](#severity);
+- a title and a short summary;
+- a Markdown body;
+- a [lifecycle](#notification-state).
 
 The notification is the consistency boundary for its answer. Only the owner
 instance writes it, so only the owner decides which [Reply](#reply) becomes the
@@ -30,8 +33,8 @@ Its content is meant to be shown on every channel:
 
 - The title holds at most 80 characters, and the summary at most 180, both plain
   text. They are the only content that leaves the replica in an OS notification
-  or a push payload. A push also names the notification's id, kind, severity and
-  state, and its [origin](#origin) as "System · Place".
+  or a push payload. A push also names the notification's id and kind, its severity
+  and state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
   (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
@@ -97,9 +100,14 @@ words Backlog's own sources write (`NotificationOrigins`):
 
 | Asker kind | When |
 |---|---|
-| AI agent | Via starts with "Agent session", or is "MCP ask" or "MCP notify"; or there is no origin and the source is the Sessions context |
-| Person | Via is "typed in spec-manager"; or there is no Via but an Asked by, as a Devbook remark names its author |
+| AI agent | Via starts with "Agent session", or is "MCP ask" or "MCP notify" |
+| Person | Via is "typed in spec-manager" |
 | Backlog | Anything else: pairing, the settings test |
+
+- **AI agent.** A notification with no origin also counts when its source is the
+  Sessions context.
+- **Person.** A notification with no Via but an Asked by also counts, as a Devbook
+  remark names its author.
 
 The card's asker badge draws the kind. The centre filters by the system, by the
 asker kind (AI agent or Person), and by kind: questions, alerts, or whatever is
@@ -114,8 +122,11 @@ The sources inside Backlog fill it:
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
 | MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |
-| A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", with the session's title when the item's linked task names exactly one session, or "typed in spec-manager"; the asker as asked by |
+| A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", or "typed in spec-manager" |
 | Another spec-manager notification | spec-manager, with the host as above | The product, when the notification is about one | The category in words: "Mention", "Reply", "Change proposal", "Input", "Review work", "Administration" |
+
+For a spec-manager question, "Agent session" adds the session's title when the
+item's linked task names exactly one session, and the asker fills Asked by.
 
 ### Subject
 
@@ -140,8 +151,12 @@ The subjects a notification can be about, and when each ends:
 | `sessions` / `pull-request` / `owner/name#number` | Sessions | merged, or closed without merging | "Pull request merged", or "Pull request closed" |
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
-| `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
-| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager; one that reaches the person again is a new notification | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
+| `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered | "Pairing finished" |
+| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
+
+- **`sync` / `pairing`.** A pairing from an earlier run stays live.
+- **`spec-manager` / `question`.** One that reaches the person again is a new
+  notification.
 
 A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.
@@ -165,10 +180,12 @@ one of four shapes:
 
 | Shape | What a reply may hold |
 |---|---|
-| Single choice | Exactly one of two to eight set choices. Each choice has an id, a label, and an optional style: primary or destructive. |
+| Single choice | Exactly one of two to eight set choices. |
 | Multiple choice | Any subset of the set choices, within an optional minimum and maximum. |
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
+
+Each set choice has an id, a label, and an optional style: primary or destructive.
 
 A set choice of a single-choice question may also take text, with or without an
 open answer beside it. A reply that picks it carries the person's words with it, as
@@ -270,9 +287,13 @@ viewer when the question says `answerOn: owner`, or the reply does not fit the
 answer spec. The viewer can then reply again. The owner deletes a reply once it
 has processed it.
 
-A reply names the notification, its owner instance, the device it came from, the
-chosen choice ids, the open text and the note. The open text also carries the
-words of a choice that takes text; the note stays apart from them.
+A reply names:
+
+- the notification and its owner instance;
+- the device it came from;
+- the chosen choice ids;
+- the open text, which also carries the words of a choice that takes text;
+- the note, which stays apart from those words.
 
 ## Answer
 

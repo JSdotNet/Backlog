@@ -69,7 +69,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.An_archived_repository_is_not_read_and_names_no_failure, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived]
 ```
 
-The system SHALL read nothing from GitHub for an archived repository in the Pull requests pane, the Goals view, and the dashboard's activity, and report no failure for it there.
+The system SHALL read nothing from GitHub for an archived repository in the Pull requests pane, the Goals view or the dashboard's activity, and report no failure for it there.
 
 #### Scenario: The Pull requests pane refreshes
 
@@ -91,7 +91,7 @@ related: [.devbook/domain/tasks/features.md#search-filter-and-organize, .devbook
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.An_archived_repository_has_no_scope_chip_while_show_archived_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Turning_show_archived_on_offers_the_archived_repository_marked_and_remembers_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksArchivedRepositoryTests]
 ```
 
-The system SHALL leave an archived repository out of the repository scope, the Board's by-repository columns and every repository picker while show archived is off, and leave a task out of the task list and the Calendar while every repository it names is archived.
+The system SHALL hide, while show archived is off, an archived repository from the scope, the Board's columns and every picker, and a task naming only archived repositories from the task list and Calendar.
 
 #### Scenario: The repository scope
 
@@ -191,7 +191,7 @@ related: [.devbook/domain/tasks/domain.md#task-status]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_asks_about_the_open_tasks_and_moving_them_files_them_under_the_other_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_open_tasks_can_only_move_to_another_active_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_and_dropping_the_open_tasks_drops_them_and_archives, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Keeping_the_open_tasks_archives_and_the_archived_row_offers_the_choice_later, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_refused_move_leaves_the_repository_active_and_says_why, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RefileRepositoryTasksTests]
 ```
 
-The system SHALL offer to move an archived repository's open tasks to another active repository or to drop them, when the repository is archived and afterwards from its archived row, and leave the repository active when the move or drop is refused.
+The system SHALL offer, on archiving and afterwards from the archived row, to move a repository's open tasks to another active repository or drop them, and keep it active when that is refused.
 
 #### Scenario: Moving the open tasks
 
@@ -231,7 +231,7 @@ related: [.devbook/domain/roadmap/features.md#reading-the-plan-by-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_in_the_drawn_window_draws_the_archived_band_marked_archived, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_before_the_drawn_window_draws_no_band_until_the_window_reaches_back_to_it]
 ```
 
-The system SHALL draw the band of an archived repository, greyed and tagged Archived with only its finished work, while the timeline's whole drawn window holds finished work of it. The rest of the plan sets that window, not where the person has scrolled.
+The system SHALL draw an archived repository's band, greyed, tagged Archived, with only its finished work, while the drawn window, which the rest of the plan sets rather than the scroll, holds some of it.
 
 #### Scenario: Finished work in the drawn window
 
@@ -364,7 +364,7 @@ related: [.devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/00
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_repository_is_read_and_never_written, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DecisionToolsTests.An_archived_outcome_is_answered_as_repository_archived, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookReadOnlyBranchTests.A_subject_state_on_an_archived_repository_is_refused_and_nothing_is_kept, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_arc42_panel_shows_a_debt_records_state_read_only_on_an_archived_repository]
 ```
 
-The system SHALL show the workflow state of an archived repository's decision and debt records without offering to change it, and the MCP state tools SHALL refuse to set, approve or accept a subject of an archived repository.
+The system SHALL show the workflow state of an archived repository's decision and debt records without offering to change it, and the MCP state tools SHALL refuse to set, approve or accept its subjects.
 
 #### Scenario: A debt record on an archived devbook
 
@@ -473,7 +473,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientRequiredApprovalCountTests.A_base_branch_with_no_rule_has_no_required_total]
 ```
 
-The system SHALL show on every open pull request row an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.
+The system SHALL show an icon and `approvals/required` on every open pull request row, with required the larger of the base branch's protection rule and rulesets' pull request rules, and none where no rule asks.
 
 #### Scenario: One of two approvals
 
@@ -515,7 +515,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientPullRequestFactsTests.A_pending_request_naming_the_viewer_is_a_request_for_their_review, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests.An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Your_review_shows_on_an_open_or_draft_pull_request_that_asks_for_it, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_pull_request_asking_for_your_review_ends_on_your_review_after_the_approvals]
 ```
 
-The system SHALL end an open or draft pull request's marks with "your review" when a pending review request names the viewer directly, and SHALL NOT show it for a team request, a merged or closed pull request, or a pull request in an archived repository.
+The system SHALL end an open or draft pull request's marks with "your review" only when a pending review request names the viewer directly, not a team, and its repository is not archived.
 
 #### Scenario: The viewer is asked
 

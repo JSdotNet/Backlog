@@ -149,8 +149,8 @@ classDiagram
 - `completed_on` is a fourth scalar of the same kind, recording
   [Completed](domain.md#completed), and deliberately not a `Task Status` value.
 - `started_on` is a fifth, recording [Started](domain.md#started), stamped by
-  the root. A date and not a `Timestamp` for the same reason as the tick: it is
-  read against a local calendar.
+  the root. It is a date and not a `Timestamp` for the same reason as the tick: it
+  is read against a local calendar.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
   identity of its own. It describes the shape of the repeat only; the date of the

@@ -20,7 +20,7 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc
 ```
 
 A person's own note on one block of a chapter, kept by the app rather than by the
-repository. It holds the repository's alias and the chapter's path inside the
+repository, so a reader can remark on a branch snapshot nobody can write to. It holds the repository's alias and the chapter's path inside the
 repository, the block it is anchored to, its body, its author, and whether it is
 resolved. It also holds its kind and the branch it was left on. The alias is the
 name a repository already has on every device, so one remark names the same
@@ -40,18 +40,28 @@ once the chapter has changed is in
 
 It is an aggregate because its lifecycle is the person's alone: add, edit,
 resolve, delete. No other record changes with it. It replicates as a whole
-document through a replica container of its own (local ADR 0011). A live remark
-with an empty body is a *draft*, open in the read view and not yet written. A
-remark the sync service would refuse also stays on this device: one filed under
-no repository, as a remark on the storage-folder devbook is, or one with a field
-past its bound. A warning names it, and it is offered again only after an edit.
-A deletion replicates without the remark's body. How each change is stamped,
-which version wins, what a deletion leaves, what happens to a draft, which remark
-stays local, and where a remark is stored are
-[the Remark invariants](domain.invariants.md#remark).
+document through a replica container of its own (local ADR 0011).
 
-A remark lives with the app rather than in the repository, so a reader can remark
-on a branch snapshot nobody can write to. It is not a
+A live remark with an empty body is a *draft*, open in the read view and not yet
+written. A remark the sync service would refuse also stays on this device. There are two
+such cases:
+
+- one filed under no repository, as a remark on the storage-folder devbook is;
+- one with a field past its bound.
+
+A warning names it, and it is offered again only after
+an edit. A deletion replicates without the remark's body.
+
+[The Remark invariants](domain.invariants.md#remark) say:
+
+- how each change is stamped;
+- which version wins;
+- what a deletion leaves;
+- what happens to a draft;
+- which remark stays local;
+- where a remark is stored.
+
+It is not a
 [Review Note](#review-note), but a review note can become one. The app imports
 the open review notes on each registered repository's default branch once, as
 remarks of the same kind on the default branch (local ADR 0011). An imported
@@ -85,8 +95,9 @@ ADR 0044).
 It is an aggregate because each subject's state changes as one. Setting a state,
 approving and accepting move the state and its decisions together, and a refusal
 changes nothing. No other record changes with it. One set of rules,
-`DevbookSubjectRules`, decides all four operations for every store. The app
-always says who acted and when: the host's own name, the one a remark's author
+`DevbookSubjectRules`, decides all four operations for every store.
+
+The app always says who acted and when: the host's own name, the one a remark's author
 carries, and the store's clock. A caller never passes either. The one exception
 is the import below, which keeps who and when the repository wrote down.
 
@@ -140,9 +151,14 @@ coding guidelines under `adr/guidelines/` are no records. Every other chapter is
 no subject: merged, it is in force, and its state is the branch it is on.
 
 A record path is spelled one way: forward slashes, no anchor, and no leading `./`
-or `/`. A subject the contract could not name is refused when it is made: a blank
-key, a decision record with no pull request, a pull request on another kind, or a
-proposal name that is no folder name.
+or `/`.
+
+A subject the contract could not name is refused when it is made. That covers:
+
+- a blank key;
+- a decision record with no pull request;
+- a pull request on another kind;
+- a proposal name that is no folder name.
 
 ### Subject Kind
 
@@ -187,7 +203,7 @@ related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook
 ```
 
 Reviews the agent-facing instruction documents a repository carries, the
-working-instructions knowledge area for each tool. It produces findings about what
+working-instructions devbook area for each tool. It produces findings about what
 they cost, where they disagree, and which wording is not doing its job.
 
 None of the review is built yet. Its switch is reserved
@@ -222,10 +238,6 @@ withdrawn. A claimed reduction carries its [Saving Evidence](#saving-evidence).
 
 Findings live for the review that produced them.
 
-Invocation semantics: command-invoked read-only analysis over a repository's
-instruction documents; it writes only through a proposal a person has accepted, one
-at a time.
-
 ## Shared Value Objects
 
 ```meta
@@ -254,8 +266,8 @@ It **names** a roadmap item rather than **addressing** a chapter, and that
 distinction is the one most easily misread. A knowledge cross-reference is a
 `<path>#<slug>` address that resolves to a specific node and draws an edge in the
 knowledge graph. A Brain note's [Task Link](../brain/domain.md#task-link) names
-one task by its id and stays a value on the note's node. A `Roadmap Contribution` is a bare tag slug that resolves to nothing
-here. It is the same vocabulary a
+one task by its id and stays a value on the note's node. A `Roadmap Contribution`
+is a bare tag slug that resolves to nothing here. It is the same vocabulary a
 [Roadmap Tag](../roadmap/domain.md#roadmap-tag) holds and a Task files under, and
 Roadmap Planning reads a chapter's contributions when it gathers work by tag.
 
@@ -265,10 +277,11 @@ contributing to `sync-service` is not linked to any document called that; see
 Nothing validates the slug, and a slug matching no current roadmap item is a
 normal, harmless state.
 
-It is also not a [Tag](../brain/domain.md#tag), even though both are loosely "tags". A Tag is the
-Brain's own `#keyword` for discovery, and it finds notes there. A Roadmap
-Contribution names a slug [Roadmap Planning](../roadmap/domain.md#roadmap-tag)
-owns, and only Roadmap Planning reads it. The two are never collapsed.
+A Roadmap Contribution is also not a [Tag](../brain/domain.md#tag), even though both
+are loosely "tags". A Tag is the Brain's own `#keyword` for discovery, and it
+finds notes there. A Roadmap Contribution names a slug
+[Roadmap Planning](../roadmap/domain.md#roadmap-tag) owns, and only Roadmap
+Planning reads it. The two are never collapsed.
 
 ## Shared Enums
 
@@ -295,7 +308,7 @@ aliases: [Devbook, Knowledge]
 related: [.devbook/domain/context-map.md#context-map, .devbook/domain/brain/domain.md#brain]
 ```
 
-The bounded context, and the module, pane, database and tooling named after it.
+The bounded context. The module, pane, database and tooling are named after it.
 *Second Brain* is not an alias of it: that phrase means the [Brain](../brain/domain.md#brain).
 
 `Knowledge` is an alias. The Inbox uses it as informal shorthand when routing
@@ -303,8 +316,13 @@ here, and older code named the context `Knowledge*` (`Backlog.Modules.Knowledge`
 `KnowledgePane`, `_meta/knowledge.db`).
 
 What the context reads in a repository keeps the convention's own name,
-*devbook folders*: `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
-`.devbook/design` and `.devbook/ai`.
+*devbook folders*:
+
+- `.devbook/arc42`;
+- `.devbook/domain`;
+- `.devbook/tech`;
+- `.devbook/design`;
+- `.devbook/ai`.
 
 ### Effort
 
@@ -320,8 +338,9 @@ means "not estimated" and `0` is a real estimate. Unlike a Task's, a negative
 value is not refused: a chapter is a file nothing checks on save, so the reader
 treats it as unreadable
 ([An unreadable effort is no estimate](domain.invariants.md#invariant-an-unreadable-effort-is-no-estimate)).
-It sizes the knowledge work rather than timing it.
-Devbook registers and owns it. Roadmap Planning reads and totals it across the
+
+It sizes the chapter's work rather than timing it. Devbook registers and owns it.
+Roadmap Planning reads and totals it across the
 chapters an item gathers, but never sets it.
 
 ### Instruction Set
@@ -335,7 +354,7 @@ related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/
 The documents one tool reads as its instructions for a repository: the file it
 loads on every run, the ones it loads when a condition matches, and the skills it
 can reach. One repository carries several instruction sets, one per tool. They are
-the content of the working-instructions knowledge area and belong to the
+the content of the working-instructions devbook area and belong to the
 repository, not to this product.
 
 ### Context Load
@@ -350,8 +369,8 @@ What an instruction spends on every agent turn because it is loaded whether or n
 it applies. It is a property of *when* a document is loaded rather than of how long
 it is: a line reached only on the branch that needs it carries almost none.
 
-Distinct from the person's own cost of knowing which document to reach for. That
-one buys human judgement and is spent on purpose, so the two are never summed and
+It is distinct from the person's own cost of knowing which document to reach for. That
+cost buys human judgement and is spent on purpose, so the two are never summed and
 never traded against each other silently.
 
 ### Instruction Finding
@@ -363,7 +382,7 @@ related: [.devbook/domain/devbook/domain.md#instruction-review]
 ```
 
 One reviewed observation about an instruction set: where it is, what kind of
-problem it is, and the change proposed. Always a proposal — a finding never means
+problem it is, and the change proposed. It is always a proposal: a finding never means
 a file was changed, and an accepted one is applied singly with the previous wording
 recoverable.
 
@@ -375,8 +394,8 @@ aliases: [alignment, cross-tool alignment]
 related: [.devbook/domain/devbook/features.md#cross-tool-alignment-validation]
 ```
 
-Two tools' instruction sets stating the same rule for the same repository, each in
-its own agent, skill, and command names.
+Alignment is two tools' instruction sets stating the same rule for the same
+repository, each in its own tool's agent, skill and command names.
 
 **Distinct from duplication**, and the distinction is load-bearing. Duplication is
 one meaning stated twice where one place would do, and the fix is to keep one
@@ -395,7 +414,7 @@ related: [.devbook/domain/devbook/features.md#saving-evidence]
 
 How a claimed reduction was obtained: read from local agent activity, or measured
 in a controlled before-and-after. It travels with the number so a reader knows what
-the number is worth. It is stated in what agents load rather than in money — no
+the number is worth. It is stated in what agents load rather than in money. No
 billed amount is claimed, and a figure with no basis is not shown.
 
 ### Sync Verdict
@@ -432,15 +451,24 @@ related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unatten
 ```
 
 What one sync direction governs, and what a sweep checks and acts on as a whole.
-The devbook convention defines it: an aggregate with everything it owns, a domain
-service, a feature with its sub-features and requirements, one switch or setting,
-one actor, one building-block file, or one component chapter. Each unit's
-direction is `push`, `pull`, `sync`, `report` or `off`. Backlog keeps it in a
-direction map per repository, set in the devbook view on the unit's root chapter,
-its page, its context or its folder. The nearest one wins, and `report` applies
-when none of them states one. The chapter carries no direction of its own: the
-values a clone's Markdown still states are copied into the map once, the first
-time the map is read. A repository read only from a branch is not imported.
+The devbook convention defines it as one of these:
+
+- an aggregate with everything it owns;
+- a domain service;
+- a feature with its sub-features and requirements;
+- one switch or setting;
+- one actor;
+- one building-block file;
+- one component chapter.
+
+Each unit's direction is `push`, `pull`, `sync`, `report` or `off`. Backlog keeps it
+in a direction map per repository, set in the devbook view on the unit's root
+chapter, its page, its context or its folder. The nearest one wins, and `report`
+applies when none of them states one.
+
+The chapter carries no direction of its own: the values a clone's Markdown still
+states are copied into the map once, the first time the map is read. A repository
+read only from a branch is not imported.
 
 ### Review Note
 
@@ -451,9 +479,16 @@ related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter, .devboo
 ```
 
 A note the repository keeps in a chapter file itself, as an `annotation` fence
-beside the passage it is about. It has a kind (comment, question, suggestion or
-flag), a status (open or resolved), an author, a date, an optional quote, and its
-replies. It is the repository's shared review state: the convention's own tooling
+beside the passage it is about. It has:
+
+- a kind (comment, question, suggestion or flag);
+- a status (open or resolved);
+- an author;
+- a date;
+- an optional quote;
+- its replies.
+
+It is the repository's shared review state: the convention's own tooling
 writes it, and Devbook only reads it. A review note is not chapter content
 ([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)).
 The app imports each open review note on a repository's default branch once, as

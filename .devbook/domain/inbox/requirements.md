@@ -121,7 +121,7 @@ type: requirement
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys
 ```
 
-The system SHALL show Move to backlog, To Brain, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
+The system SHALL keep Move to backlog, To Brain, Move to list, Defer and Archive, each naming its key, in a bar at the foot of the detail that stays in view while it scrolls.
 
 #### Scenario: A long article
 
@@ -183,7 +183,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Archive_across_the_selection_goes_through_one_batch_and_says_how_many]
 ```
 
-The system SHALL apply a bulk Archive, Move to list, Tags or Repositories change to each picked item through the same act that changes one item, so an item that act refuses is refused and the others still change.
+The system SHALL apply a bulk Archive, Move to list, Tags or Repositories change to each picked item through the single-item act, so an item that act refuses is refused and the others still change.
 
 #### Scenario: One routed item among several archived
 
@@ -204,7 +204,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_partial_failure_names_the_item_it_could_not_change_rather_than_reporting_success, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_bulk_sentence_leads_with_what_landed_and_names_what_did_not]
 ```
 
-The system SHALL report a bulk act by how many items it changed, how many were already at the value, and the title and reason of every item it could not change, and SHALL report it as a warning rather than a success when any item was refused.
+The system SHALL report a bulk act's changed and already-at-value counts and the title and reason of every item it could not change, as a warning rather than a success when any item was refused.
 
 #### Scenario: One of two refused
 
@@ -249,7 +249,7 @@ type: requirement
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_selection_survives_a_refresh_is_pruned_by_a_filter_and_clears_when_the_slice_changes
 ```
 
-The system SHALL keep picked items picked across a refresh of the pane while they are still shown, drop an item from the selection when it stops being shown, and empty the selection when another slice is opened.
+The system SHALL keep picked items picked across a pane refresh while they are shown, drop an item when it stops being shown, and empty the selection when another slice opens.
 
 #### Scenario: A refresh while items are picked
 
@@ -308,7 +308,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default]
 ```
 
-The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane as that place's key and not as a shortcut.
+The system SHALL treat as that place's key, not a shortcut, a letter pressed in a text field or dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane.
 
 #### Scenario: Typing a tag
 
@@ -323,7 +323,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Triage_shows_one_item_counted_and_moves_on_after_each_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Past_the_last_row_triage_returns_to_the_item_skipped_on_the_way]
 ```
 
-The system SHALL, in triage mode, show one item with its place among the rows shown and move on to the next row after each archive, deferral, move to a list or move to the backlog.
+In triage mode the system SHALL show one item with its place among the rows shown and go to the next row after each archive, deferral, move to a list or move to the backlog.
 
 #### Scenario: Archiving the first of three
 
@@ -443,7 +443,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_defer_button_offers_the_review_dates_as_d_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_triage_decisions_name_r_b_l_d_and_a_and_g_reaches_the_tags]
 ```
 
-The system SHALL show in triage mode the decision buttons — Move to backlog, To Brain, Move to list, Defer and Archive — each naming its key and doing what that key does.
+The system SHALL show in triage mode the buttons Move to backlog, To Brain, Move to list, Defer and Archive, each naming its key and doing what that key does.
 
 #### Scenario: Deferring by button
 
@@ -498,7 +498,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Opening_an_item_in_triage_asks_once_with_the_configured_repositories, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Outside_triage_mode_nothing_is_asked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Without_an_available_advisor_nothing_is_asked_and_nothing_is_exposed]
 ```
 
-The system SHALL send an item to the Foundry model for its cards only when the reader opens that item in triage mode, at most once per item until the app closes unless the reader presses Ask again on that item, and never on intake, on a timer or while the list is browsed.
+The system SHALL ask the Foundry model for an item's cards only when the reader opens it in triage mode, at most once per item until the app closes unless Ask again is pressed.
 
 #### Scenario: Browsing the list
 
@@ -603,7 +603,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.U_takes_back_the_newest_decision_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_archive_is_undone_by_restoring_the_item_to_unprocessed, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_is_undone_by_resurfacing_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_move_to_a_list_is_undone_by_moving_back_to_the_list_it_came_from, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.With_nothing_to_undo_U_says_so_and_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_an_archived_item_makes_it_unprocessed_again]
 ```
 
-The system SHALL undo the session's newest decision not yet undone — an archive, a deferral, a move to a list, a move to the backlog or a merge — and return the item to the state it had before it, until the app closes.
+Until the app closes, the system SHALL undo the session's newest decision not yet undone (an archive, deferral, move to a list, move to the backlog or merge) and restore the item's earlier state.
 
 #### Scenario: Two decisions undone
 
@@ -624,7 +624,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_is_undone_by_returning_the_item_and_deleting_its_tasks_and_the_shell_hears_of_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_task_has_started_is_refused_in_one_sentence_and_the_next_U_reaches_the_decision_before, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Returning_a_routed_item_deletes_the_tasks_the_route_made_and_makes_it_unprocessed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.A_started_task_refuses_the_return_and_the_item_stays_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.Draft_and_ready_entries_are_deleted_and_an_entry_already_gone_is_no_reason_to_refuse, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.One_started_entry_refuses_the_lot_by_its_title_and_deletes_nothing]
 ```
 
-The system SHALL undo a move to the backlog by deleting the tasks it made only while none of them has started, and otherwise SHALL refuse the undo with a sentence naming the started task and change nothing.
+The system SHALL undo a move to the backlog by deleting its tasks only while none has started, and otherwise SHALL refuse with a sentence naming the started task and change nothing.
 
 #### Scenario: Nothing started
 
@@ -699,7 +699,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_undo_whose_way_back_throws_keeps_the_decision_says_so_and_the_next_U_retries_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_whose_second_way_back_throws_takes_back_the_first_and_keeps_the_second, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_way_back_throws_keeps_the_step_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_with_a_refusal_and_a_throw_says_both_and_keeps_only_the_throw, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_that_throws_going_back_on_still_counts_the_undo_as_done]
 ```
 
-The system SHALL keep a decision whose undo failed on top of the session's history and in its counts, say that it could not be undone, and take it back on the next undo that succeeds.
+The system SHALL keep a decision whose undo failed on top of the session's history and in its counts, say it could not be undone, and take it back on the next successful undo.
 
 #### Scenario: The store fails once
 
@@ -1001,9 +1001,9 @@ it, and show either the downloaded file or the new reason.
 type: requirement
 ```
 
-The Inbox detail view SHALL show every file an item arrived with: pictures on
-this machine of 8 MB or less as thumbnails that open the file, and every other
-file, a larger picture included, as a row with its size and Open.
+The Inbox detail view SHALL show a picture on this machine of 8 MB or less as a
+thumbnail that opens the file, and every other file as a row with its size and
+Open.
 
 #### Scenario: A picture and a document
 
@@ -1332,7 +1332,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_selection_routes_as_one_inbox_batch_and_each_item_keeps_only_its_own_entries, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_list_route_is_tagged_with_the_list_name_and_leaves_the_list_standing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Every_batch_is_a_new_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_list_confirm_says_the_deferred_items_stay_when_there_are_any, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_is_one_document_whose_entries_parse_back_with_the_tag_the_id_and_the_repository]
 ```
 
-The system SHALL route a batch through one plan import whose entries all carry a plan tag new to that batch: `+inbox-batch-` and eight hex digits for a selection, and the list's name with eight hex digits for a list.
+The system SHALL route a batch through one plan import whose entries share a new plan tag: `+inbox-batch-` and eight hex digits for a selection, the list's name and eight hex digits for a list.
 
 #### Scenario: Moving a selection
 
@@ -1359,7 +1359,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Each_item_goes_with_its_own_facts_and_repositories, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Each_item_gets_back_only_its_own_entries_in_repository_order, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_names_each_entrys_own_item_as_its_source_and_nothing_else, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.An_item_the_import_answered_for_only_in_part_is_named_with_what_was_made_and_the_rest_are_routed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_save_that_fails_after_the_import_names_the_entries_already_made_and_keeps_the_rest]
 ```
 
-The system SHALL create, for each item of a batch, the draft entries Route to Tasks would create for it alone — one per repository, each naming that item as its source — and record on each item only the entries it became.
+For each item of a batch, the system SHALL create the draft entries Route to Tasks would create (one per repository, each naming the item as source) and record on it only those entries.
 
 #### Scenario: Two repositories on one item
 
@@ -1509,7 +1509,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_is_read_as_edges_between_the_items_and_tasks_is_not_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_a_repository_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_an_entry_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.The_panels_repositories_are_the_ones_the_answer_may_name, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.An_answer_the_target_refuses_adds_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.A_drafter_failure_comes_back_as_it_is, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_refused_order_is_named_in_the_panel_and_adds_no_switch]
 ```
 
-The system SHALL offer none of the drafter's order when its answer names a repository none of the batch's items goes to, or an entry or an `after:` that is not one of the batch's items, and say why in the panel.
+The system SHALL offer none of the drafter's order, and say why in the panel, when its answer names a repository no batch item goes to, or an entry or `after:` outside the batch.
 
 #### Scenario: A made-up repository
 
@@ -1536,7 +1536,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.The_drafters_dependencies_are_added_on_after_the_stated_ones_and_never_twice, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.An_ask_that_adds_nothing_or_is_refused_says_so_and_confirm_waits_while_it_is_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Each_edge_read_back_is_an_inferred_dependency_on_the_other_item]
 ```
 
-The system SHALL add each dependency the drafter infers between two items of the batch as a switch marked AI-inferred and on, never add one the panel already shows between the same two items, and route only the switches left on.
+The system SHALL add each dependency the drafter infers between two batch items as a switch marked AI-inferred and on, never add one the panel shows between them, and route only the switches left on.
 
 #### Scenario: A new dependency
 

@@ -63,8 +63,14 @@ by `(tool_name, version)`.
 type: value-object
 ```
 
-A queued tool update: `tool_name`, `target_version`, `requested_by`,
-`requested_at`, `status`, optional `error_message`.
+A queued tool update. It holds:
+
+- `tool_name`;
+- `target_version`;
+- `requested_by`;
+- `requested_at`;
+- `status`;
+- optional `error_message`.
 
 ### Uptime Metric
 
@@ -72,7 +78,12 @@ A queued tool update: `tool_name`, `target_version`, `requested_by`,
 type: value-object
 ```
 
-Daily uptime: `date`, `uptime_pct`, `last_heartbeat`, `downtime_min`.
+Daily uptime. It holds:
+
+- `date`;
+- `uptime_pct`;
+- `last_heartbeat`;
+- `downtime_min`.
 
 ### Compliance Snapshot
 
@@ -80,9 +91,13 @@ Daily uptime: `date`, `uptime_pct`, `last_heartbeat`, `downtime_min`.
 type: value-object
 ```
 
-Daily tool compliance: `date`, `compliant_tools_count`, `outdated_tools_count`,
-`compliance_score`. Computed:
-`compliance_score = compliant / (compliant + outdated) * 100`.
+Daily tool compliance. It holds:
+
+- `date`;
+- `compliant_tools_count`;
+- `outdated_tools_count`;
+- `compliance_score`, computed as
+  `compliance_score = compliant / (compliant + outdated) * 100`.
 
 ### Update Record
 
@@ -90,8 +105,14 @@ Daily tool compliance: `date`, `compliant_tools_count`, `outdated_tools_count`,
 type: value-object
 ```
 
-A completed tool update: `date`, `tool_name`, `target_version`, `status`
-(success/failed/rollback), `duration_sec`, `initiated_by` (auto/manual/user-id).
+A completed tool update. It holds:
+
+- `date`;
+- `tool_name`;
+- `target_version`;
+- `status` (success/failed/rollback);
+- `duration_sec`;
+- `initiated_by` (auto/manual/user-id).
 
 ### Last Tool Run
 
@@ -101,25 +122,39 @@ aliases: [DevToolLastRun, last run]
 related: [.devbook/domain/dev-pc-management/features.md#last-run-record]
 ```
 
-The most recent finished run of the System tools pane on one machine: `kind`
-(Update all, Update, Install, Clear stale cache), `started_at`, `finished_at`,
-`outcome` (succeeded, failed, partly failed), one Tool Run Step per tool the run
-touched, and the full `transcript` of the commands it ran and the message it
-ended on. Invariants: a machine holds at most one, kept beside its per-PC tool
-choices; each finished run replaces the one before it and no history or trend
-is kept; a run still in progress is never recorded; and the outcome is partly
-failed exactly when at least one step succeeded and at least one failed. A
-missing or unreadable record reads as none.
+The most recent finished run of the System tools pane on one machine. It holds:
+
+- `kind` (Update all, Update, Install, Clear stale cache);
+- `started_at` and `finished_at`;
+- `outcome` (succeeded, failed, partly failed);
+- one Tool Run Step per tool the run touched;
+- the full `transcript` of the commands it ran and the message it ended on.
+
+Its invariants are:
+
+- A machine holds at most one, kept beside its per-PC tool choices.
+- Each finished run replaces the one before it, and no history or trend is kept.
+- A run still in progress is never recorded.
+- The outcome is partly failed exactly when at least one step succeeded and at
+  least one failed.
+
+A missing or unreadable record reads as none.
 
 The transcript is redacted before the record is written, because the record can
-sit inside a synced storage root: this machine's MCP token is masked by value —
-read, never minted to be masked — and so is every known secret shape a tool's
-output can carry, whoever passed it in: a `Bearer` credential, an upper-case
-`…_TOKEN=`, `…_API_KEY=` or similar assignment, a non-`Bearer` `Authorization:`
-header, an `X-Api-Key:`-style header, a `?token=`-style query value, and a token
-its issuer marks by prefix (`ghp_`, `github_pat_`, `sk-`, `xox…-`, `AKIA`, a
-signed JWT). Each masked value reads `[redacted]`; a `${…}` placeholder and text
-matching no shape are kept byte for byte.
+sit inside a synced storage root. This machine's MCP token is masked by value:
+it is read, never minted to be masked. Every known secret shape a tool's output
+can carry is masked too, whoever passed it in:
+
+- a `Bearer` credential;
+- an upper-case `…_TOKEN=`, `…_API_KEY=` or similar assignment;
+- a non-`Bearer` `Authorization:` header;
+- an `X-Api-Key:`-style header;
+- a `?token=`-style query value;
+- a token its issuer marks by prefix (`ghp_`, `github_pat_`, `sk-`, `xox…-`,
+  `AKIA`, a signed JWT).
+
+Each masked value reads `[redacted]`. A `${…}` placeholder and text matching no
+shape are kept byte for byte.
 
 ### Tool Run Step
 
@@ -128,9 +163,13 @@ type: value-object
 aliases: [DevToolRunStep]
 ```
 
-One tool's part in a Last Tool Run: `name`, `from_version` (none for an install),
-`to_version` (the version the run was taking it to), `outcome` (succeeded or
-failed), and `duration`.
+One tool's part in a Last Tool Run. It holds:
+
+- `name`;
+- `from_version` (none for an install);
+- `to_version` (the version the run was taking it to);
+- `outcome` (succeeded or failed);
+- `duration`.
 
 ### Tool Catalog Entry
 
@@ -140,15 +179,24 @@ aliases: [DevToolApplication, DevToolMcpServer, catalog entry]
 related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/dev-pc-management/features.md#overview-tab]
 ```
 
-One tool the repository's catalog declares: its kind (plugin, marketplace, MCP
-server, application), the id it is addressed by, how it is installed, the hosts
-it is for, whether it is enabled, and, for an application or an MCP server, an
-optional `download` page — where somebody installing it by hand gets it.
-Invariants: the id is what every per-PC override and every action addresses, so
-an entry without one is refused; a property the entry leaves out means its
-default, so a catalog written before `download` existed reads as naming no page;
-and the Add tool path writes `download` only as an http or https address, while
-a hand-edited value is kept as written and only ever linked when it is one.
+One tool the repository's catalog declares. It holds:
+
+- its kind (plugin, marketplace, MCP server, application);
+- the id it is addressed by;
+- how it is installed;
+- the hosts it is for;
+- whether it is enabled;
+- for an application or an MCP server, an optional `download` page, where somebody
+  installing it by hand gets it.
+
+Its invariants are:
+
+- The id is what every per-PC override and every action addresses, so an entry
+  without one is refused.
+- A property the entry leaves out means its default, so a catalog written before
+  `download` existed reads as naming no page.
+- The Add tool path writes `download` only as an http or https address. A
+  hand-edited value is kept as written and only ever linked when it is one.
 
 ### Tool Baseline
 
@@ -176,8 +224,14 @@ Technology Stack domain (see `dependencies.md`).
 type: value-object
 ```
 
-Aggregate fleet status: `date`, `total_machines`, `online_count`,
-`offline_count`, `average_uptime_pct`, `average_compliance_score`.
+Aggregate fleet status. It holds:
+
+- `date`;
+- `total_machines`;
+- `online_count`;
+- `offline_count`;
+- `average_uptime_pct`;
+- `average_compliance_score`.
 
 ### Trend Metrics
 
@@ -233,8 +287,8 @@ Coordinates out-of-band actions on registered machines:
 - authorization and encryption of every wake and connect.
 
 It is a service because these actions span the cloud relay, connection
-brokering, and the target OS rather than a single machine's stored state.
-Invocation semantics: command-invoked orchestration service.
+brokering, and the target OS rather than a single machine's stored state. A
+command invokes it as an orchestration service.
 
 ## Remote Update
 
@@ -243,14 +297,14 @@ type: domain-service
 related: [.devbook/domain/technology-stack/domain.md#technology-registry]
 ```
 
-Queues and executes tool updates across machines, singly, targeted, or in bulk,
-and requires authorization. The desktop app runs each update through the
+Queues and executes tool updates across machines, singly, targeted or in bulk.
+It requires authorization. The desktop app runs each update through the
 machine's native package manager and reports its progress, with rollback on
 failure. How an update moves through its states is drawn in
 [Tool update lifecycle](features.md#remote-tool-updates).
 
 It is a service because it orchestrates queued work against offline and online
-machines and external package managers. Invocation semantics: command-invoked
+machines and external package managers. A command invokes it as an
 orchestration service.
 
 ## MachineStatusChanged

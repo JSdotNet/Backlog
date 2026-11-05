@@ -228,7 +228,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests.A_card_shows_spend_of_budget_with_a_projected_marker_and_says_it_will_pass]
 ```
 
-The system SHALL project a provider's month-end spend as its spend so far this month plus its average daily spend over the last seven days of the month up to and including today, times the days left after today.
+The system SHALL project a provider's month-end spend as its month-to-date spend plus its average daily spend over this month's last seven days through today, times the days left after today.
 
 #### Scenario: The first day of the month
 

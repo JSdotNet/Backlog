@@ -64,8 +64,14 @@ depends-on: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
 Each paired device pushes what changed on it and pulls what changed elsewhere, in
-the background. It carries four feeds: tasks and the kinds that ride with them,
-session records, Devbook remarks, and the state of devbook subjects. Each device keeps its own store as the
+the background. It carries four feeds:
+
+- tasks and the kinds that ride with them;
+- session records;
+- Devbook remarks;
+- the state of devbook subjects.
+
+Each device keeps its own store as the
 canonical copy. The replica between them is a courier, and working offline costs
 only how soon the other devices find out.
 
@@ -97,6 +103,6 @@ is not there. When the desktop routes or archives the item, it pushes a tombston
 for the capture, and the phone learns it was dealt with. There is no second sync
 path for any of it.
 
-A capture made while the service is newer than the phone's app is not lost and
-not refused: it waits in the outbox until the app is updated or the service rolled
+A capture made while the service is newer than the phone's app is neither lost nor
+refused. It waits in the outbox until the app is updated or the service rolled
 back ([A phone holds its outbox for a newer sync service](requirements.md#requirement-a-phone-holds-its-outbox-for-a-newer-sync-service)).

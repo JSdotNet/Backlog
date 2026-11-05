@@ -68,9 +68,9 @@ One piece of work attached to a goal, of one of four kinds:
 | Pull request | its repository and number | the pull request alone |
 | Session | its agent and session id | the session, the tasks linked to it, and the pull request on its branch |
 
-A plan counts exactly the entries its roadmap item's bar gathers by tag: the ones
-filed under `+tag`, and the ones carrying the bare tag, as an entry filed before the
-sigil does or one tagged `#tag` is stored. A person tag spelled like the plan is not
+A plan counts exactly the entries its roadmap item's bar gathers by tag. Those are
+the ones filed under `+tag` and the ones carrying the bare tag, which is how an entry
+filed before the sigil or one tagged `#tag` is stored. A person tag spelled like the plan is not
 one of them. Tasks owns that rule, and whoever hands Progress its tasks names each
 task's slugs by it, so a goal and the roadmap never count a plan differently.
 
@@ -106,8 +106,8 @@ once:
   branch ride along with it and do not count again;
 - a task that is both attached directly and an entry of an attached plan counts once,
   and so does a pull request attached directly that an attached task already links;
-- a session one of whose linked tasks the goal counts on its own does not count again,
-  and a pull request attached directly that is an attached session's branch pull request
+- a session one of whose linked tasks the goal counts on its own does not count again;
+- a pull request attached directly that is an attached session's branch pull request
   counts once, as the session.
 
 Beside `done/total` it carries how the open items stand: doing, blocked and to do. An
@@ -247,8 +247,11 @@ of three kinds, each named the way a [Goal Attachment](#goal-attachment) names i
 | Kind | Named by | The goal it holds back |
 |---|---|---|
 | Task | its task id | the goal that counts the task |
-| Pull request | its repository and number | the goal that counts the pull request: attached directly, linked by a task the goal counts, or on the branch of a session the goal counts |
-| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts one of the entries the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), including entries filed later |
+| Pull request | its repository and number | the goal that counts the pull request |
+| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts an entry the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), later entries included |
+
+A goal counts a pull request attached directly, linked by a task the goal counts, or
+on the branch of a session the goal counts.
 
 A pull request is named by its own identity, not reached through a task, so one that
 no task links can be held back too. A plan is named by its tag, not by the entries it
@@ -330,8 +333,11 @@ shared by the goals, the impediments and the stand-up. Its **length** is one of 
 |---|---|
 | Day | one working day of the person's [working week](../roadmap/domain.md#working-week) |
 | Week | Monday to Friday |
-| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it; until a start is chosen, from the Monday of the current week |
+| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it |
 | Month | one calendar month, from its first day to its last |
+
+Until a person chooses a two-week start, two-week windows count from the Monday of the
+current week.
 
 **Next** is the window that holds today. When today falls in no window, such as a
 Saturday in a Monday-to-Friday week, next is the first window after today. **Last** is

@@ -14,8 +14,13 @@ type: feature
 related: [.devbook/domain/environment/domain.md#environment-catalog]
 ```
 
-Give the person fast access to the environments they care about without digging
-through repositories, cloud portals, terminal history, or documentation.
+Give the person fast access to the environments they care about, without digging
+through any of these:
+
+- repositories;
+- cloud portals;
+- terminal history;
+- documentation.
 
 ### Pinned environments
 
@@ -31,8 +36,14 @@ Pin important environments so they appear in predictable quick-access locations.
 type: sub-feature
 ```
 
-Group shortcuts by project, repository, customer, lifecycle stage, or custom label
-while preserving each shortcut's target identity.
+Group shortcuts while preserving each shortcut's target identity. A group can be
+by:
+
+- project;
+- repository;
+- customer;
+- lifecycle stage;
+- custom label.
 
 ### Safe access hints
 
@@ -40,8 +51,13 @@ while preserving each shortcut's target identity.
 type: sub-feature
 ```
 
-Show non-secret access reminders such as tenant, VPN, profile, or credential-store
-name without storing passwords or tokens.
+Show non-secret access reminders without storing passwords or tokens. A reminder
+can name:
+
+- a tenant;
+- a VPN;
+- a profile;
+- a credential store.
 
 ## Environment-aware work context
 

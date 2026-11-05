@@ -19,9 +19,14 @@ related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook
 aliases: [TechnologyRegistry]
 ```
 
-The global singleton that owns all technology definitions, baseline profiles,
-deprecation notices, and portfolio adoption analytics. Adoption analytics are
-populated from daily snapshots. The rules the registry holds are in
+The global singleton that owns:
+
+- all technology definitions;
+- baseline profiles;
+- deprecation notices;
+- portfolio adoption analytics.
+
+Daily snapshots populate the adoption analytics. The rules the registry holds are in
 [its invariants](domain.invariants.md#technology-registry).
 
 ### Technology
@@ -59,9 +64,13 @@ A single tool, framework, language, or runtime, identified by `technology_id`
 type: entity
 ```
 
-A significant breaking change between versions of a `Technology`: `from_version`,
-`description`, `impact_level` (high/medium/low), `migration_effort`
-(easy/moderate/hard), and step-by-step `migration_steps`.
+A significant breaking change between versions of a `Technology`. It holds:
+
+- `from_version`.
+- `description`.
+- `impact_level` (high/medium/low).
+- `migration_effort` (easy/moderate/hard).
+- Step-by-step `migration_steps`.
 
 ### Deprecated Tech In Use
 
@@ -69,9 +78,13 @@ A significant breaking change between versions of a `Technology`: `from_version`
 type: entity
 ```
 
-A deprecated technology still active in the portfolio: `technology_id`,
-`usage_count`, `usage_pct`, `eol_date`, `last_updated`, and owned migration
-approvals. Tracked so phase-out can be reported and enforced.
+A deprecated technology still active in the portfolio. It is tracked so phase-out
+can be reported and enforced. It holds:
+
+- `technology_id`.
+- `usage_count` and `usage_pct`.
+- `eol_date` and `last_updated`.
+- Its owned migration approvals.
 
 ### Migration Approval
 
@@ -79,9 +92,13 @@ approvals. Tracked so phase-out can be reported and enforced.
 type: entity
 ```
 
-An approved exception to remain on deprecated technology: the machine/repo id,
-`deprecated_technology`, `target_migration_date`, `reason`, `approved_by`,
-`approved_at`.
+An approved exception to remain on deprecated technology. It holds:
+
+- The machine/repo id.
+- `deprecated_technology`.
+- `target_migration_date`.
+- `reason`.
+- `approved_by` and `approved_at`.
 
 ### Technology Baseline
 
@@ -91,10 +108,15 @@ aliases: [TechnologyBaseline, TeamToolsBaseline, TechBaselines]
 ```
 
 An approved set of versions for a context (Default, Frontend, Backend,
-Microservices, dev-pc, repositories): `baseline_name`, `technologies`
-(id → version), `last_updated`, `updated_by`, `description`. Its versions
+Microservices, dev-pc, repositories). Its versions
 [name a known technology](domain.invariants.md#invariant-baseline-versions-name-a-known-technology)
 and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the-minimum).
+It holds:
+
+- `baseline_name`.
+- `technologies` (id → version).
+- `last_updated` and `updated_by`.
+- `description`.
 
 ### Version Constraint
 
@@ -102,8 +124,12 @@ and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the
 type: value-object
 ```
 
-A version alias with semantic meaning: `constraint_name` (lts, latest, stable,
-current), the concrete `version`, `description`, and `effective_date`.
+A version alias with semantic meaning. It holds:
+
+- `constraint_name` (lts, latest, stable, current).
+- The concrete `version`.
+- `description`.
+- `effective_date`.
 
 ### Deprecation Notice
 
@@ -112,9 +138,13 @@ type: value-object
 aliases: [DeprecationNotice]
 ```
 
-A formal phase-out announcement: `technology_id`, `announcement_date`,
-`eol_date`, `replacement_technology`, `migration_guide_url`, `support_level`
-(active/maintenance-only/eol).
+A formal phase-out announcement. It holds:
+
+- `technology_id`.
+- `announcement_date` and `eol_date`.
+- `replacement_technology`.
+- `migration_guide_url`.
+- `support_level` (active/maintenance-only/eol).
 
 ### Adoption Snapshot
 
@@ -122,9 +152,13 @@ A formal phase-out announcement: `technology_id`, `announcement_date`,
 type: value-object
 ```
 
-A point-in-time adoption view for a technology: `date`, `adoption_count`,
-`adoption_pct`, and `version_distribution`. Computed:
-`adoption_pct = adoption_count / total_portfolio_count * 100`.
+A point-in-time adoption view for a technology. It holds:
+
+- `date`.
+- `adoption_count` and `adoption_pct`.
+- `version_distribution`.
+
+It computes `adoption_pct = adoption_count / total_portfolio_count * 100`.
 
 ### Version Usage Metric
 
@@ -132,8 +166,11 @@ A point-in-time adoption view for a technology: `date`, `adoption_count`,
 type: value-object
 ```
 
-Usage distribution of one technology: `date`, `technology_id`,
-`version_distribution`, `on_baseline_count`, `on_baseline_pct`.
+Usage distribution of one technology. It holds:
+
+- `date` and `technology_id`.
+- `version_distribution`.
+- `on_baseline_count` and `on_baseline_pct`.
 
 ### Adoption Trend
 
@@ -141,8 +178,11 @@ Usage distribution of one technology: `date`, `technology_id`,
 type: value-object
 ```
 
-Adoption velocity for a technology/version: `technology_id`, optional `version`,
-`adoption_velocity`, `days_to_full_adoption`.
+Adoption velocity for a technology/version. It holds:
+
+- `technology_id` and an optional `version`.
+- `adoption_velocity`.
+- `days_to_full_adoption`.
 
 ### Compatibility Matrix
 
@@ -150,8 +190,11 @@ Adoption velocity for a technology/version: `technology_id`, optional `version`,
 type: value-object
 ```
 
-Known compatibility between two technologies: `technology_a`, `technology_b`,
-`version_mapping` (e.g. .NET 9 → ASP.NET Core 9), and `notes`.
+Known compatibility between two technologies. It holds:
+
+- `technology_a` and `technology_b`.
+- `version_mapping` (e.g. .NET 9 → ASP.NET Core 9).
+- `notes`.
 
 ### Adoption Analytics
 
@@ -159,8 +202,13 @@ Known compatibility between two technologies: `technology_a`, `technology_b`,
 type: value-object
 ```
 
-Portfolio-wide rollup: daily `portfolio_adoption`, `adoption_trends`,
-`version_usage_metrics`, `compatibility_matrix`, and `deprecated_in_use`.
+Portfolio-wide rollup. It holds:
+
+- Daily `portfolio_adoption`.
+- `adoption_trends`.
+- `version_usage_metrics`.
+- `compatibility_matrix`.
+- `deprecated_in_use`.
 
 ### Tech Status
 
@@ -198,11 +246,6 @@ flowchart LR
     AA -->|adoption gaps as tech-upgrade tasks| Tasks
 ```
 
-- [Adoption Tracking](domain.md#adoption-tracking) runs on a schedule or on an
-  incoming report. Only the `Technology Registry` root writes the analytics.
-- Technology Stack is not built, so none of these feeds exists in code.
-  [dependencies.md](dependencies.md) names the intended contract for each.
-
 Collects daily adoption from Dev PC Management tool-version reports and
 Repository Management tech-stack scans. From them it:
 
@@ -214,6 +257,11 @@ It is a service because it aggregates data reported by other contexts into
 portfolio analytics that no single `Technology` owns. Invocation semantics:
 scheduled/event-triggered analytics service. The
 [adoption tracking flow](domain.md#adoption-tracking) shows its inputs and outputs.
+
+- [Adoption Tracking](domain.md#adoption-tracking) runs on a schedule or on an
+  incoming report. Only the `Technology Registry` root writes the analytics.
+- Technology Stack is not built, so none of these feeds exists in code.
+  [dependencies.md](dependencies.md) names the intended contract for each.
 
 ## Deprecation Management
 

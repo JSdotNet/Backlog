@@ -43,8 +43,8 @@ related: [.devbook/domain/sync/domain.invariants.md#pairing-code, .devbook/domai
 ```
 
 A short, single-use code a paired device issues so a second device can join its
-[Owner](#owner). Eight characters from an alphabet that drops visually confusable
-letters and digits (`PairingCodeFormat`), shown to the person as `XXXX-XXXX`. It
+[Owner](#owner). It has eight characters from an alphabet that drops visually confusable
+letters and digits (`PairingCodeFormat`), and the person sees it as `XXXX-XXXX`. It
 [works for ten minutes](requirements.md#requirement-a-pairing-code-works-for-ten-minutes)
 and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
 so a code that leaks unused stops being a way in on its own.
@@ -104,10 +104,10 @@ related: [.devbook/domain/sync/domain.md#owner]
 ```
 
 The identifier of an [Owner](#owner): a version 7 GUID minted when the first device
-registers. A type of its own rather than a bare GUID, because an owner id and a
+registers. It is a type of its own rather than a bare GUID, because an owner id and a
 device id travel together through every call, and swapping them would not fail to
-compile. It is the partition key of every replica container. Equal when the GUIDs
-are equal.
+compile. It is the partition key of every replica container. Two are equal when their
+GUIDs are equal.
 
 ### DeviceId
 
@@ -197,10 +197,16 @@ related: [.devbook/domain/sync/domain.md#ownerid, .devbook/domain/sync/features.
 The backlog an [OwnerId](#ownerid) names. It is not a person's account, since the
 product requires none, but the identifier every device paired together shares. The
 first device to register mints it; every device paired to that device afterward
-registers under the same one. It is the partition every stored task, session
-record, annotation, devbook subject state and attachment carries. The sync service reads it out of a
-device's presented [Device token](#device-token) to decide which partition a call
-may touch.
+registers under the same one. The sync service reads it out of a device's presented
+[Device token](#device-token) to decide which partition a call may touch.
+
+It is the partition these stored documents and files carry:
+
+- a task;
+- a session record;
+- an annotation;
+- a devbook subject state;
+- an attachment.
 
 ### Registration credential
 

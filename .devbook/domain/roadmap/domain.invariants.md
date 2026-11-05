@@ -4,7 +4,9 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one
+chapter each. A chapter gives each rule, where it is enforced, and the unit test
+that proves it.
 
 ## Roadmap Plan
 
@@ -13,7 +15,15 @@ type: invariants
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
-> The rules the Roadmap Plan holds its items, milestones and dependencies to, including those its [Planned Window](domain.md#planned-window), [Milestone](domain.md#milestone), [Roadmap Tag](domain.md#roadmap-tag), [Repository Scope](domain.md#repository-scope), [Planning Lane](domain.md#planning-lane) and [Dependency](domain.md#dependency) enforce.
+> The rules the Roadmap Plan holds its items, milestones and dependencies to. They
+> include the rules these parts enforce:
+>
+> - [Planned Window](domain.md#planned-window);
+> - [Milestone](domain.md#milestone);
+> - [Roadmap Tag](domain.md#roadmap-tag);
+> - [Repository Scope](domain.md#repository-scope);
+> - [Planning Lane](domain.md#planning-lane);
+> - [Dependency](domain.md#dependency).
 
 ### Invariant: An empty plan is valid
 
@@ -229,7 +239,8 @@ tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.ATitleThat
 ```
 
 A title the slug rule reduces to nothing gets the tag `item`.
-There must always be something to file work against, and punctuation, an emoji, or a script the slug rule strips would otherwise leave an empty tag.
+There must always be something to file work against, and otherwise punctuation, an
+emoji or a script the slug rule strips would leave an empty tag.
 
 Enforced at: constructor (`PlanningTag`): `From()` and `Of()`
 

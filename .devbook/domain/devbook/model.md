@@ -135,7 +135,7 @@ classDiagram
   [Review Note](domain.md#review-note) is an `annotation` fence in the chapter
   file, read-only here. A [Remark](domain.md#remark) is the person's own note on a
   block, owned and replicated by this context. Both draw their kind from
-  `NoteKind`. A remark also keeps the branch it was left on, and none for the
+  `NoteKind`, and a remark also keeps the branch it was left on, or none for the
   default branch. The default branch's open review notes are imported into
   remarks once, and a remark never becomes a review note. Local ADR 0011
   (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)

@@ -16,10 +16,14 @@ covers:
 - GitHub issues and pull requests;
 - a computed health score.
 
-It also owns the state of the registered repositories' pull requests: each one's
-[status](domain.md#pull-request-status), its
-[readiness verdict](domain.md#readiness-verdict), the stack it sits in, and the
-[merge commands](domain.md#merge-command) that act on it. A pull request is a fact
+It also owns the state of the registered repositories' pull requests:
+
+- each one's [status](domain.md#pull-request-status);
+- its [readiness verdict](domain.md#readiness-verdict);
+- the stack it sits in;
+- the [merge commands](domain.md#merge-command) that act on it.
+
+A pull request is a fact
 about a registered repository, and this context already decides which repositories
 are read from GitHub, and with which account. Health counts the open pull requests
 of a repository; readiness says what each one waits on. Both come from the same
@@ -29,7 +33,9 @@ widens the subject this way.
 
 It consumes baselines from
 [Technology Stack](../technology-stack/domain.md#technology-registry). The
-registry is built; scanning and health scoring are planned. Pull request state
+registry is built; scanning and health scoring are planned.
+
+Pull request state
 is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its
 `.Abstractions` project holds the contract every reader uses. Beside it sit the
 rules every screen shares: the readiness verdict, the stacks, which merge a pull
@@ -38,7 +44,7 @@ merge commands. The pull requests pane's markup and its status lines
 stay in the desktop shell and read that contract.
 
 No feature flag gates [archiving a repository](features.md#archiving-a-repository).
-It is a registry edit like a rename, so it is there wherever the repository list
+Archiving is a registry edit like a rename, so it is there wherever the repository list
 is.
 
 Outside it:
@@ -64,11 +70,11 @@ related: [".devbook/domain/repository-management/features.md#pull-request-readin
 tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.RepositoryManagementFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
 ```
 
-Turning it on offers the pull requests pane in the shell, with its lanes, its detail
+Turning the `pull-requests` flag on offers the pull requests pane in the shell, with its lanes, its detail
 panel and its acts. Off, the pane is not offered, and a task's side panel names only
 sessions under its linked work.
 
-It is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's
+The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's
 mark for a feature still under construction
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 A person's choice is kept in `features.json` beside the app's other per-device
@@ -87,7 +93,7 @@ default: on
 related: [".devbook/domain/repository-management/features.md#repository-registry-configuration"]
 ```
 
-Turning it on lets a person configure more than one repository and switch the
+Turning the `additional-repositories` flag on lets a person configure more than one repository and switch the
 panes, and their devbooks, between them. It is released and on by default. It is
 listed with the cross-cutting features, because every pane that reads a
 repository follows it. The key is declared on `TasksFeatures`, the first context

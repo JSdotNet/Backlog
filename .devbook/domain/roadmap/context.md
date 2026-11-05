@@ -7,13 +7,21 @@ related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
 Roadmap Planning owns the forward plan across projects rather than inside one of
-them: what is intended to happen, when, in which order, and what is waiting on
-what.
+them:
 
-Inside the boundary: the plan itself, planning priority and sequence, the
-dependency between two pieces of planned work, and the reading pace a plan's
-length is drawn from when the plan states no due date. Both follow their owner
-across the devices they have paired
+- what is intended to happen;
+- when;
+- in which order;
+- what is waiting on what.
+
+Inside the boundary:
+
+- the plan itself;
+- planning priority and sequence;
+- the dependency between two pieces of planned work;
+- the reading pace a plan's length is drawn from when the plan states no due date.
+
+The plan and the pace follow their owner across the devices they have paired
 ([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)).
 The pace is counted over the owner's working week, which travels with it
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
@@ -62,8 +70,8 @@ default: 7
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week]
 ```
 
-How many story points the reader gets through in a working week. A positive
-decimal, held to four places. A week is the hours of the reader's
+This setting is how many story points the reader gets through in a working week.
+It is a positive decimal, held to four places. A week is the hours of the reader's
 [working week](domain.md#working-week), 42.5 on the default week. A plan needs
 its effort × those hours ÷ this pace, counted forward over the hours the reader
 works (ADR 0019, proposed).
@@ -89,9 +97,12 @@ moves as work is finished moves them too, at the next load.
 | Pace | How it is counted | Stored |
 |---|---|---|
 | Typed | The figure the reader types | Yes |
-| Measured over two weeks | The effort of every backlog entry completed in the measuring period, divided by the period's working hours, expressed per working week | No, counted afresh on every read |
+| Measured over two weeks | Effort completed in the measuring period ÷ its working hours, per working week | No, counted afresh on every read |
 | Measured over four weeks | The same, over four weeks | No |
 | Measured over eight weeks | The same, over eight weeks | No |
+
+A measured pace counts the effort of every backlog entry completed in the
+measuring period.
 
 A **measuring period** is whole calendar weeks, today included. Its hours include
 the [day overrides](domain.md#day-override) in it, while a working week stays the
@@ -136,10 +147,9 @@ Per value:
 - **A typed pace the roadmap cannot store as typed**
   [is refused](requirements.md#requirement-a-typed-pace-the-roadmap-cannot-store-as-typed-is-refused).
   Four decimal places is what the file and the field can hold, so a finer pace
-  would be written as zero and then read back as the default, silently. Under a
-  parser that allowed group separators, `2,5` would arrive as `25`, and every
-  imported plan would then be a tenth of its proper length with nothing on screen
-  looking wrong.
+  would be written as zero and then read back as the default, silently. A parser
+  that allowed group separators would read `2,5` as `25`. Every imported plan
+  would then be a tenth of its proper length with nothing on screen looking wrong.
 
 Where the pace is changed and shown:
 

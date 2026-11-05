@@ -43,12 +43,17 @@ type: value-object
 aliases: [SourceMetadata]
 ```
 
-Source-specific context attached to a capture: a YouTube channel name, a clipped
-`source_url`, an email sender, or an IDE file path, line and branch. A capture from
-an agentic session tool such as the GitHub Copilot App uses the same `ide` shape.
-It carries a `session_id` and the local worktree path in place of an open-editor
-selection. Equality is by value. Its concrete keys depend on the `Capture Source`,
-and downstream domains read it only as provenance.
+Source-specific context attached to a capture, which is one of:
+
+- a YouTube channel name;
+- a clipped `source_url`;
+- an email sender;
+- an IDE file path, line and branch.
+
+A capture from an agentic session tool such as the GitHub Copilot App uses the
+same `ide` shape. It carries a `session_id` and the local worktree path in place
+of an open-editor selection. Equality is by value. Its concrete keys depend on
+the `Capture Source`, and downstream domains read it only as provenance.
 
 ### Capture Attachment
 
@@ -59,8 +64,15 @@ aliases: [AttachmentMetadata, attachment]
 ```
 
 A file a capture brings with it, such as a slide photographed at a talk or a
-handout PDF. It is described by its `id`, file `name`, `contentType`, `sizeBytes`
-and `sha256`. The capture holds this description only. The bytes live in the
+handout PDF. It is described by:
+
+- its `id`;
+- its file `name`;
+- its `contentType`;
+- its `sizeBytes`;
+- its `sha256`.
+
+The capture holds this description only. The bytes live in the
 attachment store under the same id, uploaded before the capture that names them
 (local ADR 0014). The client mints the id, so a phone with no network can name a
 file before it has sent it. Equality is by value.
@@ -89,7 +101,7 @@ aliases: [CaptureSource, CaptureSourceKind, source]
 
 Origin type of a capture. Values and meaning:
 
-- `mobile` — quick entry from the mobile app (voice, text, share sheet), and
+- `mobile` — quick entry from the mobile app by voice, text or share sheet, and
   a note created on the phone's Notes tab.
 - `youtube` — a new video detected by the YouTube monitor.
 - `website` — a change detected by the website monitor.
@@ -112,9 +124,14 @@ type: domain-service
 related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync, .devbook/arc42/06-runtime-view.md#ide-context-aware-capture]
 ```
 
-Coordinates acquisition for a given `Capture Source`. It covers polling or event
-intake, retry with exponential backoff, offline-first buffering with background
-sync, and normalization of raw content into a Capture. Each source has a concrete
+Coordinates acquisition for a given `Capture Source`. It covers:
+
+- polling or event intake;
+- retry with exponential backoff;
+- offline-first buffering with background sync;
+- normalization of raw content into a Capture.
+
+Each source has a concrete
 adapter behind this service:
 
 | Adapter | Source | Built |
@@ -138,7 +155,7 @@ The behavior does not belong on the Capture aggregate. It spans external I/O,
 scheduling, and transport, which lie outside a single capture's consistency
 boundary.
 
-Invocation semantics: command- or scheduler-invoked application service behind
+A command or a scheduler invokes it as an application service behind the
 per-source adapters.
 
 ## Delivery
@@ -153,8 +170,8 @@ Delivers a normalized Capture to the Inbox's
 the `ItemCaptured` event. It is a service because delivery is a handoff across the
 boundary between Capture and Inbox, not a state change inside the aggregate.
 
-Invocation semantics: handoff service, invoked after normalization completes. Its
-one side effect across the boundary is publishing `ItemCaptured`.
+It runs as a handoff service after normalization completes, and its one side
+effect across the boundary is publishing `ItemCaptured`.
 
 ## ItemCaptured
 

@@ -127,11 +127,10 @@ field in the Inbox header becomes a [Capture (manual)](#capture-manual), with a
 fresh id.
 
 An item the reader reopens by undo records when, as `restored_at`. Restoring it
-from the archive sets the stamp, and so does returning it from the backlog. The
-desktop cannot call back an acknowledgement it already sent, so the intake reads
-each later tombstone against `restored_at`.
-[Undo and a returning tombstone](domain.md#inbox-item) shows
-the timing. The stamp is sync bookkeeping, kept apart from `updated_at`. Filing
+from the archive sets the stamp, and so does returning it from the backlog.
+[Undo and a returning tombstone](domain.md#inbox-item) shows how the intake reads
+each later tombstone against `restored_at`. The stamp is sync bookkeeping, kept
+apart from `updated_at`. Filing
 and tagging restamp `updated_at`, which would hide a phone dismissal made in
 between.
 
@@ -145,6 +144,7 @@ as well as the desktop. The phone and the desktop may each change its title,
 body and files. Both sides keep the later edit, by the last-write-wins rule the
 task feed uses
 (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`).
+
 A note keeps its id on every device. It is not acknowledged away from the phone
 when the desktop takes it in, as a `text` capture is, nor when the desktop routes
 it. A note stops syncing only when the desktop archives or deletes it. The phone
@@ -211,10 +211,10 @@ aliases: [InboxSource, person]
 Where the item came from: the `Capture Source` channel it arrived through and,
 optionally, the `person` who shared it as a stored `@name` tag. These are two
 facts and not one, because they answer different questions. A link shared by a
-colleague and the same link clipped alone arrive through different channels.
-They mean different things to the reader triaging them. The channel is provenance mirrored
-from Capture; the person is provenance the channel cannot carry. Immutable once
-set; equality is by value.
+colleague and the same link clipped alone arrive through different channels and
+mean different things to the reader triaging them. The channel is provenance
+mirrored from Capture; the person is provenance the channel cannot carry. It is
+immutable once set, and equality is by value.
 
 ### Attachment
 
@@ -226,9 +226,6 @@ aliases: [InboxAttachment, InboxAttachmentDto, inbox_item_attachments, file]
 ```
 
 **Attachment lifecycle**
-
-One file on an item, as this machine holds it. The bytes come from the attachment
-store (local ADR 0014), never from the replica.
 
 ```mermaid
 stateDiagram-v2
@@ -247,10 +244,13 @@ stateDiagram-v2
 One file an item arrived with, and whether this machine has it. It has two
 halves, because they come from two places and change at different rates.
 
-- **What the capture said**: the id the phone minted for the file, its name,
-  its content type, its size, and the sha256 of its bytes. This is a record of
-  what was sent, like the capture instant, so it does not change after it is
-  recorded.
+- **What the capture said** is a record of what was sent, like the capture
+  instant, so it does not change after it is recorded. It holds:
+  - the id the phone minted for the file;
+  - its name;
+  - its content type;
+  - its size;
+  - the sha256 of its bytes.
 - **This machine's copy**: where the file is kept (`local_path`), when it was
   written (`downloaded_at`), and why the last attempt failed (`last_error`).
   This half changes each time the desktop tries to fetch the file. Another
@@ -359,9 +359,11 @@ Lists are local-only organisation and are hard-deleted. Tombstoning exists for
 documents that travel (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`),
 and nothing replicates a list. Names are unique among siblings without regard
 to case. The create and rename commands apply that rule, because the aggregate
-cannot see its siblings. A workspace with neither lists nor groups is seeded
-once with a default set of lists and groups: groups `Areas`, `Projects` and
-`Archive`, and lists `Resources`, `Someday/Maybe`, `Updates` and `Wishlist`.
+cannot see its siblings.
+
+A workspace with neither lists nor groups is seeded once with a default set. The
+groups are `Areas`, `Projects` and `Archive`. The lists are `Resources`,
+`Someday/Maybe`, `Updates` and `Wishlist`.
 
 ## Inbox Group
 
@@ -374,8 +376,8 @@ aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
 
 A fold in the side menu that holds lists. It has a `name` and an `order`; the
 membership is recorded on the list (`group_id`), not on the group, so a group
-is never the owner of what its lists hold. Local-only and hard-deleted, for the
-reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
+is never the owner of what its lists hold. It is local-only and hard-deleted, for
+the reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
 and then removes the group, so no list is ever deleted by deleting its group.
 
 ## Triage
@@ -388,17 +390,17 @@ aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, 
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting
-cross-context handoff. It does one of three things:
+cross-context handoff. It routes the item to Tasks, routes it **To Brain**, or
+sets it to deferred or archived. Each route emits `ItemTriaged`:
 
-- route the item to Tasks, emitting `ItemTriaged` with title, `body_md`,
-  `source_url`, tags, `repo_ids` and `source_inbox_id`;
-- route it **To Brain**, emitting `ItemTriaged` with title, `body_md`, topic
-  and tags;
-- set it to deferred or archived.
+| Route | `ItemTriaged` carries |
+|---|---|
+| Tasks | title, `body_md`, `source_url`, tags, `repo_ids`, `source_inbox_id` |
+| **To Brain** | title, `body_md`, topic, tags |
 
 It lives as a service because routing crosses bounded-context boundaries rather
-than mutating a single aggregate. Invocation semantics: command-invoked
-application service, triggered by a human or automated triage decision.
+than mutating a single aggregate. A command invokes it as an application service,
+on a human or automated triage decision.
 
 Three decisions route to Tasks, and all end in the same `Routing Target`:
 
@@ -497,9 +499,14 @@ Each suggestion carries a key, the value it would apply, and a sentence saying
 why it was proposed. It leaves out anything the item already has, and anything
 the reader turned down for it (the item's `dismissed_suggestions`).
 
-Taking a suggestion goes through the ordinary act it names: set the tags,
-assign the repositories, route, or archive. Classification adds no second way
-to change an item.
+Taking a suggestion goes through the ordinary act it names:
+
+- set the tags;
+- assign the repositories;
+- route;
+- archive.
+
+Classification adds no second way to change an item.
 
 It is a service because a suggestion draws on the backlog and on the reader's
 rules, which are outside any single item's state.
@@ -657,7 +664,8 @@ A set of Inbox Items routed to Tasks together, as one plan import under one
 [plan tag](#plan-tag). A batch is formed from the reader's selection or from a
 list's open items. It lives only for the route: nothing stores it, and
 afterwards each item keeps its own Routing Target naming only the tasks it
-became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
+became. It is never called a *group*, because an `Inbox Group` is a fold in the
+side menu.
 
 ### Dependency tier
 
@@ -722,9 +730,18 @@ related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/do
 ```
 
 The content kinds that hold material the reader collected rather than a thought
-of their own: `article`, `link`, `youtube`, `image`, `document`, `email` and
-`claude-artifact`. [Classification](#classification) proposes the To Brain
-route for collected material.
+of their own:
+
+- `article`
+- `link`
+- `youtube`
+- `image`
+- `document`
+- `email`
+- `claude-artifact`
+
+[Classification](#classification) proposes the To Brain route for collected
+material.
 
 ### Slice
 

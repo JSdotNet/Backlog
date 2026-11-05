@@ -26,7 +26,7 @@ related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/contex
 type: requirement
 ```
 
-The phone's Today SHALL show the open task in today's My Day whose block contains the current time as the Now card, the other open tasks with an agenda time under Agenda with their blocks, and the open tasks without one under Anytime today.
+The phone's Today SHALL show today's open My Day task whose block contains the current time as the Now card, other open timed tasks with their blocks under Agenda, and untimed ones under Anytime today.
 
 #### Scenario: Two timed tasks and untimed ones
 
@@ -54,7 +54,7 @@ The phone's Today SHALL show the next open timed task to start as the card, labe
 type: requirement
 ```
 
-The system SHALL write a tick or an untick the phone makes on a task in today's My Day the way the desktop's checkbox writes it, so an untick clears the tick and leaves the task's status as it is.
+The system SHALL write a phone tick or untick on a task in today's My Day the way the desktop's checkbox writes it, so an untick clears the tick and leaves its status alone.
 
 #### Scenario: Ticking a task off
 
@@ -206,7 +206,7 @@ With Clear My Day overnight off, the system SHALL keep an unfinished task picked
 type: requirement
 ```
 
-With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when it was ticked off on an earlier day.
+With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when ticked off before today.
 
 #### Scenario: Ticked off today
 
@@ -450,7 +450,7 @@ The sync SHALL treat a Done that its target's status map gives as the source's D
 type: requirement
 ```
 
-The sync SHALL leave a linked task the person finished here Done, and flag that it is done here and open at the source, while its target's status map gives its item's source status anything but Done.
+The sync SHALL leave a linked task the person finished here Done, flagging it done here and open at the source, while its target's status map gives its item's source status anything but Done.
 
 #### Scenario: Finished here while the item is refined
 
@@ -695,7 +695,7 @@ type: requirement
 related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
-When a task moves from `ready` to `in_progress`, the Projection policy SHALL open one downstream artifact, a GitHub issue or a Copilot CLI task, for each `repo_id` the task targets, and record each as a Projection Ref on the task.
+When a task moves from `ready` to `in_progress`, the Projection policy SHALL open one GitHub issue or Copilot CLI task for each `repo_id` the task targets and record each as a Projection Ref.
 
 #### Scenario: A task that targets two repositories
 
@@ -921,7 +921,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.A_plan_entry_is_refused_rather_than_saved_as_a_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.An_update_is_refused_on_the_same_terms, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.The_refusal_names_import_as_the_way_in]
 ```
 
-The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#entry-kind) as a task, whether it creates a task or updates one, and SHALL name Import as the way to bring a plan in.
+The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#entry-kind) as a task, whether creating or updating one, and SHALL name Import as the way to bring a plan in.
 
 #### Scenario: A plan entry typed into the backlog
 

@@ -15,9 +15,13 @@ feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
 
-Create tasks manually or from triaged inbox items, capturing title, body, type
-(prompt, task, idea, test), tags, and project/repo link. New tasks default
-to `draft`.
+Create tasks manually or from triaged inbox items. New tasks default to `draft`.
+A new task captures:
+
+- its title and body;
+- its type (prompt, task, idea, test);
+- its tags;
+- its project/repo link.
 
 ## Refinement and prioritization
 
@@ -28,8 +32,14 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation]
 
 Edit and enrich tasks over time: set priority and status, add context links,
 and flag oversized items with suggested splits. On the desktop a person edits the
-task's Markdown content directly. They can also adjust type, priority,
-repository, status, and metadata tags from the reading layout.
+task's Markdown content directly. They can also adjust these from the reading
+layout:
+
+- type;
+- priority;
+- repository;
+- status;
+- metadata tags.
 
 The task's repository picker lists **Brain** first, set off from the
 repositories. Picking it clears the task's repository: Brain is the name the app
@@ -76,12 +86,14 @@ related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
 Break a task into ordered sub-items with a title, a status (pending or done),
-and notes. On the desktop a step is a `##` chapter written in the task's body.
-A person adds, renames, reorders and removes steps by editing that text. A step
-is finished with `[x]` in its heading or `!done` on the line under it. On the
-phone a person ticks a step on or off from the checklist on the task's own page,
-while the task is in today's My Day. The parent shows its progress, such as 3/5
-done. Sub-items can project to GitHub issue task lists.
+and notes. The parent shows its progress, such as 3/5 done. Sub-items can project
+to GitHub issue task lists.
+
+On the desktop a step is a `##` chapter written in the task's body. A person adds,
+renames, reorders and removes steps by editing that text. A step is finished with
+`[x]` in its heading or `!done` on the line under it. On the phone a person ticks a
+step on or off from the checklist on the task's own page, while the task is in
+today's My Day.
 
 A step is a [Sub-Item](domain.md#sub-item); that chapter says what a step
 carries and what stays on the task.
@@ -94,7 +106,7 @@ related: [.devbook/domain/tasks/domain.md#attachment]
 ```
 
 Point a task at the folder or archive where its material is kept, such as the
-review pack, the screenshots, or the exported data. Take the pointer off again
+review pack, the screenshots or the exported data. Take the pointer off again
 when it is no longer needed. The task says which place and what it is called,
 and whether that place is a folder or an archive.
 
@@ -127,7 +139,9 @@ part. A quieter line under it names the journey by its anchor, which also names 
 run folder, and says when the journey last ran, as
 "place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
 instead. A failed part whose run recorded the step it stopped on adds that step, as
-"· step 2". The list says how many parts pass and whether that proves the task, as
+"· step 2".
+
+The list says how many parts pass and whether that proves the task, as
 "2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
 only when its last run passed on the journey as it stands now. A part that passed
 before the journey was edited is stale, because the run proved a different journey.
@@ -229,7 +243,9 @@ related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-t
 
 Say how much work is open, not only how it splits. The filter chips each count
 a slice. The total sits at the end of the filter bar as one line: how many tasks
-are open, the points they carry, and how many carry none. It counts what the
+are open, the points they carry, and how many carry none.
+
+It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
 the list. Pressing a filter therefore changes what is shown and never the total.
 Open means not ticked off. The points follow the
@@ -237,7 +253,7 @@ Open means not ticked off. The points follow the
 zero is an estimate, and the unestimated count is said beside the sum rather
 than folded into it.
 
-The line is also the way into a report of that same open work. The report has
+The line is also the way into a report of that same open work, which has
 these sections:
 
 - The headline numbers, and what was ticked off in the last seven days, as tasks
@@ -261,7 +277,7 @@ related: [.devbook/domain/tasks/domain.md#task]
 ```
 
 Say when a task is due, when to be reminded of it, and whether it comes back.
-Three separate facts rather than one: a deadline, an alarm, and a shape. A
+These are three separate facts rather than one: a deadline, an alarm, and a shape. A
 backlog that could only say "Friday" could not distinguish the task that is due
 that day from the one that should interrupt you that morning.
 
@@ -284,7 +300,7 @@ type: sub-feature
 
 Commit a task to a calendar day, its [Due Date](domain.md#due-date). How that
 date is said on screen belongs to the channel showing it, not to the task. It may
-read "Today", "Friday, 21 August", or a localized format.
+read "Today", "Friday, 21 August" or a localized format.
 
 ### Reminders
 
@@ -351,18 +367,21 @@ task carried over from an earlier day shows no agenda time, because its slot
 belonged to the day it was picked for.
 
 On the desktop, the agenda time sits in the task's detail pane directly under
-the My Day control, and only while the task is picked for today. A start is
-picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
-minutes. A start picked alone means 30 minutes. Changing the start keeps the
-duration, and changing the duration keeps the start. Clearing removes the agenda
-time and leaves the task in My Day. A start or duration typed into the text off
-those steps is kept and shown as it is. The task row shows the block from start
-to end beside My Day, such as `10:45–11:30`.
+the My Day control, and only while the task is picked for today. The task row shows
+the block from start to end beside My Day, such as `10:45–11:30`.
+
+- A start is picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
+  minutes.
+- A start picked alone means 30 minutes.
+- Changing the start keeps the duration, and changing the duration keeps the start.
+- Clearing removes the agenda time and leaves the task in My Day.
+- A start or duration typed into the text off those steps is kept and shown as it is.
 
 On the phone, My Day is the Today tab, the first of the phone's three tabs
 (Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
 date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
-a bar. It shows My Day for the phone's own date, never a due-date grouping, and splits that list into four groups:
+a bar. It shows My Day for the phone's own date, never a due-date grouping,
+and splits that list into four groups:
 
 ```mermaid
 flowchart TD
@@ -422,12 +441,14 @@ else:
 
 | On the phone | What it writes |
 | --- | --- |
-| Add a task | A new task picked for today, because adding it to Today is the decision My Day records. The Today screen adds through its capture button rather than a field of its own. |
+| Add a task | A new task picked for today. |
 | Mark a task done or undone | The task's tick, the way the desktop's checkbox writes it. See [Completed](domain.md#completed). |
 | Tick or untick a step | The status of one [Sub-Item](domain.md#sub-item). |
 | Move a task to tomorrow | `myday:` set to the phone's local date plus one day. |
 
-The last three apply only to a task in today's My Day. Editing, scheduling, the
+Adding a task to Today is the decision My Day records, and the Today screen
+adds through its capture button rather than a field of its own. The other three
+changes apply only to a task in today's My Day. Editing, scheduling, the
 agenda time and the rest of a task's life stay on the desktop. How the phone
 delivers each change is
 `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
@@ -508,13 +529,14 @@ The follow-up is an ordinary [Task](domain.md#task), born as follows:
 | Type | `prompt` |
 | Status | `ready` |
 | Waits on | the gated entry, as `after:<id>` |
-| Tags | the gated entry's plan tag, when it has one: its `import_plan_id`, or else the one plan tag it carries |
+| Tags | the gated entry's plan tag, when it has one |
 | Repository | the gated entry's |
 | Title | "Follow-up: " and the gated entry's title |
 | Body | the person's words, as body text |
 | Provenance | the id of the notification whose answer asked for it |
 
-It carries the plan's tag and no `import_plan_id`. So the plan still lists it, and
+The gated entry's plan tag is its `import_plan_id`, or else the one plan tag it
+carries. The follow-up carries that tag and no `import_plan_id`, so the plan still lists it, and
 [re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
 the re-import clears tasks by `import_plan_id`. A gated entry outside any plan gets
 a follow-up with no plan tag. A follow-up of a follow-up stays in the plan through
@@ -639,10 +661,14 @@ with two settings that decide where its tasks land:
 A changed status applies to new tasks at once, and to an existing task when its
 item next moves at the source.
 
-The card also holds the target's other settings: how old an untouched item may
-be before the first sync skips it, whether the title follows the source, the
-sync interval, and "Complete at the source" for a connector that can complete
-items. A connector that can list its targets offers them to pick by name, so a
+The card also holds the target's other settings:
+
+- how old an untouched item may be before the first sync skips it;
+- whether the title follows the source;
+- the sync interval;
+- "Complete at the source", for a connector that can complete items.
+
+A connector that can list its targets offers them to pick by name, so a
 spec-manager product is picked rather than typed.
 
 ### Syncing a target
@@ -730,15 +756,20 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_b
 
 Find and narrow the backlog:
 
-- Search across title, body, tags, and linked knowledge notes.
+- Search across title, body, tags and linked knowledge notes.
 - Filter by [Area](domain.md#area), repo, type, status, priority, and recency.
 - Read the tasks in grouped views, with Devbook content embedded inline.
 
 The repository scope can hold several repositories at once while a screen that
-can show several is in front of the reader. Those screens are the task views, In
-progress, the Dashboard, the session list and the pull requests list. The scope
-narrows back to one on the roadmap and on Tools, which read one repository or
-none.
+can show several is in front of the reader. The scope narrows back to one on the
+roadmap and on Tools, which read one repository or none. The screens that can show
+several are:
+
+- the task views;
+- In progress;
+- the Dashboard;
+- the session list;
+- the pull requests list.
 
 The scope leads with a permanent **Brain** chip, the
 [Brain scope](../brain/features.md#brain-scope): Brain is the scope of
@@ -815,8 +846,8 @@ and beside the same open task. The columns can be:
 - by status, the default: Draft, Ready, In progress and Done;
 - by plan: one per [Roadmap Tag](domain.md#roadmap-tag) with work left in view,
   then the tasks in no plan. Only what is still to do is shown: a ticked-off or
-  archived task is no card here, so a plan with nothing left draws no column,
-  the way its tag chip leaves ticked-off tasks out of its count;
+  archived task is no card here. A plan with nothing left therefore draws no
+  column, the way its tag chip leaves ticked-off tasks out of its count;
 - by repository, with the tasks filed against no repository in a column titled
   **Brain**, the name the scope gives them;
 - by [Priority](domain.md#priority).
@@ -830,8 +861,8 @@ status is a column. A task can then be dragged to another column. Only a move
 the [task lifecycle](domain.md#task) allows is taken. While a task is
 held, the columns it may go to are marked. The others say why not and what has
 to happen first: a ready task, for example, has to be started before it can be
-done.
-Dropping it makes the same status change the task's own status picker makes.
+done. Dropping it makes the same status change the task's own status picker makes.
+
 Each status column ends in a way to write a new task straight into that status.
 Opening a task from a card opens it as the list would. With the task open beside
 it, the board scrolls sideways rather than squeezing its columns.
@@ -856,7 +887,9 @@ Each day lists its tasks with where each one is in its lifecycle. An open task
 past its due date stands out as overdue, and a finished one is struck through. On
 the month, past two a day folds the rest behind a count that opens the whole day.
 A recurring task shows on its due date only. The next occurrence is written when
-this one is finished, so there is no series to place. The open tasks with no due
+this one is finished, so there is no series to place.
+
+The open tasks with no due
 date wait beside the calendar. Dragging one onto a day gives it that due date,
 and dragging a task to another day moves it. Opening a task from the calendar
 opens it as the list would. Only the due date places a task here.
@@ -885,16 +918,17 @@ remembered on this device.
   from the week before opens with "…".
 - A bar says its title, its plan tag and how many of its points are finished out
   of the total.
-- A bar wears its repository's colour, as on the roadmap, while repository
-  colours are showing, and a neutral grey while they are not.
+- A bar wears its repository's colour while repository colours are showing, as on
+  the roadmap. It wears a neutral grey while they are not.
 - A milestone is a diamond on its date.
 
 Beside the tasks with no due date, **Plans without a window** lists the plans
 waiting on the roadmap's
 [shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first).
 Dropping one on a day starts its window there. The roadmap, never the Tasks view,
-works out where it ends from its points and the pace, as it places any plan. The
-drop is a pointer gesture. The keyboard ways to the same result are on the
+works out where it ends from its points and the pace, as it places any plan.
+
+The drop is a pointer gesture. The keyboard ways to the same result are on the
 roadmap: its shelf's **Plan it** places the plan from today, and its item editor
 moves the window to any day. The plans are the roadmap's. The Calendar reads them
 and starts a shelf plan, and changes nothing else about them.
@@ -1005,7 +1039,7 @@ related: [.devbook/domain/productivity/features.md#ai-activity-capture]
 ```
 
 Hand a task to GitHub Copilot CLI as a task brief without retyping it. The
-task's own Markdown is the brief: its title, metadata, body, and sub-items. The
+task's own Markdown is the brief: its title, metadata, body and sub-items. The
 hand-off is recorded in the task's usage history, so the task itself shows that
 AI was put to work on it.
 
@@ -1093,11 +1127,17 @@ Every task import creates carries where it came from; see
 [Task](domain.md#task). A batch of entries brought in together therefore stays
 traceable back to the plan and the specific item that produced each one.
 
-A document may also carry entries that are not tasks at all. An entry whose type
-word is `plan` describes the plan itself as a piece of planned work: its title,
-its tag, its repositories, what it waits on, and when it is due. Import hands it
-to [Roadmap Planning](../roadmap/features.md#laying-out-imported-plans) after the
+A document may also carry entries that are not tasks at all. Import hands an entry
+whose type word is `plan` to
+[Roadmap Planning](../roadmap/features.md#laying-out-imported-plans) after the
 document's task entries have been written, rather than creating a task from it.
+Such an entry describes the plan itself as a piece of planned work:
+
+- its title;
+- its tag;
+- its repositories;
+- what it waits on;
+- when it is due.
 
 One document may hold `plan` entries and task entries together, or only one
 kind. The task entries are created exactly as described above whichever company
@@ -1168,8 +1208,15 @@ The plan's id is what a task remembers about where it came from. A task carrying
 the same tag that came from somewhere else was never part of the plan and is not
 touched.
 
-An `in_progress` task takes the new version's instructions, type, dependencies,
-target repository, and setup, devbook and manual sub-items. Status is the one
+An `in_progress` task takes these from the new version:
+
+- its instructions;
+- its type;
+- its dependencies;
+- its target repository;
+- its setup, devbook and manual sub-items.
+
+Status is the one
 field a later version moves only when it asks to. If the version restates it, the
 task moves there. If the version leaves it out, the task keeps whatever progress
 it has made since it was imported. A plan that says nothing about where an entry
@@ -1217,7 +1264,7 @@ from default views but always accessible and restorable.
 Reopening a `done` task returns it to `in_progress`, whatever status it held
 before; the earlier status is deliberately not kept. Finishing the work is a
 recorded fact rather than a step that rewinds, so reopening starts the work
-again rather than restoring where it stood before. `flow.md` holds the
+again rather than restoring where it stood before. [Task](domain.md#task) holds the
 lifecycle this follows.
 
 Ticking a task off records that it is [Completed](domain.md#completed), a
@@ -1270,7 +1317,7 @@ reconciles with the others through the sync service; the cloud carries a replica
 of the tasks and never becomes the authority for them.
 
 Working offline is the ordinary case, not a degraded one. Every task can be
-created, edited, completed, and deleted with no connectivity. Connectivity only
+created, edited, completed and deleted with no connectivity. Connectivity only
 lets the other machine find out sooner. When it does, the task list shows what
 arrived without the app being reopened. The one exception is an entry being
 edited: there the change waits until the editing is done rather than replacing
@@ -1282,9 +1329,10 @@ This is deliberate, and it does lose the other edit. Merging field by field woul
 domain rule for reconciling two different priorities or two different statuses,
 and the domain has none. What the person sees is one task with one status.
 
-Both halves are built. [Pairing a device](../sync/features.md#pairing-a-device),
-in the [Sync](../sync/context.md) context, gives each device its identity, and
-the sync service refuses any call that does not carry a valid token. The task change feed is pushed and pulled through the sync service, which
+Both halves are built. In the [Sync](../sync/context.md) context,
+[Pairing a device](../sync/features.md#pairing-a-device) gives each device its
+identity. The sync service refuses any call that does not carry a valid token. The
+task change feed is pushed and pulled through the sync service, which
 keeps devices, pairing codes and the task replica in Azure Cosmos DB. The
 desktop's replica merge applies the later-edit-wins rule to each pulled copy.
 How the feed moves is
@@ -1307,14 +1355,16 @@ as a change.
 
 Backups run on a schedule, every day at a set time or every week on a set day
 and time. They also run on demand from **Back up now** on Settings → Storage &
-backup. The page's headline answers whether the backlog is safe: *Backed up 3 h
+backup. A scheduled backup missed while the app was closed is taken shortly after
+the app next opens.
+
+The page's headline answers whether the backlog is safe: *Backed up 3 h
 ago — 7 daily copies kept.*, or *Not backed up yet.* It moves when a backup
 completes while the page is open. The Backup card shows the same two figures,
 **Last backup** and **Keeping n daily copies**, over a line that says whether the
 last backup committed anything and when the next one is due. A daily copy is a
 day on which this machine committed a new copy. Every commit stays in the
-repository's history, so the count only grows. A scheduled backup missed while
-the app was closed is taken shortly after the app next opens.
+repository's history, so the count only grows.
 
 A backup is one-way. Nothing about it ever changes the backlog on the machine:
 getting a backup back is a decision the person makes and carries out by hand,
@@ -1337,8 +1387,8 @@ related: [.devbook/domain/roadmap/features.md, .devbook/domain/roadmap/domain.md
 because other chapters reference it; it is not the model any more.
 
 This chapter said that the roadmap groups *selected backlog tasks* by theme,
-horizon, environment or repository, and derives its progress from those tasks.
-The first half was too narrow. A plan has to hold work that has not been refined
+horizon, environment or repository. It also said that the roadmap derives its
+progress from those tasks. The first half was too narrow. A plan has to hold work that has not been refined
 into a task yet, which is most of what planning is. The plan is therefore stored
 in its own right, and a planned item may *optionally* name the task that
 executes it.

@@ -8,20 +8,26 @@ related: [.devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md, .devb
 ```
 
 The Brain is one person's own notes: one devbook-shaped folder per user, outside
-every repository (local ADR 0026), and the scope of everything that person files
-against no repository (local ADR 0027). Its notes are
+every repository (local ADR 0026). It is also the scope of everything that person
+files against no repository (local ADR 0027). Its notes are
 [Knowledge Notes](domain.md#knowledge-note), organized under
 [areas](domain.md#para-category), linked to [Tasks](../tasks/domain.md#task) by
 id and, one way, into a repository's devbook. It is its own bounded context
 (local ADR 0040): the person and their agent own its structure, where a
 repository owns its devbook.
 
-Inside the boundary: the Knowledge Note and the areas it is organized under, the
-Brain folder setting and the folder's `CONVENTIONS.md`, capturing into the Brain,
-the Brain chip's meaning, the Brain mode of the Devbook pane, repo links and the
-backlinks they draw, task links in both directions, the Brain's scope on the
-MCP tools, and the [Lobes atlas](features.md#lobes-atlas), which maps the Brain
-beside the devbook of every repository registered on this machine.
+Inside the boundary:
+
+- the Knowledge Note and the areas it is organized under;
+- the Brain folder setting and the folder's `CONVENTIONS.md`;
+- capturing into the Brain;
+- the Brain chip's meaning;
+- the Brain mode of the Devbook pane;
+- repo links and the backlinks they draw;
+- task links in both directions;
+- the Brain's scope on the MCP tools;
+- the [Lobes atlas](features.md#lobes-atlas), which maps the Brain beside the
+  devbook of every repository registered on this machine.
 
 Outside it:
 
@@ -67,7 +73,7 @@ It is not a key in `settings.json` either. That file is one decision, where
 the backlog lives and where it is backed up, and moving the backlog never moves
 the Brain. `BrainSettingsStore` is the file.
 
-**Readers.** `IBrainSettings` in `Backlog.Modules.Devbook.Abstractions` is the port
+**Readers.** `IBrainSettings` in `Backlog.Modules.Brain.Abstractions` is the port
 every reader takes. `BrainSetup` holds the chip's two names and the link to the
 card.
 
@@ -89,7 +95,7 @@ default: off
 related: [".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/brain/requirements.md#lobes-atlas"]
 ```
 
-Turning it on makes the Devbook pane's **Atlas** button open the
+Turning the `atlas-lobes` flag on makes the Devbook pane's **Atlas** button open the
 [Lobes atlas](features.md#lobes-atlas) on the header's repository scope, whose
 anchor the pane reads, and offers the atlas from the shell header. Off, the button opens
 today's atlas, and the header offers none. The Technology section keeps its own
@@ -111,16 +117,30 @@ Inbox, which routes items **To Brain**. It is a partner of Tasks.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), conforming to the devbook convention as Published Language | In-process: the Markdown and `meta` reader, the database builder and refresher, the chapter viewer, search and remarks, applied to the Brain folder | The devbook convention (local ADR 0016); `IBrainSettings` and the Brain fields hook in `Backlog.Modules.Devbook.Abstractions` until the code move; local ADR 0040 | A Brain note is a devbook chapter with three more fields, so the Brain reads, indexes and renders it with Devbook's machinery rather than its own. |
-| [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), read-only | In-process: Devbook's reader opens the devbook database of every registered repository for the [Lobes atlas](features.md#lobes-atlas) | The devbook database and its reader (local ADR 0015); local ADR 0040 §2 | The Lobes atlas draws every registered repository's devbook beside the Brain. The read runs one way, Brain to Devbook: the Brain writes nothing into a repository's devbook, and no repository devbook links into the Brain. |
+| [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), conforming to the devbook convention as Published Language | In-process use of Devbook's Markdown and `meta` reader, builder, viewer, search and remarks | The devbook convention (local ADR 0016); `DevbookCorpusProfile`, the corpus hook; local ADR 0040 | A Brain note is a devbook chapter with three more fields. |
+| [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), read-only | In-process: Devbook's reader opens the devbook database of every registered repository for the [Lobes atlas](features.md#lobes-atlas) | The devbook database and its reader (local ADR 0015); local ADR 0040 §2 | The Lobes atlas draws every registered repository's devbook beside the Brain. |
 | [Devbook](../devbook/context.md) | One-way reference | A [repo link](domain.md#repo-link), `repo:<alias>/<devbook path>[#slug]`, resolved against the repositories configured on this machine | `.devbook/domain/brain/domain.md#repo-link`; local ADR 0027 §6 | A note points at the repository chapter it is about. A repository devbook never links back. |
-| [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link, read both ways from the note's `tasks` field | `.devbook/domain/brain/domain.md#cross-linking` | Notes link to tasks; a task row counts the owner's notes that name it. |
-| [Repository Management](../repository-management/context.md) | Customer/Supplier (Repository Management = supplier) | Repository registry lookup by alias | The configured repository aliases | A repo link's alias resolves only on a machine where that repository is configured. The registry is also the list of repositories whose devbooks the Lobes atlas draws; an alias the notes name that it does not hold is a ghost devbook there. |
+| [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link, read both ways from the note's `tasks` field | `.devbook/domain/brain/domain.md#cross-linking` | Notes link to tasks, and a task row counts the owner's notes that name it. |
+| [Repository Management](../repository-management/context.md) | Customer/Supplier (Repository Management = supplier) | Repository registry lookup by alias | The configured repository aliases | A repo link's alias resolves only on a machine where that repository is configured. |
+
+- **Devbook, the chapter machinery.** The Brain reads, indexes and renders a note
+  with Devbook's machinery rather than its own, applied to the Brain folder.
+  `DevbookCorpusProfile` in `Backlog.Infrastructure.Devbook` is the hook through
+  which Devbook's builder reads that folder.
+- **Devbook, the database reader.** The read runs one way, Brain to Devbook. The
+  Brain writes nothing into a repository's devbook, and no repository devbook
+  links into the Brain.
+- **Repository Management.** The registry is also the list of repositories whose
+  devbooks the Lobes atlas draws. An alias the notes name that the registry does
+  not hold is a ghost devbook there.
 
 ### Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route), answered by `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on the Brain writing a Knowledge Note into its inbox area from an item routed **To Brain**, a capture or an Inbox note alike. |
-| [Tasks](../tasks/domain.md#task) | Partnership | Reference read model plus bi-directional link | `.devbook/domain/brain/domain.md#cross-linking` | Relies on the notes that name a task being countable without sharing aggregates. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Knowledge-activity read-side feed | `.devbook/domain/brain/domain.md#knowledge-note` | Knowledge activity contributes to the project health view; progress insights can be captured back as notes. |
+| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route), answered by `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` | The Brain writes a Knowledge Note into its inbox area for each item routed **To Brain**. |
+| [Tasks](../tasks/domain.md#task) | Partnership | Reference read model plus bi-directional link | `.devbook/domain/brain/domain.md#cross-linking` | The notes that name a task stay countable without sharing aggregates. |
+| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Knowledge-activity read-side feed | `.devbook/domain/brain/domain.md#knowledge-note` | Knowledge activity feeds the project health view, and insights can be captured back as notes. |
+
+An item routed **To Brain** from the Inbox may be a capture or an Inbox note, and
+the Brain treats the two alike.

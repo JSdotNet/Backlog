@@ -33,9 +33,8 @@ longer holds, because entries elsewhere still write them:
   registered again by accident.
 
 A repository the registry still holds is either active or
-[archived](#archived-repository). Archive and Unarchive are registry edits beside
-Rename, Merge, Removal, Relabel and Alias swap
-([Following a repository rename](features.md#following-a-repository-rename)).
+[archived](#archived-repository). Archive and Unarchive are two of the seven registry
+edits ([Following a repository rename](features.md#following-a-repository-rename)).
 Unlike a removal, an archive forgets nothing, so it needs no record of its own
 (local ADR 0029).
 
@@ -45,8 +44,8 @@ repository's owner and name merges the two, and the real repository keeps its
 own settings ([Following a repository rename](features.md#following-a-repository-rename)).
 
 Scanning and health scoring are planned and not built. A repository's
-`health_score` is computed from component scores: package, GitHub, coverage, and
-security. The rules they will hold are in
+`health_score` is computed from the component scores
+[Health Details](#health-details) holds. The rules they will hold are in
 [the registry's invariants](domain.invariants.md#repository-registry) and
 [the scan's](domain.invariants.md#repository-scan).
 
@@ -71,7 +70,7 @@ GitHub, such as "org/repo-name". The registry holds for each repository:
 
 The registry is ordered, and the first repository that is not archived serves as
 the default. While [Additional repositories](context.md#additional-repositories)
-is off, every entry belongs to it. A knowledge reader asked for no repository also
+is off, every entry belongs to it. A devbook read that names no repository also
 falls back to it.
 
 The scan, when it is built, adds:
@@ -148,8 +147,9 @@ aliases: [PackageManifest]
 ```
 
 Parsed dependencies from a single manifest file, identified by
-`(repo_id, file_path)`. Owns the list of `Package` value objects parsed from that
-file (e.g. `package.json`, `*.csproj`, `pyproject.toml`, `go.mod`).
+`(repo_id, file_path)`. It owns the list of `Package` value objects parsed from that
+file. Examples of a manifest file are `package.json`, `*.csproj`, `pyproject.toml`
+and `go.mod`.
 
 ### Package
 
@@ -157,8 +157,13 @@ file (e.g. `package.json`, `*.csproj`, `pyproject.toml`, `go.mod`).
 type: value-object
 ```
 
-A single dependency: `name`, `version`, `constraint`, `latest_version`,
-`is_outdated`. Computed: `is_outdated = version < latest_version` by semver.
+A single dependency, with these fields:
+
+- `name`;
+- `version`;
+- `constraint`;
+- `latest_version`;
+- `is_outdated`, computed by semver as `is_outdated = version < latest_version`.
 
 ### Technology Stack Entry
 
@@ -166,7 +171,7 @@ A single dependency: `name`, `version`, `constraint`, `latest_version`,
 type: value-object
 ```
 
-A detected technology in the repo: `name`, `version`, `category`
+A detected technology in the repository: `name`, `version`, `category`
 (runtime/framework/tool/language/platform).
 
 ### GitHub Metadata
@@ -175,8 +180,15 @@ A detected technology in the repo: `name`, `version`, `category`
 type: value-object
 ```
 
-A snapshot of GitHub stats: `stars`, `forks`, `watchers`, `open_issues`,
-`open_prs`, `branch_protection_enabled`, `last_update`.
+A snapshot of GitHub stats, with these fields:
+
+- `stars`;
+- `forks`;
+- `watchers`;
+- `open_issues`;
+- `open_prs`;
+- `branch_protection_enabled`;
+- `last_update`.
 
 ### Health Details
 
@@ -186,10 +198,15 @@ aliases: [HealthDetails, health score, health_score]
 ```
 
 The breakdown of a repository's 0-100 health score, tracked over time as
-`Health Score Snapshot`; `flow.md` says how it is computed. It holds
-`package_score`, `github_score`, `coverage_score`,
-`security_score`, and actionable `recommendations`. Computed:
-`overall_score = weighted_average(...)`.
+`Health Score Snapshot`.
+[Repository health scoring](features.md#repository-health-scoring) says how it is
+computed. The overall score is `overall_score = weighted_average(...)`. It holds:
+
+- `package_score`;
+- `github_score`;
+- `coverage_score`;
+- `security_score`;
+- actionable `recommendations`.
 
 ### Security Alert
 
@@ -197,9 +214,15 @@ The breakdown of a repository's 0-100 health score, tracked over time as
 type: value-object
 ```
 
-A vulnerability from GitHub Advanced Security: `alert_id`, `vulnerability`,
-`severity`, `affected_package`, `fixed_version`, `first_detected`,
-`last_updated`.
+A vulnerability from GitHub Advanced Security, with these fields:
+
+- `alert_id`;
+- `vulnerability`;
+- `severity`;
+- `affected_package`;
+- `fixed_version`;
+- `first_detected`;
+- `last_updated`.
 
 ### Package Freshness Metric
 
@@ -207,8 +230,12 @@ A vulnerability from GitHub Advanced Security: `alert_id`, `vulnerability`,
 type: value-object
 ```
 
-Daily freshness: `date`, `outdated_count`, `total_count`, `freshness_pct`
-= `(total - outdated) / total * 100`.
+Daily freshness, with these fields:
+
+- `date`;
+- `outdated_count`;
+- `total_count`;
+- `freshness_pct`, which is `(total - outdated) / total * 100`.
 
 ### Health Score Snapshot
 
@@ -216,8 +243,13 @@ Daily freshness: `date`, `outdated_count`, `total_count`, `freshness_pct`
 type: value-object
 ```
 
-Health at a point in time: `date`, `overall_score`, `package_score`,
-`github_score`, `coverage_score`.
+Health at a point in time, with these fields:
+
+- `date`;
+- `overall_score`;
+- `package_score`;
+- `github_score`;
+- `coverage_score`.
 
 ### GitHub Health Metric
 
@@ -225,8 +257,13 @@ Health at a point in time: `date`, `overall_score`, `package_score`,
 type: value-object
 ```
 
-Daily issue/PR aging: `date`, `open_issues`, `avg_issue_age_days`, `open_prs`,
-`avg_pr_age_days`.
+Daily aging of issues and pull requests, with these fields:
+
+- `date`;
+- `open_issues`;
+- `avg_issue_age_days`;
+- `open_prs`;
+- `avg_pr_age_days`.
 
 ### Technology Snapshot
 
@@ -234,7 +271,7 @@ Daily issue/PR aging: `date`, `open_issues`, `avg_issue_age_days`, `open_prs`,
 type: value-object
 ```
 
-Tech-stack snapshot at a date: `date`, `technologies`.
+A technology stack snapshot at a date: `date`, `technologies`.
 
 ### Tech Baselines
 
@@ -262,7 +299,13 @@ and `TechAdoptionTrends`.
 type: enum
 ```
 
-Kind of repo: `service`, `library`, `frontend`, `cli`, `template`.
+The kind of repository, one of:
+
+- `service`;
+- `library`;
+- `frontend`;
+- `cli`;
+- `template`.
 
 ### Severity
 
@@ -270,7 +313,12 @@ Kind of repo: `service`, `library`, `frontend`, `cli`, `template`.
 type: enum
 ```
 
-Security alert severity: `critical`, `high`, `medium`, `low`.
+A security alert's severity, one of:
+
+- `critical`;
+- `high`;
+- `medium`;
+- `low`.
 
 ## Repository Scan
 
@@ -284,8 +332,11 @@ Runs scheduled or on-demand scans of a repository. A scan:
 - parses dependency manifests;
 - detects the technology stack;
 - fetches GitHub metadata and security alerts;
-- recomputes the health score from package freshness, GitHub backlog, coverage,
-  and security.
+- recomputes the health score from:
+  - package freshness;
+  - GitHub backlog;
+  - coverage;
+  - security.
 
 It is a service because it coordinates external systems (file system, GitHub,
 package registries) to refresh the aggregate. Invocation semantics: scheduled or
@@ -381,12 +432,20 @@ related: [.devbook/domain/repository-management/features.md#pull-request-status,
 ```
 
 What this context publishes about one pull request of an
-[active repository](#active-repository): its state, its checks, its approvals,
-whether it can merge, how far it is behind its base, whether GitHub holds an
-auto-merge for it, whether a pending review request names the viewer, and its
-[stack parent](#stack-parent). Local ADR 0042 §2 lists the fields. A screen shows
-two marks of it, checks and approvals, beside the pull request's number, and a
-"your review" label after them when the viewer's review is requested
+[active repository](#active-repository):
+
+- its state;
+- its checks;
+- its approvals;
+- whether it can merge;
+- how far it is behind its base;
+- whether GitHub holds an auto-merge for it;
+- whether a pending review request names the viewer;
+- its [stack parent](#stack-parent).
+
+Local ADR 0042 §2 lists the fields. A screen shows two marks of it beside the pull
+request's number: checks and approvals. A "your review" label follows them when the
+viewer's review is requested
 ([Pull request status](features.md#pull-request-status)).
 
 It is the one reading every other context draws a pull request from. Tasks and
@@ -402,8 +461,18 @@ related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull
 ```
 
 The one answer to whether an open pull request is ready to merge, and if not, what
-it waits on: Conflicts, Failing checks, Changes requested, Behind, Draft, Checks
-running, Review required or Ready. It is computed from the
+it waits on:
+
+- Conflicts;
+- Failing checks;
+- Changes requested;
+- Behind;
+- Draft;
+- Checks running;
+- Review required;
+- Ready.
+
+It is computed from the
 [pull request status](#pull-request-status) alone. Each verdict places the pull
 request in a **lane** and offers its **acts**, the
 [merge commands](#merge-command) that fit it.
@@ -435,9 +504,16 @@ aliases: [act, second act, PullRequestMerges]
 related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/domain/repository-management/features.md#re-run-failed, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
-A request this context sends GitHub to move a pull request toward its merge: merge,
-auto-merge on, auto-merge off, update branch, mark ready for review, or re-run
-failed. On a screen it is offered as one of a verdict's acts; the other acts, such
+A request this context sends GitHub to move a pull request toward its merge:
+
+- merge;
+- auto-merge on;
+- auto-merge off;
+- update branch;
+- mark ready for review;
+- re-run failed.
+
+On a screen it is offered as one of a verdict's acts; the other acts, such
 as Open on GitHub, send nothing. Each command reads the pull request's
 repository again once it returns, so every reader sees the new state. Only this
 context sends them (local ADR 0042 §3).

@@ -15,8 +15,13 @@ type: feature
 
 Register the repositories the product works with:
 
-- record each one's metadata: name, clone path, language, team, GitHub URL, and
-  type;
+- record each one's metadata:
+  - name;
+  - clone path;
+  - language;
+  - team;
+  - GitHub URL;
+  - type;
 - register a repository with a local clone, or remote-only;
 - discover repositories automatically from configured folders;
 - track when each was last scanned.
@@ -38,10 +43,15 @@ repository is itself an opt-in capability, so a single-repository setup stays
 uncluttered. While it is off, every entry belongs to the first repository in the
 registry.
 
-The working set is read as one list: a row per repository naming its alias with
-its colour beside it, where it is cloned on this machine, where its devbook was
-found — or that it has none — and the account it is worked as, under a sentence
-counting the repositories and how many of them carry a devbook. Everything
+The working set is read as one list, under a sentence counting the repositories and
+how many of them carry a devbook. A row per repository names:
+
+- its alias, with its colour beside it;
+- where it is cloned on this machine;
+- where its devbook was found, or that it has none;
+- the account it is worked as.
+
+Everything
 decided about one repository is edited under its own row, one repository at a
 time, and a repository just registered opens there, ready to be set up. An
 [archived](#archiving-a-repository) repository keeps its row, marked Archived.
@@ -62,13 +72,15 @@ Seven edits to the registry look alike and do different things:
 
 | Edit | How it is made | What follows it | What is kept |
 |---|---|---|---|
-| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository, including an entry's links to issues it created there | The clone directory, colour, account and devbook folder settings, under the new name, and a [Rename Record](domain.md#rename-record) of the old name |
+| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository | Its settings under the new name, and a [Rename Record](domain.md#rename-record) of the old one |
 | Merge | A rename to a name another registered repository already has | Everything filed against the old name, to the other repository | The other repository's settings; the renamed one goes |
 | Removal | Removing the repository from the list | Nothing | A [Removal Record](domain.md#removal-record); entries keep the removed name and show no repository |
 | Archive | Choosing Archive on the repository's row ([Archiving a repository](#archiving-a-repository)) | Nothing is re-pointed; the panes stop reading the repository as active work | Everything: the identity, the settings, the tasks filed against it, and its devbook |
 | Unarchive | Choosing Unarchive on the archived row | Nothing; the repository is active work again | Everything, as it was when it was archived |
 | Relabel | Changing the alias alone | Nothing, because the same repository is meant | Everything |
 | Alias swap | Swapping two aliases between two repositories | Nothing, because it is two relabels | Each repository's own settings |
+
+- **Rename:** An entry's links to issues it created there follow it too. The settings kept are the clone directory, colour, account and devbook folder settings.
 
 A rename is asked for on the repository itself and is never inferred from the
 list. A list cannot tell a rename from a replacement. For a repository registered
@@ -221,9 +233,15 @@ depends-on: [.devbook/domain/repository-management/features.md#repository-regist
 related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
-Detect each repository's primary languages, framework versions, build tools,
-runtimes, and use of Docker, Kubernetes and the cloud. A person can also tag a
-repository with technologies of their own.
+Detect these for each repository:
+
+- primary languages;
+- framework versions;
+- build tools;
+- runtimes;
+- use of Docker, Kubernetes and the cloud.
+
+A person can also tag a repository with technologies of their own.
 
 ## GitHub integration
 
@@ -303,9 +321,10 @@ The pull requests pane reads each base branch's rules once, beside its list, and
 keeps the answer for ten minutes, so its rows carry the required total too. A
 branch whose rules cannot be read leaves its rows' approvals as the number received,
 with no verdict either way. A task's linked pull request card draws the marks while
-the pull request is open; one the open list did not hold — merged, closed, or in a
-repository no longer configured — draws its state alone. The card draws what the
-task list recorded of it, and only a row of the open list carries the marks.
+the pull request is open. A pull request the open list did not hold draws its state
+alone. It may be merged or closed, or in a repository no longer configured. The
+card draws what the task list recorded of it, and only a row of the open list carries
+the marks.
 
 The marks are what a row shows of the status. The status itself carries more, and
 local ADR 0042 lists what
@@ -335,7 +354,9 @@ markup, its status lines and its subjects stay in the desktop shell,
 
 The pane has two views, Open and Recently merged. A Mine / Everyone's choice narrows the
 rows. Mine is the reader's own pull requests and those related to one of their tasks.
-Refresh re-reads the list. A repository's label filter, set in Settings, lets through
+Refresh re-reads the list.
+
+A repository's label filter, set in Settings, lets through
 only the pull requests carrying one of its labels. A pinned pull request ignores every
 filter. It sits in a Pinned group at the top of the list until it is unpinned, even after
 it merges or closes.
@@ -406,7 +427,7 @@ apply, the first in this table wins:
 | 7 | Review required | Waiting | live | Merge when ready | — |
 | 8 | Ready | Ready to merge | settled | Merge | Update branch, when the branch is behind a base that does not require it |
 
-One verdict rather than a row of badges, because a reader acts on one thing at a time. The
+The pane gives one verdict rather than a row of badges, because a reader acts on one thing at a time. The
 order puts first what blocks the most. A conflict has to be resolved before checks or
 review mean anything, and a failing check before a review is worth asking for. Behind is
 in Needs you because it waits on nobody else: the reader brings the branch up to date
@@ -425,7 +446,7 @@ banner, and the acts above. A few rules sit beside the table:
   the stack is going. Its other acts stay.
 - Behind is GitHub's own `BEHIND` state, which GitHub sets only where the repository
   requires an up-to-date branch. A pull request behind a base that does not require it is
-  still Ready, but its reason says how many commits behind it is and that the repository
+  still Ready. Its reason says how many commits behind it is and that the repository
   does not require it, so it never contradicts the up to date line of the detail panel.
   Update branch is then offered as Ready's second act.
 - Whether Re-run failed is offered is read off the pull request's own checks, never
@@ -452,7 +473,11 @@ From the top, the panel holds:
   GitHub, and its pin;
 - a banner with the verdict and the act that fits it, such as Update branch for Behind,
   with the verdict's second act beside it where it has one;
-- a merge-readiness list of four lines: checks, review, up to date, and mergeable;
+- a merge-readiness list of four lines:
+  - checks;
+  - review;
+  - up to date;
+  - mergeable;
 - the checks, failures first, then the ones still running; six are shown and the rest
   are counted;
 - the stack the pull request is part of, bottom first;
@@ -470,7 +495,9 @@ The list already reads what the panel needs. Each check on the head commit is a 
 or a commit status. It comes with its name, whether it passed, failed or is still running,
 and, for a check run that finished, how long it took. The first fifty are listed and the
 counts cover the rest. Where the counts report a failed check past those fifty, every
-check of the head commit is paged in, so no failed run is missing. Each open pull request from the same repository also carries how
+check of the head commit is paged in, so no failed run is missing.
+
+Each open pull request from the same repository also carries how
 many commits its base has that its branch does not. GitHub cannot compare a fork's branch
 from the base repository, so a pull request from a fork has no such count.
 
@@ -487,8 +514,9 @@ check goes red without anyone's code being wrong: a runner that flaked.
 
 Where several checks failed, each workflow run behind them is asked once, however many of
 its jobs failed. That covers a failed run past the first fifty checks too, because the
-list pages those in when the counts say one failed there. Every run is asked even when GitHub refuses one, because the runs are
-independent. The refusal then says how many of the others did start again. Afterwards the
+list pages those in when the counts say one failed there.
+Every run is asked even when GitHub refuses one, because the runs are independent.
+The refusal then says how many of the others did start again. Afterwards the
 pane reads that one repository again, as it does after every other act, so the row shows
 the checks running instead of failed.
 
@@ -547,6 +575,9 @@ depends-on: [.devbook/domain/repository-management/features.md#repository-health
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
-Act on many repositories at once: queue package updates, coordinate synchronized
-upgrades, run custom workflows through GitHub Actions, and generate migration
-guides for major versions.
+Act on many repositories at once:
+
+- queue package updates;
+- coordinate synchronized upgrades;
+- run custom workflows through GitHub Actions;
+- generate migration guides for major versions.

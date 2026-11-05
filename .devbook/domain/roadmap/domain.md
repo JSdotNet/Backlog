@@ -98,7 +98,7 @@ A single piece of planned work, identified by `roadmap_item_id`. It holds:
 
 `placed_by_import` records which rule an import placed the window by. How the
 value is set and cleared is drawn in
-[Who placed an item's window](domain.md#roadmap-plan).
+[Who placed an item's window](domain.md#roadmap-plan). The value reads:
 
 - `effort`: the start comes from its predecessors, and the length from the
   gathered effort over the reader's pace.
@@ -135,7 +135,9 @@ It has no status and no percentage. Both are questions about execution, and
 execution belongs to Tasks. An item that gathers tasks shows their progress. An
 item that gathers no task has no execution to read, so a person can **complete it
 by hand**: `completed_on` records the day its work was done, and reopening clears
-it. Once tasks carry the item,
+it.
+
+Once tasks carry the item,
 [their progress wins](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand)
 and the day is kept but not read. Outside the plan, its
 identity matters as a dependency endpoint and as the tag other contexts file work
@@ -156,13 +158,17 @@ type: entity
 aliases: [roadmap_milestone_id, fixed point]
 ```
 
-A point in time the plan is read against, identified by `roadmap_milestone_id`:
-`title`, the single day it falls `on`, its `Milestone Kind`, and its optional
-`Repository Scope` and `Planning Lane`.
+A point in time the plan is read against, identified by `roadmap_milestone_id`.
+It holds:
+
+- a `title`;
+- the single day it falls `on`;
+- its `Milestone Kind`;
+- its optional `Repository Scope` and `Planning Lane`.
 
 A Milestone is an entity of this aggregate rather than a degenerate Roadmap Item,
 because it is a different thing, not a smaller one. It has no duration to
-lengthen or shorten. Rescheduling it moves one date rather than two. "Is this
+lengthen or shorten, rescheduling it moves one date rather than two, and "Is this
 late" is answered against a day rather than a span. It is also a first-class
 dependency endpoint: work waits on a release, and a release waits on work. That
 is why both entities live in one aggregate, because a dependency crossing between
@@ -225,7 +231,7 @@ A free-form row label within a [band](#band), such as "platform" or "migration":
 whatever the person actually calls it. What a blank lane reads as is
 [an invariant of the plan](domain.invariants.md#invariant-a-blank-lane-is-the-default-lane).
 
-Deliberately a string rather than an enum, for the same reason `area` is on a
+It is deliberately a string rather than an enum, for the same reason `area` is on a
 [Task](../tasks/domain.md#task): the taxonomy is the person's. An enum here would
 mean shipping a release every time someone invents a workstream.
 
@@ -314,7 +320,8 @@ aliases: [PlanningPriority, planning priority]
 How much the plan wants this item relative to the others: `low`, `medium`,
 `high`, `critical`.
 
-The same four words as [Priority](../tasks/domain.md#priority) in Tasks, chosen on
+It uses the same four words as [Priority](../tasks/domain.md#priority) in Tasks,
+chosen on
 purpose: two vocabularies for the same idea would make every conversation about
 priority start with "which kind". They remain different values owned by
 different contexts.
@@ -327,7 +334,7 @@ type: enum
 
 What kind of fixed point it is: `release`, `freeze`, `review`, `commitment`.
 
-Business kinds, not shapes. How each one is drawn is a presentation decision and
+These are business kinds, not shapes. How each one is drawn is a presentation decision and
 belongs to the view, not here.
 
 ## Plan Sequencing
@@ -412,7 +419,9 @@ not only as a total. Both are said in the roadmap's own words. Progress is the
 plan's own four-state reading: planned, ready, in progress, done. A dependency is
 the key of another gathered thing, never a foreign identifier. A supplier's own
 vocabulary is translated once, at the boundary, because the plan has no say in
-another context's states. A thing that registers no progress at all, as a
+another context's states.
+
+A thing that registers no progress at all, as a
 devbook chapter does,
 [is never read as finished](domain.invariants.md#invariant-unknown-progress-is-never-finished).
 A dependency on work this item did not gather

@@ -13,9 +13,11 @@ happens to an item after it arrives. Triage turns it into a
 [Knowledge Note](../brain/domain.md#knowledge-note) in the person's
 [Brain](../brain/domain.md#brain), defers it, or archives it.
 
-Inside the boundary: the Inbox Items that
-[Capture](../capture/domain.md#capture) delivers, their triage,
-classification and routing, and the reader's own lists and groups.
+Inside the boundary:
+
+- the Inbox Items that [Capture](../capture/domain.md#capture) delivers;
+- their triage, classification and routing;
+- the reader's own lists and groups.
 
 Outside it: the capture sources, which [Capture](../capture/domain.md#capture)
 owns, and what an item becomes once it is routed. A Task belongs to Tasks, and
@@ -46,7 +48,7 @@ related: [.devbook/domain/inbox/features.md#classification-and-enrichment]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxRoutingRulesStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsInboxRoutingRulesTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxRoutingRuleTests]
 ```
 
-Which repository the reader wants an item to go to, as a list of rules. Each
+This setting says which repository the reader wants an item to go to, as a list of rules. Each
 rule is one line, `pattern => owner/repo`. The pattern's first character says
 what it is read against:
 
@@ -67,6 +69,7 @@ routing rules. The page's headline counts the rules in force:
 `2 routing rules sort what lands in the Inbox.`, or
 `No routing rules yet; everything lands in the Inbox unsorted.` A refused set
 does not move it. The page shows only while the [Inbox pane](#inbox-pane) is on.
+
 The whole set is refused when one line does not read, and the message names that
 line. So the rules in use are always the last set that read. They are the
 reader's own and local to the machine, like the lists and groups. They are kept

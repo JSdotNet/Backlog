@@ -32,9 +32,11 @@ The rules the log holds every reading to are in
 **Records replicate, and none of those rules changes when they do.** Local ADR 0005
 puts session records in the same cloud replica as tasks. So a record gathered on one
 machine can be read on another. The path is built. It is off until switched on, and
-it has not yet run against provisioned infrastructure. Replication decides whether
-another machine's sessions are in front of a reader. It decides nothing about what
-one of them means. Every [rule of the log](domain.invariants.md#session-log)
+it has not yet run against provisioned infrastructure.
+
+Replication decides whether another machine's sessions are in front of a reader. It
+decides nothing about what one of them means. Every
+[rule of the log](domain.invariants.md#session-log)
 survives, because the thing that replicates is a record, not an authority:
 
 - **Still single-writer.** A session ran on one environment, and only that
@@ -54,12 +56,14 @@ survives, because the thing that replicates is a record, not an authority:
   would freeze the gathering machine's reading of its own clock. It would
   go on saying `running` about a session that ended before the last exchange. A
   record from another machine is stale rather than wrong, and the derivation says so
-  from the timestamps it has. A record carries no liveness marker: the same record
-  arrives whether the session is still going or ended a month ago. So silence past
-  the `Stale Threshold` reads `finished` and never `stalled`. That is the rule this
-  context already applies locally to an agent that leaves no marker. `stalled` claims
-  that something is still there and quiet, and nothing in a record can tell that
-  apart from something that is gone.
+  from the timestamps it has.
+
+  A record carries no liveness marker: the same record arrives whether the session is
+  still going or ended a month ago. So silence past the `Stale Threshold` reads
+  `finished` and never `stalled`. That is the rule this context already applies
+  locally to an agent that leaves no marker. `stalled` claims that something is still
+  there and quiet, and nothing in a record can tell that apart from something that is
+  gone.
 - **Only a whitelist travels.** Local ADR 0005 fixes it, in the table below, and
   [an invariant](domain.invariants.md#invariant-only-the-published-fields-travel)
   holds every record to it.
@@ -96,16 +100,21 @@ survives, because the thing that replicates is a record, not an authority:
 | resolved repository alias | On the same terms ([Working Location](#working-location)). |
 | branch | As recorded. |
 | started at, last activity at | The `Activity Window`. |
-| turn count | Absent where the agent records none. Zero would be a claim about the session, where absence is the truth about the record. |
-| duration | Carried for the transport only. A reading derives it from the two timestamps, so it cannot disagree with them. |
-| runs and waits | [Activity runs](#activity-run) and [waits](#wait) as pairs of timestamps, so a reading machine can measure a session whose transcript it never held. |
-| human turns | The instant of each [human turn](#human-turn), never its text (local ADR 0019). Roadmap Planning counts the person's hours from them on every paired machine. |
-| title | By the owner's decision of 2026-09-23, although the agent writes it from what the person typed. A session is recognised by its title, on another machine and after its transcript is gone. A record from a device older than the field is headed by its session id. |
-| worktree key | The folder's leaf and a one-way hash, so a record still meets the delivery runs filed under that folder. |
-| usage-limit refusals | When, which bucket, when it resets, and what it said about paid overage, never the refusal's sentence. A usage limit is the account's, so a refusal on one machine bounds the week on every other. |
+| turn count | Absent where the agent records none: absence is true of the record, zero is a claim. |
+| duration | Carried for the transport only. A reading derives it, so it cannot disagree with the timestamps. |
+| runs and waits | [Activity runs](#activity-run) and [waits](#wait) as timestamp pairs, measurable without the transcript. |
+| human turns | The instant of each [human turn](#human-turn), never its text (local ADR 0019). |
+| title | Travels by the owner's decision of 2026-09-23. |
+| worktree key | The folder's leaf and a one-way hash; the delivery runs filed under that folder still meet it. |
+| usage-limit refusals | When, which bucket, when it resets, and what it said about paid overage. |
 | where the agent was run from | Such as the desktop app or the command line. |
 | pull requests the session linked | Repository, number and address. |
 | tokens per model | Counts, never content. |
+
+- **runs and waits:** A reading machine can measure a session whose transcript it never held.
+- **human turns:** Roadmap Planning counts the person's hours from them on every paired machine.
+- **title:** The owner decided this although the agent writes it from what the person typed. A session is recognised by its title, on another machine and after its transcript is gone. A record from a device older than the field is headed by its session id.
+- **usage-limit refusals:** The refusal's sentence never travels. A usage limit is the account's, so a refusal on one machine bounds the week on every other.
 
 `working_folder` is not in the table: it describes one machine's disk and means
 nothing on the other.
@@ -128,9 +137,11 @@ measurement of zero:
 anti-corruption layer, and never authoritative for whether a session existed. It
 supplies a second kind of evidence about a session this context already knows.
 Replication moves records this context already holds. Neither stands in for the
-other. A replicated record with no activity stream is a complete record. It may
-carry the runs and waits its gathering environment folded, which measure the
-session's time and are not a stream of what it did.
+other.
+
+A replicated record with no activity stream is a complete record. It may carry the
+runs and waits its gathering environment folded, which measure the session's time and
+are not a stream of what it did.
 
 ### Agent Session
 
@@ -140,18 +151,24 @@ aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTas
 related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/dependencies.md]
 ```
 
-One working session of one agent. Identified by `Session Identity`, the agent plus
-the identifier that agent gave the session, because a session id is only unique
+One working session of one agent. It is identified by `Session Identity`, the agent
+plus the identifier that agent gave the session, because a session id is only unique
 within the agent that issued it.
 
-Holds the [environment](#environment) it ran on, as its display name and its
-`EnvironmentId`. It also holds a display title, its `Working Location`, its
-`Activity Window`, and its `Session State`. The display name can change while the
-session stays on the same machine, which is why
+An Agent Session holds:
+
+- the [environment](#environment) it ran on, as its display name and its
+  `EnvironmentId`;
+- a display title;
+- its `Working Location`;
+- its `Activity Window`;
+- its `Session State`.
+
+The display name can change while the session stays on the same machine, which is why
 [a machine is told apart by its id](domain.invariants.md#invariant-an-environment-is-told-apart-by-its-id).
-When external activity evidence exists, the
-entity also carries a `Session Activity Stream`, a `Session Enrichment Summary`, and
-a `Reporting Capability` reading for that stream.
+When external activity evidence exists, the entity also carries a
+`Session Activity Stream`, a `Session Enrichment Summary`, and a `Reporting Capability`
+reading for that stream.
 
 A Claude session may also carry three facts from the Claude desktop app's own record of it:
 
@@ -218,6 +235,7 @@ The **resolved repository** is the `owner/name` of the registered repository who
 clone directory contains the working folder, on the environment that read the
 session. It
 [sits beside the recorded repository, never in its place](domain.invariants.md#invariant-a-resolved-repository-sits-beside-the-recorded-one).
+
 This is not
 the inference ruled out above. A path leaf is a guess about which of GitHub's
 several `Backlog`s a folder is a clone of. A registered clone directory is a fact
@@ -263,9 +281,12 @@ type: value-object
 aliases: [SessionActivityEntry, event_id, sequence, activity summary]
 ```
 
-One externally reported milestone about a session: what kind of activity it was, when
-it happened, its per-session sequence, and a short summary fit to be shown back to a
-person.
+One externally reported milestone about a session. It holds:
+
+- the kind of activity;
+- when it happened;
+- its per-session sequence;
+- a short summary fit to be shown back to a person.
 
 Identity inside the stream is by external `event_id`; order is by the session's own
 sequence and then by occurrence time. Both are needed: duplicates must collapse, and
@@ -311,7 +332,8 @@ of the two wrote it is provenance, not a difference in kind.
 It holds what the file states:
 
 - which dashboard wrote it, and the worktree key it was filed under;
-- the skill, the title, the status word verbatim, and the change kind;
+- the skill and the title;
+- the status word verbatim, and the change kind;
 - the `Delivery Run Reference`s it names;
 - when it started and when it was last updated;
 - its stages, each with its status, duration, how many times it was marked done, and
@@ -347,12 +369,16 @@ every dashboard file written before the field existed, and any writer that does 
 send one.
 
 **A stage can say what its pass found.** The delivery phases report three counts on a
-stage's record of how it ran: Implement and Review the implement ⇄ review `round`,
-counting from 1; Review the `blockers` it left open in that round; Verify the
-`defectsFound` that review had passed. They describe the stage's latest pass, because
-each record replaces the one before. A count reads only as a whole number from zero
-up. A run file from before the phases sent them, or a stage that did not run the work,
-reads them as absent, never as zero: zero is a clean round, and nobody reported one.
+stage's record of how it ran:
+
+- Implement and Review report the implement ⇄ review `round`, counting from 1;
+- Review reports the `blockers` it left open in that round;
+- Verify reports the `defectsFound` that review had passed.
+
+They describe the stage's latest pass, because each record replaces the one before. A
+count reads only as a whole number from zero up. A run file from before the phases sent
+them, or a stage that did not run the work, reads them as absent, never as zero: zero
+is a clean round, and nobody reported one.
 
 **A run can keep its quality facts across every pass.** Because a stage's counts are
 its latest pass, a review that ended on a clean round reads zero blockers, and a Verify
@@ -479,10 +505,15 @@ aliases: [DeliveryRunTelemetry, hook telemetry, telemetry forwarder]
 ```
 
 The measured half of a `Delivery Run`. A coding session reports events about itself,
-and this service attributes them to the run the session is driving. The events are a
-tool starting and finishing, a delegated agent, the context being compacted, and a
-turn or the session ending. `Delivery Run Recording` keeps what the run is told; this
-service keeps what is measured.
+and this service attributes them to the run the session is driving. The events are:
+
+- a tool starting and finishing;
+- a delegated agent;
+- the context being compacted;
+- a turn or the session ending.
+
+`Delivery Run Recording` keeps what the run is told; this service keeps what is
+measured.
 
 **The run is found from the event, never from a pointer.** The event names the session
 and the folder it runs in. The worktree is that folder, or the nearest one above it
@@ -522,12 +553,18 @@ Each value is taken from the first source in its row that has one:
 
 | Value | Read from, in order |
 | --- | --- |
-| Mode | Personal Validation is always the gate. Otherwise the mode the run recorded, reading `delegated` as `delegate` and `forked` as `fork`. Otherwise `delegate` where a sub-agent worked in the stage, and `inline` for the rest; a mode found this way is marked inferred. |
-| Worker | The agent the phase map binds, when it is among the sub-agents that ran. Then the agent behind a `delivery:runner-<effort>` effort runner: the configured agent, or `general-purpose` where none is. Then the longest-running call. A stage that recorded running inline with no agent ran in the owner session, whatever was configured. |
+| Mode | Personal Validation is always the gate. Otherwise the recorded mode, else one inferred from the stage. |
+| Worker | The agent the phase map binds, then the effort runner's, then the longest-running call. |
 | Model and effort | What the stage recorded running, then the runner's, then the configuration's. |
-| Configured | The phase map's entry for the stage under the qualifier it ran under, then under any name its title goes by. Its origin is the entry's own origin, or else the team default with the overlays the run context lists merged over it. |
-| Sub-agent calls | Each call the run's `insights` saw, with its own time, tokens, tool calls and outcome. Where they saw none, each call the stage's record lists, except the slices the owner session worked itself. Then each agent the stage declared that neither shows running. |
-| A call's round | The round the stage's record lists against that call. Calls the `insights` saw take the listed rounds per agent, in order, only where the record lists as many calls of that agent as were seen. Otherwise the stage's own round, when the call is the only one the stage made. A round several calls shared stays the stage's. |
+| Configured | The phase map's entry for the stage, under its qualifier, then any name of its title. |
+| Sub-agent calls | Each call the `insights` saw, else each the stage's record lists, then declared agents. |
+| A call's round | The round the stage's record lists against that call, else the stage's own round. |
+
+- **Mode:** The run's recorded mode reads `delegated` as `delegate` and `forked` as `fork`. Otherwise the mode is `delegate` where a sub-agent worked in the stage, and `inline` for the rest; a mode found this way is marked inferred.
+- **Worker:** The phase map's agent counts when it is among the sub-agents that ran. Next comes the agent behind a `delivery:runner-<effort>` effort runner: the configured agent, or `general-purpose` where none is. A stage that recorded running inline with no agent ran in the owner session, whatever was configured.
+- **Configured:** The entry is the one under the qualifier the stage ran under, then under any name its title goes by. Its origin is the entry's own origin, or else the team default with the overlays the run context lists merged over it.
+- **Sub-agent calls:** Each call the run's `insights` saw comes with its own time, tokens, tool calls and outcome. Each call from the stage's record leaves out the slices the owner session worked itself. Last comes each agent the stage declared that neither shows running.
+- **A call's round:** Calls the `insights` saw take the listed rounds per agent, in order, only where the record lists as many calls of that agent as were seen. The stage's own round applies when the call is the only one the stage made. A round several calls shared stays the stage's.
 
 **Configured against ran.** A stage is compared on its agent, its model's family and
 its effort.
@@ -560,9 +597,9 @@ retries a batch it did not see acknowledged, so the same event arriving again is
 ordinary: [a request is stored once](domain.invariants.md#invariant-a-request-is-stored-once),
 and [one without a `request_id` is not kept](domain.invariants.md#invariant-a-request-without-a-request-id-is-not-kept).
 
-**Only this event is kept.** Claude Code sends many events, such as prompts, tool
-results, hook runs and errors, and
+**Only this event is kept.** Claude Code sends many other events, and
 [only `claude_code.api_request` is kept](domain.invariants.md#invariant-only-the-api_request-event-is-kept).
+The others include prompts, tool results, hook runs and errors.
 Of the one kept,
 [who made the request is not stored](domain.invariants.md#invariant-who-made-a-request-is-not-stored).
 
@@ -592,14 +629,18 @@ figure is the cost in whole micro-dollars and which of two sources it came from:
 
 | Unit | Reported cost | Estimated cost |
 | --- | --- | --- |
-| Session | The sum of every request it reported. | Its own tokens per model, read from its transcript, plus the sub-agent share of each of its runs' stages. A row with no transcript of its own sums its runs' whole stages. |
-| Stage | The owner session's main-loop requests inside the stage's window, plus its workers' requests (below). | The owner session's share at the stage's model where it ran inline, else at the owner's. The sub-agents' share at the one model their calls ran on; calls on several models are each priced at their own. |
-| Sub-agent call | Its agent's requests from the call's end less its duration to its end, two seconds either way for the two clocks. | The stage's sub-agent tokens, in proportion to the tokens the call reported. |
+| Session | The sum of every request it reported. | Its own tokens per model, plus the sub-agent share of its runs' stages. |
+| Stage | The owner session's main-loop requests inside the stage's window, plus its workers' requests (below). | The owner session's share plus the sub-agents' share, each at its model. |
+| Sub-agent call | Its agent's requests inside the call, by its end and duration. | The stage's sub-agent tokens, in proportion to the tokens the call reported. |
+
+- **Session, estimated:** Its own tokens are read from its transcript. A row with no transcript of its own sums its runs' whole stages.
+- **Stage, estimated:** The owner session's share is priced at the stage's model where it ran inline, else at the owner's. The sub-agents' share is priced at the one model their calls ran on; calls on several models are each priced at their own.
+- **Sub-agent call, reported:** The requests run from the call's end less its duration to its end, two seconds either way for the two clocks.
 
 **A stage's window** runs from its latest start to its completion; a stage still under
 way has no end yet. The owner session is each session the run names, or the one it was
-joined to by worktree and time. A request a sub-agent made has an `agent.name`, or a `query_source` of `agent:<name>`. Its agent
-is one of the stage's workers when the two match the way `Stage Resolution` matches
+joined to by worktree and time. A request a sub-agent made has an `agent.name`, or a `query_source` of `agent:<name>`.
+Its agent is one of the stage's workers when the two match the way `Stage Resolution` matches
 agents: the same name, or one the other with a plugin prefix.
 [A stage claims only its own requests](domain.invariants.md#invariant-a-stage-claims-only-its-own-requests):
 the owner's main loop by its window, its workers' by its window or by their own call.
@@ -607,14 +648,17 @@ So a sub-agent still running after its stage was marked done is still its stage'
 
 **When the reported cost cannot be told apart,
 [the unit is estimated](domain.invariants.md#invariant-a-cost-that-cannot-be-told-apart-is-estimated).**
-A stage re-entered after requested changes is the common case. Its start is stamped
-again on every pass, so its window holds the latest pass only, and a figure over it
-would read as the whole stage. A stage whose window holds a sub-agent's request that
-names no agent is another: a session that exports without `OTEL_LOG_TOOL_DETAILS` sends
-no `agent.name`, and every custom agent's `query_source` reads `agent:custom`, so the
-stage could claim only its main loop. A call that recorded no end, unless it is the
-stage's one call of that agent, and two overlapping calls of one agent, such as a
-fan-out, are the others.
+Four cases qualify:
+
+- A stage re-entered after requested changes is the common case. Its start is stamped
+  again on every pass, so its window holds the latest pass only, and a figure over it
+  would read as the whole stage.
+- A stage's window holds a sub-agent's request that names no agent. A session that
+  exports without `OTEL_LOG_TOOL_DETAILS` sends no `agent.name`, and every custom
+  agent's `query_source` reads `agent:custom`. The stage could then claim only its main
+  loop.
+- A call recorded no end, unless it is the stage's one call of that agent.
+- Two calls of one agent overlap, such as a fan-out.
 
 **An estimate with an unpriced part is no figure at all.** A partial sum would read as
 the whole, so
@@ -688,17 +732,19 @@ measurements.
 weekly refusal carried. With none, it ends at the latest Fable refusal's reset time. A
 reset that has passed rolls forward a whole week at a time, because the allowance
 renews on the same beat each week. The reset instant belongs to the next week. With no
-refusal carrying a reset time, the week is the seven days up to now. Only refusals of
-the last 28 days are read: an older one is forgotten, and places the week and sizes a
-limit no more than a refusal never recorded. The total is every
-request reported inside the week up to the moment it was read. A share counts nothing
-later, so a session still running cannot outgrow the total it is divided by.
+refusal carrying a reset time, the week is the seven days up to now.
+
+Only refusals of the last 28 days are read: an older one is forgotten and neither
+places the week nor sizes a limit. The total is every request reported inside the week
+up to the moment it was read. A share counts nothing later, so a session still running cannot outgrow the total it is divided by.
 
 **A weekly limit** is sized by the most recent refusal of its kind. Its size is the cost
 reported from seven days before that refusal's reset time up to the refusal. A refusal
 that carried no reset time counts from seven days before the refusal itself. Fable's
 limit counts the requests to a Fable model only. A refusal with no reported cost before
-it sizes nothing. The percentage of a limit is always an estimate, and
+it sizes nothing.
+
+The percentage of a limit is always an estimate, and
 [it is labelled one](requirements.md#requirement-a-share-of-the-weekly-limit-is-labelled-an-estimate).
 Nothing the product reads states the limit's size, and requests made on another machine
 never reach this one.
@@ -812,9 +858,10 @@ whichever side recorded it, and never from a default:
   `Claude API Request Log`, on the row's model. A main-loop request is one whose
   `query_source` is `repl_main_thread` or `sdk`, so a side query such as a compaction
   or a title is not one. The requests are read for the selected row, so a row reads
-  telemetry once it has been selected and the run files until then. Otherwise it is read
-  from the latest stage of a run on the row that ran inline, in the owner session, and
-  recorded its effort. A sub-agent's request and a delegated stage carry the
+  telemetry once it has been selected and the run files until then.
+
+  Otherwise the effort is read from the latest stage of a run on the row that ran
+  inline, in the owner session, and recorded its effort. A sub-agent's request and a delegated stage carry the
   sub-agent's effort and say nothing about the session. With neither, the effort is not
   recorded.
 - **Output**: the session's own output tokens, summed over its models, else its runs'
@@ -936,7 +983,7 @@ aliases: [AgentSessionKind, agent, agent_kind]
 
 Which assistant ran the session: `claude`, `copilot`.
 
-A type on the session rather than a list per vendor. A list per vendor would make
+Agent is a type on the session rather than a list per vendor. A list per vendor would make
 "what has been running here" unanswerable without first knowing how many vendors
 there are.
 
@@ -1032,8 +1079,8 @@ does not date its start is placed by its last update, the one moment it is known
 have existed.
 
 [A run that matches nothing is never dropped](domain.invariants.md#invariant-a-run-that-matches-nothing-is-never-dropped):
-it becomes a row of its own. Its session may be older than the `Session Limit` keeps, or may have been read on another
-environment, and neither is a reason to hide the work. The rows come back in the order
+it becomes a row of its own. Its session may be older than the `Session Limit` keeps,
+or may have been read on another environment, and neither is a reason to hide the work. The rows come back in the order
 the sessions were given, then the schedules' rows, then the other run-only rows, most
 recently updated first. Ordering for display is `Session Grouping`'s job.
 
@@ -1085,7 +1132,7 @@ stateDiagram-v2
 Decides whether a session with liveness evidence is `running` or `stalled`, by
 comparing its `last_activity_at` against the `Stale Threshold`.
 
-A service rather than a property of the session, because the answer depends on the
+It is a service rather than a property of the session, because the answer depends on the
 current time and an `Agent Session` holds no clock. The threshold itself is a policy
 of this context; see [Stale Threshold](#stale-threshold).
 
@@ -1103,8 +1150,9 @@ aliases: [AgentSessionView, view, live, open, all, AgentSessionEnvironments]
 ```
 
 Narrows a set of `Session Row`s to the ones a reader currently wants in front of
-them: the live ones, the ones open in the Claude desktop app, or all of them. A row is a session with its runs, or a run the
-list holds no session for, and the view narrows both alike.
+them: the live ones, the ones open in the Claude desktop app, or all of them. A row is
+a session with its runs, or a run the list holds no session for, and the view narrows
+both alike.
 [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
 so the live view never keeps one.
 
@@ -1122,8 +1170,9 @@ flowchart LR
 **[Narrow first, then group](domain.invariants.md#invariant-rows-are-narrowed-before-they-are-grouped).**
 A surface applies the narrowings in the order drawn above, and only then carves what is
 left into groups, so an environment with nothing live on it loses its section. The shell's
-repository scope is the shell's, not this context's; the surface applies it first. Each
-narrowing only removes rows, so their order does not change which rows remain. It does
+repository scope is the shell's, not this context's; the surface applies it first.
+
+Each narrowing only removes rows, so their order does not change which rows remain. It does
 decide what Live's and Open's tallies count: the live or open rows among what the other
 narrowings kept. The Purpose filter's counts are the rows each purpose would keep under
 every other narrowing, the view included.
@@ -1146,7 +1195,7 @@ and never enters Live. A row whose session has no desktop record is never open, 
 neither is a run-only row. Open reads only this machine's desktop app, so a session
 from another machine is never in it.
 
-A service of its own rather than one more member of `Session Grouping`. Grouping
+It is a service of its own rather than one more member of `Session Grouping`. Grouping
 guarantees that every row in is a row out. A "live" grouping would break that guarantee
 while sitting in the same strip as environment and agent. The reader would then have
 one control whose options sometimes rearrange the list and sometimes shorten it.
@@ -1157,8 +1206,8 @@ It keys on the environment's id rather than its name, because a machine can be r
 and two can share a name. It offers only the environments the rows name, in the order
 a grouping by environment draws its sections. It is a separate narrowing rather than a
 fourth view, because a view answers a question about a session's standing, its
-liveness or the desktop sidebar, and the environment answers one about place. Folded together, "Live" would mean "live here" on some presses
-and "live anywhere" on others.
+liveness or the desktop sidebar, and the environment answers one about place. Folded together, "Live" would mean "live
+here" on some presses and "live anywhere" on others.
 
 **Three narrowings read the title.** `SessionPlans` narrows to one plan tag and to one
 `Plan State`, and `SessionPurposes` to one `Session Purpose`, each from the
@@ -1169,13 +1218,13 @@ plan has no state and matches neither Draft nor Imported. Each hands back the li
 was given when nothing is named.
 
 **Grouping is the one operation that
-[never removes rows](domain.invariants.md#invariant-grouping-never-removes-a-row).** The narrowings are the ones
-that do: the environment, the view, the three that read the title, and the surface's own
+[never removes rows](domain.invariants.md#invariant-grouping-never-removes-a-row).**
+The narrowings are the ones that do: the environment, the view, the three that read the title, and the surface's own
 [with delivery runs](features.md#only-the-rows-with-a-run) toggle. Because only the
 narrowings shorten the list, the surface can say what they left out.
 
-Pure, like `Session Grouping`: no clock, no I/O, no state. `Liveness Assessment` already
-spent the clock. So a reader can change view without anything being read again, and two
+It is pure, like `Session Grouping`: it holds no clock and no state, and does no I/O.
+`Liveness Assessment` already spent the clock. So a reader can change view without anything being read again, and two
 views of one reading are two renderings of the same facts. `All` hands back the list it
 was given, as an environment narrowing with no environment named does.
 
@@ -1185,10 +1234,17 @@ what a reading returns. A surface holding it starts at the live view every time 
 opened.
 
 One thing besides the reader changes the view. When a surface is asked to focus one
-session and the current narrowings hide that session's row, the surface switches to
-`All` and clears every other narrowing: the "with runs" toggle, the environment, the
-plan, the plan state and the purpose. A request to show a
-session that then shows an empty list would answer a question nobody asked.
+session and the current narrowings hide its row, the surface switches to `All` and
+clears every other narrowing:
+
+- the "with runs" toggle;
+- the environment;
+- the plan;
+- the plan state;
+- the purpose.
+
+A request to show a session that then shows an empty list would answer a question
+nobody asked.
 
 ## Session Grouping
 
@@ -1204,13 +1260,15 @@ seven groupings:
 
 | Grouping | Section key | Sections, in order | Heading | On the session list |
 | --- | --- | --- | --- | --- |
-| When | Live state, then standing, then the day last active on the reader's clock | Standing (the standing sessions that are not live), Live now (Running or Stalled, whatever day they started), Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
+| When | Live state, then standing, then the day last active on the reader's clock | Standing, Live now, Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
 | Plan | `plan/` and the bare plan tag, lower-cased, so no tag can share the Scheduled section's key | By tag; the rows of no plan close the list under "Not part of a plan" | `+tag`, with the plan's `Plan State` where it has one | Yes |
 | Purpose | The `Session Purpose`'s name | The order `Session Purpose` declares | The purpose's name | Yes |
 | Repository | The repository the row shows, ignoring case | By name; the rows that name no repository close the list under "No repository" | The spelling its most recent row carries | Yes |
 | Environment | The environment's id | By name, ignoring case, then by id | The name its most recent row carries | Yes, as Machine |
 | None | None | One section, holding every row | None | No |
 | Agent | The agent's name | The order the `Agent` enum declares | The agent's name | No |
+
+- **When:** Standing holds the standing sessions that are not live. Live now holds the Running or Stalled sessions, whatever day they started.
 
 A bucket or a section with nothing in it is not drawn. No rows means no sections at
 all, not one empty section. Because the Environment heading is the most recent row's
@@ -1236,20 +1294,19 @@ The surface folds that section every time it opens, and the detail panel never s
 folded row. A session the surface is asked to focus that sits behind the fold unfolds
 it.
 
-A service because grouping spans sessions rather than belonging to any one of them,
-and a pure one: no I/O and no state.
+It is a service because grouping spans sessions rather than belonging to any one of
+them, and a pure one: no I/O and no state.
 [Only When reads a clock and a time zone](domain.invariants.md#invariant-a-rows-day-is-read-against-the-moment-the-list-was-read),
 and both are handed in. Plan, Purpose and When's Standing bucket read the
-[Session Title Reading](#session-title-reading). It guarantees two properties that a reader relies on without
-being told:
+[Session Title Reading](#session-title-reading). It guarantees two properties that a
+reader relies on without being told:
 
 - **Grouping rearranges and
   [never filters](domain.invariants.md#invariant-grouping-never-removes-a-row).** A
   count taken before grouping is still correct after it.
 - **Group order does not depend on group size.** When's buckets keep their own order,
   repositories, environments and plans sort by name, and agents and purposes follow
-  their enums. So a
-  section does not move under the reader as sessions come and go.
+  their enums. So a section does not move under the reader as sessions come and go.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored.
 Which grouping is in force is the reader's choice and is not part of this context's
@@ -1263,9 +1320,9 @@ related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-
 ```
 
 The sessions a person has asked for and no session has answered yet. It is the one
-part of this context that is not a reading of evidence: a person creates a request
-with a click, a dispatcher outside the context turns it into a running session, and
-the request then joins the session the [Session Log](#session-log) reads. The queue
+part of this context that is not a reading of evidence. A person creates a request
+with a click, and a dispatcher outside the context turns it into a running session.
+The request then joins the session the [Session Log](#session-log) reads. The queue
 never starts a session itself (local
 [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
 
@@ -1279,10 +1336,14 @@ by waiting on the listener's long poll.
 
 | Dispatcher call | What it does |
 | --- | --- |
-| `GET /session-requests/wait` | Answers one item at once — an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`) — or holds the call up to 50 seconds and answers `204`. It hands the item out without claiming it. |
-| `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
-| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request. |
+| `GET /session-requests/wait` | Answers one item at once, or holds the call up to 50 seconds and answers `204`. |
+| `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. |
+| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it.
+- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
+- **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
 Every answer carries the request's brief, built by the server from its kind and id. A
 dispatcher passes the brief on and never writes its own. All four sit behind the
@@ -1343,6 +1404,7 @@ stateDiagram-v2
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
 returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested)
 for every other dispatcher, so a dispatcher that stopped mid-dispatch does not keep it.
+
 The dispatcher whose lease ran out may still report the session it started, as long as
 no other dispatcher has claimed the request since. A slow start is then recorded as
 Started rather than dispatched again. Once another dispatcher claims the request, the
@@ -1391,37 +1453,59 @@ dispatch wait route of the [Session Request Queue](#session-request-queue).
 
 | Call | What it does |
 | --- | --- |
-| `ask` with a session id and `toolUseId`, `questions` or `kind` | Registers a Waiting Question — a `dialog` of one to four questions in `AskUserQuestion`'s shape with its tool use id, or one `prose` question — or answers the one already registered for that tool use. Answers the `route` (`session` or `backlog`), the question's id and `waitSeconds`, the dialog wait. |
-| `get_answer` with the question's id | Marks the hook as still waiting, then holds the call for `waitSeconds`, at most 55 seconds, on a completion source the relay completes when the question is answered or closed. Answers `open`; `answered`, with the answers keyed by question text and a multi-select's labels comma-joined, as the dialog takes them; or `closed` with its reason. |
+| `ask` with a session id and `toolUseId`, `questions` or `kind` | Registers a Waiting Question, or answers the one already registered for that tool use. |
+| `get_answer` with the question's id | Marks the hook as still waiting, then holds the call for `waitSeconds`, at most 55 seconds. |
 | `close` with the question's id | Closes the question with a reason: `answered-in-session`, with the answers in the same shape; `timed-out`; or `session-ended`. |
-| `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first, with the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one. |
-| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. Only the dispatcher holding the claim may mark it. |
+| `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first. |
+| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered` or `released`. |
 | `list_deliveries` | Lists the deliveries not yet delivered, or those Pending or Claimed, for a Manager that restarts. |
 | `GET /hooks/ask-backlog.mjs` | Serves the hook script the desktop app embeds, behind the listener's guard. |
+
+- **`ask`:** The Waiting Question is a `dialog` of one to four questions in `AskUserQuestion`'s shape with its tool use id, or one `prose` question. The call answers the `route` (`session` or `backlog`), the question's id and `waitSeconds`, the dialog wait.
+- **`get_answer`:** The call holds on a completion source the relay completes when the question is answered or closed. It answers one of these:
+  - `open`;
+  - `answered`, with the answers keyed by question text and a multi-select's labels comma-joined, as the dialog takes them;
+  - `closed` with its reason.
+- **`GET /session-requests/wait`:** The answer carries the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one.
+- **`claim_delivery`, `mark_delivery`:** A session that is gone gets `released`. Only the dispatcher holding the claim may mark it.
 
 The hooks are one script, `ask-backlog.mjs`. The desktop app embeds it, serves it on
 the MCP listener and writes the same bytes to `hooks\ask-backlog.mjs` under its app
 data folder on every start, so the installed hook is always the running app's. Its
-first argument names the hook: `pre` and `post` for `AskUserQuestion`, `stop`,
-`prompt` for `UserPromptSubmit`, and `end` for `SessionEnd`. `pre` holds a `backlog`
-dialog on `get_answer`, asking again every 15 seconds while Backlog does not answer,
-and stops at once when Backlog refuses. No call lists a session's questions, so the
+first argument names the hook:
+
+- `pre` and `post` for `AskUserQuestion`;
+- `stop`;
+- `prompt` for `UserPromptSubmit`;
+- `end` for `SessionEnd`.
+
+`pre` holds a `backlog` dialog on `get_answer`, asking again every 15 seconds while
+Backlog does not answer, and stops at once when Backlog refuses. No call lists a session's questions, so the
 script keeps the ids it was given in a file per session beside it. On any error it
 exits 0 without output, so the session never waits on Backlog being up.
 
 The five hooks are installed only at the user scope of the `backlog` server
-registration, each running `node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`:
-`PreToolUse` and `PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second
-timeout, `post`), `Stop`, `UserPromptSubmit` and `SessionEnd`, the four short ones at
-10 seconds. The Dev PC catalog's `backlog` row merges them into Claude's user
-`settings.json` when it registers the server there and takes exactly those entries out
-when it unregisters it, keeping every other hook; a rerun changes nothing. This
-repository's `.mcp.json` registration installs none, and its `.claude/settings.json`
-lists none: user-scope hooks already fire in it, and repository entries would run each
-hook twice and fire for every contributor, CI run and sub-agent, failing wherever no
-release Backlog is installed. The path is the release app's folder: a debug build
-writes the script under `Backlog.Debug`, so its hooks find no script and Claude
-reports a non-blocking hook error.
+registration, each running `node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`.
+They are:
+
+- `PreToolUse` and `PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second
+  timeout, `post`);
+- `Stop`, `UserPromptSubmit` and `SessionEnd`.
+
+The four short ones time out at 10 seconds.
+
+The Dev PC catalog's `backlog` row merges them into Claude's user `settings.json` when
+it registers the server there. It takes exactly those entries out when it unregisters
+it, keeping every other hook, and a rerun changes nothing.
+
+This repository's `.mcp.json` registration installs none, and its
+`.claude/settings.json` lists none. User-scope hooks already fire in it. Repository
+entries would run each hook twice and fire for every contributor, CI run and sub-agent,
+failing wherever no release Backlog is installed.
+
+The path is the release app's folder: a debug build writes the script under
+`Backlog.Debug`, so its hooks find no script and Claude reports a non-blocking hook
+error.
 
 ### Waiting Question
 
@@ -1485,7 +1569,7 @@ lease, so a session that cannot be reached does not wake the Manager on every ca
 question answered in the session, or through the hook, never gets a delivery.
 
 The Manager's capacity rule counts a dispatched session that holds an open Waiting
-Question as waiting, not working: the session list reads it [Waiting](#session-state)
+Question as waiting, not working. The session list reads it [Waiting](#session-state)
 and names the desktop app's id for it, which is the id the Manager started it under.
 
 [A session has at most one open question per tool
@@ -1525,7 +1609,7 @@ its parts.
 
 The context reads it through the `IPresence` port: `IsAway`, `LastInputAt` and
 `LastPromptAt(sessionId)`. The rule itself is platform-free and takes the platform's
-reading of the input; the Windows desktop head answers that reading from
+reading of the input. The Windows desktop head answers that reading from
 `GetLastInputInfo`, sampled when asked, and from the session-switch events Windows
 raises on lock and unlock. An input the platform cannot read counts as at the
 keyboard, so the notify delay still publishes a question nobody answers. The last
@@ -1578,9 +1662,13 @@ Emits sanitized activity updates for a running session to the optional Collectio
 MCP when that session has reporting configured and reaches a meaningful milestone.
 
 The service publishes the beginning of a session, meaningful activity deltas while it
-runs, and a final update when it finishes. It never publishes prompts, transcripts,
-tool output bodies, or secrets. It publishes only the coarse facts this context is
-willing to read back later as activity evidence.
+runs, and a final update when it finishes. It publishes only the coarse facts this
+context is willing to read back later as activity evidence. It never publishes:
+
+- prompts;
+- transcripts;
+- tool output bodies;
+- secrets.
 
 Invocation semantics: event-triggered policy/process-manager behavior. It is invoked
 from session milestones, queued asynchronously, and retried without blocking session
@@ -1704,7 +1792,7 @@ related: [.devbook/domain/sessions/domain.md#liveness-assessment]
 How long a session with liveness evidence may be silent before it reads as `stalled`
 rather than `running`.
 
-A policy, and therefore this context's rather than a rendering detail. The control
+It is a policy, and therefore this context's rather than a rendering detail. The control
 library that draws a stalled chip refuses to own it for exactly that reason. Deciding
 "how long is too long" needs a clock and a product opinion, and neither belongs in a
 component.
@@ -1740,11 +1828,11 @@ describes up to the limit plus every open session. The
 [Session Catalog](#session-catalog) says how many of its sessions are open ones older
 than the newest session the limit dropped, so "the most recent" stays true of the rest.
 
-Per agent, not overall. An environment can hold hundreds of records, and the agents do
+The limit applies per agent, not overall. An environment can hold hundreds of records, and the agents do
 not hold them in equal numbers. A single overall limit would be filled by whichever
 agent kept more history, and would quietly empty a list whose purpose is showing both.
 
-A limit on how much is described, never a claim about how much exists:
+The limit says how much is described and never claims how much exists:
 [the log says how complete it is](domain.invariants.md#invariant-the-log-says-how-complete-it-is).
 It applies to the list's reading only, and
 [a reading since a horizon is never capped by it](domain.invariants.md#invariant-a-reading-since-a-horizon-is-never-capped-by-the-session-limit)
@@ -1790,7 +1878,7 @@ its `Session State` and its `Activity Window`, each exactly as a full reading gi
 it. The list's reading and a reading since a horizon can each be asked for at either
 depth.
 
-A depth and not a third kind of reading, because it decides which fields a session
+It is a depth and not a third kind of reading, because it decides which fields a session
 carries and never which sessions are answered. A source that ignores it answers more
 than was asked for, which is still a right answer. A horizon is the opposite case:
 getting it wrong answers the wrong set of sessions.

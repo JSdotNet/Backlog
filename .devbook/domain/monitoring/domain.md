@@ -20,10 +20,16 @@ aliases: [ProgressSignal, Signal]
 ```
 
 An immutable, timestamped record of a change somewhere in the system, captured
-from a domain or an external source. The aggregate guarantees that each signal
-records its `Signal Type`, source, subject reference and payload at detection
-time. A signal is never changed after capture; a correction arrives as a new
-signal. Signals are the raw material that dashboards and attention rules read.
+from a domain or an external source. A signal is never changed after capture; a
+correction arrives as a new signal. Signals are the raw material that dashboards
+and attention rules read.
+
+The aggregate guarantees that each signal records these at detection time:
+
+- its `Signal Type`;
+- its source;
+- its subject reference;
+- its payload.
 
 The Progress Signal aggregate is a single immutable record with no owned child
 entities; its variable payload is held in the `Signal Payload` value object.

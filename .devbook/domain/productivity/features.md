@@ -34,8 +34,13 @@ sequenceDiagram
   records.
 
 [AI Productivity Tracking](domain.md#ai-productivity-tracking) shows what changed
-because of AI assistance: tasks moved, artifacts created, prompts reused, reviews shortened, or
-research summarized.
+because of AI assistance:
+
+- tasks moved;
+- artifacts created;
+- prompts reused;
+- reviews shortened;
+- research summarized.
 
 ### AI activity capture
 
@@ -43,9 +48,13 @@ research summarized.
 type: sub-feature
 ```
 
-Record AI-assisted activity from task work, Copilot sessions, IDE chats, and
-automation runs with enough context to understand the work without copying tool
-internals.
+Record AI-assisted activity with enough context to understand the work without
+copying tool internals. The activity comes from:
+
+- task work;
+- Copilot sessions;
+- IDE chats;
+- automation runs.
 
 ### Productivity summaries
 
@@ -53,8 +62,14 @@ internals.
 type: sub-feature
 ```
 
-Summarize AI-assisted work by day, week, repository, activity kind, and tool so
-the person can see how AI affects throughput and focus.
+Summarize AI-assisted work so the person can see how AI affects throughput and
+focus. A summary cuts the work by:
+
+- day;
+- week;
+- repository;
+- activity kind;
+- tool.
 
 ### Time-saved estimates
 
@@ -118,15 +133,19 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AiProvidersOverviewTests, unit:
 ```
 
 The AI providers settings page opens on one sentence about every provider it
-offers: the ones set up, joined, report usage, and the rest are not set up —
-"Two Claude organizations and GitHub report usage; Azure Foundry is not set
-up." With none set up it says no AI provider is set up yet. Counts up to nine
-are words.
+offers. The sentence joins the ones set up and says they report usage, then says
+the rest are not set up. An example is "Two Claude organizations and GitHub report
+usage; Azure Foundry is not set up." With none set up it says no AI provider is set
+up yet. Counts up to nine are words.
 
 Under the sentence, one tile per provider carries the same answer as a figure:
-how many Claude organizations hold a key, how many GitHub identities usage is
-read as — every configured account, or this machine's own sign-in when there is
-none — and whether Azure Foundry is ready. Under each figure the tile says when
+
+- **Claude:** how many organizations hold a key.
+- **GitHub:** how many identities usage is read as, which is every configured
+  account, or this machine's own sign-in when there is none.
+- **Azure Foundry:** whether it is ready.
+
+Under each figure the tile says when
 that usage was last read on this device, or why the last read failed, or
 nothing when it was never read. Several Claude organizations show the most
 recent failure while any of them is failing, and the most recent success
@@ -196,9 +215,11 @@ The pane holds six tabs, in this order:
 | Overview | How is it going, and what needs me? | The headline tiles, the main charts and [What needs you](#what-needs-you) |
 | Productivity | How much did I ship, and how much came back? | The throughput tiles, volume over time, the Volume and Quality scores, and rework after review |
 | Tasks | Is the planned work getting done, and will each plan land? | The six task figures, tasks and effort completed per week, and the [roadmap timeline](#whether-each-plan-will-land-in-its-window) |
-| Sessions | When and how long did the agents work? | The session figures, agent-active hours per week, the hour grid, [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked), and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
+| Sessions | When and how long did the agents work? | The session figures, agent-active hours per week, the hour grid, and the parts listed below |
 | Devbook | Which devbook [sync units](../devbook/domain.md#sync-unit) have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
+
+- **Sessions:** The tab's parts are [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked) and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped).
 
 The Devbook tab carries a badge with the number of
 [drift issues](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) open. The badge is
@@ -213,9 +234,15 @@ because a tab is already the second look a fold used to give. A part that folds 
 of its figures away keeps that fold, such as the Sessions tab's More, and the fold
 starts closed again each time the pane opens.
 
-The Productivity tab opens with five throughput tiles in one row: pull requests
-merged, issues closed, the share that came back after review, how long a first review
-took, and commits per pull request. Merged and closed also say how many a week. Each
+The Productivity tab opens with five throughput tiles in one row:
+
+- pull requests merged;
+- issues closed;
+- the share that came back after review;
+- how long a first review took;
+- commits per pull request.
+
+Merged and closed also say how many a week. Each
 tile draws its own weeks as a sparkline. A week with no reviewed merge has no review
 point, and a week with no detail read has no commits point, so the line shows a gap
 rather than a zero. The share that came back reads "N of M", the pull requests that
@@ -242,8 +269,13 @@ lines to give full marks from. The score's note says so.
 
 Last comes rework after review, as two labelled groups of tiles:
 
-- **After review**: the pull requests that churned, commits after the first review,
-  force pushes, files touched again, review rounds and changes requested.
+- **After review**:
+  - the pull requests that churned;
+  - commits after the first review;
+  - force pushes;
+  - files touched again;
+  - review rounds;
+  - changes requested.
 - **Base syncs**: how often a pull request's branch was brought up to date with its
   base. It counts the conflicted syncs out of the pull requests synced, the sync
   merges, and the merges that resolved a conflict.
@@ -302,12 +334,15 @@ from the figures the tab reads, never written by a model:
 
 | Tab | Headline |
 | --- | --- |
-| Overview | "Week 42 · 4 repositories, last 8 weeks": today's ISO week, the repositories in scope, and the window |
-| Productivity | "143 pull requests merged, 17% came back": the share of the reviewed ones, or "none reviewed" when none was |
+| Overview | "Week 42 · 4 repositories, last 8 weeks" |
+| Productivity | "143 pull requests merged, 17% came back" |
 | Tasks | "41 of 55 points done, 1 behind pace" |
 | Sessions | "1,937 sessions, 38 h of agent time" |
 | Devbook | "34 of 42 units agree with the code" |
 | Cost | "€212 this month, heading for €312" |
+
+- **Overview:** The sentence gives today's ISO week, the repositories in scope, and the window.
+- **Productivity:** The share is of the reviewed ones, and it reads "none reviewed" when none was.
 
 With several [spend providers](domain.md#spend-provider), the Cost headline gives one clause per provider, each
 named and in its own currency: "Anthropic €178 this month, heading for €266; Azure AI
@@ -321,7 +356,7 @@ Three controls narrow what the tabs show. The repository chips stay in the shell
 header. The Machine select and the Window toggle sit in the pane header beside the
 close button, because only the dashboard reads them.
 
-The Window toggle offers 4, 8, 12 and 26 weeks, and the pane opens on 12. It is one
+The Window toggle offers 4, 8, 12 and 26 weeks. The pane opens on 12. It is one
 choice, so a screen reader hears one control. Twenty-six weeks is the longest window,
 and it is as far back as [session history](../sessions/domain.md#session-history)
 reaches.
@@ -401,13 +436,16 @@ reason [Spend against a monthly budget](#spend-against-a-monthly-budget) gives.
 
 Each tile carries one chip and, where its figure has weeks behind it, a sparkline. The
 chip shows the delta against the previous window: green when the figure moved the good
-way, amber when it moved the other way. A warning takes the delta's place. The story
-points chip says how many roadmap items are behind pace, and the spend chip says
-whether a provider will pass its budget. The drift chip is red while any drift issue is
-open. When any of them carries `sync-failed`, the chip counts those: "1 sync failed".
-Devbook drift issues open has no sparkline, for the same reason it has no delta. Spend
-this month has none either: the only spend by day adds the providers together, and the
-tile never shows a total.
+way, amber when it moved the other way. A warning takes the delta's place on these chips:
+
+- The story points chip says how many roadmap items are behind pace.
+- The spend chip says whether a provider will pass its budget.
+- The drift chip is red while any drift issue is open. When any of them carries
+  `sync-failed`, the chip counts those: "1 sync failed".
+
+Two tiles have no sparkline. Devbook drift issues open has none, for the same reason it
+has no delta. Spend this month has none because the only spend by day adds the providers
+together, and the tile never shows a total.
 
 A tile whose source could not answer offers to try again. When the source answers, the
 figure appears without the person changing the scope.
@@ -486,8 +524,14 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, un
 
 Show what each [spend provider](domain.md#spend-provider) has cost this month, and
 whether it will stay inside the budget the person set for it. The providers carry
-the same names on the cards, the Overview, the brief, Needs you, the model table
-and Dashboard settings.
+the same names everywhere:
+
+- on the cards;
+- on the Overview;
+- in the brief;
+- in Needs you;
+- in the model table;
+- in Dashboard settings.
 
 Each provider has its own monthly budget, set in Dashboard settings. An empty budget
 means that provider has none. The dashboard projects each provider's month-end spend
@@ -497,8 +541,8 @@ like this:
 projected = spend so far this month + (average daily spend over the last 7 days × days left)
 ```
 
-The days left are the days after today. The 7 days include today and stay inside the month. With fewer than 7 days of the
-month gone, the average is over the days there are, so on the first of the month it
+The days left are the days after today. The 7 days include today and stay inside the month.
+With fewer than 7 days of the month gone, the average is over the days there are, so on the first of the month it
 is that day's spend. A provider is projected past its budget only when it has a
 budget and the projection is above it.
 
@@ -634,17 +678,31 @@ related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answer
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_follow_the_machine_filter, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_longest_sessions_read_to_the_minute_and_link_to_all_of_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardFormatTimeTests]
 ```
 
-The Sessions tab opens on its six figures as one joined row: sessions, agent-active
-time, waiting for a prompt, prompts per session, limit hits and last activity. Under
-them the weekly chart with its cut and the hour grid with office hours marked sit in a
+The Sessions tab opens on its six figures as one joined row:
+
+- sessions;
+- agent-active time;
+- waiting for a prompt;
+- prompts per session;
+- limit hits;
+- last activity.
+
+Under them, the weekly chart with its cut and the hour grid with office hours marked sit in a
 wide column, and the **longest sessions** sit beside them. Hours worked follows below.
 
 The list holds the six sessions with the most agent-active time in the window,
-longest first. Each row names the session as the Sessions pane does, its agent-active
-time, its repository, the model it spent most on and how many prompts the person sent,
-with a bar against the longest. Under a day the time reads to the minute, "2 h 40 m".
-A part the session did not record is left out of its row rather than shown as a
-placeholder. The time is the same measure the agent-active figure sums, so the first
+longest first. Each row has a bar against the longest, and shows:
+
+- the session's name, as the Sessions pane gives it;
+- its agent-active time;
+- its repository;
+- the model it spent most on;
+- how many prompts the person sent.
+
+Under a day the time reads to the minute, "2 h 40 m". A part the session did not record is left out of its row rather than shown as a
+placeholder.
+
+The time is the same measure the agent-active figure sums, so the first
 row never exceeds it, and the list follows the window and the machine like the figures
 do. A session that left no activity to measure is not listed. A link under the list,
 "All 64 sessions →", names how many sessions the window holds and opens the Sessions
@@ -672,9 +730,9 @@ the planned hours of the working week. It shows them in two places:
   hours, with the hours worked set against the hours planned. It is the sum of the
   Sessions tab's chart.
 
-Per day over four weeks, because a month of weeks is five columns that hide the day
-off this part exists to show. Per week over longer windows, because a quarter of days
-is ninety columns nobody can read.
+The part draws days over four weeks, because a month of weeks is five columns that hide
+the day off this part exists to show. It draws weeks over longer windows, because a
+quarter of days is ninety columns nobody can read.
 
 Actual hours are the union of the person's
 [working stretches](../roadmap/domain.md#working-stretch), as Roadmap Planning
@@ -698,15 +756,28 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DriftInsightsTests, unit
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a
-chapter. A unit here is a devbook [Sync Unit](../devbook/domain.md#sync-unit), and
-its verdict is the [Sync Verdict](../devbook/domain.md#sync-verdict) a sweep left on
-it. A drift issue is the
-[`devbook-drift` issue](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) a
-sweep opens. This part is the Devbook tab, framed as "Last verdict per unit". Its subtitle
+chapter. This part is the Devbook tab, framed as "Last verdict per unit". Its subtitle
 counts what the tab holds: "42 units verified · 5 drift issues open · 1 sync failed".
-A stacked bar sums up the last verdict a sweep reached on every unit it has verified:
-aligned, code-ahead, spec-ahead, conflict, and unresolved. A legend gives the count of
-each. Under it, the units that need a look are listed with their
+
+This part uses three words of the devbook's:
+
+- A **unit** is a devbook [Sync Unit](../devbook/domain.md#sync-unit).
+- A **verdict** is the [Sync Verdict](../devbook/domain.md#sync-verdict) a sweep left on
+  a unit.
+- A **drift issue** is the
+  [`devbook-drift` issue](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) a
+  sweep opens.
+
+A stacked bar sums up the last verdict a sweep reached on every unit it has verified,
+and a legend gives the count of each verdict:
+
+- aligned;
+- code-ahead;
+- spec-ahead;
+- conflict;
+- unresolved.
+
+Under the bar, the units that need a look are listed with their
 direction, their last verdict, what the sweep did about it, and when. The aligned
 units are folded away behind a "Show all" link that names how many units there are.
 
@@ -722,18 +793,24 @@ Beside the units, a side list holds the `devbook-drift` issues still open. Those
 labelled `sync-failed` come first, marked with the label's badge. That label means a
 sweep tried the unit, did not finish, and will not try again until a person clears
 the label. A unit
-whose drift issue carries the label is marked in its row too. Each issue has a
-sentence and an action. A `sync-failed` issue says the sweep will not retry until the
-label is cleared, and its action is "Clear the label". Any other issue takes its
-sentence from its unit's last verdict, and its action is "Open issue". Both actions
-open the issue on GitHub, where the person clears the label: the dashboard writes
-nothing. A long issue title is cut short in its row, and the whole title shows on
+whose drift issue carries the label is marked in its row too.
+
+Each issue has a sentence and an action:
+
+- A `sync-failed` issue says the sweep will not retry until the label is cleared, and
+  its action is "Clear the label".
+- Any other issue takes its sentence from its unit's last verdict, and its action is
+  "Open issue".
+
+Both actions open the issue on GitHub, where the person clears the label: the dashboard
+writes nothing. A long issue title is cut short in its row, and the whole title shows on
 hover.
 
 The direction is the one the sweep read when it verified the unit, so the filter also
 picks the sweep that owns the units. A unit no sweep has verified is not listed.
 The repository chips narrow the tab. The window and the machine do not, because a
 verdict is the latest a sweep left and an issue is open now, and the header says so.
+
 The verdicts are this machine's and the issues are GitHub's, and either shows without
 the other. Issues that cannot be read leave the units standing and say why. A
 repository whose issues cannot be read is named, so the reader knows which account
@@ -744,7 +821,7 @@ The issues are read from each repository's list of open issues labelled
 `devbook-drift`, not through GitHub search. Search refuses a query outright when it
 names a repository the account cannot see, and it allows only 30 requests a minute,
 shared with the other dashboard reads. The read is kept for the repositories in
-scope, so the Devbook tab, its badge, the Overview tile and Needs you share one read.
+scope, so the Devbook tab and its badge, the Overview tile and Needs you share one read.
 Moving the window or the machine reads nothing new. A refresh reads again, and so does
 a change of repositories. A failed read is tried again the next time it is asked for,
 unless GitHub refused it for its rate limit; that one is kept until a refresh.
@@ -761,10 +838,17 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:
 See, without opening the roadmap, which plans will land inside the window they
 were given. The Tasks tab draws the roadmap as a week-by-week timeline. The timeline holds the plans whose window overlaps
 the weeks the selector picks, together with every plan whose window is still sized
-by its effort. Each plan says how its work stands: finished, on track, behind,
-overdue, not sized, or with no pace to read it at. The Overview's roadmap chart sets
-the same plans against their pace, and a plan that is behind pace is listed under
+by its effort. The Overview's roadmap chart sets the same plans against their pace, and a plan that is behind pace is listed under
 [What needs you](#what-needs-you).
+
+Each plan says how its work stands:
+
+- finished;
+- on track;
+- behind;
+- overdue;
+- not sized;
+- with no pace to read it at.
 
 A finished plan's bar ends in the week its work landed, never at its planned end,
 because work that is done cannot run on past today. One that landed before its planned
@@ -781,10 +865,14 @@ why. It sits behind an info mark beside the row's progress, so a keyboard or tou
 user reaches it as well as a mouse user.
 
 A plan is **behind pace** when its projection ends after its window, or when its
-window has ended with work still open. The dashboard counts it one way everywhere:
-the Tasks tab's figures, the Overview's tile and chips, the header, Needs you and the
-brief. Both cases share the Behind tone, and the outlook sentence says which one it
-is.
+window has ended with work still open. Both cases share the Behind tone, and the outlook
+sentence says which one it is. The dashboard counts it one way everywhere:
+
+- the Tasks tab's figures;
+- the Overview's tile and chips;
+- the header;
+- Needs you;
+- the brief.
 
 Each plan's outlook is decided in this order:
 

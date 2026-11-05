@@ -8,8 +8,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 > Structural view of the domain model for this bounded context: aggregates,
 > entities, value objects, and their relationships. Keep this in sync with
 > `domain.md` (which describes responsibilities/invariants in prose) — this file
-> focuses on structure and relationships. Lifecycle and process flows live in
-> `flow.md`.
+> focuses on structure and relationships.
 
 ## Model diagram
 
@@ -140,8 +139,8 @@ classDiagram
   not one per repository or per project. There is no `Plan` selector in the model
   because a person has one set of intentions, read in different groupings.
 - `RoadmapItem` and `Milestone` are owned entities, not aggregates. They are drawn
-  with composition because they have no life outside the plan: deleting the plan
-  deletes them, and neither can be loaded, validated, or saved on its own.
+  with composition because they have no life outside the plan. Deleting the plan
+  deletes them, and neither can be loaded, validated or saved on its own.
 - `Dependency` points at a **Roadmap Node**, the union of `RoadmapItem` and
   `Milestone`, which is why both dotted associations leave the same class. There
   is no inheritance between item and milestone: they share an id space and a role

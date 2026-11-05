@@ -28,15 +28,25 @@ related: [.devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/f
 
 Organize notes into areas, one top folder each, shown as one tab each. The
 areas the Brain's `CONVENTIONS.md` declares come first. A Brain that declares
-none uses the PARA set: an inbox for what is not filed yet, Projects (active,
-deadline), Areas (ongoing), Resources (reference), People, a Journal, and
-Archive (inactive). Every other top folder that holds a note follows as an area
-named after its folder, so a note filed into a new folder shows at once. A
-folder `CONVENTIONS.md` lists under `## Ignore` never becomes a tab.
+none uses the PARA set:
+
+- an inbox for what is not filed yet;
+- Projects (active, deadline);
+- Areas (ongoing);
+- Resources (reference);
+- People;
+- a Journal;
+- Archive (inactive).
+
+Every other top folder that holds a note follows as an area named after its
+folder, so a note filed into a new folder shows at once. A folder
+`CONVENTIONS.md` lists under `## Ignore` never becomes a tab.
+
 A dated area lists newest first: the `journal` folder, or any area whose
 `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so
 the name descending is the date descending, at every level of the folder; every
 other area lists by name.
+
 Moving a note to another area is moving its file to another folder; a note may
 name its area in its `para` field instead, which wins over the folder.
 
@@ -91,7 +101,7 @@ the app reads it both ways from there:
   has no Brain to read, the press shows a *not available* toast and opens
   nothing.
 
-The reverse is read, never written: a task's record carries no note, and the badge
+The reverse is read, never written: a task's record carries no note. The badge
 is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so
 another reader of the same backlog sees none. Embedding a note's content in a task's
 details is not built.
@@ -113,8 +123,8 @@ narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
 tasks with no repository, and the notification centre to the notifications about
 no repository. It also shows the Brain when the Devbook is opened. Pull
 requests and the Roadmap read Brain alone as nothing pressed: every pull request
-belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
-means everything.
+belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed,
+and nothing pressed still means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
 The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
@@ -174,9 +184,9 @@ carries a teal **Brain** badge after its title. The folder's path sits where a
 repository's branch picker would be, and there is one tab per area of the Brain:
 the declared areas, then the discovered ones.
 
-**Show hidden** in the menu brings back what the Brain hides: every folder
+**Show hidden** in the menu brings back what the Brain hides. Every folder
 `CONVENTIONS.md` lists under `## Ignore` and every dot-folder gets a tab after the
-rest, marked hidden, and an area's menu lists its dot-entries too. It is off by
+rest, marked hidden. An area's menu lists its dot-entries too. It is off by
 default, and the app remembers it per device in its own settings, never in the
 folder. It changes only what the pane shows: search, the atlas and the Brain
 database still leave hidden folders out.
@@ -185,8 +195,9 @@ The tree, the rendered chapter and the editor are the ones a repository devbook
 uses, and a Brain note is always editable. The reader leaves a remark on a
 note's block as on a chapter's, and edits, resolves or deletes it there. A Brain
 remark is stored under the Brain's scope, by the note's path from the Brain's
-root, so the agent lists and resolves it on `#brain`. What only a repository
-has is absent: branch updates, sync verdicts and scenario marks. So is opening
+root, so the agent lists and resolves it on `#brain`.
+
+What only a repository has is absent: branch updates, sync verdicts, scenario marks and opening
 the folder in an editor. Search is offered on the Brain as on a repository, because it is one
 [Unified search](../devbook/features.md#unified-search) wherever it is opened. The **Atlas** button
 opens the Brain's own map instead of a repository's
@@ -205,10 +216,10 @@ On the Brain, and while the switch shows, the pane names itself *Devbook* at the
 start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
 
-The pane's own width decides its layout, not the window's. Narrower than a menu
-beside a readable column, as in a narrow window, the menu sits above the
-note, capped so the note still starts on screen, and a note's title wraps above
-its path rather than ending in an ellipsis.
+The pane's own width decides its layout, not the window's. When the pane is
+narrower than a menu beside a readable column, as in a narrow window, the menu
+sits above the note. The menu is capped so the note still starts on screen, and a
+note's title wraps above its path rather than ending in an ellipsis.
 
 With no folder set up yet, the pane on the Brain asks for one. A folder that is
 set but missing, or is not a path, says so in words and shows no tabs. A
@@ -237,11 +248,12 @@ and the chapter:
 
 | Link state | Chip | It adds |
 | --- | --- | --- |
-| The alias names a repository configured here, as a clone or a branch snapshot, and its devbook shows the section the path lies in | Gold; opens that repository's devbook at the chapter | Nothing |
+| The alias is configured here, and its devbook shows the section the path lies in | Gold; opens that repository's devbook at the chapter | Nothing |
 | The alias is not configured on this machine | Dashed | *not on this machine* |
 | The alias is configured, but the path lies in no section its devbook shows | Dashed | *not a chapter in its devbook* |
 
-The chip's tooltip is the raw link in every state. An unresolved link is never an
+A repository counts as configured here as a clone or as a branch snapshot. The
+chip's tooltip is the raw link in every state. An unresolved link is never an
 error, because the same Brain is read on machines with different repositories.
 Following a gold chip leaves the header scope alone. The pane reads the
 repository as it does for a task's reference, and the switch or the scope brings
@@ -250,14 +262,17 @@ the Brain back.
 The reverse is shown, never written. Under a repository chapter, a teal **From
 your Brain** box lists the Brain notes that link to it, marked *Only you see
 this*. It reads the owner's own Brain database, and nothing is written into the
-repository, so personal notes never reach shared history. A link to any heading
-of the chapter's file counts. A note is listed once. If all its links sit inside
-chapters, it is listed under the first. If any link is in `related` or outside
-every chapter, it is listed on its own. A chapter no note links to draws no box.
-Each note in the box is a link: following it puts the note on the Brain side of
+repository, so personal notes never reach shared history. A repository devbook
+has no way to link into a Brain.
+
+A link to any heading of the chapter's file counts. A note is listed once. If all
+its links sit inside chapters, it is listed under the first. If any link is in
+`related` or outside every chapter, it is listed on its own. A chapter no note
+links to draws no box.
+
+Each note in the box is a link. Following it puts the note on the Brain side of
 the pane, the way a Brain search result does, and leaves the header's scope and
 the task filter alone.
-A repository devbook has no way to link into a Brain.
 
 ## Atlas edges
 
@@ -273,13 +288,16 @@ between them, read from the Brain's own database. Each repo link, in a note's
 `related` or its prose, is an edge to a node for the repository chapter it
 names. The edge is labelled with the repository's alias, and the chapters of one
 repository gather in one group named for that alias. One chapter is one node,
-whichever devbook layout or alias case a note wrote it in. A link this machine
-can follow is a solid edge to a filled node. One it cannot is a dashed edge to a
-hollow node, like its chip. The atlas reads no repository: what a repository
-node shows is the link's own words. An edge's label sits at the middle of its
-curve unless that overlaps a node, a node's label, or another edge's label; it
-then steps along the curve or just above or below it, and an edge with no free
-seat goes unlabelled, because the node labels are what the reader navigates by.
+whichever devbook layout or alias case a note wrote it in.
+
+A link this machine can follow is a solid edge to a filled node. One it cannot is
+a dashed edge to a hollow node, like its chip. The atlas reads no repository: what
+a repository node shows is the link's own words.
+
+An edge's label sits at the middle of its curve unless that overlaps a node, a
+node's label, or another edge's label. It then steps along the curve or just above
+or below it. An edge with no free seat goes unlabelled, because the node labels
+are what the reader navigates by.
 
 Selecting a repository node shows the link's chip. A gold chip opens that
 repository's devbook at the chapter, as a chip in a note does. A dashed one says
@@ -320,24 +338,35 @@ the default view.
 | **Brain** | The Brain alone, by region |
 | One per devbook | That devbook alone, by region, with a Brain hub beside it |
 
-When nothing in scope has a devbook — a repository with none pressed alone —
+When nothing in scope has a devbook, such as a repository with none pressed alone,
 the atlas says so in words and offers another pick or **Ghosts**, never an
 empty map nor everything.
 
-**Layout.** The map fills the atlas, and everything else floats over it: the
-title at the top left, the left panel with the scope card under it, the
-picture's controls and the chips at the top right, the list of marks down the
-right, and the foot along the bottom. A drag or a scroll that starts on any of
-them leaves the camera alone. In a window 60rem wide or narrower nothing
-floats. The parts stack in one column, in the order the keyboard meets them:
-the title, the controls, the chips, one disclosure that folds the panel and the
-scope card away, the map with its list under it, and the foot. The chips keep
-one row and scroll sideways.
+**Layout.** The map fills the atlas, and everything else floats over it:
+
+- the title at the top left;
+- the left panel, with the scope card under it;
+- the picture's controls and the chips at the top right;
+- the list of marks down the right;
+- the foot along the bottom.
+
+A drag or a scroll that starts on any of them leaves the camera alone.
+
+In a window 60rem wide or narrower nothing floats. The parts stack in one column,
+in the order the keyboard meets them:
+
+- the title;
+- the controls;
+- the chips, which keep one row and scroll sideways;
+- one disclosure that folds the panel and the scope card away;
+- the map, with its list under it;
+- the foot.
 
 **The camera.** The brains move like a globe in the hand. A drag carries the
 near face of a brain with the pointer, across as well as up and down. A brisk
-drag carries on after release and comes to rest within about a second. A press
-on brains still turning only stops them, and selects nothing. A press on a mark
+drag carries on after release and comes to rest within about a second.
+
+A press on brains still turning only stops them, and selects nothing. A press on a mark
 that does not move selects the mark and leaves the camera where it is. A scroll
 zooms toward the point under the pointer, easing to each step, between half and
 2.4 times.
@@ -385,7 +414,7 @@ Archive is no region: its notes are the faint dust around the outside.
 | Cerebellum | `ai/` |
 | Brain stem | Each folder's convention root and the reading-order roots |
 
-Parietal starts hidden in each devbook's scope: the atlas holds a devbook's
+Parietal starts hidden in each devbook's scope. The atlas holds a devbook's
 `tech/` chapters but draws them only once the reader turns the region on, with
 its chip, its row in the left panel or **All**. The panel still lists Parietal
 with its count while it is hidden.
@@ -393,7 +422,7 @@ with its count while it is hidden.
 Technology starts hidden in All too: no devbook's `tech/` chapters are drawn
 on the map or listed beside it there. All has no region chips, so it carries
 one more toggle of its own, **Tech**, after **Labels** and
-**Pause** at the top right. It starts off; turning it on draws every devbook's `tech/` chapters
+**Pause** at the top right. It starts off. Turning it on draws every devbook's `tech/` chapters
 in their Parietal regions, and turning it off hides them again. It acts on All
 alone and leaves each devbook scope's own Parietal chip as the reader set it.
 
@@ -401,11 +430,13 @@ alone and leaves each devbook scope's own Parietal chip as the reader set it.
 and one for each area. Occipital draws the repository chapters the notes link
 to as one hub per repository alias, with a bundle to each chapter. A chapter of
 a note takes the note's region, and a PARA area kept under another folder name
-keeps its region. A chapter a registered devbook's index does not hold is drawn
+keeps its region.
+
+A chapter a registered devbook's index does not hold is drawn
 dashed inside that devbook, in the link's own words, and its chip reads *not a
 chapter in its devbook*. Every chapter the notes name in a devbook not indexed
 yet is drawn the same way, but its chip reads *its devbook is not indexed yet —
-see its scope card*: the index is missing, not the chapter, as the card says.
+see its scope card*. The index is missing, not the chapter, as the card says.
 
 **Counts.** Each scope counts its marks per region, its notes or chapters
 without the hubs, and the Brain notes that link into it. The Brain's count is
@@ -430,9 +461,11 @@ heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
 **The top right.** **Labels** and **Pause** sit beside the close button, then
 **Tech** in All and **Ghosts** while a ghost exists. In a single scope **All**
 and **None** follow, with one chip per region under them, named by a short code
-such as `FRO` or `ARC`. All has no chips. A chip shows or hides what it names,
-as the panel's row does. **All** and **None** act on the current scope only,
-so the regions hidden in another scope stay hidden. In a scope, **None** hides the Archive dust with the regions, so nothing is left on
+such as `FRO` or `ARC`. All has no chips.
+
+A chip shows or hides what it names, as the panel's row does. **All** and **None**
+act on the current scope only, so the regions hidden in another scope stay hidden.
+In a scope, **None** hides the Archive dust with the regions, so nothing is left on
 the map or in the list beside it, and **All** shows it again. The dust has no
 chip or row of its own, so showing one region again after **None** leaves it
 hidden until **All**. The picture's **All** is named *All regions* for a
@@ -455,9 +488,9 @@ settings reopens the atlas on that ghost, with the same way back as before.
 Once the alias is registered, the header's scope selects that repository and
 the atlas follows it.
 
-**The foot.** Along the map's bottom edge, the hint "Drag — rotate · Scroll —
-zoom" ends with the zoom level, and an orientation marker draws the superior,
-anterior and left axes turning with the camera.
+**The foot.** The map's bottom edge holds the hint "Drag — rotate · Scroll —
+zoom", which ends with the zoom level. An orientation marker beside it draws the
+superior, anterior and left axes turning with the camera.
 
 **Every control.** Each control of the atlas is a real button at least 44 px
 square with a visible focus ring, and every toggle reports whether it is
@@ -479,16 +512,16 @@ focus back on the mark's row.
 **No index yet.** With no Brain index built yet, the atlas shows an empty state
 instead of a map. Its header names the Brain in its badge beside the title, as
 the header does over any atlas with no map to show. It says the Brain is not
-indexed yet, and offers **Build the index now** and **Back to notes**. Building runs the same refresher that builds
-the index in the background, and the map takes the empty state's place once the
-index exists. A build that fails, or finds nothing to index, says why and keeps
+indexed yet, and offers **Build the index now** and **Back to notes**.
+
+Building runs the same refresher that builds the index in the background. The map takes
+the empty state's place once the index exists. A build that fails, or finds nothing to index, says why and keeps
 the offer. A host that cannot build the index offers only **Back to notes**.
 Back to notes leaves the atlas the way its close button does.
 
 **Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
 opens this atlas on the header's repository scope, whose anchor the pane
-reads. While it
-is off, the button opens today's atlas. The Technology section keeps its own
+reads. While it is off, the button opens today's atlas. The Technology section keeps its own
 views either way; no atlas draws the stack.
 
 ## Capture into the Brain

@@ -52,11 +52,11 @@ sequenceDiagram
   `unreadable`, and the Claude sessions still answer, unstamped. A malformed record
   costs only itself, and a missing store is a machine without the desktop app.
 - **Duplicates are collapsed before anything else.** One session can leave more than
-  one record. It may leave a live marker per process beside its own transcript, or two
-  transcripts when it changed folder and was filed under both. The aggregate's first
-  invariant is that it appears once. The most recent record wins: it is the one the
-  agent went on writing, and for a live session it is the process actually running.
-  The collapse comes before the cap and before the count. So a session filed twice
+  one record: a live marker per process beside its own transcript, or two transcripts
+  when it changed folder and was filed under both. The aggregate's first invariant is
+  that it appears once. The most recent record wins, because it is the one the agent
+  went on writing, and for a live session it is the process actually running.
+  The collapse comes before the cap and before the count, so a session filed twice
   costs one place in the list rather than two, and the number travelling back is a
   number of sessions.
 - **Liveness is assessed last, per session, against one clock.** A single clock per
@@ -78,9 +78,9 @@ open pull requests the sessions shipped. Each of the two lists takes the whole s
 while it is open. Escape, its close button or a second press of its option returns to
 the view that was showing before. Goals, first in the group, is a view instead.
 
-One list rather than one per agent, because the question is about the work and not
-about the vendor. A person who has both agents installed does not think in two
-inventories.
+The inventory is one list rather than one per agent, because the question is about
+the work and not about the vendor. A person who has both agents installed does not
+think in two inventories.
 
 ### Live and past sessions together
 
@@ -90,10 +90,10 @@ related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
 tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_empty_open_view_names_all_as_the_way_out
 ```
 
-A session that is running now and a session that finished last week are rows in the
-same list, told apart by their state rather than by which list they are in. Two lists
-would force the reader to know which one to look in before knowing whether the
-session had ended. That is usually the thing they are trying to find out.
+A session that is running now and one that finished last week are rows in the same
+list, told apart by their state. Two lists would force the reader to know which one
+to look in before knowing whether the session had ended, and that is usually what
+they are trying to find out.
 
 The list **opens on part of itself**, and that is a smaller concession than splitting
 it. One list narrowed by a control is still one list:
@@ -113,11 +113,11 @@ related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessi
 tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_open_finished_row_reads_idle_in_open_and_finished_everywhere_else, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Scheduled_runs_sit_in_one_folded_section_at_the_end_of_open, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_panel_never_shows_a_folded_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.With_only_scheduled_rows_folded_away_there_is_no_panel]
 ```
 
-The list opens on the sessions that are still going. A `Live` / `Open` / `All` choice sits
-first in the row of controls above it, before the grouping, because it decides which
-rows exist before the grouping decides where they sit. "What is going on right now" is
-the question somebody opens this for. Several hundred finished records answer a
-different one.
+A `Live` / `Open` / `All` choice sits first in the row of controls above the list,
+before the grouping, because it decides which rows exist before the grouping decides
+where they sit. The list opens on `Live`, the sessions still going, because "What is
+going on right now" is the question somebody opens it for. Several hundred finished
+records answer a different one.
 
 Live means running **or** stalled. Stalled is computed from silence rather than
 declared by the agent, because nothing writes "I have stopped". So a stalled session is
@@ -132,9 +132,13 @@ title says what it means: "Open in the Claude desktop app with no process runnin
 reads Finished". The desktop app's scheduled routine runs sit in one folded
 **Scheduled** section at the end of the list.
 
-Open reads only this PC's desktop app. A session from another machine, a CLI-only
-session, and a running session the desktop app keeps no record of, such as a side
-session, are never in it. The desktop app's store is a private format this product
+Open reads only this PC's desktop app. It never holds:
+
+- a session from another machine;
+- a CLI-only session;
+- a running session the desktop app keeps no record of, such as a side session.
+
+The desktop app's store is a private format this product
 conforms to ([dependencies](dependencies.md)). Each row keeps the title the transcript
 gives it, not the title the desktop app shows.
 
@@ -147,10 +151,12 @@ product has lost their sessions.
 thin.** Claude leaves a record per running session, so its live rows are evidence.
 Copilot leaves no liveness marker at all. Its sessions read as running while their
 record is fresh, and as finished once it has been quiet for longer than the
-`Stale Threshold`; they never read as stalled. So a Copilot session that is running but
-has said nothing for half an hour falls out of this view. That is a limit of what
-Copilot writes down, not a rule this product wanted. It is why the empty state names
-the way back to `All` instead of leaving it to be discovered.
+`Stale Threshold`; they never read as stalled.
+
+So a Copilot session that is running but has said nothing for half an hour falls out
+of this view. That is a limit of what Copilot writes down, not a rule this product
+wanted. It is why the empty state names the way back to `All` instead of leaving it
+to be discovered.
 
 A session that arrived from another machine is thin in the same way, for a different
 reason: a record carries no liveness marker, whichever agent wrote it. So it too falls
@@ -171,8 +177,8 @@ rather than forgotten. It composes with the view: `Live` on one machine is the r
 and stalled sessions there and nothing else. `Open` on another machine is empty, because
 Open reads only this PC's desktop app, and its empty state says so.
 
-A list rather than a row of buttons, because the options are however many machines
-have reported, which is not this list's decision. An option is offered exactly when
+The filter is a list rather than a row of buttons, because the options are however
+many machines have reported, which is not this list's decision. An option is offered exactly when
 there are rows behind it. Options are named and ordered the way Group by environment
 names its sections, so the two cannot disagree. Like the view, it is not remembered:
 every open starts on "All machines".
@@ -258,13 +264,15 @@ related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessio
 A session that ran on one of the person's machines can be read on another. The
 record travels and the work stays where it happened. What arrives joins the same list
 rather than a panel of its own. Somebody running agents on a desktop and a laptop has
-one set of sessions on two boxes, not two inventories to check in turn.
+one set of sessions on two machines, not two inventories to check in turn.
 
 It is off until the person switches it on. The one Sync switch that turns on pairing
 and the tasks' sync also turns this on, and that switch starts off. A record of what
 the assistants have been doing is the kind of thing a person agrees to let off a
 machine, rather than finds out has left it. One switch is enough because the question
-a person answers is whether this machine takes part in sync at all. The sanitization
+a person answers is whether this machine takes part in sync at all.
+
+The sanitization
 boundary makes that one answer safe to give
 ([Session Record Sync](../../arc42/08-crosscutting-concepts.md#session-record-sync));
 [what may travel](domain.invariants.md#invariant-only-the-published-fields-travel)
@@ -272,21 +280,28 @@ is an invariant of the log.
 Until sync is on, the list holds everything read here and nothing else.
 
 **A row from elsewhere says less than a row read here, and visibly so.** What
-travelled is which agent, which machine, which repository and branch, when the session was alive, how much of it there was, its title, and the
-usage limits that refused it. So such a row has no working folder to show. That is not
-a gap waiting to be closed, because a folder names a disk the reading machine cannot
-see. The row still carries the delivery runs filed under that folder, matched on the
+travelled is:
+
+- which agent and which machine;
+- which repository and branch;
+- when the session was alive and how much of it there was;
+- its title;
+- the usage limits that refused it.
+
+So such a row has no working folder to show. That is not a gap waiting to be closed,
+because a folder names a disk the reading machine cannot see. The row still carries the delivery runs filed under that folder, matched on the
 worktree key its record carried. A record from a device older than the title field is
 headed by its session id, an identifier that plainly reads as one.
 
 **A session of this machine's outlives its transcript.** The assistant cleans its
 transcripts away after a month by default. This machine keeps its own record of every
 session it has read, with or without sync. So the session stays in the list after the
-files are gone: titled, with its folder, dated, measured and with its refusals. While
-the transcript is there the row is read from it, and the record is never shown beside
-it. A row answered from the record says so under its folder, in the origin line's
-quiet register: the transcript is gone, and what it shows is what the last reading
-kept.
+files are gone, and it keeps its title, folder, dates, measurements and refusals.
+
+While the transcript is there the row is read from it, and the record is never shown
+beside it. A row answered from the record says so under its folder, in the origin
+line's quiet register. The transcript is gone, and what it shows is what the last
+reading kept.
 
 The pane amends the records of the sessions that moved each time it opens. **Update
 records**, beside Refresh, amends every record the files still hold, under
@@ -297,9 +312,10 @@ sends every record again so the other machines are amended too.
 **And it reads as finished once it goes quiet, sooner than the truth may be.** A
 record carries no liveness marker. So a session nobody has heard from for longer than
 the `Stale Threshold` reads as over. That is the treatment Copilot's sessions already
-get here, for the same reason and at the same cost. A session still running on the
-other machine can therefore drop out of the live view between one exchange and the
-next. Reading it as stalled would be the worse answer. Stalled says something is still
+get here, for the same reason and at the same cost.
+
+A session still running on the other machine can therefore drop out of the live view
+between one exchange and the next. Reading it as stalled would be the worse answer. Stalled says something is still
 there and quiet, and a record cannot tell that from a session that ended a month ago.
 
 ### Re-read on request
@@ -329,11 +345,17 @@ type: feature
 related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
-Carve the same list up by the things that separate sessions from each other in
-practice, without removing any of them: when they ran, which plan they belong to, what
-they are for, which repository they were in, and which machine ran them. The list
-opens grouped by When, which puts the standing sessions on top, then the live ones, and
-the rest under the day they were last active.
+Carve the same list up by the things that separate sessions in practice, without
+removing any of them:
+
+- when they ran;
+- which plan they belong to;
+- what they are for;
+- which repository they were in;
+- which machine ran them.
+
+The list opens grouped by When, which puts the standing sessions on top, then the live
+ones, and the rest under the day they were last active.
 
 ### Standing under When
 
@@ -342,7 +364,7 @@ type: sub-feature
 related: [.devbook/domain/sessions/domain.md#session-title-reading, .devbook/domain/sessions/domain.invariants.md#invariant-a-standing-session-leaves-standing-only-while-it-runs]
 ```
 
-A session titled as an artifact, a design, a plan, research or a hold is one the reader
+A session with a [standing purpose](domain.md#session-title-reading) is one the reader
 keeps until it is archived. When opens with a Standing section that holds them, above
 Live now, so they do not sink under the days. A standing session that is running sits in
 Live now and returns to Standing when it stops. A scheduled run never stands.
@@ -379,7 +401,7 @@ related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessio
 ```
 
 A section per environment, named after it, with its own count, so "how many are
-running on that box" is read rather than counted.
+running on that machine" is read rather than counted.
 
 A reader whose machines exchange session records gets a section per machine that has
 reported. Which section a row lands in is settled by the environment that gathered it,
@@ -389,7 +411,9 @@ it is being read.
 A section for a machine the reader is not sitting at is as fresh as that machine's
 last exchange and no fresher. That has a real cost. A session started since is not in
 the section at all, so its count answers for what has arrived rather than for what is
-happening over there. What the section does not do is lie about the sessions it has.
+happening over there.
+
+What the section does not do is lie about the sessions it has.
 Their state is derived against the reader's own clock from the timestamps that
 travelled. So a row ages honestly on this side instead of repeating the other
 machine's opinion of it. That is why the staleness is named here once, not as a
@@ -489,9 +513,9 @@ related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessi
 ```
 
 Show the orchestrated delivery runs an environment's dashboards recorded in the same
-list as the sessions: which skill ran, what it was called, how it ended, and how much
-it cost. A run is a piece of work a session was doing, and a reader asking "what has
-been going on here" wants both answers in one place.
+list as the sessions. Each run says which skill ran and what it was called, how it
+ended, and how much it cost. A run is a piece of work a session was doing, and a reader
+asking "what has been going on here" wants both answers in one place.
 
 **One list, whichever side arrived first.** A session record and a run file describe
 the same piece of work from two sides, and either can be the one this environment
@@ -521,20 +545,30 @@ related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/ses
 A run attached to a listed session is shown on that session's run card, in the detail
 panel the row opens. The card reads top to bottom in the order a reader asks:
 
-1. **The header**: "Delivery run", the flow it ran in, the work it is linked to, and
-   its outcome at the right.
-2. **The insight**: once the run has finished, a callout on its cost against the usual
-   run of its flow ([Each stage against its usual cost](#each-stage-against-its-usual-cost)).
-3. **The figures**, as tiles: stages done, the cost, the context peak, and the tool
-   calls. A figure the run does not carry is left out, never shown as zero. Under them,
-   quietly, the run's share of the week.
+1. **The header**: "Delivery run" and the flow it ran in, the linked work, and its
+   outcome at the right.
+2. **The insight**: a callout on a finished run's cost against its flow's usual run
+   ([Each stage against its usual cost](#each-stage-against-its-usual-cost)).
+3. **The figures**, as tiles: stages done and the cost, then the context peak and the
+   tool calls.
 4. **The stages**: the legend, then one row per stage
    ([How each stage of a run ran](#how-each-stage-of-a-run-ran)).
-5. **A footnote** saying what Configured means and what "vs typical" is compared with:
-   the stage's median over the last 30 runs of the run's own flow.
-6. **Run details**, behind a closed fold: the run's own title and id, the surfaces that
-   reported it, its change kind and schedule, its sync verdicts, the context gauge, the
-   token buckets, and the tool activity by category and by MCP server.
+5. **A footnote** saying what Configured means and what "vs typical" is compared with.
+6. **Run details**, behind a closed fold.
+
+A figure the run does not carry is left out, never shown as zero. Under the tiles,
+quietly, sits the run's share of the week. "vs typical" compares a stage with its median
+over the last 30 runs of the run's own flow.
+
+The run details hold:
+
+- the run's own title and id;
+- the surfaces that reported it;
+- its change kind and schedule;
+- its sync verdicts;
+- the context gauge;
+- the token buckets;
+- the tool activity by category and by MCP server.
 
 The stages are a list. Each row says where its stage stands in a word beside its dot,
 so the run's progress reads without a diagram and in the same place as how each stage
@@ -780,7 +814,7 @@ A run recorded here shows what it cost the way a dashboard's run does:
 
 - the tool calls it made, by kind and by MCP server;
 - the agents it delegated to;
-- the tokens it spent, in total, delegated, and per stage;
+- the tokens it spent, in total, delegated and per stage;
 - how full its context window got.
 
 The session reports these itself, from the moments its own tools run. The run cannot
@@ -810,8 +844,8 @@ measured, not the run's to claim. A report written afterwards about many runs is
 reader they are for, so it reads them through `list_run_usage`, a read-only tool of its
 own beside the delivery surface, behind the same Sessions switch.
 
-For a window — the last seven days, or a range of whole days — it answers every run on
-this machine that started inside it, across every repository:
+For a window, either the last seven days or a range of whole days, it answers every run
+on this machine that started inside it, across every repository:
 
 - the repository the run is placed in: the one it named, else its session's, else the
   work it was linked to; a run nothing places is kept, with no repository;
@@ -866,14 +900,14 @@ right the bar shows:
 Group by sits beside them, then Clear filters while any of them narrows the list, and
 Update records and Refresh at the end. Purpose, Plan and Plan state read the session's
 title (see [Session Title Reading](domain.md#session-title-reading)). Clear filters
-returns every filter but Show to its first option. One bar, because a reader who
-wonders why a session is missing should find every reason in one place. Each filter
+returns every filter but Show to its first option. The filters share one bar, because
+a reader who wonders why a session is missing should find every reason in one place. Each filter
 only removes rows, so the order on screen does not change what the list shows. The
 order the surface applies them in is the [Session View](domain.md#session-view)'s.
 
 Live, Open and each Purpose option carry how many rows they would show under the other
-filters, so pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
-by comes back to When.
+filters, so pressing one is never a guess. Every filter comes back to its first
+option on every opening, and Group by comes back to When.
 
 The count beside the title keeps its promise from
 [Grouping never hides a session](#grouping-never-hides-a-session): it names both numbers
@@ -928,21 +962,17 @@ type: sub-feature
 related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repository-management/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repository-management/features.md#one-verdict-per-pull-request]
 ```
 
-Picking a row opens a detail panel beside the list. It holds three things, in this order:
-
-- the session's facts, with its model and effort among them;
-- the run card for the delivery run the session drove;
-- a card for each pull request and each task the session or its run is linked to.
-
-A panel beside the list, because the reader is usually moving down the rows. A panel
-keeps their place, where a page of its own would lose it. The pull request card and the
-task card are the same cards the pull requests pane and the task list draw, so one piece
-of work looks the same wherever it appears.
+Picking a row opens a detail panel beside the list, because the reader is usually
+moving down the rows. A panel keeps their place, where a page of its own would lose it.
+The pull request card and the task card are the same cards the pull requests pane and
+the task list draw, so one piece of work looks the same wherever it appears.
 
 The panel shows the row the reader pressed, and until they press one, the first row the
 list draws. A filter that hides the pressed row moves the panel to the first row drawn,
 because a panel about a session the list does not show would contradict the list. At a
 narrow width the panel drops under the list.
+
+The panel holds these, in this order:
 
 - **The facts**: repository, machine, model, effort, started, duration, output, and
   branch. A row whose folder is this machine's also shows the working folder. A model
@@ -955,11 +985,10 @@ narrow width the panel drops under the list.
   - a row answered from this machine's own record says the transcript is gone;
   - a Copilot row says its state is read from silence, because Copilot leaves no
     liveness marker.
-- **The run card**: every run on the row, latest first. The latest is drawn whole —
-  its header, the insight callout, the figure tiles, the legend and the stages, and the
-  footnote, with the run details folded under it — and each earlier run folds to its
-  header. [Under the session that drove it](#under-the-session-that-drove-it) has the
-  order and why. A session with no run says so in its place.
+- **The run card**: every run on the row, latest first. The latest is drawn whole, with
+  the run details folded under its footnote, and each earlier run folds to its header.
+  [Under the session that drove it](#under-the-session-that-drove-it) has the order and
+  why. A session with no run says so in its place.
 - **What it produced**: a pull request card for each pull request, and the task card
   for the Backlog entry it was worked for. Each pull request card wears the readiness
   verdict Repository Management publishes for it, by
@@ -981,11 +1010,19 @@ usually explained by a stage that ran differently from its configuration.
 
 This deepens the run card described in
 [Under the session that drove it](#under-the-session-that-drove-it). The stages are
-listed on the card under the figure tiles and the legend, one row per stage on one grid:
-a status dot, the stage's name with its rounds where it took more than one, the mode
-chip, the model with its effort chip and mark, the time it took or the word for where it
-stands ("Failed", "Not yet"), its cost, its cost against its usual, and a chevron. The
-dot never carries the state alone: the word or the time beside it does. What
+listed on the card under the figure tiles and the legend. Each stage has one row on one
+grid, which shows:
+
+- a status dot;
+- the stage's name, with its rounds where it took more than one;
+- the mode chip;
+- the model with its effort chip and mark;
+- the time it took, or the word for where it stands ("Failed", "Not yet");
+- its cost;
+- its cost against its usual;
+- a chevron.
+
+The dot never carries the state alone: the word or the time beside it does. What
 each value means is the [Stage Resolution](domain.md#stage-resolution) of the domain.
 It is the same reading the delivery engine's own run view draws its pane with, so the
 two never say different things about one run.
@@ -1059,10 +1096,10 @@ The panel says:
 - **Ran**: the mode, the agent or the owner session, the model and the effort, and the
   stage's output tokens and tool calls where the run counted them. A stage nobody has
   reported on reads "Not run yet".
-- **Found**: what the latest pass found, and, on Implement, Review and Verify, what the
+- **Found**: what the latest pass found. On Implement, Review and Verify, it adds what the
   run's [quality facts](domain.md#delivery-run) say across every pass: the review
-  rounds, the blockers left open over the rounds listed, the defects Verify found.
-  Left out where neither says anything.
+  rounds, the blockers left open over the rounds listed, and the defects Verify found.
+  It is left out where neither says anything.
 - **Configured**: the agent, model and effort the run resolved, and where that came
   from: the team default, or the team default with an overlay merged over it.
 - **Skill** and **MCP servers**: what the stage followed and was given, or "not recorded".
@@ -1144,13 +1181,19 @@ never a zero.
 
 A session sends these events only when its Claude Code settings say to. The person
 merges that page's block into the `env` of their user-level `~/.claude/settings.json`.
-The block turns telemetry on and sets the OTLP logs exporter, the logs protocol, the
-endpoint, the bearer token as a header, and `OTEL_LOG_TOOL_DETAILS=1` so each request
-names the sub-agent and the skill it ran under. Without that key a stage whose
-sub-agents ran is estimated, because its requests cannot be told to its workers. They never turn on the prompt or
-response events, which would only send what the session said. A new session, started
-after the change, is the first to report. The exact keys, and the check that the rows
-arrived, are in `.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.
+The block:
+
+- turns telemetry on;
+- sets the OTLP logs exporter, the logs protocol, the endpoint and the bearer token as
+  a header;
+- sets `OTEL_LOG_TOOL_DETAILS=1`, so each request names the sub-agent and the skill it
+  ran under.
+
+Without that key a stage whose sub-agents ran is estimated, because its requests cannot
+be told to its workers. The block never turns on the prompt or response events, which
+would only send what the session said. A new session, started after the change, is the
+first to report. The exact keys, and the check that the rows arrived, are in
+`.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.
 
 ### A price table for runs without telemetry
 
@@ -1168,12 +1211,14 @@ that cost as estimated.
 The table is the **Model prices** page in Settings, beside the Claude Code page. Each row
 names a model and gives four rates in US dollars per million tokens: input, output, cache
 read and cache write. The table is empty until the person fills it in. The product ships
-no prices, because a list it shipped would be wrong the day a price changed. A row is
-saved as soon as it names a model. A rate is written with a point, such as 0.30. A rate
-that does not read that way, such as one with a comma, is refused and nothing is saved.
-So is a second row for the same model. A rate left empty is unknown, never free, so a
-stage that spent tokens of that kind is not priced at all. The page's headline counts
-the prices saved, as in `2 model prices price the runs Claude Code reported no cost for.`
+no prices, because a list it shipped would be wrong the day a price changed.
+
+A row is saved as soon as it names a model. A rate is written with a point, such as
+0.30. A rate that does not read that way, such as one with a comma, is refused and
+nothing is saved. So is a second row for the same model. A rate left empty is unknown,
+never free, so a stage that spent tokens of that kind is not priced at all.
+
+The page's headline counts the prices saved, as in `2 model prices price the runs Claude Code reported no cost for.`
 A row still being typed, or a refused rate, does not move it.
 
 An estimated figure carries the words "estimated from tokens" on the session's detail
@@ -1211,7 +1256,9 @@ median, such as "2.0× the usual flow-code run". Under it, the why names the sta
 explains most of the difference, and if that stage was entered again, how many times:
 "Implement explains most of it: $5.00 over its usual, entered again once". Where that
 stage is Implement or Review, the why also names the run's review rounds, as in ", over 3
-review rounds". A typical run reads "About the usual flow-code run (1.0× its median)" and
+review rounds".
+
+A typical run reads "About the usual flow-code run (1.0× its median)" and
 names no stage. A run from 1.5× its usual wears the warning edge. A run still active,
 blocked or parked has no callout.
 
@@ -1279,8 +1326,9 @@ related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost
 ```
 
 The page has a button in the Sessions header. A run's insight callout also opens it,
-through its "Compare configurations for this flow" link, filtered to that run's flow. The second way in exists because the insight raises the
-question, "is this stage always this expensive?", and the page is where it is answered.
+through its "Compare configurations for this flow" link, filtered to that run's flow.
+The second way in exists because the insight raises the question, "is this stage
+always this expensive?", and the page is where it is answered.
 A Sessions breadcrumb at the top of the page leads back to the list, and the focus
 returns to whichever way in was used.
 
@@ -1295,9 +1343,12 @@ Four tiles sit above the table:
 | Tile | What it says |
 | --- | --- |
 | Median run | The median whole-run cost, with the 90th percentile beneath it and how many runs were only partly priced. |
-| Implement + Review | What Implement and Review cost over all the runs, as a share of what every stage the runs finished cost. |
-| Two or more review rounds | How many of the runs that reported their rounds took two or more, and their median whole-run cost against the one-round runs', as a ratio. |
-| Escaped review | The defects Verify found that review had passed, summed over the runs whose Verify reported a count, and how many runs that is. |
+| Implement + Review | What Implement and Review cost over all the runs, as a share of all finished stages' cost. |
+| Two or more review rounds | How many runs took two or more, and their median whole-run cost against one-round runs'. |
+| Escaped review | The defects Verify found that review had passed, and how many runs that is. |
+
+- **Two or more review rounds:** It counts only the runs that reported their rounds, and it gives the cost as a ratio.
+- **Escaped review:** The defects are summed over the runs whose Verify reported a count.
 
 The share is taken over spend, not over medians, so a dear run weighs as much as it
 cost. The round ratio compares fully priced runs only: a total over part of a run reads
@@ -1343,10 +1394,10 @@ measure. Every other phase has none.
 | Phase | Quality measure | Read from |
 | --- | --- | --- |
 | Scope | Share of runs scoped again after Implement started | Scope marked done more than once, over the runs whose Implement started |
-| Implement | Mean review rounds | The most rounds a slice took, from the run's quality facts, else the highest round its Implement or Review reported |
+| Implement | Mean review rounds | The most rounds a slice took (quality facts), else Implement's or Review's highest reported round |
 | Review | Blockers per round, and the defects that escaped to Verify | The blockers per round the quality facts list, else Review's latest round; the defects Verify found |
 | Build & Test | Share green first time | Build & Test marked done once |
-| Verify | Share of runs with a defect found | The escaped defects the quality facts filed under Verify, else Verify's latest pass, over the runs that reported either |
+| Verify | Share of runs with a defect found | Quality facts' escaped defects under Verify, else Verify's latest pass, over the runs reporting either |
 
 A phase is matched by its name in any casing, so "Build and Test" is Build & Test. The
 measure is a mean over the runs that reported what it is read from. A run that reported
@@ -1377,15 +1428,19 @@ The table's last column gives each phase a verdict, the first of these rules tha
 | Verdict | When |
 | --- | --- |
 | Nothing to tune | The phase is under 2% of the run's cost. |
-| Not compared | One configuration only has run the phase. Its panel suggests trying a cheaper model or effort through the personal overlay. |
+| Not compared | Only one configuration has run it; its panel suggests a cheaper model or effort through the personal overlay. |
 | Worth it | The dearer configuration lowers the median run cost. |
-| Try cheaper | The cheaper configuration lowers the run cost and is within 10% of the dearer one on the quality measure. |
-| No call yet | Anything else: too few runs for a lesson, the whole-run difference unknown or nil, or the cheaper configuration's quality short of the dearer one's or not reported. |
+| Try cheaper | The cheaper configuration lowers the run cost, within 10% of the dearer one's quality measure. |
+| No call yet | Anything else (below). |
+
+- **No call yet:** The cause is too few runs for a lesson, an unknown or nil whole-run difference, or a cheaper configuration whose quality falls short of the dearer one's or is unreported.
 
 The two configurations compared are the lesson card's. Within 10% is measured in the
 measure's worse direction, against a tenth of the dearer value or of 1, whichever is
-larger: ten points for a share, a tenth of the rounds or blockers for a count. Build &
-Test reads higher as better and every other measure lower. A phase with no quality
+larger. That is ten points for a share, and a tenth of the rounds or blockers for a
+count.
+
+Build & Test reads higher as better and every other measure lower. A phase with no quality
 measure has nothing to fall short on. A measure nobody reported on one side is unknown,
 never assumed level, so it gives no call rather than Try cheaper. The verdict's reason
 is the badge's tooltip.
@@ -1411,7 +1466,7 @@ flowchart LR
 The page draws its findings as lesson cards. The selected phase's panel shows one once
 two configurations of the phase each priced at least five runs of it at different
 medians. The card compares the cheaper configuration with the dearer one, on phase cost
-and whole-run cost, for example "Sonnet at high effort runs Implement for $2.00 less than
+and whole-run cost. For example: "Sonnet at high effort runs Implement for $2.00 less than
 Opus (medians), and whole runs cost $2.00 less". Where the cheaper phase makes whole runs
 dearer, the card says the cheaper phase raises the run's cost. The card sets the phase's
 quality measure for the two configurations side by side, and states the number of runs
@@ -1431,16 +1486,17 @@ A confidence line reads the smaller of the two sample sizes:
 | More than 20 | Fairly confident |
 
 The card's button copies a request for the `devbook-config:local` skill, which changes
-the person's own overlay of the repository's configuration: it sets that phase's model
-and effort, and its agent and mode where the configurations differ on them. The request points to
-the dearer configuration where its whole runs cost less, and to the cheaper one
+the person's own overlay of the repository's configuration. The skill sets that phase's
+model and effort, and its agent and mode where the configurations differ on them. The request points
+to the dearer configuration where its whole runs cost less, and to the cheaper one
 otherwise, and carries the figures, the quality measures and the confidence line it
 stands on. A card that points to the configuration now copies nothing; where that is the
 cheaper one, it says to keep it.
 
 The sample size and the confidence line are on every card because a lesson from three
-runs reads as confidently as one from forty. Only the number tells them apart. The app never writes the overlay
-itself, for two reasons. The overlay belongs to the person and to the skill that keeps it.
+runs reads as confidently as one from forty. Only the number tells them apart.
+
+The app never writes the overlay itself, for two reasons. The overlay belongs to the person and to the skill that keeps it.
 A change to how a flow runs should also be a step the person takes on purpose, in a
 session where they can see it happen.
 
@@ -1467,8 +1523,8 @@ type: sub-feature
 related: [.devbook/domain/sessions/domain.md#session-activity-publishing, .devbook/domain/sessions/domain.md#collections-mcp]
 ```
 
-When a session has the Collections MCP configured, it reports start, meaningful
-activity, and finish updates to that MCP. When it does not, nothing about the session
+When a session has the Collections MCP configured, it reports three updates to that
+MCP: start, meaningful activity and finish. When it does not, nothing about the session
 surface breaks or changes shape.
 
 Detecting the capability is ordinary product behavior. Missing configuration reads as
@@ -1482,11 +1538,12 @@ related: [.devbook/domain/sessions/domain.md#session-enrichment-summary, .devboo
 ```
 
 Show the latest human-readable activity summary, when it arrived, and any safe
-correlation facts that help a person place the session, for example the orchestration
-run or issue it was working against.
+correlation facts that help a person place the session, for example the delivery run
+or issue it was working against.
 
-Meaningful rather than exhaustive. The point is to answer "what is this session doing"
-without turning the session list into a transcript or a tool log.
+The activity is meaningful rather than exhaustive, because the point is to answer
+"what is this session doing" without turning the session list into a transcript or a
+tool log.
 
 ### Reporting degrades honestly
 
@@ -1514,11 +1571,14 @@ The In progress view is gone. It became
 [the Goals view](../progress/features.md#the-goals-view), which Progress owns, and
 local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)
 decides it. Its board by task went with the `goals` flag that kept it for a person who
-had goals off: no view lists every task in progress with its sessions and pull
-requests, puts the quiet sessions and the failing pull requests first under **Needs
-you**, or lists the work no task links under **Not linked to a task**. Its two
-toggles, "Needs you first" and "Include finished today", went with it, and the shell
-no longer keeps them. A shell remembered on In progress reopens on Goals.
+had goals off. No view now does any of these:
+
+- list every task in progress with its sessions and pull requests;
+- put the quiet sessions and the failing pull requests first under **Needs you**;
+- list the work no task links under **Not linked to a task**.
+
+Its two toggles, "Needs you first" and "Include finished today", went with it, and the
+shell no longer keeps them. A shell remembered on In progress reopens on Goals.
 
 What the view answered lives elsewhere. Goal progress, the stand-up and the work no
 goal holds are the Goals view's. A session that has gone quiet is the session list's,
@@ -1546,8 +1606,8 @@ type: sub-feature
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
 ```
 
-Every pull request a task links is known by its own state — open, draft, merged or
-closed — by who opened it, and by when it merged. The open read answers for one still
+Every pull request a task links is known by its own state, by who opened it, and by
+when it merged. Its state is open, draft, merged or closed. The open read answers for one still
 open in a configured repository. The rest are read by number, once the open read has
 landed, so the open cards never wait on them. That read carries what a row of the
 open list carries, checks and branches included, and asks GitHub about at most
@@ -1577,12 +1637,12 @@ on the desktop that draws a task's linked work by task.
 
 The link action offers the live sessions and the reader's own open pull requests that
 no task links yet. Linking records the session or the pull request on the entry with
-the same write the `link_session` and `link_change` tools make, so a link made by hand
-and one an agent made are one kind of record. A link the entry already holds is not
-written twice.
+the same write the `link_session` and `link_change` tools make. A link made by hand and
+one an agent made are therefore one kind of record. A link the entry already holds is
+not written twice.
 
 The link action also takes a pull request by its number or its link, whatever its
-state: open, draft, merged or closed. Work that merged before its task was linked is
+state, merged and closed included. Work that merged before its task was linked is
 linked this way, and the task is then [done](../progress/domain.md#done) by it in the
 goal that counts it. A bare number is the task's own repository's, and a task with two
 has to be given the link; a link or `owner/name#123` names one, and it must be
@@ -1605,11 +1665,11 @@ feature-flag: .devbook/domain/sessions/context.md#sessions-area
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_sessions_feature_off_there_is_no_segment_and_no_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_remembered_sessions_surface_falls_back_to_the_workspace_when_its_feature_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Opening_a_session_from_a_task_with_sessions_switched_off_says_so_and_stays, unit:dotnet:Backlog.HostComposition.UnitTests.McpEndpointGateTests.The_delivery_surface_is_absent_while_its_feature_is_off, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentActivityHoursWorkedSourceTests.With_the_sessions_area_switched_off_the_hours_are_not_read, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapActualHoursTests.With_the_sessions_area_switched_off_the_hours_are_not_read]
 ```
 
-The whole area can be switched off. Then there is no way in and nothing to find: not a
-disabled control, and not an empty surface. Nothing else reads the sessions either; the
+Switched off, the area leaves no way in and nothing to find: not a disabled control,
+and not an empty surface. Nothing else reads the sessions either; the
 [Sessions area](context.md#sessions-area) switch lists what leaves with it.
 
-One switch for the area rather than one per column or per grouping, because "should
+The area has one switch rather than one per column or per grouping, because "should
 this product show me sessions at all" is a single question.
 
 ## Start a session from an entry
@@ -1635,8 +1695,7 @@ Nothing the entry says reaches the brief. The session reads the entry by its id
 through `run-plan-item`, which first checks it is still outstanding, so a request
 answered twice, or late, does no harm.
 
-Local
-[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+Local [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
 decides it, and it sits behind the `session-requests` flag, off by default.
 
 - **Queue a session for this entry** is a queue icon on a saved prompt entry. It sits
@@ -1666,15 +1725,15 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 - A request that is queued says so in a toast, "Asked for a session in" its repository,
   from the Tasks pane and from the roadmap alike.
 - While the request is Requested, Claimed or Started, a **Waiting for a session** chip
-  stands on the entry's row, in the open entry, in the item's dialog and beside the
-  pressed plan chip, and the queue icon is gone. The chip's tooltip says which of the three it is.
-  On the roadmap, the item's bar that ends last shows a waiting mark after its title, among
-  its other marks, and that bar's tooltip gains a line saying which of the three it is.
-  Cancel is offered only
-  while it is Requested: the queue would also cancel a Claimed request, but by then a
-  dispatcher is already starting the session, so the screen does not offer it.
-- Once the session links itself the chip and the bar's mark go, and the entry shows the linked session as
-  a pasted run's does. The app reads the queue again every five seconds while the flag
+  shows and the queue icon is gone. The chip stands on the entry's row, in the open
+  entry, in the item's dialog and beside the pressed plan chip. Its tooltip says which
+  of the three it is. On the roadmap, the item's bar that ends last shows a waiting
+  mark after its title, among its other marks, and that bar's tooltip gains a line
+  saying which of the three it is. Cancel is offered only while it is Requested: the
+  queue would also cancel a Claimed request, but by then a dispatcher is already
+  starting the session, so the screen does not offer it.
+- Once the session links itself the chip and the bar's mark go, and the entry shows
+  the linked session as a pasted run's does. The app reads the queue again every five seconds while the flag
   is on, because a dispatcher moves a request without the app hearing it.
 
 ## Answer a session's question from elsewhere
@@ -1686,9 +1745,9 @@ related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-
 
 When a Claude session waits on the person and they are not at the keyboard, its
 question becomes a Backlog notification they can answer from the phone or another
-desktop, and the answer gets back into the session. While they are at the keyboard,
-the session asks them there as it does today, and the question leaves the session only
-if it is still unanswered after a while.
+desktop. The answer gets back into the session. While they are at the keyboard, the
+session asks them there as it does today, and the question leaves the session only if
+it is still unanswered after a while.
 
 A session asks in a question dialog or in prose at the end of its turn. Either way a
 hook registers the question with Backlog, which reads the person's
@@ -1697,6 +1756,5 @@ never opens: the hook waits for the answer and hands it to the session. Any othe
 answer reaches the session as a message from the Manager session, which wakes it.
 Answering in the session closes the question everywhere.
 
-Local
-[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
+Local [ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
 decides it. It sits behind the `notifications` flag, and nothing of it is built yet.

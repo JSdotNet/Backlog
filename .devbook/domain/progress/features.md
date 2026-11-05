@@ -40,13 +40,21 @@ The header holds the [iteration switch](#choosing-the-iteration), the last and n
 window, such as "12–16 Oct → 19–23 Oct", **New goal**, **Copy**
 ([copying the stand-up](#copying-the-stand-up)) and **Refresh**.
 
-Each goal reads as one row: its title, its progress as `done/total`, the items done in
-the last iteration as `+3`, its due date, its landing date as "lands ~6 Nov" and an
-**At risk** or **On track** badge. A goal without a due date shows the last day of the
-next window instead, as "due 23 Oct (end of iteration)". The
-[Attach to goal](#attaching-work-to-a-goal) picker lists such a goal as "due end of
-iteration", and its **New goal…** needs only a title. A bar shows how much is done, in progress, blocked
-and not started, and says it in words to a screen reader. One goal is open at a time,
+Each goal reads as one row:
+
+- its title;
+- its progress as `done/total`;
+- the items done in the last iteration as `+3`;
+- its due date;
+- its landing date as "lands ~6 Nov";
+- an **At risk** or **On track** badge.
+
+A goal without a due date shows the last day of the next window instead, as "due 23 Oct
+(end of iteration)". The [Attach to goal](#attaching-work-to-a-goal) picker lists such a
+goal as "due end of iteration", and its **New goal…** needs only a title.
+
+A bar shows four amounts and says them in words to a screen reader: done, in progress,
+blocked and not started. One goal is open at a time,
 the first when the view opens. Opened, the row lists what is attached to it under
 Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows
 its [status](#pull-request-status), and a merged one reads as its number and "merged".
@@ -56,8 +64,8 @@ the header's repository scope that no goal holds, each with **Attach…**. The v
 every goal, whatever the repository scope. With no goals and nothing in progress
 outside one, the view says so and offers **New goal**.
 
-Each No goal row says how its work stands, as the open goal's columns do: a task
-carries its status dot, in progress or blocked, and a pull request its
+Each No goal row says how its work stands, as the open goal's columns do. A task
+carries its status dot, in progress or blocked, and a pull request carries its
 [status](#pull-request-status) line in place of its plain number. A row also leads
 with a grip, by which it can be [dragged onto a goal](#attaching-work-to-a-goal)
 besides **Attach…**.
@@ -75,8 +83,9 @@ related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requ
 
 Say what the work is for. **New goal** asks for a title, an optional one-line outcome
 and an optional due date, its field labelled **Due date (optional)**. A goal without a
-due date is due at the end of the iteration, as [Goal](domain.md#goal) says. A goal's
-row offers the same fields to edit, and **Delete goal…**, which asks first. Emptying
+due date is due at the end of the iteration, as [Goal](domain.md#goal) says.
+
+A goal's row offers the same fields to edit, and **Delete goal…**, which asks first. Emptying
 the row's due date field and leaving it clears the goal's date, and typing a date sets
 it again. Deleting a goal frees what it held: no plan, task or pull request
 changes. Goals are set on the desktop only.
@@ -91,21 +100,23 @@ related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/pr
 Say which work reaches a goal. Four kinds of item attach:
 
 - a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which brings in
-  every entry its roadmap item gathers by tag — filed under `+tag` or carrying the
-  bare `#tag` — including entries filed later;
+  every entry its roadmap item gathers by tag, filed under `+tag` or carrying the
+  bare `#tag`, including entries filed later;
 - a **task**, by its id, whose linked pull requests come with it;
 - a **pull request**, by its repository and number, for work no task covers;
 - a **session**, by its agent and session id, whose linked tasks and the pull request
   on its branch come with it, for work that has no task or pull request yet.
 
-An open goal offers "Attach a plan, task, pull request or session": typing lists the
-matching plans, tasks, pull requests and sessions, each named by its kind, and a pull
+An open goal offers "Attach a plan, task, pull request or session". Typing lists the
+matching items, each named by its kind, and a pull
 request is found by its number too. A session is found by its id, typed whole or as the
 eight characters the screens show, with or without the word "Session". Typing a
 session's number lists the session first, then the tasks linked to it, then the pull
 request on its branch when it has one, so the person attaches whichever fits. With the
 [Sessions area](../sessions/context.md#sessions-area) off, no session is offered, and a
-session already attached counts by its linked tasks alone. **Attach…** on a No goal row attaches the item to the open goal, or
+session already attached counts by its linked tasks alone.
+
+**Attach…** on a No goal row attaches the item to the open goal, or
 asks which goal when none is open. Both questions are the same **Attach to goal**
 picker every other goal control opens.
 
@@ -116,11 +127,10 @@ there, or Escape, attaches nothing. Once the drop is attached, the board says
 "Attached ‹title› to ‹goal›." to a screen reader; a refused attach is not said.
 **Attach…** stays the keyboard's way in.
 
-An item belongs to at most one goal. An item
-another goal holds is not attached silently: the picker opens on the goal it was meant
-for, names the goal that holds it and says attaching moves it from there, and
-**Attach** moves it. Detaching an item changes nothing on it. Attaching is a desktop
-action.
+An item belongs to at most one goal. An item another goal holds is not attached
+silently. The picker opens on the goal it was meant for, names the goal that holds it
+and says attaching moves it from there. **Attach** then moves it. Detaching an item
+changes nothing on it. Attaching and detaching are desktop actions.
 
 [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
 Attaching changes nothing on the task, the plan, the pull request or the session.
@@ -156,9 +166,10 @@ blocks, read over the [iteration](#choosing-the-iteration):
 | Goals | each goal's progress, `+n` done in the last window, due date and badge |
 | Finished | the items the goals count that were done in the last window, grouped by goal |
 | Planned | the [planned](domain.md#planned) items for the next window, grouped by goal, with the points tag |
-| Impediments | each open impediment with its state, marked when it is [ready to resolve](domain.md#ready-to-resolve), then how many were resolved in the last window |
+| Impediments | each open impediment with its state, then how many were resolved in the last window |
 
-Each block's heading carries its count. A goal without a due date reads as due at the
+Each block's heading carries its count. An impediment that is
+[ready to resolve](domain.md#ready-to-resolve) is marked in its block. A goal without a due date reads as due at the
 end of the next window, such as "due 23 Oct (end of iteration)", here and in the copied
 text. A planned item shows its `effort:` in points,
 and a planned item with a pull request shows its [status](#pull-request-status).
@@ -195,9 +206,15 @@ type: sub-feature
 related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
-**Copy** puts the four blocks on the clipboard as plain text, each heading with its
-count, Finished grouped by goal, Planned grouped by goal with No goal last, the points tag beside
-Planned and "n resolved" after Impediments. Every line is a fixed template filled
+**Copy** puts the four blocks on the clipboard as plain text:
+
+- each heading with its count;
+- Finished grouped by goal;
+- Planned grouped by goal, with No goal last;
+- the points tag beside Planned;
+- "n resolved" after Impediments.
+
+Every line is a fixed template filled
 from the reading; none is written by a model. Copying is a desktop action. Formatted
 (HTML) copy is a later addition.
 
@@ -359,26 +376,51 @@ related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/
 ```
 
 Read the stand-up on the way to it. The phone's **Stand-up** tab shows the four blocks
-with the iteration switch. A goal opens on its own page: its badge, due and landing
-date, `done/total` with how many items are doing, blocked and to do, and its items
-under Plan, Tasks, Pull requests and Sessions. A goal without a due date reads "due 23 Oct
-(end of iteration)" on its stand-up card and on its page. An impediment opens on its own page: its age, the
-goal it holds back, its history, its check-again date, its note and the tasks, pull
-requests and plans it holds back. An impediment whose items are all settled reads
-ready to resolve there too.
+with the iteration switch.
+
+A goal opens on its own page, which shows:
+
+- its badge, due date and landing date;
+- `done/total`, with how many items are doing, blocked and to do;
+- its items under Plan, Tasks, Pull requests and Sessions.
+
+A goal without a due date reads "due 23 Oct (end of iteration)" on its stand-up card
+and on its page.
+
+An impediment opens on its own page, which shows:
+
+- its age;
+- the goal it holds back;
+- its history;
+- its check-again date;
+- its note;
+- the tasks, pull requests and plans it holds back.
+
+An impediment whose items are all settled reads ready to resolve there too.
 
 The phone reads goals, the stand-up and impediments. The one thing it changes is an
 impediment: its state, its check-again date and its note. Those changes go through the
 device outbox, as the phone's task edits do. The state list offers only the moves the
 impediment may make from where it stands. Until a desktop has applied a change, the
 impediment's page shows what was asked, with Waiting beside it while the change is
-still on the phone. Setting a goal, attaching work, raising an impediment, linking
-what it holds back and copying the stand-up are desktop actions.
+still on the phone.
 
-The stand-up on the phone is the desktop's stand-up of the same work. Pull request
-checks and approvals, each attached session's title and state, and the state of each
-pull request an open impediment holds back show as a desktop last read them, so the
-phone never needs GitHub or the session records. A change made on the phone shows there once a desktop has applied it. When a
+These are desktop actions:
+
+- setting a goal;
+- attaching work;
+- raising an impediment;
+- linking what it holds back;
+- copying the stand-up.
+
+The stand-up on the phone is the desktop's stand-up of the same work. The phone shows
+these as a desktop last read them, so it never needs GitHub or the session records:
+
+- pull request checks and approvals;
+- each attached session's title and state;
+- the state of each pull request an open impediment holds back.
+
+A change made on the phone shows there once a desktop has applied it. When a
 desktop changed the same field after the phone last synced, the desktop's change
 stands and the phone's is dropped. So does a change a desktop did not apply: once a
 newer copy of the impediment reaches the phone without it, the phone shows that copy.
@@ -394,7 +436,7 @@ related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .
 Keep every goal and impediment the same on every device the person has paired. They
 travel beside the tasks the devices already sync
 ([Multi-device sync](../tasks/features.md#multi-device-sync)), as two document kinds,
-`goal` and `impediment`, one document per goal or impediment under its own id. They
+`goal` and `impediment`. Each goal or impediment is one document under its own id. They
 travel only while sync is on and the device is paired.
 
 Each document is replaced whole, never merged. When two devices have both changed one
@@ -409,9 +451,8 @@ device still on a build from before pull requests and plans could be held back d
 with such an impediment, and what that costs, is local
 [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
 
-One that arrives from another
-device shows at once on every screen that draws it, without the person pressing
-Refresh.
+A document that arrives from another device shows at once on every screen that draws
+it, without the person pressing Refresh.
 
 A goal without a due date travels with no date in its document. A device that still
 runs a build from before due dates were optional shows such a goal as due 1 Jan 0001

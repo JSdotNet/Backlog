@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it. The tests are in `Backlog.Modules.Sync.UnitTests` and, for the rules the service holds at its endpoints, `Backlog.Modules.Sync.Api.UnitTests`.
+This page holds what each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each. Each rule says where it is enforced and names the unit test that proves it. The tests are in `Backlog.Modules.Sync.UnitTests` and, for the rules the service holds at its endpoints, `Backlog.Modules.Sync.Api.UnitTests`.
 
 ## Device
 
@@ -76,7 +76,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.Precedence_is_the_stamp_then_the_tombstone, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.An_older_live_copy_pushed_after_a_tombstone_does_not_replace_it, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.A_tombstone_of_the_very_version_held_is_taken_on_a_tied_stamp, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryAnnotationReplicaPrecedenceTests.Precedence_is_the_stamp_then_the_tombstone, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryAnnotationReplicaPrecedenceTests.An_older_live_copy_pushed_after_a_tombstone_does_not_replace_it]
 ```
 
-A pushed copy replaces the stored one only when its device stamp is later, or when the stamps tie and the pushed copy is a tombstone of a live one, so a push never moves a document backwards.
+A pushed copy replaces the stored one only when its device stamp is later, or the stamps tie and it is a live copy's tombstone, so a push never moves a document backwards.
 An identical pair is the same version twice and writes nothing. The rule is on the stamp and not on arrival order, because an echo carries the stamp of the version it echoes.
 
 Enforced at: `TaskChangePrecedence.Supersedes()`, `AnnotationChangePrecedence.Supersedes()`
@@ -112,7 +112,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevbookSubjectSyncEndpointTests.A_state_outside_its_kinds_row_is_refused_with_the_whole_batch, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_change_the_service_would_not_store_is_refused_with_a_reason, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_refusal_names_the_field_and_never_echoes_the_value]
 ```
 
-A push holding one subject state with no repository alias, a kind or state `devbook.decision@1` does not have, a decision on anything but a proposal, or a field past its bound stores none of the push (`sync.devbook_subject_invalid`).
+A push stores nothing when one subject state has no repository alias, a kind or state `devbook.decision@1` lacks, a decision on anything but a proposal, or a field past its bound (`sync.devbook_subject_invalid`).
 The refusal names the field and never echoes its value. The desktop runs the same rule before it pushes, so such a state stays on its device rather than holding back every push.
 
 Enforced at: `DevbookSubjectSyncEndpoints`, through `DevbookSubjectRecordLimits.WhyRefused()`

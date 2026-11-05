@@ -34,8 +34,6 @@ stateDiagram-v2
   its archive area is Archived. A Brain that declares its own areas without an
   archive area has no Archived state.
 
-How a Knowledge Note moves through its workflow phases over time.
-
 An organized unit of project knowledge stored as Markdown, and the boundary for
 its own organization and links. Its area, its `PARA Category`, is its only
 lifecycle state: the lifecycle is a set of workflow phases read off the area
@@ -48,7 +46,7 @@ chapter like any other. It keeps the devbook `meta` block and `annotation` fence
 
 | Field | Holds | Value object |
 |---|---|---|
-| `para` | The note's area. Derived from the top folder the note sits in, and written only to override it. | [PARA Category](#para-category) |
+| `para` | The note's area, derived from its top folder; written only to override it. | [PARA Category](#para-category) |
 | `repos` | The repositories a project note concerns. Project notes only. | [Project Ref](#project-ref) |
 | `tasks` | The tasks the note links to. | [Task Link](#task-link) |
 
@@ -90,9 +88,9 @@ value of its `tasks` field, and the id is a GUID. How a value is read is
 A value that is no GUID links no task, and the note lists it as written.
 
 A Task Link is not an address and not an edge. The Brain's database keeps a
-note's `tasks` values on the note's own node as they are written, and the app
-reads them from there both ways: the tasks a note names, and the notes that name
-a task. A task's record carries no note.
+note's `tasks` values on the note's own node, as they are written. The app reads
+them from there both ways: the tasks a note names, and the notes that name a
+task. A task's record carries no note.
 
 ### Tag
 
@@ -130,10 +128,14 @@ is a dot-folder. A note's area is the top folder it sits in, unless its `para`
 field overrides it. Equality is by folder name. Local ADR 0026 records why the
 folders on disk decide the areas and `CONVENTIONS.md` only adds to them.
 
-`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level.
-It uses either a table with a `Folder` column, plus optional `Area` (or `Name`), `Holds`
-and `Order` columns, or a list whose items name the folder in backticks. Which
-declarations count is
+`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level,
+in one of two shapes:
+
+- a table with a `Folder` column, and optionally the columns `Area` (or `Name`),
+  `Holds` and `Order`;
+- a list whose items name the folder in backticks.
+
+Which declarations count is
 [An area is one plain folder, declared once](domain.invariants.md#invariant-an-area-is-one-plain-folder-declared-once),
 and their order is
 [Declared areas keep the order written](domain.invariants.md#invariant-declared-areas-keep-the-order-written).
@@ -145,9 +147,8 @@ The discovered areas follow the declared ones, by folder name
 A top folder with no note in it is not an area until it gets one.
 
 `CONVENTIONS.md` lists the folders that are never areas under a heading named
-`Ignore`, as list items that name the folder in backticks or bare, or as a table
-with a `Folder` column, the shapes `Areas` takes. An ignored
-folder stays out even when `Areas` declares it
+`Ignore`. It takes the shapes `Areas` takes: list items that name the folder in
+backticks or bare, or a table with a `Folder` column. An ignored folder stays out even when `Areas` declares it
 ([An ignored folder is never an area](domain.invariants.md#invariant-an-ignored-folder-is-never-an-area)).
 Markdown files at the Brain's root, such as `README.md` and `CONVENTIONS.md`,
 belong to no area.
@@ -156,13 +157,13 @@ When `CONVENTIONS.md` declares no areas, the PARA set applies
 ([The areas are the declared ones, then the discovered ones](requirements.md#requirement-the-areas-are-the-declared-ones-then-the-discovered-ones)).
 In its order, it is:
 
-- `_inbox` — notes not yet filed; where a capture lands.
-- `projects` — active work with a goal and a deadline.
-- `areas` — ongoing responsibilities without a deadline.
-- `resources` — reference material and collected knowledge.
-- `people` — notes about the people the work involves.
-- `journal` — dated entries.
-- `archive` — inactive notes preserved for future search.
+- `_inbox`: notes not yet filed; where a capture lands.
+- `projects`: active work with a goal and a deadline.
+- `areas`: ongoing responsibilities without a deadline.
+- `resources`: reference material and collected knowledge.
+- `people`: notes about the people the work involves.
+- `journal`: dated entries.
+- `archive`: inactive notes preserved for future search.
 
 The name stays *PARA Category* because PARA is the default and the vocabulary a
 person starts from; a Brain that declares its own areas is still organized the
@@ -185,11 +186,13 @@ type: domain-service
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-Maintains bi-directional links between Knowledge Notes and Tasks and
-supports queries that span both domains (search backlog + knowledge together,
-embed knowledge snippets into backlog details). It is a service because a link
-has two owners in different contexts and must be kept consistent from both sides
-rather than living inside a single aggregate. Invocation semantics: consistency policy invoked when note/backlog links are created, removed, or reconciled.
+Cross-Linking maintains bi-directional links between Knowledge Notes and Tasks.
+It also supports queries that span both domains: searching the backlog and
+knowledge together, and embedding knowledge snippets into backlog details. It is
+a service because a link has two owners in different contexts and must be kept
+consistent from both sides rather than living inside a single aggregate.
+
+Invocation semantics: consistency policy invoked when note/backlog links are created, removed, or reconciled.
 
 ## Ubiquitous Language
 

@@ -18,22 +18,31 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 
 | Bounded context | Subdomain type | Why |
 |---|---|---|
-| Capture | Core | It is the front door for turning raw external input into normalized intent for the product. |
-| Inbox | Core | It owns triage and the decision point where captured input becomes work, knowledge, deferral, or archive. |
+| Capture | Core | It is the front door that turns raw external input into normalized intent. |
+| Inbox | Core | It owns triage, where captured input becomes work, knowledge, deferral, or archive. |
 | Tasks | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
-| Roadmap Planning | Core | It owns the forward plan — what is intended, when, in what order — and is the only context that holds a dependency between two pieces of planned work. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns. |
-| Devbook | Core | It reads the devbook a repository carries beside its code in place, builds its database, renders and searches it, and supplies that reading machinery to the Brain. |
-| Brain | Core | It owns one person's own notes, organized by that person and their agent, linked to their work by id and, one way, into a repository's devbook (local ADR 0040). |
-| Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight without owning the work items or execution tools. |
-| Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
-| Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
+| Roadmap Planning | Core | It owns the forward plan and alone holds a dependency between two pieces of planned work. |
+| Devbook | Core | It reads, builds, renders and searches a repository's devbook, and supplies that machinery to the Brain. |
+| Brain | Core | It owns one person's own notes, linked to their work by id and into a repository's devbook. |
+| Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight, owning no work items or tools. |
+| Environment | Supporting | It provides quick access to named environments, owning no repository or health data. |
+| Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions, owning no work. |
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
-| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042). |
+| Repository Management | Supporting | It provides repository inventory, health and dependency visibility, and owns the state of pull requests. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
-| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by repository and number without owning any of them. |
-| Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
-| Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0039). |
-| Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
+| Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
+| Sessions | Supporting | It records what the AI coding agents do on each environment, and owns nothing those sessions touch. |
+| Notifications | Supporting | It lets any context tell the person something or ask a question, and hands the answer back. |
+| Sync | Supporting | It keeps one person's data the same across their devices by carrying other contexts' documents. |
+
+- **Roadmap Planning:** The plan says what is intended, when, and in what order. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns.
+- **Devbook:** It reads the devbook a repository carries beside its code in place.
+- **Brain:** The person and their agent organize the notes. The link into a repository's devbook runs one way (local ADR 0040).
+- **Repository Management:** The core work contexts use its inventory, health and dependency visibility. It owns the status, readiness verdict, stacks and merge commands of the registered repositories' pull requests (local ADR 0042).
+- **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
+- **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
+- **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
+- **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
 
@@ -162,10 +171,16 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
-| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
-| Tasks | The lookup from a session id or a pull request to its task, `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
+| Repository Management | The pull request contract, through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
+
+**Repository Management's pull request contract** holds these, and one cache:
+
+- the status at `.devbook/domain/repository-management/domain.md#pull-request-status`;
+- the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`;
+- the commands at `.devbook/domain/repository-management/domain.md#merge-command`.
 
 ## Strategic rules
 
@@ -225,8 +240,8 @@ flowchart LR
   models agent sessions. `Monitoring`'s own `copilot_session` signal kind gives way
   to this context once the two are wired together.
 - `Sessions` publishes no bounded-context domain event. It owns no row of the
-  published-language table above (it only uses Sync's replica protocol), and its Dev PC Management and Monitoring edges
-  stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
+  published-language table above (it only uses Sync's replica protocol), and its
+  Dev PC Management and Monitoring edges stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
   reads rather than published contracts:
   - for `Productivity`, the
     [Session Log](sessions/domain.md#session-log);
@@ -265,10 +280,14 @@ flowchart LR
   the product-wide device identity issued by the shared kernel
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
-- `Progress` names a task by its id, a plan by its
-  [plan tag](roadmap/domain.md#roadmap-tag), a pull request by its repository and
-  number and a session by its agent and session id, and reads each from its owner on
-  every reading. An impediment holds back tasks, pull requests and plans by the same
+- `Progress` reads each thing it names from its owner on every reading. It names
+  them by these identities:
+  - a task by its id;
+  - a plan by its [plan tag](roadmap/domain.md#roadmap-tag);
+  - a pull request by its repository and number;
+  - a session by its agent and session id.
+
+  An impediment holds back tasks, pull requests and plans by the same
   identities. `Tasks` holds no knowledge of goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. A task's blocked mark is Tasks' alone and raises no
@@ -294,12 +313,12 @@ flowchart LR
   way they depend on `Tasks.Abstractions`, and never on its module. Notifications
   reads no publisher's data: the context that owns a subject reports the end
   through `CloseForSubjectAsync`, and answers a probe at startup. The pairing
-  question makes `Sync` both its supplier and a publisher. The two edges run
+  question makes `Sync` both its supplier and a publisher, and the two edges run
   through different parts: the desktop sync client carries the documents, and the
   pairing flow publishes the question.
 - `Sessions` and `Tasks` supply each other through different parts, so the two
   edges between them do not make a cycle of modules. Sessions supplies the session
-  state a task's work badge shows. Tasks supplies
+  state a task's work badge shows, and Tasks supplies
   [filing a follow-up after an entry](tasks/features.md#filing-a-follow-up-after-an-entry),
   which the Sessions answer handler calls when the person approves a run with a
   follow-up. Sessions interprets the answer and records it on the run; Tasks decides

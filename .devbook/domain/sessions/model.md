@@ -7,8 +7,10 @@ related: [.devbook/domain/sessions/domain.md]
 
 > Structural view of the domain model for this bounded context: aggregates,
 > entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this file
-> focuses on structure and relationships. Lifecycle flows live in `flow.md`.
+> `domain.md`, which describes responsibilities in prose; the rules are in
+> `domain.invariants.md`. This file focuses on structure and relationships. A
+> lifecycle opens the chapter of what moves, such as
+> [Liveness Assessment](domain.md#liveness-assessment).
 
 ## Model diagram
 
@@ -196,8 +198,9 @@ classDiagram
 - **`Session State` is an attribute of a reading, not stored on the session.** The
   dashed edges from `Liveness Assessment` say so: the service reads an
   `Activity Window` and a clock and yields a state. Nothing persists it and nothing
-  transitions into it. That is why `flow.md` shows the states as a reading, not as a
-  machine with events on its edges.
+  transitions into it. That is why
+  [Liveness Assessment](domain.md#liveness-assessment) draws the states as a reading,
+  not as a machine with events on its edges.
 
 - **`Session View` and `Session Grouping` are two operations, and only the view
   subtracts.** Grouping yields `SessionGroup`s holding every session it was handed.
@@ -238,7 +241,9 @@ classDiagram
   Management owns repositories. This context holds the `owner/name` an agent happened
   to write down, and never resolves it. An association to that context's aggregate
   would make this model depend on a lookup it does not perform; see
-  `dependencies.md`. The `resolved_repository` beside it is also a string. It is the
+  `dependencies.md`.
+
+  The `resolved_repository` beside it is also a string. It is the
   one lookup this context does perform: which registered clone directory contains the
   working folder. It is asked of Repository Management through a one-method port, on
   the environment that read the session. It is a second attribute rather than a
