@@ -1,0 +1,82 @@
+@*
+    How a unit moves, on its Domain page (local ADR 0047): every lifecycle and
+    process its chapter opens with — where devbook contract 37 puts what a
+    context's flow.md used to draw — drawn in the lifecycle's cards, lines and
+    type (DomainFlowFigures), never left to Mermaid. One section per diagram,
+    titled by the bold line above its fence or else by its chapter, with the
+    markdown between the two as its lead; a diagram of a chapter inside the unit
+    — an entity's lifecycle, a value object's derivation — names that chapter
+    beside its title. Nothing shows when the unit draws none.
+
+    Pure: the host hands over the unit's chapter.
+*@
+
+@if (_flows.Count > 0)
+{
+    <section class="domain-flows domain-flows--in-unit" data-testid="@TestId" aria-label="@($"How {Unit.Title} moves")">
+        @for (var i = 0; i < _flows.Count; i++)
+        {
+            var flow = _flows[i];
+            @* Keyed by place: two diagrams may share a title. *@
+            <section @key="i"
+                     class="domain-flows__section"
+                     data-testid="domain-flow-section"
+                     data-flow="@flow.Chapter.Anchor"
+                     aria-label="@flow.Title">
+                <h3 class="domain-flows__title" data-testid="domain-flow-title">
+                    @flow.Title
+                    @if (!ReferenceEquals(flow.Chapter, Unit))
+                    {
+                        @(" ")<span class="domain-flows__in" data-testid="domain-flow-in">· @flow.Chapter.Title</span>
+                    }
+                </h3>
+                @if (flow.Lead.Length > 0)
+                {
+                    <div class="domain-flows__lead" data-testid="domain-flow-lead">
+                        <MarkdownView Blocks="@BlocksOf(flow.Lead)"
+                                      Source="@flow.Lead"
+                                      DevbookDocumentPath="@DocumentPath"
+                                      DevbookFolder="DevbookFolder.Domain"
+                                      OnDevbookNavigate="OnNavigate" />
+                    </div>
+                }
+                <DomainFlowFigures Diagrams="@([flow.Figure])" Title="@flow.Title" DocumentPath="@DocumentPath" OnNavigate="OnNavigate" />
+            </section>
+        }
+    </section>
+}
+
+@code {
+    /// <summary>The unit's chapter: an aggregate's or a domain service's.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapter Unit { get; set; } = default!;
+
+    /// <summary>The file the unit sits in, which the leads' links resolve against.</summary>
+    [Parameter, EditorRequired]
+    public string DocumentPath { get; set; } = string.Empty;
+
+    /// <summary>A link in a lead, or an event chip, followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-unit-flows";
+
+    private IReadOnlyList<DomainChapterFlow> _flows = [];
+    private DomainChapter? _read;
+    private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_read, Unit)) return;
+        _read = Unit;
+        _markdown.Clear();
+        _flows = DomainFlows.InChapter(Unit);
+    }
+
+    private IReadOnlyList<MdBlock> BlocksOf(string source)
+    {
+        if (!_markdown.TryGetValue(source, out var blocks)) _markdown[source] = blocks = MarkdownPreview.ParseDocument(source);
+        return blocks;
+    }
+}

@@ -1,0 +1,73 @@
+@*
+    The diagrams of one flow, drawn in the lifecycle's cards, lines and type
+    (local ADR 0047): a legend when a state row is among them, then each figure —
+    a stateDiagram-v2 as one row of states (DomainFlowRow), a flowchart in ranks
+    (DomainFlowchart), a sequenceDiagram as cards and lifelines (DomainSequence).
+    What the Flow page draws for a chapter of a legacy flow.md, and what a unit's
+    Domain page draws for each diagram its chapter opens with (devbook contract
+    37). Pure.
+*@
+
+@if (_rows.Count > 0)
+{
+    <ul class="domain-flows__legend" data-testid="domain-flow-legend" aria-label="Legend">
+        <li><span class="domain-flows__key domain-flows__key--forward" aria-hidden="true"></span>forward</li>
+        @if (Drawn(t => t.Direction is DomainFlowDirection.Back or DomainFlowDirection.Restore))
+        {
+            <li><span class="domain-flows__key domain-flows__key--back" aria-hidden="true"></span>back</li>
+        }
+        @if (Drawn(t => t.Event is { Emitted: false }))
+        {
+            <li><span class="domain-flows__key domain-flows__key--documented" aria-hidden="true"></span>event, documented but not emitted yet</li>
+        }
+        @if (Drawn(t => t.Event is { Emitted: true }))
+        {
+            <li><span class="domain-flows__key domain-flows__key--emitted" aria-hidden="true"></span>event, emitted</li>
+        }
+    </ul>
+}
+@foreach (var figure in Diagrams)
+{
+    @switch (figure)
+    {
+        case DomainFlowDiagram row:
+            <DomainFlowRow Diagram="@row"
+                           DocumentPath="@DocumentPath"
+                           OnNavigate="OnNavigate"
+                           AriaLabel="@($"{Title}, drawn as one row of states")" />
+            break;
+        case DomainFlowchartDiagram chart:
+            <DomainFlowchart Diagram="@chart" AriaLabel="@($"{Title}, drawn as a flowchart")" />
+            break;
+        case DomainSequenceDiagram sequence:
+            <DomainSequence Diagram="@sequence" AriaLabel="@($"{Title}, drawn as a sequence")" />
+            break;
+    }
+}
+
+@code {
+    /// <summary>The figures, in source order.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DomainFlowFigure> Diagrams { get; set; } = [];
+
+    /// <summary>What the figures draw, which each one's label names.</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The file the figures sit in, which a state row's links resolve against.</summary>
+    [Parameter, EditorRequired]
+    public string DocumentPath { get; set; } = string.Empty;
+
+    /// <summary>An event chip on a state row, followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private IReadOnlyList<DomainFlowDiagram> _rows = [];
+
+    protected override void OnParametersSet() => _rows = [.. Diagrams.OfType<DomainFlowDiagram>()];
+
+    /// <summary>Whether any row draws a transition of this kind: the legend names
+    /// only what the drawing holds.</summary>
+    private bool Drawn(Func<DomainFlowTransition, bool> kind) =>
+        _rows.Any(row => row.Transitions.Any(t => !row.IsDropped(t) && kind(t)));
+}

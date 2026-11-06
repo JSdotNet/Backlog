@@ -22,11 +22,6 @@ classDiagram
         +Timestamp created_at
         +Timestamp updated_at
     }
-    class Brain {
-        <<folder>>
-        +Path folder
-        +PARACategory[] areas
-    }
     class ProjectRef {
         <<value object>>
         +String repo_id
@@ -37,7 +32,6 @@ classDiagram
         +String name
     }
     class RoadmapContribution {
-        <<Devbook value object>>
         +String tag
     }
     class TaskLink {
@@ -57,9 +51,7 @@ classDiagram
         import
     }
 
-    KnowledgeNote --> PARACategory : organized under
-    Brain "1" o-- "0..*" KnowledgeNote : holds
-    Brain "1" *-- "1..*" PARACategory : declares
+    KnowledgeNote "1" *-- "1" PARACategory : organized under
     KnowledgeNote --> NoteSource : originated from
     KnowledgeNote "1" *-- "0..*" ProjectRef : scoped to
     KnowledgeNote "1" *-- "0..*" Tag : tagged with
@@ -69,13 +61,14 @@ classDiagram
 
 ## Relationship notes
 
-- `KnowledgeNote` is the aggregate root. `ProjectRef`, `Tag`, and `TaskLink` are
-  owned value objects, and there are no separately identified child entities.
-  `RoadmapContribution` and `effort` are the
+- `KnowledgeNote` is the aggregate root. `ProjectRef`, `Tag`, `TaskLink` and
+  `PARACategory` are owned value objects, and there are no separately identified
+  child entities. `RoadmapContribution` and `effort` are the
   [planning fields](../devbook/domain.md#shared-value-objects) every devbook chapter
-  may carry: a note carries them, and Devbook defines them.
-- `Brain` is the folder the person picked, not an aggregate: it holds the notes
-  as Markdown files. Its areas are the ones `CONVENTIONS.md` declares, the PARA
+  may carry: a note carries them, and Devbook defines them, so the diagram gives
+  `RoadmapContribution` no stereotype of this context's.
+- `Brain` is the folder the person picked, not a building block, so the diagram
+  does not draw it: it holds the notes as Markdown files. Its areas are the ones `CONVENTIONS.md` declares, the PARA
   set when it declares none, then every other top folder holding a note. The
   folders its `## Ignore` lists drop out. A note's `PARACategory` is one of those
   areas, read from the note's top folder unless its `para` field overrides it.

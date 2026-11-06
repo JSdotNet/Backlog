@@ -126,3 +126,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0042 — Repository Management owns pull-request state, and every reader goes through its one contract](adr/0042-repository-management-owns-pull-request-state.md)
 - [ADR 0043 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0043-a-surface-can-open-in-its-own-window.md)
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
+- [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)

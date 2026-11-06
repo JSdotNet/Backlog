@@ -15,6 +15,7 @@ related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#
 ```mermaid
 classDiagram
     class Device {
+        <<aggregate root>>
         +DeviceId Id
         +OwnerId OwnerId
         +string Name
@@ -23,6 +24,7 @@ classDiagram
     }
 
     class PairingCode {
+        <<aggregate root>>
         +string CodeHash
         +OwnerId OwnerId
         +DeviceId IssuedBy
@@ -32,25 +34,29 @@ classDiagram
     }
 
     class OwnerId {
+        <<value object>>
         +Guid Value
     }
 
     class DeviceId {
+        <<value object>>
         +Guid Value
     }
 
     class OwnerScope {
+        <<value object>>
         +OwnerId OwnerId
         +DeviceId DeviceId
     }
 
     class SyncCursor {
+        <<value object>>
         +OwnerId Owner
         +string Continuation
     }
 
     class ReplicaCursor {
-        <<TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor, DevbookSubjectReplicaCursor>>
+        <<value object>>
         +OwnerId Owner
         +string Continuation
     }
@@ -103,12 +109,17 @@ classDiagram
 - **The two aggregates meet only at the owner.** A Pairing Code names the owner a
   redeeming device joins and the device that issued it. Redeeming it creates a new
   Device under that owner; the code keeps no reference to the device it made.
-- **The documents are not Sync's types.** `TaskChange`, `SessionRecord`,
-  `AnnotationChange` and `DevbookSubjectChange` are the published language in
+- **The documents are not Sync's types**, so the diagram writes them without a
+  stereotype. `TaskChange`, `SessionRecord`, `AnnotationChange` and
+  `DevbookSubjectChange` are the published language in
   `Backlog.Modules.Sync.Abstractions`. Sync reads their envelope (id, `updatedAt`,
   `deletedAt` where the feed has tombstones, and a session record's machine, agent
   and session id) and stores the payload whole. What the payload means stays
   with Tasks, Sessions and Devbook.
+- **A Replica Cursor comes in four variants**, one per replica container:
+  `TaskReplicaCursor`, `SessionReplicaCursor`, `AnnotationReplicaCursor` and
+  `DevbookSubjectReplicaCursor`. They share one shape, so the diagram draws it once
+  as `ReplicaCursor`.
 - **Every replicated document carries an OwnerId** as its partition, and every
   replica read is given an [OwnerScope](domain.md#ownerscope) or a
   [Replica Cursor](domain.md#replica-cursor) naming one. Nothing reaches a replica

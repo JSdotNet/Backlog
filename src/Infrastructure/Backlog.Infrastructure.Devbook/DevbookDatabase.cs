@@ -347,9 +347,9 @@ public sealed partial class DevbookDatabase : IDisposable
 
     /// <summary>
     /// Every value of one list-valued <c>meta</c> field, by node — <c>roadmap</c>,
-    /// <c>feature-flag</c>, <c>aliases</c>, <c>alternatives</c>. Asked one name at
-    /// a time because a caller wants one: the roadmap rollup has no use for a
-    /// chapter's aliases.
+    /// <c>feature-flag</c>, <c>aliases</c>, <c>alternatives</c>, <c>tests</c>.
+    /// Asked one name at a time because a caller wants one: the roadmap rollup
+    /// has no use for a chapter's aliases.
     /// </summary>
     public ILookup<string, string> Attributes(string name)
     {

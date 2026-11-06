@@ -125,6 +125,26 @@ internal sealed class BrainPaneMode(IServiceProvider services, IDevbookPersonalS
         builder.CloseComponent();
     };
 
+    /// <summary>Every link the Brain holds into the repository, for the Domain
+    /// view's badges and boxes (local ADR 0047), in Devbook's own words.</summary>
+    public async Task<IReadOnlyList<DevbookChapterNote>> ChapterNotesAsync(string repositoryAlias, CancellationToken cancellationToken = default)
+    {
+        if (services.GetService<IBrainBacklinks>() is not { } backlinks) return [];
+
+        var links = await backlinks.ChapterLinksAsync(repositoryAlias, cancellationToken);
+        return [.. links.Select(link => new DevbookChapterNote(link.ChapterPath, link.Slug, new DevbookNote(link.Note.NotePath, link.Note.Title, link.Note.Heading)))];
+    }
+
+    /// <summary>The From your Brain box over notes the Domain view already read.</summary>
+    public RenderFragment? NotesBox(string repositoryAlias, IReadOnlyList<DevbookNote> notes, EventCallback<string> onOpenNote) => builder =>
+    {
+        builder.OpenComponent<BrainBacklinksBox>(0);
+        builder.AddComponentParameter(1, nameof(BrainBacklinksBox.RepositoryAlias), repositoryAlias);
+        builder.AddComponentParameter(2, nameof(BrainBacklinksBox.Links), (IReadOnlyList<BrainBacklink>)[.. notes.Select(note => new BrainBacklink(note.NotePath, note.Title, note.Heading))]);
+        builder.AddComponentParameter(3, nameof(BrainBacklinksBox.OnOpenNote), onOpenNote);
+        builder.CloseComponent();
+    };
+
     public Task<DevbookAtlasGraph> ReadAtlasAsync(CancellationToken cancellationToken = default) =>
         Brain is { } brain
             ? Atlas.ReadBrainAsync(brain, cancellationToken)

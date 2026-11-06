@@ -124,6 +124,40 @@ public class BrainBacklinkTests : IDisposable
     }
 
     [Fact]
+    public void A_repository_s_links_read_per_heading_once_per_note_and_heading()
+    {
+        using var database = Build();
+
+        var links = BrainBacklinkReader.ChapterLinks(database, "backlog");
+
+        Assert.Equal(
+            [
+                new BrainChapterBacklink(BuildingBlocks, null, new BrainBacklink("projects/plan.md", "Plan", null)),
+                new BrainChapterBacklink(BuildingBlocks, "devbook", new BrainBacklink("projects/plan.md", "Plan", null)),
+                new BrainChapterBacklink(BuildingBlocks, null, new BrainBacklink("projects/two.md", "Two chapters", "First")),
+                new BrainChapterBacklink(BuildingBlocks, "devbook", new BrainBacklink("projects/two.md", "Two chapters", "Second")),
+                new BrainChapterBacklink(".devbook/domain/tasks/domain.md", null, new BrainBacklink("work/elsewhere.md", "Elsewhere", null)),
+                new BrainChapterBacklink(".arc42/05-building-block-view.md", "runtime", new BrainBacklink("work/standup.md", "Standup", "Yesterday"))
+            ],
+            links);
+        Assert.Empty(BrainBacklinkReader.ChapterLinks(database, "elsewhere"));
+    }
+
+    [Fact]
+    public async Task A_double_that_knows_no_headings_answers_none()
+    {
+        IBrainBacklinks backlinks = new NoHeadings();
+
+        Assert.Empty(await backlinks.ChapterLinksAsync("backlog", TestContext.Current.CancellationToken));
+    }
+
+    private sealed class NoHeadings : IBrainBacklinks
+    {
+        public Task<IReadOnlyList<BrainBacklink>> LinksToAsync(string repositoryAlias, string chapterPath, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<BrainBacklink>>([]);
+    }
+
+    [Fact]
     public void A_chapter_nothing_in_the_brain_links_to_has_no_backlinks()
     {
         using var database = Build();
