@@ -50,7 +50,7 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
      acceptance criteria, the evidence paths — as `output`: the first report of the attempt
      with either is what asks the person on their devices, with this call's content as the
      question's body, so never send them in two calls. At every gate, return `gate` with the
-     handoff, opened with the `show-me` skill's orientation card when it has one, leaving the
+     handoff, its prose kept short by the chat-report rule `run-plan-item` step 7 points to, opened with the `show-me` skill's orientation card when it has one, leaving the
      application running; **Attendance** in `landing-modes.md` says why
      you do not park. The answer comes back as one of the lines below; one marked
      `from notification` is already recorded on the run, so record it only when it came from chat:
