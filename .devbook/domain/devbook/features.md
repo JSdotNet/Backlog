@@ -503,12 +503,6 @@ depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
-Walk the architecture the way C4 draws it, one level at a time, from the system
-in its context down to the code of one component, and see beside every element the
-chapters, decisions and debt that are about it. The **C4** tab lists views one by
-one; this tab is one model a reader zooms through, with the records attached where
-they apply.
-
 ```mermaid
 flowchart LR
     L[Landscape: every system] --> C1[1 Context: one system]
@@ -521,6 +515,10 @@ flowchart LR
     C2 --- D[Dynamic: a numbered flow]
     C2 --- P[Deployment: one environment]
 ```
+
+Walk the architecture one C4 level at a time, and see beside every element the
+chapters, decisions and debt about it. The **C4** tab lists views one by one; this
+tab is one model a reader zooms through.
 
 **Where it sits.** The **C4 zoom** tab is offered beside the **C4** tab while the
 `c4-zoom` and `c4-diagrams` switches are both on, and the **C4** tab stays as it
@@ -549,13 +547,17 @@ fills it is selected. Landscape, Dynamic and Deployment sit beside the bar under
 Enter and Backspace act only while the diagram has focus. Typing elsewhere in the
 app is never taken as a move.
 
-**The inspector.** Selecting an element opens it beside the diagram: its kind,
-description and technology, the arc42 chapters that document a view showing it,
-the decisions (ADRs) and the debt (TDRs) that name it, and a zoom-in button when a
-deeper view exists. A decision still proposed carries a "proposed" chip; a debt
-shows its severity and its rung on the debt ladder. Each chapter and record opens
-in the **Chapters** tab. A section with nothing to list says so. A deployment node
-opens the same inspector, with the container instances it runs.
+**The inspector.** Selecting an element opens it beside the diagram, with:
+
+- its kind, description and technology
+- the arc42 chapters that document a view showing it
+- the decisions (ADRs) and the debt (TDRs) that name it
+- a zoom-in button when a deeper view exists
+
+A decision still proposed carries a "proposed" chip; a debt shows its severity and
+its rung on the debt ladder. Each chapter and record opens in the **Chapters** tab.
+A section with nothing to list says so. A deployment node opens the same inspector,
+with the container instances it runs.
 
 **Overlays.** A switch in the tab's head reads None, Decisions or Debt, and the
 choice holds as the reader zooms. Decisions puts an "n ADR" chip on each card the
@@ -563,9 +565,9 @@ decisions name. Debt puts an "n TDR" chip on each card that open debt names (deb
 not yet resolved), and draws that card on the error surface. A card counts the
 records the inspector lists for it, those that touch it included. Under the
 diagram a line counts the records that name no element on the view but one
-nested below a card on it, the ones a reader finds by zooming in. Open debt that
-names no element is shown in a cross-cutting tray under the diagram while Debt is
-chosen, so it is never lost for having no place on a card.
+nested below a card on it. A reader finds those by zooming in. While Debt is chosen,
+a cross-cutting tray under the diagram shows open debt that names no element, which
+has no place on a card.
 
 **Code is generated, never authored.** Level 4 is drawn from the source on demand:
 a component linked to its code opens its types with their members. A component
@@ -583,20 +585,32 @@ The landscape draws the groups the DSL declares as bands.
 **Chapters** tab has a panel beside it. A compact container view rings the
 containers the record decides (`c4`), marks those it touches (`c4-touches`, a
 component landing on its container), dims the rest, and opens in the zoom tab with
-the decided element selected. The decision chain lists what the record supersedes
-and what supersedes it, read from the `## History` rows below the standing choice
-that open by naming another ADR; what it builds on, its `related:` ADRs; and what
-builds on it, the ADRs whose `related:` name it. A proposed ADR is drawn dashed.
-The panel also lists the arc42 sections whose `related:` cite the record and, for
-an ADR, the TDRs that name it. A TDR shows its severity and its rung on the debt
-ladder in place of the chain. An arc42 chapter embeds the views it
-documents. Where the chapter's own mermaid fence and the model disagree, it flags
-the elements in the model but missing from the fence, and the reverse. The chapter
-stays the text that is read; the model is what is drawn.
+the decided element selected. The panel also lists the arc42 sections whose
+`related:` cite the record and, for an ADR, the TDRs that name it.
 
-Which element a record names, a TDR's severity, which ADR supersedes which, and
-which code a component maps to are read from the chapters' own devbook metadata,
-never from a file kept beside the model (local ADR 0046). A TDR's rung and an ADR's
+The decision chain draws a proposed ADR dashed, and lists:
+
+- what the record supersedes and what supersedes it, read from the `## History` rows
+  below the standing choice that open by naming another ADR
+- what it builds on: its `related:` ADRs
+- what builds on it: the ADRs whose `related:` name it
+
+A TDR shows its severity and its rung on the debt ladder in place of the chain.
+
+An arc42 chapter embeds the views it documents. Where the chapter's own mermaid
+fence and the model disagree, it flags the elements in the model but missing from
+the fence, and the reverse. The chapter stays the text that is read; the model is
+what is drawn.
+
+The app reads these from the chapters' own devbook metadata, never from a file kept
+beside the model (local ADR 0046):
+
+- which element a record names
+- a TDR's severity
+- which ADR supersedes which
+- which code a component maps to
+
+A TDR's rung and an ADR's
 proposed mark are the record's state in Backlog's subject store, as the file header
 shows it, and the record's own `status` only where nothing is stored (local ADR
 0044). A record that states none, as devbook's contract 38 has it, rests: no proposed

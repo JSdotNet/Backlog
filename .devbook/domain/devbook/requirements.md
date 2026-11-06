@@ -646,9 +646,8 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 ```
 
-> The requirements of the **C4 zoom** tab of the architecture panel, behind the
-> `c4-zoom` switch (local ADR 0046). Each has its cases written inline until a
-> journey proves it.
+> The `c4-zoom` switch gates these (local ADR 0046). Each has its cases written
+> inline until a journey proves it.
 
 ### Requirement: The zoom tab sits beside the C4 tab
 
@@ -758,7 +757,7 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 type: requirement
 ```
 
-The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it — a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab — and a zoom-in button only when a deeper view of it exists.
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab), and a zoom-in button only when a deeper view of it exists.
 
 #### Scenario: A container with records
 

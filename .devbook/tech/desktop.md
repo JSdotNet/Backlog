@@ -182,10 +182,10 @@ Roslyn's C# parser, used for syntax trees and nothing else.
   timestamps. The package reaches only the desktop side: the mobile head does
   not reference the Devbook adapter.
 - **Why** — local ADR 0046 §3 draws level 4 from the source and never from an
-  authored diagram. Syntax trees need only the files: no compilation, no
-  restore, no matching SDK. So a branch snapshot reads the same as a clone the
-  app builds. Because nothing is compiled, the package version need not follow
-  the SDK's compiler.
+  authored diagram. Syntax trees need only the files, so nothing compiles or
+  restores and no SDK has to match. A branch snapshot reads the same as a clone
+  the app builds. Because nothing is compiled, the package version need not
+  follow the SDK's compiler.
 
 ## GitHub CLI
 
