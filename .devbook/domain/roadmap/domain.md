@@ -51,8 +51,7 @@ The states are the values of `placed_by_import` on a
 [a hand move](domain.invariants.md#invariant-a-hand-move-hands-the-window-to-the-person),
 and none leaves it, because
 [the importer never moves a window a person placed](domain.invariants.md#invariant-the-importer-never-moves-a-window-a-person-placed)
-and an import never deletes an item. A drop on a Calendar day places the window
-by the `effort` rule from that day, and it is the person's because they chose it.
+and an import never deletes an item.
 
 The single plan for the workspace, and the consistency boundary for every item,
 milestone, and dependency in it.
@@ -508,8 +507,8 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadma
 
 The work a [Roadmap Item](#roadmap-item) gathered that is filed in one
 repository. An item's effort is laid out one part per repository, each at the
-reader's pace for that repository and
-[counting the full effort of its own tasks and of the shared tasks it carries](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
+reader's pace for that repository. Each part
+[counts the full effort of its own tasks and of the shared tasks it carries](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
 A part is finished when every task it counts is done. When the work hands over to
 another repository and back, that repository has one part per phase.
 
@@ -699,7 +698,7 @@ related: [.devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/sessio
 
 A span of time in one session during which the person was working. Each of its
 [human turns](../sessions/domain.md#human-turn) comes less than 30 minutes after
-the stretch so far ended, which is when the agent finished answering; a later
+the stretch so far ended, which is when the agent finished answering. A later
 turn starts a new stretch
 ([scenarios](requirements.md#requirement-actual-hours-count-the-persons-working-stretches)).
 The gap runs from the end of the answer, not the previous turn, because reading

@@ -20,21 +20,30 @@ It also owns the state of the registered repositories' pull requests:
 - the stack it sits in;
 - the [merge commands](domain.md#merge-command) that act on it.
 
-A pull request is a fact about a registered repository, and this context already decides which repositories are read from GitHub, and with which account. Health counts the open pull requests of a repository; readiness says what each one waits on. Both come from the same reads. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#1-repository-management-owns-pull-request-state) widens the subject this way.
+A pull request is a fact about a registered repository. This context already decides which repositories are read from GitHub, and with which account. Health counts the open pull requests of a repository; readiness says what each one waits on. Both come from the same reads. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#1-repository-management-owns-pull-request-state) widens the subject this way.
 
 It consumes baselines from [Technology Stack](../technology-stack/domain.md#technology-registry). The registry is built; scanning and health scoring are planned.
 
-Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares: the readiness verdict, the stacks, which merge a pull request is offered, and the label filter. The module holds the one cache and the merge commands. The pull requests pane's markup and status lines stay in the desktop shell and read that contract.
+Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
+
+- the readiness verdict;
+- the stacks;
+- which merge a pull request is offered;
+- the label filter.
+
+The module holds the one cache and the merge commands. The pull requests pane's markup and status lines stay in the desktop shell and read that contract.
 
 No feature flag gates [archiving a repository](features.md#archiving-a-repository): it is a registry edit like a rename, so it is there wherever the repository list is.
 
 Outside it:
 
-- what a baseline says and which versions are approved, which Technology Stack answers;
-- the work items a finding turns into, and which task a session or pull request belongs to, which [Tasks](../tasks/domain.md#task) answers;
-- which session opened a pull request, which [Sessions](../sessions/context.md) answers;
-- the goal a pull request counts toward, which [Progress](../progress/context.md) answers;
-- the history of merged work the dashboard counts, which [Productivity](../productivity/features.md#personal-productivity-dashboard) reads on its own.
+| Concern | Answered by |
+| --- | --- |
+| What a baseline says and which versions are approved | Technology Stack |
+| The work items a finding turns into, and which task a session or pull request belongs to | [Tasks](../tasks/domain.md#task) |
+| Which session opened a pull request | [Sessions](../sessions/context.md) |
+| The goal a pull request counts toward | [Progress](../progress/context.md) |
+| The history of merged work the dashboard counts | [Productivity](../productivity/features.md#personal-productivity-dashboard), which reads it on its own |
 
 ## Pull requests
 

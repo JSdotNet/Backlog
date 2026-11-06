@@ -220,8 +220,7 @@ flowchart LR
     AA -->|adoption gaps as tech-upgrade tasks| Tasks
 ```
 
-Collects daily adoption from Dev PC Management tool-version reports and
-Repository Management tech-stack scans. From them it:
+From the reports and scans it collects daily, it:
 
 - computes portfolio coverage, version distribution and adoption velocity;
 - measures [Technology Sprawl](#technology-sprawl);
@@ -231,7 +230,7 @@ It is a service because it aggregates data reported by other contexts into
 portfolio analytics that no single `Technology` owns. Invocation semantics:
 scheduled or triggered by an incoming report.
 
-- Only the `Technology Registry` root writes the analytics ([flow](domain.md#adoption-tracking)).
+- Only the `Technology Registry` root writes the analytics.
 - Technology Stack is not built, so none of these feeds exists in code.
   [dependencies.md](dependencies.md) names the intended contract for each.
 

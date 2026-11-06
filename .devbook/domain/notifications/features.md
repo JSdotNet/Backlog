@@ -34,14 +34,26 @@ type: feature
 related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply, .devbook/domain/notifications/context.md#owner-screens, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
 ```
 
+```mermaid
+sequenceDiagram
+    participant V as Viewer instance
+    participant O as Owner instance
+    V->>O: Reply
+    O->>O: check it against the Answer Spec
+    alt accepted
+        O-->>V: the Answer
+    else rejected
+        O-->>V: the reason
+    end
+```
+
 The person sees a notification on the Android phone or on another desktop and
-replies there. The reply reaches the owner, which accepts it as the answer or
-rejects it with a reason. Every viewer shows which desktop owns the notification
+replies there. Every viewer shows which desktop owns the notification
 and whether it is online, because an answer counts only once that desktop accepts
 it.
 
 On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
-feed when it opens and when the app comes back to the front, and every 30 seconds
+feed when it opens and when the app comes back to the front. It also pulls every 30 seconds
 while a reply made there waits for its owner. Each card shows:
 
 - the kind, the severity and the age;
@@ -51,9 +63,13 @@ while a reply made there waits for its owner. Each card shows:
 The detail draws the Markdown body, Mermaid included. A question takes choice
 buttons, checkboxes for multiple choice, or a plain-text answer. The reply leaves
 through the device outbox as a `notification-reply` entry, so a reply made offline
-is kept. Once the owner's verdict syncs back the card reads "Answered from this
-phone", "Answered elsewhere" with the answer that won, or the owner's reason for rejecting it with
-the controls back. A question that says `answerOn: owner` is read-only there.
+is kept. A question that says `answerOn: owner` is read-only there.
+
+Once the owner's verdict syncs back the card reads:
+
+- "Answered from this phone";
+- "Answered elsewhere", with the answer that won;
+- or the owner's reason for rejecting it, with the controls back.
 
 Each box that takes words (the open answer, a choice's own words, the note) can be dictated into instead of typed. What was heard is added to that box for
 the person to read, and nothing is sent until they press Send. One box listens at
@@ -81,10 +97,10 @@ for 15 minutes reads it as offline.
 
 Two filters sit over the tab and narrow both its views, the pager and the list:
 
-- **From** — the system a notification came from, by the rule the desktop
+- **From:** the system a notification came from, by the rule the desktop
   centre's From filter keeps: [Origin](domain.md#origin)'s system, else the
   source's label.
-- **Repository** — the repository the owner desktop published with the
+- **Repository:** the repository the owner desktop published with the
   notification ([Owner screens](context.md#owner-screens)), and **Brain** for
   those about no repository. A notification whose repository is not known stays
   under every choice, as it does on the desktop.
@@ -94,8 +110,7 @@ filter. A filter with fewer than two options is not shown. The phone remembers
 both on the device, and **Clear filters** sets both back to All. A filter that
 leaves nothing shows an empty state with **Clear filters**, not "No
 notifications". The filters change only what the tab shows: the waiting count
-and the tab's badge count every open question, and the Android push is sent
-whatever they hold.
+counts every open question, and the Android push is sent whatever they hold.
 
 The phone also hears of a notification without being opened, through an Android
 push. When a notification is published or changes state, the phone gets an
@@ -151,8 +166,8 @@ The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports
 for the person: its review links, what to check, the acceptance criteria and the
 paths of the evidence. It travels as text, and no image is attached. The question
-is asked on the first report of the stage that carries links or handoff text,
-because a gate that has only gone in progress has nothing to show yet.
+is asked on the first report of the stage that carries links or handoff text.
+A gate that has only gone in progress has nothing to show yet.
 
 | Answer | Recorded on the run | What follows |
 | --- | --- | --- |
@@ -201,9 +216,15 @@ held it asks it again, under an id every desktop that held the same earlier roun
 derives alike. One answered never comes back.
 
 The person's other spec-manager notifications arrive as alerts on the same pulls:
-a mention, a reply, a change proposal's or an input item's fate, review work, and
-administration. Only the unread ones come in, and only those created after the
-person first signed in to that installation from this desktop; older ones stay in
+
+- a mention;
+- a reply;
+- a change proposal's or an input item's fate;
+- review work;
+- administration.
+
+Only the unread ones come in, and only those created after the
+person first signed in to that installation from this desktop. Older ones stay in
 spec-manager. A mention is a warning, the rest are info, and each opens where
 spec-manager points. Acknowledging the alert here, on any device, marks it read in
 spec-manager. One read in spec-manager closes here as "Read in spec-manager".

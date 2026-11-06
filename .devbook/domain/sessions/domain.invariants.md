@@ -13,7 +13,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-log]
 ```
 
-> The rules the Session Log holds every reading and every record to, including those of the delivery runs and session rows it owns. No domain type holds the log: the readers in the sessions infrastructure, and for a replicated record the Sync module and the sync infrastructure, keep these rules, so `Enforced at:` names them.
+> The rules the Session Log holds every reading and every record to, including those of the delivery runs and session rows it owns. No domain type holds the log. The readers in the sessions infrastructure, and for a replicated record the Sync module and the sync infrastructure, keep these rules, so `Enforced at:` names them.
 
 ### Invariant: A session appears once
 
@@ -23,7 +23,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSource
 ```
 
 A session appears once in the log, however many records the environment holds for it.
-An agent may leave one record per process and another per transcript, or file one transcript under two working folders when the session moved between them; the session went somewhere, it did not become two.
+An agent may leave one record per process and another per transcript, or file one transcript under two working folders when the session moved between them. The session went somewhere, it did not become two.
 
 Enforced at: `ClaudeTranscripts.Newest()`, `ClaudeSessionReader` (one live row per session id), `CompositeAgentSessionSource.GetSessionsAsync()`
 
@@ -149,7 +149,7 @@ tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.A
 ```
 
 A session record is written only by the environment that gathered it, and a record that arrived through sync is never pushed again.
-A second push of the same session replaces that environment's own record and reaches no other; an environment that re-published another's records would attach somebody else's work to itself.
+A second push of the same session replaces that environment's own record and reaches no other. An environment that re-published another's records would attach somebody else's work to itself.
 
 Enforced at: `SessionRecordKey.For()`, which leads the key with the machine id; `PushSessionsCommandHandler`, which takes the machine from the sender's token because the record carries none; `SessionSyncSession`, which pushes only sessions of local or recorded origin (`IsOwn()`)
 
@@ -235,7 +235,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTest
 ```
 
 A reading amends a session record and takes nothing from it: a value it lacks keeps the recorded one, activity before its first instant stays, and limit hits and human turns are a union.
-The record has to answer once the transcript is gone, and a reading that knows less than the record would otherwise erase what only the record still holds.
+The record has to answer once the transcript is gone. A reading that knows less than the record would otherwise erase what only the record still holds.
 
 Enforced at: `AgentSessionRecords.Amend()`; `AgentSessionRecordStore`, which never overwrites a record it cannot read
 
@@ -729,7 +729,7 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Every_
 ```
 
 A plan is Imported when any of its sessions is a `+PLAN` session or a plan run, Draft when it has only `PLAN:` sessions, and of unknown state otherwise.
-The state comes from every row of the reading, so a narrowing applied first never changes it, and Plan State keeps every row of a plan in that state.
+The state comes from every row of the reading, so a narrowing applied first never changes it. Plan State keeps every row of a plan in that state.
 
 Enforced at: `SessionPlans.Of()`, `SessionPlans.InState()` (its `plans` parameter); the Sessions pane, which passes the plans of its whole reading
 
@@ -918,7 +918,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#question-relay]
 ```
 
-> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them, `QuestionRelay` the route, the publishing and the answers, `SqliteWaitingQuestionStore` the record, and the session-request tools and the dispatch wait route hand the deliveries to the Manager.
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them. `QuestionRelay` holds the route, the publishing and the answers, and `SqliteWaitingQuestionStore` the record. The session-request tools and the dispatch wait route hand the deliveries to the Manager.
 
 ### Invariant: Presence picks the route once
 

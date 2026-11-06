@@ -23,8 +23,21 @@ Inside the boundary:
   impediments over it.
 
 Outside it: the task itself. [Tasks](../tasks/domain.md#task) owns a task's status,
-due date, effort, the mark that it is blocked and its linked pull requests, and holds
-no knowledge of goals or impediments.
+due date, effort, blocked mark and linked pull requests. It knows nothing of goals or
+impediments.
+
+```mermaid
+flowchart LR
+    Reading["Stand-up Reading, over an Iteration"] --> Goal
+    Reading --> Impediment
+    Goal -->|attaches| Plan
+    Goal -->|attaches| Task
+    Goal -->|attaches| PR[Pull request]
+    Goal -->|attaches| Session
+    Impediment -->|holds back| Plan
+    Impediment -->|holds back| Task
+    Impediment -->|holds back| PR
+```
 
 Progress reads each piece of work from its owner on every reading, naming it by:
 
@@ -43,7 +56,7 @@ relationships are in [dependencies.md](dependencies.md).
 
 ADR 0035 retires the sprint series Progress used to lay over repositories, with their settings and the parts of local [ADR 0028](../../arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md) that described them. The plan `+goals-standup` retired their code.
 
-Goals, impediments and the stand-up are always on. The `goals` flag that switched the context while it was built, and the In progress view it kept for a person who had it off, are retired (local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)).
+Goals, impediments and the stand-up are always on. The `goals` flag switched the context while it was built, and kept the In progress view for a person who had it off. Both are retired (local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)).
 
 ## Iteration length
 

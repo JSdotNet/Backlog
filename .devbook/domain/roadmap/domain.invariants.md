@@ -43,7 +43,7 @@ tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADirec
 ```
 
 A dependency that would close a cycle, directly or through any number of nodes, is refused and leaves the plan as it was (`roadmap.cyclic_dependency`).
-A cycle already written into a hand-edited file is read as it stands, which is why the rule is the refusal rather than a property of every loaded plan.
+A cycle already written into a hand-edited file is read as it stands, so the rule is the refusal, not a property of every loaded plan.
 
 Enforced at: `AddDependency()`
 
@@ -416,7 +416,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.OverlappingDatesAcrossADependency_AreReportedNotRefused, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDatesIntoAContradiction_IsAllowedAndReported]
 ```
 
-A change that makes work open on or before the close of something it waits on is accepted, and the contradiction is reported rather than refused or repaired.
+A change that makes work open on or before the close of what it waits on is accepted, and the contradiction is reported, never refused or repaired.
 A plan may be temporarily wrong, because that is how a person finds out a date does not fit.
 
 Enforced at: `PlanSequencing.Contradictions()`, a pure query over the nodes; `AddDependency()`, `Reschedule()` and `UpdateItem()` accept the change that makes one

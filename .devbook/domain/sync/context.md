@@ -39,18 +39,20 @@ Inside the boundary:
   ([Syncing between devices](requirements.md#syncing-between-devices); local
   [ADR 0005 §Version compatibility](../../arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)).
 
-Outside it: what each document means. A task document is
-[Tasks](../tasks/domain.md#task)'s, a session record is
-[Sessions](../sessions/domain.md#session-log)', an annotation and a
-[devbook subject's state](../devbook/domain.md#subject-state) are
-[Devbook](../devbook/context.md)'s, and a `capture`-kind document becomes an inbox
-item in the [Inbox](../inbox/domain.md#inbox-item) (local
-[ADR 0009](../../arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md)).
+Outside it: what each document means.
+
+- A task document is [Tasks](../tasks/domain.md#task)'s.
+- A session record is [Sessions](../sessions/domain.md#session-log)'.
+- An annotation and a [devbook subject's state](../devbook/domain.md#subject-state)
+  are [Devbook](../devbook/context.md)'s.
+- A `capture`-kind document becomes an inbox item in the
+  [Inbox](../inbox/domain.md#inbox-item) (local
+  [ADR 0009](../../arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md)).
 
 Sync stores a document whole, orders it by its stamp and tombstone, and hands it
 back. It reads no payload field, and the merge into a device's local store
 stays with the owning context. A notification's push preview is
-not the payload: the owner writes it on the envelope, so Sync can send the
+not the payload. The owner writes it on the envelope, so Sync can send the
 Android push without opening the document.
 
 The machine itself is the shared
@@ -61,8 +63,8 @@ service, and is not the same identifier.
 Sync runs in two places. The sync service is `Backlog.Modules.Sync.Api`, which hosts
 `Backlog.Modules.Sync` and holds the owners, devices, pairing codes and replicas in
 the cloud. The sync client (`Backlog.Infrastructure.Sync`), on the desktop and the
-phone, is the adapter each downstream context reaches the replica through, and the
-place the version check sits. The Devices settings page is `Backlog.Modules.Sync.UI`.
+phone, is the adapter each downstream context reaches the replica through. The
+version check sits there too. The Devices settings page is `Backlog.Modules.Sync.UI`.
 
 ## Taking part in sync
 
@@ -87,7 +89,7 @@ transcript, a working folder or a title (local ADR 0005 §Session records).
 It replaces three flags, `device-pairing`, `task-sync` and `session-sync`. The
 catalog entry names them as former keys, so a settings file written while any of
 them was on comes up with this one on. They were split so a person could pair
-devices without their tasks leaving the machine, but in practice the question is
+devices without their tasks leaving the machine. In practice the question is
 only whether this machine takes part in sync.
 
 It ships off and marked `BETA`
@@ -115,14 +117,14 @@ open host service. Each downstream context reaches it through an adapter in
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document | `TaskChange`, `TaskPayload` and `PushTasksRequest` in `Backlog.Modules.Sync.Abstractions`; local ADR 0005 | A task document comes back unchanged, and a push never moves it backwards ([Change Precedence](domain.md#change-precedence)). |
-| [Sessions](../sessions/domain.md#session-log) | OHS + Published Language (Sync = supplier) | `SessionSyncSession` pushes this machine's session records through `POST /api/sync/sessions` and pulls the other machines' through `GET` | `SessionRecord` and `SessionRecordEntry` in `Backlog.Modules.Sync.Abstractions`; local ADR 0005 §Session records | A record is keyed by its machine ([Session Record Key](domain.md#session-record-key)), so no machine can overwrite another's. |
-| [Devbook](../devbook/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` pushes and pulls remarks through `POST` and `GET /api/sync/annotations` | `AnnotationChange` and `AnnotationPayload` in `Backlog.Modules.Sync.Abstractions`; local ADR 0011 | A remark replicates on a task's terms, in its own container, under Change Precedence. |
-| [Devbook](../devbook/domain.md#subject-state) | OHS + Published Language (Sync = supplier) | `DevbookSubjectSyncWorker` pushes and pulls through `POST` and `GET /api/sync/devbook-subjects`; `DevbookSubjectReplicaMerge` applies each pulled one | `DevbookSubjectChange` and `DevbookSubjectPayload` in `Backlog.Modules.Sync.Abstractions`; local ADR 0044 | A subject's state is stored whole in `devbookSubjects`, and Change Precedence holds with no tombstone. |
-| [Notifications](../notifications/context.md) | OHS + Published Language (Sync = supplier) | The owner desktop pushes through `POST /api/sync/notifications` and every device pulls through `GET` | `NotificationChange` with its `NotificationPushPreview`, and `RegisterPushInstallationRequest`, in `Backlog.Modules.Sync.Abstractions`; local ADR 0039 | Each notification has one writer, and a reply reaches only its own owner. |
+| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document | `TaskChange`, `TaskPayload` and `PushTasksRequest`; local ADR 0005 | A task document comes back unchanged, and a push never moves it backwards ([Change Precedence](domain.md#change-precedence)). |
+| [Sessions](../sessions/domain.md#session-log) | OHS + Published Language (Sync = supplier) | `SessionSyncSession` pushes this machine's session records through `POST /api/sync/sessions` and pulls the other machines' through `GET` | `SessionRecord` and `SessionRecordEntry`; local ADR 0005 §Session records | A record is keyed by its machine ([Session Record Key](domain.md#session-record-key)), so no machine can overwrite another's. |
+| [Devbook](../devbook/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` pushes and pulls remarks through `POST` and `GET /api/sync/annotations` | `AnnotationChange` and `AnnotationPayload`; local ADR 0011 | A remark replicates on a task's terms, in its own container, under Change Precedence. |
+| [Devbook](../devbook/domain.md#subject-state) | OHS + Published Language (Sync = supplier) | `DevbookSubjectSyncWorker` pushes and pulls through `POST` and `GET /api/sync/devbook-subjects`; `DevbookSubjectReplicaMerge` applies each pulled one | `DevbookSubjectChange` and `DevbookSubjectPayload`; local ADR 0044 | A subject's state is stored whole in `devbookSubjects`, and Change Precedence holds with no tombstone. |
+| [Notifications](../notifications/context.md) | OHS + Published Language (Sync = supplier) | The owner desktop pushes through `POST /api/sync/notifications` and every device pulls through `GET` | `NotificationChange` with its `NotificationPushPreview`, and `RegisterPushInstallationRequest`; local ADR 0039 | Each notification has one writer, and a reply reaches only its own owner. |
 | [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands `capture`-kind documents to `IInboxIntake` and drains `IInboxCaptureOutbox` | local ADR 0009; attachments, local ADR 0014 | A capture reaches the desktop once, keyed by its own id. |
 
-- **Tasks:** The desktop runs `TaskSyncWorker` over the task feed, and the merge writes to the local store, and a task document is stored whole. Other kinds ride the task feed under their owners' kind tokens:
+- **Tasks:** The desktop runs `TaskSyncWorker` over the task feed. The merge writes to the local store, and a task document is stored whole. Other kinds ride the task feed under their owners' kind tokens:
   - roadmap plans (local ADR 0018);
   - GitHub settings (local ADR 0021);
   - notes (local ADR 0025);

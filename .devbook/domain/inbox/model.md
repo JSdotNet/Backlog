@@ -116,9 +116,9 @@ classDiagram
 
 - `InboxItem` is the aggregate root of an item; `Tag`, `RoutingTarget`,
   `Source` and `Attachment` are owned value objects.
-- An `Attachment` has two halves: what the capture said about the file (`id`,
-  `name`, `content_type`, `size_bytes`, `sha256`), fixed once recorded, and this
-  machine's copy (`local_path`, `downloaded_at`, `last_error`), which changes on
+- An `Attachment` has two halves. What the capture said about the file (`id`,
+  `name`, `content_type`, `size_bytes`, `sha256`) is fixed once recorded. This
+  machine's copy (`local_path`, `downloaded_at`, `last_error`) changes on
   every fetch. The bytes are not on the item; they sit in its
   [attachment folder](domain.md#attachment-folder).
 - `InboxList` and `InboxGroup` are two further, small aggregate roots. An item

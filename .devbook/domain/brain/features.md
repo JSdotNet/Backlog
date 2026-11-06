@@ -37,7 +37,7 @@ Every other top folder that holds a note follows as an area named after its fold
 
 A dated area lists newest first: the `journal` folder, or any area whose `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so name descending is date descending at every level; other areas list by name.
 
-Moving a note to another area is moving its file to another folder; a note may name its area in its `para` field instead, which wins over the folder.
+Moving a note to another area is moving its file to another folder. A note may name its area in its `para` field instead, which wins over the folder.
 
 ## Cross-project linking
 
@@ -46,7 +46,7 @@ type: feature
 related: [.devbook/domain/brain/features.md#repo-links-and-backlinks]
 ```
 
-Reference several projects and repos from one note, and discover notes across projects by tag. A project note names the repositories it concerns in its `repos` field; a note that points at one chapter of a repository's devbook uses a [repo link](#repo-links-and-backlinks).
+Reference several projects and repos from one note, and discover notes across projects by tag. A project note names the repositories it concerns in its `repos` field. A note that points at one chapter of a repository's devbook uses a [repo link](#repo-links-and-backlinks).
 
 ## Topic and tag grouping
 
@@ -68,7 +68,7 @@ related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook
 
 Link a Brain note to the tasks it is about, and see the link from both ends. A note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link) per task, by the task's stored id. The Brain's database carries the field, and the app reads it both ways:
 
-- **From the note.** Under its links into devbooks, the note shows a **Tasks** section. Each task this backlog holds is a gold chip reading its title, which opens the task in the task list. An id this backlog does not hold is a dashed chip reading *not in this backlog*, never an error, because one Brain is read beside more than one backlog.
+- **From the note.** Under its links into devbooks, the note shows a **Tasks** section. Each task this backlog holds is a gold chip reading its title, which opens the task in the task list. An id this backlog does not hold is a dashed chip reading *not in this backlog*. It is never an error, because one Brain is read beside more than one backlog.
 - **From the task.** A task row, in the Brain scope and a repository scope, carries a teal **◆ n note** badge counting the Brain notes that name it. With one note, pressing it opens the Devbook on the Brain side at that note; with several, it lists them to pick from. Where the Devbook is off or has no Brain to read, the press shows a *not available* toast and opens nothing.
 
 The reverse is read, never written: a task's record carries no note. The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
@@ -82,11 +82,11 @@ related: [.devbook/domain/brain/requirements.md#brain-scope, .devbook/arc42/adr/
 
 Pick the Brain the way a repository is picked. The header's repository scope leads with a **Brain** chip, set off from the repository chips by a divider and worn in the Brain's teal. It cannot be removed and needs no repository, so the scope works for a person who has configured none.
 
-Brain is the scope of everything filed against no repository. Pressed alone, it narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the tasks with no repository, and the notification centre to the notifications about no repository. It also shows the Brain when the Devbook is opened. Pull requests and the Roadmap read Brain alone as nothing pressed: every pull request belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still means everything.
+Brain is the scope of everything filed against no repository. Pressed alone, it narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the tasks with no repository. It narrows the notification centre to the notifications about no repository. It also shows the Brain when the Devbook is opened. Pull requests and the Roadmap read Brain alone as nothing pressed: every pull request belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it. The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows. With the Brain and repositories pressed together, each row's repository badge says where the task is filed: **Brain** for no repository, else the alias.
 
-Until a Brain folder is set up, the chip reads **Set up your Brain**, still scopes the tasks, and its tooltip points to Settings › Storage. The Devbook on the Brain side then shows a **Set up your Brain** button instead of areas, which opens Settings › Storage at the Brain folder card inside the app.
+Until a Brain folder is set up, the chip reads **Set up your Brain**, still scopes the tasks, and its tooltip points to Settings › Storage. The Devbook on the Brain side then shows a **Set up your Brain** button instead of areas. It opens Settings › Storage at the Brain folder card inside the app.
 
 ## Brain folder setup
 
@@ -104,7 +104,7 @@ Choose where the Brain lives, once, in Settings › Storage. The person picks a 
 
 **Create conventions** writes both files and every area folder they declare, and never overwrites an existing file. The files come from a template the app ships, the PARA set by default. A folder whose own `CONVENTIONS.md` declares areas keeps those, so a person who wrote theirs first gets their areas, not the template's. The folder then carries its own convention, so a second machine reading the synced folder sees the same areas.
 
-The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas` heading, one row per area in tab order with its name, folder and what it holds. With no rows, the PARA set applies. Its `## Ignore` section lists `_templates`, where note templates usually live, so templates never become a tab.
+The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas` heading. Each area has one row, in tab order, with its name, folder and what it holds. With no rows, the PARA set applies. Its `## Ignore` section lists `_templates`, where note templates usually live, so templates never become a tab.
 
 **Browse** opens the Windows folder picker in the installed app. A host without one, the browser harness among them, takes a typed path.
 
@@ -157,13 +157,13 @@ Point a Brain note at the repository chapter it is about. A [repo link](domain.m
 | The alias is not configured on this machine | Dashed | *not on this machine* |
 | The alias is configured, but the path lies in no section its devbook shows | Dashed | *not a chapter in its devbook* |
 
-A repository counts as configured here as a clone or as a branch snapshot. The chip's tooltip is the raw link in every state. An unresolved link is never an error, because the same Brain is read on machines with different repositories. Following a gold chip leaves the header scope alone: the pane reads the repository as it does for a task's reference, and the switch or the scope brings the Brain back.
+A repository counts as configured here as a clone or as a branch snapshot. The chip's tooltip is the raw link in every state. An unresolved link is never an error, because the same Brain is read on machines with different repositories. Following a gold chip leaves the header scope alone: the pane reads the repository as it does for a task's reference. The switch or the scope brings the Brain back.
 
 The reverse is shown, never written. Under a repository chapter, a teal **From your Brain** box lists the Brain notes that link to it, marked *Only you see this*. It reads the owner's own Brain database and writes nothing into the repository, so personal notes never reach shared history. A repository devbook cannot link into a Brain.
 
-A link to any heading of the chapter's file counts. A note is listed once: under the first chapter if all its links sit inside chapters, on its own if any link is in `related` or outside every chapter. A chapter no note links to draws no box.
+A link to any heading of the chapter's file counts. A note is listed once. It sits under the first chapter if all its links sit inside chapters, and on its own if any link is in `related` or outside every chapter. A chapter no note links to draws no box.
 
-Each note in the box is a link. Following it puts the note on the Brain side of the pane, as a Brain search result does, and leaves the header's scope and the task filter alone.
+Each note in the box is a link. Following it puts the note on the Brain side of the pane, as a Brain search result does. It leaves the header's scope and the task filter alone.
 
 ## Atlas edges
 
@@ -177,7 +177,7 @@ See where the Brain reaches into the repositories. On the Brain, the pane's **At
 
 A link this machine can follow is a solid edge to a filled node. One it cannot is a dashed edge to a hollow node, like its chip. The atlas reads no repository: a repository node shows the link's own words.
 
-An edge's label sits at the middle of its curve unless that overlaps a node, a node's label or another edge's label; it then steps along the curve or just above or below it. An edge with no free seat goes unlabelled, because the node labels are what the reader navigates by.
+An edge's label sits at the middle of its curve unless that overlaps a node, a node's label or another edge's label. It then steps along the curve or just above or below it. An edge with no free seat goes unlabelled, because the node labels are what the reader navigates by.
 
 Selecting a repository node shows the link's chip. A gold chip opens that repository's devbook at the chapter, as a chip in a note does; a dashed one says why it cannot be followed. Selecting a note offers to open it in the pane. Both close the map. With no Brain index built yet, the atlas says so rather than drawing an empty map.
 
@@ -190,7 +190,7 @@ feature-flag: .devbook/domain/brain/context.md#lobes-atlas
 related: [.devbook/domain/brain/requirements.md#lobes-atlas, .devbook/domain/brain/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent, .devbook/design/interaction-guidelines.md#motion-and-reduced-motion]
 ```
 
-See the Brain and every devbook on this machine in one picture. One atlas maps the Brain and the devbook of every registered repository. It opens full-window from the shell header's **Atlas**, in place of whatever was on screen, and draws each of them as a brain: drag to rotate it, scroll to zoom. Each note or chapter on a brain is a **mark**, the same thing [Atlas edges](#atlas-edges) calls a node.
+See the Brain and the devbook of every repository registered on this machine in one atlas. It opens full-window from the shell header's **Atlas**, in place of whatever was on screen. It draws each of them as a brain: drag to rotate it, scroll to zoom. Each note or chapter on a brain is a **mark**, the same thing [Atlas edges](#atlas-edges) calls a node.
 
 Its close button, Escape and a second press of **Atlas** return to where the person was:
 
@@ -200,7 +200,7 @@ Its close button, Escape and a second press of **Atlas** return to where the per
 
 If that takeover or the Devbook has since been switched off, they return to the main view instead, and the tooltip names the main view.
 
-**Scopes.** The atlas draws what the shell header's repository scope selects: one member is that scope alone; several, or none pressed (every repository), is **All** with just those. Ghost devbooks are in no repository scope, so a **Ghosts** toggle at the top right, offered while one exists, draws every ghost in All too. A change of what is drawn brings the camera home: the new layout's brains turn from where the last view left them to the default view in about half a second, easing in and out. Under reduced motion the new layout starts at the default view.
+**Scopes.** The atlas draws what the shell header's repository scope selects: one member is that scope alone; several, or none pressed (every repository), is **All** with just those. Ghost devbooks are in no repository scope, so a **Ghosts** toggle at the top right, offered while one exists, draws every ghost in All too. A change of what is drawn brings the camera home. The new layout's brains turn from where the last view left them to the default view in about half a second, easing in and out. Under reduced motion the new layout starts at the default view.
 
 | Scope | The atlas shows |
 | --- | --- |
@@ -209,8 +209,8 @@ If that takeover or the Devbook has since been switched off, they return to the 
 | One per devbook | That devbook alone, by region, with a Brain hub beside it |
 
 When nothing in scope has a devbook, such as a repository with none pressed alone,
-the atlas says so in words and offers another pick or **Ghosts**, never an
-empty map nor everything.
+the atlas says so in words and offers another pick or **Ghosts**. It never draws
+an empty map or everything.
 
 **Layout.** The map fills the atlas, and everything else floats over it:
 
@@ -231,13 +231,25 @@ In a window 60rem wide or narrower nothing floats. The parts stack in one column
 - the map, with its list under it;
 - the foot.
 
+**The idle turn**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Still : The atlas opens
+    Still --> Turning : Four seconds without input, then it eases in
+    Turning --> Still : A press, a scroll, or the pointer resting on a mark
+    Still --> Paused : Pause pressed
+    Turning --> Paused : Pause pressed
+    Paused --> Still : Pause pressed again
+```
+
 **The camera.** The brains move like a globe in the hand. A drag carries the near face of a brain with the pointer, across as well as up and down. A brisk drag carries on after release and comes to rest within about a second.
 
 A press on brains still turning only stops them and selects nothing. A press on a mark that does not move selects the mark and leaves the camera where it is. A scroll zooms toward the point under the pointer, easing to each step, between half and 2.4 times.
 
-After four seconds without input the brains turn slowly on their own, about once in a hundred seconds. The turn stops when the person presses, scrolls or rests the pointer on a mark. Showing or hiding a region, or turning Labels on or off, keeps the camera where it was and moving as it was. Under reduced motion nothing moves on its own: a drag turns the brains only while it lasts, and a scroll and a new layout land at once.
+The idle turn is slow, about once in a hundred seconds. Showing or hiding a region, or turning Labels on or off, keeps the camera where it was and moving as it was. Under reduced motion nothing moves on its own: a drag turns the brains only while it lasts, and a scroll and a new layout land at once.
 
-**Pause** stops the turn on its own until the person presses it again. It reads as pressed while the turn is held, and lasts while the atlas is open. A fling, a drag and the zoom still move the brains while paused. Pressing it again resumes the turn as after any input: four seconds, then it eases in.
+**Pause** stops the turn on its own. It reads as pressed while the turn is held, and lasts while the atlas is open. A fling, a drag and the zoom still move the brains while paused.
 
 A repository alias the Brain links to that is not registered on this machine is a **ghost devbook**. It is drawn dashed in All while **Ghosts** is on, and its row in the panel steps into it alone, with its own card. Wherever it is drawn, it shows only its outline and the chapters the notes name, in the link's own words, because the atlas reads no repository ([Atlas edges](features.md#atlas-edges)).
 
@@ -265,19 +277,19 @@ Archive is no region: its notes are the faint dust around the outside.
 | Cerebellum | `ai/` |
 | Brain stem | Each folder's convention root and the reading-order roots |
 
-Parietal starts hidden in each devbook's scope. The atlas holds a devbook's `tech/` chapters but draws them only once the reader turns the region on, with its chip, its row in the left panel or **All**. The panel still lists Parietal with its count while it is hidden.
+Parietal starts hidden in each devbook's scope. The atlas holds a devbook's `tech/` chapters but draws them only once the reader turns the region on. The reader does so with its chip, its row in the left panel or **All**. The panel still lists Parietal with its count while it is hidden.
 
 Technology starts hidden in All too: no devbook's `tech/` chapters are drawn or listed there. All has no region chips, so it carries one more toggle, **Tech**, after **Labels** and **Pause** at the top right. It starts off; turning it on draws every devbook's `tech/` chapters in their Parietal regions, and turning it off hides them again. It acts on All alone and leaves each devbook scope's own Parietal chip as the reader set it.
 
 **Hubs and ghost chapters.** The Brain stem holds one hub for `CONVENTIONS.md` and one for each area. Occipital draws the repository chapters the notes link to as one hub per repository alias, with a bundle to each chapter. A chapter of a note takes the note's region, and a PARA area kept under another folder name keeps its region.
 
-A chapter a registered devbook's index does not hold is drawn dashed inside that devbook, in the link's own words, and its chip reads *not a chapter in its devbook*. Every chapter the notes name in a devbook not indexed yet is drawn the same way. Its chip reads *its devbook is not indexed yet — see its scope card*, because the index is missing, not the chapter.
+A chapter a registered devbook's index does not hold is drawn dashed inside that devbook, in the link's own words. Its chip reads *not a chapter in its devbook*. Every chapter the notes name in a devbook not indexed yet is drawn the same way. Its chip reads *its devbook is not indexed yet — see its scope card*, because the index is missing, not the chapter.
 
 **Counts.** Each scope counts its marks per region, its notes or chapters without the hubs, and the Brain notes that link into it. The Brain's count is the notes that link into any devbook. In All, the tag over each brain gives its name and count; a ghost devbook, which has no count here, reads *not registered* instead.
 
 **Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`; devbook marks are gold. In All, bundles run from the Brain's repository hubs to the chapters the notes link. In a devbook's scope, a Brain hub floats beside the devbook with those same bundles. A bundle is solid when the link resolves and dashed when it does not, as in [Atlas edges](features.md#atlas-edges).
 
-**The left panel.** In All it lists the scopes in view, each with its count; a registered one's row asks the header's scope for it alone, a ghost's row steps into that ghost. With no header to ask, the rows are a plain legend. In a single scope it lists that scope's six regions, each with what it holds and its count; a row shows or hides the region. The panel's heading names what it lists: **Scopes**, **Anatomical regions** for the Brain, **Devbook folders** for a devbook.
+**The left panel.** In All it lists the scopes in view, each with its count. A registered one's row asks the header's scope for it alone, and a ghost's row steps into that ghost. With no header to ask, the rows are a plain legend. In a single scope it lists that scope's six regions, each with what it holds and its count; a row shows or hides the region. The panel's heading names what it lists: **Scopes**, **Anatomical regions** for the Brain, **Devbook folders** for a devbook.
 
 **The top right.** **Labels** and **Pause** sit beside the close button, then **Tech** in All and **Ghosts** while a ghost exists. In a single scope **All** and **None** follow, with one chip per region under them, named by a short code such as `FRO` or `ARC`. All has no chips.
 
@@ -285,7 +297,7 @@ A chip shows or hides what it names, as the panel's row does. **All** and **None
 
 In a scope, **None** hides the Archive dust with the regions, so nothing is left on the map or in the list, and **All** shows it again. The dust has no chip or row of its own, so showing one region after **None** leaves it hidden until **All**. The picture's **All** is named *All regions* for a screen reader or speech input.
 
-**The scope card.** Below the list, a scope card names the scope with its counts, says when its index was last built, such as "Indexed 4 minutes ago" or "Not indexed yet", and offers one action:
+**The scope card.** Below the list, a scope card names the scope with its counts and says when its index was last built, such as "Indexed 4 minutes ago" or "Not indexed yet". It offers one action:
 
 | Scope | The card's action |
 | --- | --- |
@@ -304,7 +316,7 @@ With no header to ask, All's card offers none. A ghost devbook has no index of i
 
 **Browsing the list.** The list beside the map is one tab stop. The arrow keys, Home and End move from row to row and spotlight that mark on the map without opening its details. Enter or Space opens them, and Escape closes them with the focus back on the mark's row.
 
-**No index yet.** With no Brain index built yet, the atlas shows an empty state instead of a map, with the Brain named in a badge beside the title. It says the Brain is not indexed yet and offers **Build the index now** and **Back to notes**.
+**No index yet.** The atlas shows an empty state instead of a map, with the Brain named in a badge beside the title. It says the Brain is not indexed yet and offers **Build the index now** and **Back to notes**.
 
 Building runs the refresher that builds the index in the background. The map takes the empty state's place once the index exists. A build that fails, or finds nothing to index, says why and keeps the offer. A host that cannot build the index offers only **Back to notes**, which leaves the atlas as the close button does.
 
@@ -319,11 +331,19 @@ related: [.devbook/domain/brain/requirements.md#capture-into-the-brain, .devbook
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
 ```
 
+```mermaid
+flowchart LR
+    Capture[Capture in the pane] --> Writer
+    Triage[To Brain from Inbox triage] --> Writer
+    Tool[capture_note over MCP] --> Writer
+    Writer[One writer, IBrainNoteWriter] --> Note[A new note in the Brain's inbox area]
+```
+
 Get a thought into the Brain without leaving what is on screen. In Brain mode the pane header carries **Capture**: a title and a Markdown body, written as a new note with its `meta` block in the Brain's inbox area. That area is `_inbox` under the PARA default, or the area `CONVENTIONS.md` marks as the inbox. Inbox triage writes the same kind of note through its **To Brain** route, from a capture or an Inbox note, keeping the title and body.
 
-Whatever the person typed stays text. A heading, fence or meta block typed into a capture gets a zero-width space just before its marker, invisible when read, so no reader takes the line for structure.
+Whatever the person typed stays text. A heading, fence or meta block typed into a capture gets a zero-width space just before its marker. The space is invisible when read, and no reader takes the line for structure.
 
-The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`), and a name already taken gets `-2`, `-3` and on: nothing in the Brain is ever overwritten. Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. One writer, `IBrainNoteWriter`, serves Capture, To Brain and the capture tool an assistant calls over MCP ([MCP Brain scope](#mcp-brain-scope)).
+The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`). A name already taken gets `-2`, `-3` and on, so nothing in the Brain is ever overwritten. Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ## MCP Brain scope
 
@@ -340,5 +360,5 @@ The spelling is not the empty string the shell stores for the Brain (local ADR 0
 
 A Brain note is named by its path from the Brain's root (`projects/plan.md`), never under a dot-folder and never through a link out of the folder. The remarks on it are the ones the reader left on the Brain, and a remark is resolved only under the scope it belongs to.
 
-The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses, under the same guard on the text and with source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
+The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses. It applies the same guard on the text and writes source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
 

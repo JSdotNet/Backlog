@@ -78,4 +78,105 @@ public sealed class NotificationTextTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => NotificationText.Cut("abc", 0));
     }
+
+    [Fact]
+    public void A_glance_reads_repository_then_change_then_what_to_do()
+    {
+        Assert.Equal(
+            "Backlog · Notification titles · Approve or revise",
+            NotificationText.Glance("Backlog", "Notification titles", "Approve or revise", 80));
+    }
+
+    [Fact]
+    public void A_glance_names_the_repository_without_its_owner()
+    {
+        Assert.Equal(
+            "Backlog · Notification titles · Approve or revise",
+            NotificationText.Glance("JSdotNet/Backlog", "Notification titles", "Approve or revise", 80));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  \n ")]
+    public void A_glance_drops_a_blank_repository(string? repository)
+    {
+        Assert.Equal(
+            "Notification titles · Approve or revise",
+            NotificationText.Glance(repository, "Notification titles", "Approve or revise", 80));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  \n ")]
+    public void A_glance_drops_a_blank_change(string? change)
+    {
+        Assert.Equal("Backlog · Approve or revise", NotificationText.Glance("Backlog", change, "Approve or revise", 80));
+    }
+
+    [Fact]
+    public void A_glance_makes_every_part_one_line()
+    {
+        Assert.Equal(
+            "Backlog · Two lines · Approve or revise",
+            NotificationText.Glance(" JSdotNet/Backlog\n", "Two\r\n  lines", "Approve\nor revise", 80));
+    }
+
+    [Fact]
+    public void A_long_change_is_cut_and_the_repository_and_the_ask_stay_whole()
+    {
+        var glance = NotificationText.Glance("Backlog", new string('x', 200), "Approve or revise", 80);
+
+        // 80 less "Backlog · " and " · Approve or revise" leaves 50 for the change.
+        Assert.Equal("Backlog · " + new string('x', 49) + "… · Approve or revise", glance);
+        Assert.Equal(80, glance.Length);
+    }
+
+    [Fact]
+    public void A_change_is_cut_on_a_whole_character()
+    {
+        var glance = NotificationText.Glance("Backlog", new string('x', 48) + Grinning + "tail", "Approve or revise", 80);
+
+        Assert.Equal("Backlog · " + new string('x', 48) + "… · Approve or revise", glance);
+    }
+
+    [Fact]
+    public void Too_little_room_drops_the_change()
+    {
+        // 40 less "Backlog · " and " · Approve or revise" leaves 10, under the 12 worth showing.
+        Assert.Equal("Backlog · Approve or revise", NotificationText.Glance("Backlog", "Notification titles", "Approve or revise", 40));
+    }
+
+    [Fact]
+    public void A_short_change_that_fits_stays_when_a_longer_one_would_be_dropped()
+    {
+        Assert.Equal("Backlog · Fix · Approve or revise", NotificationText.Glance("Backlog", "Fix", "Approve or revise", 34));
+    }
+
+    [Theory]
+    [InlineData("Backlog")]
+    [InlineData("backlog")]
+    [InlineData("JSdotNet/Backlog")]
+    public void A_change_that_only_repeats_the_repository_is_dropped(string change)
+    {
+        Assert.Equal("Backlog · Approve or revise", NotificationText.Glance("JSdotNet/Backlog", change, "Approve or revise", 80));
+    }
+
+    [Fact]
+    public void Twelve_characters_of_room_keep_the_change()
+    {
+        Assert.Equal(
+            "Backlog · Notificatio… · Approve or revise",
+            NotificationText.Glance("Backlog", "Notification titles", "Approve or revise", 42));
+    }
+
+    [Fact]
+    public void A_very_long_ask_stays_within_the_length()
+    {
+        var glance = NotificationText.Glance("JSdotNet/Backlog", "Notification titles", new string('a', 200), 80);
+
+        Assert.Equal("Backlog · " + new string('a', 69) + "…", glance);
+        Assert.Equal(80, glance.Length);
+    }
 }

@@ -10,7 +10,9 @@ namespace Backlog.Desktop.UI.Shell;
 /// Which repository each notification is about, worked out at read time from what its producer
 /// left on it — the notification carries no repository of its own (no change to the
 /// Notifications model, <c>.devbook/domain/notifications/domain.md#origin</c>). The centre's
-/// scope and its Group by Repository read the answer through <c>NotificationsSurfaceWiring</c>.
+/// scope and its Group by Repository read the answer through <c>NotificationsSurfaceWiring</c>;
+/// the push publishes the same answer on the replicated document through
+/// <see cref="PublishedNotificationRepositories"/> (local ADR 0039 §6).
 /// <list type="bullet">
 /// <item>A run's Personal Validation: the worktree its source key names, placed in a
 /// registered clone; else the repository at the head of its origin's place.</item>

@@ -1,5 +1,5 @@
 ---
-applyTo: '.devbook/arc42/**,.devbook/domain/**,.devbook/tech/**,.devbook/design/**,.devbook/ai/**'
+applyTo: '.devbook/arc42/**,.devbook/domain/**,.devbook/tech/**,.devbook/design/**,.devbook/ai/**,openspec/changes/**'
 description: How a devbook chapter reads. Plain sentences a new team member understands on first read, and a diagram wherever a picture tells the story better than prose.
 ---
 

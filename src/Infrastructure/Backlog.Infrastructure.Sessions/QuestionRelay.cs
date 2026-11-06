@@ -31,6 +31,7 @@ public sealed class QuestionRelay : IQuestionRelay
     private readonly Func<bool> _available;
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
+    private readonly Func<IAgentSessionSource?>? _sessions;
 
     // One publish at a time in this process: a cheap guard in front of the claim in the
     // store, which is what keeps processes sharing one backlog.db from publishing twice.
@@ -50,6 +51,10 @@ public sealed class QuestionRelay : IQuestionRelay
     /// <param name="logger">Where a refused publish or close is noted.</param>
     /// <param name="available">Whether the <c>notifications</c> flag is on, read on every
     /// question; always on when null. With it off nothing is registered (ADR 0041 §5).</param>
+    /// <param name="sessions">Where a publish looks up the session that asked, for the title;
+    /// never a source that reads the relay back, since a reading of one can close questions in
+    /// the middle of a publish. Null, a session it does not hold, or a reading slower than
+    /// <see cref="SessionLookupLimit"/> leaves the title naming no place.</param>
     public QuestionRelay(
         IWaitingQuestionStore store,
         IPresence? presence,
@@ -57,7 +62,8 @@ public sealed class QuestionRelay : IQuestionRelay
         Func<INotifications?> notifications,
         TimeProvider? clock = null,
         ILogger<QuestionRelay>? logger = null,
-        Func<bool>? available = null)
+        Func<bool>? available = null,
+        Func<IAgentSessionSource?>? sessions = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(notifyAfter);
@@ -70,9 +76,14 @@ public sealed class QuestionRelay : IQuestionRelay
         _available = available ?? (() => true);
         _clock = clock ?? TimeProvider.System;
         _logger = (ILogger?)logger ?? NullLogger.Instance;
+        _sessions = sessions;
     }
 
     private DateTimeOffset Now => _clock.GetUtcNow();
+
+    /// <summary>How long a publish waits for the session's name: it holds the publish gate and
+    /// the claim's lease meanwhile, and a question without the name still reaches the person.</summary>
+    internal static readonly TimeSpan SessionLookupLimit = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Registers a question <paramref name="sessionId"/> asked: a dialog of one to four
@@ -332,34 +343,27 @@ public sealed class QuestionRelay : IQuestionRelay
     /// Question from the <c>sessions</c> source keyed by the waiting question's id, about
     /// the session. Options become single or multiple choice — with an open answer beside
     /// a single choice, as the dialog's "Other" — and a question without options takes an
-    /// open answer only.
+    /// open answer only. With <paramref name="session"/> known the title reads
+    /// <c>repository · session title · what to do</c>; see <see cref="NotificationText.Glance"/>.
     /// </summary>
-    public static NotificationDraft Draft(WaitingQuestion question, int index)
+    public static NotificationDraft Draft(WaitingQuestion question, int index, AgentSession? session = null)
     {
         ArgumentNullException.ThrowIfNull(question);
 
         var asked = question.Questions[index];
-
-        // Without a header the question's text is the summary, so the title says who asks
-        // rather than repeating it — with its place when the dialog holds several.
-        var title = !string.IsNullOrWhiteSpace(asked.Header)
-            ? OneLine(asked.Header!, Limits.Title)
-            : question.Questions.Count > 1
-                ? string.Create(CultureInfo.InvariantCulture, $"A session asks ({index + 1} of {question.Questions.Count})")
-                : "A session asks";
 
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SourceKey(question)),
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Session, question.SessionId),
             NotificationKind.Question,
             NotificationSeverity.Info,
-            title,
+            Title(question, asked, index, session),
             OneLine(asked.Question, Limits.Summary),
             Body(question, asked, index),
             Spec(asked),
             // Said the way a run's Personal Validation says it, so the centre reads the relay
-            // as an agent's question. The waiting question holds neither the repository nor
-            // the session's title, so the origin names no place.
+            // as an agent's question. The title names the place when the session is known, so
+            // the origin names none.
             Origin: NotificationOrigin.Fit(NotificationOrigins.ClaudeCode, via: NotificationOrigins.AgentSession));
     }
 
@@ -475,11 +479,12 @@ public sealed class QuestionRelay : IQuestionRelay
 
             question = claim.Question!;
 
+            var session = await SessionOfAsync(question.SessionId, cancellationToken).ConfigureAwait(false);
             var ids = new List<Guid>(question.Questions.Count);
 
             for (var i = 0; i < question.Questions.Count; i++)
             {
-                var published = await notifications.PublishAsync(Draft(question, i), cancellationToken).ConfigureAwait(false);
+                var published = await notifications.PublishAsync(Draft(question, i, session), cancellationToken).ConfigureAwait(false);
 
                 if (published.IsFailure)
                 {
@@ -518,6 +523,30 @@ public sealed class QuestionRelay : IQuestionRelay
         }
     }
 
+    /// <summary>The session that asked, or null: a title must never stop a question being
+    /// published, so a catalog that cannot be read, or not within
+    /// <see cref="SessionLookupLimit"/>, only leaves it naming no place.</summary>
+    private async Task<AgentSession?> SessionOfAsync(string sessionId, CancellationToken cancellationToken)
+    {
+        if (_sessions is null) return null;
+
+        try
+        {
+            if (_sessions() is not { } source) return null;
+
+            var catalog = await source.GetSessionsAsync(cancellationToken)
+                .WaitAsync(SessionLookupLimit, _clock, cancellationToken)
+                .ConfigureAwait(false);
+
+            return catalog.Sessions.FirstOrDefault(session => string.Equals(session.Id, sessionId, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogDebug(exception, "Session {Session} could not be looked up for its question's title.", sessionId);
+            return null;
+        }
+    }
+
     private async Task CloseNotificationsAsync(WaitingQuestion question, CancellationToken cancellationToken)
     {
         if (question.NotificationIds.Count == 0 || _notifications() is not { } notifications) return;
@@ -542,6 +571,38 @@ public sealed class QuestionRelay : IQuestionRelay
             var closed = await notifications.CloseAsync(notificationId, reason, cancellationToken).ConfigureAwait(false);
             if (closed.IsFailure) _logger.LogDebug("Notification {Notification} was not closed: {Error}", notificationId, closed.Error.Message);
         }
+    }
+
+    /// <summary>The place and what to do, when the session names a repository or a title; see
+    /// <see cref="Draft"/>. Otherwise the header — and without a header the question's text is
+    /// the summary, so the title says who asks rather than repeating it, with its place when
+    /// the dialog holds several.</summary>
+    private static string Title(WaitingQuestion question, RelayQuestion asked, int index, AgentSession? session)
+    {
+        var header = string.IsNullOrWhiteSpace(asked.Header) ? null : asked.Header;
+        var several = question.Questions.Count > 1;
+        var repository = string.IsNullOrWhiteSpace(session?.ResolvedRepository) ? session?.Repository : session.ResolvedRepository;
+
+        // The name the sidebar shows, ahead of the transcript's, which is often only the
+        // worktree folder's (AgentSession.DesktopTitle).
+        var change = string.IsNullOrWhiteSpace(session?.DesktopTitle) ? session?.Title : session.DesktopTitle;
+
+        if (session is not null && !(string.IsNullOrWhiteSpace(repository) && string.IsNullOrWhiteSpace(change)))
+        {
+            var ask = header is not null
+                ? $"Answer: {header}"
+                : several
+                    ? string.Create(CultureInfo.InvariantCulture, $"Answer {index + 1} of {question.Questions.Count}")
+                    : "Answer the question";
+
+            return NotificationText.Glance(repository, change, ask, Limits.Title);
+        }
+
+        if (header is not null) return OneLine(header, Limits.Title);
+
+        return several
+            ? string.Create(CultureInfo.InvariantCulture, $"A session asks ({index + 1} of {question.Questions.Count})")
+            : "A session asks";
     }
 
     private static string Body(WaitingQuestion question, RelayQuestion asked, int index)

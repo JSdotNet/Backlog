@@ -227,7 +227,7 @@ classDiagram
 
 - **`Session Identity` is a pair on purpose.** A session id is only unique within
   the agent that issued it, so the diagram never relates an
-  `AgentSession` to a bare `session_id`, and the `Agent` enum hangs off the identity, not the session.
+  `AgentSession` to a bare `session_id`. The `Agent` enum hangs off the identity, not the session.
 
 - **`Session Activity Entry` separates identity from order.** `event_id` is what
   collapses duplicates; `sequence` is what lets late arrivals still read in the order
@@ -256,8 +256,8 @@ classDiagram
 
 - **`Delivery Run` is not owned by `Agent Session`, and the diagram has no edge saying
   it is.** A run may name the sessions that drove it in `session_ids`, and many runs
-  name none. Either way, `Run Attachment` produces the `Session Row` that puts a run and
-  a session together: by identity where the run names one, else from the worktree key
+  name none. `Run Attachment` produces the `Session Row` that puts a run and
+  a session together. It matches by identity where the run names one, else from the worktree key
   and the two windows. A run the reading cannot place is a row of its own. A
   containment edge would promise a fact the evidence does not always carry. That is
   also why the row, and not the session, is the unit the list shows.

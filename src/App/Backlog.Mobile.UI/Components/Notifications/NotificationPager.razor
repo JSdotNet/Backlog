@@ -144,6 +144,14 @@
     [Parameter]
     public EventCallback OnShowList { get; set; }
 
+    /// <summary>The tab's filters that narrowed <see cref="Notifications"/>. A change that
+    /// replaces the card on screen moves the focus as a pager move does; the stack itself
+    /// follows the narrowed list like any refresh.</summary>
+    [Parameter]
+    public NotificationFilter? Filter { get; set; }
+
+    private NotificationFilter? _filtered;
+
     /// <summary>aria-disabled for Previous and Next while a reply is kept. Never the native
     /// attribute: that would drop the button from the tab order and take the focus off it
     /// mid-act. Next and Previous drop the press themselves.</summary>
@@ -157,10 +165,16 @@
     {
         if (ReferenceEquals(Notifications, _shown)) return;
 
+        var before = _stack.Current?.Id;
+        var refiltered = _shown is not null && !Equals(Filter, _filtered);
+
         if (_shown is null) _stack = new NotificationStack(Notifications);
         else _stack.Refresh(Notifications);
 
+        if (refiltered && _stack.Current?.Id != before) _moved = true;
+
         _shown = Notifications;
+        _filtered = Filter;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

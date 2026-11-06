@@ -28,7 +28,7 @@ feature-flag: .devbook/domain/repository-management/context.md#additional-reposi
 related: [.devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
-Maintain the [registry](domain.md#repository-registry) of repositories the app acts on. Each registered repository carries a short [alias](domain.md#repository-alias), its owner and name, and an optional local clone directory. The alias is the name the rest of the product uses: a task files itself against a repository by naming that alias. Registering more than one repository is itself opt-in, so a single-repository setup stays uncluttered; while it is off, every entry belongs to the first repository in the registry.
+Maintain the [registry](domain.md#repository-registry) of repositories the app acts on. Each registered repository carries a short [alias](domain.md#repository-alias), its owner and name, and an optional local clone directory. The alias is the name the rest of the product uses: a task files itself against a repository by naming that alias. Registering more than one repository is itself opt-in, so a single-repository setup stays uncluttered. While it is off, every entry belongs to the first repository in the registry.
 
 The working set is read as one list, under a sentence counting the repositories and how many carry a devbook. A row per repository names:
 
@@ -38,7 +38,7 @@ The working set is read as one list, under a sentence counting the repositories 
 - the account it is worked as.
 
 
-Everything decided about one repository is edited under its own row, one at a time, and a repository just registered opens there, ready to be set up. An [archived](#archiving-a-repository) repository keeps its row, marked Archived.
+Everything decided about one repository is edited under its own row, one at a time. A repository just registered opens there, ready to be set up. An [archived](#archiving-a-repository) repository keeps its row, marked Archived.
 
 ### Following a repository rename
 
@@ -47,7 +47,7 @@ type: sub-feature
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions]
 ```
 
-A registered repository is identified by its owner and name, and every entry and inbox item filed against it records that coordinate too. Without a rename, a change of name on GitHub would read as a second repository, and everything filed against the old name would point at a coordinate nobody is configured for.
+A registered repository is identified by its owner and name, and every entry and inbox item filed against it records that coordinate too. Without a rename, a change of name on GitHub would read as a second repository. Everything filed against the old name would then point at a coordinate nobody is configured for.
 
 Seven edits to the registry look alike and do different things:
 
@@ -113,7 +113,7 @@ A person archives a repository from its row in the repository list; nothing arch
 
 Archiving asks what becomes of the repository's open tasks: move them to another repository, drop them, or keep them as they are. The same choice stays on the archived row for later.
 
-[Its requirements](requirements.md#archiving-a-repository) say what each pane does with an archived repository, and [its invariants](domain.invariants.md#repository-registry) hold the registry's rules, such as the last active repository staying active. Local ADR 0029 records why the repository stays in the registry rather than being removed.
+[Its requirements](requirements.md#archiving-a-repository) say what each pane does with an archived repository. [Its invariants](domain.invariants.md#repository-registry) hold the registry's rules, such as the last active repository staying active. Local ADR 0029 records why the repository stays in the registry rather than being removed.
 
 ### Repository identity colour
 
@@ -131,7 +131,7 @@ Give each registered repository one colour, so a workspace holding several can b
 
 A screen that decided its own colour would be a second answer to which project is which.
 
-The registry records *which* of the colours the design system sanctions, never a colour of its own; inventing one is a design decision. A repository nobody has chosen for is placed automatically by its position in the registry, stepping over the colours already claimed so it never lands on one a neighbour was deliberately given. Past the end of the set the placement wraps, and two repositories may share a colour. That is acceptable, because the alias, not the colour, is the identifier, and it is written wherever the colour is shown.
+The registry records *which* of the colours the design system sanctions, never a colour of its own; inventing one is a design decision. A repository nobody has chosen for is placed automatically by its position in the registry. The placement steps over the colours already claimed, so it never lands on one a neighbour was deliberately given. Past the end of the set the placement wraps, and two repositories may share a colour. That is acceptable, because the alias, not the colour, is the identifier, and it is written wherever the colour is shown.
 
 The choice can be given back, which returns the repository to its automatic placement rather than leaving it colourless.
 
@@ -151,7 +151,12 @@ type: feature
 depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
 ```
 
-Keep track of each repository's dependencies: scan dependency files and parse package versions and constraints, track transitive dependencies, detect outdated packages against their registries, including custom feeds, and alert on critical or security patches.
+Keep track of each repository's dependencies:
+
+- scan dependency files and parse package versions and constraints;
+- track transitive dependencies;
+- detect outdated packages against their registries, including custom feeds;
+- alert on critical or security patches.
 
 ## Technology stack inventory
 
@@ -184,7 +189,7 @@ Read each repository's GitHub side:
 - whether the repository looks unmaintained;
 - the status of its GitHub Actions CI/CD runs.
 
-GitHub keeps an `archived` mark of its own on a repository, and an archived GitHub repository stays readable. Backlog never copies that mark into the registry. It suggests [archiving](#archiving-a-repository) the repository instead, as it does when GitHub cannot find the repository at all, and reads nothing from GitHub for an archived repository.
+GitHub keeps an `archived` mark of its own on a repository, and an archived GitHub repository stays readable. Backlog never copies that mark into the registry. It suggests [archiving](#archiving-a-repository) the repository instead, as it does when GitHub cannot find the repository at all. It reads nothing from GitHub for an archived repository.
 
 The open pull requests counted here for health are those whose [status](#pull-request-status) and [readiness](#pull-request-readiness) this context publishes. Health counts them per repository; readiness says what each is waiting on.
 
@@ -195,7 +200,7 @@ type: sub-feature
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
-Reach GitHub through whichever credential the machine already has. A signed-in GitHub CLI is preferred, so no credential has to be stored in the product; a per-repository personal access token is the fallback for machines without it. Access can be checked on demand, and the check says in plain language which route is in use and whether it works. Tokens are kept outside the backlog folder, so the backlog stays safe to sync or commit.
+Reach GitHub through whichever credential the machine already has. A signed-in GitHub CLI is preferred, so no credential has to be stored in the product. A per-repository personal access token is the fallback for machines without it. Access can be checked on demand, and the check says in plain language which route is in use and whether it works. Tokens are kept outside the backlog folder, so the backlog stays safe to sync or commit.
 
 ## Pull request status
 
@@ -215,7 +220,7 @@ Each carries the pull request's number, two marks and, when the pull request ask
 
 - **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
   (`9/14`, still running) and a failing one (`2/14`, failing);
-- **approvals**: an icon and `approvals/required`, such as `1/2`, where required is
+- **approvals**: an icon and `approvals/required`, such as `1/2`. Required is
   the number of approvals the base branch's rules ask for: its protection rule or a
   ruleset's pull request rule, whichever asks for more. A base branch no rule asks an
   approval of has no required total, and neither does one whose rules GitHub will not
@@ -225,7 +230,9 @@ The words "checks" and "approvals" are screen-reader labels only, so the row sta
 
 "your review" shows while the pull request is open or a draft and a pending review request names you yourself, not a team you belong to. It is muted, so the words carry it, and a screen reader hears "your review is requested". A pull request in an archived repository never asks for it.
 
-The pull requests pane reads each base branch's rules once, beside its list, and keeps the answer for ten minutes, so its rows carry the required total too. A branch whose rules cannot be read leaves its rows' approvals as the number received, with no verdict either way. A task's linked pull request card draws the marks while the pull request is open. A pull request the open list did not hold may be merged or closed, or in a repository no longer configured. It draws its state alone, as the task list recorded it; only a row of the open list carries the marks.
+The pull requests pane reads each base branch's rules once, beside its list, and keeps the answer for ten minutes. Its rows therefore carry the required total too. A branch whose rules cannot be read leaves its rows' approvals as the number received, with no verdict either way.
+
+A task's linked pull request card draws the marks while the pull request is open. A pull request the open list did not hold may be merged or closed, or in a repository no longer configured. It draws its state alone, as the task list recorded it; only a row of the open list carries the marks.
 
 The status itself carries more than the marks, and local ADR 0042 lists what ([§2](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#2-one-published-contract-for-status-and-verdict)). Every screen reads it through one contract, `IPullRequests`, and one cache in this context's module. A pull request one screen read within the minute is not read again for another.
 
@@ -244,7 +251,7 @@ The pane has two views, Open and Recently merged. A Mine / Everyone's choice nar
 
 A repository's label filter, set in Settings, lets through only the pull requests carrying one of its labels. A pinned pull request ignores every filter. It sits in a Pinned group at the top of the list until it is unpinned, even after it merges or closes.
 
-The pane is a triage list beside a detail panel. Lane tiles say how many pull requests need what, the list below them is grouped by lane, and the pull request the reader picks is laid out in full beside the list. Where the pane is narrow, the panel moves under the list. Each row says one thing: the verdict on whether it is ready, and if not, what it is waiting on. A reader scanning twenty pull requests need not open each to learn which needs them.
+The pane is a triage list beside a detail panel. Lane tiles say how many pull requests need what, and the list below them is grouped by lane. The pull request the reader picks is laid out in full beside the list. Where the pane is narrow, the panel moves under the list. Each row says one thing: the verdict on whether it is ready, and if not, what it is waiting on. A reader scanning twenty pull requests need not open each to learn which needs them.
 
 A row shows:
 
@@ -269,7 +276,7 @@ Four lane tiles sit under the header: Needs you, Ready to merge, Waiting and Dra
 
 The counts are taken over the rows the other filters leave, so a tile never promises a pull request the list will not show. A pinned pull request still shows under a pressed lane, as it ignores every other filter. Recently merged has no tiles, because a merged pull request is in no lane.
 
-The Mine / Everyone's choice stays, because it answers a different question: Mine says whose pull requests to look at, a lane which of them to look at first. The two combine, so Mine and Needs you is the reader's own work that is waiting on them.
+The Mine / Everyone's choice stays, because it answers a different question. Mine says whose pull requests to look at, a lane which of them to look at first. The two combine, so Mine and Needs you is the reader's own work that is waiting on them.
 
 ### One verdict per pull request
 
@@ -292,7 +299,7 @@ apply, the first in this table wins:
 | 7 | Review required | Waiting | live | Merge when ready | — |
 | 8 | Ready | Ready to merge | settled | Merge | Update branch, when the branch is behind a base that does not require it |
 
-The pane gives one verdict rather than a row of badges, because a reader acts on one thing at a time. The order puts first what blocks the most: a conflict has to be resolved before checks or review mean anything, and a failing check before a review is worth asking for. Behind is in Needs you because it waits on nobody else: the reader brings the branch up to date with the act the banner offers, and it can merge. The tones are the badge tone scale of `.devbook/design/color-scheme.md`, so the verdict chip reads like every other badge.
+The pane gives one verdict rather than a row of badges, because a reader acts on one thing at a time. The order puts first what blocks the most. A conflict has to be resolved before checks or review mean anything, and a failing check before a review is worth asking for. Behind is in Needs you because it waits on nobody else. The reader brings the branch up to date with the act the banner offers, and it can merge. The tones are the badge tone scale of `.devbook/design/color-scheme.md`, so the verdict chip reads like every other badge.
 
 Each verdict carries a chip label, a headline and a one-sentence reason for the banner, and the acts above. A few rules sit beside the table:
 
@@ -303,9 +310,9 @@ Each verdict carries a chip label, a headline and a one-sentence reason for the 
 - A stacked pull request's reason names the pull request it waits on. It is offered no
   merge act, because merged now it would land on its parent's branch rather than where
   the stack is going. Its other acts stay.
-- Behind is GitHub's own `BEHIND` state, which GitHub sets only where the repository requires an up-to-date branch. A pull request behind a base that does not require it is still Ready. Its reason says how many commits behind it is and that the repository does not require it, so it never contradicts the up to date line of the detail panel. Update branch is offered as Ready's second act.
+- Behind is GitHub's own `BEHIND` state, which GitHub sets only where the repository requires an up-to-date branch. A pull request behind a base that does not require it is still Ready. Its reason says how many commits behind it is and that the repository does not require it. So it never contradicts the up to date line of the detail panel. Update branch is offered as Ready's second act.
 - Whether Re-run failed is offered is read off the pull request's own checks, never told to the verdict by whoever asks.
-- The session list's pull request card gives the same verdict as the pane, stack included: it places an open pull request among its repository's open pull requests and names the one it waits on.
+- The session list's pull request card gives the same verdict as the pane, stack included. It places an open pull request among its repository's open pull requests and names the one it waits on.
 - A merged pull request reads as Merged, in the settled tone, with no act. A pull request
   closed without merging has no verdict, since there is nothing left to get ready.
 
@@ -328,7 +335,7 @@ Picking a pull request opens a detail panel. The first row the list shows is pic
 
 The banner leads with one act because the verdict already names the one thing in the way. GitHub may already hold an auto-merge that the verdict's acts do not touch; the banner then also offers to cancel it, because that undoes a request rather than making one. The mergeable line says only whether the pull request has conflicts. It does not count the conflicted files, because GitHub reports no such count and a number this product made up could not be checked. The failures come first so the reader sees the reason before the long list of passing checks.
 
-The list already reads what the panel needs. Each check on the head commit is a check run or a commit status, with its name, whether it passed, failed or is still running, and, for a finished check run, how long it took. The first fifty are listed and the counts cover the rest. Where the counts report a failed check past those fifty, every check of the head commit is paged in, so no failed run is missing.
+The list already reads what the panel needs. Each check on the head commit is a check run or a commit status. It carries its name, whether it passed, failed or is still running, and, for a finished check run, how long it took. The first fifty are listed and the counts cover the rest. Where the counts report a failed check past those fifty, every check of the head commit is paged in, so no failed run is missing.
 
 Each open pull request from the same repository also carries how many commits its base has that its branch does not. GitHub cannot compare a fork's branch from the base repository, so a pull request from a fork has no such count.
 
@@ -339,13 +346,22 @@ type: sub-feature
 tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestCommandTests.Each_command_acts_once_reads_its_repository_again_once_and_says_what_changed]
 ```
 
-Re-run failed is offered when a failed check is a GitHub Actions run. It starts the failed jobs of that run again, and the jobs that depend on them. It covers the most common way a check goes red without anyone's code being wrong: a runner that flaked.
+```mermaid
+flowchart TD
+    Failed["A failed check is a GitHub Actions run"] --> Offer["Failing checks offers Re-run failed"]
+    Offer --> Ask["Each workflow run behind a failed check is asked once"]
+    Ask --> Jobs["Its failed jobs and the jobs that depend on them start again"]
+    Ask --> Read["The pane reads that one repository again"]
+    Read --> Row["The row shows the checks running instead of failed"]
+```
 
-Where several checks failed, each workflow run behind them is asked once, however many of its jobs failed. That includes a failed run past the first fifty checks, which the list pages in when the counts say one failed there. Every run is asked even when GitHub refuses one, because the runs are independent. The refusal then says how many of the others did start again. Afterwards the pane reads that one repository again, as after every other act, so the row shows the checks running instead of failed.
+Re-run failed covers the most common way a check goes red without anyone's code being wrong: a runner that flaked.
 
-It is offered only for GitHub Actions because that is the only kind of check this product can ask GitHub to run again. A check from another service has to be re-run there. The act sits in the detail panel's banner, as the act of the Failing checks verdict.
+A workflow run is asked once however many of its jobs failed. That includes a failed run past the first fifty checks, which the list pages in when the counts say one failed there. Every run is asked even when GitHub refuses one, because the runs are independent. The refusal then says how many of the others did start again. The pane reads the repository again after every other act too.
 
-There is no act that hands a pull request off to an agent. Starting a session is something a person does in their agent, with the context they choose; a button here would start work on the reader's behalf that the pane could neither show nor stop.
+It is offered only for GitHub Actions because that is the only kind of check this product can ask GitHub to run again. A check from another service has to be re-run there. The act sits in the detail panel's banner.
+
+There is no act that hands a pull request off to an agent. Starting a session is something a person does in their agent, with the context they choose. A button here would start work on the reader's behalf that the pane could neither show nor stop.
 
 ## Repository health scoring
 
@@ -370,7 +386,7 @@ flowchart TD
     Score --> Action["Recommendations to Monitoring / Tasks"]
 ```
 
-Compute a health score from package freshness, the GitHub issue and pull request backlog, test coverage and security alerts. Low-health repositories surface on their own, each with actionable recommendations ([Health scoring flow](features.md#repository-health-scoring)).
+Compute a health score from package freshness, the GitHub issue and pull request backlog, test coverage and security alerts. Low-health repositories surface on their own, each with actionable recommendations.
 
 ## Technology trend analysis
 
@@ -389,4 +405,9 @@ depends-on: [.devbook/domain/repository-management/features.md#repository-health
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
-Act on many repositories at once: queue package updates, coordinate synchronized upgrades, run custom workflows through GitHub Actions, and generate migration guides for major versions.
+Act on many repositories at once:
+
+- queue package updates;
+- coordinate synchronized upgrades;
+- run custom workflows through GitHub Actions;
+- generate migration guides for major versions.

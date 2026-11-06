@@ -44,6 +44,7 @@ internal sealed class ShellHost : IDisposable
         Speech.Settings = SpeechSettings;
         _context.Services.AddSingleton<ISpeechTranscriber>(Speech);
         _context.Services.AddSingleton<ISpeechSettingsStore>(SpeechSettings);
+        _context.Services.AddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore>(NotificationFilters);
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
@@ -68,6 +69,10 @@ internal sealed class ShellHost : IDisposable
     /// <summary>The phone's Dictation setting, which the Settings sheet writes and
     /// <see cref="Speech"/> reads at the start of every turn.</summary>
     public InMemorySpeechSettingsStore SpeechSettings { get; } = new();
+
+    /// <summary>The Notifications tab's filter choices as this device keeps them; set before
+    /// opening the tab to play a choice made in an earlier launch.</summary>
+    public Backlog.Mobile.UI.Notifications.InMemoryNotificationFilterStore NotificationFilters { get; } = new();
 
     /// <summary>What the Note page's and the capture sheet's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();

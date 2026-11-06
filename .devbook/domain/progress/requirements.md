@@ -159,7 +159,7 @@ The system SHALL list under No goal each task in progress and each open pull req
 
 - **Given** pull request #1362 "Credit notes" in `JSdotNet/Backlog` is open with 10 checks, 1 failing and 2 running, and asks for the person's review
 - **When** the Goals view is read
-- **Then** #1362 is listed under No goal with its status line — its number, its checks and approvals and "your review" — in place of its plain number
+- **Then** #1362 is listed under No goal with its status line in place of its plain number: its number, its checks and approvals and "your review"
 
 ## Setting a goal
 

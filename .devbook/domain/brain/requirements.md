@@ -19,8 +19,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#brain-scope]
 ```
 
-> The requirements of the Brain chip in the header's repository scope (local
-> ADR 0027).
+> The Brain chip in the header's repository scope (local ADR 0027).
 
 ### Requirement: The Brain chip leads the scope
 
@@ -158,8 +157,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#brain-folder-setup]
 ```
 
-> The requirements of choosing the Brain folder and scaffolding its convention
-> (local ADR 0026).
+> Choosing the Brain folder and scaffolding its convention (local ADR 0026).
 
 ### Requirement: The folder has no default
 
@@ -257,8 +255,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 ```
 
-> The requirements of the Devbook pane while it shows the Brain (local ADRs 0026
-> and 0027).
+> The Devbook pane while it shows the Brain (local ADRs 0026 and 0027).
 
 ### Requirement: The pane follows the anchor and defaults to the Brain
 
@@ -510,7 +507,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#repo-links-and-backlinks]
 ```
 
-> The requirements of a Brain note's links into repository devbooks and the
+> A Brain note's links into repository devbooks and the
 > backlinks a repository chapter shows its owner (local ADR 0027).
 
 ### Requirement: A repo link opens the repository chapter
@@ -607,7 +604,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#bi-directional-linking]
 ```
 
-> The requirements of linking Brain notes and tasks both ways through a note's
+> Linking Brain notes and tasks both ways through a note's
 > `tasks` field (local ADR 0026 §3, ADR 0027 §6).
 
 ### Requirement: A task link is the task's id
@@ -662,7 +659,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#atlas-edges]
 ```
 
-> The requirements of drawing repo links in the Brain's atlas.
+> Drawing repo links in the Brain's atlas.
 
 ### Requirement: A resolved repo link is an edge to the repository chapter
 
@@ -711,7 +708,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#lobes-atlas, .devbook/domain/brain/context.md#lobes-atlas]
 ```
 
-> The requirements of the one atlas that draws the Brain and every devbook as
+> The one atlas that draws the Brain and every devbook as
 > brains. All of them hold while `atlas-lobes` is on.
 
 ### Requirement: One atlas maps the Brain and every registered devbook
@@ -1301,7 +1298,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#capture-into-the-brain]
 ```
 
-> The requirements of writing a new note into the Brain, from the pane and from
+> Writing a new note into the Brain, from the pane and from
 > Inbox triage.
 
 ### Requirement: Capture writes a note into the inbox area
@@ -1356,7 +1353,7 @@ type: requirements
 related: [.devbook/domain/brain/features.md#mcp-brain-scope]
 ```
 
-> The requirements of the knowledge tools the app serves over MCP, on the Brain.
+> The knowledge tools the app serves over MCP, on the Brain.
 
 ### Requirement: The knowledge tools take the Brain scope
 

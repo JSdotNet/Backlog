@@ -70,8 +70,8 @@ related: [".devbook/tech/shared.md#blazor-hybrid", ".devbook/tech/testing.md#pla
 
 The Chromium-based embedded browser the desktop UI renders in.
 
-- **Used for** — hosting the `BlazorWebView` that draws every screen, and
-  exposing a Chrome DevTools Protocol (CDP) debugging port so Playwright can
+- **Used for** — hosting the `BlazorWebView` that draws every screen. It also
+  exposes a Chrome DevTools Protocol (CDP) debugging port, so Playwright can
   attach to the running desktop app, not only the web harness.
 - **Why** — that port is one of the two decisive reasons ADR 0001 chose Blazor
   Hybrid over plain MAUI XAML. It is why Debug builds stay unpackaged: MSIX would
@@ -140,7 +140,7 @@ The .NET wrapper over the Windows Data Protection API (DPAPI).
     `claude.json` and `azure-foundry.json`. The GitHub adapter holds it, and the
     Claude and Azure Foundry adapters compile it in.
 - **Why** — it is the OS credential store local ADR 0005's Identity section names
-  for Windows, and local ADR 0030 makes it the rule for every stored credential.
+  for Windows. Local ADR 0030 makes it the rule for every stored credential.
   The app has no key to generate, rotate, or leak.
 
 ## Model Context Protocol C# SDK

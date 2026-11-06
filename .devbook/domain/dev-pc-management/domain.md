@@ -300,8 +300,8 @@ Published when a registered machine changes runtime status.
 
 ### Published language rules
 
-- Runtime status is owned here; consumers do not infer compliance or session state
-  from this event unless that meaning is explicitly carried in the payload.
+- This context owns runtime status. Consumers do not infer compliance or session
+  state from this event unless the payload explicitly carries that meaning.
 
 ## ComplianceUpdated
 

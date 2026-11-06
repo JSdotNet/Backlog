@@ -153,6 +153,18 @@ depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 related: [.devbook/domain/dev-pc-management/requirements.md#system-tools-pane]
 ```
 
+```mermaid
+flowchart TD
+    Pane[System tools pane] --> Headline[Headline: what is outstanding]
+    Pane --> Checked[Line: last check and counts]
+    Pane --> Filter[Host filter]
+    Pane --> Strip[Tab strip]
+    Strip --> Overview[Overview]
+    Strip --> Kinds[Kind tabs]
+    Kinds --> Toolbar[Toolbar]
+    Kinds --> Groups[Catalog groups]
+```
+
 Read the catalog against this machine one kind at a time.
 
 The pane leads with a sentence saying what is outstanding on the tab on show: how
@@ -162,9 +174,9 @@ counts each, in the order Needs you lists them. It reads "Three updates
 waiting, two tools missing and one item to confirm" on the Overview and "Two
 plugins behind and one missing" on a kind tab.
 
-Under it a quieter line says how long ago the catalog was checked (just now, so
-many minutes or hours ago, or the date), how many entries the tab holds, and how
-many already match. It changes when the pane next redraws, never on a timer.
+Under it a quieter line says how long ago the catalog was checked: just now, so
+many minutes or hours ago, or the date. It also says how many entries the tab holds
+and how many already match. It changes when the pane next redraws, never on a timer.
 
 The tabs, in order, are:
 
@@ -185,7 +197,7 @@ Within a kind tab, a toolbar narrows to the entries that need action or by name.
 Each catalog group is a card that starts folded when nothing in it is outstanding.
 A group's fold names its title, how many entries of the tab's kind it holds and how
 many need action, dropping the last when none do. Under All, an open group
-that has both lists the entries needing action first and holds the matching ones
+that has both lists the entries needing action first. It holds the matching ones
 behind "n more up to date — show". Once shown, they stay shown when the catalog is
 checked again.
 
@@ -284,7 +296,7 @@ existing catalog. The web harness reads no host's manifests, so there it writes
 the empty catalog and says so.
 
 A catalog with nothing in it offers the same choices, to add a tool or import a
-team catalog, only where the host can write the catalog; a read-only host says
+team catalog, only where the host can write the catalog. A read-only host says
 so instead. While the first check is running, the pane shows placeholder rows in
 the tab strip, toolbar and group cards rather than a sentence.
 
@@ -296,7 +308,7 @@ depends-on: [.devbook/domain/dev-pc-management/features.md#configuration-and-too
 ```
 
 Trigger single, targeted, or bulk tool updates from the dashboard. Updates queue
-for offline PCs ([Tool update lifecycle](features.md#remote-tool-updates)).
+for offline PCs.
 
 **Tool update lifecycle**
 
@@ -330,8 +342,8 @@ Act on the machine the person is sitting at:
 
 - re-check the catalog for newer versions;
 - update one tool, or every updatable tool at once;
-- switch a tool on or off for this machine, with a switch on its row that shows whether this machine wants it,
-  without changing what the catalog declares for everyone else.
+- switch a tool on or off for this machine, without changing what the catalog
+  declares for everyone else. The switch on its row shows whether this machine wants it.
 
 Each action reports whether it succeeded. The
 [System tools](context.md#system-tools) flag switches tool management off on
@@ -343,8 +355,8 @@ progress bar under it fills as steps finish. Checking and updating are unavailab
 until the run ends.
 
 A "This run" list names every tool the run takes, in order, each reading
-done, running, queued or failed, with the versions it goes from and to and,
-once finished, how long it took. The list sits beside the run's transcript as it is
+done, running, queued or failed. Each also gives the versions it goes from and to
+and, once finished, how long it took. The list sits beside the run's transcript as it is
 written, which can be copied and read with long lines wrapped or not. The tools
 stay on screen under it.
 
@@ -372,8 +384,8 @@ finished, so it survives an app restart. The record holds:
 - the whole transcript.
 
 Only the most recent run is kept, per machine and beside its own tool
-choices. A new run replaces it once it finishes, and a machine that has never finished one has none. An Update all the host refuses
-before any tool is touched (a host that only reads the catalog) is kept as a
+choices. A new run replaces it once it finishes, and a machine that has never finished one has none. A host that only reads the catalog
+refuses an Update all before any tool is touched. That is kept as a
 failed run with no tool steps and the refusal as its transcript.
 
 ## Security

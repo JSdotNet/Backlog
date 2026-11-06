@@ -13,11 +13,22 @@ where each worked, when it was last active, and whether it is still going. It ow
 work item, machine or repository. Each of those belongs to a supplier context, and this one holds only the
 identifier it was given.
 
+```mermaid
+flowchart LR
+    Session[Agent Session] -->|leaves| Records[Agents' records]
+    Records --> Log[Session Log]
+    Replica[Another machine's records] -->|replication| Log
+    Updates[Collections MCP updates] -.->|optional enrichment| Log
+    Person -->|click| Request[Session Request]
+    Request --> Dispatcher
+    Dispatcher -->|starts| Session
+```
+
 It is a **read model over evidence somebody else wrote.** The agents leave records
 on the environments they run on; this context reads them and says what they mean. It
-never starts, stops or names a session. That is why nothing here is a command, and why
-the [Session Log](domain.md#session-log) aggregate has no invariant about state
-transitions: a session's state is derived on every reading, not advanced.
+never starts, stops or names a session. That is why nothing here is a command. The
+[Session Log](domain.md#session-log) aggregate has no invariant about state
+transitions, because a session's state is derived on every reading, not advanced.
 
 One record here is not evidence: a [Session Request](domain.md#session-request) asks
 for a session that does not exist yet. A person creates it with a click, and a

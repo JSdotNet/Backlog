@@ -53,8 +53,12 @@ related: [".devbook/ai/03-test.md#qa-agent-on-the-running-application"]
 date: 2026-09-25
 ```
 
-This repository keeps four procedures as its own skills: `run` runs the application,
-`capture` takes evidence, `diagnose` looks into an observed issue, and `estimate` sizes work.
+This repository keeps four procedures as its own skills:
+
+- `run` runs the application.
+- `capture` takes evidence.
+- `diagnose` looks into an observed issue.
+- `estimate` sizes work.
 
 A wrapper per host reaches each one and fixes its goal. `run` is a Claude Code recipe at
 `.claude/skills/run-backlog/SKILL.md` with a Copilot twin at `.github/skills/run/SKILL.md`;
@@ -63,8 +67,8 @@ the other bodies live under `.agents/skills/`. The devbook stamp lists the four 
 through `run` instead of guessing a command.
 
 The procedure is called `diagnose` because a `debug` project skill would shadow Claude Code's
-own `/debug`. There is no `show` procedure: a flow walks a change through `run` and
-`capture`, and a person on Claude Code who wants to see it working uses the built-in `/run`.
+own `/debug`. There is no `show` procedure. A flow walks a change through `run` and
+`capture`. A person on Claude Code who wants to see it working uses the built-in `/run`.
 
 - **Used for** — starting the AppHost the way `run` says, taking evidence of a change, and
   finding a cause from logs and traces without handing the person a debugger.

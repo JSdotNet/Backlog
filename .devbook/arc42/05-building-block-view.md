@@ -246,7 +246,7 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 - the click demos;
 - the C4 model.
 
-`DevbookC4Workspace` reads the arc42 folder's `workspace.dsl`, and `DevbookC4Graph` adds an `element` node per element and a `view` node per view. The edges are `contains`, `relationship`, an `embeds` edge from each section that embeds a view, and a `c4` or `c4-touches` edge for each element an arc42 or domain chapter's metadata names.
+`DevbookC4Workspace` reads the arc42 folder's `workspace.dsl`, and `DevbookC4Graph` adds an `element` node per element and a `view` node per view. The edges are `contains` and `relationship`. A section that embeds a view adds an `embeds` edge, and an element an arc42 or domain chapter's metadata names adds a `c4` or `c4-touches` edge.
 
 The `demo` and `demo_link` tables (schema 5) pair each `*.demo.html` with its page by name and with every chapter whose `demo` field names it. `DevbookReadingConvention`, in the Devbook module's Abstractions, holds the pairing rule that the builder, the MCP chapter read and the Domain devbook pane share. `tools/devbook/build-database.mjs` writes the same tables, and `DevbookBuilderParityTests` compares the two writers.
 
@@ -275,7 +275,7 @@ flowchart LR
   Source --> Pane
 ```
 
-- **Areas, not devbook folders.** The builder indexes the areas `BrainConventions` (Devbook Abstractions) resolves: those the Brain's `CONVENTIONS.md` declares, or the PARA set, then every other top folder holding a note, minus its `Ignore` section (local ADR 0026 §2). No devbook folder convention applies. `para`, `repos` and `tasks` become node attributes, and a `repo:` link in `related` or prose is stored as an edge whose target is no node.
+- **Areas, not devbook folders.** The builder indexes the areas `BrainConventions` (Devbook Abstractions) resolves (local ADR 0026 §2): those the Brain's `CONVENTIONS.md` declares, or the PARA set. Every other top folder holding a note follows. The `Ignore` section of `CONVENTIONS.md` comes off the whole list. No devbook folder convention applies. `para`, `repos` and `tasks` become node attributes, and a `repo:` link in `related` or prose is stored as an edge whose target is no node.
 - **A port of its own.** `BrainFolderSource` resolves the Brain as one local, editable folder keyed `brain`, beside `DevbookFolderSource`. The pane reads it through `IBrainFolderSource`, beside `IDevbookFolderSource` in the Devbook Abstractions. The repository source stays the one registration every search, reference, annotation and Archify reader resolves. `AddDevbookAdapters` builds the source over `IBrainSettings.BrainFolder`.
 - **The watch.** Both heads resolve `BrainFolderWatch` after `Build()` and call `Start()`. It raises the source's `Changed` after a setting change or a Brain rebuild.
 - **Its own root.** `DevbookDatabaseLocation` records the folder as a Brain, with its own database in app storage. `BrainConflictCopies` (Abstractions) finds OneDrive conflict pairs from note names alone.
@@ -315,9 +315,19 @@ The Devbook UI's `DevbookScenarioStore` keeps one catalog per repository from th
 
 A followed reference's `#anchor` reaches a scenarios file as a `DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to each journey's `DevbookScenarioPage`. The journey holding that part marks it and reveals it with `backlogRevealRow`.
 
-**Inbox Service** is `Backlog.Modules.Inbox`, a module with its own `Abstractions` project and tables in `backlog.db` (`inbox_items`, `inbox_lists`, `inbox_groups`). It holds the Inbox Item, List and Group aggregates and one feature slice per action: intake, manual capture, tags, repositories, filing, archive, route to backlog, create plan, and the list and group organiser.
+**Inbox Service** is `Backlog.Modules.Inbox`, a module with its own `Abstractions` project and tables in `backlog.db` (`inbox_items`, `inbox_lists`, `inbox_groups`). It holds the Inbox Item, List and Group aggregates and one feature slice per action:
 
-The Inbox reaches Tasks only through the `IInboxBacklogTarget` port. `InboxBacklogTarget` in `Backlog.Infrastructure.FileSystem` answers it over Tasks' `ITaskItems` and is the one place an inbox item becomes entry text. A batch goes through `CreateBatchTasksAsync` as one multi-entry document into Tasks' `ImportPlanAsync`; the adapter maps created entries back to items by `import_item_id` and names each entry's item as its source. `Backlog.Modules.Inbox.UI` references its own Abstractions and nothing of Tasks (local ADR 0009).
+- intake;
+- manual capture;
+- tags;
+- repositories;
+- filing;
+- archive;
+- route to backlog;
+- create plan;
+- the list and group organiser.
+
+The Inbox reaches Tasks only through the `IInboxBacklogTarget` port. `InboxBacklogTarget` in `Backlog.Infrastructure.FileSystem` answers it over Tasks' `ITaskItems` and is the one place an inbox item becomes entry text. A batch goes through `CreateBatchTasksAsync` as one multi-entry document into Tasks' `ImportPlanAsync`. The adapter maps created entries back to items by `import_item_id` and names each entry's item as its source. `Backlog.Modules.Inbox.UI` references its own Abstractions and nothing of Tasks (local ADR 0009).
 
 Two AI ports reach `Backlog.Infrastructure.AzureFoundry` over the one configured deployment. `IInboxPlanDrafter` serves the plan drafter. `IInboxTriageAdvisor` serves the AI triage of local ADR 0023: the cards over an item in triage, and the triage pass. If either is unregistered, the Inbox reads the feature as unavailable. The desktop web harness swaps in a deterministic advisor, so triage surfaces can be driven without Azure.
 
@@ -347,15 +357,15 @@ The port is `IAiContentSource` under `Backlog.SharedKernel.Ai`. Each area's UI p
 - `SessionsAiContentSource`
 - `ToolsAiContentSource`
 
-Each source composes a body for a question within the character budget, choosing among its records the one way `AiContentBudget` defines, so the shell learns nothing about what a task, item or chapter looks like. The panel asks the one area on screen, since the shell never shows two areas at once, and is offered only while that area has a composed source.
+Each source composes a body for a question within the character budget, choosing among its records the one way `AiContentBudget` defines. The shell therefore learns nothing about what a task, item or chapter looks like. The panel asks the one area on screen, since the shell never shows two areas at once, and is offered only while that area has a composed source.
 
-A source never describes the screen: filter text, sort, layout and selection stay out, apart from pinning the open record, because the visible task rows exceeded the deployment's quota on every press. The scope that defines an area's records is content, and the body's first line states it, such as a dashboard's repositories and period or a task list's repository scope.
+A source never describes the screen. Filter text, sort, layout and selection stay out, apart from pinning the open record, because the visible task rows exceeded the deployment's quota on every press. The scope that defines an area's records is content. The body's first line states it, such as a dashboard's repositories and period or a task list's repository scope.
 
 A source may pin the records every question needs. `AiContentBudget` charges a pinned record first, so no question's words can rank it out. Tasks pins the open entry.
 
 The Dashboard pins one line per insight across every tab, worded as its part words it, whichever tab is on show. The figures lead the body, under a line saying they are not entries. The first line counts only merged pull requests and closed issues, so the assistant never reports a figure line as a pull request. An insight that cannot answer keeps its line with the reason. Local ADR 0033 records what this sends to Foundry and why.
 
-An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control, and `DashboardPane.OnAskAi` hands the part's title to the shell, which opens the panel on the Dashboard with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and a Dashboard source is composed, so no part offers a control that leads nowhere.
+An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control. `DashboardPane.OnAskAi` hands the part's title to the shell, which opens the panel on the Dashboard with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and a Dashboard source is composed, so no part offers a control that leads nowhere.
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and both web harnesses. The harnesses register it separately, so they pair as two distinct devices. Its parts:
 
@@ -370,11 +380,16 @@ On the desktop the Sync Client also carries the capture path. `TaskReplicaMerge`
 
 `InboxCaptureDelivery` in `Backlog.Infrastructure.Capture` is a second caller of `IInboxIntake`: it answers the Capture module's `ICaptureDelivery` in-process when a source monitor (YouTube channel, website feed) finds a new entry. `IInboxIntake` is idempotent by id, so a second press of Capture is free and the delivery keeps no record of seen ids (`.devbook/domain/context-map.md#strategic-rules`).
 
-**The Settings screen** is the shell's: `Settings.razor` in `Backlog.Desktop.UI/Settings`, drawn in the component library's `SettingsFrame`. The frame holds a back link, a `Settings · <group>` eyebrow, a one-sentence headline a page writes through `SettingsHeadline` (or its title), and a menu of three groups (Workspace, AI and Product areas) beside the page.
+**The Settings screen** is the shell's: `Settings.razor` in `Backlog.Desktop.UI/Settings`, drawn in the component library's `SettingsFrame`. The frame holds:
+
+- a back link;
+- a `Settings · <group>` eyebrow;
+- a one-sentence headline a page writes through `SettingsHeadline` (or its title);
+- a menu of three groups (Workspace, AI and Product areas) beside the page.
 
 Every page has its own address, `settings/<page>`; menu items are links, so Back returns. Within a group the app-wide pages come first, then registered sections by order. Every page opened is kept alive, hidden, while another is on screen.
 
-Five app-wide pages (Features, AI providers, Storage & backup, GitHub accounts, Repositories) are one component each, described by `SettingsPages` as `SettingsSection` records like the modules' pages. A `SettingsScreenContext`, owned by the screen and handed to every page, holds what more than one page reads: how this machine reaches GitHub, which logins the GitHub CLI holds, and that a feature was switched. A `SettingsSection` names its menu group and the titles of its cards, which the settings search reads without rendering a page, and optionally an `ISettingsBadgeSource` the shell resolves for the page's menu badge.
+Five app-wide pages (Features, AI providers, Storage & backup, GitHub accounts, Repositories) are one component each, described by `SettingsPages` as `SettingsSection` records like the modules' pages. The screen owns a `SettingsScreenContext` and hands it to every page. It holds what more than one page reads: how this machine reaches GitHub, which logins the GitHub CLI holds, and that a feature was switched. A `SettingsSection` names its menu group and the titles of its cards, which the settings search reads without rendering a page. It may also name an `ISettingsBadgeSource` the shell resolves for the page's menu badge.
 
 `SettingsBadges` builds the short value right of a page's name:
 
@@ -383,7 +398,7 @@ Five app-wide pages (Features, AI providers, Storage & backup, GitHub accounts, 
 - **AI providers:** how many of Claude usage, GitHub usage and Azure Foundry are set up, out of three.
 - **A module page:** its source's value.
 
-The feature store, badge sources and the GitHub, Claude and Azure Foundry settings raise `Changed`, and the screen redraws the menu. A module page whose feature is off stays in the menu with an `Off` badge, and opening it shows a note pointing at the Features page while the module's component is disposed.
+The feature store, badge sources and the GitHub, Claude and Azure Foundry settings raise `Changed`, and the screen redraws the menu. A module page whose feature is off stays in the menu with an `Off` badge. Opening it shows a note pointing at the Features page while the module's component is disposed.
 
 - **Storage & backup** is two `SettingsCard`s in a wrapping row: *Where the backlog is stored*, with the branch snapshot folder inside it, and *Backup*, with **Back up now** in its header. The headline reads `BackupWorker.Last`, whose `BackupState.DailyCopies` counts the days a copy was committed on.
 - **Features** reads its counts from the feature store on every render. It draws a headline of how many features are on and how many of those are unfinished (Dev or Beta). Below it sit three `MetricTile` figures, an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one `SettingsCard` per `AppFeatures.Sections` entry, whose titles are the page's search list.
@@ -394,11 +409,11 @@ Below the width that holds menu and page side by side, the screen shows one of t
 
 The header's search slot holds the library's `SettingsSearch`, *Find a setting*. `SettingsPages.Find` keeps a page whose title, or one of whose declared card titles, holds the text, ignoring case. It never reads a field's label or what a page draws, so no page is rendered to search it.
 
-While the search has text, the menu lists only matching pages, drops an empty group, and lists each matched card under its page as a link to `settings/<page>#card-<title>`. Following one opens the page, and `backlogRevealSettingsCard` scrolls the card into view and lights its border in `--color-border-focus` for a moment, without the fade under reduced motion. A search that keeps nothing says `No setting matches "<text>".` in the menu's place, and Escape clears it. At phone width the field takes its own row above the list it filters and is not drawn on a page's address.
+While the search has text, the menu lists only matching pages, drops an empty group, and lists each matched card under its page as a link to `settings/<page>#card-<title>`. Following one opens the page. `backlogRevealSettingsCard` scrolls the card into view and lights its border in `--color-border-focus` for a moment, without the fade under reduced motion. A search that keeps nothing says `No setting matches "<text>".` in the menu's place, and Escape clears it. At phone width the field takes its own row above the list it filters and is not drawn on a page's address.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's only UI. Its Devices page registers and pairs a device, counts down the pairing code, and forgets a device. It also holds the sync service address and drives the task and session sync loops through the Sync Client. `SyncSettingsRegistration.AddSyncSettings` registers it as a `SettingsSection` from `Backlog.SharedKernel`, and the desktop composition calls it.
 
-Each group of the page is a card, and its headline says whether this device is paired. The section declares all seven card titles, both states' among them, for the settings search. The shell lists the page under Product areas, marked `Off` with only the Features-page note while the Sync feature is off, and keeps it alive across moves to other pages.
+Each group of the page is a card, and its headline says whether this device is paired. The section declares all seven card titles, both states' among them, for the settings search. The shell lists the page under Product areas and keeps it alive across moves to other pages. While the Sync feature is off, it is marked `Off`, with only the Features-page note.
 
 ## Mobile App
 
@@ -407,34 +422,6 @@ related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook
 ```
 
 The mobile app is an Android-first, offline-first capture app serving Capture, Inbox and lightweight Tasks. It owns mobile UI, push plumbing and sync transport, not domain lifecycle rules.
-
-The shell (`MainLayout`) is a title bar with the version control and sync status, the page, and bottom tabs, withheld until the device is paired.
-
-The **version control** (`AppUpdateControl`) is the app bar's title. It names the app and running version and opens the update bottom sheet, the phone's counterpart of the desktop footer's version control. The sheet offers Check, then Install update once a newer APK is found; a quiet check after launch only puts a dot on the control.
-
-The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.Components/AppUpdate`. The Android head registers `ApkAppUpdateService` (`Backlog.Mobile.UI/AppUpdate`), which checks GitHub Releases and installs through `AndroidApkInstaller` (`Backlog.Mobile/Services`); `.devbook/arc42/07-deployment-view.md#installation-and-updates-mobile` describes the path.
-
-The tabs are:
-
-- **Inbox:** a quick-capture field and the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent. No row triages; triage stays on the desktop.
-- **Notes:** every note in `note_view`, newest first and searched on the phone, with an editor. A note has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`.
-- **Tasks:** My Day from `task_view`, and the phone's task writes: add a task for today, mark one in today's My Day done or undone, tick a step, or move it to tomorrow.
-- **Notifications:** the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
-
-The **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet over the screen it was opened from, not a tab. It sends one thought to the Inbox as a capture, creates it as a note through the note view, or adds it to today through `task_view`. It offers dictation and a photo.
-
-The Android launcher shortcut **Capture** opens the sheet too, at `capture?from=inbox`. The head publishes a dynamic shortcut, and `MainActivity` raises the buffered, consume-once `CaptureOpenRequests`, which the shell follows as it follows a notification tap (local ADR 0039). A restored activity raises nothing.
-
-The local SQLite file holds no canonical task data. It holds:
-
-- the outbox;
-- `inbox_cache`, the last inbox pulled;
-- `task_view`, a fold of the owner's task feed;
-- `note_view`, a fold of the `note` documents on the same feed, with its own cursor.
-
-Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `note` or `task`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
-
-A note's files, and a leftover talk note's, wait in `talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before the document that names it and checkpointed into the entry, so a retry never sends one twice. A note document then goes to `POST /api/sync/tasks`, a leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`, `.devbook/arc42/06-runtime-view.md#talk-note-upload`, `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
 
 ```mermaid
 graph TB
@@ -502,6 +489,34 @@ graph TB
   Creds -.->|bearer| API
 ```
 
+The shell (`MainLayout`) is a title bar with the version control and sync status, the page, and bottom tabs, withheld until the device is paired.
+
+The **version control** (`AppUpdateControl`) is the app bar's title. It names the app and running version and opens the update bottom sheet, the phone's counterpart of the desktop footer's version control. The sheet offers Check, then Install update once a newer APK is found; a quiet check after launch only puts a dot on the control.
+
+The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.Components/AppUpdate`. The Android head registers `ApkAppUpdateService` (`Backlog.Mobile.UI/AppUpdate`), which checks GitHub Releases and installs through `AndroidApkInstaller` (`Backlog.Mobile/Services`); `.devbook/arc42/07-deployment-view.md#installation-and-updates-mobile` describes the path.
+
+The tabs are:
+
+- **Inbox:** a quick-capture field and the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent. No row triages; triage stays on the desktop.
+- **Notes:** every note in `note_view`, newest first and searched on the phone, with an editor. A note has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`.
+- **Tasks:** My Day from `task_view`, and the phone's task writes: add a task for today, mark one in today's My Day done or undone, tick a step, or move it to tomorrow.
+- **Notifications:** the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
+
+The **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet over the screen it was opened from, not a tab. It sends one thought to the Inbox as a capture, creates it as a note through the note view, or adds it to today through `task_view`. It offers dictation and a photo.
+
+The Android launcher shortcut **Capture** opens the sheet too, at `capture?from=inbox`. The head publishes a dynamic shortcut, and `MainActivity` raises the buffered, consume-once `CaptureOpenRequests`, which the shell follows as it follows a notification tap (local ADR 0039). A restored activity raises nothing.
+
+The local SQLite file holds no canonical task data. It holds:
+
+- the outbox;
+- `inbox_cache`, the last inbox pulled;
+- `task_view`, a fold of the owner's task feed;
+- `note_view`, a fold of the `note` documents on the same feed, with its own cursor.
+
+Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `note` or `task`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
+
+A note's files, and a leftover talk note's, wait in `talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before the document that names it and checkpointed into the entry, so a retry never sends one twice. A note document then goes to `POST /api/sync/tasks`, a leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`, `.devbook/arc42/06-runtime-view.md#talk-note-upload`, `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
+
 The speech transcriber listens on-device by default. With the Cloud engine picked
 in Settings, it records the turn and sends it to the sync API for transcription.
 It falls back to on-device when the cloud cannot answer (local ADR 0045).
@@ -546,7 +561,7 @@ graph LR
   Copilot -->|"Streamable HTTP, loopback"| Mcp
 ```
 
-Two kinds of editor-side client reach Backlog by different paths. The VS Code extension talks to the sync service; Claude Code and GitHub Copilot sessions talk to the desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
+The VS Code extension talks to the sync service; Claude Code and GitHub Copilot sessions talk to the desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
 
 The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). It adds one explorer tree view, `backlogInbox`, and four commands:
 
@@ -557,11 +572,11 @@ The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). 
 
 The extension reads the service's base URL from `backlog.cloudUrl`. Local ADR 0009 fixes the shape of both inbox calls. Local ADR 0005 is why it goes to the sync service rather than the desktop's files: only the service can serve an editor on a second machine.
 
-The inbox routes require a paired device, so the extension joins the desktop's owner as a second device (local ADR 0005 §Identity). It redeems a code rather than registering, because a registration mints a new owner with an empty inbox. The device id and credential go into `SecretStorage`. `src/sync-client.ts` trades the credential for a short-lived token at `POST /api/sync/devices/token`, reuses it until two minutes before expiry, sends it as `Authorization: Bearer` on both inbox calls, and handles its 401 cases as [IDE Context-aware Capture](06-runtime-view.md#ide-context-aware-capture) describes. The extension has no webview and caches nothing but the token.
+The inbox routes require a paired device, so the extension joins the desktop's owner as a second device (local ADR 0005 §Identity). It redeems a code rather than registering, because a registration mints a new owner with an empty inbox. The device id and credential go into `SecretStorage`. `src/sync-client.ts` trades the credential for a short-lived token at `POST /api/sync/devices/token`, reuses it until two minutes before expiry, and sends it as `Authorization: Bearer` on both inbox calls. It handles its 401 cases as [IDE Context-aware Capture](06-runtime-view.md#ide-context-aware-capture) describes. The extension has no webview and caches nothing but the token.
 
 The extension is a TypeScript project outside `Backlog.sln`. In development the AppHost hosts it through two explicit-start resources: `ide-vscode-build` runs `npm run watch`, and `ide-vscode-host` opens a VS Code Extension Development Host with it side-loaded. `.devbook/tech/ide.md#vs-code-extension-api` has the detail.
 
-Agent sessions reach Backlog the way an IDE does and are not a container of their own. Local ADR 0012 has them call the MCP server inside the desktop app, `Backlog.Infrastructure.Mcp`, whose tools read and change the desktop's store: tasks, the roadmap, devbook chapters and their [remarks](../domain/devbook/domain.md#remark), sessions and delivery runs. The chapters include the Brain's notes, and a new note is written into the Brain's inbox area.
+Agent sessions reach Backlog the way an IDE does and are not a container of their own. Local ADR 0012 has them call the MCP server inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools read and change the desktop's store: tasks, the roadmap, devbook chapters and their [remarks](../domain/devbook/domain.md#remark), sessions and delivery runs. The chapters include the Brain's notes, and a new note is written into the Brain's inbox area.
 
 Visual Studio has no extension yet; `.devbook/tech/ide.md` lists Visual Studio extensibility and a VS Code webview UI as candidates.
 
@@ -575,7 +590,7 @@ related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`), deliberately not the backbone. It persists only sync-oriented state, much of it TTL-based, and never canonical domain data or external credentials (local ADR 0005).
 
-"Cloud Service" names where this container runs; the code is `src/Modules/Sync/Backlog.Modules.Sync.Api`, the `sync` resource in the Aspire app model. The Sync Service and Notification Service components below are built, their Azure resources first provisioned on 2026-11-04; no push reaches a phone until the hub has its FCM credential (local ADR 0039). The webhook receiver and PC registry are not built.
+"Cloud Service" names where this container runs; the code is `src/Modules/Sync/Backlog.Modules.Sync.Api`, the `sync` resource in the Aspire app model. The Sync Service and Notification Service components below are built, their Azure resources first provisioned on 2026-11-04. No push reaches a phone until the hub has its FCM credential (local ADR 0039). The webhook receiver and PC registry are not built.
 
 The sync service is seven projects:
 
@@ -611,7 +626,7 @@ Each adapter project is the only one that references its Azure SDK; the Azure re
   - `INotificationNudgeChannel`
   - `INotificationPushChannel`
 
-  Its `Adapters` hold an in-memory stand-in for each store, for endpoint tests and runs with no Cosmos, and no-op channels (`NoNotificationNudgeChannel`, `NoNotificationPushChannel`) for runs with no hub, Aspire included.
+  Its `Adapters` hold an in-memory stand-in for each store, for endpoint tests and runs with no Cosmos. They also hold no-op channels (`NoNotificationNudgeChannel`, `NoNotificationPushChannel`) for runs with no hub, Aspire included.
 - `Backlog.Modules.Sync.Api` wires the module to HTTP, JWT-bearer authentication,
   and the owner-scoping filter.
 - `Backlog.Infrastructure.Cosmos` implements the replica ports against the
@@ -632,8 +647,8 @@ The API head serves sessions, annotations and devbook subject state as one route
 each: `/api/sync/sessions`, `/api/sync/annotations` and `/api/sync/devbook-subjects`.
 A device pushes a batch with `POST` and pulls the owner's feed from a cursor with
 `GET`, as it does on `/api/sync/tasks`. A desktop that meets a bare 404 on
-`/api/sync/devbook-subjects` takes it for a service not yet deployed with the route,
-and asks again on its next cycle (local ADR 0044 §7).
+`/api/sync/devbook-subjects` takes it for a service not yet deployed with the route.
+It asks again on its next cycle (local ADR 0044 §7).
 
 Captures have no container of their own. A capture is a document kind in the
 `tasks` container, and the module writes it through `ITaskReplica` (local ADR
@@ -668,13 +683,13 @@ Local ADR 0045: `POST /api/sync/transcriptions` takes
 one phone dictation's audio and answers its text. It sits behind the same
 authorization and owner-scope filters as every other sync route. The service hands
 the audio to the Azure Foundry `gpt-4o-transcribe` deployment through
-`Backlog.Infrastructure.AzureFoundry`, with its managed identity, through a bridge in the host, and keeps neither
-the audio nor the text. The cap, the audio allowlist, the endpoint, the deployment
+`Backlog.Infrastructure.AzureFoundry`, with its managed identity, through a bridge in the host. It keeps neither
+the audio nor the text.
+
+The cap, the audio allowlist, the endpoint, the deployment
 and the api-version are `Modules:Sync:Transcription` settings. With no endpoint set,
 the route answers `503 sync.transcription_unavailable`, and the phone dictates
 on-device.
-
-Cloud components:
 
 | Component | Responsibility |
 |---|---|

@@ -4,9 +4,19 @@
 related: [".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons", ".devbook/design/interaction-guidelines.md#empty-loading-and-error-states", ".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/typography-and-layout.md#border-radius-and-width", ".devbook/design/color-scheme.md#badge-and-chip-tones"]
 ```
 
-> The Settings screen is one panel: a header that names the group and says the
-> page's state in one sentence, a menu of three groups, and the page beside it.
-> Every page has its own address, saves as you go, and declares the card titles
+```mermaid
+flowchart TD
+  Panel["Panel (SettingsFrame)"] --> Header
+  Panel --> Menu["Menu of three groups"]
+  Panel --> Page["Page, beside the menu"]
+  Header --> Back["Way back"]
+  Header --> Title["Eyebrow over headline"]
+  Header --> Chip["Saved chip"]
+  Header --> Search["Search"]
+```
+
+> The Settings screen is one panel. Its header names the group and says the
+> page's state in one sentence. Every page has its own address, saves as you go, and declares the card titles
 > the search reads. A module that registers a page follows this chapter, so its
 > page reads as one of the screen's own.
 
@@ -53,9 +63,9 @@ Rules:
 ```meta
 ```
 
-The headline is one sentence that says the page's state, not its name: how many
-features are on, which AI providers report usage, how many accounts this
-machine can speak as. A page writes it by rendering `SettingsHeadline`, which
+The headline is one sentence that says the page's state, not its name. Examples
+are how many features are on, which AI providers report usage, and how many
+accounts this machine can speak as. A page writes it by rendering `SettingsHeadline`, which
 fills the `settings-headline` section outlet in the frame's `h1`.
 
 | Case | The headline reads |
@@ -121,7 +131,7 @@ Rules:
   be in `Ai` only when it configures a provider or the price of a run, and MUST
   NOT be in `Workspace`, which is the shell's.
 - A module MUST publish its `Order` as a named constant beside its registration,
-  with a comment naming the page it follows, so the next module can place its
+  with a comment naming the page it follows. The next module can then place its
   own without reading the screen.
 - A group with no page on offer is not drawn.
 - Every menu item is a link to the page's address, never a button. The page on
@@ -193,7 +203,7 @@ without rendering a page.
   leaves undrawn is not declared while that feature is off, so the search never
   lists it and its `#card-<slug>` address names nothing
   (`SettingsPages.BuiltInAsDrawn`). With usage metrics off, the AI providers
-  page declares neither *Claude usage API* nor *GitHub usage API*, and with the
+  page declares neither *Claude usage API* nor *GitHub usage API*. With the
   AI assistant off it does not declare *Azure Foundry AI*.
 - A switched-off page is matched on its title alone: it draws only the note, so
   none of its cards is there to reveal.
@@ -211,8 +221,8 @@ without rendering a page.
 related: [".devbook/design/typography-and-layout.md#border-radius-and-width", ".devbook/design/accessibility.md#screen-reader--announcements"]
 ```
 
-A page is a column of `SettingsCard`s, laid out in the `setting-columns` grid,
-which wraps cards into columns of at least 22 rem and caps each at 640 px.
+A page is a column of `SettingsCard`s in the `setting-columns` grid. The grid
+wraps cards into columns of at least 22 rem and caps each at 640 px.
 
 | Part | Rule |
 |---|---|
@@ -259,7 +269,7 @@ related: [".devbook/design/interaction-guidelines.md#action-density-and-overflow
 ```
 
 A setting that is a list of things each with its own settings, such as
-repositories or GitHub accounts, shows one row per thing and opens that thing's
+repositories or GitHub accounts, shows one row per thing. It opens that thing's
 editor in place, under its row.
 
 | List | Row | Opens with |
@@ -413,8 +423,8 @@ The checklist a module's page meets, each item from a chapter above:
 The storybook shows the frame, the menu and the card on its *Settings frame*,
 *Settings menu* and *Settings card* pages. Each page's **Design rules** block
 links back to this chapter. The frame links to *Panel and Header* and
-*Headline*, the menu to *Menu Groups*, *Badges and the Off State* and *Phone
-Width*, and the card to *Settings Card* and *Figure Tiles*.
+*Headline*. The menu links to *Menu Groups*, *Badges and the Off State* and *Phone
+Width*. The card links to *Settings Card* and *Figure Tiles*.
 
 `SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the
 desktop harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone

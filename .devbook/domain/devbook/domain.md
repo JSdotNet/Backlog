@@ -20,11 +20,16 @@ related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc
 ```
 
 A person's own note on one block of a chapter, kept by the app and not the
-repository, so a reader can remark on a branch snapshot nobody can write to. It
-holds the repository's alias, the chapter's path inside the repository, the block
-it is anchored to, its body, author, kind, whether it is resolved, and the branch
-it was left on. The alias is the name a repository has on every device, so one
-remark names the same chapter on all of them.
+repository, so a reader can remark on a branch snapshot nobody can write to. The
+repository's alias is the name it has on every device, so one remark names the
+same chapter on all of them. A remark holds:
+
+- the repository's alias;
+- the chapter's path inside the repository;
+- the block it is anchored to;
+- its body, author and kind;
+- whether it is resolved;
+- the branch it was left on.
 
 A remark's kind is one of a review note's four: comment, question, suggestion or
 flag. A remark that states none is a comment. A remark left on a named branch's
@@ -74,14 +79,18 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbo
 ```
 
 The workflow state of one [Devbook Subject](#devbook-subject) in one repository,
-kept by the app rather than by the chapter. It holds the repository's alias, the
-subject, the state the subject is in, who set that state and when, and, for a
-proposal, the [approval and acceptance](#subject-decision) it stands on.
+kept by the app rather than by the chapter. It holds:
+
+- the repository's alias;
+- the subject;
+- the state the subject is in;
+- who set that state and when;
+- for a proposal, the [approval and acceptance](#subject-decision) it stands on.
 
 It exists because devbook's branch-true decision took workflow state out of the
 chapter's `meta` block
 (`JSdotNet/devbook:.devbook/arc42/adr/chapter-schema.md#branch-true-devbook`). A
-branch states what is true of its code; whether a debt record is planned or a
+branch states what is true of its code. Whether a debt record is planned or a
 proposal approved is a fact about the work around the chapter. So the host that
 runs the workflow keeps it, under the names the `devbook.decision@1` contract
 gives a subject. Backlog keeps it in its own store, one file per repository under

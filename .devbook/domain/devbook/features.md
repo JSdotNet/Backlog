@@ -15,18 +15,25 @@ depends-on: [.devbook/domain/devbook/features.md#devbook-retrieval]
 related: [.devbook/domain/devbook/requirements.md#unified-search, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
+```mermaid
+flowchart LR
+    T[The reader types] --> W[Words answer drawn]
+    T -->|typing pauses, switched on, a model there| M[Meaning answer]
+    W --> G[Merged within each source]
+    M --> G
+    G --> R[Results grouped by source, the Brain first]
+```
+
 Ask one question of the Brain and every configured repository's devbook at once.
 The search offers scope chips (**Everywhere**, **Brain**, and one per
-repository) and groups its results by where they came from, the Brain's group
-first. It searches by words and by meaning, as
+repository). It searches by words and by meaning, as
 [Devbook retrieval](#devbook-retrieval) does for one devbook, over each source's
 own database. A source with no database yet is named as not searchable rather
 than silently left out.
 
-Search by meaning is additive, as for one devbook: it is asked only while switched
-on and a model is there to answer, once typing pauses. The words answer is drawn
+Search by meaning is additive, as for one devbook. The words answer is drawn
 while the meaning answer is on its way. Within a source the two are merged by where
-each put a chapter, never by their scores, which are on different scales, so a
+each put a chapter, never by their scores, which are on different scales. A
 chapter both found is one result. A result from the devbook on screen opens there.
 One from another devbook moves the pane to that devbook and opens it, leaving the
 header's scope and the task filter alone.
@@ -203,7 +210,7 @@ runs of all its journeys: passed, failed, stale, or never run. The dot takes the
 first of never run, stale and failed that any journey is, and reads passed only
 when every journey passed. It differs by shape as well as colour, and a screen
 reader hears its state. A legend under the menu draws the four dots beside their
-words, so the shapes need not be learned, only while the repository has a journey and never for a Brain.
+words, so the shapes need not be learned. It shows only while the repository has a journey, and never for a Brain.
 
 Each journey's run is committed beside its scenarios file, at
 `<scenarios file without .md>/<journey>/run.json`. The app reads all three run
@@ -315,7 +322,7 @@ or unresolved). The root chapter of a [Sync Unit](domain.md#sync-unit) also show
 the unit's own verdict and what the sweep did about it. Each badge leads to the
 pull request or drift issue the sweep opened, where the verdict is argued.
 
-Only the latest verdict per chapter is shown, in the sweep's own words, so a
+Only the latest verdict per chapter is shown, in the sweep's own words. A
 chapter last checked a month ago keeps that word until a sweep checks it again.
 See [the requirements](requirements.md#sync-verdicts-beside-a-chapter) for which
 verdict that is and how an unknown word looks. A chapter no sweep has checked
@@ -333,11 +340,16 @@ type: sub-feature
 related: [.devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
+```mermaid
+flowchart LR
+    O[The reader opens a chapter] --> C{Does the prepared view prove itself current?}
+    C -->|yes| V[Shown from the prepared view]
+    C -->|no, or nothing prepared| F[Read directly from the folder]
+```
+
 Show what a repository's folders actually say, including when a chapter was
 edited outside the app, by another tool, a pull request, or hand. The folders are
-the source of truth and the app never owns them. A prepared view over them has to
-prove itself current before it is shown, and gives way to reading the folder
-directly when it cannot.
+the source of truth and the app never owns them.
 
 A repository where nothing has been prepared is a normal state, not an error: its
 devbook is still browsable, only slower, and preparing it is never a precondition
@@ -359,24 +371,31 @@ type: sub-feature
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
+```mermaid
+flowchart TD
+    O[The pane first opens on the repository in an app session] --> Q[Background check of the clone]
+    P[Somebody presses for a check] --> Q
+    Q --> S{What stands in the way?}
+    S -->|being behind, nothing else| U[Offers Pull latest]
+    S -->|anything else| R[Reports the state as it stands]
+    U -->|somebody presses| N[The chapters on screen become the chapters that arrived]
+```
+
 Say whether the devbook in view is the latest version the repository has, and
 bring it up to date when it is not. A local clone falls behind in silence: every
 chapter still opens, and nothing says somebody has revised it since.
 
-The question is asked once on its own, the first time the pane opens on the
-repository in an app session, beside loading
+The first question is asked on its own, beside loading
 [its branches](#choosing-where-the-devbook-is-read-from). It reaches for the
-repository itself, so it runs in the background and opening a folder never waits on
+repository itself, so opening a folder never waits on
 it. A clone found behind is offered "Pull latest" straight away, with no "Check
-now" first. After that the question is asked when somebody presses for it.
+now" first.
 
 The question concerns only the local clone, so the control shows only while the
 pane reads the clone. A branch snapshot keeps itself current on its own cadence
 (local ADR 0008).
 
-The answer says how far behind the clone is, and offers to update it only when
-being behind is all that is in the way. Three other states are reported as they
-stand, not reconciled for the reader:
+The answer says how far behind the clone is. Three other states are not reconciled for the reader:
 
 - a clone carrying edits nobody has committed;
 - a clone holding revisions the repository does not have;
@@ -388,8 +407,7 @@ repository has no latest version and is not asked about, nor is that of an
 which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
 Updating happens only when somebody presses for it, because a pull touches a
-working tree somebody may be editing in, and the chapters on screen become the
-chapters that arrived.
+working tree somebody may be editing in.
 
 ### Choosing where the devbook is read from
 
@@ -401,7 +419,7 @@ related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-
 
 Read a repository's devbook from its local clone or any of its branches, chosen
 beside the area strip and not in settings. A chapter under review lives on a branch
-long before the default one, its reader rarely has that branch checked out, and a
+long before the default one, and its reader rarely has that branch checked out. A
 repository nobody has cloned has only its branches (local ADR 0008).
 
 The choice is one field the reader types into. It suggests the default branch, the
@@ -427,18 +445,18 @@ flowchart TD
 
 Knowing what a branch changes means one comparison call per branch with the default
 branch. The branches are loaded once per repository per app session, in the
-background, when the pane first opens on it: the list, a comparison per branch, and
+background, when the pane first opens on it. A load is the list, a comparison per branch, and
 a look at the clone. Reopening the picker, switching tabs or source, or a second
-window reuses that load. The pane never waits on it: the field works from the
+window reuses that load.
+
+The pane never waits on it: the field works from the
 start, and "Loading branches…" marks a load still running. "Refresh branches" asks
 again. The list stops at a ceiling instead of paging without end.
 
 A load, or part of it, can fail. A branch GitHub would not compare is not placed. A
 refused listing is said beside the field, and the default branch, the clone and the
-configured branch stay offered. A refused refresh keeps the last good load. A typed
-branch the list does not hold is asked of GitHub before it is turned down, because
-the list may be older than the branch. A search is not a choice: only a named
-source switches what the pane reads.
+configured branch stay offered. A refused refresh keeps the last good load. GitHub is
+asked about a typed branch because the list may be older than the branch.
 
 Switching says, under the strip, whether the pane now reads the clone or a
 read-only branch snapshot. The settings screen offers the same choice with the same
@@ -605,9 +623,9 @@ and Layers tabs:
 
 | View | What it answers |
 | --- | --- |
-| **Overview** | Everything in use: a table narrowed by type and sorted by measure, with an inspector beside it. |
-| **Dependencies** | One technology in context: what it sits on and what sits on it, hop by hop, to show a change's reach. |
-| **Complexity** | Blast radius against depth: each technology placed by how many use it and how much sits under it. |
+| **Overview** | Everything in use: a table narrowed by type, sorted by measure, with an inspector beside it. |
+| **Dependencies** | What one technology sits on and what sits on it, hop by hop: a change's reach. |
+| **Complexity** | Blast radius against depth: how many use each technology and how much sits under it. |
 | **Clusters** | The whole stack by layer: open a layer to see its technologies, then follow one's links. |
 | **Type lenses** | One technology read through the lens its type chooses. |
 
@@ -668,7 +686,7 @@ hops to 1, 2 or all, and groups the cards by hop or by layer. A technology reach
 several hops shows once, at its nearest hop, marked with every further hop it is also
 reached at ("also 3, 4 hops"). From 2 hops, a card names the technology one hop nearer
 that it is reached through ("via ASP.NET Core"). Below the board, the view lists at most
-10 paths down to a foundation, says when more lead down, and shows the longest path
+10 paths down to a foundation and says when more lead down. It also shows the longest path
 running through the selected technology.
 
 **Clusters.** The view opens on the selected technology's layer, with that
@@ -719,7 +737,7 @@ technology's chapter in its layer file under `.devbook/tech`.
 **Drawn as buttons, operated from a list.** The Clusters map and the Complexity
 scatter are components the app positions with CSS, and every technology on them is
 a real button. The first-party canvas atlas no longer draws the stack; it draws the
-Brain's atlas and the repository devbook atlas, which offers no Technology scope
+Brain's atlas and the repository devbook atlas. That atlas offers no Technology scope
 and leaves `.tech` chapters out.
 
 Every view a pointer operates has an on-screen list or table companion that
@@ -744,7 +762,7 @@ finding is a proposal and nothing is rewritten unattended.
 
 Two costs are named separately and never traded silently: the
 [Context Load](domain.md#context-load), and the person's own cost of knowing which
-document to reach for, which is not a number to drive to zero. An instruction set
+document to reach for. That second cost is not a number to drive to zero. An instruction set
 that got smaller while the agents got worse has failed, and the review reports
 that and not a saving.
 
@@ -770,7 +788,7 @@ related: [.devbook/domain/devbook/domain.md#context-load]
 Weigh a repository's always-loaded instruction weight against a budget and rank
 what carries it, heaviest first, with the one change that would lighten each. The
 ranking follows what a line costs across the turns that pay for it, not its file's
-length, so a short document loaded every run outranks a long one reached twice a
+length. A short document loaded every run outranks a long one reached twice a
 month.
 
 ### Duplicate rule detection
@@ -876,6 +894,6 @@ available.
 Click demos are indexed beside the chapters, each with the page it pairs with by
 name and every chapter `demo` field pointing into it. A demo is not a chapter, so
 it has no place in the reading order and is not searched. An assistant that reads
-a page is told which demos it has, by path and by the place each field names, but
+a page is told which demos it has, by path and by the place each field names. It
 never receives a demo's HTML, which runs to hundreds of kilobytes. It can open the
 file from its own checkout.

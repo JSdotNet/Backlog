@@ -124,7 +124,7 @@ public sealed class NotificationTools(
         + "waits on it. Answers the notification's id, which close takes. Pass sessionId - your Claude session id - "
         + "so the alert is about your session; then pass it to close too. Calling it twice publishes two.")]
     public async Task<NotificationPublishedPayload> NotifyAsync(
-        [Description("One line of plain text, at most 80 characters.")]
+        [Description("One line of plain text, at most 80 characters, shaped repository · change · what the person must do, e.g. \"Backlog · Notification titles · Approve or revise\".")]
         string title,
         [Description("Plain text, at most 180 characters, shown under the title.")]
         string? summary = null,
@@ -166,7 +166,7 @@ public sealed class NotificationTools(
         + "stays in the session for now or is published at once, and answers route (session or backlog), the waiting "
         + "question's id and waitSeconds, the dialog wait. Asked again for the same tool use, it answers the same question.")]
     public async Task<NotificationPublishedPayload> AskAsync(
-        [Description("The question, one line of plain text, at most 80 characters. Required unless questions is given.")]
+        [Description("One line of plain text, at most 80 characters, shaped repository · change · what the person must do, e.g. \"Backlog · Notification titles · Approve or revise\". Required unless questions is given.")]
         string? title = null,
         [Description("The choices, as the labels the person reads, e.g. [\"Yes\", \"No\"]. Each label is also the choice's id get_answer answers with. Omit for an open question.")]
         string[]? choices = null,

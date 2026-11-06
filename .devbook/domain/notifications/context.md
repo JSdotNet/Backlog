@@ -35,6 +35,17 @@ Outside it:
 - the device identity. The owner instance is the shared kernel's
   [Device](../tasks/domain.md#device).
 
+```mermaid
+flowchart LR
+    Source -->|publishes through| Owner["Owner instance"]
+    Owner -->|writes| Notification
+    Notification -->|Sync carries| Viewer["Viewer instance"]
+    Viewer -->|proposes| Reply
+    Reply -->|owner accepts one| Answer
+    Answer -->|handed back to| Handler["The Source's handler"]
+    End["Publisher closes, or Subject ends"] -->|closes| Notification
+```
+
 Android is the only phone platform. The local decision behind the storage and
 the realtime nudge is `.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`.
 
@@ -97,7 +108,17 @@ the reason "Validation decided at the desktop". A decision the desktop recorded
 after the question went out wins over a late answer. A late Approve + follow-up
 that loses this way files no entry.
 
-The service does not tell the issuing desktop of a redemption, so Sync reads the owner's device list every five seconds
+```mermaid
+stateDiagram-v2
+  [*] --> Waiting : desktop shows a pairing code
+  Waiting --> Asked : a device redeems it, and is paired
+  Waiting --> Finished : the code expires unredeemed
+  Asked --> Finished : Allow keeps the device
+  Asked --> Finished : Refuse revokes the device
+  Finished --> [*]
+```
+
+The service does not tell the issuing desktop of a redemption. Sync therefore reads the owner's device list every five seconds
 while the code waits, and for thirty seconds past its expiry. A redeemed pairing stops expiring and lasts
 until the question is answered, across a restart too. The device is paired from
 the moment it redeemed the code, so its question stays open. Only the device whose code paired another may revoke it.
@@ -107,8 +128,7 @@ before it arrives, so a first pull raises none.
 
 ## Owner screens
 
-On the owner desktop the person reads and answers through `INotificationCentre`,
-in two places:
+On the owner desktop the person reads and answers through `INotificationCentre`:
 
 - **The notification centre**, a takeover the shell's **Notifications** option
   opens, wearing the count of open questions. The centre lists the open
@@ -126,6 +146,11 @@ in two places:
   and Send. A question whose answers do not fit, such as one with more than three
   choices or a choice that takes text, offers **Open in Backlog**, which opens the
   centre on it.
+
+Both hand an answer to `INotificationCentre.AnswerAsync`, which passes it to
+`INotificationReplies.AcceptReplyAsync` as a [Reply](domain.md#reply) from this
+device. A viewer's reply takes the same path, so the owner checks every answer
+alike.
 
 The centre's list follows the header's repository scope, by the rule the
 Sessions list keeps (local ADR 0027):
@@ -145,14 +170,14 @@ from what its producer left on it (`NotificationRepositories`):
 
 Pairing, the settings test and an MCP call from no session name none and are the
 Brain's. One the host could not work out, because its source
-could not be read, is listed under every scope, so a failing source never
+could not be read, is listed under every scope. A failing source therefore never
 hides a question. Opening the centre on a notification the scope hides shows
 every repository until the scope is pressed again.
 
 The owner desktop publishes that answer with each notification it pushes, worked
-out by the same rule when it pushes: the repository's alias, the name its header
+out by the same rule when it pushes. The answer is the repository's alias, the name its header
 scope shows, or the Brain for a notification about no repository. One it could
-not work out goes out with neither and reads as not known, as does every
+not work out goes out with neither and reads as not known. So does every
 notification an owner pushed before it published a repository. The phone keeps
 no aliases of its own, so this is what its Repository filter reads
 ([Answering from another device](features.md#answering-from-another-device);
@@ -166,7 +191,7 @@ the other two:
   [Origin](domain.md#origin).
 - **Kind:** *All*, *Questions*, *Alerts*, or *Open*, whatever still waits.
 
-**Group by** offers five groupings:
+**Group by** offers:
 
 - *Repository*;
 - *System*;
@@ -179,7 +204,7 @@ alone is pressed. A group holding an open question comes first, then by its newe
 inside a group an open question leads, then newest first. Group by and the
 filters are remembered on this machine; **Clear filters** resets every filter and keeps Group by. The **Notifications** option's count stays global, so
 the subtitle says how many waiting questions lie outside the scope and how many
-the filters hide, and reads *Loading…* until the first load returns.
+the filters hide. It reads *Loading…* until the first load returns.
 
 The person tries the system out on **Settings › Notifications**
 (`settings/notifications`, offered behind the `notifications` switch). **Send test
@@ -189,15 +214,10 @@ and "Not yet" and an open answer, about the subject `notifications` / `test` / a
 fresh id. Both are raised by the source `notifications` / `settings-test`, whose
 answer handler only takes the answer.
 
-Under the buttons the page follows the last test through `INotificationCentre.Changed`:
+Under the buttons the page follows the last test through `INotificationCentre.Changed`. It shows
 published, pushed to the phone, answered with the answer and its device
 (or acknowledged, for the alert), and closed. **Clear test** closes the test, as does sending a new one. The push row reads *not reported*, because the phone push
 carries no delivery receipt.
-
-Both hand an answer to `INotificationCentre.AnswerAsync`, which passes it to
-`INotificationReplies.AcceptReplyAsync` as a [Reply](domain.md#reply) from this
-device. A viewer's reply takes the same path, so the owner checks every answer
-alike.
 
 ## Dependencies
 

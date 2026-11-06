@@ -21,7 +21,7 @@ tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_wrong_cr
 ```
 
 A registration credential is checked against its stored hash, and a cursor against its signature, by a comparison whose time does not depend on how much of the secret was right (`device.credential_invalid`, `sync.cursor_malformed`).
-An ordinary equality check stops at the first byte that differs, so a caller who can time enough attempts could walk a secret out one byte at a time.
+An ordinary equality check stops at the first byte that differs, so a caller timing enough attempts could walk a secret out byte by byte.
 The tests prove a wrong secret is refused. The timing itself is held by the call to `CryptographicOperations.FixedTimeEquals` and is not measured.
 
 Enforced at: `Sha256CredentialHasher.Matches()`, `HmacSyncCursorCodec`
@@ -70,7 +70,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.Precedence_is_the_stamp_then_the_tombstone, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.An_older_live_copy_pushed_after_a_tombstone_does_not_replace_it, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.A_tombstone_of_the_very_version_held_is_taken_on_a_tied_stamp, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryAnnotationReplicaPrecedenceTests.Precedence_is_the_stamp_then_the_tombstone, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryAnnotationReplicaPrecedenceTests.An_older_live_copy_pushed_after_a_tombstone_does_not_replace_it]
 ```
 
-A pushed copy replaces the stored one only when its device stamp is later, or the stamps tie and it is a live copy's tombstone, so a push never moves a document backwards.
+A pushed copy replaces the stored one only when its device stamp is later, or the stamps tie and it is a live copy's tombstone. A push therefore never moves a document backwards.
 An identical pair is the same version twice and writes nothing. The rule is on the stamp and not on arrival order, because an echo carries the stamp of the version it echoes.
 
 Enforced at: `TaskChangePrecedence.Supersedes()`, `AnnotationChangePrecedence.Supersedes()`
@@ -83,7 +83,7 @@ tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryDevbookSubjectReplica
 ```
 
 A pushed copy of a [devbook subject's state](../devbook/domain.md#subject-state) replaces the stored one only when its device stamp is later, and a tie writes nothing.
-A subject's state is set and never deleted, so no tombstone takes part, and a tie is the same version twice or two devices nothing can order.
+A subject's state is set and never deleted, so no tombstone takes part. A tie is the same version twice or two devices nothing can order.
 
 Enforced at: `DevbookSubjectChangePrecedence.Supersedes()`
 

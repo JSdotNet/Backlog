@@ -305,8 +305,8 @@ chapters.
   modules. `devbook:init` materialized the tool under
   `.devbook/_tools/devbook-meta/`, and `devbook:update` refreshes it.
 - **Sync units** — `units.mjs --groups` lists the sync units, their effective
-  `sync` direction, and what a sync sweep would skip: the orphans, and the groups
-  it sets aside as mixed or oversized.
+  `sync` direction, and what a sync sweep would skip. That is the orphans, and the
+  groups it sets aside as mixed or oversized.
   [Sync direction](../../.agents/rules/devbook-chapter-metadata.md#sync-direction)
   defines a sync unit and what a sweep does with one.
 - **Parse** — a `#` line inside a code fence does not start a chapter, and a
@@ -356,9 +356,8 @@ depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#sqlite"]
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
 ```
 
-The two writers of the generated devbook database: the desktop app's C# builder,
-which produces the database the app reads, and the repo-native Node writer it is
-held to.
+The two writers of the generated devbook database. The desktop app's C# builder
+produces the database the app reads, and it is held to the repo-native Node writer.
 
 ```mermaid
 flowchart LR
@@ -438,15 +437,15 @@ A JSON-IR diagram renderer, vendored under `tools/archify/`.
   `scan`, `scaffold`, `render`, and `verify`.
 - **Why** — it is a visualization layer over the canonical fence, not a
   replacement. An artifact is matched to a diagram by the SHA-256 of the
-  normalized fence, so an edited diagram falls back to mermaid with an
+  normalized fence. So an edited diagram falls back to mermaid with an
   out-of-date note rather than showing a stale picture.
 - **How** — vendored with no `node_modules`, so the commands run on a bare Node
   install. A specification is accepted only at 9/9 checks. A few diagrams render
   at the `standard` profile instead of `showcase`, and say so in their filename.
 - **What is committed** — the specifications and `_archify/index.json` only
   (local ADR 0034). The desktop app draws each artifact on demand from its
-  specification, with the clone's `tools/archify` or the copy bundled beside the
-  app, into `_archify-renders/` under the devbook cache folder. The cache key
+  specification, into `_archify-renders/` under the devbook cache folder. It uses
+  the clone's `tools/archify` or the copy bundled beside the app. The cache key
   covers the specification, its type and quality, and the generator's content, so
   an upgrade redraws every diagram. The upstream example renders are not
   vendored, and `.gitignore` keeps any local render out.
@@ -469,10 +468,10 @@ dependency**.
   beside the architecture chapters. The desktop app reads that DSL and draws it
   itself on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
-  tab's rules. c4hero is what a person opens to change the model.
+  tab's rules.
 - **Why** — the model wanted a real editor, and this repository wanted no new
   build. c4hero is local-first and saves plain `.dsl` through the File System
-  Access API, so the authored artifact is reviewable text in git and the editor
+  Access API. So the authored artifact is reviewable text in git, and the editor
   is no part of the product. Structurizr DSL is the format because Structurizr
   Lite, Studio and the JSON exporters already read it.
 - **How** — a person opens it at `app.c4hero.com`, or runs it from a clone

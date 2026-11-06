@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// The <see cref="INotificationAnswerHandler"/> for the <c>sessions</c> source. An answer
 /// whose source key is a waiting question's id goes to the <see cref="QuestionRelay"/>
 /// (local ADR 0041), which records it and routes it to the waiting hook or into a delivery.
-/// Otherwise it is the answer to "Approve the validation of &lt;run&gt;?", recorded on the run
+/// Otherwise it is the answer to a run's "Approve or revise" question, recorded on the run
 /// as its Personal Validation decision (<see cref="ValidationQuestions"/>), and an Approve +
 /// follow-up first files the follow-up entry after the gated entry through Tasks'
 /// <see cref="ITaskFollowUps"/>. The flow reads the decision back from the run, and the pull
