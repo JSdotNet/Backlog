@@ -103,7 +103,7 @@ never reads the first's. None may sit under the workspace root: a per-machine ca
   - `notifications`
   - `notificationReplies`
 
-  They are separate because each wants its own change feed, indexing policy and retention, and serverless billing has no per-container charge. `devices` and `pairingCodes` hold the device registry. They are not replicas, since no change feed is read from them, and are partitioned on `/id`, because the read on every token mint has only the device id in hand.
+  They are separate because each wants its own change feed, indexing policy and retention, and serverless billing has no per-container charge. `devices` and `pairingCodes` hold the device registry. They are not replicas, since no change feed is read from them. They are partitioned on `/id`, because the read on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
   annotation tombstones after 180 days, stamped on each tombstone. It expires
   whole session records after 12 months, set on the `sessions` container. It
@@ -115,7 +115,7 @@ never reads the first's. None may sit under the workspace root: a per-machine ca
   every container. Service code confines a device: it reads the `ownerId` out of
   that device's JWT and refuses to issue a query outside the partition it names.
   The isolation is one check in one service, not a property of the storage layer.
-- **Never file-sync the local store.** The workspace root is a local folder: a SQLite database in a file-sync product is unmergeable and its WAL sidecars sync out of step, so committed transactions silently roll back. Multi-device use goes through the sync service. See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+- **Never file-sync the local store.** The workspace root is a local folder. A SQLite database in a file-sync product is unmergeable and its WAL sidecars sync out of step, so committed transactions silently roll back. Multi-device use goes through the sync service. See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 - **Desktop works fully standalone.** The cloud connection is purely additive. The one qualification is a repository configured to read its knowledge from a branch rather than a clone. It needs the network to list the branch and the first time each area is opened, and reads offline afterwards. A repository with a clone is unaffected, and is what an install with no stored preference reads. See
   `.devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
 - **Local credential handling includes Copilot sessions** — desktop workers and
@@ -194,7 +194,7 @@ sequenceDiagram
   Cosmos as well, so a pairing survives a restart of the service.
 - **The partition key authorizes nothing.** The service confines a device ([Storage and Sync](#storage-and-sync)), because Cosmos cannot authorize a device-session principal it has never heard of.
 - **Tombstones expire after 180 days** ([Storage and Sync](#storage-and-sync)).
-  The number is chosen against how long a device may plausibly stay offline: a tombstone that expired first would let a returning device push its still-live copy and resurrect a deleted task. The adapter stamps the expiry on every tombstone, but **nothing local can show it working**, since the Cosmos emulator does not honour TTL.
+  The number is chosen against how long a device may plausibly stay offline. A tombstone that expired first would let a returning device push its still-live copy and resurrect a deleted task. The adapter stamps the expiry on every tombstone, but **nothing local can show it working**, since the Cosmos emulator does not honour TTL.
 - **A cycle against a newer service sends nothing.** While the service reports a
   version above the app's (local ADR 0005 §Version compatibility), each cycle stops
   before its first request, and the person reads why. The push watermark and the
@@ -246,7 +246,7 @@ records it covers. A pull the process did not survive is read again from the las
 cursor it saved. That costs repeated work and loses nothing, because a record
 merges idempotently on its identity and server timestamp.
 
-A cycle against a sync service newer than the app sends nothing, as under [Task Sync](#task-sync); the watermark and cursor stay put, and the records still to push go once the app is updated.
+A cycle against a sync service newer than the app sends nothing, as under [Task Sync](#task-sync). The watermark and cursor stay put, and the records still to push go once the app is updated.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
@@ -258,7 +258,7 @@ A cycle against a sync service newer than the app sends nothing, as under [Task 
   validated token, so a caller cannot compose a record attributed to another box.
   The document is keyed on that machine, the agent kind and the session id
   together. That puts single-writer in the shape of the store rather than in a
-  check somebody has to keep: a machine can only address records under its own
+  check somebody has to keep. A machine can only address records under its own
   device id. A session that moves gets a later record rather than an edit to an
   earlier one, so the container needs neither a tombstone nor an `updated_at`.
 
@@ -425,8 +425,8 @@ These parts are built:
 - **Answering:** A source that asks questions registers an `INotificationAnswerHandler`
   for its source name. The owner hands the handler the accepted answer, at least once.
 - **Ending:** The context that owns a notification's subject calls `CloseForSubjectAsync`
-  from wherever it notices the end, a change synced in from another device included,
-  since the context applies that change itself. Its `INotificationSubjectProbe` answers
+  from wherever it notices the end, a change synced in from another device included.
+  The context applies that change itself. Its `INotificationSubjectProbe` answers
   at startup and after a sync, to catch an end the owner missed.
 - **Storage:** The owner keeps SQLite as its local store, and notifications replicate
   through the `notifications` container, which expires them 30 days after they close.
@@ -437,7 +437,7 @@ These parts are built:
   each rejection on the notification it pushes next. A quiet desktop sends nothing.
 - **Realtime:** A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a
   socket the sync service's negotiate route hands out. The Android phone gets it through
-  Azure Notification Hubs to FCM, as a data-only push with the tray text, sent only when a
+  Azure Notification Hubs to FCM, as a data-only push with the tray text. It goes only when a
   notification is published or changes state. While a desktop's socket is down, its
   two-minute reply poll is the fallback.
 
@@ -489,7 +489,7 @@ related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/fea
   - AI assistance.
 
   Core backlog editing is always available and is never switchable.
-- **Disabled is the default**; the stored setting records only what has been switched
+- **Disabled is the default.** The stored setting records only what has been switched
   *on*, so a capability added later stays out of the way until it is deliberately
   chosen.
 - **A disabled capability leaves no surface behind.** Its entry points are absent

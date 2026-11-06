@@ -43,6 +43,14 @@ related: [".devbook/tech/desktop.md#msix-packaging", ".devbook/tech/desktop.md#a
 
 The desktop app is a **signed MSIX sideloaded from GitHub Releases**, updated through an App Installer manifest. There is no Microsoft Store listing and no custom update server.
 
+```mermaid
+flowchart LR
+    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
+    CI -->|"signed MSIX + .appinstaller + .cer"| Release["GitHub Release vX.Y.Z"]
+    Release -->|"first install (sideload)"| Machine["Windows machine"]
+    Release -->|"OnLaunch / background / Settings check"| Machine
+```
+
 - **Package** — Release builds produce a single signed MSIX
   (`WindowsPackageType=MSIX`, `AppxBundle=Never`, `SideloadOnly`). Debug stays
   unpackaged so the Aspire desktop resource and WebView2 CDP attach keep working.
@@ -53,7 +61,7 @@ The desktop app is a **signed MSIX sideloaded from GitHub Releases**, updated th
   refuses the update.
 - **Update checks** — `UpdateSettings` requests an `OnLaunch` check (every 8 hours, with a prompt) plus an `AutomaticBackgroundTask`. The app header's version is the on-demand control: activating it checks, and an "Install update" action appears for a newer build, backed by `PackageManager.CheckUpdateAvailabilityAsync` and `AddPackageByAppInstallerFileAsync`. The check is yes/no only, so the window reads `MainPackage/@Version` from the published `.appinstaller` to name the version, best effort, falling back to an unnamed update.
 - **Trust** — the certificate is self-signed, so the target machine must trust it before the first install.
-- **Where the data lives** — a packaged app's `%LOCALAPPDATA%` writes are redirected into `Packages\<family>\LocalCache\Local` unless its manifest opts out. Ours does (`desktop6:FileSystemWriteVirtualization=disabled` plus the `unvirtualizedResources` capability), so the folder the Storage settings page names is the folder that exists. Installs from before the opt-out kept everything in the redirect, and a newer build adopts it on first start, as the flowchart shows.
+- **Where the data lives** — a packaged app's `%LOCALAPPDATA%` writes are redirected into `Packages\<family>\LocalCache\Local` unless its manifest opts out. Ours does (`desktop6:FileSystemWriteVirtualization=disabled` plus the `unvirtualizedResources` capability), so the folder the Storage settings page names is the folder that exists. Installs from before the opt-out kept everything in the redirect, and a newer build adopts it on first start, as the flowchart below shows.
 - **Release automation** — Release All builds and signs the MSIX and generates the `.appinstaller` ([Release](#release)). Latest is the desktop's update channel: a tag, dispatch or Deploy All release takes it, and a nightly only when no higher version holds it.
 
 ```mermaid
@@ -67,14 +75,6 @@ flowchart TB
 ```
 
 The adoption never deletes the redirected copy; the person deletes it once the new install shows everything. A failed copy is retried on the next start, because `settings.json` is written last.
-
-```mermaid
-flowchart LR
-    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
-    CI -->|"signed MSIX + .appinstaller + .cer"| Release["GitHub Release vX.Y.Z"]
-    Release -->|"first install (sideload)"| Machine["Windows machine"]
-    Release -->|"OnLaunch / background / Settings check"| Machine
-```
 
 ## Local Deployment (Mobile)
 
@@ -95,6 +95,15 @@ related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment
 ```
 
 The mobile app is a **signed APK sideloaded from GitHub Releases**. A released build checks those releases and installs a newer APK through Android's `PackageInstaller` on the person's tap. There is no Google Play listing and no custom update server.
+
+```mermaid
+flowchart LR
+    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
+    CI -->|"signed + apksigner-verified APK"| Release["GitHub Release vX.Y.Z"]
+    Release -->|"first install (sideload)"| Device["Android device"]
+    Device -->|"in-app check: list releases"| Release
+    Release -->|"newer APK, installed on the person's tap"| Device
+```
 
 - **Package** — Release builds produce a signed `.apk`
   (`AndroidPackageFormat=apk`), not an `.aab`. Only Google Play consumes an `.aab`.
@@ -120,18 +129,9 @@ The mobile app is a **signed APK sideloaded from GitHub Releases**. A released b
   channel. Its update window says a development build cannot update itself,
   and it asks GitHub for nothing.
 - **Developer sideload** — `build/Install-AndroidApp.ps1` builds a signed APK
-  and installs it via `adb`, generating a throwaway developer keystore under
-  the gitignored `build/.local/` so a local build never needs the release
+  and installs it via `adb`. It generates a throwaway developer keystore under
+  the gitignored `build/.local/`, so a local build never needs the release
   signing secrets.
-
-```mermaid
-flowchart LR
-    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
-    CI -->|"signed + apksigner-verified APK"| Release["GitHub Release vX.Y.Z"]
-    Release -->|"first install (sideload)"| Device["Android device"]
-    Device -->|"in-app check: list releases"| Release
-    Release -->|"newer APK, installed on the person's tap"| Device
-```
 
 The in-app update runs in two steps, a check and an install:
 
@@ -181,7 +181,7 @@ Deployment considerations:
 - **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044).
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the service stores and forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens go there when they arrive. `infra/sync/main.bicep` provisions the vault and the identity's read role; nothing reads it yet.
-- **The token signing key is not in Key Vault.** The device-token signing key (`Modules:Sync:Tokens:SigningKey`) is required outside Development; the service refuses to start without it. It reaches the container as a **container app secret** from a `@secure()` Bicep parameter, fed by the GitHub environment secret `SYNC_TOKEN_SIGNING_KEY`. A missing key fails the provision rather than the app, the value never touches disk or a log, and a scale-to-zero app pays no vault round-trip on cold start. `docs/deployment/sync.md#the-device-token-signing-key` covers what a rotation invalidates.
+- **The token signing key is not in Key Vault.** The device-token signing key (`Modules:Sync:Tokens:SigningKey`) is required outside Development; the service refuses to start without it. It reaches the container as a **container app secret** from a `@secure()` Bicep parameter, fed by the GitHub environment secret `SYNC_TOKEN_SIGNING_KEY`. A missing key fails the provision rather than the app. The value never touches disk or a log, and a scale-to-zero app pays no vault round-trip on cold start. `docs/deployment/sync.md#the-device-token-signing-key` covers what a rotation invalidates.
 - **Attachment blob store** *(local ADR 0014)* — `infra/sync/main.bicep`
   provisions one Standard LRS storage account beside the Cosmos replica:
   - `allowSharedKeyAccess: false`, TLS 1.2, and no public blob access;
@@ -196,7 +196,7 @@ Deployment considerations:
   The acknowledgement tombstone releases a capture's blobs. A 30-day lifecycle rule removes leftovers, in Azure only, because Azurite runs no management policies. A task's own attachment stays a path on the desktop's file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while nobody syncs.
 - **No keys for Cosmos or Storage** — the container app reaches Cosmos through a
-  user-assigned managed identity with a data-plane role assignment. The account carries `disableLocalAuth`, so no key works, and none is issued, per inherited ADR 0013. The identity is user-assigned because a system-assigned one does not exist until its container app does, and the app could then not be granted the registry pull it needs to start.
+  user-assigned managed identity with a data-plane role assignment. The account carries `disableLocalAuth`, so no key works, and none is issued, per inherited ADR 0013. The identity is user-assigned because a system-assigned one does not exist until its container app does. The app could then not be granted the registry pull it needs to start.
 - **Two Notification Hubs keys, because that service takes no identity** *(local
   ADR 0039 §5)* — the only data credentials handed to the service are the connection strings of the hub's `sync-send` and `sync-manage` rules. Bicep reads them with `listKeys()` into the container app secrets `notification-hubs-send-connection-string` and `notification-hubs-manage-connection-string`. The service reads them as `Sync__NotificationHubs__SendConnectionString` and `…ManageConnectionString`, beside `Sync__NotificationHubs__Hub`. No output echoes either; `docs/deployment/sync.md` lists the resources.
 - **The FCM credential is entered by hand** — the hub's FCM v1 credential (project id, client email, private key) is not in Bicep. A person enters it on the hub once Firebase is set up; until then no phone is pushed.
@@ -224,7 +224,7 @@ Deployment considerations:
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md"]
 ```
 
-Local ADR 0005 introduced the delivery artifacts `infra/sync/main.bicep`, `azure.yaml` and `.github/workflows/deploy-sync.yml`. The Cosmos emulator runs locally.
+Local ADR 0005 introduced the delivery artifacts `infra/sync/main.bicep`, `azure.yaml` and `.github/workflows/deploy-sync.yml`.
 
 **Provisioned and running, by hand.** The whole `infra/sync/` template sits in
 resource group `JS-AI`, beside `backlog-foundry`. It holds:
@@ -247,7 +247,7 @@ A local run of `build/Deploy-Azure.ps1` provisioned it on 2026-09-14, and the se
 
 **Two callers, two scopes.** A person starts every infrastructure run, from Deploy Sync or Deploy All. Deploy All's sync component previews or provisions and never deploys the service; its release component does.
 
-The service deploys unattended: every Release All run that publishes, the nightly included, calls Deploy Sync in `service` mode ([Release](#release)), which runs `azd deploy` alone. A provision reads the running image back and hands it to the template, so it keeps the running service; only the first provision, with no app yet, runs the placeholder image.
+The service deploys unattended: every Release All run that publishes, the nightly included, calls Deploy Sync in `service` mode ([Release](#release)), which runs `azd deploy` alone. A provision reads the running image back and hands it to the template, so it keeps the running service. Only the first provision, with no app yet, runs the placeholder image.
 
 **The service version is a release decision.** Every desktop and phone stops syncing while the service reports a version above its own (local ADR 0005 §Version compatibility). So:
 
@@ -267,7 +267,7 @@ The service deploys unattended: every Release All run that publishes, the nightl
 - **Infrastructure as code:** the template is resource-group scoped, so it deploys into a group created by hand.
 - **CI/CD:** a person starts infrastructure from `Deploy Sync` or `Deploy All`. The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. The repository holds no publish profile or service principal secret; the one secret carried is the token signing key.
 - **Local development:** Azurite is the `storage` resource with the `attachments` container (local ADR 0014), so the sync path builds and tests with no cloud account.
-- **Observability:** OpenTelemetry already flows through `AddServiceDefaults()`. No domain data goes to either sink, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. A 1 GB/day ingestion cap (`logDailyQuotaGb`) stops runaway logging; once reached, Azure drops the rest of the day, exceptions included, which is intended since the volume is the incident. See `docs/deployment/sync.md`.
+- **Observability:** OpenTelemetry already flows through `AddServiceDefaults()`. No domain data goes to either sink, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. A 1 GB/day ingestion cap (`logDailyQuotaGb`) stops runaway logging. Once it is reached, Azure drops the rest of the day, exceptions included, which is intended since the volume is the incident. See `docs/deployment/sync.md`.
 
 The Bicep declares one resource ADR 0005 did not name: a container registry, where `azd` pushes the built image. Its admin user is off, and the managed identity that reaches Cosmos holds the pull role.
 
@@ -316,10 +316,10 @@ flowchart LR
     Sync --> Publish["publish\nGitHub Release vX.Y.Z"]
 ```
 
-- **Numbering** — `build/Get-NextReleaseVersion.ps1` takes the highest `MAJOR.MINOR.PATCH` over the `v*` and `mobile-v*` tags and raises the patch by one, so the MSIX version and APK versionCode rise past what every device runs. A pushed tag, a dispatched version, or Deploy All's `release_version` names the number instead; the plan job refuses one lower than the highest tag before anything builds. Runs queue workflow-wide, so two never number a release at once.
+- **Numbering** — `build/Get-NextReleaseVersion.ps1` takes the highest `MAJOR.MINOR.PATCH` over the `v*` and `mobile-v*` tags and raises the patch by one. The MSIX version and APK versionCode therefore rise past what every device runs. A pushed tag, a dispatched version, or Deploy All's `release_version` names the number instead; the plan job refuses one lower than the highest tag before anything builds. Runs queue workflow-wide, so two never number a release at once.
 - **The server before the clients** — the sync job starts only after both packages built, so a broken app build never moves the server. It calls Deploy Sync in `service` mode with `release` set to `X.Y.Z`, running `azd deploy` alone. The deploy stamps the number as the MSBuild property `BacklogRelease`, which `GET /` reports as `release` beside `version` and `commit`. Deploy Sync reads `GET /` until `release` and `commit` match the run, failing after ten minutes.
 - **The release never moves `version`** — only the project's `<Version>` sets the compatibility number ([The service version is a release decision](#provisioning-and-delivery)). A service deployed outside Release All reports `release` as null.
-- **Publishing** — the publish job runs only after the service took the number and refuses a release with any asset missing, so a failed sync deploy publishes nothing and takes no number. An explicit release always takes Latest; a nightly only when no higher version holds it.
+- **Publishing** — the publish job runs only after the service took the number and refuses a release with any asset missing. A failed sync deploy therefore publishes nothing and takes no number. An explicit release always takes Latest; a nightly only when no higher version holds it.
 - **Nightly** — the schedule runs at 05:00 UTC. It releases only when a file one of the three heads builds from changed since the newest `v*` release. It skips the whole release when any channel's settings are missing: the signing secrets, `BACKLOG_SYNC_SERVICE_URL`, or the `backlog-sync` environment's variables. The channels never drift apart by a number. A requested release fails instead.
 - **Re-runs** — an existing tag is republished only from the commit it points at, which the plan job, Deploy Sync and the publish job each check. An older failed run never puts an older build under a newer run's number.
 - **Deploy All** — its release component calls Release All with its `release_version` (blank takes the next number) and its sync environment. Its sync component is infrastructure alone, so one run never deploys the service twice ([Provisioning and Delivery](#provisioning-and-delivery)).
