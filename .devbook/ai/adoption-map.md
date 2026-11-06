@@ -10,29 +10,6 @@ related: [".devbook/tech/ai-development.md"]
 > the three layers beneath it. `.devbook/tech/ai-development.md` registers the tools;
 > this folder records how they are used, where, and how far.
 
-## Usage files
-
-| File | Covers |
-| --- | --- |
-| `01-plan.md` | Agreeing and sizing work: devbook chapters through `flow-spec`, import plans, estimates, answered remarks. |
-| `02-code.md` | Making a change, and what fires around it. |
-| `03-test.md` | Proving a change: the QA agent, the repository procedures, the devbook checks around a flow, and Personal Validation. |
-| `04-release-operate.md` | Getting a change to `main` and a production failure back into the loop. |
-| `05-unattended-runs.md` | The schedules selected from the catalog, and what an unattended run may and may not do. |
-| `concepts.md` | The ideas the practices above rest on. |
-
-`02-code.md` holds these usages:
-
-- the code gate
-- plan items pasted into a session
-- the roles and their agents
-- worktree sessions
-- per-host rules
-- the Backlog tracker
-- run surfaces
-- the session telemetry hook
-- the retired findings-to-issues hook and guidance servers
-
 ## The loop
 
 ```mermaid
@@ -130,9 +107,8 @@ graph LR
     classDef retired fill:#121214,stroke:#545459,color:#adb5bd
 ```
 
-The seven stages run left to right, with `operate` feeding `decide`; the three layers run
-underneath every stage. Each usage joins every stage or layer it lists, shaded by its rating.
-A labelled arrow is a hand-off its `feeds` records.
+Each usage joins every stage or layer it lists, shaded by its rating. A labelled arrow is a
+hand-off its `feeds` records.
 
 ## What the loop shows
 
@@ -148,8 +124,8 @@ A labelled arrow is a hand-off its `feeds` records.
 - **Trial is wired, not proven.** None of the twelve `trial` usages has recorded evidence:
   two are `partial`, three have `fired` without publishing anything, and seven have none.
   Seven of them wait on one event. The six trial schedules and the unattended-run limits
-  they run under all move up when a schedule publishes its first issue or pull request, and
-  come down if none does.
+  they run under all move up when a schedule publishes its first issue or pull request.
+  They come down if none does.
 - **`verify` splits five ways, `integrate` shows its gaps.** Build and tests, review,
   functional QA, spec conformance, and acceptance each run on a different tool. At
   `integrate`, review and readiness have a usage each. CI checks and the merge have none,
@@ -164,6 +140,29 @@ A labelled arrow is a hand-off its `feeds` records.
   upkeep loop's three schedules land pull requests at `integrate`. The harness holds what
   every session stands on: roles, worktrees, rules, run tracking, and telemetry. It also
   holds the limits every schedule runs under, and the retired guidance servers.
+
+## Usage files
+
+| File | Covers |
+| --- | --- |
+| `01-plan.md` | Agreeing and sizing work: devbook chapters through `flow-spec`, import plans, estimates, answered remarks. |
+| `02-code.md` | Making a change, and what fires around it. |
+| `03-test.md` | Proving a change: the QA agent, repository procedures, devbook checks around a flow, and Personal Validation. |
+| `04-release-operate.md` | Getting a change to `main` and a production failure back into the loop. |
+| `05-unattended-runs.md` | The schedules selected from the catalog, and what an unattended run may and may not do. |
+| `concepts.md` | The ideas the practices above rest on. |
+
+`02-code.md` holds these usages:
+
+- the code gate
+- plan items pasted into a session
+- the roles and their agents
+- worktree sessions
+- per-host rules
+- the Backlog tracker
+- run surfaces
+- the session telemetry hook
+- the retired findings-to-issues hook and guidance servers
 
 ## What the adoption left out
 

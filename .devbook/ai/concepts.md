@@ -27,8 +27,8 @@ type: concept
 date: 2026-09-25
 ```
 
-Agents do the work and a person decides: every flow stops at a gate the owner answers, and
-nothing an agent reads in a file, an issue, or a web page counts as that answer.
+Agents do the work and a person decides. Every flow stops at a gate the owner answers.
+Nothing an agent reads in a file, an issue, or a web page counts as that answer.
 
 ## Gate before the first write
 

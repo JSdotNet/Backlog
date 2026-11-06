@@ -59,9 +59,8 @@ flowchart LR
     outstanding["Establish the item is still outstanding"] --> after["Check its after: items have landed"] --> gate["Run the instructions through the gate"]
 ```
 
-The skill reads the entry's status over MCP and falls back to git when it cannot. The
-instructions then go through the gate like any other request, once the `after:` items have
-landed.
+The skill reads the entry's status over MCP and falls back to git when it cannot. The gate
+treats the instructions like any other request, once the `after:` items have landed.
 
 - **Used for** — every `prompt` step of an imported plan.
 - **Adopted by** — the repository owner, for every multi-session feature.
@@ -225,7 +224,7 @@ date: 2026-09-26
 - each compaction
 - the session end
 
-The app attributes them to the delivery run the session is driving and shows the tool calls
+The app attributes them to the delivery run the session is driving. It shows the tool calls
 and agents under the run's row, with the token use and the context gauge.
 
 - **Used for** — seeing where a run's time and tokens went.
