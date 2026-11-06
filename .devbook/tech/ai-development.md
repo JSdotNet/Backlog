@@ -95,7 +95,7 @@ depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 Specialist agents a flow hands a stage to, from the `JSdotNet/ai-plugins`
 marketplace.
 
-- **Used for** — these agents:
+- **Used for** —
   - `architecture:architect`
   - `domain-design:domain-architect`
   - `ux-design:ux-designer`
@@ -122,12 +122,12 @@ date: 2026-10-06
 The `delivery` plugin: the `flow-*` skills, the shared phases they run
 through, and the stack config they read.
 
-- **Used for** — `flow-code` and `flow-spec`; the `phase-*` skills each flow
-  runs in order, from `phase-scope` through `phase-verify` and
-  `phase-personal-validation` to `phase-create-pr`; and the pull-request skills
-  beside them. `components.delivery` in `.devbook/config.json` stamps its
-  release. The same file holds the tracker binding, the policy, and one `phases`
-  map per flow naming the agent, skill, MCP servers, or app each phase uses.
+- **Used for** — `flow-code` and `flow-spec`, and the pull-request skills beside
+  them. Each flow runs the `phase-*` skills in order, from `phase-scope` through
+  `phase-verify` and `phase-personal-validation` to `phase-create-pr`.
+  `components.delivery` in `.devbook/config.json` stamps its release. The same
+  file holds the tracker binding, the policy, and one `phases` map per flow. Each
+  map names the agent, skill, MCP servers, or app a phase uses.
 - **Why** — one engine for every change, configured by the repository rather
   than rewritten in it.
 
@@ -163,9 +163,9 @@ date: 2026-10-06
 The `delivery-surface-backlog` and `delivery-surface-dashboard` plugins: the
 MCP servers a flow run reports its stages to, released together with the engine.
 
-- **Used for** — `delivery-surface-backlog`, which records the run in the
-  Backlog desktop app's Sessions pane, and `delivery-surface-dashboard`, a local
-  web page with the run, its diagrams, and its documents.
+- **Used for** — `delivery-surface-backlog` records the run in the Backlog desktop
+  app's Sessions pane. `delivery-surface-dashboard` is a local web page with the
+  run, its diagrams, and its documents.
 - **Why** — a run is otherwise invisible, and the surface's run record is what a
   resumed session reattaches to.
 
@@ -203,10 +203,11 @@ alternatives: ["prompt-only conventions"]
 The standing brief an agent loads at session start, plus the scoped rule files
 it pulls in per task.
 
-- **Used for** — `AGENTS.md`, imported by `CLAUDE.md`; the rules under
-  `.agents/rules/` with their wrappers in `.claude/rules/`; and the runtime
-  facts in the `run` recipe at `.claude/skills/run-backlog/SKILL.md` and the
-  `diagnose` procedure under `.agents/skills/`.
+- **Used for** —
+  - `AGENTS.md`, imported by `CLAUDE.md`;
+  - the rules under `.agents/rules/` with their wrappers in `.claude/rules/`;
+  - the runtime facts in the `run` recipe at `.claude/skills/run-backlog/SKILL.md`
+    and the `diagnose` procedure under `.agents/skills/`.
 - **Why** — the standing brief stays short enough to read every time, so it
   points at the detail. Authoring a rule once and wrapping it is the adoption
   record's: [rules wrapped per host](../ai/02-code.md#rules-wrapped-per-host).
@@ -331,6 +332,5 @@ devbook 1.19.0 folded it into the [`devbook` plugin](#devbook-plugin).
   moved no file. In the same update, migration `002-debug-is-diagnose` renamed
   `debug` to `diagnose`, because the project skill shadowed Claude Code's own
   `/debug` command, and migration `003-show-removed` removed `show`.
-- **Why `retired`** — the plugin no longer exists on its own. This chapter
-  records what it was.
+- **Why `retired`** — the plugin no longer exists on its own. This chapter records what it was.
 

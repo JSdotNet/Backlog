@@ -18,9 +18,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
 
 The language of a task's content and of this repository's devbook folders.
 
-- **Used for** — the text of an entry, held as a column in the SQLite store; the
-  documents in the five `.devbook/` folders; and the knowledge notes the product
-  manages.
+- **Used for** —
+  - an entry's text, a column in the SQLite store;
+  - the documents in the five `.devbook/` folders;
+  - the knowledge notes the product manages.
 - **Why** — plain text is durable and diffable, and anyone can edit it without
   the app. [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md)
   draws the boundary: markdown is the *content* of a task, not its *storage
@@ -36,9 +37,12 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 The derived-data and settings format sitting beside the canonical stores.
 
-- **Used for** — the Archify artifact indexes (`_archify/index.json`), settings,
-  the repo registry (`config/repos.json`), the dev-tool catalog the DevPc module
-  reads, and the owned-collection columns inside the SQLite schema.
+- **Used for** —
+  - the Archify artifact indexes (`_archify/index.json`);
+  - settings;
+  - the repo registry (`config/repos.json`);
+  - the dev-tool catalog the DevPc module reads;
+  - the owned-collection columns in the SQLite schema.
 - **Why** — cheap to write from every channel's stack and fast to load, with no
   migration story for data that is rebuildable or user-scoped.
 
@@ -122,10 +126,12 @@ related: [".devbook/tech/ide.md#vs-code-extension-api"]
 The JavaScript runtime hosting the VS Code extension and every repository-local
 tool.
 
-- **Used for** — the VS Code extension host; the devbook plugin's checker and
-  inventory scripts under `.devbook/_tools/`; the repository's `tools/devbook`
-  writer and metadata check; the vendored Archify renderer; and the
-  `tools/diagrams` artifact commands.
+- **Used for** —
+  - the VS Code extension host;
+  - the devbook plugin's checker and inventory scripts under `.devbook/_tools/`;
+  - the repository's `tools/devbook` writer and metadata check;
+  - the vendored Archify renderer;
+  - the `tools/diagrams` artifact commands.
 - **Why** — the VS Code extension model mandates it, developer machines already
   have it, and the repository's tooling needs nothing beyond it.
 
@@ -226,11 +232,10 @@ The interactive-server render mode used by the development-time harness hosts
 under `src/Harness/`.
 
 - **Used for** — `desktop-web-harness` and `mobile-web-harness`, which host the
-  Razor components the MAUI heads render, and `ui-storybook`, which hosts the
-  shared component library alone, with no module or infrastructure project in its
-  graph.
-- **Why** — Aspire cannot start a MAUI head as a project resource and Playwright
-  cannot drive one without an emulator, so the harnesses give the same UI a URL.
+  Razor components the MAUI heads render. `ui-storybook` hosts the shared
+  component library alone, with no module or infrastructure project in its graph.
+- **Why** — Aspire cannot start a MAUI head as a project resource, and Playwright
+  cannot drive one without an emulator. So the harnesses give the same UI a URL.
   Everything under `src/Harness/` is non-publishable and fenced off from shipping
   code by `Backlog.ArchitectureTests`.
 
@@ -301,10 +306,11 @@ flowchart LR
   documented here and not in `cloud.md`.
 - **How** — ports are always dynamic (`localhost:0`). Worktree sessions run
   `aspire start --isolated` for independent ports and user-secrets state. The
-  AppHost opts in to the Aspire CLI bundle (`AspireUseCliBundle=true`), so
+  AppHost opts in to the Aspire CLI bundle (`AspireUseCliBundle=true`). So
   `dotnet run` on it acquires through dnx the CLI pinned to the
-  `Aspire.AppHost.Sdk` version and delegates to `aspire run`, not a differently versioned CLI or none. `ASPIRE010`, the
-  advisory for staying opted out, is not suppressed.
+  `Aspire.AppHost.Sdk` version, not a differently versioned CLI or none, and
+  delegates to `aspire run`. `ASPIRE010`, the advisory for staying opted out, is
+  not suppressed.
 
 ## OpenTelemetry
 
@@ -398,10 +404,12 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 
 `IHttpClientFactory` and typed HTTP clients.
 
-- **Used for** — the outbound clients in `Backlog.Mobile.UI`, the base every
-  vendor adapter (GitHub, Claude, Azure Foundry) is configured through, and the
-  named `capture-feeds` client `Backlog.Infrastructure.Capture` fetches YouTube
-  and website feeds on.
+- **Used for** —
+  - the outbound clients in `Backlog.Mobile.UI`;
+  - the base every vendor adapter (GitHub, Claude, Azure Foundry) is configured
+    through;
+  - the named `capture-feeds` client `Backlog.Infrastructure.Capture` fetches
+    YouTube and website feeds on.
 - **Why** — correct socket lifetime handling, and one place to attach handlers.
 
 ## Microsoft.Extensions.Http.Resilience
@@ -515,7 +523,7 @@ related: [".devbook/arc42/02-constraints.md#organizational--process-constraints"
 
 The external system of record for issues, repositories, and automation.
 
-- **Used for** — these things:
+- **Used for** —
   - backlog issue sync
   - webhooks into the cloud service
   - repository health signals
@@ -563,5 +571,5 @@ The organization-level record of Copilot seat activity and usage metrics.
 - **Why** — the reasoning of the
   [Anthropic Claude Platform](#anthropic-claude-platform), with a sharper limit.
   GitHub publishes no endpoint for an individual subscriber's own Copilot usage,
-  and the organization endpoints are owner-only, so everything here depends on
+  and the organization endpoints are owner-only. So everything here depends on
   the person owning an organization.

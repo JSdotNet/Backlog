@@ -9,6 +9,20 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 > how they layer on each other, and how mature each choice is. The layer files
 > below hold the chapters.
 
+```mermaid
+flowchart TD
+    Tooling["tooling.md"] -->|depends on| Shared["shared.md"]
+    Tooling --> AiDev["ai-development.md"]
+    AiDev --> Shared
+    Testing["testing.md"] --> Shared
+    Testing --> Desktop["desktop.md"]
+    Ide["ide.md"] --> Shared
+    Cloud["cloud.md"] --> Shared
+    Mobile["mobile.md"] --> Cloud
+    Mobile <--> Shared
+    Desktop <--> Shared
+```
+
 Bootstrap is over for most of the stack. The shared runtimes and frameworks, the
 desktop channel, the testing layer, and everything that builds and governs the
 repository are in daily use and `adopted`.
@@ -444,7 +458,7 @@ How each is used, stage by stage, is the AI adoption record in
 |---|---|
 | MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers) |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
-| Environment | The app model of [.NET Aspire](shared.md#net-aspire), which gives an agent a running system, logs, and traces to observe |
+| Environment | [.NET Aspire](shared.md#net-aspire)'s app model: a running system, logs, and traces for an agent to observe |
 | Filesystem | The worktree. `.agents/rules/context-loading.md` limits which devbook folders a given workflow may read. |
 | Sandbox | The git worktree, plus `aspire start --isolated` for ports and user-secrets state |
 | Permission mode, permission request | Harness-level and unpinned. The repository-level equivalent is Personal Validation, which no run may skip. |
@@ -459,14 +473,14 @@ How each is used, stage by stage, is the AI adoption record in
 | Knowledge cutoff | Why agents consult the `microsoft-learn` MCP server and the guidelines under `.devbook/arc42/adr/guidelines/` rather than memory |
 | Parametric vs. contextual knowledge | The whole reason the five `.devbook/` folders are checked in: project facts are read, not recalled |
 | Attention degradation, smart zone | Why long runs hand off rather than continue, and why chapters are kept short |
-| Hallucination | What deterministic checks catch: a broken `depends-on` fails the devbook-meta check, a wrong API fails the build |
-| Sycophancy | Every `flow-*` run closes on a review and on Personal Validation, where a person decides, not the agent |
+| Hallucination | Deterministic checks catch it: a broken `depends-on` fails the devbook-meta check, a wrong API the build |
+| Sycophancy | Every `flow-*` run closes on a review and on Personal Validation: a person decides, not the agent |
 
 ### Handoffs
 
 | Term | In this repository |
 |---|---|
-| Handoff, handoff artifact | The run record on the [delivery surfaces](ai-development.md#delivery-surfaces), so a resumed session reattaches instead of opening a duplicate |
+| Handoff, handoff artifact | The run record on the [delivery surfaces](ai-development.md#delivery-surfaces): a resumed session reattaches instead of opening a duplicate |
 | Compaction, autocompact, clearing | Harness-level. The standing brief and the devbook folders make a fresh session cheap to start. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
 | Secondary source | This folder. `.devbook/tech` records outcomes and `.devbook/arc42` the reasoning; `.devbook/arc42` wins a disagreement. |
