@@ -128,7 +128,7 @@ To add a tool, add a row here and a sniff in step 1.
 10. **Report**, opened with the `show-me` skill's orientation card when it has one: the manifest's path, the view's link or path, and the counts — items
     written, per Inbox List and unfiled; completed tasks dropped, per source list; ids
     that fell back; and every label and list left unmapped. Name the Inbox Lists that
-    must exist before the import runs. Then stop: never open the app, import, or delete
+    must exist before the import runs. Keep the report's prose to `../../resources/chat-reports.md`. Then stop: never open the app, import, or delete
     the export for the person.
 
 ## Output expectations
