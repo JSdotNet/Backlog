@@ -35,7 +35,7 @@ The Brain is the argument's folder, else the working directory; its own files ar
    every note repeats — becomes up to three suggestions a tick in the file the rules name, else
    `AGENTS.suggestions.md`: `- [ ]`, the rule as `AGENTS.md` would read, why, the inputs showing
    it. Ticked (adopted) or struck through (rejected) → never re-add.
-7. **Report**, opened with the `show-me` skill's orientation card when it has one and *needs you* holds anything, what is new since the last tick: input, copy, where; then *needs you* — undecided inputs and why, task ids, conflicts, duplicates, suggestions.
+7. **Report**, opened with the `show-me` skill's orientation card when it has one and *needs you* holds anything, what is new since the last tick: input, copy, where; then *needs you* — undecided inputs and why, task ids, conflicts, duplicates, suggestions. Keep the report's prose to `../../resources/chat-reports.md`.
 
 ## Never
 

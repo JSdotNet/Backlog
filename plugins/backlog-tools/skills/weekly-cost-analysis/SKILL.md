@@ -62,7 +62,7 @@ Per repository first, the runs nothing placed last, as one group:
 ### Phase 3 — Report
 
 8. The message in `assets/cost-analysis-shape.md`, one section per repository in order of its
-   uncached total, largest first.
+   uncached total, largest first. Keep the report's prose to `../../resources/chat-reports.md`.
 
 ## Never
 

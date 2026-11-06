@@ -38,7 +38,7 @@ and `../execute-plan/assets/landing-modes.md`.
 5. **Report**, opened with the `show-me` skill's orientation card when it has one. One table: `<n> - <Title>`, status, pull request, verdict, evidence. Then build,
    tests and CI with their failures verbatim, the cross-entry findings, the `task`/`test`
    entries still open — the sign-off ready to tick or not, and why. Close with the fixes as a
-   question; a fix the person accepts goes through the repository's gate as its own change.
+   question; a fix the person accepts goes through the repository's gate as its own change. Keep the report's prose to `../../resources/chat-reports.md`.
 
 ## Never
 

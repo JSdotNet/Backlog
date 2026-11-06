@@ -90,7 +90,7 @@ session and its entry sessions and hands an entry in another repository to a ses
    `plan: <tag>`, `target: "web"` — the web link, which opens in Claude Desktop's browser pane, and
    the `backlog://` link, which opens a native window; when the server does not answer it, no links
    and no word of them — and the landed entries' sessions, ready to archive — attended, offered once, archived only on the
-   person's yes. An unattended run ends with a push notification carrying the counts and the links **Manual entries** names.
+   person's yes. Keep the report's prose to `../../resources/chat-reports.md`. An unattended run ends with a push notification carrying the counts and the links **Manual entries** names.
 
 ## Never
 

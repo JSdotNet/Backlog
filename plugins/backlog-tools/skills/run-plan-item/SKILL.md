@@ -78,7 +78,8 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    when notes are the whole job.
 7. **Close.** The devbook reminder is a real step — do it through the repository's
    devbook skills. Report, opened with the `show-me` skill's orientation card when it has one: `(tag, id)`, what was done, and the evidence behind anything
-   skipped as already done. The flow's own Work Item Update phase is the one that speaks to
+   skipped as already done. Keep the report's prose, and any gate handoff's before it, to
+   `../../resources/chat-reports.md`. The flow's own Work Item Update phase is the one that speaks to
    the entry; with the connector it is these calls, once each, after the pull request opens:
    - `link_change` with the pull request number, so the task links to it — not idempotent,
      so never twice;
