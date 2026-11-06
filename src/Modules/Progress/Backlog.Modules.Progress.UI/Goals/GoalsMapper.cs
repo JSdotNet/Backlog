@@ -242,14 +242,16 @@ public static class GoalsMapper
         _ => ImpedimentState.Resolved
     };
 
-    /// <summary>The attach search's matches: every plan, every task not done, every open
-    /// pull request.</summary>
+    /// <summary>What a goal's attach search and an impediment's Link… match: every plan not finished, every task not done,
+    /// every open pull request. A plan is finished when it gathers a task and every task it
+    /// gathers is done, so a plan gathering none stays.</summary>
     private static IReadOnlyList<GoalsItem> Candidates(GoalsCandidates candidates) =>
     [
         .. candidates.Plans
             .Select(GoalSubjects.Bare)
             .Where(tag => tag.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(tag => !IsFinished(tag, candidates.Tasks))
             .Select(tag => new GoalsItem(GoalSubject.ForPlan(tag), tag)),
         .. candidates.Tasks
             .Where(task => task.Status != GoalTaskStatus.Done)
@@ -257,6 +259,13 @@ public static class GoalsMapper
         .. candidates.PullRequests
             .Select(pull => new GoalsItem(GoalSubject.ForPullRequest(pull.Repository, pull.Number), pull.Title))
     ];
+
+    private static bool IsFinished(string plan, IReadOnlyList<GoalsTaskCandidate> tasks)
+    {
+        var gathered = tasks.Where(task => task.PlanTags.Any(tag => GoalSubjects.SamePlan(tag, plan))).ToList();
+
+        return gathered.Count > 0 && gathered.All(task => task.Status == GoalTaskStatus.Done);
+    }
 
     /// <summary>A goal's own pull requests, then those its attached tasks link, each once.</summary>
     private static IEnumerable<(string Repository, int Number)> PullRequestRefs(

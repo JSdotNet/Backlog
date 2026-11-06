@@ -290,7 +290,7 @@ public sealed class GoalsMapperTests
     }
 
     [Fact]
-    public void The_attach_search_matches_every_plan_every_open_task_and_every_open_pull_request()
+    public void The_attach_search_matches_every_unfinished_plan_every_open_task_and_every_open_pull_request()
     {
         var candidates = Map().Candidates;
 
@@ -302,6 +302,48 @@ public sealed class GoalsMapperTests
             candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Title));
         var pull = Assert.Single(candidates, item => item.Kind == GoalSubjectKind.PullRequest);
         Assert.Equal((GoalSubject.ForPullRequest("JSdotNet/Backlog", 1341), 1341), (pull.Subject, pull.Number));
+    }
+
+    /// <summary>A finished plan has nothing left to attach to a goal, whichever way its
+    /// entries spell the tag.</summary>
+    [Theory]
+    [InlineData("search-rollout")]
+    [InlineData("+search-rollout")]
+    public void The_attach_search_leaves_out_a_plan_whose_entries_are_all_done(string tag)
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, tag), Entry(GoalTaskStatus.Done, tag));
+
+        Assert.Empty(offered);
+    }
+
+    [Fact]
+    public void The_attach_search_keeps_a_plan_with_an_open_entry()
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, "search-rollout"), Entry(GoalTaskStatus.Doing, "+search-rollout"));
+
+        Assert.Equal([GoalSubject.ForPlan("search-rollout")], offered);
+    }
+
+    [Fact]
+    public void The_attach_search_keeps_a_plan_with_no_entries()
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, "another-plan"));
+
+        Assert.Equal([GoalSubject.ForPlan("search-rollout")], offered);
+    }
+
+    private static GoalsTaskCandidate Entry(GoalTaskStatus status, string planTag) =>
+        new(Guid.NewGuid(), "An entry", status, [planTag], [], true);
+
+    /// <summary>The plans the attach search offers when the shell lists one plan and these
+    /// entries.</summary>
+    private static List<GoalSubject> PlansOffered(params GoalsTaskCandidate[] entries)
+    {
+        var candidates = Candidates with { Tasks = entries, Plans = ["search-rollout"] };
+
+        return [.. GoalsMapper.Map(StandUp, Summaries, Pulls, candidates).Candidates
+            .Where(item => item.Kind == GoalSubjectKind.Plan)
+            .Select(item => item.Subject)];
     }
 
     [Fact]

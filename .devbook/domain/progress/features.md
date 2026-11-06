@@ -78,6 +78,8 @@ Say which work reaches a goal. Four kinds of item attach:
 
 An open goal offers "Attach a plan, task, pull request or session". Typing lists the matching items, each named by its kind; a pull request is found by its number too. A session is found by its id, typed whole or as the eight characters the screens show, with or without the word "Session". Typing a session's number lists the session first, then its linked tasks, then its branch pull request, so the person attaches whichever fits. With the [Sessions area](../sessions/context.md#sessions-area) off, no session is offered, and one already attached counts by its linked tasks alone.
 
+The search leaves out a done task and a finished plan, one whose entries are all done or archived, as [Settled](domain.md#settled) defines it. A finished plan returns when a person reopens an entry or files an open one. A plan with no entries is still offered. So a finished plan cannot be found to move or attach again until it has an open entry.
+
 **Attach…** on a No goal row attaches the item to the open goal, or asks which goal when none is open, in the same **Attach to goal** picker every other goal control opens.
 
 A No goal row can also be dragged by its grip onto a goal, open or folded. The goal under the pointer is outlined as the drop target; anywhere else the cursor says the drop is not allowed, and a drop there, or Escape, attaches nothing. Once attached, the board says "Attached ‹title› to ‹goal›." to a screen reader; a refused attach is not said. **Attach…** stays the keyboard's way in.
@@ -177,7 +179,7 @@ type: sub-feature
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
-Say what the impediment is in the way of. Each open impediment in the desktop stand-up offers **Link…**, which opens the [Attach to goal](#attaching-work-to-a-goal) picker's search, limited to three kinds. A **task** is found by its id, and a **pull request** by its repository and number (a number alone finds one too). A **plan** is found by its [plan tag](../roadmap/domain.md#roadmap-tag) and holds back every entry filed under it, later ones included. A session is not offered.
+Say what the impediment is in the way of. Each open impediment in the desktop stand-up offers **Link…**, which opens the [Attach to goal](#attaching-work-to-a-goal) picker's search, limited to three kinds. A **task** is found by its id, and a **pull request** by its repository and number (a number alone finds one too). A **plan** is found by its [plan tag](../roadmap/domain.md#roadmap-tag) and holds back every entry filed under it, later ones included. A session is not offered. The search leaves out the same work as the [attach search](#attaching-work-to-a-goal).
 
 Each linked item shows under the impediment with its kind, and **Unlink** beside it removes the link. Linking an item already held back changes nothing. Linking and unlinking change nothing on the work and add no step to the history. An item may be held back by several impediments and belong to a goal as well.
 
