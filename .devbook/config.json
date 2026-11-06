@@ -107,7 +107,7 @@
       "pluginVersion": "1.34.0"
     },
     "devbook": {
-      "pluginVersion": "1.34.0",
+      "pluginVersion": "1.35.0",
       "contractVersion": 38,
       "adopted": [
         "arc42",
@@ -153,8 +153,8 @@
           "managed": true
         },
         ".agents/rules/devbook-writing.md": {
-          "from": "1.34.0",
-          "hash": "sha256:edf3b71b68f79a470431fdd273e6c64c3ab1fb85ed8761ece0ef2aa3a3e469b3",
+          "from": "1.35.0",
+          "hash": "sha256:f58c03ca8b2f0dd8274f96b2fd7d38ad0001bbf4aef514f7866bd42005648b9a",
           "managed": true
         },
         ".agents/skills/capture.md": {
@@ -208,8 +208,8 @@
           "managed": true
         },
         ".claude/rules/devbook-writing.md": {
-          "from": "1.13.0",
-          "hash": "sha256:1308b407b5129fa3d13921b1569e84afc85bd05b1579a847a000a06f71f4f33c",
+          "from": "1.35.0",
+          "hash": "sha256:48255aa0bd1faa50fe969784ecee8dc6ae244fcad351827ba7f7a29afd4d5d82",
           "managed": true
         },
         ".claude/skills/capture/SKILL.md": {
@@ -288,8 +288,8 @@
           "managed": true
         },
         ".github/instructions/devbook-writing.instructions.md": {
-          "from": "1.13.0",
-          "hash": "sha256:3c74067c8d5371f83eeb6741989d2af9e4dc6bec35d8681d1fa211ff67abe086",
+          "from": "1.35.0",
+          "hash": "sha256:a7b3ac803077367412bfc5c30008ea32acb7b72c4b748d51df7be536f24cf093",
           "managed": true
         },
         ".github/skills/capture/SKILL.md": {
