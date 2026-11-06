@@ -11,7 +11,8 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the stand-up's goals,
 /// counts and forecasts, joined on id with each goal's attachments from
 /// <see cref="Abstractions.Services.IGoals.ListAsync"/>, the pull requests' status from
-/// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, and the shell's candidates
+/// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, with the title of a pull
+/// request no candidate holds, and the shell's candidates
 /// for titles, plan counts, the attach search and No goal. The library takes plain values,
 /// so every Progress word is translated here. Pure.
 /// </summary>
@@ -49,7 +50,7 @@ public static class GoalsMapper
                     Slug(read.State),
                     read.Checks is { } checks ? new PullRequestChecks(checks.Passed, checks.Failed, checks.Pending) : null,
                     read.Approvals is { } approvals ? new PullRequestApprovals(approvals.Received, approvals.Required) : null,
-                    candidate?.Title ?? title,
+                    candidate?.Title ?? title ?? read.Title,
                     candidate?.Url ?? Url(repository, number),
                     read.ReviewRequested)
                 : new PullRequestStatusModel(number, "unknown", Title: candidate?.Title ?? title, Url: candidate?.Url ?? Url(repository, number));

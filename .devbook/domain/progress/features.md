@@ -35,7 +35,7 @@ Each goal reads as one row: title, progress as `done/total`, items done in the l
 
 A goal without a due date shows the last day of the next window instead, as "due 23 Oct (end of iteration)". The [Attach to goal](#attaching-work-to-a-goal) picker lists it as "due end of iteration", and its **New goal…** needs only a title.
 
-A bar shows four amounts and says them in words to a screen reader: done, in progress, blocked and not started. One goal is open at a time, the first when the view opens. Opened, the row lists what is attached under Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows its [status](#pull-request-status), and a merged one reads as its number and "merged".
+A bar shows four amounts and says them in words to a screen reader: done, in progress, blocked and not started. One goal is open at a time, the first when the view opens. Opened, the row lists what is attached under Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows its title above its [status](#pull-request-status), and a merged one reads as its number and "merged".
 
 Below the goals, **No goal** lists the tasks in progress and the open pull requests in the header's repository scope that no goal holds, each with **Attach…**. The view lists every goal, whatever the repository scope. With no goals and nothing in progress outside one, the view says so and offers **New goal**.
 
@@ -226,9 +226,9 @@ related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
 
-Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
+Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
 
-Progress defines neither mark: it names a pull request by its repository and number, and Repository Management answers with its status. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
+Progress defines neither mark: it names a pull request by its repository and number, and Repository Management answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
 
 ## Goals on the phone
 

@@ -198,6 +198,58 @@ public sealed class GoalsMapperTests
         Assert.False(pulls[0].ShowsYourReview);
     }
 
+    /// <summary>1352 is the goal's own and no candidate holds it, the way a pull request
+    /// awaiting your review is not among the view's candidates: the read names it.</summary>
+    [Fact]
+    public void A_goals_pull_request_no_candidate_holds_takes_the_title_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1352", LinkedPullRequestState.Open, null, null, null, Title: "Settle by bank transfer")
+        ];
+
+        var pull = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).Goals[0].PullRequests[0];
+
+        Assert.Equal((1352, "Settle by bank transfer"), (pull.Number, pull.Title));
+    }
+
+    [Fact]
+    public void A_candidates_title_stands_over_the_one_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, null, null, Title: "Older words from the read")
+        ];
+
+        var pull = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).Goals[0].PullRequests[1];
+
+        Assert.Equal((1341, "Invoice PDF export"), (pull.Number, pull.Title));
+    }
+
+    /// <summary>1357 is a planned stand-up row no candidate holds: the row keeps the title
+    /// it came with, whatever the read answered.</summary>
+    [Fact]
+    public void A_rows_own_title_stands_over_the_one_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1357", LinkedPullRequestState.Draft, null, null, null, Title: "Words from the read")
+        ];
+
+        var row = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).StandUp.Planned[0].Items[1];
+
+        Assert.Equal((1357, "Payment status webhook"), (row.PullRequest!.Number, row.PullRequest.Title));
+    }
+
+    [Fact]
+    public void A_goals_pull_request_nothing_read_and_no_candidate_holds_has_no_title()
+    {
+        var pull = GoalsMapper.Map(StandUp, Summaries, [], Candidates).Goals[0].PullRequests[0];
+
+        Assert.Equal(1352, pull.Number);
+        Assert.Null(pull.Title);
+    }
+
     [Fact]
     public void A_pull_request_whose_status_was_not_read_draws_unknown()
     {

@@ -194,6 +194,27 @@ public sealed class RepositoryManagementGoalPullRequestsTests
     }
 
     [Fact]
+    public void An_answered_pull_request_carries_its_title()
+    {
+        var mapped = RepositoryManagementGoalPullRequests.Map(Pull(8) with { Title = "Pay invoices by bank transfer" });
+
+        Assert.Equal("Pay invoices by bank transfer", mapped.Title);
+    }
+
+    /// <summary>The title reaches the caller through the reading too; one nothing read has
+    /// none, so the card draws its status line alone.</summary>
+    [Fact]
+    public async Task The_reading_carries_the_title_and_a_pull_request_nothing_read_has_none()
+    {
+        var contract = new InMemoryPullRequests().Holds(Pull(11) with { Title = "Pay invoices by bank transfer" });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract);
+
+        var answer = await reader.ReadAsync([new(Backlog, "#11"), new(Backlog, "12")], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Pay invoices by bank transfer", null], answer.Select(pull => pull.Title));
+    }
+
+    [Fact]
     public void A_closed_pull_request_maps_closed()
     {
         Assert.Equal(LinkedPullRequestState.Closed, RepositoryManagementGoalPullRequests.Map(Pull(3, PullRequestState.Closed)).State);
