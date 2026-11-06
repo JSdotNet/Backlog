@@ -111,8 +111,8 @@ related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".de
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_the_status_display_off_no_record_state_is_drawn]
 ```
 
-Turning it on shows the status every devbook file and each of its chapters
-state: the selector or badge beside the file's name and beside each heading, and
+Turning it on shows the status every devbook file and chapter
+states. That is the selector or badge beside the file's name and each heading, and
 the decision state that qualifies it. It covers every area, the technology
 ratings and Brain notes included. It also shows the workflow state the app keeps
 for a decision or debt record ([Subject State](domain.md#subject-state)), with who

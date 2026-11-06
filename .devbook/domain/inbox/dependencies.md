@@ -17,8 +17,10 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 | [Brain](../brain/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBrainTarget`, adapter over `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxBrainNoteRequestDto`) | Routing To Brain writes a Knowledge Note into the Brain's inbox area. |
 | [Sync](../sync/context.md) | Customer/Supplier (Inbox = customer of the intake channel) | `IInboxIntake` and `IInboxCaptureOutbox` ports, driven by the desktop sync client | `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures reach the desktop and the phone learns their fate over one sync path. |
 
-- **Tasks:** `IInboxBacklogTarget` is declared in `Backlog.Modules.Inbox.Abstractions`. An adapter answers it over Tasks' published `ITaskItems`, not an async event. Several assigned repositories make sibling Tasks that name each other and share a `#from-inbox-` tag. A drafted plan goes through Tasks' plan import.
-- **Brain:** `IInboxBrainTarget` is declared in `Backlog.Modules.Inbox.Abstractions`. An adapter answers it over Devbook's `IBrainNoteWriter`, the writer the Devbook pane's Capture uses, not an async event. The Knowledge Note keeps the item's title and body.
+`IInboxBacklogTarget` and `IInboxBrainTarget` are declared in `Backlog.Modules.Inbox.Abstractions`, and neither is an async event.
+
+- **Tasks:** `ITaskItems` is what Tasks publishes. Several assigned repositories make sibling Tasks that name each other and share a `#from-inbox-` tag. A drafted plan goes through Tasks' plan import.
+- **Brain:** `IBrainNoteWriter` is Devbook's, the writer the Devbook pane's Capture uses. The Knowledge Note keeps the item's title and body.
 - **Sync:** The desktop sync client hands every `capture`-kind replica document, made on the phone or in the IDE, to the `IInboxIntake` port before the task merge. It drains the `IInboxCaptureOutbox` port into the ordinary tasks push as tombstones, which is how the phone learns a capture was dealt with.
 
 ## Inbound dependents (known)

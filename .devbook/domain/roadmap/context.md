@@ -128,8 +128,8 @@ A plan filed under several repositories draws a bar in each of their
 ([Placing a plan in time](features.md#placing-a-plan-in-time)). An entry filed
 under two repositories counts in full toward both. A repository keeps no pace of
 its own until the reader sets one, so no bar moves on upgrading. The first change
-gives it its own entry, copying the half not being changed (the typed pace or the
-choice) from what the repository read at that moment. Repositories are named by
+gives it its own entry. The half not being changed, the typed pace or the choice,
+is copied from what the repository read at that moment. Repositories are named by
 their Settings alias, compared without regard to case.
 
 Per value:
@@ -144,7 +144,7 @@ Per value:
   [is refused](requirements.md#requirement-a-typed-pace-the-roadmap-cannot-store-as-typed-is-refused).
   The file and the field hold four decimal places, so a finer pace would be
   written as zero and silently read back as the default. A parser that allowed
-  group separators would read `2,5` as `25`, and every imported plan would be a
+  group separators would read `2,5` as `25`. Every imported plan would be a
   tenth of its length with nothing on screen looking wrong.
 
 Where the pace is changed and shown:

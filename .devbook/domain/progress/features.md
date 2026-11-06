@@ -17,8 +17,6 @@ related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/doma
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
 ```
 
-Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is the first option of the Goals group in the header, a main view rather than a takeover, so the Devbook still opens beside it. It replaced the [In progress](../sessions/features.md#in-progress-by-task) view and has no board of sessions and pull requests by task. It is offered whether or not the Sessions and Pull requests lists are.
-
 ```mermaid
 flowchart LR
     Header["Header: iteration switch, last → next window, New goal"]
@@ -28,6 +26,8 @@ flowchart LR
     Header --> Goals --> NoGoal
     Header --> StandUp
 ```
+
+Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is the first option of the Goals group in the header, a main view rather than a takeover, so the Devbook still opens beside it. It replaced the [In progress](../sessions/features.md#in-progress-by-task) view and has no board of sessions and pull requests by task. It is offered whether or not the Sessions and Pull requests lists are.
 
 The header holds the [iteration switch](#choosing-the-iteration), the last and next window, such as "12–16 Oct → 19–23 Oct", **New goal**, **Copy** ([copying the stand-up](#copying-the-stand-up)) and **Refresh**.
 
@@ -41,7 +41,13 @@ Below the goals, **No goal** lists the tasks in progress and the open pull reque
 
 Each No goal row says how its work stands: a task carries its status dot, in progress or blocked, and a pull request its [status](#pull-request-status) line in place of its plain number. A row leads with a grip, by which it can be [dragged onto a goal](#attaching-work-to-a-goal) besides **Attach…**.
 
-Beside them sits the [stand-up](#the-stand-up), read over the same windows. The view is read when it opens, on a change of iteration, on Refresh, after each change made in it, and whenever goals, impediments or the iteration setting change elsewhere.
+Beside them sits the [stand-up](#the-stand-up), read over the same windows. The view is read:
+
+- when it opens;
+- on a change of iteration;
+- on Refresh;
+- after each change made in it;
+- whenever goals, impediments or the iteration setting change elsewhere.
 
 ## Setting a goal
 
@@ -121,7 +127,14 @@ type: sub-feature
 related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
-**Copy** puts the four blocks on the clipboard as plain text: each heading with its count, Finished and Planned grouped by goal (No goal last), the points tag beside Planned, and "n resolved" after Impediments. Every line is a fixed template filled from the reading; none is written by a model. Copying is a desktop action. Formatted (HTML) copy is a later addition.
+**Copy** puts the four blocks on the clipboard as plain text:
+
+- each heading with its count;
+- Finished and Planned grouped by goal, No goal last;
+- the points tag beside Planned;
+- "n resolved" after Impediments.
+
+Every line is a fixed template filled from the reading; none is written by a model. Copying is a desktop action. Formatted (HTML) copy is a later addition.
 
 ## Tracking an impediment
 
@@ -130,8 +143,6 @@ type: feature
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
-
-Keep track of what holds work back until it is out of the way. A person raises an impediment with a title, links the tasks, pull requests and plans it holds back, and moves it through its states:
 
 ```mermaid
 flowchart LR
@@ -142,7 +153,7 @@ flowchart LR
     Escalated -.-> Resolved
 ```
 
-Escalated may be skipped, and any open state may move straight to Resolved. Each move records its day and who the impediment is with. The phone's impediment page shows that history as a stepper, its check-again date, its note and the items it holds back, and through them the goal. Each state has its own colour ([the colour scheme](../../design/color-scheme.md)).
+Keep track of what holds work back until it is out of the way. A person raises an impediment with a title, links the tasks, pull requests and plans it holds back, and moves it through these states. Each move records its day and who the impediment is with. The phone's impediment page shows that history as a stepper, its check-again date, its note and the items it holds back, and through them the goal. Each state has its own colour ([the colour scheme](../../design/color-scheme.md)).
 
 In the stand-up, each impediment's state is a picker wearing the state's badge. It offers only the moves the impediment may make, and picking one keeps who it was last with. A move it may not make is refused with the reason, and the state stays.
 
@@ -215,7 +226,7 @@ related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
 
-Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status), and a merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
+Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness).
 
 Progress defines neither mark: it names a pull request by its repository and number, and Repository Management answers with its status. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
 
@@ -224,6 +235,20 @@ Progress defines neither mark: it names a pull request by its repository and num
 ```meta
 type: feature
 related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+```
+
+**A phone's change**
+
+```mermaid
+stateDiagram-v2
+    Waiting: Waiting, in the device outbox
+    Left: Left the phone
+    Dropped: Dropped
+    [*] --> Waiting: person changes an impediment
+    Waiting --> Left
+    Left --> Applied: a desktop applies it
+    Left --> Dropped: a desktop changed the field since
+    Left --> Dropped: a newer copy arrives without it
 ```
 
 Read the stand-up on the way to it. The phone's **Stand-up** tab shows the four blocks with the iteration switch.
@@ -242,7 +267,13 @@ These are desktop actions:
 - linking what it holds back;
 - copying the stand-up.
 
-The phone shows these as a desktop last read them: pull request checks and approvals, each attached session's title and state, and the state of each pull request an open impediment holds back. It never needs GitHub or the session records.
+The phone shows these as a desktop last read them:
+
+- pull request checks and approvals;
+- each attached session's title and state;
+- the state of each pull request an open impediment holds back.
+
+It never needs GitHub or the session records.
 
 A change made on the phone shows there once a desktop has applied it. When a desktop changed the same field after the phone last synced, the desktop's change stands and the phone's is dropped. So is a change a desktop did not apply, once a newer copy of the impediment reaches the phone without it.
 
@@ -258,10 +289,10 @@ Keep every goal and impediment the same on every paired device. They travel besi
 
 Each document is replaced whole, never merged. When two devices have both changed one goal or impediment since they last synced, the newer change wins on every device and the older is lost. A change to one goal never displaces a change to another. A deleted goal is deleted on every device, the newer-change rule deciding the deletion like any change. An impediment is never deleted: it is resolved.
 
-An impediment travels with every item it holds back, of all three kinds. What a
-device still on a build from before pull requests and plans could be held back does
-with such an impediment, and what that costs, is local
-[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
+An impediment travels with every item it holds back, of all three kinds. A device may
+still run a build from before pull requests and plans could be held back. Local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md) says what it
+does with such an impediment, and what that costs.
 
 A document that arrives from another device shows at once on every screen that draws
 it, without the person pressing Refresh.

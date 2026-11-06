@@ -6,7 +6,7 @@ related: [.devbook/domain/devbook/features.md]
 ```
 
 > What each feature guarantees: one SHALL sentence per requirement, with its
-> scenarios. A review note is an `annotation` fence; a [Sync Verdict](domain.md#sync-verdict)
+> scenarios. A review note is an `annotation` fence. A [Sync Verdict](domain.md#sync-verdict)
 > is the sweep's last word on a chapter. The Brain's are in [its own file](../brain/requirements.md).
 
 ## Unified search

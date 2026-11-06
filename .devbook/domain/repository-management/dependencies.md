@@ -48,4 +48,4 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 - Technology baseline authority stays with Technology Stack; this context only consumes baselines and reports adoption back.
 - Pull request state has one owner, this context, and one contract every reader goes through (local ADR 0042). Tasks and Progress never reference it: an adapter under `src/Infrastructure/` answers each one's own port, as `ILinkedSessionStates` does for Sessions.
 - This context depends on no other context for pull request state. The pane's Mine view and the task card in its detail panel need the task a pull request belongs to. The desktop shell asks Tasks' lookup for it and composes the card, so Tasks' edge to this context stays one-way.
-- The pull request activity history the dashboard and Productivity read answers what merged and when, not whether an open pull request is ready. ADR 0042 leaves it where it is.
+- The history of pull request activity the dashboard and Productivity read answers what merged and when, not whether an open pull request is ready. ADR 0042 leaves it there.

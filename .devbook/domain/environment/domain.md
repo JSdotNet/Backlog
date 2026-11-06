@@ -24,7 +24,7 @@ type: entity
 aliases: [environment_id]
 ```
 
-A named destination the person wants quick access to, such as a local Aspire dashboard, a staging web app, an Azure resource group, a repository preview or a production admin surface.
+A named destination the person wants quick access to. Examples are a local Aspire dashboard, a staging web app, an Azure resource group, a repository preview or a production admin surface.
 
 ### Environment Shortcut
 

@@ -28,9 +28,9 @@ stateDiagram-v2
     Archived --> Organized : Restored
 ```
 
-The lifecycle states (Created, Organized, Linked, Archived) are workflow phases, not a stored enum field. The persisted state is the note's area: a note in the Brain's inbox area (`_inbox` under the PARA default) is Created, and one in its archive area is Archived. A Brain that declares its own areas without an archive area has no Archived state.
+The lifecycle states (Created, Organized, Linked, Archived) are workflow phases, not a stored enum field. The persisted state is the note's area, its `PARA Category`. A note in the Brain's inbox area (`_inbox` under the PARA default) is Created, and one in its archive area is Archived. A Brain that declares its own areas without an archive area has no Archived state.
 
-An organized unit of project knowledge stored as Markdown, and the boundary for its own organization and links. Its area, its `PARA Category`, is its only lifecycle state ([Knowledge note lifecycle](domain.md#knowledge-note)). Its rules are in [its invariants](domain.invariants.md#knowledge-note).
+An organized unit of project knowledge stored as Markdown, and the boundary for its own organization and links. Its rules are in [its invariants](domain.invariants.md#knowledge-note).
 
 A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook chapter like any other. It keeps the devbook `meta` block and `annotation` fences (local ADR 0016), and adds three fields to the block (local ADR 0026):
 
@@ -62,7 +62,7 @@ type: value-object
 aliases: [TaskLink, task_id]
 ```
 
-A link from a note to one Task, by the task's stored id. A note writes it as one value of its `tasks` field, and the id is a GUID; [A task link is the task's id](requirements.md#requirement-a-task-link-is-the-tasks-id) says how it is read. A value that is no GUID links no task, and the note lists it as written.
+A link from a note to one Task, by the task's stored id. A note writes it as one value of its `tasks` field, and the id is a GUID. [A task link is the task's id](requirements.md#requirement-a-task-link-is-the-tasks-id) says how it is read. A value that is no GUID links no task, and the note lists it as written.
 
 A Task Link is not an address and not an edge. The Brain's database keeps a note's `tasks` values on the note's own node, as written. The app reads them from there both ways: the tasks a note names, and the notes that name a task. A task's record carries no note.
 
@@ -91,13 +91,13 @@ The area a note is organized under: one top folder of the [Brain](#brain), shown
 
 A folder `CONVENTIONS.md` lists under `## Ignore` is never an area, nor is a dot-folder. A note's area is the top folder it sits in, unless its `para` field overrides it. Equality is by folder name. Local ADR 0026 records why the folders on disk decide the areas and `CONVENTIONS.md` only adds to them.
 
-`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level, as a table with a `Folder` column (optionally `Area` or `Name`, `Holds` and `Order`) or as a list. A list item names the folder in backticks.
+`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level. It writes them as a table with a `Folder` column (optionally `Area` or `Name`, `Holds` and `Order`) or as a list. A list item names the folder in backticks.
 
 Which declarations count is [An area is one plain folder, declared once](domain.invariants.md#invariant-an-area-is-one-plain-folder-declared-once), and their order is [Declared areas keep the order written](domain.invariants.md#invariant-declared-areas-keep-the-order-written). A declared area keeps its tab while its folder is empty or missing, so a capture always has a target.
 
 The discovered areas follow the declared ones, by folder name ([Discovered areas follow the declared ones](domain.invariants.md#invariant-discovered-areas-follow-the-declared-ones)). A top folder with no note in it is not an area until it gets one.
 
-`CONVENTIONS.md` lists the folders that are never areas under a heading named `Ignore`, as list items naming the folder in backticks or bare, or a table with a `Folder` column. An ignored folder stays out even when `Areas` declares it ([An ignored folder is never an area](domain.invariants.md#invariant-an-ignored-folder-is-never-an-area)). Markdown files at the Brain's root, such as `README.md` and `CONVENTIONS.md`, belong to no area.
+`CONVENTIONS.md` lists the folders that are never areas under a heading named `Ignore`. It writes them as list items naming the folder in backticks or bare, or a table with a `Folder` column. An ignored folder stays out even when `Areas` declares it ([An ignored folder is never an area](domain.invariants.md#invariant-an-ignored-folder-is-never-an-area)). Markdown files at the Brain's root, such as `README.md` and `CONVENTIONS.md`, belong to no area.
 
 When `CONVENTIONS.md` declares no areas, the PARA set applies ([The areas are the declared ones, then the discovered ones](requirements.md#requirement-the-areas-are-the-declared-ones-then-the-discovered-ones)), in this order:
 
@@ -109,7 +109,7 @@ When `CONVENTIONS.md` declares no areas, the PARA set applies ([The areas are th
 - `journal`: dated entries.
 - `archive`: inactive notes preserved for future search.
 
-The name stays *PARA Category* because PARA is the default vocabulary a person starts from; a Brain with its own areas still files one area per note.
+The name stays *PARA Category* because PARA is the default vocabulary a person starts from. A Brain with its own areas still files one area per note.
 
 ### Note Source
 
@@ -144,7 +144,7 @@ aliases: [Brain, Second Brain, SecondBrain, brain scope, Brain scope]
 related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/12-glossary.md#terms, .devbook/domain/brain/features.md#brain-scope]
 ```
 
-The person's own notes: one devbook-shaped folder per user, outside every repository, whose [Knowledge Notes](#knowledge-note) are organized under its [areas](#para-category): those its `CONVENTIONS.md` declares, then every other top folder that holds a note. The app builds its database into its own storage, never into the folder. It names its own bounded context (local ADR 0040). *Second Brain* is an alias: until 2026-09-15 it named the whole Devbook context, and now means only the person's own notes.
+The person's own notes: one devbook-shaped folder per user, outside every repository, whose [Knowledge Notes](#knowledge-note) are organized under its [areas](#para-category). Those are the ones its `CONVENTIONS.md` declares, then every other top folder that holds a note. The app builds its database into its own storage, never into the folder. It names its own bounded context (local ADR 0040). *Second Brain* is an alias: until 2026-09-15 it named the whole Devbook context, and now means only the person's own notes.
 
 **Brain** is also the scope of everything filed against no repository: the first chip of the header's repository scope. Pressed, it narrows every view that reads the scope to the tasks with no repository, and opens the Brain in the Devbook pane. Both senses are one person's own things, work with no repository and notes outside every repository, which is why they share a name. Where the scope is stored, Brain is the empty string, a value no repository alias can take.
 

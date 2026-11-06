@@ -180,10 +180,10 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> Local ADR 0038 decides these requirements. Both sides are built: the queue icons
-> that create a request (on an entry, on a plan's roadmap item, and beside a selected
-> plan filter chip), and the dispatcher side, the wait route and the claim, mark and
-> list tools a Manager session uses.
+> Local ADR 0038 decides these requirements. Both sides are built. The queue icons
+> create a request on an entry, on a plan's roadmap item, and beside a selected plan
+> filter chip. The dispatcher side is the wait route and the claim, mark and list tools
+> a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
 

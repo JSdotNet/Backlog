@@ -75,11 +75,12 @@ How much of a goal is [done](#done), as `done/total` over its items. Each item c
 - an attached task counts 1, and the pull requests it links do not count again;
 - an attached pull request counts 1;
 - an attached session counts 1, and its linked tasks and branch pull request do not count again;
-- a task attached directly and also an entry of an attached plan counts once, as does a pull request attached directly that an attached task already links;
+- a task attached directly and also an entry of an attached plan counts once;
+- a pull request attached directly that an attached task already links counts once;
 - a session one of whose linked tasks the goal counts on its own does not count again;
 - a pull request attached directly that is an attached session's branch pull request counts once, as the session.
 
-Beside `done/total` it carries how the open items stand: doing, blocked and to do. An open session is blocked when one of its linked tasks is marked blocked. It is doing when it is running or stalled, when its pull request is open or a draft, or when a linked task is in progress, and to do otherwise. It also carries how many items were done in the last iteration, shown as `+3`. Equality is by value.
+Beside `done/total` it carries how the open items stand: doing, blocked and to do. An open session is blocked when one of its linked tasks is marked blocked. It is doing when it is running or stalled, its pull request is open or a draft, or a linked task is in progress. Otherwise it is to do. It also carries how many items were done in the last iteration, shown as `+3`. Equality is by value.
 
 ### Goal Forecast
 

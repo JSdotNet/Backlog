@@ -99,7 +99,7 @@ channel with the person who shared it, when someone did.
 While an item waits, a reader may assign it `Tags`, assign the repositories
 (`repo_ids`) the work will belong to, and file
 it in an [Inbox List](#inbox-list) through `list_id`. Filing is organisation,
-not triage: an item in a list with no routing decision is still `unprocessed`,
+not triage. An item in a list with no routing decision is still `unprocessed`,
 and an archived item may still be moved between lists.
 
 The item also remembers which of [Classification](#classification)'s
@@ -133,7 +133,7 @@ apart from `updated_at`, because filing and tagging restamp `updated_at` and
 would hide a phone dismissal made in between.
 
 A capture can also bring files, such as a photo, a screenshot or a PDF the phone
-shared. The item owns them as [Attachments](#attachment): the file belongs to the
+shared. The item owns them as [Attachments](#attachment). The file belongs to the
 thought, so it lives inside the item's boundary and stays with it whatever triage later decides.
 
 An item of kind `note` is a [Note](#note), the one kind that lives on the phone
@@ -193,7 +193,7 @@ here.
 
 `auto_generated` is kept for a tag applied without the reader. Nothing applies
 one today. A tag [Classification](#classification) suggests is only a
-proposal until the reader takes it, and a tag the reader took is theirs, so it
+proposal until the reader takes it. A tag the reader took is theirs, so it
 is stored with `auto_generated` false like one they typed.
 
 ### Source
@@ -253,11 +253,10 @@ halves, because they come from two places and change at different rates.
 
 The bytes do not travel on the replica. The capture names the file, and the
 desktop fetches it from the sync service's attachment store afterwards (local
-ADR 0014). The [attachment lifecycle](domain.md#attachment) shows the states. A Recorded file is shown in the pane as *Waiting
+ADR 0014). A Recorded file is shown in the pane as *Waiting
 to download*. A Downloaded file is in the item's
 [attachment folder](#attachment-folder). A Failed file keeps its reason and
-waits for the person to press Retry, which ends in Downloaded or in Failed with
-a new reason.
+waits for the person to press Retry.
 
 A file that did not arrive does not make the thought any less captured, so the
 item is Received whatever happens to its files. A picture is a file whose
@@ -366,7 +365,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
 aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
 ```
 
-A fold in the side menu that holds lists. It has a `name` and an `order`; the
+A fold in the side menu that holds lists. It has a `name` and an `order`. The
 membership is recorded on the list (`group_id`), not on the group, so a group
 is never the owner of what its lists hold. It is local-only and hard-deleted, for
 the reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
@@ -426,8 +425,8 @@ attachment.
 
 A fourth decision reaches Tasks without making anything. **Merge into a task**
 folds an open item into a task it repeats. The item's title, then its link when
-it has one, then its notes are written on the task as one comment, through the
-rule the `backlog` MCP server's `comment` tool uses.
+it has one, then its notes become one comment on the task. The comment follows
+the rule the `backlog` MCP server's `comment` tool uses.
 The item is then archived with `DuplicateOf` naming the task.
 
 The Inbox refuses before it writes anything when the item is already decided or
@@ -458,10 +457,15 @@ aliases: [ContentKindDetector, InboxClassifier, SuggestQuery, DismissSuggestionC
 Reads what an Inbox Item is and proposes where it goes. It has two jobs.
 
 **On intake**, it reads the item's `Content Kind` and its first URL, which
-becomes the source link. The kind comes from the captured text: a YouTube
-host, a Claude host, an image or document extension, a bare URL against a
-titled one, or a fenced snippet. An item with [attachments](#attachment) is
-read by its files first. It is an `image` when its only content is pictures
+becomes the source link. The kind comes from the captured text:
+
+- a YouTube host;
+- a Claude host;
+- an image or document extension;
+- a bare URL against a titled one;
+- a fenced snippet.
+
+An item with [attachments](#attachment) is read by its files first. It is an `image` when its only content is pictures
 (no body and no link), and a `document` when any file is not a picture.
 
 **While an item is open**, it proposes *suggestions*. It never applies one.
@@ -662,8 +666,8 @@ related: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/in
 ```
 
 How sure the Inbox is of a dependency it proposes before a [batch](#batch)
-goes: that one item should come after another item of the batch, or after an
-open task. A dependency is a Tasks fact, written as an `after:` token; the Inbox
+goes. Such a dependency puts one item after another item of the batch, or after an
+open task. A dependency is a Tasks fact, written as an `after:` token. The Inbox
 only proposes one, as a switch the person turns off or leaves on, and stores
 none.
 

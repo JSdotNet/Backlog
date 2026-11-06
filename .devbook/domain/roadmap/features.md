@@ -214,9 +214,9 @@ on the **read** path only and
 An item gathers work by what it **names** and by what carries its **tag**, so its
 size is never kept by hand.
 Something reached both ways is shown once and marked, so a person about to remove
-a link sees whether the tag would still hold the work. The item reports its
-[total registered effort](domain.md#effort). It also reports **how many gathered
-things carry no estimate**, so a small total cannot hide a pile of unsized work.
+a link sees whether the tag would still hold the work. The item reports
+**how many gathered things carry no estimate** beside its
+[total registered effort](domain.md#effort), so a small total cannot hide a pile of unsized work.
 
 ## Priority planning
 
@@ -227,7 +227,7 @@ related: [.devbook/domain/roadmap/domain.md#planning-priority]
 ```
 
 Decide what matters most across projects at once, and record it in the plan
-rather than in each project. The plan's priority is its own judgement: a task's
+rather than in each project. The plan's priority is its own judgement. A task's
 priority never overwrites it and setting it never reaches into that task, so
 reprioritising a quarter does not mean editing a dozen issues.
 
@@ -348,7 +348,7 @@ any of its repositories.
 Work that names no repository, or only unconfigured ones, sits in a last band of
 its own. That band takes no colour and shows no name, and a screen reader hears it
 called "No repository". The chart always draws it, with one empty "Planned" lane
-when nothing is filed there, where the person plans the next project before it has
+when nothing is filed there. There the person plans the next project before it has
 a repository, by double-clicking or dragging on it.
 
 An [archived repository](../repository-management/domain.md#archived-repository)
@@ -379,10 +379,6 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_r
 
 **Rescheduling flow**
 
-A reschedule starts as a *proposal*. The view never edits the plan: it reports
-where something was dropped, the plan decides whether that stands, and the view
-redraws from the answer. Nothing is persisted until the plan accepts it.
-
 ```mermaid
 sequenceDiagram
     participant Reader
@@ -406,6 +402,9 @@ sequenceDiagram
         View->>Reader: put it back, and say why
     end
 ```
+
+A reschedule starts as a *proposal*. The view never edits the plan, and nothing is
+persisted until the plan accepts it.
 
 - [A drop that moves nothing proposes nothing](requirements.md#requirement-a-drop-that-moves-nothing-proposes-nothing),
   so picking something up and putting it down never rewrites the plan.
@@ -436,7 +435,7 @@ view.
 type: sub-feature
 ```
 
-Every move and resize can be made from the keyboard, and each step is announced: a plan that could only be dragged could be read by some people and edited by none.
+Every move and resize can be made from the keyboard, and each step is announced. A plan that could only be dragged could be read by some people and edited by none.
 
 ### Reading the near term closely
 
@@ -460,7 +459,7 @@ months, and further when the plan does. The work in flight sits around today,
 where a single week column would stack every bar that started in it on a few
 pixels. Every column widens by the same factor
 until the chart from last week on fills the screen, so a short plan never leaves
-the right empty, and the chart opens on last week.
+the right empty. The chart opens on last week.
 
 The day and week columns also show the person's
 [working week](domain.md#working-week), with the dates they blocked or unblocked.
@@ -520,8 +519,8 @@ the axis shows inside a week column.
 
 The dialog lists each [day override](domain.md#day-override) with its date,
 weekday and whether it is blocked or unblocked, dates still to come first and past
-ones behind "Show past". The person can add a range of days off, which blocks only
-the dates the weekly pattern works because a weekend inside a holiday needs no
+ones behind "Show past". The person can add a range of days off. It blocks only
+the dates the weekly pattern works, because a weekend inside a holiday needs no
 override. The person can also add a single worked date, which unblocks a day the
 pattern leaves off, and remove any entry.
 
@@ -542,9 +541,8 @@ shows what was finished and how long it really took. When nothing says when the
 work ended, the planned end stands, but never later than today, because finished
 work cannot end in the future.
 
-History is ruled as the horizon is, mirrored. The four weeks before this one are
-always there, last week in days and the three before it in weeks. Months and
-quarters appear before them only when something drawn reaches that far back.
+History is ruled as the horizon is, mirrored, as
+[Reading the near term closely](#reading-the-near-term-closely) sets out.
 
 A finished plan cannot be dragged, because its dates are read off the work.
 Opening it still edits the stored item. A plan still being worked on is drawn from
@@ -553,7 +551,7 @@ its work too, to a forecast end
 
 The Completed switch on the toolbar, beside Hours, takes the finished plans off
 the chart when the person wants only what is left to do. It is the one narrowing
-the roadmap offers: a filter bar by repository, priority, lane or tag was dropped,
+the roadmap offers. A filter bar by repository, priority, lane or tag was dropped,
 because the bands already sort by repository and a plan is small enough to read
 whole. Off, the lanes close up over the open work, and an arrow to a hidden plan
 goes with it. The switch is on by default and stays with the device, as the Hours
@@ -565,14 +563,6 @@ switch does, because what is shown of the plan is not part of the plan.
 type: sub-feature
 related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/requirements.md#forecasting-work-in-flight, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
-
-A plan is in flight when some of its tasks are in progress or done and some are
-still open. Its forecast shows where it will really land, not where it was hoped
-to. A planned window that stretches finished work over months, or ends before the
-work left could, is the hope and not the reading.
-
-A plan in flight is forecast one [part](domain.md#part) at a time, the same parts
-[Placing a plan in time](#placing-a-plan-in-time) lays out:
 
 ```mermaid
 flowchart TD
@@ -586,6 +576,14 @@ flowchart TD
     Pinned -- yes --> OnPin["Ends on the pin"]
     Pinned -- no --> Forecast["Keeps its forecast end"]
 ```
+
+A plan is in flight when some of its tasks are in progress or done and some are
+still open. Its forecast shows where it will really land, not where it was hoped
+to. A planned window that stretches finished work over months, or ends before the
+work left could, is the hope and not the reading.
+
+A plan in flight is forecast one [part](domain.md#part) at a time, the same parts
+[Placing a plan in time](#placing-a-plan-in-time) lays out.
 
 The plan's forecast end is the latest part end. These rules apply on top of it:
 
@@ -731,22 +729,27 @@ setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/roadmap/domain.md#dependency, .devbook/domain/roadmap/features.md#reading-the-plan-by-repository, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/requirements.md#placing-a-plan-in-time]
 ```
 
+```mermaid
+flowchart TD
+    Start["Start: the day after the last thing it waits on finishes,<br/>or today when it waits on nothing"] --> Due{"Does the plan<br/>say it is due?"}
+    Due -- yes --> End["Ends on that day"]
+    Due -- no --> Sized{"Is anything gathered<br/>and sized?"}
+    Sized -- yes --> Length["Length from its effort"]
+    Sized -- no --> Week["Takes one working week"]
+```
+
 Give an imported plan a window nobody had to guess. In this chapter, *a plan* is
 one imported plan and the [Roadmap Item](domain.md#roadmap-item) that holds it.
 
-- The **end** is the day the plan says it is due, when it says one.
-- The **start** is never in the document. It is the day after the last thing the
-  plan waits on finishes, or today when it waits on nothing.
-- A plan with no due date gets a **length from its effort**: the story points its
-  tasks registered, divided by the person's
-  [pace](context.md#story-points-a-week) in points a working week.
+The start is never in the document. The **length from its effort** is the story
+points its tasks registered, divided by the person's
+[pace](context.md#story-points-a-week) in points a working week.
 
 The plan never starts on a day the person does not work; such a start moves to
 their next working day. From there it counts their working hours forward,
 skipping the days and hours they do not work, and ends on the day the hours run
 out ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). It is
-never shorter than its start day. It takes one working week when nothing is
-gathered yet or nothing is sized. The hours are the person's
+never shorter than its start day. The hours are the person's
 [working week](domain.md#working-week), so a date they blocked on the axis counts
 none and a day off they unblocked counts its hours
 ([requirements](requirements.md#placing-a-plan-in-time)).
@@ -916,7 +919,7 @@ A plan filed under a general tag before the sigil existed still gathers under an
 item whose tag matches it, but the item is the person's to create.
 
 The shelf is a column beside the timeline, or beside the empty state when nothing
-is planned yet, because the tasks-first order is the one that starts with no roadmap. It moves under the timeline on a narrow window. It holds one card
+is planned yet, because the tasks-first order starts with no roadmap. It moves under the timeline on a narrow window. It holds one card
 per plan, showing:
 
 - the plan tag in full;
@@ -1040,7 +1043,7 @@ mostly is not.
 
 The arithmetic is that of
 [gathering work under an item](#gathering-work-under-an-item-and-totalling-its-effort),
-unchanged, for the same reason: a track hiding its unestimated work would read as small when it is least understood.
+unchanged, for the same reason. A track hiding its unestimated work would read as small when it is least understood.
 
 ### Picking work that cannot collide
 

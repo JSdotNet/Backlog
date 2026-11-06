@@ -49,7 +49,7 @@ A source that asks about something with an identity of its own may name the
 notification's id, derived from that thing. Publishing an id the owner already
 holds changes nothing, whatever state it reached, so a source can publish on every
 pull. When two desktops derive the same id, the replica keeps the
-first pushed, and the other closes its own copy as "Owned by another
+first pushed. The other closes its own copy as "Owned by another
 desktop" and stays a viewer.
 
 The rules it holds are `### Invariant:` chapters in
@@ -62,7 +62,7 @@ type: value-object
 aliases: [NotificationSource]
 ```
 
-The boundary that raised the notification, and the key inside it: for example
+The boundary that raised the notification, and the key inside it, such as
 `sessions` / `run-58`. The owner hands the accepted answer back to the handler
 registered for the source's boundary; an alert-only source registers none.
 The source routes and is never shown. A person reads the
@@ -77,7 +77,7 @@ related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin
 ```
 
 Where the notification came from, in words a person reads. Optional: a
-notification without one is drawn by its source, as before.
+notification without one is drawn by its source.
 
 | Part | Holds | Bound |
 |---|---|---|
@@ -92,7 +92,7 @@ travels wherever the title does, a private push included.
 "System · Place" is the attribution line of a Windows notification, the
 subtitle of the phone's tray entry, and the push's `origin`, cut to 60
 characters there. The card draws the system as a badge with the place above
-the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
+the title, and who asked and how under it. It adds "Open in &lt;System&gt;" when there is
 a link.
 
 Who asked, as a kind, is read from the origin, not stored, keyed on the
@@ -134,7 +134,7 @@ aliases: [NotificationSubject]
 ```
 
 The entity the notification is about, named by its boundary, type and
-id: for example `sessions` / `session` / `sess-91`. The boundary that owns the
+id, such as `sessions` / `session` / `sess-91`. The boundary that owns the
 entity says when it ends, and every open notification about it then closes. A
 subject that comes back, such as a reopened task, does not reopen them. Two notifications are equal in subject when all three parts are
 equal.
@@ -184,11 +184,13 @@ one of four shapes:
 Each set choice has an id, a label, and an optional style: primary or destructive.
 
 A set choice of a single-choice question may also take text, with or without an
-open answer beside it. A reply that picks it carries the person's words, as
-plain text within the open answer's length limit, or 2,000 characters when the
+open answer beside it. A reply that picks it carries the person's words as
+plain text. The open answer's length limit holds them, or 2,000 characters when the
 question has no open answer. A reply that picks it with no text does not fit. A
 multiple-choice question has no choice that takes text, because a reply carries
-one text and two picked choices could not each bring their words. This is how one
+one text and two picked choices could not each bring their words.
+
+This is how one
 question offers two answers that each need words, such as Revise and Approve +
 follow-up on the Personal Validation question. The open answer stays separate: it
 is text instead of a choice, where a choice that takes text is text with one.
@@ -253,7 +255,7 @@ stateDiagram-v2
   needs no answer, and a reply sent after it is rejected as closed.
 
 Only the owner makes these transitions. Read marks are per device and not
-part of the state. A source may act on a transition outside Backlog: acknowledging an alert
+part of the state. A source may act on a transition outside Backlog. Acknowledging an alert
 raised for a spec-manager notification marks it read in
 spec-manager, and the publisher closes one read there.
 
@@ -278,9 +280,14 @@ question.
 
 The owner reads each reply, checks it against the question's
 [Answer Spec](#answer-spec), and accepts or rejects it. It rejects a reply with a
-reason: the question is already answered, it is closed, the reply came from a
-viewer when the question says `answerOn: owner`, or the reply does not fit the
-answer spec. The viewer can then reply again. The owner deletes a reply once it
+reason:
+
+- the question is already answered;
+- it is closed;
+- the reply came from a viewer when the question says `answerOn: owner`;
+- the reply does not fit the answer spec.
+
+The viewer can reply again. The owner deletes a reply once it
 has processed it.
 
 A reply names:
@@ -320,7 +327,7 @@ related: [.devbook/domain/tasks/domain.md#device]
 The desktop app instance that published a notification, named by its device
 identity. It is the only writer of that notification and the only instance that
 decides its answer. A desktop is the owner of its own notifications and a viewer
-of every other desktop's. An owner that is unpaired keeps its notifications: no
+of every other desktop's. An unpaired owner keeps its notifications: no
 other instance takes them over, and they expire.
 
 ### Viewer instance

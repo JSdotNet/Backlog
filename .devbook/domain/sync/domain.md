@@ -15,18 +15,22 @@ aliases: [device registration, registered device]
 related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
 ```
 
-One machine's registration with the sync service. It holds the machine's
-[DeviceId](#deviceid), the [OwnerId](#ownerid) whose data it may see, the name a
-person calls it in the device list, and a hash of its
-[Registration credential](#registration-credential). The service never holds the
-credential itself, so a copy of the record is not a copy of the secret.
+One machine's registration with the sync service. It holds:
+
+- the machine's [DeviceId](#deviceid);
+- the [OwnerId](#ownerid) whose data it may see;
+- the name a person calls it in the device list;
+- a hash of its [Registration credential](#registration-credential).
+
+The service never holds the credential itself, so a copy of the record is not a
+copy of the secret.
 
 A device comes in once, by registering as the first device of a new owner or by
 redeeming a [Pairing Code](#pairing-code). A paired device also names the device
 whose code it redeemed, so the desktop that issued the code can ask its person
 whether to keep it. It is the consistency boundary for "who is this caller": a
 token is minted only for a device whose stored hash matches the credential it
-presents. The device whose code paired it can revoke it; its credential then
+presents. The device whose code paired it can revoke it. Its credential then
 mints no further token, and a token it already holds lasts until it expires.
 
 It is not the machine. The machine is the shared kernel's
@@ -100,7 +104,7 @@ related: [.devbook/domain/sync/domain.md#owner]
 ```
 
 The identifier of an [Owner](#owner): a version 7 GUID minted when the first device
-registers. It is a type of its own rather than a bare GUID, because an owner id and a
+registers. It is a type of its own rather than a bare GUID. An owner id and a
 device id travel together through every call, and swapping them would not fail to
 compile. It is the partition key of every replica container. Two are equal when their
 GUIDs are equal.
@@ -143,7 +147,7 @@ The service hands a client a signed cursor after each pull, and the client sends
 back as `since`. The codec (`HmacSyncCursorCodec`) checks the signature and the
 owner before it produces a `SyncCursor`. A store continuation embeds the partition
 it was minted for, so an unchecked one replayed by another owner would read that
-owner's data, and the store would not object.
+owner's data. The store would not object.
 
 ### Replica Cursor
 
@@ -155,8 +159,8 @@ related: [.devbook/domain/sync/domain.md#synccursor]
 
 A verified position in one owner's task, session, annotation or devbook subject feed: an
 [OwnerId](#ownerid) and a continuation. There is one type per feed, so a
-continuation for one feed cannot be handed to another feed's replica, and no
-replica port takes a bare string; the service reads each from a verified
+continuation for one feed cannot be handed to another feed's replica. No
+replica port takes a bare string: the service reads each from a verified
 [SyncCursor](#synccursor). A page read from a feed always carries the cursor after it, even when the
 page is empty.
 
