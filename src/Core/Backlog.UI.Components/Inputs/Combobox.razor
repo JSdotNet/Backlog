@@ -159,6 +159,15 @@
     [Parameter]
     public bool Compact { get; set; }
 
+    /// <summary>
+    /// Whether typing opens the list. Off, the suggestions wait for Down or a click, as
+    /// a field whose text is the point wants — the planned hours. On, for a field
+    /// whose suggestions are the point: a find field, whose host narrows the options
+    /// to what was typed, opens them as the reader types.
+    /// </summary>
+    [Parameter]
+    public bool OpenOnInput { get; set; }
+
     /// <summary>The input's id, for a host that sends the focus to it.</summary>
     [Parameter]
     public string? Id { get; set; }
@@ -232,6 +241,7 @@
         // A typed figure is not the option that was highlighted: Enter now commits
         // the text, not a suggestion the reader has typed past.
         _activeIndex = -1;
+        if (OpenOnInput) Open();
         return ValueChanged.InvokeAsync(_text);
     }
 

@@ -1,0 +1,93 @@
+@*
+    The zoom bar of the C4 zoom tab: 1 Context › 2 Containers › 3 Components › 4 Code,
+    each with the element its level is about, and the views beside the chain under
+    "Also".
+
+    It draws a C4ZoomBarState and nothing else; C4ZoomNavigation works out what each
+    step says and where it goes. Kept apart from the explorer so the three moments the
+    design shows — on Context, a container selected, on Code — can be drawn on their own,
+    which is what the storybook does.
+
+    Three looks, each a promise about what a press does. The current step is ringed in
+    the primary colour and pressing it does nothing. A plain step jumps there: every
+    step behind the reader, and a deeper one once its element is known. A grey step
+    reads "pick a container" or "pick a component" and is disabled, because selecting
+    an element fills it in first. The current step stays enabled, so a keyboard reader
+    can reach the step marked aria-current; pressing it is a no-op.
+*@
+
+<nav class="c4-zoom-bar" aria-label="Zoom" data-testid="@TestId">
+    <span class="c4-zoom-bar__label" aria-hidden="true">Zoom</span>
+
+    <ol class="c4-zoom-bar__steps">
+        @foreach (var step in State.Steps)
+        {
+            <li class="c4-zoom-bar__item">
+                <AppButton BaseClass="c4-zoom-bar__step"
+                           CssClass="@StepClass(step)"
+                           Variant="ButtonVariant.None"
+                           Disabled="!step.Enabled && !step.Current"
+                           aria-current="@(step.Current ? "step" : null)"
+                           title="@StepTitle(step)"
+                           data-level="@((int)step.Level)"
+                           TestId="c4-zoom-step"
+                           OnClick="() => OnStep.InvokeAsync(step)">
+                    <span class="c4-zoom-bar__number" aria-hidden="true">@((int)step.Level)</span>
+                    <span class="c4-zoom-bar__name">@step.Label</span>
+                    @if (step.Scope is not null || step.Placeholder is not null)
+                    {
+                        <span class="c4-zoom-bar__scope" data-testid="c4-zoom-step-scope">@(step.Scope ?? step.Placeholder)</span>
+                    }
+                </AppButton>
+            </li>
+        }
+    </ol>
+
+    @if (State.Also.Count > 0)
+    {
+        <span class="c4-zoom-bar__also" role="group" aria-label="Also" data-testid="c4-zoom-also">
+            <span class="c4-zoom-bar__label" aria-hidden="true">Also</span>
+            @foreach (var also in State.Also)
+            {
+                <AppButton BaseClass="c4-zoom-bar__also-link"
+                           CssClass="@(also.Current ? "c4-zoom-bar__also-link--current" : null)"
+                           Variant="ButtonVariant.None"
+                           Disabled="also.Current"
+                           aria-current="@(also.Current ? "page" : null)"
+                           TestId="c4-zoom-also-link"
+                           OnClick="() => OnAlso.InvokeAsync(also)">@also.Label</AppButton>
+            }
+        </span>
+    }
+</nav>
+
+@code {
+    /// <summary>What the bar draws. <see cref="C4ZoomNavigation.Bar"/> builds it from
+    /// the open view and the selection.</summary>
+    [Parameter, EditorRequired]
+    public C4ZoomBarState State { get; set; } = C4ZoomBarState.Empty;
+
+    /// <summary>A step was pressed. Only an enabled step can be.</summary>
+    [Parameter]
+    public EventCallback<C4ZoomStep> OnStep { get; set; }
+
+    /// <summary>A view under "Also" was pressed.</summary>
+    [Parameter]
+    public EventCallback<C4ZoomAlso> OnAlso { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-zoom-bar";
+
+    private static string StepClass(C4ZoomStep step) =>
+        step.Current ? "c4-zoom-bar__step--current"
+        : step.Waiting ? "c4-zoom-bar__step--waiting"
+        : !step.Enabled ? "c4-zoom-bar__step--unavailable"
+        : string.Empty;
+
+    private static string StepTitle(C4ZoomStep step) =>
+        step.Current ? $"{step.Label}: where you are"
+        : step.Waiting ? $"{step.Label}: {step.Placeholder} first"
+        : step.Enabled ? $"Open {step.Label} of {step.Scope}"
+        : step.Level == C4ZoomLevel.Code ? $"{step.Scope} has no code folder: no building block names one in code"
+        : $"{step.Label} of {step.Scope} has no view yet";
+}

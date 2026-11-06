@@ -3,6 +3,8 @@
 ```meta
 date: 2026-10-07
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+c4: [backlog.desktop.shell]
+c4-touches: [backlog.desktop.inbox, backlog.desktop.devbook, backlog.desktop.roadmap, backlog.desktop.sessions, backlog.desktop.dashboard, backlog.desktop.backlogModule]
 ```
 
 The desktop shell's workspace always shows exactly one **main view** — Tasks,

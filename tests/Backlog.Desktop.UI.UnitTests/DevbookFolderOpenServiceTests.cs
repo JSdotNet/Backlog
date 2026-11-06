@@ -118,11 +118,16 @@ public sealed class DevbookFolderOpenServiceTests : IDisposable
             OpenedFolder = folderPath;
             return Task.CompletedTask;
         }
+
+        public Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class ThrowingFolderEditorLauncher(FolderEditorLaunchException failure) : IFolderEditorLauncher
     {
         public Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default) =>
+            throw failure;
+
+        public Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default) =>
             throw failure;
     }
 }

@@ -1,0 +1,45 @@
+@*
+    The doors of the C4 zoom tab's deployment view: every environment of the same scope
+    but the open one, each drawn as a dashed node naming what runs there. Opening a door
+    switches the view to that environment, as its tab in the environment tab list does.
+
+    Dashed, because the C4 notation draws what is not in this picture that way, and
+    the deployment legend under the diagram says so.
+*@
+
+@if (Doors.Count > 0)
+{
+    <ul class="c4-deployment-doors" aria-label="Other environments" data-testid="@TestId">
+        @foreach (var door in Doors)
+        {
+            <li class="c4-deployment-doors__item" @key="door.ViewKey">
+                <AppButton BaseClass="c4-deployment-doors__door"
+                           Variant="ButtonVariant.None"
+                           data-environment="@door.Name"
+                           TestId="c4-deployment-door"
+                           OnClick="() => OnOpen.InvokeAsync(door)">
+                    <span class="c4-deployment-doors__environment">@door.Name · other environment</span>
+                    @if (door.Runs.Count > 0)
+                    {
+                        <span class="c4-deployment-doors__runs" data-testid="c4-deployment-door-runs">@string.Join(", ", door.Runs)</span>
+                    }
+                    <span class="c4-deployment-doors__open">Open the @door.Name view</span>
+                </AppButton>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    /// <summary>The other environments: every one <see cref="C4ZoomDeployment.Environments"/> lists but the current one.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<C4DeploymentEnvironment> Doors { get; set; } = [];
+
+    /// <summary>A door was opened.</summary>
+    [Parameter]
+    public EventCallback<C4DeploymentEnvironment> OnOpen { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-deployment-doors";
+}
