@@ -41,7 +41,7 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    - with the connector: `read_item` for the entry's status — `done`/`archived` is done,
      `in-progress` means look for its pull request: `gh pr list --state merged --search
      "<id>" --json number,baseRefName`, keeping one merged into the default branch or a
-     `plan/` branch that `find_item` (`externalId` the number, `repoId` the repository)
+     plan integration branch (`../close-merged/SKILL.md`) that `find_item` (`externalId` the number, `repoId` the repository)
      resolves to this very entry — a sibling's pull request names the same tag. One found is
      the entry done, so `transition` it to Done and stop; none → look for the partial work below;
    - without it: `git fetch`, then search commits, branches and pull requests (open and
@@ -88,7 +88,7 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
      landed but still reads open — the person ticks those by hand.
    The entry stays In progress while its pull request is open. When the person merges it
    while this session is open, or `gh pr view` reports it merged into the default branch or
-   its plan's `plan/<slug>` branch, `transition` it to Done; any later merge is caught by a re-paste (step 3) or by
+   its plan's integration branch, `transition` it to Done; any later merge is caught by a re-paste (step 3) or by
    `../close-merged/SKILL.md`.
    The run itself — `record_prompt` with the pasted entry, `set_run_context` with the
    approval, the pull request URL in the Create Pull Request stage's `links` — follows the
@@ -99,4 +99,4 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
 - Run a `task`, `test` or `plan` entry, or open a pull request, unasked; mark an entry done
-  before its pull request has merged into the default branch or a `plan/` branch.
+  before its pull request has merged into the default branch or a plan integration branch.
