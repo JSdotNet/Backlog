@@ -148,7 +148,10 @@ public class ArchifyRendersAreNotCommittedTests
             .Where(row => row.GetProperty("state").GetString() == "rendered")
             .ToList();
 
-        Assert.NotEmpty(rendered);
+        // Every diagram may be stale at once: that is a fence edited after its specification
+        // was rendered, which verify reports and a missing render cannot cause. So nothing here
+        // asks for one rendered row, only that the scan found the diagrams.
+        Assert.True(rows.RootElement.GetArrayLength() > 0, "archify-artifacts.mjs scan found no diagrams.");
 
         foreach (var row in rendered)
         {
