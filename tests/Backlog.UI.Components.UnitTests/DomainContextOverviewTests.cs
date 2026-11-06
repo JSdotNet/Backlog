@@ -172,18 +172,55 @@ public sealed class DomainContextOverviewTests
         var overview = DomainContextOverview.Read(Context, [Domain, Requirements, Invariants]);
 
         Assert.Equal(
-            [("draft", 4), ("proposed", 1), ("active", 1), ("deprecated", 1)],
+            [("draft", 4), ("proposed", 1), ("deprecated", 1)],
             overview.Statuses.Select(status => (status.Status, status.Count)));
     }
 
     [Fact]
-    public void A_chapter_that_leaves_out_its_status_rests_at_active()
+    public void A_chapter_that_leaves_out_its_status_rests_at_active_and_is_not_counted_as_settled()
     {
         var overview = DomainContextOverview.Read(Context, []);
 
         Assert.Equal("active", overview.Switches[0].Status);
-        Assert.Contains(overview.Statuses, status => status is { Status: "active", Count: 1 });
-        Assert.DoesNotContain(overview.Statuses, status => status.Status == "none");
+        Assert.DoesNotContain(overview.Statuses, status => status.Status is "active" or "none");
+    }
+
+    /// <summary>Devbook contract 38 takes the status out of every domain chapter:
+    /// such a devbook states none, so How settled has nothing to count, and a
+    /// `rating` is read where a block still carries one, as the devbook reader does.</summary>
+    [Fact]
+    public void How_settled_counts_only_chapters_that_state_a_rating_or_a_status()
+    {
+        const string past38 = """
+            # Tasks
+
+            ```meta
+            type: context
+            ```
+
+            ## Task
+
+            ```meta
+            type: aggregate
+            ```
+
+            A task.
+            """;
+        const string rated = """
+            # Tasks
+
+            ## Task
+
+            ```meta
+            type: aggregate
+            rating: proposed
+            ```
+
+            A task.
+            """;
+
+        Assert.Empty(DomainContextOverview.Read(past38, [past38]).Statuses);
+        Assert.Equal([("proposed", 1)], DomainContextOverview.Read(past38, [rated]).Statuses.Select(status => (status.Status, status.Count)));
     }
 
     [Fact]

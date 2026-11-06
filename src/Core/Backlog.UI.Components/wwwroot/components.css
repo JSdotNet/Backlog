@@ -22851,6 +22851,22 @@ select.field__input {
     font-size: 2rem;
 }
 
+/* A unit's own flows on its Domain page, below its About card: the
+   lifecycles and processes its chapter opens with (devbook contract 37). */
+.domain-flows--in-unit {
+    margin-top: var(--spacing-xl);
+}
+
+.domain-flows--in-unit .domain-flows__title {
+    font-size: var(--font-size-lg);
+}
+
+/* The chapter inside the unit a diagram sits in, beside its title. */
+.domain-flows__in {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+}
+
 .domain-flows__lead {
     max-width: 56rem;
     color: var(--color-text-secondary);

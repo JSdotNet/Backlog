@@ -211,7 +211,7 @@ public static partial class DomainRequirements
             key,
             DomainUnits.RequirementTitle(chapter.Title),
             DomainUnits.Normalize(file.ReferenceTo(chapter)),
-            chapter.Field("status"),
+            chapter.Status,
             shall,
             rest,
             chapter.ListField("tests"),

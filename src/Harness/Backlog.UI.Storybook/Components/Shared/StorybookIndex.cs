@@ -383,7 +383,7 @@ internal static class StorybookIndex
             // The Domain view's Flow page (local ADR 0047): a lifecycle drawn as one
             // row of states, flowcharts and sequences in the same style; a diagram
             // none of them reads keeps DiagramView's rendering.
-            new("devbook/domain-flows", "Domain flows", "DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
+            new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycle a domain chapter opens with, drawn below its unit's About card, and a legacy `flow.md`, whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
 
             // The board atop a context's page, then the page that holds it
             // above its Overview (local ADR 0047).

@@ -3,7 +3,7 @@
 <PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain flows"
-           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0047). The first chapter titles the page, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A chapter of untyped sub-chapters reads as cards. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
+           Summary="A subpage of Devbook: the drawings of the Domain view (local ADR 0047). Past devbook contract 37 each lifecycle and process opens the chapter it draws, so a unit's Domain page draws them below its About card; the Flow page reads a legacy `flow.md`. The first chapter titles the page, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A chapter of untyped sub-chapters reads as cards. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
            Guidelines="@Rules">
 
     <Story Name="Lifecycle row"
@@ -12,6 +12,14 @@
            Source="@TaskLifecycle"
            SourceLanguage="text">
         <DomainFlowRow Diagram="@TaskDiagram" AriaLabel="Task lifecycle" />
+    </Story>
+
+    <Story Name="Figures with their legend"
+           Description="What every flow draws above its figures: a legend naming only what the drawing holds — forward, back, and an event documented but not yet emitted — then the figure itself. The Flow page and a unit's flows both draw through it."
+           Code="@FiguresCode"
+           Source="@TaskLifecycle"
+           SourceLanguage="text">
+        <DomainFlowFigures Diagrams="@([TaskDiagram])" Title="Task lifecycle" DocumentPath=".devbook/domain/tasks/domain.md" />
     </Story>
 
     <Story Name="Start, end and self loops"
@@ -44,6 +52,13 @@
            Source="@IntakeSequence"
            SourceLanguage="text">
         <DomainSequence Diagram="@IntakeDiagram" AriaLabel="Capture intake" />
+    </Story>
+
+    <Story Name="In its chapter"
+           Description="Where devbook contract 37 puts a flow: under the chapter's meta block, headed by a bold line. A unit's Domain page draws its lifecycle below the About card, titled by that line with the words before the fence as its lead, and a member's derivation beside it, naming the member. No diagram is left to Mermaid."
+           Code="@InChapterCode"
+           Source="@InChapterFile">
+        <DomainChapterFlows Unit="@InChapter.Chapters[0]" DocumentPath="@InChapter.Path" TestId="story-domain-flows-in-chapter" />
     </Story>
 
     <Story Name="Flow page"
@@ -334,6 +349,65 @@
 
     private const string RowCode = """
         <DomainFlowRow Diagram="@DomainFlows.Parse(mermaidSource)" AriaLabel="Task lifecycle" />
+        """;
+
+    private static readonly DomainChapterFile InChapter = DomainUnits.Parse(InChapterFile, ".devbook/domain/tasks/domain.md");
+
+    private const string InChapterFile = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        **Task lifecycle**
+
+        Five recorded states. The tick, readiness and the start date sit beside the status;
+        they are not states.
+
+        ```mermaid
+        stateDiagram-v2
+            state "In progress" as InProgress
+            [*] --> Draft : created
+            Draft --> Ready : refined
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+            InProgress --> Done : finished (TaskCompleted, not yet emitted)
+            Done --> Archived : archived
+            Archived --> Draft : restored
+            Ready --> Draft : revise
+            InProgress --> Ready : paused
+            Done --> InProgress : reopened
+        ```
+
+        A refined, actionable item in the personal backlog.
+
+        ### Readiness
+
+        ```meta
+        type: value-object
+        ```
+
+        **Readiness derivation**
+
+        ```mermaid
+        flowchart TD
+            A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
+            A -->|no| B{"does every id in depends_on resolve to a completed task?"}
+            B -->|yes| R["Readiness: ready"]
+            B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
+        ```
+
+        Whether a task can be worked on now, derived on every read.
+        """;
+
+    private const string InChapterCode = """
+        <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@file.Path" OnNavigate="OpenAsync" />
+        """;
+
+    private const string FiguresCode = """
+        <DomainFlowFigures Diagrams="@([DomainFlows.Figure(mermaidSource)!])" Title="Task lifecycle" DocumentPath="@path" />
         """;
 
     private const string PageCode = """

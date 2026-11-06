@@ -10,7 +10,8 @@
     bar: the menu row was the picking.
 
     What a unit shows is the unit's kind. An aggregate opens on About with Always
-    true beside it, its rules read from the invariants file beside the page; a
+    true beside it, and About and a domain service's page draw each lifecycle
+    and process the chapter opens with (DomainChapterFlows, devbook contract 37), its rules read from the invariants file beside the page; a
     domain service is one page; Glossary is its terms; a shared grouping with rules
     — Shared Value Objects, Shared Enums — is its Always true alone. Nothing
     here names a field type, an invocation detail or an event payload — those are
@@ -447,6 +448,7 @@
                                                   RulesOf="@(member => RulesAbout(unit, member))"
                                                   OnOpenRule="OpenRuleAsync"
                                                   HeroFooter="@Notes(unit)" />
+                            <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
                         </TabPanel>
                         <TabPanel Id="@AlwaysTrueId(unit)" Title="@AlwaysTrueTitle(unit)" TabTestId="domain-unit-always-true-tab">
                             <h2 class="domain-unit__title domain-unit__title--page" data-testid="domain-unit-title">@unit.Label · always true</h2>
@@ -469,6 +471,7 @@
                                         Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events")"
                                         HeroFooter="@Notes(unit)"
                                         OnNavigate="NavigateAsync" />
+                    <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
                     break;
                 default:
                     <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>

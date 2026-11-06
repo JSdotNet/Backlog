@@ -250,10 +250,24 @@ public sealed class DomainContextViewTests
         Assert.Equal(
             Board().Statuses.Select(status => status.Status),
             view.FindAll("[data-testid='domain-context-page-settled-part']").Select(part => part.GetAttribute("data-status")));
-        Assert.Single(view.FindAll("[data-testid='domain-context-page-settled-note']"));
+        // Only a chapter that states a status counts, and none of these states the resting one.
+        Assert.Empty(view.FindAll("[data-testid='domain-context-page-settled-note']"));
         Assert.Equal(
             Board().Statuses.Count,
             view.FindAll("[data-testid='domain-context-page-status']").Count);
+    }
+
+    /// <summary>Past devbook contract 38 a domain chapter states no status, so the
+    /// page draws no How settled bar rather than one that reads all active.</summary>
+    [Fact]
+    public void How_settled_is_left_out_when_no_chapter_states_a_status()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board() with { Statuses = [] }));
+
+        Assert.Empty(view.FindAll("[data-testid='domain-context-page-settled']"));
+        Assert.DoesNotContain("How settled", view.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

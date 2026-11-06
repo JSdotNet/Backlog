@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -239,43 +241,144 @@ public sealed class DomainFlowFiguresTests
         Assert.Contains("ticked off (completed)? to Readiness: done: yes", items);
     }
 
-    /// <summary>Every Mermaid diagram the repository's own flow files hold is drawn
-    /// by the page: a state row, a flowchart or a sequence, none left to Mermaid,
-    /// and no two cards of a drawing overlap.</summary>
+    /// <summary>Every Mermaid diagram the repository's own domain files hold — where
+    /// devbook contract 37 moved each lifecycle and process a flow.md drew — is
+    /// drawn on its unit's Domain page: a state row, a flowchart or a sequence,
+    /// none left to Mermaid, and no two cards of a drawing overlap.</summary>
     [Fact]
-    public void Every_diagram_in_the_repository_flow_files_is_drawn_in_the_lifecycle_style()
+    public void Every_diagram_in_the_repository_domain_files_is_drawn_in_the_lifecycle_style()
     {
         var domain = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "domain");
-        var files = Directory.EnumerateFiles(domain, "flow*.md", SearchOption.AllDirectories).ToList();
+        var files = Directory.EnumerateFiles(domain, "domain*.md", SearchOption.AllDirectories)
+            .Where(file => !file.EndsWith(".invariants.md", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         Assert.NotEmpty(files);
+        Assert.Empty(Directory.EnumerateFiles(domain, "flow*.md", SearchOption.AllDirectories));
 
         var kinds = new HashSet<string>();
         foreach (var file in files)
         {
-            var parsed = DomainUnits.Parse(File.ReadAllText(file), Path.GetRelativePath(RepositoryRoot.Root.FullName, file).Replace('\\', '/'));
-            foreach (var section in parsed.AllChapters().Select(DomainFlows.Section))
+            var text = File.ReadAllText(file);
+            var parsed = DomainUnits.Parse(text, Path.GetRelativePath(RepositoryRoot.Root.FullName, file).Replace('\\', '/'));
+            var flows = parsed.Chapters.SelectMany(DomainFlows.InChapter).ToList();
+            Assert.True(
+                Regex.Matches(text, @"^\s*```mermaid", RegexOptions.Multiline).Count == flows.Count,
+                $"{file}: every mermaid fence is a drawn flow");
+            foreach (var flow in flows)
             {
-                Assert.DoesNotContain("```mermaid", section.Prose);
-                foreach (var figure in section.Diagrams)
+                kinds.Add(flow.Figure.GetType().Name);
+                switch (flow.Figure)
                 {
-                    kinds.Add(figure.GetType().Name);
-                    switch (figure)
-                    {
-                        case DomainFlowchartDiagram chart:
-                            AssertNoOverlap(DomainFlowcharts.Layout(chart).Boxes.Select(box => (box.X, box.Y, box.Width, box.Height)), $"{file} › {section.Chapter.Title}");
-                            break;
-                        case DomainSequenceDiagram sequence:
-                            AssertNoOverlap(DomainSequences.Layout(sequence).Columns.Select(column => (column.X, column.Y, column.Width, column.Height)), $"{file} › {section.Chapter.Title}");
-                            break;
-                        case DomainFlowDiagram row:
-                            Assert.NotEmpty(DomainFlows.Layout(row).Boxes);
-                            break;
-                    }
+                    case DomainFlowchartDiagram chart:
+                        AssertNoOverlap(DomainFlowcharts.Layout(chart).Boxes.Select(box => (box.X, box.Y, box.Width, box.Height)), $"{file} › {flow.Title}");
+                        break;
+                    case DomainSequenceDiagram sequence:
+                        AssertNoOverlap(DomainSequences.Layout(sequence).Columns.Select(column => (column.X, column.Y, column.Width, column.Height)), $"{file} › {flow.Title}");
+                        break;
+                    case DomainFlowDiagram row:
+                        Assert.NotEmpty(DomainFlows.Layout(row).Boxes);
+                        break;
                 }
             }
         }
 
         Assert.Equal(["DomainFlowDiagram", "DomainFlowchartDiagram", "DomainSequenceDiagram"], kinds.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A diagram that opens a chapter, as contract 37 places it, is read
+    /// with the bold line above it as its title and the words between as its lead;
+    /// a typed chapter inside the unit brings its own, and a fence the page cannot
+    /// draw is no flow.</summary>
+    [Fact]
+    public void A_chapter_opens_with_its_flows_titled_by_their_bold_line()
+    {
+        var file = DomainUnits.Parse("""
+            # Tasks
+
+            ## Task
+
+            ```meta
+            type: aggregate
+            ```
+
+            **Task lifecycle**
+
+            Five recorded states.
+
+            ```mermaid
+            stateDiagram-v2
+                [*] --> Draft
+                Draft --> Done : finished
+            ```
+
+            - A note on the lifecycle.
+
+            A task is a refined item.
+
+            ```mermaid
+            classDiagram
+                class Task
+            ```
+
+            ### Readiness
+
+            ```meta
+            type: value-object
+            ```
+
+            **Readiness derivation**
+
+            ```mermaid
+            flowchart TD
+                A["ticked?"] -->|yes| D["done"]
+            ```
+
+            Derived on read.
+            """, ".devbook/domain/tasks/domain.md");
+
+        var task = file.Chapters[0];
+        var flows = DomainFlows.InChapter(task);
+
+        Assert.Collection(flows,
+            lifecycle =>
+            {
+                Assert.Equal("Task lifecycle", lifecycle.Title);
+                Assert.Equal("Five recorded states.", lifecycle.Lead);
+                Assert.IsType<DomainFlowDiagram>(lifecycle.Figure);
+                Assert.Same(task, lifecycle.Chapter);
+            },
+            readiness =>
+            {
+                Assert.Equal("Readiness derivation", readiness.Title);
+                Assert.Equal(string.Empty, readiness.Lead);
+                Assert.IsType<DomainFlowchartDiagram>(readiness.Figure);
+                Assert.Equal("Readiness", readiness.Chapter.Title);
+            });
+    }
+
+    /// <summary>A diagram with no bold line above it takes its chapter's heading.</summary>
+    [Fact]
+    public void A_flow_with_no_bold_line_is_titled_by_its_chapter()
+    {
+        var file = DomainUnits.Parse("""
+            # Progress
+
+            ## Impediment State
+
+            ```meta
+            type: enum
+            ```
+
+            ```mermaid
+            stateDiagram-v2
+                [*] --> Open
+                Open --> Resolved : resolved
+            ```
+            """, ".devbook/domain/progress/domain.md");
+
+        var flow = Assert.Single(DomainFlows.InChapter(file.Chapters[0]));
+        Assert.Equal("Impediment State", flow.Title);
+        Assert.Equal(string.Empty, flow.Lead);
     }
 
     private static void AssertNoOverlap(IEnumerable<(double X, double Y, double Width, double Height)> boxes, string? where = null)

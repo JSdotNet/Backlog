@@ -247,4 +247,101 @@ public sealed class DomainUnitPageTests
 
         Assert.NotNull(page.Find("[data-testid='domain-units-empty']"));
     }
+
+    private const string WithLifecycle = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        **Task lifecycle**
+
+        Five recorded states.
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> Draft
+            Draft --> Ready : refined
+            Ready --> Done : finished (TaskCompleted, not yet emitted)
+        ```
+
+        A refined, actionable item.
+
+        ### Readiness
+
+        ```meta
+        type: value-object
+        ```
+
+        **Readiness derivation**
+
+        ```mermaid
+        flowchart TD
+            A{"ticked?"} -->|yes| D["done"]
+            A -->|no| R["ready"]
+        ```
+
+        Derived on read.
+
+        ## Occurrence Spawning
+
+        ```meta
+        type: domain-service
+        ```
+
+        **Recurring task occurrences**
+
+        ```mermaid
+        flowchart TD
+            A["ticked"] --> B["next occurrence"]
+        ```
+
+        Spawns the next occurrence.
+        """;
+
+    /// <summary>Devbook contract 37 opens a chapter with the diagrams it draws, so
+    /// About draws the aggregate's lifecycle and a member's derivation in the
+    /// lifecycle's style, never as Mermaid, below the summary card.</summary>
+    [Fact]
+    public void About_draws_the_lifecycle_and_the_members_flows_the_chapter_opens_with()
+    {
+        using var context = new BunitContext();
+        var page = Render(context, DomainUnits.Parse(WithLifecycle, DomainUnitsTests.DomainPath));
+
+        var flows = page.Find("[data-testid='domain-unit-flows']");
+        Assert.Equal(
+            ["Task lifecycle", "Readiness derivation · Readiness"],
+            flows.QuerySelectorAll("[data-testid='domain-flow-title']").Select(title => string.Join(' ', title.TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))));
+        Assert.Equal("Five recorded states.", flows.QuerySelector("[data-testid='domain-flow-lead']")!.TextContent.Trim());
+        Assert.NotNull(flows.QuerySelector("[data-testid='domain-flow-legend']"));
+        Assert.Equal(1, flows.QuerySelectorAll("[data-testid='domain-flow-row']").Length);
+        Assert.Equal(1, flows.QuerySelectorAll("[data-testid='domain-flowchart']").Length);
+        Assert.DoesNotContain("mermaid", page.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A domain service's page draws the process its chapter opens with.</summary>
+    [Fact]
+    public void A_service_page_draws_the_process_its_chapter_opens_with()
+    {
+        using var context = new BunitContext();
+        var page = Render(context, DomainUnits.Parse(WithLifecycle, DomainUnitsTests.DomainPath));
+
+        page.Find("[data-testid='domain-unit-tab-occurrence-spawning']").Click();
+
+        var flows = page.Find("[data-unit='occurrence-spawning'] [data-testid='domain-unit-flows']");
+        Assert.Equal("Recurring task occurrences", flows.QuerySelector("[data-testid='domain-flow-title']")!.TextContent.Trim());
+        Assert.Equal(1, flows.QuerySelectorAll("[data-testid='domain-flowchart']").Length);
+    }
+
+    /// <summary>A unit whose chapter draws nothing shows no flow section.</summary>
+    [Fact]
+    public void A_unit_that_draws_nothing_has_no_flow_section()
+    {
+        using var context = new BunitContext();
+
+        Assert.Empty(Render(context, Unsplit).FindAll("[data-testid='domain-unit-flows']"));
+    }
 }

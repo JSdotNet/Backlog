@@ -128,7 +128,7 @@ public static partial class DomainChapterContracts
                 chapter.Title,
                 $"{source.Path}#{Slug(chapter.Title)}",
                 type.Trim().ToLowerInvariant(),
-                meta.TryGetValue("status", out var status) ? status.Trim() : "draft",
+                (meta.GetValueOrDefault("rating") ?? meta.GetValueOrDefault("status"))?.Trim() is { Length: > 0 } status ? status : "draft",
                 meta.TryGetValue("related", out var related) ? List(related) : [],
                 string.Join('\n', own).Trim(),
                 subchapters,

@@ -151,7 +151,7 @@ public static class DomainFeatures
                 key,
                 chapter.Title,
                 reference,
-                chapter.Field("status"),
+                chapter.Status,
                 chapter.Summary,
                 [.. chapter.Descendants().Where(child => child.Type == "sub-feature").Select(child => new DomainNamedChapter(child.Title, page.ReferenceTo(child), Known: true))],
                 Gate(chapter, page.Path, index),

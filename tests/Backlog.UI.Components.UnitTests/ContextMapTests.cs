@@ -444,7 +444,7 @@ public sealed class ContextMapTests
              "The devbook database of each registered repository, read through Devbook's reader (local ADR 0015)",
              "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
              "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
-             "The lookup from a session id or a pull request to its task, ITaskLookup in Backlog.Modules.Tasks.Abstractions (local ADR 0042 §9)",
+             "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
              "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);

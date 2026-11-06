@@ -89,7 +89,8 @@ public sealed record DomainContextSwitch(string Title, bool IsSetting, string? K
 /// reader meets the kinds.</param>
 /// <param name="Provable">The requirement and invariant chapters.</param>
 /// <param name="Proved">Those of them whose block names a <c>tests</c> entry.</param>
-/// <param name="Statuses">The chapters per <c>status</c>, least settled first.</param>
+/// <param name="Statuses">The chapters per <c>rating</c> or <c>status</c>, least settled
+/// first, counting only those that state one: empty for a devbook past contract 38.</param>
 /// <param name="Switches">The <c>feature-flag</c> and <c>setting</c> chapters of
 /// <c>context.md</c>, in file order.</param>
 public sealed partial record DomainContextOverview(
@@ -227,7 +228,10 @@ public sealed partial record DomainContextOverview(
             .Where(pair => pair.chapters.Any(chapter => Is(chapter, "requirement")))
             .Sum(pair => ScenarioCount(pair.file.Text));
 
-        var settled = chapters.Where(chapter => chapter.Type is { } type && Settled.Contains(type)).ToList();
+        // Only a chapter that states a rating or a status counts: since devbook
+        // contract 38 a domain chapter carries no workflow state, so a devbook past
+        // it states none and the figure is left out rather than reading all active.
+        var settled = chapters.Where(chapter => chapter.Type is { } type && Settled.Contains(type) && !string.IsNullOrWhiteSpace(chapter.Meta.Rating)).ToList();
         IReadOnlyList<DomainStatusCount> statuses =
         [
             .. settled
@@ -547,9 +551,9 @@ public sealed partial record DomainContextOverview(
 
         /// <summary>The block's status, or the domain folder's resting value when
         /// it leaves the field out (<see cref="DevbookSchema.RestsByOmission"/>).</summary>
-        public string Status => string.IsNullOrWhiteSpace(Meta.Status)
+        public string Status => string.IsNullOrWhiteSpace(Meta.Rating)
             ? DevbookSchema.RestingStatus
-            : Meta.Status.Trim().ToLowerInvariant();
+            : Meta.Rating.Trim().ToLowerInvariant();
     }
 
     private static IEnumerable<MetaChapter> MetaChapters(string markdown, string path)

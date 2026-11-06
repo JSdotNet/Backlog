@@ -161,6 +161,15 @@ public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<Doma
     public IReadOnlyList<DomainFlowCard> Cards { get; init; } = [];
 }
 
+/// <summary>A diagram a domain chapter opens with, as devbook contract 37 places a
+/// lifecycle or a process: under the chapter's <c>meta</c> block, headed by a bold
+/// line naming it, ahead of the prose.</summary>
+/// <param name="Title">The bold line's words, else the chapter's heading.</param>
+/// <param name="Lead">The markdown between the bold line and the fence.</param>
+/// <param name="Chapter">The chapter the diagram sits in: the unit's own, or a
+/// member's inside it.</param>
+public sealed record DomainChapterFlow(string Title, string Lead, DomainFlowFigure Figure, DomainChapter Chapter);
+
 /// <summary>
 /// Reads a flow's <c>stateDiagram-v2</c> into one row of states and lays it out
 /// (local ADR 0047, the Flow page): each state a box with its description, the
@@ -261,6 +270,62 @@ public static partial class DomainFlows
         }
 
         return new DomainFlowSection(chapter, diagrams, prose.ToString().Trim()) { Lead = lead };
+    }
+
+    /// <summary>
+    /// The diagrams a unit's chapter draws, where devbook contract 37 puts every
+    /// lifecycle and process that used to sit on a <c>flow.md</c>: in the chapter
+    /// itself and in each typed chapter inside it, in source order. Each is titled
+    /// by the bold line above its fence — <c>**Task lifecycle**</c> — or by its
+    /// chapter's heading, with the markdown between the two as its lead. Only the
+    /// diagrams the Flow page draws itself are read — a state row, a flowchart, a
+    /// sequence — so none is left to Mermaid; a fence none of them reads is not
+    /// one of these.
+    /// </summary>
+    public static IReadOnlyList<DomainChapterFlow> InChapter(DomainChapter chapter)
+    {
+        var flows = new List<DomainChapterFlow>();
+        foreach (var each in chapter.Descendants().Where(child => child.Type is not null).Prepend(chapter))
+        {
+            var lines = each.Prose.Split('\n');
+            string? title = null;
+            var lead = new StringBuilder();
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var trimmed = lines[i].Trim();
+                if (trimmed.StartsWith("```", StringComparison.Ordinal))
+                {
+                    var end = i + 1;
+                    while (end < lines.Length && !lines[end].Trim().StartsWith("```", StringComparison.Ordinal)) end++;
+                    if (string.Equals(trimmed[3..].Trim(), "mermaid", StringComparison.OrdinalIgnoreCase)
+                        && Figure(string.Join('\n', lines[(i + 1)..Math.Min(end, lines.Length)])) is { } figure)
+                    {
+                        flows.Add(new DomainChapterFlow(title ?? each.Title, title is null ? string.Empty : lead.ToString().Trim(), figure, each));
+                    }
+                    (title, i) = (null, end);
+                    lead.Clear();
+                    continue;
+                }
+
+                if (BoldLine().Match(trimmed) is { Success: true } bold)
+                {
+                    title = bold.Groups[1].Value.Trim().TrimEnd('.', ':').Trim();
+                    lead.Clear();
+                }
+                else if (SubHeading().IsMatch(lines[i]))
+                {
+                    // An untyped sub-chapter's heading starts new prose: a bold line
+                    // above it titles nothing below it.
+                    title = null;
+                    lead.Clear();
+                }
+                else if (title is not null)
+                {
+                    lead.Append(lines[i]).Append('\n');
+                }
+            }
+        }
+        return flows;
     }
 
     /// <summary>A sub-chapter read as a card: a first paragraph of nothing but code
@@ -852,6 +917,10 @@ public static partial class DomainFlows
 
     [GeneratedRegex(@"^#{3,}\s")]
     private static partial Regex SubHeading();
+
+    /// <summary>A paragraph that is one bold run: <c>**Task lifecycle**</c>.</summary>
+    [GeneratedRegex(@"^\*\*([^*]+)\*\*$")]
+    private static partial Regex BoldLine();
 
     [GeneratedRegex(@"^(?:`[^`]+`|_[^_]+_|\*[^*]+\*)(?:\s*·\s*(?:`[^`]+`|_[^_]+_|\*[^*]+\*))*$")]
     private static partial Regex CardTag();

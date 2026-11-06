@@ -195,8 +195,9 @@ file opens on its one aggregate, and an aggregate reads as **About** beside
 **Always true**, its rules read from the invariants file beside the page; see
 [Domain view by unit](features.md#domain-view-by-unit).
 
-Flow draws each lifecycle as one row of states, and the Domain page's Glossary
-lists the context's terms and model chapters A to Z.
+The Domain page draws each lifecycle and process a unit's chapter opens with in
+the lifecycle's own style, a legacy `flow.md` keeps its Flow row, and the Domain
+page's Glossary lists the context's terms and model chapters A to Z.
 
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.

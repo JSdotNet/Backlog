@@ -7,7 +7,9 @@
     context's subdomain, deployment and status, its name and the lead of its
     boundary, the From your Brain box, the boundary as an Inside and an Outside
     card, what its files hold as tiles in their kind's tone, how well it is proved
-    as a Requirements and an Invariants card, how settled it is as one stacked bar,
+    as a Requirements and an Invariants card, how settled it is as one stacked bar
+    (only where its chapters still state a rating or a status, which a devbook
+    past contract 38 does not),
     its switches with what each gates, and its pages, each with the question it
     answers. Every word is the chapters' except the headings and the lens
     questions, which are the page's own.
@@ -159,14 +161,12 @@
             }
         </section>
 
+        @* Only a devbook whose chapters still state a rating or a status draws the
+           bar: past devbook contract 38 a domain chapter carries no workflow state. *@
+        @if (Overview.Statuses.Count > 0)
+        {
         <section class="domain-context-page__section" data-testid="domain-context-page-settled" aria-labelledby="@($"{_id}-settled")">
             <h3 class="domain-context-page__heading" id="@($"{_id}-settled")">How settled</h3>
-            @if (Overview.Statuses.Count == 0)
-            {
-                <p class="domain-context-page__none">No chapter states a status.</p>
-            }
-            else
-            {
                 <div class="domain-context-page__settled">
                     <div class="domain-context-page__bar" role="img" aria-label="@SettledLabel" data-testid="domain-context-page-settled-bar">
                         @foreach (var status in Overview.Statuses)
@@ -191,8 +191,8 @@
                         }
                     </ul>
                 </div>
-            }
         </section>
+        }
 
         <section class="domain-context-page__section" data-testid="domain-context-page-switches" aria-labelledby="@($"{_id}-switches")">
             <h3 class="domain-context-page__heading" id="@($"{_id}-switches")">Switches</h3>

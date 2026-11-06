@@ -659,7 +659,7 @@ field types reads Model.
 | Features | `features.md` | The features and their sub-features |
 | Requirements | `requirements.md` | Each requirement and its scenarios |
 | Model | `model.md` | **Diagram**, **Fields** and **Events** |
-| Flow | `flow.md` | The context's lifecycles |
+| Flow | A legacy `flow.md` | Its lifecycles, for a devbook from before devbook contract 37 |
 
 The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of
@@ -691,7 +691,8 @@ status. The *Inside the boundary:* paragraph becomes the Inside card. The
 *Outside it:* paragraph becomes the Outside card, one question per clause, each
 linked to the contexts its sentence says answer it. Tiles count the domain and
 feature chapters; two cards say how many requirements and invariants name a
-test; one bar shows how settled the chapters are; the switches table links the
+test; where the chapters still state a rating or a status, one bar shows how
+settled they are; the switches table links the
 features each switch gates. The page's own words are its section headings, the
 two card labels, the line under Switches, the note under How settled, and the question beside each page it
 offers; every other word is a chapter's.
@@ -736,12 +737,15 @@ led by a filled square and each domain service by an outlined one; a split
 `domain.<name>.md` opens on its one aggregate. An aggregate's **About** is a
 summary of its chapter, not its prose. A card at the top holds the kind and
 status, the heading, the chapter's first sentence, a tile per group of its rules,
-and links to **Always true**, the lifecycle on Flow and the Glossary. Below it
+and links to **Always true** and the Glossary. Below it
 sit a card per entity or value object it owns, with its first sentence and how
 many rules are about it, a count that opens them on the card, its enums as rows
 of values read as words, and the
 events it raises with who hears them. A summary that closes on a list of fields
-reads as far as the colon, so no field shows.
+reads as far as the colon, so no field shows. Below them About draws each
+lifecycle and process the aggregate's chapter opens with, and those of the
+typed chapters inside it, as [Flows draw in their chapter](#domain-view-by-unit)
+says.
 **Always true** sits beside it, read from the invariants file beside the page
 (`domain.invariants.md`, or `domain.<name>.invariants.md` beside a split). Each
 rule reads as its heading, marked ✓ when its chapter names a test, ○ when it
@@ -759,7 +763,8 @@ Objects** or **Shared Enums** unit in its chapter bar. A domain service's page i
 heading and first sentence, the requirements it is held to under **You can count
 on**, each opening on Requirements, what is always true of the units its
 `related` names, links to its promises, the aggregate it names
-and how it runs on Model, and the events it raises. The rest of its prose says how
+and how it runs on Model, the events it raises, and the processes its chapter
+opens with. The rest of its prose says how
 it is invoked, which is Model's. A unit's events are the domain-event
 chapters whose `related` names it, and a service's requirements are those whose
 `related` names it or that its own `related` names.
@@ -778,12 +783,24 @@ sentence and where it is enforced, and a link to its row on its unit's Always
 true tab, which opens with the row marked and focused. A list shows three rules
 and the rest behind *n more*, or all four when there are four.
 
-**Flow draws each lifecycle as one row.** A `stateDiagram-v2` in a flow file is
-drawn as one row of states. The forward transitions run above the row, the ways
-back run below it, and the way from the last state back to the first loops round
-the outside. The chapter's prose follows the row. Every other Mermaid diagram in
-the file renders as it does elsewhere, and so does a state diagram the row cannot
-hold, such as one with composite states.
+**Flows draw in their chapter.** Since devbook contract 37 a context has no flow
+page: each lifecycle and process opens the chapter it draws, under its `meta`
+block and a bold line naming it. The Domain page draws every such diagram of a
+unit below its About card or its service summary, titled by that line, with the
+words before the fence as its lead and the chapter inside the unit named beside
+it. A `stateDiagram-v2` is drawn as one row of states. The forward transitions
+run above the row, the ways back run below it, and the way from the last state
+back to the first loops round the outside. A flowchart and a sequence are drawn
+in the same cards, lines and type, so no diagram of a domain file is left to
+Mermaid. A devbook that still has a `flow.md` keeps its **Flow** row, which
+draws the file chapter by chapter the same way, the chapter's prose after its
+drawing; there a Mermaid diagram none of the three can read, such as a class
+diagram or a state diagram with composite states, renders as it does elsewhere.
+
+**No workflow state is read from a chapter.** Contract 38 took `status` out of
+every domain chapter, so the view reads a block's `rating`, else its `status`,
+as the devbook reader does. Past 38 no kicker, card or Glossary row shows a
+status, and the Overview draws no How settled bar.
 
 **The Glossary is the context's words, A to Z.** The chapter bar's Glossary
 lists every term under `## Ubiquitous Language` and every model chapter of the

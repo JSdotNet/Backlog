@@ -1,7 +1,10 @@
 @*
-    The Flow page of the Domain view (local ADR 0047): a context's flow.md, one
-    section per chapter. The first chapter is the page's title, as a lifecycle
-    page leads with its lifecycle. A chapter's markdown before its first diagram
+    The Flow page of the Domain view (local ADR 0047): a context's legacy flow.md,
+    one section per chapter. Past devbook contract 37 a context has no flow page:
+    each diagram opens the chapter it draws and shows on its unit's Domain page
+    (DomainChapterFlows); this page stays for a devbook that still has one. The
+    first chapter is the page's title, as a lifecycle page leads with its
+    lifecycle. A chapter's markdown before its first diagram
     is its lead, and a state row gets a legend under it. Each diagram the page can
     read is drawn in the lifecycle's cards, lines and type, with the rest of the
     chapter's prose beneath it: a stateDiagram-v2 as one row of states
@@ -32,7 +35,6 @@
         @for (var i = 0; i < _sections.Count; i++)
         {
             var section = _sections[i];
-            var rows = section.Diagrams.OfType<DomainFlowDiagram>().ToList();
             @* Keyed by place: two headings of one text share an anchor. *@
             <section @key="i"
                      class="domain-flows__section"
@@ -47,42 +49,7 @@
                         @Markdown(section.Lead)
                     </div>
                 }
-                @if (rows.Count > 0)
-                {
-                    <ul class="domain-flows__legend" data-testid="domain-flow-legend" aria-label="Legend">
-                        <li><span class="domain-flows__key domain-flows__key--forward" aria-hidden="true"></span>forward</li>
-                        @if (Drawn(rows, t => t.Direction is DomainFlowDirection.Back or DomainFlowDirection.Restore))
-                        {
-                            <li><span class="domain-flows__key domain-flows__key--back" aria-hidden="true"></span>back</li>
-                        }
-                        @if (Drawn(rows, t => t.Event is { Emitted: false }))
-                        {
-                            <li><span class="domain-flows__key domain-flows__key--documented" aria-hidden="true"></span>event, documented but not emitted yet</li>
-                        }
-                        @if (Drawn(rows, t => t.Event is { Emitted: true }))
-                        {
-                            <li><span class="domain-flows__key domain-flows__key--emitted" aria-hidden="true"></span>event, emitted</li>
-                        }
-                    </ul>
-                }
-                @foreach (var figure in section.Diagrams)
-                {
-                    @switch (figure)
-                    {
-                        case DomainFlowDiagram row:
-                            <DomainFlowRow Diagram="@row"
-                                           DocumentPath="@File.Path"
-                                           OnNavigate="OnNavigate"
-                                           AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
-                            break;
-                        case DomainFlowchartDiagram chart:
-                            <DomainFlowchart Diagram="@chart" AriaLabel="@($"{section.Chapter.Title}, drawn as a flowchart")" />
-                            break;
-                        case DomainSequenceDiagram sequence:
-                            <DomainSequence Diagram="@sequence" AriaLabel="@($"{section.Chapter.Title}, drawn as a sequence")" />
-                            break;
-                    }
-                }
+                <DomainFlowFigures Diagrams="@section.Diagrams" Title="@section.Chapter.Title" DocumentPath="@File.Path" OnNavigate="OnNavigate" />
                 @if (section.Cards.Count > 0)
                 {
                     <div class="domain-flows__cards" data-testid="domain-flow-cards">
@@ -200,11 +167,6 @@
         _markdown.Clear();
         _sections = [.. File.Chapters.Select(DomainFlows.Section)];
     }
-
-    /// <summary>Whether any row draws a transition of this kind: the legend names
-    /// only what the drawing holds.</summary>
-    private static bool Drawn(IEnumerable<DomainFlowDiagram> rows, Func<DomainFlowTransition, bool> kind) =>
-        rows.Any(row => row.Transitions.Any(t => !row.IsDropped(t) && kind(t)));
 
     private RenderFragment Markdown(string source) =>
         @<MarkdownView Blocks="@BlocksOf(source)"

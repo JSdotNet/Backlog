@@ -56,8 +56,11 @@ public sealed record DomainChapter(
     /// the rule a chapter states, which the Always true tab marks it by.</summary>
     public IReadOnlyList<string> Tests => ListField("tests");
 
-    /// <summary>The block's <c>status</c>, or <see langword="null"/> when it
-    /// states none — <c>deprecated</c> is what the Glossary strikes through.</summary>
+    /// <summary>The block's <c>rating</c>, else its <c>status</c>, or <see langword="null"/>
+    /// when it states neither — <c>deprecated</c> is what the Glossary strikes through.
+    /// Since devbook contract 38 a domain chapter carries no workflow state, so
+    /// this is a legacy devbook's value; the view reads <c>rating ?? status</c> as
+    /// the devbook reader does.</summary>
     public string? Status { get; init; }
 
     /// <summary>Every chapter under this one, depth first.</summary>
@@ -388,7 +391,7 @@ public static partial class DomainUnits
             children)
         {
             Meta = meta,
-            Status = meta.GetValueOrDefault("status") is { Length: > 0 } status ? status : null
+            Status = StatusOf(meta)
         };
     }
 
@@ -396,6 +399,12 @@ public static partial class DomainUnits
     {
         for (var i = from; i < to && i < lines.Length; i++) builder.Append(lines[i]).Append('\n');
     }
+
+    /// <summary>A block's <c>rating</c>, else its <c>status</c>, else none.</summary>
+    private static string? StatusOf(Dictionary<string, string> meta) =>
+        meta.GetValueOrDefault("rating") is { Length: > 0 } rating ? rating
+        : meta.GetValueOrDefault("status") is { Length: > 0 } status ? status
+        : null;
 
     private static Dictionary<string, string> ReadMeta(string[] lines, ref int index)
     {

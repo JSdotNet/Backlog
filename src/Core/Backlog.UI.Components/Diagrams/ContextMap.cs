@@ -278,8 +278,12 @@ public static partial class ContextMaps
 
         if (!cell.TrimStart().StartsWith('`'))
         {
+            // The name ends at a colon, or at a parenthesis that opens on the
+            // chapters it addresses: "The pull request contract (`…#status`, …)".
             var colon = cell.IndexOf(':', StringComparison.Ordinal);
-            var prose = CodeSpan().Replace(colon > 0 ? cell[..colon] : cell, m => IsPath(m.Groups["code"].Value) ? string.Empty : m.Value);
+            var end = colon > 0 ? colon : cell.Length;
+            if (PathParenthesis().Match(cell) is { Success: true } paths && paths.Index > 0 && paths.Index < end) end = paths.Index;
+            var prose = CodeSpan().Replace(cell[..end], m => IsPath(m.Groups["code"].Value) ? string.Empty : m.Value);
             var words = DomainUnits.Plain(prose);
             return words.Length == 0 ? [] : [new ContextMapContractName(words, false, reference)];
         }
@@ -627,6 +631,10 @@ public static partial class ContextMaps
 
     [GeneratedRegex(@"`(?<code>[^`]+)`")]
     private static partial Regex CodeSpan();
+
+    /// <summary>A parenthesis that opens on a code span naming a chapter path.</summary>
+    [GeneratedRegex(@"\s*\(\s*`[^`]*(?:/|#|\.md)[^`]*`")]
+    private static partial Regex PathParenthesis();
 
     // An identifier with a capital inside it and a small letter somewhere:
     // ItemCaptured, AIWorkLogged; never an acronym such as OHS.
