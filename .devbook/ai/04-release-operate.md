@@ -1,18 +1,17 @@
 # Release and Operate
 
 ```meta
-status: trial
+rating: trial
 type: stage
 ```
 
-> How an approved change reaches `main`, and how a production failure finds its way back
-> into the loop. The runs that look after the repository on a cadence are in
-> `05-unattended-runs.md`.
+> How an approved change reaches `main`, and how a production failure returns to the loop.
+> Cadence runs are in `05-unattended-runs.md`.
 
 ## Merge-ready and CI repair
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [integrate]
 substage: [integrate/readiness]
@@ -22,9 +21,9 @@ related: [".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-25
 ```
 
-An agent brings an open pull request to merge-ready: it brings the branch level with `main`,
-repairs failing checks, and answers review findings, through the delivery engine's
-`pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills.
+An agent brings an open pull request to merge-ready through the delivery engine's
+`pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills. It levels the branch with
+`main`, repairs failing checks, and answers review findings.
 
 - **Used for** — pull requests left red by a flaky runner or a moved base.
 - **Adopted by** — the repository owner, on demand.
@@ -35,7 +34,7 @@ repairs failing checks, and answers review findings, through the delivery engine
 ## Alerts to work items
 
 ```meta
-status: candidate
+rating: candidate
 type: skill
 stage: [operate]
 substage: [operate/alerting]
@@ -46,7 +45,7 @@ date: 2026-09-25
 ```
 
 Application Insights exceptions become tracker work items through the delivery engine's
-`sre-alerts-to-work-items`, so a production failure enters the loop at `plan`.
+`sre-alerts-to-work-items`, so a production failure enters the loop at `decide`.
 
 - **Used for** — to be decided.
 - **Adopted by** — nobody yet; the nightly exception workflow fails its preflight because

@@ -62,7 +62,7 @@ public sealed class ValidationQuestionTests : IDisposable
 
         var (id, draft) = Assert.Single(_notifications.Published);
         Assert.Equal(NotificationKind.Question, draft.Kind);
-        Assert.Equal("Approve the validation of notifications:11 - Raise notifications?", draft.Title);
+        Assert.Equal("Backlog · notifications:11 - Raise notifications · Approve or revise", draft.Title);
         Assert.Equal(new NotificationSubject("sessions", "run", run), draft.Subject);
         Assert.Equal(new NotificationSource("sessions", $"{run}@{Worktree}"), draft.Source);
 
@@ -73,7 +73,7 @@ public sealed class ValidationQuestionTests : IDisposable
 
         Assert.DoesNotContain(Worktree, draft.BodyMarkdown, StringComparison.Ordinal);
         Assert.Equal(
-            new NotificationOrigin("Claude Code", "JSdotNet/Backlog · notifications:11 - Raise notifications", Via: "Agent session"),
+            new NotificationOrigin("Claude Code", "JSdotNet/Backlog", Via: "Agent session"),
             draft.Origin);
 
         foreach (var outside in new[] { draft.Title, draft.Summary ?? string.Empty })
@@ -84,6 +84,59 @@ public sealed class ValidationQuestionTests : IDisposable
 
         var asked = (await File(run))["validationQuestion"]!.AsObject();
         Assert.Equal(id.ToString("D"), asked["notificationId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_long_run_title_is_cut_on_a_whole_character_to_fit_the_question()
+    {
+        var surface = Surface();
+        var run = await Start(surface, title: new string('x', 58) + "\U0001F600" + " and the rest of the run title");
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var title = Assert.Single(_notifications.Published).Draft.Title;
+        Assert.Equal(new string('x', 58) + "… · Approve or revise", title);
+        Assert.True(title.Length <= 80);
+    }
+
+    [Fact]
+    public async Task A_run_that_sends_no_repository_takes_it_from_the_worktrees_registered_clone()
+    {
+        var surface = Surface(new FixedRepository("JSdotNet/Backlog"));
+        var run = await Start(surface);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var draft = Assert.Single(_notifications.Published).Draft;
+        Assert.Equal("Backlog · notifications:11 - Raise notifications · Approve or revise", draft.Title);
+        Assert.Equal(new NotificationOrigin("Claude Code", "JSdotNet/Backlog", Via: "Agent session"), draft.Origin);
+        Assert.Contains("in `JSdotNet/Backlog`", draft.BodyMarkdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_repository_the_run_sends_wins_over_the_registered_clone()
+    {
+        var surface = Surface(new FixedRepository("JSdotNet/Elsewhere"));
+        var run = await Start(surface, repository: "JSdotNet/Backlog");
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var draft = Assert.Single(_notifications.Published).Draft;
+        Assert.StartsWith("Backlog · ", draft.Title, StringComparison.Ordinal);
+        Assert.Equal("JSdotNet/Backlog", draft.Origin!.Place);
+    }
+
+    [Fact]
+    public async Task A_run_in_no_known_repository_is_titled_by_its_change_and_names_no_place()
+    {
+        var surface = Surface(new FixedRepository(null));
+        var run = await Start(surface);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var draft = Assert.Single(_notifications.Published).Draft;
+        Assert.Equal("notifications:11 - Raise notifications · Approve or revise", draft.Title);
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), draft.Origin);
     }
 
     [Fact]
@@ -446,15 +499,15 @@ public sealed class ValidationQuestionTests : IDisposable
         if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
     }
 
-    private LocalDeliverySurfaceLifecycle Surface() =>
-        new(_home, "machine", "Workshop PC", notifications: () => _notifications);
+    private LocalDeliverySurfaceLifecycle Surface(ISessionRepositoryResolver? repositories = null) =>
+        new(_home, "machine", "Workshop PC", notifications: () => _notifications, repositories: repositories);
 
     private SessionValidationAnswers Answers(LocalDeliverySurfaceLifecycle surface) =>
         new(surface, followUps: _followUps);
 
-    private static async Task<string> Start(LocalDeliverySurfaceLifecycle surface, string? repository = null, string skill = "flow-code", string? prompt = null)
+    private static async Task<string> Start(LocalDeliverySurfaceLifecycle surface, string? repository = null, string skill = "flow-code", string? prompt = null, string title = "notifications:11 - Raise notifications")
     {
-        var run = (await surface.StartRunAsync(Worktree, skill, "notifications:11 - Raise notifications", Stages, repository: repository, cancellationToken: Cancellation)).RunId;
+        var run = (await surface.StartRunAsync(Worktree, skill, title, Stages, repository: repository, cancellationToken: Cancellation)).RunId;
 
         if (prompt is not null) await surface.RecordPromptAsync(Worktree, run, prompt, cancellationToken: Cancellation);
 
@@ -477,6 +530,13 @@ public sealed class ValidationQuestionTests : IDisposable
             choice is null ? [] : [choice],
             text,
             Noon);
+    }
+
+    /// <summary>The repository port at its boundary: every folder lies in one repository, or
+    /// in none.</summary>
+    private sealed class FixedRepository(string? repository) : ISessionRepositoryResolver
+    {
+        public string? RepositoryOf(string workingFolder) => repository;
     }
 
     /// <summary>

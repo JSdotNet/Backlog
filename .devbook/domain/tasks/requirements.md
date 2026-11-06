@@ -2,34 +2,25 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md]
 ```
-
-> What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it.
 
 ## My Day
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-> The requirements of My Day on the desktop and the phone, and how the phone's
-> changes reach the desktop. The feature chapter says what My Day is and why;
-> this says what it promises. A carried task is defined under
-> [My Day](domain.md#my-day).
+> A carried task is defined under [My Day](domain.md#my-day).
 
 ### Requirement: Today places each task by its agenda time
 
 ```meta
 type: requirement
-status: draft
 ```
 
-The phone's Today SHALL show the open task in today's My Day whose block contains the current time as the Now card, the other open tasks with an agenda time under Agenda with their blocks, and the open tasks without one under Anytime today.
+The phone's Today SHALL show today's open My Day task whose block contains the current time as the Now card, other open timed tasks with their blocks under Agenda, and untimed ones under Anytime today.
 
 #### Scenario: Two timed tasks and untimed ones
 
@@ -41,7 +32,6 @@ The phone's Today SHALL show the open task in today's My Day whose block contain
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The phone's Today SHALL show the next open timed task to start as the card, labelled with its start time, when no open task's block contains the current time.
@@ -56,10 +46,9 @@ The phone's Today SHALL show the next open timed task to start as the card, labe
 
 ```meta
 type: requirement
-status: draft
 ```
 
-The system SHALL write a tick or an untick the phone makes on a task in today's My Day the way the desktop's checkbox writes it, so an untick clears the tick and leaves the task's status as it is.
+The system SHALL write a phone tick or untick on a task in today's My Day the way the desktop's checkbox writes it, so an untick clears the tick and leaves its status alone.
 
 #### Scenario: Ticking a task off
 
@@ -77,7 +66,6 @@ The system SHALL write a tick or an untick the phone makes on a task in today's 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The desktop SHALL give a repeating task ticked off on the phone exactly one next occurrence, as its own tick does, however often the tick is pulled and however many desktops pull it.
@@ -104,7 +92,6 @@ The desktop SHALL give a repeating task ticked off on the phone exactly one next
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL write a step the phone ticks off, from the task's own page or from Focus, as the status of that step's Sub-Item on the task.
@@ -131,7 +118,6 @@ The system SHALL write a step the phone ticks off, from the task's own page or f
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL take a task the phone moves to tomorrow out of today's My Day on the phone and on the desktop.
@@ -146,7 +132,6 @@ The system SHALL take a task the phone moves to tomorrow out of today's My Day o
 
 ```meta
 type: requirement
-status: draft
 ```
 
 Focus SHALL count down every second to the end of the task's block, with the first step not yet ticked off shown as the current step.
@@ -161,7 +146,6 @@ Focus SHALL count down every second to the end of the task's block, with the fir
 
 ```meta
 type: requirement
-status: draft
 ```
 
 Focus SHALL offer Complete task once every step of the task is ticked off, a press that ticks the task off and returns to Today.
@@ -182,7 +166,6 @@ Focus SHALL offer Complete task once every step of the task is ticked off, a pre
 
 ```meta
 type: requirement
-status: draft
 ```
 
 With Clear My Day overnight off, the system SHALL keep an unfinished task picked for an earlier day in today's My Day on every paired device.
@@ -215,10 +198,9 @@ With Clear My Day overnight off, the system SHALL keep an unfinished task picked
 
 ```meta
 type: requirement
-status: draft
 ```
 
-With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when it was ticked off on an earlier day.
+With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when ticked off before today.
 
 #### Scenario: Ticked off today
 
@@ -236,7 +218,6 @@ With Clear My Day overnight off, the system SHALL list a task picked for an earl
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL leave a task picked for a later day out of today's My Day, whatever Clear My Day overnight says.
@@ -251,7 +232,6 @@ The system SHALL leave a task picked for a later day out of today's My Day, what
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show no agenda time for a carried task, on the desktop or the phone.
@@ -266,7 +246,6 @@ The system SHALL show no agenda time for a carried task, on the desktop or the p
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL bring a change to Clear My Day overnight made on one desktop to every paired device on that device's next pull.
@@ -287,7 +266,6 @@ The system SHALL bring a change to Clear My Day overnight made on one desktop to
 
 ```meta
 type: requirement
-status: draft
 ```
 
 A device that never set Clear My Day overnight SHALL read it as on and send nothing for it.
@@ -308,20 +286,15 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 
 ```meta
 type: requirements
-status: proposed
 related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#source-state, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-> Where a connected target's tasks are filed, which status each one gets, and
-> which deleted tasks come back. The feature chapter says what linked tasks
-> are; ADR 0020 §4 and §9 say why the map and the repository are per target,
-> and §5 says when a deleted task is restored.
+> ADR 0020 §4 and §9 say why the map and the repository are per target, and §5 says when a deleted task is restored.
 
 ### Requirement: A target's repository files its unfiled tasks
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL file a target's new linked tasks, and its tasks filed under no repository, under the repository set on that target.
@@ -348,7 +321,6 @@ The sync SHALL file a target's new linked tasks, and its tasks filed under no re
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL leave a linked task that is filed under a repository under that repository, whatever repository its target names.
@@ -363,7 +335,6 @@ The sync SHALL leave a linked task that is filed under a repository under that r
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL file the linked tasks of a target with no repository set under the target itself when the target is a repository, and under no repository otherwise.
@@ -384,7 +355,6 @@ The sync SHALL file the linked tasks of a target with no repository set under th
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL give a linked task the task status its target's status map holds for the item's source status name, compared without regard to case.
@@ -399,7 +369,6 @@ The sync SHALL give a linked task the task status its target's status map holds 
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL give a linked task whose source status name its target's status map does not hold the status the fixed map gives the item's normalised state.
@@ -414,7 +383,6 @@ The sync SHALL give a linked task whose source status name its target's status m
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL archive the task of a dropped item, whatever its target's status map holds for the item's source status name.
@@ -429,7 +397,6 @@ The sync SHALL archive the task of a dropped item, whatever its target's status 
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL move a linked task when its item moves between two source statuses that its target's status map resolves to different task statuses, even when both normalise to the same state.
@@ -444,7 +411,6 @@ The sync SHALL move a linked task when its item moves between two source statuse
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL leave the status of a linked task whose item has not moved at the source as it is after the person edits its target's status map.
@@ -459,7 +425,6 @@ The sync SHALL leave the status of a linked task whose item has not moved at the
 
 ```meta
 type: requirement
-status: proposed
 ```
 
 The sync SHALL treat a Done that its target's status map gives as the source's Done, so the task is not flagged as finished locally and follows its item's next move at the source.
@@ -474,10 +439,9 @@ The sync SHALL treat a Done that its target's status map gives as the source's D
 
 ```meta
 type: requirement
-status: proposed
 ```
 
-The sync SHALL leave a linked task the person finished here Done, and flag that it is done here and open at the source, while its target's status map gives its item's source status anything but Done.
+The sync SHALL leave a linked task the person finished here Done, flagging it done here and open at the source, while its target's status map gives its item's source status anything but Done.
 
 #### Scenario: Finished here while the item is refined
 
@@ -489,7 +453,6 @@ The sync SHALL leave a linked task the person finished here Done, and flag that 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_deleted_linked_task_is_never_made_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.A_task_brought_back_and_then_deleted_on_its_own_stays_deleted]
 ```
 
@@ -511,7 +474,6 @@ A sync SHALL NOT create again a linked task the person deleted on its own.
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.Connecting_the_source_again_brings_the_deleted_tasks_back, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_and_follows_the_source_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_past_the_first_sync_cutoff]
 ```
 
@@ -533,7 +495,6 @@ A sync of a connected target SHALL restore each task that Delete tasks deleted w
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.RestoreDeletedLinkedTasksTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Confirming_restores_the_tasks_says_how_many_and_takes_the_offer_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Cancelling_the_restore_confirmation_restores_nothing]
 ```
 
@@ -561,7 +522,6 @@ After the person confirms, Restore deleted tasks SHALL restore every deleted lin
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee
 ```
 
@@ -577,7 +537,6 @@ Each sync SHALL set a linked task's assignee to the one the source names.
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_title_renamed_locally_survives_a_changed_source_title, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_title_does_not_follow_the_source_keeps_the_local_title]
 ```
 
@@ -599,7 +558,6 @@ Each sync SHALL set a linked task's title to the source's, unless the person ren
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_state_change_at_the_source_moves_a_task_the_person_had_moved, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_task_the_person_started_stays_started_while_the_source_still_says_open]
 ```
 
@@ -621,11 +579,10 @@ A sync SHALL move a linked task's status to the one its item's source status giv
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_walk_is_the_shortest_path_along_the_lifecycle, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_closed_item_walks_its_ready_task_to_done_and_ticks_it_without_a_start]
 ```
 
-A sync SHALL reach a linked task's new status along the shortest path of the [Task lifecycle](flow.md#task-lifecycle)'s own edges, without stamping a start for a status it only passes through.
+A sync SHALL reach a linked task's new status along the shortest path of the [Task lifecycle](domain.md#task)'s own edges, without stamping a start for a status it only passes through.
 
 #### Scenario: A ready task's issue is closed
 
@@ -637,7 +594,6 @@ A sync SHALL reach a linked task's new status along the shortest path of the [Ta
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_body_labels_effort_and_due_date_are_copied_once
 ```
 
@@ -653,7 +609,6 @@ The system SHALL copy an item's body, labels, effort and due date onto its linke
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Two_devices_syncing_the_same_items_make_the_same_tasks, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.LinkedTaskIdsTests.The_same_item_always_gives_the_same_id]
 ```
 
@@ -669,7 +624,6 @@ The system SHALL give the linked task for one item the same id on every device t
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_vanished_item_archives_and_flags_its_task_and_does_not_delete_it
 ```
 
@@ -685,7 +639,6 @@ A sync SHALL archive and flag the linked task of an item the source no longer re
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/roadmap/domain.md#source-label]
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Only_the_first_plan_label_becomes_the_plan_tag_and_the_task_is_flagged
 ```
@@ -702,7 +655,6 @@ A sync SHALL make only an item's first `+` label the linked task's plan tag, and
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_sync_is_given_nothing_that_can_create_a_roadmap_item, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_plan_label_files_the_task_under_its_plan_and_a_task_without_one_under_none]
 ```
@@ -720,23 +672,19 @@ The roadmap changes only through a person's gesture (local ADR 0013, ruling 3).
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
-> The requirements of the automatic Projection policy, which is not built yet.
-> The feature chapter says what Projection is and why; this says what the policy
-> will promise.
+> The policy is not built yet.
 
 ### Requirement: Starting work opens one artifact per target repository
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
-When a task moves from `ready` to `in_progress`, the Projection policy SHALL open one downstream artifact, a GitHub issue or a Copilot CLI task, for each `repo_id` the task targets, and record each as a Projection Ref on the task.
+When a task moves from `ready` to `in_progress`, the Projection policy SHALL open one GitHub issue or Copilot CLI task for each `repo_id` the task targets and record each as a Projection Ref.
 
 #### Scenario: A task that targets two repositories
 
@@ -748,7 +696,6 @@ When a task moves from `ready` to `in_progress`, the Projection policy SHALL ope
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
@@ -764,18 +711,13 @@ When a task is completed, the Projection policy SHALL close every downstream art
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#sub-items-and-steps]
 ```
-
-> The requirements of the task's steps, written as `##` chapters of its body,
-> and of the `view:` token that body once switched on.
 
 ### Requirement: A step is written in the task's body
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_markdown_block_writes_the_whole_body_and_leaves_the_metadata_line_alone, integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_body_is_the_markdown_editor_alone, e2e:dotnet:Backlog.EndToEndTests.ConferenceDayTests]
 ```
 
@@ -791,7 +733,6 @@ On the desktop, the system SHALL read each `##` chapter written in a task's body
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.EntryViewPreferenceRoundTripTests.An_entry_that_prefers_the_markdown_block_still_prefers_it_after_a_reload, integration:dotnet:Backlog.Desktop.UI.UnitTests.EntryViewPreferenceRoundTripTests.An_entry_with_no_preference_is_not_given_one_by_being_saved, integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_body_is_the_markdown_editor_alone]
 ```
 
@@ -813,18 +754,13 @@ The system SHALL keep a `view:` token found on a task's metadata line, as writte
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#recurring-tasks, .devbook/domain/tasks/domain.md#occurrence-spawning]
 ```
-
-> What [Occurrence Spawning](domain.md#occurrence-spawning) promises when a
-> repeating task is ticked off, on the desktop or through a pulled copy.
 
 ### Requirement: The tick spawns the next occurrence
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecurrenceSuccessorInListTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked]
 ```
 
@@ -846,7 +782,6 @@ The system SHALL create the next occurrence of a repeating task when a save tick
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_successor_carries_the_repeat_and_leaves_the_occurrence_behind, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_successor_points_at_the_same_devbook_chapters, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_completed_repeat_with_no_due_date_spawns_an_undated_successor]
 ```
 
@@ -868,7 +803,6 @@ The system SHALL give the next occurrence what [Occurrence Spawning](domain.md#o
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.An_entry_typed_in_as_already_done_spawns_nothing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_task_that_arrives_already_ticked_spawns_nothing]
 ```
 
@@ -884,7 +818,6 @@ The system SHALL create no next occurrence for a repeating task that is created 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Completing_a_repeating_entry_creates_exactly_one_successor, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_successor_already_pulled_is_not_spawned_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_replayed_page_spawns_nothing_more]
 ```
 
@@ -906,7 +839,6 @@ The system SHALL give each occurrence of a repeating task at most one successor,
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL create no next occurrence for a ticked occurrence whose successor the person deleted.
@@ -921,7 +853,6 @@ The system SHALL create no next occurrence for a ticked occurrence whose success
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.An_untick_after_the_spawn_leaves_the_successor_in_place, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor]
 ```
 
@@ -937,17 +868,13 @@ The system SHALL keep the next occurrence of a repeating task when the occurrenc
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#manual-ordering]
 ```
-
-> The requirements of the order a person arranges the backlog in.
 
 ### Requirement: Unranked tasks fall back to recency
 
 ```meta
 type: requirement
-status: draft
 tests: integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.Listing_puts_hand_ranked_tasks_first_and_falls_back_to_newest
 ```
 
@@ -963,21 +890,17 @@ The backlog SHALL list tasks by their hand-set rank, and tasks sharing a rank, w
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#entry-kind]
 ```
-
-> The requirements of importing a plan, and of the paths that leave plans to it.
 
 ### Requirement: The text save refuses a plan entry
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.A_plan_entry_is_refused_rather_than_saved_as_a_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.An_update_is_refused_on_the_same_terms, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.The_refusal_names_import_as_the_way_in]
 ```
 
-The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#entry-kind) as a task, whether it creates a task or updates one, and SHALL name Import as the way to bring a plan in.
+The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#entry-kind) as a task, whether creating or updating one, and SHALL name Import as the way to bring a plan in.
 
 #### Scenario: A plan entry typed into the backlog
 
@@ -989,18 +912,13 @@ The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#en
 
 ```meta
 type: requirements
-status: proposed
 related: [.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved]
 ```
-
-> What a follow-up entry is born with, when the person approves a run with a
-> follow-up.
 
 ### Requirement: A follow-up is filed once, after the gated entry
 
 ```meta
 type: requirement
-status: proposed
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_in_a_plan_is_a_ready_prompt_after_the_gated_entry_with_its_plan_tag_and_repository, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_named_by_its_plan_and_item_is_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_outside_any_plan_gets_a_follow_up_with_no_plan_tag, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_of_a_follow_up_stays_in_the_plan, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_same_answer_handed_over_again_files_no_second_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_deleted_since_is_not_filed_again_by_the_same_answer, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_that_is_gone_is_not_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_plan_imported_again_keeps_the_follow_up, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.The_notification_a_follow_up_was_filed_from_comes_back, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskEditsTests.A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from]
 ```
 
@@ -1034,7 +952,6 @@ The system SHALL file exactly one task per accepted Approve + follow-up answer, 
 
 ```meta
 type: requirement
-status: proposed
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Words_that_look_like_a_step_stay_one_line_of_body_text, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_words_never_parse_as_structure_or_tags, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_read_view_shows_the_words_as_typed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Ordinary_prose_is_kept_exactly_as_typed, unit:dotnet:Backlog.SharedKernel.UnitTests.MarkdownPreviewEscapeTests]
 ```
 
@@ -1050,18 +967,15 @@ The system SHALL write the words of a follow-up answer into the follow-up's body
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#archive-and-lifecycle, .devbook/domain/tasks/domain.md#completed]
 ```
 
-> What the list's checkbox and the status picker promise about the tick,
-> [Completed](domain.md#completed), and the status.
+> The tick is [Completed](domain.md#completed).
 
 ### Requirement: Ticking an open task off moves it to done
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_circle_moves_an_open_status_to_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_circle_completes_the_entry_as_done_and_puts_it_back]
 ```
 
@@ -1077,7 +991,6 @@ The list's checkbox SHALL tick off a task at `draft`, `ready` or `in_progress` a
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.An_end_state_status_does_not_tick_the_entry_or_move_it_under_completed
 ```
 
@@ -1093,7 +1006,6 @@ The list's checkbox SHALL tick off a task at `done` or `archived` and leave its 
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.An_end_state_status_does_not_tick_the_entry_or_move_it_under_completed
 ```
 
@@ -1109,7 +1021,6 @@ The system SHALL leave a task unticked, on the open list, when its status is mov
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_circle_completes_the_entry_as_done_and_puts_it_back
 ```
 
@@ -1125,17 +1036,13 @@ Unticking a task SHALL clear its `completed_on` and leave its status and every o
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/tasks/features.md#multi-device-sync]
 ```
-
-> What keeping one backlog on several devices promises.
 
 ### Requirement: The later edit wins whole
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.Two_devices_converge_on_the_later_stamped_edit, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.An_older_document_never_overwrites_a_newer_local_copy_even_one_already_pushed]
 ```
 

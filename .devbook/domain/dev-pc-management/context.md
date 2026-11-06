@@ -1,7 +1,6 @@
 # Dev PC Management
 
 ```meta
-status: draft
 index: root
 type: context
 deployment: module
@@ -9,10 +8,13 @@ related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
 Dev PC Management supports multiple development PCs from a single interface:
-register machines, wake them remotely, start remote desktop sessions, monitor
-tool versions and compliance against the
-[Technology Stack](../technology-stack/domain.md#technology-registry)
-baseline, and trigger remote updates.
+
+- register machines;
+- wake them remotely;
+- start remote desktop sessions;
+- monitor tool versions and compliance against the [Technology
+  Stack](../technology-stack/domain.md#technology-registry) baseline;
+- trigger remote updates.
 
 Outside it: which agent ran on a machine, where, and for how long. That is
 [Sessions](../sessions/domain.md#session-log)' question. "Which agent worked
@@ -22,7 +24,6 @@ configured", so a Machine holds no session state. What stays here is the machine
 ## System tools
 
 ```meta
-status: draft
 type: feature-flag
 key: system-tools
 default: on
@@ -31,9 +32,13 @@ related: [".devbook/domain/dev-pc-management/features.md#catalog-authoring"]
 
 Turning it on offers the tools pane from the app chrome. The pane checks,
 updates, enables and disables what the [tool catalog](features.md#copilot-tool-catalog)
-says this machine should have: Copilot and Claude plugins, Claude plugin
-marketplaces, MCP servers, and the applications and checks the setup guide asks
-for. The flag is on by default and marked `DEV`. The settings screen lists it
-from the feature catalog in `AppFeatures.cs`. A person's choice is kept in
-`features.json` beside the app's other per-device choices. The flag is retired
-when the pane leaves `DEV`.
+says this machine should have:
+
+- Copilot and Claude plugins;
+- Claude plugin marketplaces;
+- MCP servers;
+- the applications and checks the setup guide asks for.
+
+The flag is on by default and marked `DEV`. The settings screen lists it
+from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in
+`features.json`. The flag is retired when the pane leaves `DEV`.

@@ -55,13 +55,15 @@ public class DevbookBuilderParityTests : IDisposable
     /// The same comparison on a small corpus built to hold what this repository's
     /// own does not: every reading-order rule of the convention — a missing root,
     /// <c>index: root</c> and <c>index: exclude</c>, a <c>number</c> field, split
-    /// files and an invariants subpage, a stray <c>_reading-order.json</c> — and
-    /// annotation fences open, resolved, above the first heading, under a repeated
-    /// slug and hidden inside another fence. The Node writer builds it with this
-    /// repository's installed generator.
+    /// files and an invariants subpage, a stray <c>_reading-order.json</c>, a
+    /// repeated slug and a heading inside a fence — and devbook contract 38's
+    /// metadata: a <c>tech/</c> and an <c>ai/</c> <c>rating</c>, which the
+    /// <c>status</c> columns hold, no status anywhere else, no <c>sync</c>, and no
+    /// <c>annotation</c> fence, so every open-note count is zero. The Node writer
+    /// builds it with this repository's installed generator.
     /// </summary>
     [Fact]
-    public void The_app_matches_the_node_writer_on_the_convention_s_and_the_annotations_edge_cases()
+    public void The_app_matches_the_node_writer_on_the_convention_s_edge_cases()
     {
         var fixture = Path.Combine(_scratch, "fixture");
         foreach (var (path, text) in EdgeCases)
@@ -86,10 +88,19 @@ public class DevbookBuilderParityTests : IDisposable
 
         // And the fixture exercised what it is for.
         using var app = Open(fromApp);
-        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:2", StringComparison.Ordinal));
+        var chapters = Rows(app, "chapter", "id");
+        Assert.All(chapters, row => Assert.Contains("open_annotations=INTEGER:0", row, StringComparison.Ordinal));
         Assert.Contains(Rows(app, "outline_entry", "id"), row => row.Contains("name=TEXT:domain.invariants.md", StringComparison.Ordinal));
-        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("sync=TEXT:push", StringComparison.Ordinal));
-        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("sync=TEXT:pull", StringComparison.Ordinal));
+        Assert.All(chapters, row => Assert.Contains("sync=NULL", row, StringComparison.Ordinal));
+        Assert.All(Rows(app, "node", "id"), row => Assert.Contains("sync=NULL", row, StringComparison.Ordinal));
+
+        // A rating is the one status a row carries, in `tech/` and `ai/` alone.
+        Assert.Contains(chapters, row => row.Contains("path=TEXT:.devbook/tech/shared.md", StringComparison.Ordinal) && row.Contains("status=TEXT:adopted", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.StartsWith("id=TEXT:.devbook/ai/01-verify.md#review |", StringComparison.Ordinal) && row.Contains("status=TEXT:trial", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "outline_entry", "id"), row => row.Contains("path=TEXT:.devbook/tech/shared.md", StringComparison.Ordinal) && row.Contains("status=TEXT:adopted", StringComparison.Ordinal));
+        Assert.All(
+            Rows(app, "outline_entry WHERE path NOT LIKE '.devbook/tech/%' AND path NOT LIKE '.devbook/ai/%'", "id"),
+            row => Assert.Contains("status=NULL", row, StringComparison.Ordinal));
 
         // The C4 model: the included person, the unnamed instances numbered apart
         // under their unnamed node, the repeated relationship numbered, the
@@ -158,7 +169,7 @@ public class DevbookBuilderParityTests : IDisposable
     /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, <c>repo:</c> links in
     /// <c>related</c> and in prose (one inside a fence, one twice), a reference
     /// into an area that resolves to nothing, one outside every area, a repeated
-    /// slug, the reading-order rules and an open annotation. The Node writer reads
+    /// slug and the reading-order rules. The Node writer reads
     /// it with <c>--brain</c>, through this repository's installed generator.
     /// <para>
     /// The fixture is plain files on purpose. Over a Brain in a synced folder —
@@ -213,8 +224,8 @@ public class DevbookBuilderParityTests : IDisposable
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("target=TEXT:repo:backlog/.devbook/arc42/05-building-block-view.md#devbook", StringComparison.Ordinal));
         Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("id=TEXT:repo:", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "node", "id"), row => row.Contains("type=TEXT:external", StringComparison.Ordinal));
-        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:1", StringComparison.Ordinal));
-        Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("status=TEXT:active", StringComparison.Ordinal));
+        Assert.All(Rows(app, "chapter", "id"), row => Assert.Contains("open_annotations=INTEGER:0", row, StringComparison.Ordinal));
+        Assert.All(Rows(app, "node", "id"), row => Assert.Contains("status=NULL", row, StringComparison.Ordinal));
     }
 
     private static readonly (string Path, string Text)[] BrainCases =
@@ -266,7 +277,7 @@ public class DevbookBuilderParityTests : IDisposable
         ("work/hidden.md", "# Hidden\n\n```meta\nindex: exclude\n```\n"),
         ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\n```\n"),
         ("design/README.md", "# Design notes\n"),
-        ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\n```meta\nstatus: draft\n```\n"),
+        ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\nA calm accent.\n"),
         ("projects/brain.md", """
             # Brain
 
@@ -288,12 +299,6 @@ public class DevbookBuilderParityTests : IDisposable
 
             The scope chip: [ADR 0027](repo:backlog/.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md "the scope")
             and again [the same](repo:backlog/.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md).
-
-            ```annotation
-            author: ada
-            date: 2026-10-13
-            body: Which repository first?
-            ```
 
             ### Detail
 
@@ -333,49 +338,21 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/arc42/tdr/README.md", "# Technical Debt Records\n\n```meta\nindex: root\n```\n"),
         (".devbook/arc42/tdr/0001-debt.md", "# TDR 0001: Debt\n"),
         (".devbook/arc42/tdr/0002-hidden.md", "# TDR 0002: Hidden\n\n```meta\nindex: exclude\n```\n"),
-        (".devbook/domain/context-map.md", "# Context Map\n\n```meta\nsync: pull\n```\n"),
-        (".devbook/domain/zeta/context.md", "# Zeta\n\n```meta\nsync: push\ntests: unit:dotnet:Zeta.Tests.Context\n```\n"),
-        (".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\nstatus: draft\ntests: [unit:dotnet:Zeta.Tests.First, unit:dotnet:Zeta.Tests.Second]\n```\n"),
+        (".devbook/domain/context-map.md", "# Context Map\n"),
+        (".devbook/domain/zeta/context.md", "# Zeta\n\n```meta\ntests: unit:dotnet:Zeta.Tests.Context\n```\n"),
+        (".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\ntests: [unit:dotnet:Zeta.Tests.First, unit:dotnet:Zeta.Tests.Second]\n```\n"),
         (".devbook/domain/zeta/domain.md", """
             Above the first heading.
-
-            ```annotation
-            author: ada
-            date: 2026-09-01
-            body: On the file.
-            ```
 
             # Zeta
 
             ## Capture
 
-            ```meta
-            status: draft
-            ```
-
-            ```annotation
-            author: ada
-            date: 2026-09-01
-            body: |
-              status: resolved
-              is body text, not the status.
-            ```
-
-            ```annotation
-            status: resolved
-            author: bo
-            date: 2026-09-02
-            body: Settled.
-            ```
+            Captured first.
 
             ## Capture
 
-            ```annotation
-            kind: question
-            author: cy
-            date: 2026-09-03
-            body: Same slug.
-            ```
+            The same slug again.
 
             ## Fenced
 
@@ -384,21 +361,9 @@ public class DevbookBuilderParityTests : IDisposable
             # Not a heading
             ```
 
-            ```annotation
-            status:
-            author: di
-            date: 2026-09-04
-            body: Empty status.
-            replies:
-              - author: ada
-                date: 2026-09-05
-                body: Agreed.
-            ```
-
             ````markdown
-            ```annotation
-            author: ex
-            body: Inside another fence.
+            ```text
+            # Not a heading either
             ```
             ````
             """),
@@ -429,7 +394,7 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/tech/tooling.md", "# Tooling\n"),
         (".devbook/tech/cloud.md", "# Cloud\n"),
         (".devbook/tech/technology-graph.md", "# Technology Graph\n"),
-        (".devbook/tech/shared.md", "# Shared\n\n```meta\nstatus: adopted\n```\n"),
+        (".devbook/tech/shared.md", "# Shared\n\n```meta\nrating: adopted\n```\n"),
         (".devbook/design/README.md", "# Design\n"),
         (".devbook/design/content-editing.md", "# Content Editing\n"),
         (".devbook/design/color-scheme.md", "# Color Scheme\n"),
@@ -492,7 +457,7 @@ public class DevbookBuilderParityTests : IDisposable
             ## Containers
 
             ```meta
-            status: draft
+            related: [.devbook/domain/zeta/c4.md]
             ```
 
             ![The containers](c4:containers)
@@ -514,14 +479,14 @@ public class DevbookBuilderParityTests : IDisposable
             # Verify
 
             ```meta
-            status: adopted
+            rating: adopted
             type: stage
             ```
 
             ## Review
 
             ```meta
-            status: adopted
+            rating: trial
             type: agent
             stage: [verify]
             substage: [verify/review]
@@ -533,7 +498,7 @@ public class DevbookBuilderParityTests : IDisposable
             ## Merge
 
             ```meta
-            status: adopted
+            rating: adopted
             type: agent
             stage: [integrate]
             ```

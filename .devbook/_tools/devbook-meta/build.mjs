@@ -12,12 +12,11 @@
 // Checking is this tool's own job and the default. Writing is opt-in, because
 // the committed artifacts are a layered plugin's product: its refresh script and
 // nightly workflow pass --write, and nothing in devbook ever does (the checks-and-indexes decision in the repository's devbook).
-// With --write it writes five artifacts per scope, per the derived-artifacts
+// With --write it writes four artifacts per scope, per the derived-artifacts
 // convention:
 //
 //   .devbook/_meta/graph.json          the reference graph (repository-wide rollup)
 //   .devbook/_meta/index.json          the ordered reading outline
-//   .devbook/_meta/annotations.json    the open-note index, from the annotation fences
 //   .devbook/_meta/naming.json         the term register, from domain/'s terms and aliases
 //   .devbook/_meta/scenarios.json      the journey register, from domain/'s scenarios files
 //   .devbook/tech/_meta/graph.json     the same set, scoped to .tech
@@ -31,9 +30,13 @@
 // imports, so the written indexes and the live view are always the same graph.
 // `--print` is for a viewer that can spawn Node but not import these modules:
 // it writes nothing and emits `{ folders, scopes: { "<scope>": { graph, outline,
-// annotations, naming, scenarios } } }` on stdout, with the usual diagnostics on stderr.
+// naming, scenarios } } }` on stdout, with the usual diagnostics on stderr.
+//
+// `annotations.json`, the open-note index, went with the `annotation` fence in
+// contract 38: a review note is a comment thread in the host now. `--write`
+// deletes a copy an earlier release left in a scope's `_meta/`.
 
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import {
     buildGraph,
@@ -43,13 +46,9 @@ import {
     resolveScope,
     DEVBOOK_FOLDERS,
     REPO_SCOPE,
+    DEVBOOK_ROOT,
 } from "./graph.mjs";
 import { buildOutlineDocument, outlinePathFor } from "./outline.mjs";
-import {
-    buildAnnotationsDocument,
-    annotationsPathFor,
-    collectAnnotations,
-} from "./annotations-index.mjs";
 import { buildNamingDocument, namingPathFor } from "./naming.mjs";
 import { buildScenariosDocument, scenariosPathFor } from "./scenarios-index.mjs";
 import { templateProblems } from "./demo-template.mjs";
@@ -100,7 +99,6 @@ log(`folders: ${folders.join(", ")}`);
 
 // Parse the corpus once and project it per scope.
 const graph = await buildGraph(REPO_ROOT, folders);
-const annotations = await collectAnnotations(REPO_ROOT, folders);
 let errorCount = 0;
 const printed = { folders, scopes: {} };
 
@@ -146,18 +144,11 @@ for (const scope of scopes) {
         `${String(countFiles(outlineDocument.entries)).padStart(4)} files ordered`
     );
 
-    const annotationsDocument = await buildAnnotationsDocument(
-        REPO_ROOT,
-        scope,
-        annotations,
-        folders
-    );
-    await emit(
-        annotationsPathFor(scope),
-        annotationsDocument,
-        `${String(annotationsDocument.stats.threads).padStart(4)} threads, ` +
-            `${String(annotationsDocument.stats.open).padStart(4)} open`
-    );
+    // The retired open-note index: removed where an earlier release wrote it.
+    if (!checkOnly) {
+        const retired = scope === REPO_SCOPE ? `${DEVBOOK_ROOT}/_meta/annotations.json` : `${scope}/_meta/annotations.json`;
+        await rm(path.resolve(REPO_ROOT, retired), { force: true });
+    }
 
     const namingDocument = buildNamingDocument(REPO_ROOT, scope, graph, folders);
     await emit(
@@ -178,7 +169,6 @@ for (const scope of scopes) {
     printed.scopes[scope] = {
         graph: graphDocument,
         outline: outlineDocument,
-        annotations: annotationsDocument,
         naming: namingDocument,
         scenarios: scenariosDocument,
     };

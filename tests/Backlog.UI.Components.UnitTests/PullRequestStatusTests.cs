@@ -94,6 +94,44 @@ public sealed class PullRequestStatusTests
         Assert.Equal("1 approval, none required", approvals.QuerySelector(".sr-only")!.TextContent);
     }
 
+    /// <summary>"your review" closes the line, after the approvals mark, and a screen reader
+    /// hears the request in words.</summary>
+    [Fact]
+    public void A_pull_request_asking_for_your_review_ends_on_your_review_after_the_approvals()
+    {
+        using var context = new BunitContext();
+        var line = Render(context, new PullRequestStatusModel(1341, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2), ReviewRequested: true));
+
+        var label = line.Find("[data-testid='pr-your-review']");
+        Assert.Equal("your review", label.QuerySelector("[aria-hidden='true']")!.TextContent);
+        Assert.Equal("your review is requested", label.QuerySelector(".sr-only")!.TextContent);
+        var parts = line.Find(".pull-request-status").Children.Select(child => child.GetAttribute("data-testid")).ToList();
+        Assert.Equal(["pr-number", "pr-checks", "pr-approvals", "pr-your-review"], parts);
+    }
+
+    [Fact]
+    public void Your_review_draws_without_an_approvals_mark_on_a_draft()
+    {
+        using var context = new BunitContext();
+        var line = Render(context, new PullRequestStatusModel(1341, "draft", ReviewRequested: true));
+
+        var parts = line.Find(".pull-request-status").Children.Select(child => child.GetAttribute("data-testid")).ToList();
+        Assert.Equal(["pr-number", "pr-your-review"], parts);
+    }
+
+    [Theory]
+    [InlineData("merged", true)]
+    [InlineData("closed", true)]
+    [InlineData("open", false)]
+    public void A_merged_closed_or_unasked_pull_request_never_says_your_review(string state, bool requested)
+    {
+        using var context = new BunitContext();
+        var line = Render(context, new PullRequestStatusModel(1341, state, new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), ReviewRequested: requested));
+
+        Assert.Empty(line.FindAll("[data-testid='pr-your-review']"));
+        Assert.DoesNotContain("your review", line.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Marks_only_leaves_the_pill_to_the_host()
     {

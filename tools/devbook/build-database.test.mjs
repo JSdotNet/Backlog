@@ -14,6 +14,11 @@
 // `arc42/` a numbered set that filename sort would get wrong; `tech/` pinned
 // first and last files. And two stray `_reading-order.json` files that declare a
 // different order, which nothing may read.
+//
+// The metadata is devbook contract 38's: a `tech/` chapter states its `rating`,
+// no other folder carries a status, and no chapter holds an `annotation` fence —
+// a review note is a thread in the app's store (local ADR 0044), so every
+// chapter's open-note count is zero.
 
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,12 +54,6 @@ function meta(fields) {
     return ['```meta', body, '```'].join('\n');
 }
 
-/** A fenced ```annotation block, built from `key: value` pairs. */
-function annotation(fields) {
-    const body = Object.entries(fields).map(([key, value]) => `${key}: ${value}`).join('\n');
-    return ['```annotation', body, '```'].join('\n');
-}
-
 /** A one-heading document. */
 const page = (title, fields = {}) => `# ${title}\n\n${meta(fields)}\n`;
 
@@ -81,24 +80,21 @@ const FIXTURE = {
         },
     }),
 
-    '.devbook/domain/context-map.md': page('Context Map', { status: 'draft' }),
+    '.devbook/domain/context-map.md': page('Context Map'),
 
     // A bounded context by the convention: `context.md` is its root, then the
     // pinned slots in the convention's order, then everything else by name.
     '.devbook/domain/inbox/context.md': page('Inbox', { type: 'context' }),
-    // Three kinds of fence in one chapter, because `search_text` has to drop all
-    // three: the metadata block, the annotation block a `domain/` chapter may
-    // carry, and a diagram. The annotation is open, so this chapter counts one.
+    // Two kinds of fence in one chapter, because `search_text` has to drop
+    // both: the metadata block and a diagram.
     '.devbook/domain/inbox/domain.md': [
         '# Inbox',
         '',
-        meta({ status: 'active', related: '.devbook/tech/shared.md' }),
+        meta({ related: '.devbook/tech/shared.md' }),
         '',
         '## Aggregate: Inbox Item',
         '',
-        meta({ status: 'active', roadmap: '[inbox, capture]', tests: '[unit:dotnet:Inbox.Tests.Keeps_text, e2e:playwright:inbox.spec.ts#capture]' }),
-        '',
-        annotation({ kind: 'question', body: 'does a triaged item keep its capture source?' }),
+        meta({ aliases: '[Inbox Entry, Entry]', tests: '[unit:dotnet:Inbox.Tests.Keeps_text, e2e:playwright:inbox.spec.ts#capture]' }),
         '',
         'A captured note waits here until it is triaged.',
         '',
@@ -121,7 +117,6 @@ const FIXTURE = {
         // parse keeps its comma; and a demo that is not there. Named by field,
         // not by name.
         meta({
-            status: 'draft',
             demo: '[./.devbook/domain/inbox/features.demo.html#capture?flags=starred,pinned, ".devbook/domain/inbox/triage.demo.html#queue/row?role=owner&flags=bulk,undo", .devbook/domain/inbox/missing.demo.html]',
         }),
         '',
@@ -136,20 +131,11 @@ const FIXTURE = {
         '',
     ].join('\n'),
     '.devbook/domain/inbox/dependencies.md': page('Inbox Dependencies'),
-    // Not a convention file: after the pinned slots, by name. It also carries
-    // the two annotations the open-count rule has to tell apart from the one
-    // above: one before any heading, which counts on the file's first chapter,
-    // and one resolved, which counts nowhere.
+    // Not a convention file: after the pinned slots, by name.
     '.devbook/domain/inbox/notes.md': [
-        annotation({ kind: 'comment', body: 'a note on the whole file' }),
-        '',
         '# Inbox Notes',
         '',
-        meta({ status: 'draft' }),
-        '',
         '## Open Item',
-        '',
-        annotation({ kind: 'question', status: 'resolved', body: 'settled' }),
         '',
         'Nothing is open here any more.',
         '',
@@ -172,10 +158,10 @@ const FIXTURE = {
     '.devbook/arc42/about.md': page('About'),
 
     // Root, pinned first, the rest by name, pinned last.
-    '.devbook/tech/technology-graph.md': page('Technology Graph', { status: 'adopted' }),
-    '.devbook/tech/tooling.md': page('Tooling', { status: 'adopted' }),
-    '.devbook/tech/shared.md': page('Shared Technologies', { status: 'adopted' }),
-    '.devbook/tech/desktop.md': page('Desktop Stack', { status: 'adopted' }),
+    '.devbook/tech/technology-graph.md': page('Technology Graph', { rating: 'adopted' }),
+    '.devbook/tech/tooling.md': page('Tooling', { rating: 'adopted' }),
+    '.devbook/tech/shared.md': page('Shared Technologies', { rating: 'adopted' }),
+    '.devbook/tech/desktop.md': page('Desktop Stack', { rating: 'adopted' }),
 
     // Demos: one the context owns by name, one a page owns by name, one only a
     // field names, and one nothing pairs with — a problem. Not chapters: none of
@@ -318,7 +304,9 @@ test("a chapter's text and hashes round-trip", async () => {
         const [file, aggregate] = rows;
         assert.equal(file.title, 'Inbox');
         assert.equal(file.level, 1);
-        assert.equal(file.status, 'active');
+        // Contract 38: a `domain/` chapter carries no status and no direction.
+        assert.equal(file.status, null);
+        assert.equal(file.sync, null);
         assert.equal(file.folder, 'domain');
 
         assert.equal(aggregate.title, 'Aggregate: Inbox Item');
@@ -369,7 +357,6 @@ test('search_text is the chapter as prose: fences dropped, heading text kept', a
         // `text` is still the chapter as authored — a hash is taken over it and
         // the Archify fence addressing reads it, so nothing may be missing.
         assert.match(aggregate.text, /```meta/);
-        assert.match(aggregate.text, /```annotation/);
         assert.match(aggregate.text, /stateDiagram-v2/);
 
         // `search_text` is the same slice with every fenced block gone and the
@@ -385,13 +372,13 @@ test('a word that only appears inside a fence no longer matches', async () => {
     await withFixture(({ all }) => {
         const matches = (query) => all('SELECT rowid FROM chapter_fts WHERE chapter_fts MATCH ?', query).length;
 
-        // `status: draft` sits in several of the fixture's metadata blocks and in
-        // none of its prose. Before `search_text`, each was a hit — which is the
-        // noisy half of the same defect the excerpts showed: a reader asking for
-        // "draft" got every chapter whose metadata happened to say so.
-        assert.equal(matches('draft'), 0);
-        assert.equal(matches('status'), 0);
-        assert.equal(matches('triaged AND keep'), 0, 'the annotation fence is not chapter content');
+        // `rating: adopted` sits in every `tech/` metadata block and in none of
+        // its prose. Before `search_text`, each was a hit — which is the noisy
+        // half of the same defect the excerpts showed: a reader asking for
+        // "adopted" got every chapter whose metadata happened to say so.
+        assert.equal(matches('adopted'), 0);
+        assert.equal(matches('rating'), 0);
+        assert.equal(matches('aliases'), 0);
         assert.equal(matches('statediagram'), 0, 'diagram source is not prose');
 
         // The prose beside those fences is still there, so this is a narrower
@@ -415,7 +402,7 @@ test('an excerpt reads as prose rather than as fence debris', async () => {
         // `snippet()` returns the indexed column, so this is the assertion that
         // the fix is at the index and not post-processed on the way out.
         assert.doesNotMatch(hit.excerpt, /```/);
-        assert.doesNotMatch(hit.excerpt, /status:|roadmap:/);
+        assert.doesNotMatch(hit.excerpt, /aliases:/);
     });
 });
 
@@ -512,14 +499,15 @@ test('the repository scope lists the areas in the generator order, not a stray f
     });
 });
 
-test('outline rows carry the resolved status and the entry kind', async () => {
+test('outline rows carry a tech/ rating in status and the entry kind', async () => {
     await withFixture(({ all }) => {
-        const row = (path) => all("SELECT status, kind FROM outline_entry WHERE scope = '.devbook/domain' AND path = ?", path)[0];
+        const row = (path) => all('SELECT status, kind FROM outline_entry WHERE path = ?', path)[0];
 
-        // Declared.
-        assert.equal(row('.devbook/domain/context-map.md').status, 'draft');
-        // Omitted in an editorial folder: the folder's resting value, not null.
-        assert.equal(row('.devbook/domain/legacy/domain.md').status, 'active');
+        // A `tech/` file's `rating` (contract 38), in the column `status` filled.
+        assert.equal(row('.devbook/tech/shared.md').status, 'adopted');
+        // No other folder carries one, and nothing rests at a folder value.
+        assert.equal(row('.devbook/domain/context-map.md').status, null);
+        assert.equal(row('.devbook/domain/legacy/domain.md').status, null);
         // A file's resolved `type` is its kind.
         assert.equal(row('.devbook/domain/inbox/context.md').kind, 'context');
         // A directory has no kind of its own, so it takes its folder's.
@@ -540,22 +528,26 @@ test('a directory with no root is an outline problem, and a stray _reading-order
     });
 });
 
-test('open_annotations counts open threads on their chapter, and a note above every heading on the first', async () => {
-    await withFixture(({ all, counts }) => {
-        const open = Object.fromEntries(
-            all('SELECT path, slug, open_annotations FROM chapter WHERE open_annotations > 0')
-                .map((row) => [`${row.path}#${row.slug}`, row.open_annotations]));
+test('a tech/ rating lands in the status columns, and no other folder carries one', async () => {
+    await withFixture(({ all }) => {
+        const chapter = all("SELECT status FROM chapter WHERE path = '.devbook/tech/desktop.md'")[0];
+        assert.equal(chapter.status, 'adopted');
+        const node = all("SELECT status FROM node WHERE id = '.devbook/tech/desktop.md'")[0];
+        assert.equal(node.status, 'adopted');
 
-        assert.deepEqual(open, {
-            // The open question under the aggregate heading.
-            '.devbook/domain/inbox/domain.md#aggregate-inbox-item': 1,
-            // The note above `# Inbox Notes`: its address is the bare path, so it
-            // counts on that file's first chapter.
-            '.devbook/domain/inbox/notes.md#inbox-notes': 1,
-        });
-        // The resolved thread under `## Open Item` counts nowhere.
-        assert.equal(all("SELECT open_annotations AS n FROM chapter WHERE slug = 'open-item'")[0].n, 0);
-        assert.equal(counts.open_annotations, 2);
+        assert.deepEqual(all('SELECT DISTINCT folder FROM chapter WHERE status IS NOT NULL').map((row) => row.folder), ['tech']);
+        assert.deepEqual(
+            all('SELECT DISTINCT folder FROM node WHERE status IS NOT NULL AND folder IS NOT NULL').map((row) => row.folder),
+            ['tech']);
+        assert.equal(all('SELECT 1 FROM chapter WHERE sync IS NOT NULL').length, 0);
+        assert.equal(all('SELECT 1 FROM node WHERE sync IS NOT NULL').length, 0);
+    });
+});
+
+test('open_annotations is zero: contract 38 retired the annotation fence', async () => {
+    await withFixture(({ all, counts }) => {
+        assert.equal(all('SELECT 1 FROM chapter WHERE open_annotations <> 0').length, 0);
+        assert.equal(counts.open_annotations, 0);
     });
 });
 
@@ -576,8 +568,8 @@ test('a scope filter returns only that folder', async () => {
 
 test('list-valued metadata becomes attribute rows, references become edges', async () => {
     await withFixture(({ all }) => {
-        const roadmap = all("SELECT value FROM node_attribute WHERE name = 'roadmap' ORDER BY value");
-        assert.deepEqual(roadmap.map((row) => row.value), ['capture', 'inbox']);
+        const aliases = all("SELECT value FROM node_attribute WHERE name = 'aliases' ORDER BY value");
+        assert.deepEqual(aliases.map((row) => row.value), ['Entry', 'Inbox Entry']);
 
         const tests = all("SELECT node_id, value FROM node_attribute WHERE name = 'tests' ORDER BY rowid");
         assert.deepEqual(tests.map((row) => ({ ...row })), [
@@ -737,14 +729,16 @@ test("an excerpt from this repository's corpus reads as prose, not fence debris"
     // named. Searching for a word in its first sentence used to return the tail
     // of its ```meta block:
     //   "...draft aliases: [KnowledgeNote, Note] related: [...] ``` The durable"
+    // A phrase rather than the word: since its lifecycle moved into the
+    // chapter, "organized" also names a state the diagram's notes list first.
     const [hit] = all(`
         SELECT snippet(chapter_fts, 1, '', '', '...', 24) AS excerpt
         FROM chapter_fts JOIN chapter ON chapter.id = chapter_fts.rowid
-        WHERE chapter_fts MATCH 'organized' AND chapter.path = '.devbook/domain/brain/domain.md'
+        WHERE chapter_fts MATCH '"organized unit"' AND chapter.path = '.devbook/domain/brain/domain.md'
             AND chapter.slug = 'knowledge-note'
     `);
 
-    assert.ok(hit, 'expected .devbook/domain/brain/domain.md#knowledge-note to match "organized"');
+    assert.ok(hit, 'expected .devbook/domain/brain/domain.md#knowledge-note to match "organized unit"');
     assert.match(hit.excerpt, /An organized unit of project knowledge/);
     assert.doesNotMatch(hit.excerpt, /```/);
     assert.doesNotMatch(hit.excerpt, /\b(status|aliases|related|type):/);
@@ -760,34 +754,34 @@ test("an excerpt from this repository's corpus reads as prose, not fence debris"
     assert.deepEqual(fenced, [], 'a fenced block survived into the search text');
 });
 
-test("`draft` no longer matches a chapter that only says so in its metadata", async () => {
+test("`adopted` no longer matches a chapter that only says so in its metadata", async () => {
     const { all } = await withRepositoryCorpus();
 
     const metadataOnly = all(`
         SELECT path, slug FROM chapter
-        WHERE text LIKE '%status: draft%' AND lower(search_text) NOT LIKE '%draft%'
+        WHERE text LIKE '%rating: adopted%' AND lower(search_text) NOT LIKE '%adopted%'
     `);
     assert.ok(
         metadataOnly.length > 20,
-        `only ${metadataOnly.length} chapters carry "status: draft" without saying "draft" in prose; the case has no teeth`);
+        `only ${metadataOnly.length} chapters carry "rating: adopted" without saying "adopted" in prose; the case has no teeth`);
 
     const matched = new Set(all(`
         SELECT chapter.path || '#' || chapter.slug AS reference
         FROM chapter_fts JOIN chapter ON chapter.id = chapter_fts.rowid
-        WHERE chapter_fts MATCH 'draft'
+        WHERE chapter_fts MATCH 'adopted'
     `).map((row) => row.reference));
 
     const leaked = metadataOnly
         .map((row) => `${row.path}#${row.slug}`)
         .filter((reference) => matched.has(reference));
 
-    assert.deepEqual(leaked, [], 'these chapters match "draft" on their metadata block alone');
+    assert.deepEqual(leaked, [], 'these chapters match "adopted" on their metadata block alone');
 
-    // The measured effect, not just the absence of one: 444 of 1124 chapters
-    // matched "draft" when the fence was indexed as prose.
+    // The measured effect, not just the absence of one: before contract 38,
+    // 444 of 1124 chapters matched "draft" when the fence was indexed as prose.
     assert.ok(
         matched.size < metadataOnly.length,
-        `"draft" still matches ${matched.size} chapters, more than the ${metadataOnly.length} whose fence says so`);
+        `"adopted" still matches ${matched.size} chapters, more than the ${metadataOnly.length} whose fence says so`);
 });
 
 test('the repository root is where this file thinks it is', () => {

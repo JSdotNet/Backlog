@@ -2,63 +2,48 @@
 
 ```meta
 type: features
-status: draft
 ```
-
-> Features and sub-features this bounded context supports, described in
-> business/ubiquitous language rather than implementation terms.
 
 ## Progress tracking
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
-Track what changed since the last review, per project and per repository:
-
-- detect the items that moved status, were updated, or went stale;
-- capture progress signals from notes, commits, GitHub issues, or manual updates.
+Track what changed since the last review, per project and per repository. Detect the items that moved status, were updated, or went stale, and capture progress signals from notes, commits, GitHub issues or manual updates.
 
 ## Attention surfacing
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/monitoring/features.md#progress-tracking]
 ```
 
-Highlight items needing follow-up (overdue, blocked, untouched), surface stale
-tasks and long-deferred inbox items, and alert on stuck queues or high
-backlog counts.
+Show what needs a person's attention: items needing follow-up (overdue, blocked, untouched), stale tasks, long-deferred inbox items, and stuck queues or high backlog counts.
 
 ## Multi-layer dashboards
 
 ```meta
 type: feature
-status: draft
 ```
 
-Present layered dashboards across application health, backlog/GitHub progress,
-queue health, and optional agent sessions.
+Present layered dashboards across application health, backlog/GitHub progress, queue health and optional agent sessions.
 
 ### Project dashboard (Application Insights)
 
 ```meta
 type: sub-feature
-status: draft
 ```
 
-Show the application's performance metrics, such as errors, latency and
-availability, with cost and usage attribution. The metrics are correlated with
-backlog status.
+Show the application's performance metrics with cost and usage attribution. The
+metrics include errors, latency and availability, and are correlated with backlog
+status.
 
 ### Tasks and GitHub progress
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
@@ -69,29 +54,26 @@ flag mismatches (backlog done but issue open, or vice versa).
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/inbox/features.md#queue-health]
 ```
 
-Unprocessed inbox count and oldest age, queue depth and processing rate, and
-automation run status.
+Show the unprocessed inbox count and oldest age, the queue depth and processing
+rate, and the automation run status.
 
 ### Agent sessions
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/sessions/features.md#session-inventory]
 ```
 
-Monitor the sessions [Sessions](../sessions/features.md#session-inventory) records,
-for every agent, linked to issues and tasks, and alert when one is `stalled`.
+Monitor the sessions [Sessions](../sessions/features.md#session-inventory) records
+for every agent, linked to issues and tasks. Alert when one is `stalled`.
 
 ## Multi-repo scanning
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/repository-management/features.md#repository-health-scoring]
 ```
 
@@ -102,7 +84,6 @@ aggregate signals across them, and show an activity timeline per repository.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/capture/features.md#automation-capture]
 ```
 
@@ -113,9 +94,12 @@ alert on failed or missed runs, and display scan results and item counts.
 
 ```meta
 type: feature
-status: draft
 ```
 
-Run Monitoring as a standalone team service with shared dashboards, configurable
-team-wide vs. personal views, role-based visibility, aggregated cross-member
-signals, and shared inbox/queue health.
+Run Monitoring as a standalone team service with:
+
+- shared dashboards;
+- configurable team-wide vs. personal views;
+- role-based visibility;
+- aggregated cross-member signals;
+- shared inbox/queue health.

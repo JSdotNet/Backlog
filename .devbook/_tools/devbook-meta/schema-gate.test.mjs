@@ -3,7 +3,7 @@
 // `validateDocument` is the only implementation of the per-block rules, and for
 // several releases nothing on the `build.mjs --check` path called it: the graph
 // build collected reference and containment problems only, so a chapter with an
-// out-of-ladder `status` exited 0 and merged. The three cases below are the ones
+// out-of-ladder `status` (a rating since contract 38) exited 0 and merged. The three cases below are the ones
 // that slipped through, so each is asserted against `buildGraph` — the function
 // the gate actually runs — rather than against the validator in isolation.
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -26,11 +26,11 @@ try {
     await mkdir(path.join(repoRoot, ".devbook", "tech"), { recursive: true });
     await mkdir(path.join(repoRoot, ".devbook", "domain", "ordering"), { recursive: true });
 
-    // An out-of-ladder rating. `.tech` has no resting value, so the ladder is
-    // the whole of what `status` may say.
+    // An out-of-ladder rating. A `.tech` block always states its rating, and
+    // the ladder is the whole of what `rating` may say.
     await writeFile(
         path.join(repoRoot, ".devbook", "tech", "technology-graph.md"),
-        `# Technology Graph\n\n${fence("status: nonsense-rung\n")}\nProse.\n`,
+        `# Technology Graph\n\n${fence("rating: nonsense-rung\n")}\nProse.\n`,
         "utf8"
     );
 
@@ -67,8 +67,8 @@ try {
     const { problems, edges } = await buildGraph(repoRoot);
 
     check(
-        Boolean(find(problems, "error", 'has status "nonsense-rung"')),
-        "an out-of-ladder `status` is an error on the gate path",
+        Boolean(find(problems, "error", 'has `rating` "nonsense-rung"')),
+        "an out-of-ladder `rating` is an error on the gate path",
         JSON.stringify(problems, null, 2)
     );
 

@@ -48,7 +48,7 @@ public interface IDevbookPaneMode
     /// <summary>Every link this devbook's notes hold into the repository
     /// <paramref name="repositoryAlias"/>, one per note, chapter file and heading —
     /// what the Domain view reads once to show each unit, feature and term the
-    /// notes linking to it (local ADR 0045). None by default.</summary>
+    /// notes linking to it (local ADR 0047). None by default.</summary>
     Task<IReadOnlyList<DevbookChapterNote>> ChapterNotesAsync(string repositoryAlias, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<DevbookChapterNote>>([]);
 

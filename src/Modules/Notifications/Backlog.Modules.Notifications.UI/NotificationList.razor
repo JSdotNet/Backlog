@@ -1,8 +1,10 @@
 @*
-    The centre's list: every notification grouped under the subject it is about,
-    the group with an open question first, and each row the notification's kind
-    or how it settled, its title, and one line — who raised it and when, the
-    answer that won and the device it came from, or why it closed.
+    The centre's list: every notification grouped under the property the centre
+    chose — its repository, system, asker kind or subject — the group with an open
+    question first, and each row the notification's kind or how it settled, its
+    title, the asker's marker (AI agent, Person, Backlog), and one line — who
+    raised it and when, the answer that won and the device it came from, or why it
+    closed.
 
     A row is a library AppButton wearing this list's own class: pressing it
     selects the notification, and the detail beside the list draws it. The
@@ -21,7 +23,7 @@
         @foreach (var group in _groups)
         {
             <section class="notification-list__group" data-testid="notification-group" data-subject="@group.Key">
-                <h3 class="notification-list__subject">@group.Label</h3>
+                <h3 class="@HeadingClass(group)">@group.Label</h3>
                 <ul class="notification-list__rows">
                     @foreach (var notification in group.Notifications)
                     {
@@ -39,8 +41,11 @@
                                            TestId="notification-row-badge">@BadgeLabel(notification)</Badge>
                                     <span class="notification-list__title">@notification.Title</span>
                                 </span>
-                                <span class="notification-list__meta" data-testid="notification-row-line">
-                                    @NotificationPresentation.RowLine(notification, Now, ThisDeviceId)
+                                <span class="notification-list__byline">
+                                    <NotificationAskerBadge Asker="@AskerOf(notification)" TestId="notification-row-asker" />
+                                    <span class="notification-list__meta" data-testid="notification-row-line">
+                                        @NotificationPresentation.RowLine(notification, Now, ThisDeviceId)
+                                    </span>
                                 </span>
                             </AppButton>
                         </li>
@@ -57,6 +62,20 @@
     /// <summary>The notifications to list, in any order; the list groups and orders them.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<NotificationView> Notifications { get; set; } = [];
+
+    /// <summary>What the groups are; by subject unless the centre chose otherwise.</summary>
+    [Parameter]
+    public NotificationGrouping Grouping { get; set; } = NotificationGrouping.Subject;
+
+    /// <summary>The repository each notification is about, by id — an alias, or null for the
+    /// Brain's; one left out sits under "Repository not known" when grouped by repository.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<Guid, string?> Repositories { get; set; } = new Dictionary<Guid, string?>();
+
+    /// <summary>Which identity hue a repository wears, for its heading when grouped by
+    /// repository; null draws no hue.</summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>The notification the detail shows.</summary>
     [Parameter]
@@ -75,7 +94,21 @@
     public Guid ThisDeviceId { get; set; }
 
     protected override void OnParametersSet() =>
-        _groups = NotificationPresentation.Group(Notifications ?? []);
+        _groups = NotificationPresentation.Group(Notifications ?? [], Grouping, Repositories ?? new Dictionary<Guid, string?>());
+
+    /// <summary>A repository's heading wears its hue, the shared repo-mark the Sessions list's
+    /// repository cell wears, while the hues are showing.</summary>
+    private string HeadingClass(NotificationGroup group) =>
+        Grouping == NotificationGrouping.Repository
+        && group.Notifications[0] is var first
+        && Repositories.TryGetValue(first.Id, out var alias)
+        && alias is not null
+        && RepositoryColour?.Invoke(alias) is { } colour
+            ? $"notification-list__subject repo-mark repo-mark--{colour}"
+            : "notification-list__subject";
+
+    private static NotificationCardAsker AskerOf(NotificationView notification) =>
+        NotificationPresentation.CardAsker(NotificationPresentation.AskerKind(notification));
 
     private static string RowClass(NotificationView notification, bool selected)
     {

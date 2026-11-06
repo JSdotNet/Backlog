@@ -1,16 +1,14 @@
 # Invariants
 
 ```meta
-status: draft
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it once the rule is built.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each. A chapter gives each rule, where it is enforced and, once the rule is built, the unit test that proves it.
 
 ## Goal
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/progress/domain.md#goal]
 ```
@@ -20,7 +18,6 @@ related: [.devbook/domain/progress/domain.md#goal]
 ### Invariant: A goal has a title
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_goal_without_a_title_is_refused
 ```
@@ -32,7 +29,6 @@ Enforced at: constructor, `Rename()`
 ### Invariant: An outcome is one line
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.An_outcome_of_more_than_one_line_is_refused
 ```
@@ -44,7 +40,6 @@ Enforced at: constructor, `ChangeOutcome()`
 ### Invariant: An item is attached to a goal once
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_again_changes_nothing_and_keeps_its_first_day, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.An_attachment_is_equal_by_kind_and_identity_alone]
 ```
@@ -56,7 +51,6 @@ Enforced at: `Attach()`
 ### Invariant: A pull request attachment names its repository
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_pull_request_without_a_repository_or_a_number_is_refused
 ```
@@ -69,7 +63,6 @@ Enforced at: `Goal Attachment`
 ### Invariant: A session attachment names its agent and session id
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
@@ -82,7 +75,6 @@ Enforced at: `Goal Attachment`
 ## Goal Assignment
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/progress/domain.md#goal-assignment]
 ```
@@ -92,12 +84,11 @@ related: [.devbook/domain/progress/domain.md#goal-assignment]
 ### Invariant: An item belongs to at most one goal
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_another_goal_holds_is_refused_naming_that_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_plan_or_a_pull_request_belongs_to_one_goal_too, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Moving_an_item_takes_it_out_of_the_other_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_to_the_goal_that_holds_it_already_is_no_conflict, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_task_another_goal_holds_through_its_plan_may_be_attached_directly]
 ```
 
-Attaching a plan, task, pull request or session that another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
+Attaching an item another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
 An item counted in two goals would move both when it is done.
 
 Enforced at: `Assign()`
@@ -105,7 +96,6 @@ Enforced at: `Assign()`
 ## Impediment
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/progress/domain.md#impediment]
 ```
@@ -115,7 +105,6 @@ related: [.devbook/domain/progress/domain.md#impediment]
 ### Invariant: An impediment has a title
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_has_a_title
 ```
@@ -127,7 +116,6 @@ Enforced at: constructor, `Rename()`
 ### Invariant: An impediment starts New
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_starts_New_and_its_history_opens_with_that_step
 ```
@@ -139,7 +127,6 @@ Enforced at: constructor
 ### Invariant: An impediment moves forward along its states
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_moves_forward_along_its_states, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Any_other_move_is_refused_and_changes_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Moving_an_escalated_impediment_back_to_Reported_is_refused]
 ```
@@ -152,7 +139,6 @@ Enforced at: `MoveTo()`
 ### Invariant: Any open impediment may be resolved
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Any_open_impediment_may_be_resolved
 ```
@@ -164,7 +150,6 @@ Enforced at: `MoveTo()`
 ### Invariant: A resolved impediment stays resolved
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_resolved_impediment_stays_resolved
 ```
@@ -177,7 +162,6 @@ Enforced at: `MoveTo()`
 ### Invariant: Every move is recorded
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Every_move_records_its_day_and_who_it_is_with, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.The_history_days_never_go_backwards]
 ```
@@ -189,7 +173,6 @@ Enforced at: `MoveTo()`, `State Change`
 ### Invariant: An item is held back once by one impediment
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/progress/domain.md#holds-back]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_item_is_held_back_once_by_kind_and_identity, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_task_a_pull_request_and_a_plan_never_equal_one_another]
@@ -203,7 +186,6 @@ Enforced at: `HoldBack()`
 ### Invariant: A held-back item names its whole identity
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.invariants.md#invariant-a-pull-request-attachment-names-its-repository]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_pull_request_names_its_repository_and_a_positive_number, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_plan_names_a_non_blank_tag, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil]
@@ -217,7 +199,6 @@ Enforced at: `Holds Back`
 ### Invariant: Unlinking an item it does not hold back changes nothing
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/progress/domain.md#holds-back]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Releasing_an_item_it_does_not_hold_back_changes_nothing
@@ -230,7 +211,6 @@ Enforced at: `Release()`
 ### Invariant: Linking and unlinking leave the state and history alone
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#state-change]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Linking_and_unlinking_leave_the_state_and_history_alone
@@ -244,7 +224,6 @@ Enforced at: `HoldBack()`, `Release()`
 ## Stand-up Reading
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled]
 ```
@@ -254,7 +233,6 @@ related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/p
 ### Invariant: Ready to resolve needs every held-back item settled
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_open_impediment_whose_every_item_is_settled_is_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready]
 ```
@@ -267,7 +245,6 @@ Enforced at: `Stand-up Reading`
 ### Invariant: An impediment that holds back nothing is never ready to resolve
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready
 ```
@@ -280,7 +257,6 @@ Enforced at: `Stand-up Reading`
 ### Invariant: A resolved impediment is never ready to resolve
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_resolved_impediment_is_never_ready
 ```
@@ -292,7 +268,6 @@ Enforced at: `Stand-up Reading`
 ### Invariant: Reading Ready to resolve moves nothing
 
 ```meta
-status: draft
 type: invariant
 related: [.devbook/domain/progress/domain.md#impediment-state]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing
@@ -306,7 +281,6 @@ Enforced at: `Stand-up Reading`
 ## Iteration
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/progress/domain.md#shared-value-objects, .devbook/domain/progress/domain.md#iteration]
 ```
@@ -318,7 +292,6 @@ related: [.devbook/domain/progress/domain.md#shared-value-objects, .devbook/doma
 ### Invariant: An iteration has one of four lengths
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -329,7 +302,6 @@ Enforced at: `Iteration`
 ### Invariant: A week runs Monday to Friday
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -340,7 +312,6 @@ Enforced at: `Iteration`
 ### Invariant: Two-week windows keep to their start
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -351,7 +322,6 @@ Enforced at: `Iteration`
 ### Invariant: A month is a calendar month
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -362,7 +332,6 @@ Enforced at: `Iteration`
 ### Invariant: Last comes just before next
 
 ```meta
-status: draft
 type: invariant
 ```
 

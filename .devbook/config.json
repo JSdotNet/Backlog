@@ -104,11 +104,11 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.28.0"
+      "pluginVersion": "1.34.0"
     },
     "devbook": {
-      "pluginVersion": "1.30.1",
-      "contractVersion": 36,
+      "pluginVersion": "1.35.0",
+      "contractVersion": 38,
       "adopted": [
         "arc42",
         "domain",
@@ -118,48 +118,43 @@
       ],
       "materialized": {
         ".agents/rules/devbook-ai.md": {
-          "from": "1.30.1",
-          "hash": "sha256:7b681ec6eefbb5f26775043e359b3460d94624e313742b30fa88beb31117235e",
-          "managed": true
-        },
-        ".agents/rules/devbook-annotations.md": {
-          "from": "1.24.0",
-          "hash": "sha256:101f815225e519a2ff6084fe56122a2da23e839a0cfafc7501cd05b9b4cf7138",
+          "from": "1.34.0",
+          "hash": "sha256:99089a4defb8fe5136f45ac4dfa161dbfe1ceb1a2c75e4a6d5d9a3457d5514ac",
           "managed": true
         },
         ".agents/rules/devbook-arc42.md": {
-          "from": "1.28.0",
-          "hash": "sha256:5486898958ba18a337790c97fbb9dff2778d71e41860f1489969969008ba9b12",
+          "from": "1.34.0",
+          "hash": "sha256:da48e9e584562a8fac0efed530912de80920f3d4408700c9ec75d36623fd166d",
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.30.1",
-          "hash": "sha256:135eb40b78f639d9edca18f04bd75362d19984db93c8106aef28367cd9fd7f25",
+          "from": "1.34.0",
+          "hash": "sha256:959df358a61395348bc7c62820bbd91e43b910cafe45da17e3f977e7a5b5457d",
           "managed": true
         },
         ".agents/rules/devbook-design.md": {
-          "from": "1.19.0",
-          "hash": "sha256:fe9bd01dd9f1c1d0d9200eb0a5b6885085d76304114ff43b536f0d5e6fcfed2c",
+          "from": "1.34.0",
+          "hash": "sha256:4f6f64b31523fd8a4b70f864102fda90938f932832bf934503be629c03220a1c",
           "managed": true
         },
         ".agents/rules/devbook-domain.md": {
-          "from": "1.30.1",
-          "hash": "sha256:9b92160f468ee18c7afd342d9c2d3bdbcac9d3f920e85503b73389a6b91807b2",
+          "from": "1.34.0",
+          "hash": "sha256:63eea7083c4a5675eb2f9c03f55537018c9d2bcbbfa54cd6012bfaf9d7c1d84c",
           "managed": true
         },
         ".agents/rules/devbook-naming.md": {
-          "from": "1.28.0",
-          "hash": "sha256:bca2c6f51c2fc62b8e0085ac0a680262fa41bf65038e4490bdd8486ea64958b9",
+          "from": "1.34.0",
+          "hash": "sha256:cbca88f6f0dc1eb321af14974b59e83b4077173611e608cf83adf065962180ea",
           "managed": true
         },
         ".agents/rules/devbook-tech.md": {
-          "from": "1.30.1",
-          "hash": "sha256:a17ff7ce54180dd5930c10a3f27a79e8f9d57f06e48338a05e3527cf47bbc1d2",
+          "from": "1.34.0",
+          "hash": "sha256:229511c6aa7a3f200ce2a81c968eab633a4a2e0f0c04e12315ecf84dc5e76080",
           "managed": true
         },
         ".agents/rules/devbook-writing.md": {
-          "from": "1.28.0",
-          "hash": "sha256:76261974360205ca6acbd5f611fdeae0e1391514b0366bfd13ae6a335d56f6fd",
+          "from": "1.35.0",
+          "hash": "sha256:f58c03ca8b2f0dd8274f96b2fd7d38ad0001bbf4aef514f7866bd42005648b9a",
           "managed": true
         },
         ".agents/skills/capture.md": {
@@ -180,11 +175,6 @@
         ".claude/rules/devbook-ai.md": {
           "from": "1.7.0",
           "hash": "sha256:71565ce2531437853a08501a5631f5ee2ae0d17b012e499bf0d0a8f42a829b58",
-          "managed": true
-        },
-        ".claude/rules/devbook-annotations.md": {
-          "from": "1.7.0",
-          "hash": "sha256:f5373d9b68b55ee44dc7879eb34a3c054fd4d45989e0c97616275bd89c86c008",
           "managed": true
         },
         ".claude/rules/devbook-arc42.md": {
@@ -218,8 +208,8 @@
           "managed": true
         },
         ".claude/rules/devbook-writing.md": {
-          "from": "1.13.0",
-          "hash": "sha256:1308b407b5129fa3d13921b1569e84afc85bd05b1579a847a000a06f71f4f33c",
+          "from": "1.35.0",
+          "hash": "sha256:48255aa0bd1faa50fe969784ecee8dc6ae244fcad351827ba7f7a29afd4d5d82",
           "managed": true
         },
         ".claude/skills/capture/SKILL.md": {
@@ -233,8 +223,8 @@
           "managed": true
         },
         ".claude/skills/estimate/SKILL.md": {
-          "from": "1.19.0",
-          "hash": "sha256:6428802f68bbf7ac2bfe4420c0c6c108b74f5a6fe4665ce7f43a26e35a6f9653",
+          "from": "1.34.0",
+          "hash": "sha256:90d99556f22584fea2572df63c3134fee99c727e689e5e6de34e89034a5d1319",
           "managed": true
         },
         ".claude/skills/run-backlog/SKILL.md": {
@@ -243,8 +233,8 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.30.1",
-          "hash": "sha256:3bc63d55517cfb1e075cef0947444126c87528a5c51cbb76428ec1e28ea3a689",
+          "from": "1.34.0",
+          "hash": "sha256:09ea69f8c902c9bdfaa18501d34a3dd1d1ba98973b595279caf308a92c69cba7",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
@@ -253,8 +243,8 @@
           "managed": true
         },
         ".devbook/_tools/scenarios": {
-          "from": "1.30.1",
-          "hash": "sha256:0773689c27e09d6ee2ce4eace3121c27202c7dee28c2a62a7f6d0627a8e940c3",
+          "from": "1.34.0",
+          "hash": "sha256:2dccdf6d4e4a5167da0e12e7c376c987d4e5cc5972ecdcee2631dd014cccf8b1",
           "managed": true
         },
         ".github/copilot-instructions.md": {
@@ -267,19 +257,14 @@
           "hash": "sha256:2b4060d4b8b3eb5a32783993eccb566f14ffa9fe08a3f4ed397584317a052664",
           "managed": true
         },
-        ".github/instructions/devbook-annotations.instructions.md": {
-          "from": "1.7.0",
-          "hash": "sha256:2f2d0faae5ae5c4e73fb0d321cde73d86f6864e3fd43b3e1cbd07c01b9fb5685",
-          "managed": true
-        },
         ".github/instructions/devbook-arc42.instructions.md": {
           "from": "1.7.0",
           "hash": "sha256:52047a3e078a538a6be9becb04605244c6bcc5fba45e1a71f8e5fcc1ae35d188",
           "managed": true
         },
         ".github/instructions/devbook-chapter-metadata.instructions.md": {
-          "from": "1.7.0",
-          "hash": "sha256:53c59c4667424b4d201fe9a76c5b61ffac0a9369423b84d329d7e47b31e257d1",
+          "from": "1.34.0",
+          "hash": "sha256:50a0b8165308515c590e1115e5bfc7921ff164def76062397438e0f9ae384564",
           "managed": true
         },
         ".github/instructions/devbook-design.instructions.md": {
@@ -303,8 +288,8 @@
           "managed": true
         },
         ".github/instructions/devbook-writing.instructions.md": {
-          "from": "1.13.0",
-          "hash": "sha256:3c74067c8d5371f83eeb6741989d2af9e4dc6bec35d8681d1fa211ff67abe086",
+          "from": "1.35.0",
+          "hash": "sha256:a7b3ac803077367412bfc5c30008ea32acb7b72c4b748d51df7be536f24cf093",
           "managed": true
         },
         ".github/skills/capture/SKILL.md": {
@@ -318,8 +303,8 @@
           "managed": true
         },
         ".github/skills/estimate/SKILL.md": {
-          "from": "1.19.0",
-          "hash": "sha256:6428802f68bbf7ac2bfe4420c0c6c108b74f5a6fe4665ce7f43a26e35a6f9653",
+          "from": "1.34.0",
+          "hash": "sha256:90d99556f22584fea2572df63c3134fee99c727e689e5e6de34e89034a5d1319",
           "managed": true
         },
         ".github/skills/run/SKILL.md": {
@@ -333,8 +318,8 @@
           "managed": true
         },
         "AGENTS.md#devbook": {
-          "from": "1.10.0",
-          "hash": "sha256:601e6d85335687ec8d3c0af4cb6844f0437467a2867c44fc952ffca70458b5ab",
+          "from": "1.34.0",
+          "hash": "sha256:48a7d728f11d275c928b4950101461990af03a6223147201fbb0b010b4e64034",
           "managed": true
         }
       },
@@ -410,6 +395,14 @@
         {
           "id": "035-delivery-path-stages",
           "applied": "2026-10-26"
+        },
+        {
+          "id": "037-flows-in-their-chapters",
+          "applied": "2026-11-03"
+        },
+        {
+          "id": "038-workflow-state-leaves-the-chapter",
+          "applied": "2026-11-03"
         }
       ],
       "procedures": {
@@ -422,7 +415,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.26.0",
+      "pluginVersion": "1.34.0",
       "enabled": [
         "issue-sweep",
         "merge-review",

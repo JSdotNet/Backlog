@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md]
 ```
 
@@ -13,18 +12,13 @@ related: [.devbook/domain/inbox/features.md]
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbox/features.md#add-by-hand, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/features.md#per-item-triage-actions]
 ```
-
-> The requirements of the Inbox pane's three columns: the header's capture
-> field, the rows, the kind pills and the detail's decisions.
 
 ### Requirement: Enter files the capture field's title
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_in_the_field_files_the_title_and_empties_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_on_a_blank_field_files_nothing]
 ```
 
@@ -40,7 +34,6 @@ The system SHALL file the text in the header's capture field as the title of a n
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Shift_enter_opens_the_notes_editor_and_files_nothing
 ```
 
@@ -56,7 +49,6 @@ The system SHALL open a notes editor under the capture field when the reader pre
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Ctrl_enter_files_the_title_and_the_notes_and_closes_the_notes
 ```
 
@@ -72,7 +64,6 @@ The system SHALL file the capture field's title together with the notes editor's
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Escape_closes_the_notes_keeps_the_title_and_files_nothing
 ```
 
@@ -88,7 +79,6 @@ The system SHALL close the notes editor when the reader presses Escape in it, ke
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Rows_are_grouped_by_age_with_a_count_per_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_starts_at_midnight_and_an_empty_heading_is_not_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_is_counted_from_local_midnight, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.This_week_reaches_back_exactly_seven_days]
 ```
 
@@ -110,7 +100,6 @@ The system SHALL group the rows under the headings Today, This week and Older th
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Kind_pills_are_led_by_all_show_the_kinds_in_the_slice_with_counts_and_toggle_the_rows
 ```
 
@@ -126,11 +115,10 @@ The system SHALL show the kind filters as pills led by an All pill carrying the 
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys
 ```
 
-The system SHALL show Move to backlog, To Brain, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
+The system SHALL keep Move to backlog, To Brain, Move to list, Defer and Archive, each naming its key, in a bar at the foot of the detail that stays in view while it scrolls.
 
 #### Scenario: A long article
 
@@ -142,7 +130,6 @@ The system SHALL show Move to backlog, To Brain, Move to list, Defer and Archive
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Sources_take_the_body_and_back_to_inbox_returns_the_queue
 ```
 
@@ -158,19 +145,13 @@ The system SHALL open the watched sources from a Sources button in the pane's he
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#act-on-several-at-once]
 ```
-
-> The requirements of picking several Inbox Items and acting on them together.
-> The feature chapter says what the capability is and why; this says what it
-> promises.
 
 ### Requirement: A shift press picks the run
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Select_puts_a_box_on_every_row_and_a_shift_click_takes_the_range_with_a_running_count
 ```
 
@@ -192,11 +173,10 @@ The system SHALL give every row between the last box pressed and a box pressed w
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Archive_across_the_selection_goes_through_one_batch_and_says_how_many]
 ```
 
-The system SHALL apply a bulk Archive, Move to list, Tags or Repositories change to each picked item through the same act that changes one item, so an item that act refuses is refused and the others still change.
+The system SHALL apply a bulk Archive, Move to list, Tags or Repositories change to each picked item through the single-item act, so an item that act refuses is refused and the others still change.
 
 #### Scenario: One routed item among several archived
 
@@ -214,11 +194,10 @@ The system SHALL apply a bulk Archive, Move to list, Tags or Repositories change
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_partial_failure_names_the_item_it_could_not_change_rather_than_reporting_success, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_bulk_sentence_leads_with_what_landed_and_names_what_did_not]
 ```
 
-The system SHALL report a bulk act by how many items it changed, how many were already at the value, and the title and reason of every item it could not change, and SHALL report it as a warning rather than a success when any item was refused.
+The system SHALL report a bulk act's changed and already-at-value counts and the title and reason of every item it could not change, as a warning rather than a success when any item was refused.
 
 #### Scenario: One of two refused
 
@@ -230,7 +209,6 @@ The system SHALL report a bulk act by how many items it changed, how many were a
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Adding_tags_keeps_each_items_own_and_leaves_an_item_that_has_them_alone
 ```
 
@@ -246,7 +224,6 @@ The system SHALL add the chosen tags to each picked item's own tags, or take one
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Assigning_repositories_replaces_them_and_names_a_routed_item_it_will_not_touch
 ```
 
@@ -262,11 +239,10 @@ The system SHALL refuse, by name, a bulk tag or repository change to an item tha
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_selection_survives_a_refresh_is_pruned_by_a_filter_and_clears_when_the_slice_changes
 ```
 
-The system SHALL keep picked items picked across a refresh of the pane while they are still shown, drop an item from the selection when it stops being shown, and empty the selection when another slice is opened.
+The system SHALL keep picked items picked across a pane refresh while they are shown, drop an item when it stops being shown, and empty the selection when another slice opens.
 
 #### Scenario: A refresh while items are picked
 
@@ -290,19 +266,13 @@ The system SHALL keep picked items picked across a refresh of the pane while the
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode]
 ```
-
-> The requirements of triaging the Inbox from the keyboard and one item at a
-> time. The feature chapter says what the keys are and why; this says what
-> they promise.
 
 ### Requirement: A key does what its button does
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_and_r_decide_the_chosen_item_the_way_its_buttons_do, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_key_does_not_offer_an_act_the_header_withholds, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.L_opens_move_to_list_and_d_offers_review_dates_that_defer_the_item]
 ```
 
@@ -324,11 +294,10 @@ The system SHALL decide the chosen item by a triage key through the same act its
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default]
 ```
 
-The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane as that place's key and not as a shortcut.
+The system SHALL treat as that place's key, not a shortcut, a letter pressed in a text field or dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane.
 
 #### Scenario: Typing a tag
 
@@ -340,11 +309,10 @@ The system SHALL treat a letter pressed in a text field, inside a dialog, with C
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Triage_shows_one_item_counted_and_moves_on_after_each_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Past_the_last_row_triage_returns_to_the_item_skipped_on_the_way]
 ```
 
-The system SHALL, in triage mode, show one item with its place among the rows shown and move on to the next row after each archive, deferral, move to a list or move to the backlog.
+In triage mode the system SHALL show one item with its place among the rows shown and go to the next row after each archive, deferral, move to a list or move to the backlog.
 
 #### Scenario: Archiving the first of three
 
@@ -362,7 +330,6 @@ The system SHALL, in triage mode, show one item with its place among the rows sh
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Escape_leaves_triage_on_the_row_the_reader_stopped_at
 ```
 
@@ -378,7 +345,6 @@ The system SHALL return from triage mode to the rows with the item the session s
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.T_starts_triage_on_the_chosen_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.G_focuses_the_tag_field_and_x_picks_the_chosen_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.U_in_the_pane_undoes_and_the_shortcuts_dialog_lists_it]
 ```
 
@@ -406,7 +372,6 @@ The system SHALL start triage mode on t, move the focus to the chosen item's tag
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.Starting_triage_on_a_routed_row_opens_the_next_open_one_and_counts_only_open_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.Skip_and_previous_step_over_routed_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.A_decision_moves_on_past_a_routed_row]
 ```
 
@@ -428,7 +393,6 @@ The system SHALL show over triage mode a progress bar and the line "n of total �
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.With_two_cards_the_suggestions_number_from_three_and_one_takes_the_duplicate, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Not_a_duplicate_hides_the_card_and_the_suggestions_renumber_from_one]
 ```
 
@@ -450,7 +414,6 @@ The system SHALL number the AI cards shown in triage 1 and 2, at most two of the
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Two_ticked_repositories_and_r_make_one_task_in_each, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Ticking_writes_the_repositories_and_the_hint_counts_the_entries]
 ```
 
@@ -466,11 +429,10 @@ The system SHALL offer in triage a repository picker with one box per configured
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_defer_button_offers_the_review_dates_as_d_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_triage_decisions_name_r_b_l_d_and_a_and_g_reaches_the_tags]
 ```
 
-The system SHALL show in triage mode the decision buttons — Move to backlog, To Brain, Move to list, Defer and Archive — each naming its key and doing what that key does.
+The system SHALL show in triage mode the buttons Move to backlog, To Brain, Move to list, Defer and Archive, each naming its key and doing what that key does.
 
 #### Scenario: Deferring by button
 
@@ -482,7 +444,6 @@ The system SHALL show in triage mode the decision buttons — Move to backlog, T
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Up_next_lists_the_next_four_and_moves_on_after_a_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.On_the_last_row_up_next_lists_the_items_skipped_on_the_way]
 ```
 
@@ -498,7 +459,6 @@ The system SHALL list beside the item in triage mode the items that follow it in
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Just_decided_names_the_item_and_the_list_and_undo_takes_it_back]
 ```
 
@@ -514,22 +474,19 @@ The system SHALL show in triage mode the session's latest decision, naming the i
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
 ```
 
-> The requirements of the model reading an item in triage. What is sent, and
-> why, is settled in local ADR 0023; this says what the reader can count on.
+> Local ADR 0023 settles what is sent to the model, and why.
 
 ### Requirement: The model is asked only when an item is opened in triage
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Opening_an_item_in_triage_asks_once_with_the_configured_repositories, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Outside_triage_mode_nothing_is_asked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Without_an_available_advisor_nothing_is_asked_and_nothing_is_exposed]
 ```
 
-The system SHALL send an item to the Foundry model for its cards only when the reader opens that item in triage mode, at most once per item until the app closes unless the reader presses Ask again on that item, and never on intake, on a timer or while the list is browsed.
+The system SHALL ask the Foundry model for an item's cards only when the reader opens it in triage mode, at most once per item until the app closes unless Ask again is pressed.
 
 #### Scenario: Browsing the list
 
@@ -553,7 +510,6 @@ The system SHALL send an item to the Foundry model for its cards only when the r
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.The_user_message_carries_only_the_fields_the_decision_lets_leave, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.The_cards_are_asked_with_the_advice_prompt_and_the_item_and_its_context_as_json]
 ```
 
@@ -569,7 +525,6 @@ The system SHALL send for the item only its title, link, notes, kind, source, pe
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Without_the_advisor_no_ai_surface_is_drawn_and_the_suggestions_number_from_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Let_AI_propose_the_rest_is_drawn_only_while_the_advisor_can_run]
 ```
 
@@ -585,7 +540,6 @@ The system SHALL show no AI card and no Let AI propose the rest when Foundry is 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.A_failed_call_exposes_no_advice_and_is_not_asked_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.A_call_that_throws_exposes_no_advice, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.An_unreachable_endpoint_and_a_timeout_come_back_as_failed_results, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_client_failure_comes_back_as_a_failed_result_carrying_the_clients_words]
 ```
 
@@ -601,17 +555,13 @@ The system SHALL show no AI card for an item whose model call failed and SHALL l
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#merge-into-a-task]
 ```
-
-> The requirements of folding a capture into the backlog task it repeats.
 
 ### Requirement: Merging comments on the task and archives the capture
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.A_merge_hands_the_captures_title_link_and_notes_to_the_task_and_archives_it_as_the_tasks_duplicate, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests.The_captures_title_link_and_notes_land_on_the_task_as_one_comment_and_its_steps_are_kept]
 ```
 
@@ -627,21 +577,17 @@ The system SHALL add the capture's title, link and notes to the backlog task as 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#undo-a-decision]
 ```
-
-> The requirements of taking back a decision of this session.
 
 ### Requirement: Every decision of the session can be undone, newest first
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.U_takes_back_the_newest_decision_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_archive_is_undone_by_restoring_the_item_to_unprocessed, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_is_undone_by_resurfacing_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_move_to_a_list_is_undone_by_moving_back_to_the_list_it_came_from, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.With_nothing_to_undo_U_says_so_and_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_an_archived_item_makes_it_unprocessed_again]
 ```
 
-The system SHALL undo the session's newest decision not yet undone — an archive, a deferral, a move to a list, a move to the backlog or a merge — and return the item to the state it had before it, until the app closes.
+Until the app closes, the system SHALL undo the session's newest decision not yet undone (an archive, deferral, move to a list, move to the backlog or merge) and restore the item's earlier state.
 
 #### Scenario: Two decisions undone
 
@@ -659,11 +605,10 @@ The system SHALL undo the session's newest decision not yet undone — an archiv
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_is_undone_by_returning_the_item_and_deleting_its_tasks_and_the_shell_hears_of_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_task_has_started_is_refused_in_one_sentence_and_the_next_U_reaches_the_decision_before, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Returning_a_routed_item_deletes_the_tasks_the_route_made_and_makes_it_unprocessed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.A_started_task_refuses_the_return_and_the_item_stays_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.Draft_and_ready_entries_are_deleted_and_an_entry_already_gone_is_no_reason_to_refuse, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.One_started_entry_refuses_the_lot_by_its_title_and_deletes_nothing]
 ```
 
-The system SHALL undo a move to the backlog by deleting the tasks it made only while none of them has started, and otherwise SHALL refuse the undo with a sentence naming the started task and change nothing.
+The system SHALL undo a move to the backlog by deleting its tasks only while none has started, and otherwise SHALL refuse with a sentence naming the started task and change nothing.
 
 #### Scenario: Nothing started
 
@@ -681,7 +626,6 @@ The system SHALL undo a move to the backlog by deleting the tasks it made only w
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_merge_is_undone_by_restoring_the_capture_and_clearing_DuplicateOf, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_a_merged_capture_clears_DuplicateOf_and_leaves_the_comment_on_the_task]
 ```
 
@@ -697,7 +641,6 @@ The system SHALL undo a merge by restoring the capture to the state it had befor
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_capture_stays_open_when_its_own_tombstone_comes_back, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_capture_stays_open_when_the_feed_is_replayed_from_the_start, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_capture_returned_from_the_backlog_stays_open_when_its_routed_tombstone_comes_back, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_dismissal_pushed_after_the_restore_still_archives_the_capture, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_note_stays_open_through_its_echo_and_the_phone_shows_it_again]
 ```
 
@@ -737,11 +680,10 @@ The system SHALL keep an item the reader reopened by undo open when a pull deliv
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_undo_whose_way_back_throws_keeps_the_decision_says_so_and_the_next_U_retries_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_whose_second_way_back_throws_takes_back_the_first_and_keeps_the_second, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_way_back_throws_keeps_the_step_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_with_a_refusal_and_a_throw_says_both_and_keeps_only_the_throw, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_that_throws_going_back_on_still_counts_the_undo_as_done]
 ```
 
-The system SHALL keep a decision whose undo failed on top of the session's history and in its counts, say that it could not be undone, and take it back on the next undo that succeeds.
+The system SHALL keep a decision whose undo failed on top of the session's history and in its counts, say it could not be undone, and take it back on the next successful undo.
 
 #### Scenario: The store fails once
 
@@ -765,17 +707,13 @@ The system SHALL keep a decision whose undo failed on top of the session's histo
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#inbox-zero]
 ```
-
-> The requirements of what the pane shows once the session has emptied it.
 
 ### Requirement: An emptied slice reports the session
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.With_nothing_waiting_after_a_session_the_summary_replaces_the_rows_and_the_detail, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.A_kind_with_no_decisions_is_left_out_and_no_list_with_waiting_items_leaves_out_its_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.With_no_decisions_this_session_the_first_use_empty_state_stays]
 ```
 
@@ -797,17 +735,13 @@ The system SHALL, when the Inbox has no item still waiting after decisions this 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
 ```
-
-> The requirements of the review screen the AI triage pass opens.
 
 ### Requirement: The pass proposes a decision with a reason for every item
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Pressing_it_opens_the_review_with_the_four_groups_and_their_reasons]
 ```
 
@@ -823,7 +757,6 @@ The system SHALL show on the review screen, for every unprocessed item of the sl
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Low_confidence_starts_unaccepted_and_toggling_changes_the_count_and_Apply, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_duplicate_below_the_threshold_starts_on_keep_both_and_an_item_target_offers_keep_the_other]
 ```
 
@@ -839,7 +772,6 @@ The system SHALL start a proposal whose confidence is below 0.6 unaccepted and e
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Discard_and_Back_put_the_pass_away_change_nothing_and_return_to_triage, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Apply_runs_the_accepted_decisions_and_pushes_one_undo_step_each]
 ```
 
@@ -861,7 +793,6 @@ The system SHALL change no item, task or list until the reader presses Apply, an
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Triage_them_puts_the_pass_away_and_opens_triage_on_a_left_over_item]
 ```
 
@@ -877,7 +808,6 @@ The system SHALL leave every item the model could not place unprocessed and offe
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_plan_routes_its_members_in_one_batch_under_a_plus_tag_built_from_its_title_with_its_repositories, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.Two_plans_go_as_two_batches_with_two_different_tags, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_merge_into_a_task_writes_the_comment_and_archives_the_capture_as_its_duplicate, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_single_route_assigns_its_repositories_then_routes, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_filing_moves_the_item_to_its_list_and_an_archive_archives, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.The_decisions_run_in_the_order_given]
 ```
 
@@ -893,7 +823,6 @@ The system SHALL apply an accepted plan as one batch route under a plan tag of i
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Apply_runs_the_accepted_decisions_and_pushes_one_undo_step_each]
 ```
 
@@ -909,7 +838,6 @@ The system SHALL record every decision Apply takes as one step of the session's 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.The_first_refusal_stops_the_rest_names_the_item_and_leaves_what_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_refusal_stops_the_rest_names_the_item_and_keeps_what_applied]
 ```
 
@@ -925,19 +853,13 @@ The system SHALL stop Apply at the first decision refused, keep every decision a
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#capture-attachments]
 ```
-
-> The requirements of bringing a capture's files to the desktop Inbox. The
-> feature chapter says what the capability is and why it exists. This chapter
-> says what it promises.
 
 ### Requirement: A capture lands whatever happens to its files
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The desktop SHALL receive a capture into the Inbox even when one of its files
@@ -959,7 +881,6 @@ cannot be downloaded or kept, with that file's reason recorded on it.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The desktop SHALL record the files a capture names on its item, and save the
@@ -975,7 +896,6 @@ item, before it downloads any of them.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The desktop SHALL keep a downloaded file only when its bytes match the sha256
@@ -991,7 +911,6 @@ the capture recorded for it.
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_named_file_no_fetch_could_honour_is_dropped_not_thrown
 ```
 
@@ -1008,7 +927,6 @@ digest, leaving that file off the item instead of refusing the capture.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 When the same capture arrives again, the desktop SHALL download only the files
@@ -1036,7 +954,6 @@ that have never been tried, while recording any file the item did not have yet.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The Inbox SHALL download a failed file again when the person presses Retry on
@@ -1058,12 +975,11 @@ it, and show either the downloaded file or the new reason.
 
 ```meta
 type: requirement
-status: draft
 ```
 
-The Inbox detail view SHALL show every file an item arrived with: pictures on
-this machine of 8 MB or less as thumbnails that open the file, and every other
-file, a larger picture included, as a row with its size and Open.
+The Inbox detail view SHALL show a picture on this machine of 8 MB or less as a
+thumbnail that opens the file, and every other file as a row with its size and
+Open.
 
 #### Scenario: A picture and a document
 
@@ -1087,7 +1003,6 @@ file, a larger picture included, as a row with its size and Open.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The desktop SHALL mark an item as an `image` when its only content is
@@ -1109,7 +1024,6 @@ pictures, and as a `document` when any of its files is not a picture.
 
 ```meta
 type: requirement
-status: draft
 ```
 
 Routing an item with attachments to Tasks SHALL give every task it creates the
@@ -1137,18 +1051,13 @@ item's attachment folder as that task's attachment.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#delete]
 ```
-
-> The requirements of deleting an Inbox Item. The feature chapter says how it
-> differs from Archive; this says what it promises.
 
 ### Requirement: Delete removes the item after asking
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Delete_asks_first_and_cancelling_keeps_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Confirming_delete_removes_the_item_and_clears_the_detail, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_archived_item_can_still_be_deleted]
 ```
 
@@ -1176,7 +1085,6 @@ The system SHALL offer Delete on an item in any status, ask for confirmation fir
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Once_the_outbox_sends_it_the_deleted_capture_is_forgotten, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_phone_item_the_phone_already_heard_about_owes_it_nothing]
 ```
 
@@ -1198,7 +1106,6 @@ Deleting an item that arrived through sync SHALL leave the acknowledgement archi
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement]
 ```
 
@@ -1220,18 +1127,15 @@ The system SHALL treat a capture it deleted and has not yet acknowledged as alre
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#queue-health-bar]
 ```
 
-> The requirements of the Inbox's queue health bar. What Monitoring shows of
-> the same numbers is Monitoring's to promise.
+> What Monitoring shows of the same numbers is Monitoring's to promise.
 
 ### Requirement: The bar splits the whole unprocessed queue by age
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_bar_splits_every_unprocessed_item_by_age_and_calls_out_the_stale_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_middle_part_counts_from_three_days_up_to_the_stale_threshold, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_over_line_is_quiet_when_nothing_has_waited_too_long, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_empty_queue_says_nothing_is_waiting]
 ```
 
@@ -1253,17 +1157,13 @@ The system SHALL show in the side menu the number of unprocessed items in every 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#classification-and-enrichment]
 ```
-
-> What the suggestion row promises the reader triaging an item.
 
 ### Requirement: Nothing is applied until the reader takes it
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_open_items_suggestions_are_numbered_chips_and_nothing_is_applied_until_one_is_taken
 ```
 
@@ -1279,7 +1179,6 @@ The system SHALL show every suggestion for an open item as a chip, and change th
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_digit_on_the_detail_or_on_the_rows_takes_the_chip_with_that_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Pressing_a_chip_adds_its_tag_and_the_chip_leaves_the_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Taking_the_backlog_suggestion_routes_the_item_and_taking_archive_archives_it]
 ```
 
@@ -1301,7 +1200,6 @@ The system SHALL take the suggestion whose chip shows a digit when the reader pr
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_digit_typed_into_a_picker_or_with_a_modifier_held_takes_nothing
 ```
 
@@ -1317,7 +1215,6 @@ The system SHALL leave every suggestion alone when a digit is typed into a field
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_dismissed_suggestion_is_recorded_and_does_not_come_back_after_a_reload, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteInboxRepositoryTests.The_suggestions_a_reader_turned_down_come_back_with_the_item]
 ```
 
@@ -1333,7 +1230,6 @@ The system SHALL record a suggestion the reader turns down on the item and never
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_knowledge_suggestion_says_why_it_cannot_be_taken_has_no_number_and_can_still_be_dismissed
 ```
 
@@ -1349,7 +1245,6 @@ The system SHALL show a suggestion that cannot be taken without a number, with t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsInboxRoutingRulesTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxRoutingRulesStoreTests]
 ```
 
@@ -1365,17 +1260,13 @@ The system SHALL keep the routing rules typed on the Inbox settings page only wh
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#route-to-tasks]
 ```
-
-> The requirements of moving one item to the backlog.
 
 ### Requirement: Sibling tasks name each other and share a tag
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Two_repositories_make_siblings_that_name_each_other_and_share_a_general_tag, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Three_repositories_make_siblings_that_each_name_the_other_two, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.One_repository_writes_no_sibling_line_and_no_sibling_tag, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Sibling_lines_stay_the_entrys_own_prose_whatever_the_notes_hold, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_links_the_siblings_of_each_item_and_only_its_own, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Three_repositories_go_to_the_target_as_one_request_so_the_siblings_can_name_each_other, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Two_and_three_repository_items_go_whole_so_their_siblings_can_name_each_other]
 ```
 
@@ -1397,21 +1288,17 @@ The system SHALL make one task per repository for an item assigned to several, g
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#batch]
 ```
-
-> The requirements of routing several Inbox Items to Tasks as one plan import.
 
 ### Requirement: A batch is one plan
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_selection_routes_as_one_inbox_batch_and_each_item_keeps_only_its_own_entries, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_list_route_is_tagged_with_the_list_name_and_leaves_the_list_standing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Every_batch_is_a_new_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_list_confirm_says_the_deferred_items_stay_when_there_are_any, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_is_one_document_whose_entries_parse_back_with_the_tag_the_id_and_the_repository]
 ```
 
-The system SHALL route a batch through one plan import whose entries all carry a plan tag new to that batch: `+inbox-batch-` and eight hex digits for a selection, and the list's name with eight hex digits for a list.
+The system SHALL route a batch through one plan import whose entries share a new plan tag: `+inbox-batch-` and eight hex digits for a selection, the list's name and eight hex digits for a list.
 
 #### Scenario: Moving a selection
 
@@ -1435,11 +1322,10 @@ The system SHALL route a batch through one plan import whose entries all carry a
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Each_item_goes_with_its_own_facts_and_repositories, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Each_item_gets_back_only_its_own_entries_in_repository_order, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_names_each_entrys_own_item_as_its_source_and_nothing_else, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.An_item_the_import_answered_for_only_in_part_is_named_with_what_was_made_and_the_rest_are_routed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_save_that_fails_after_the_import_names_the_entries_already_made_and_keeps_the_rest]
 ```
 
-The system SHALL create, for each item of a batch, the draft entries Route to Tasks would create for it alone — one per repository, each naming that item as its source — and record on each item only the entries it became.
+For each item of a batch, the system SHALL create the draft entries Route to Tasks would create (one per repository, each naming the item as source) and record on it only those entries.
 
 #### Scenario: Two repositories on one item
 
@@ -1451,7 +1337,6 @@ The system SHALL create, for each item of a batch, the draft entries Route to Ta
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_refusal_from_tasks_routes_nothing_and_says_the_whole_batch_was_refused, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_refusal_from_tasks_is_wrapped_only_for_the_items_that_were_sent, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_batch_tasks_refused_moves_nothing_and_the_toast_says_so_once, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_refusal_from_tasks_comes_back_as_tasks_gave_it_beside_the_items_left_out]
 ```
 
@@ -1467,7 +1352,6 @@ The system SHALL leave every item of a batch unrouted when the import refuses th
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Routed_archived_and_missing_items_are_refused_up_front_and_the_rest_still_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_decided_item_in_the_selection_is_named_and_never_sent_and_the_rest_still_go]
 ```
 
@@ -1483,7 +1367,6 @@ The system SHALL leave an already routed or archived item out of a batch before 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Notes_that_would_split_or_merge_the_document_leave_only_that_item_out, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.With_every_item_left_out_tasks_is_not_asked, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.An_item_the_target_leaves_out_is_named_with_its_own_reason_and_the_rest_still_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_item_left_out_of_the_batch_is_named_like_any_refusal_and_the_rest_still_go]
 ```
 
@@ -1499,7 +1382,6 @@ The system SHALL leave out of a batch, and name with its reason, an item whose n
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.An_item_naming_a_repository_the_workspace_does_not_know_is_left_out_and_never_registered, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_known_repository_is_known_whatever_its_case_or_spacing]
 ```
 
@@ -1515,7 +1397,6 @@ The system SHALL leave out of a batch, and name, an item assigned to a repositor
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_batch_in_flight_holds_the_single_route, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_single_route_in_flight_holds_the_batch_route]
 ```
 
@@ -1531,7 +1412,6 @@ The system SHALL not start a single route while a batch route is running, nor a 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Move_to_backlog_across_the_selection_routes_it_as_one_batch_and_refreshes_tasks_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests]
 ```
 
@@ -1547,17 +1427,13 @@ The system SHALL refresh the Tasks pane once after a batch is routed, however ma
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#dependency-tier]
 ```
-
-> The requirements of asking the plan drafter which item of a batch waits on which.
 
 ### Requirement: The drafter is asked only on the press
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.The_batch_is_carried_in_the_draft_request_with_each_item_and_the_bare_tag, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.One_routable_item_has_nothing_to_order_and_the_drafter_is_not_asked, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Create_plan_still_asks_about_one_item_with_no_batch]
 ```
 
@@ -1579,7 +1455,6 @@ The system SHALL make no model call about a batch until the reader presses Ask t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Ask_the_AI_to_order_is_shown_disabled_with_its_reason_when_no_drafter_is_configured, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Without_a_drafter_the_order_is_not_configured_and_nothing_is_read, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.A_drafter_that_is_not_available_gives_its_own_reason]
 ```
 
@@ -1595,11 +1470,10 @@ The system SHALL show Ask the AI to order disabled, titled with the drafter's re
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_is_read_as_edges_between_the_items_and_tasks_is_not_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_a_repository_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_an_entry_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.The_panels_repositories_are_the_ones_the_answer_may_name, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.An_answer_the_target_refuses_adds_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.A_drafter_failure_comes_back_as_it_is, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_refused_order_is_named_in_the_panel_and_adds_no_switch]
 ```
 
-The system SHALL offer none of the drafter's order when its answer names a repository none of the batch's items goes to, or an entry or an `after:` that is not one of the batch's items, and say why in the panel.
+The system SHALL offer none of the drafter's order, and say why in the panel, when its answer names a repository no batch item goes to, or an entry or `after:` outside the batch.
 
 #### Scenario: A made-up repository
 
@@ -1623,11 +1497,10 @@ The system SHALL offer none of the drafter's order when its answer names a repos
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.The_drafters_dependencies_are_added_on_after_the_stated_ones_and_never_twice, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.An_ask_that_adds_nothing_or_is_refused_says_so_and_confirm_waits_while_it_is_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Each_edge_read_back_is_an_inferred_dependency_on_the_other_item]
 ```
 
-The system SHALL add each dependency the drafter infers between two items of the batch as a switch marked AI-inferred and on, never add one the panel already shows between the same two items, and route only the switches left on.
+The system SHALL add each dependency the drafter infers between two batch items as a switch marked AI-inferred and on, never add one the panel shows between them, and route only the switches left on.
 
 #### Scenario: A new dependency
 
@@ -1657,17 +1530,15 @@ The system SHALL add each dependency the drafter infers between two items of the
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#route-to-brain]
 ```
 
-> The requirements of routing an item To Brain (local ADR 0026).
+> Local ADR 0026 decides the route.
 
 ### Requirement: To Brain writes the item as a note in the Brain's inbox area
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_capture_becomes_a_note_and_the_item_leaves_the_queue_as_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_captured_link_keeps_its_address, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.An_inbox_note_becomes_a_brain_note_with_its_title_and_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.To_brain_in_triage_routes_the_item_says_where_it_went_and_moves_on, e2e:dotnet:Backlog.EndToEndTests.BrainTests.To_brain_writes_an_inbox_item_as_a_note_in_the_inbox_area]
 ```
 
@@ -1689,7 +1560,6 @@ The system SHALL write an item routed To Brain as a new note in the Brain's inbo
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.An_inbox_note_keeps_its_title_and_body_and_stays_on_the_phone
 ```
 
@@ -1705,7 +1575,6 @@ The system SHALL put no `note` document on the task feed for a note written by T
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_brain_that_refuses_leaves_the_item_open_and_says_why, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.No_brain_folder_is_refused_with_the_brain_s_own_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.A_brain_that_is_not_set_up_is_said_and_the_item_stays]
 ```
 
@@ -1721,18 +1590,13 @@ The system SHALL refuse To Brain while no Brain folder is set up, say so, and le
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#notes-on-the-phone]
 ```
-
-> The requirements of keeping and editing notes on the phone. The feature
-> chapter says what the Notes tab offers; this says what it promises.
 
 ### Requirement: A note saves itself as it is written
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The phone SHALL save a note a second after typing stops, with no save button, and say in the line at the top that it is saved.
@@ -1753,7 +1617,6 @@ The phone SHALL save a note a second after typing stops, with no save button, an
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL bring a note made on the phone into the desktop Inbox as an item whose kind is note.
@@ -1768,19 +1631,13 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#notes-on-the-desktop]
 ```
-
-> The requirements of a desktop change to a note reaching the phone. The
-> feature chapter says what the desktop offers on a note; this says what it
-> promises the phone.
 
 ### Requirement: A desktop edit to a note reaches the phone
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL bring an edit the desktop makes to a note to the phone's Notes list on the phone's next pull.
@@ -1795,7 +1652,6 @@ The system SHALL bring an edit the desktop makes to a note to the phone's Notes 
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL take a note the desktop archives off the phone's Notes list on the phone's next pull.
@@ -1810,21 +1666,16 @@ The system SHALL take a note the desktop archives off the phone's Notes list on 
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 ```
 
-> The requirements of keeping triage off the phone. The feature chapter says
-> why the desktop decides what an item becomes; this says what the phone
-> promises not to do. Every scenario starts from captures the phone made,
-> because the phone's Inbox tab shows only those until the desktop takes them
-> in.
+> Every scenario starts from captures the phone made, because the phone's
+> Inbox tab shows only those until the desktop takes them in.
 
 ### Requirement: The phone offers no triage
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox tab's list or on an item opened from it.

@@ -60,12 +60,7 @@ else
                           AriaLabel="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           Title="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           TestId="note-speech-toggle">
-                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
-                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                    <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
-                    <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
-                    <path d="M8 12.25v2" />
-                </svg>
+                <MicIcon />
             </ToggleButton>
             @if (_canTakePhoto)
             {
@@ -115,8 +110,6 @@ else
     /// <summary>How long typing has to stop for before the note is written.</summary>
     public static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(1);
 
-    private const string Listening = "Listening…";
-
     /// <summary>One save at a time. Not disposed with the page: the save leaving
     /// the page flushes runs after it, and a semaphore with no wait handle holds
     /// nothing to release.</summary>
@@ -147,6 +140,7 @@ else
     private bool? _speechSupported;
     private bool _listening;
     private string? _speechStatus;
+    private DictationSession? _dictation;
 
     private bool _canTakePhoto;
     private bool _picking;
@@ -237,8 +231,9 @@ else
         StateHasChanged();
     }
 
-    /// <summary>Leaving the page stops listening and flushes what is still
-    /// pending: the note is a singleton's, so the write outlives this page.</summary>
+    /// <summary>Leaving the page ends dictation — words the device heard still
+    /// arrive, a recording is not sent — and flushes what is still pending: the
+    /// note is a singleton's, so the write outlives this page.</summary>
     public void Dispose()
     {
         _disposed = true;
@@ -250,7 +245,7 @@ else
         _debounce?.Dispose();
         _debounce = null;
 
-        if (_listening) _ = Speech.StopAsync().AsTask();
+        _ = Dictation.LeaveAsync().AsTask();
         if (_dirty) _ = SaveAsync();
     }
 
@@ -497,30 +492,30 @@ else
     {
         if (!pressed)
         {
-            await Speech.StopAsync();
+            await Dictation.StopAsync();
             return;
         }
 
+        // No status yet: the engine that takes the turn words the first one.
         _listening = true;
-        _speechStatus = Listening;
+        _speechStatus = null;
 
         // Not awaited: ListenAsync ends when recognition does, and the pressed
         // state has to reach the screen before that.
         _ = ListenAsync();
     }
 
+    private DictationSession Dictation => _dictation ??= new DictationSession(Speech);
+
     private async Task ListenAsync()
     {
-        SpeechTranscript result;
+        var result = await Dictation.ListenAsync(InvokeAsync, status =>
+        {
+            if (_disposed) return;
 
-        try
-        {
-            result = await Speech.ListenAsync();
-        }
-        catch (Exception ex)
-        {
-            result = SpeechTranscript.Failed(ex.Message);
-        }
+            _speechStatus = status;
+            StateHasChanged();
+        });
 
         _listening = false;
 

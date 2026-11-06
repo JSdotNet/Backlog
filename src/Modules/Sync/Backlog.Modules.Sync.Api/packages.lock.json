@@ -344,6 +344,17 @@
           "OpenTelemetry.Instrumentation.Runtime": "[1.19.0, )"
         }
       },
+      "backlog.infrastructure.azurefoundry": {
+        "type": "Project",
+        "dependencies": {
+          "Azure.Identity": "[1.21.0, )",
+          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
+        }
+      },
       "backlog.infrastructure.blobstorage": {
         "type": "Project",
         "dependencies": {
@@ -370,8 +381,20 @@
       "backlog.infrastructure.webpubsub": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Azure.Messaging.WebPubSub": "[13.6.1, )",
+          "Aspire.Azure.Messaging.WebPubSub": "[13.6.4, )",
           "Backlog.Modules.Sync": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.dashboard.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.inbox.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
       "backlog.modules.sync": {
@@ -392,9 +415,9 @@
       },
       "Aspire.Azure.Messaging.WebPubSub": {
         "type": "CentralTransitive",
-        "requested": "[13.6.1, )",
-        "resolved": "13.6.1",
-        "contentHash": "HDLLyW9cSalwmpNGISuHtg52ofwo+HHbnRM630+pOUOez4kz5j5/MCE+R1VLbZp+jnyJfm3pOQ9jG1oEWmruhA==",
+        "requested": "[13.6.4, )",
+        "resolved": "13.6.4",
+        "contentHash": "mBL70zc/nF6LRVyRL+FaO2wAdsm8Dkz0X1ieD92/+3E7UIfi4YAtSAkoXqV1yH6547STl4PKlTQ9z1eARzsTYA==",
         "dependencies": {
           "Azure.Core": "1.62.0",
           "Azure.Messaging.WebPubSub": "1.6.0",
@@ -550,8 +573,8 @@
       "System.Security.Cryptography.ProtectedData": {
         "type": "CentralTransitive",
         "requested": "[10.0.12, )",
-        "resolved": "6.0.0",
-        "contentHash": "rp1gMNEZpvx9vP0JW0oHLxlf8oSiQgtno77Y4PLUBjSiDYoD77Y8uXHr1Ea5XG4/pIKhqAdxZ8v8OTUtqo9PeQ=="
+        "resolved": "10.0.12",
+        "contentHash": "wO0W8VDMeRJZakRySOmemAnrBZMwEFRlbfBtATxUiLf2I3IhSRnCp1Vt157NWptdE4IJ7eftd5n8q9LtaKHFTQ=="
       }
     }
   }

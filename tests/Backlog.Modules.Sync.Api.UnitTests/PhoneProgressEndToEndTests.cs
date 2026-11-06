@@ -106,6 +106,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         Assert.Equal(12, pull.Checks!.Passed);
         Assert.Equal(14, pull.Checks.Total);
         Assert.Equal(new GoalPullRequestApprovalsDto(1, 2), pull.Approvals);
+        Assert.True(pull.ReviewRequested);
         Assert.Equal(impediment.Id, Assert.Single(devices.Phone.Impediments()).Id);
 
         var standUp = devices.StandUp.Read();
@@ -335,7 +336,8 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
     }
 
     /// <summary>GitHub's answer, as the desktop's reader would give it: every pull request
-    /// asked about is open, 12 of 14 checks passed, with one of two approvals.</summary>
+    /// asked about is open, 12 of 14 checks passed, with one of two approvals, and asks for
+    /// the viewer's review.</summary>
     private sealed class OneOpenPullRequest : IGoalPullRequestReader
     {
         public Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(IReadOnlyList<PullRequestRefDto> pullRequests, CancellationToken cancellationToken = default) =>
@@ -343,7 +345,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
             [
                 .. pullRequests.Select(pull => new GoalPullRequestDto(
                     pull.Repository, pull.Number, LinkedPullRequestState.Open, null,
-                    new GoalPullRequestChecksDto(12, 0, 2, []), new GoalPullRequestApprovalsDto(1, 2)))
+                    new GoalPullRequestChecksDto(12, 0, 2, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true))
             ]);
     }
 }

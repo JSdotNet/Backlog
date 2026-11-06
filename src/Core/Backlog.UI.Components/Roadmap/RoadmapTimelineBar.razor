@@ -87,6 +87,15 @@
             <CheckIcon Size="12" CssClass="roadmap-bar__done" TestId="@Suffix("done")" />
         }
 
+        @* The waiting mark, after either of those: a bar can be late and waiting at once,
+           and then both show. The queue glyph the host's own queue control draws, so the
+           mark reads as that press still pending. Hidden for the same reason: the caller
+           says what is awaited in the detail. *@
+        @if (Bar.Waiting)
+        {
+            <ListEndIcon Size="12" CssClass="roadmap-bar__waiting" TestId="@Suffix("waiting")" />
+        }
+
         @* Beside the fill rather than folded into it: a fill that silently dropped
            the unsized work would read as further along than the plan is. *@
         @if (Bar.UnestimatedCount > 0)
@@ -371,14 +380,16 @@
     /// On an overdue bar the caller's first detail line is its warning
     /// (<see cref="RoadmapBar.Overdue"/>), and it leads the progress line: it is the one
     /// fact that asks the reader to act. Elsewhere the progress comes first, as it does
-    /// on every bar that is not late.
+    /// on every bar that is not late. A waiting bar's next line says what it waits for
+    /// (<see cref="RoadmapBar.Waiting"/>), and leads the progress too: it is news about
+    /// the bar, and the progress is not.
     /// </para></summary>
     private string Tooltip
     {
         get
         {
             var lines = RoadmapDetail.Lines(Bar.Detail).ToList();
-            var leading = Bar.Overdue ? 1 : 0;
+            var leading = (Bar.Overdue ? 1 : 0) + (Bar.Waiting ? 1 : 0);
             IEnumerable<string?> lead = lines.Take(leading);
             IEnumerable<string?> rest = lines.Skip(leading);
 

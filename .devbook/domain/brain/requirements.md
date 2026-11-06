@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md]
 ```
 
@@ -17,18 +16,15 @@ related: [.devbook/domain/brain/features.md]
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#brain-scope]
 ```
 
-> The requirements of the Brain chip in the header's repository scope (local
-> ADR 0027).
+> The Brain chip in the header's repository scope (local ADR 0027).
 
 ### Requirement: The Brain chip leads the scope
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
@@ -50,7 +46,6 @@ The system SHALL render the Brain chip first in the repository scope, behind a d
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
@@ -66,7 +61,6 @@ The system SHALL show only the tasks filed against no repository in Tasks, Board
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_lists_every_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_beside_a_repository_lists_that_repositorys_pull_requests]
 ```
 
@@ -88,7 +82,6 @@ The system SHALL list every pull request while Brain is the only chip pressed, a
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_presses_as_a_repository_chip_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_beside_a_repository_keeps_both_and_the_anchor_stays, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_pressed_alone_replaces_the_repositories, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
@@ -110,7 +103,6 @@ The system SHALL add Brain to the chips already pressed on a Ctrl-press and pres
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_is_remembered_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_brain_comes_back_as_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_remembered_brain_comes_back_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_brain_survives_a_restart_as_the_empty_value_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.A_remembered_no_repository_only_state_migrates_to_the_brain, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_scope_survives_a_restart_with_the_brain_as_its_anchor]
 ```
 
@@ -132,7 +124,6 @@ The system SHALL reopen a remembered scope with Brain in the position it was sto
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.MyDayScopeTests.The_scope_group_holds_every_scope_and_the_bar_holds_no_areas]
 ```
 
@@ -148,7 +139,6 @@ The system SHALL offer no *No repo* chip on the Tasks filter bar.
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_chip_asks_to_be_set_up_and_still_scopes, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_pane_on_the_brain_asks_for_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainFolderStateTests.With_no_folder_set_the_pane_asks_for_one_and_links_to_settings, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
@@ -164,18 +154,15 @@ The system SHALL label the Brain chip **Set up your Brain** while no Brain folde
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#brain-folder-setup]
 ```
 
-> The requirements of choosing the Brain folder and scaffolding its convention
-> (local ADR 0026).
+> Choosing the Brain folder and scaffolding its convention (local ADR 0026).
 
 ### Requirement: The folder has no default
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_fresh_install_has_no_brain_folder_and_writes_no_file, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.A_fresh_install_shows_the_brain_card_with_an_empty_field]
 ```
 
@@ -191,7 +178,6 @@ The system SHALL leave the Brain folder unset until the person picks one.
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.Picking_an_empty_folder_leaves_it_empty, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Picking_a_folder_keeps_its_path_in_the_app_settings_and_the_folder_empty, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
@@ -207,7 +193,6 @@ The system SHALL keep the Brain folder's path in the app's settings and write it
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_scaffolds_an_empty_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_never_overwrites_a_readme_already_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_scaffolds_the_folder_and_then_goes_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_leaves_the_persons_readme_unchanged, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainConventionTemplateTests.The_shipped_conventions_ignore_the_templates_folder, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
@@ -230,7 +215,6 @@ The system SHALL write `README.md` marked `index: root`, `CONVENTIONS.md` with a
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.A_onedrive_folder_is_said_to_be_synced_without_a_warning, unit:dotnet:Backlog.UI.Components.UnitTests.BrainFolderCardTests.A_synced_folder_is_information_not_a_warning]
 ```
 
@@ -246,7 +230,6 @@ The system SHALL state on the Brain card whether the folder is synced, as inform
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/brain/context.md#brain-folder]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_folder_inside_a_repository_is_refused, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_folder_inside_a_linked_worktree_is_refused, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_relative_path_is_refused_in_words, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_file_is_not_a_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.A_folder_inside_a_repository_is_refused_on_the_card]
 ```
@@ -269,18 +252,15 @@ The system SHALL refuse, in words on the Brain card, a Brain folder inside a rep
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 ```
 
-> The requirements of the Devbook pane while it shows the Brain (local ADRs 0026
-> and 0027).
+> The Devbook pane while it shows the Brain (local ADRs 0026 and 0027).
 
 ### Requirement: The pane follows the anchor and defaults to the Brain
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_remembered_scope_the_devbook_option_offers_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_pane_follows_the_anchor_and_the_switch_opens_on_its_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_repository_anchor_shows_that_repository_unchanged, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
@@ -302,11 +282,10 @@ The system SHALL show the Brain in the Devbook pane when nothing is pressed or t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Declared_areas_are_the_roots_in_their_declared_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_seven_para_areas_are_the_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.No_declaration_gives_the_para_roots, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_folder_holding_a_note_is_a_tab_after_the_declared_ones, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests.The_areas_are_the_declared_ones_then_the_folders_holding_a_note, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
-The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, or per PARA area when it declares none, followed by one tab per other top folder holding a Markdown note, by folder name.
+The system SHALL show one tab per declared area in its order, or per PARA area when `CONVENTIONS.md` declares none, then one tab per other top folder holding a Markdown note, by folder name.
 
 #### Scenario: Declared areas
 
@@ -340,7 +319,6 @@ The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_is_off_by_default_and_hides_the_hidden_folders, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Without_show_hidden_the_hidden_folders_and_dot_entries_are_not_listed, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.An_ignored_folder_is_never_an_area_even_when_declared, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests.The_areas_are_the_declared_ones_then_the_folders_holding_a_note, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.An_ignored_folder_and_a_dot_folder_are_not_indexed]
 ```
 
@@ -364,12 +342,11 @@ The system SHALL show no tab for a folder `CONVENTIONS.md` lists under `## Ignor
 
 ```meta
 type: requirement
-status: draft
 related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_is_off_by_default_and_hides_the_hidden_folders, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_adds_the_hidden_folders_as_tabs_after_the_rest_marked_hidden, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_lists_an_area_s_dot_entries_in_the_menu_and_hides_them_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_pane_follows_the_device_s_show_hidden_choice, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Without_show_hidden_the_hidden_folders_and_dot_entries_are_not_listed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Show_hidden_lists_the_hidden_folders_last_and_every_dot_entry, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainShowHiddenTests.Show_hidden_is_off_until_turned_on_and_survives_a_restart, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainShowHiddenTests.The_port_announces_only_a_change_of_its_own_choice, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_brain_s_hidden_folders_are_read_from_disk, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.An_ignored_folder_and_a_dot_folder_are_not_indexed]
 ```
 
-The system SHALL show, while **Show hidden** is on, one tab marked hidden per ignored folder and per dot-folder of the Brain, after every other tab, and list the dot-entries inside an area's menu, and SHALL leave search and the Brain database unchanged.
+The system SHALL, while **Show hidden** is on, show a tab marked hidden per ignored folder and dot-folder after the others, list dot-entries in an area's menu, and leave search and the Brain database unchanged.
 
 #### Scenario: Hidden folders shown
 
@@ -395,11 +372,10 @@ The system SHALL show, while **Show hidden** is on, one tab marked hidden per ig
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.The_journal_tab_lists_and_opens_the_newest_entry_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.The_journal_sorts_newest_first_at_every_level_and_other_areas_by_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.An_area_conventions_marks_as_dated_sorts_newest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.A_dated_area_is_the_journal_or_one_its_holds_line_calls_dated, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
-The system SHALL list the notes of a dated area — the `journal` folder, or an area whose `Holds` line says *dated* — newest first by name, at every level, and every other area by name.
+The system SHALL list the notes of a dated area (the `journal` folder, or an area whose `Holds` line says *dated*) newest first by name, at every level, and every other area by name.
 
 #### Scenario: The journal
 
@@ -411,7 +387,6 @@ The system SHALL list the notes of a dated area — the `journal` folder, or an 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_switch_flips_the_pane_and_leaves_the_scope_and_the_rows_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainSwitchTests.Pressing_the_repository_side_asks_the_shell_for_the_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainSwitchTests.On_the_repository_side_the_switch_stays_and_the_brain_chrome_goes]
 ```
 
@@ -427,7 +402,6 @@ The system SHALL flip the pane between the Brain and the repository with the `Br
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.The_repository_only_chrome_is_absent_and_its_services_are_not_asked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.On_the_repository_the_same_harness_draws_the_repository_only_chrome]
 ```
 
@@ -443,7 +417,6 @@ The system SHALL leave branch updates, sync verdicts and scenario marks out of t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_nothing_pressed_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_the_brain_as_the_anchor_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_a_repository_as_the_anchor_the_devbook_option_names_the_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.In_a_mixed_scope_the_devbook_option_follows_the_switch]
 ```
 
@@ -471,7 +444,6 @@ The system SHALL label the header's Devbook toggle *Brain* while the pane shows 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainNoteEditTests.Editing_a_note_writes_the_file_in_the_brain_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainNoteEditTests.A_brain_moved_to_another_folder_reads_and_writes_the_note_there]
 ```
 
@@ -487,7 +459,6 @@ The system SHALL let the reader edit any Brain note in the pane and save it to i
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_left_on_a_note_is_stored_under_the_brain_alias_by_the_notes_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_resolved_elsewhere_is_drawn_resolved_without_reopening_the_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_repository_remark_on_the_same_path_is_not_the_notes, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Listing_brain_remarks_answers_the_written_live_ones_on_the_brain]
 ```
 
@@ -503,7 +474,6 @@ The system SHALL let the reader leave a remark on a block of a Brain note and st
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainConflictTests.A_conflict_copy_is_named_beside_its_original_and_neither_file_changes, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainConflictTests.No_pair_draws_no_warning, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests.Listing_conflict_copies_changes_neither_file]
 ```
 
@@ -519,7 +489,6 @@ The system SHALL warn in the pane when the Brain folder holds a conflict copy `<
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.Nothing_derived_lands_in_the_brain_folder, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.The_brain_s_database_is_keyed_by_its_folder_and_found_from_the_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderWatchTests.A_rebuilt_brain_database_tells_open_panels]
 ```
 
@@ -535,18 +504,16 @@ The system SHALL build the Brain's database in the app's storage under the folde
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#repo-links-and-backlinks]
 ```
 
-> The requirements of a Brain note's links into repository devbooks and the
+> A Brain note's links into repository devbooks and the
 > backlinks a repository chapter shows its owner (local ADR 0027).
 
 ### Requirement: A repo link opens the repository chapter
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.Following_a_gold_chip_asks_for_the_repository_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_configured_alias_with_its_section_resolves, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repo_link_reads_as_alias_path_and_slug, e2e:dotnet:Backlog.EndToEndTests.BrainTests.A_repo_link_opens_the_repository_chapter_and_the_brain_chip_brings_the_brain_back]
 ```
 
@@ -562,11 +529,10 @@ The system SHALL open the named repository's devbook at the named chapter when t
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Leaving_the_brain_scope_after_a_repo_link_brings_the_brain_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Pressing_the_brain_chip_after_a_repo_link_from_an_empty_scope_brings_the_brain_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_repo_link_left_behind_by_the_scope_does_not_come_back_with_the_brain, e2e:dotnet:Backlog.EndToEndTests.BrainTests.A_repo_link_opens_the_repository_chapter_and_the_brain_chip_brings_the_brain_back]
 ```
 
-The system SHALL show the Brain in the Devbook pane again when the reader presses the Brain chip after following a repo link, and SHALL forget a followed link once the scope has moved away from the one it was followed under.
+The system SHALL show the Brain in the Devbook pane again when the reader presses its chip after a repo link, and forget that link once the scope leaves the one it was followed under.
 
 #### Scenario: Back from the repository chapter
 
@@ -590,7 +556,6 @@ The system SHALL show the Brain in the Devbook pane again when the reader presse
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.An_alias_this_machine_has_not_got_is_unresolved_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_note_draws_its_repo_links_as_chips_gold_when_resolved_and_dashed_when_not]
 ```
 
@@ -606,7 +571,6 @@ The system SHALL render a repo link whose alias is not configured on this machin
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repository_chapter_lists_every_brain_note_linking_to_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.Reading_backlinks_writes_nothing_into_the_brain, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.The_reader_asks_the_brain_s_own_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_repository_chapter_shows_the_brain_notes_linking_to_it_to_its_owner, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_chapter_nothing_links_to_draws_no_box_and_the_brain_draws_none_either]
 ```
 
@@ -622,7 +586,6 @@ The system SHALL list under a repository chapter the owner's Brain notes that li
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_from_your_brain_item_is_a_link_that_opens_the_note_on_the_brain_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_host_that_cannot_switch_the_pane_lists_the_notes_as_text]
 ```
 
@@ -638,18 +601,16 @@ The system SHALL open a note listed in a From your Brain box on the Brain side o
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#bi-directional-linking]
 ```
 
-> The requirements of linking Brain notes and tasks both ways through a note's
+> Linking Brain notes and tasks both ways through a note's
 > `tasks` field (local ADR 0026 §3, ADR 0027 §6).
 
 ### Requirement: A task link is the task's id
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_id_is_a_guid_in_one_spelling, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_note_names_its_tasks_in_its_order_each_once_and_keeps_what_is_no_id, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.The_reader_asks_the_brain_s_own_database, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_brain_with_no_database_or_no_brain_links_no_task]
 ```
 
@@ -665,11 +626,10 @@ The system SHALL read each value of a Brain note's `tasks` field from the Brain'
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_lists_its_tasks_known_ones_followable_and_unknown_ones_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_naming_no_task_draws_no_tasks_section, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_known_task_is_a_gold_chip_that_opens_it, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.An_unknown_task_is_a_dashed_chip_saying_so_with_nothing_to_press]
 ```
 
-The system SHALL show under a Brain note's links into devbooks a Tasks section with one chip per task its `tasks` field names, opening the task when this backlog holds it and reading *not in this backlog* when it does not.
+The system SHALL show under a Brain note's repo links a Tasks section with one chip per task its `tasks` field names, opening a task this backlog holds and reading *not in this backlog* otherwise.
 
 #### Scenario: A known and an unknown task
 
@@ -681,11 +641,10 @@ The system SHALL show under a Brain note's links into devbooks a Tasks section w
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_lists_the_notes_naming_it_in_title_order_each_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.A_row_named_by_brain_notes_carries_a_teal_badge_counting_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.With_no_brain_wired_no_row_carries_a_badge, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.Pressing_a_one_note_badge_opens_that_note, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_no_note_draws_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_several_notes_lists_them_and_opens_the_one_pressed]
 ```
 
-The system SHALL draw on a task row a teal ◆ n note badge counting the owner's Brain notes that name the task, read from the owner's own Brain, opening the note in the Devbook pane on the Brain side.
+The system SHALL draw on a task row a teal ◆ n note badge counting the notes in the owner's own Brain that name the task, opening the note on the Devbook pane's Brain side.
 
 #### Scenario: Two notes name a task
 
@@ -697,17 +656,15 @@ The system SHALL draw on a task row a teal ◆ n note badge counting the owner's
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#atlas-edges]
 ```
 
-> The requirements of drawing repo links in the Brain's atlas.
+> Drawing repo links in the Brain's atlas.
 
 ### Requirement: A resolved repo link is an edge to the repository chapter
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw each resolved repo link in the Brain's atlas as an edge to a node for the repository chapter, labelled with the repository alias.
@@ -734,7 +691,6 @@ The system SHALL draw each resolved repo link in the Brain's atlas as an edge to
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL draw a repo link this machine cannot resolve as a dashed edge.
@@ -749,28 +705,26 @@ The system SHALL draw a repo link this machine cannot resolve as a dashed edge.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#lobes-atlas, .devbook/domain/brain/context.md#lobes-atlas]
 ```
 
-> The requirements of the one atlas that draws the Brain and every devbook as
+> The one atlas that draws the Brain and every devbook as
 > brains. All of them hold while `atlas-lobes` is on.
 
 ### Requirement: One atlas maps the Brain and every registered devbook
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Each_scope_counts_its_regions_its_items_and_the_notes_linking_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_atlas_offers_no_scope_switch_and_draws_the_shells_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_empty_shell_scope_draws_the_brain_and_every_registered_devbook_and_no_ghost, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Each_scope_counts_its_regions_its_items_and_the_notes_linking_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does]
 ```
 
 The system SHALL open one full-window atlas from the shell header that draws the Brain and the devbook of every registered repository as brains the reader rotates by dragging and zooms by scrolling.
 
 #### Scenario: Opening from the header
 
-- **Given** a Brain index and two registered repositories with devbooks
+- **Given** a Brain index, two registered repositories with devbooks, and nothing pressed in the header's repository scope
 - **When** the reader opens the atlas from the shell header
-- **Then** the atlas fills the window in the All scope, with the Brain and both devbooks drawn
+- **Then** the atlas fills the window in the All layout, with the Brain and both devbooks drawn
 
 #### Scenario: Rotating and zooming
 
@@ -788,11 +742,10 @@ The system SHALL open one full-window atlas from the shell header that draws the
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_floats_every_part_over_a_full_bleed_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_parts_are_siblings_of_the_atlas_in_the_order_the_eye_meets_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_stacks_a_narrow_window_in_one_column_with_the_panel_in_a_sheet, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_panels_disclosure_names_the_panel_and_the_card_and_opens_the_sheet]
 ```
 
-The system SHALL draw the map across the whole atlas in a window wider than 60rem, with the title, the scope switch, the left panel, the scope card, the top-right controls, the chips, the list of marks and the foot floating over it, and SHALL stack them in one column in a window 60rem wide or narrower, with the panel and the scope card folded behind one disclosure, the map in view and nothing overlapping.
+The system SHALL draw the map across the whole atlas in a window wider than 60rem, with the title, the left panel, the scope card, the top-right controls, the chips, the list of marks and the foot floating over it, and SHALL stack them in one column in a window 60rem wide or narrower, with the panel and the scope card folded behind one disclosure, the map in view and nothing overlapping.
 
 #### Scenario: A wide window
 
@@ -810,55 +763,53 @@ The system SHALL draw the map across the whole atlas in a window wider than 60re
 
 - **Given** the atlas at 390 × 844
 - **When** the reader opens it
-- **Then** the scope switch and the chips each keep one sideways-scrolling row, the panel and the card sit behind one disclosure, the map is in view with its list under it, and nothing overlaps
+- **Then** the chips keep one sideways-scrolling row, the panel and the card sit behind one disclosure, the map is in view with its list under it, and nothing overlaps
 
-### Requirement: The atlas offers All, Brain and one scope per devbook
+### Requirement: The atlas draws the header's repository scope
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Switching_scope_hands_the_renderer_a_new_layout_which_resets_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_lets_the_scope_switch_scroll_rather_than_clip_or_squeeze_its_options]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_atlas_offers_no_scope_switch_and_draws_the_shells_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_new_shell_scope_hands_the_renderer_a_new_layout_which_resets_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Several_in_view_draw_all_with_only_those_scopes, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_empty_shell_scope_draws_the_brain_and_every_registered_devbook_and_no_ghost, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_shells_one_member_opens_its_scope_and_one_with_no_devbook_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_shell_scope_change_lays_out_live_and_keeps_region_hides_labels_pause_and_tech, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_header_chip_press_lays_the_open_atlas_out_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Opening_the_atlas_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it_while_it_has_the_screen, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.InView_keeps_the_scopes_their_nodes_and_the_edges_between_them]
 ```
 
-The system SHALL offer the scopes All, Brain and one per devbook, drawing the Brain in the middle of All with each devbook as a smaller brain around it.
+The system SHALL draw the members of the shell header's repository scope, one member as that scope alone, several or none pressed as All with only those scopes (the Brain in the middle when in view, each devbook a smaller brain around it), re-laying out while open when the scope changes, and say in words when nothing in scope has a devbook.
 
 #### Scenario: All
 
-- **Given** the atlas is open with two registered devbooks
-- **When** the reader picks All
-- **Then** the Brain is drawn in the middle and each devbook as a smaller brain around it
+- **Given** the Brain and backlog pressed in the header's repository scope, with two registered devbooks
+- **When** the reader opens the atlas
+- **Then** it draws All with only those two: the Brain in the middle and backlog's devbook as a smaller brain beside it
 
 #### Scenario: One devbook
 
 - **Given** the atlas is open in All
-- **When** the reader picks a devbook's scope
-- **Then** only that devbook is drawn, by region
+- **When** the reader presses backlog's header chip alone
+- **Then** only that devbook is drawn, by region, without the atlas reopening
 
-#### Scenario: A narrow window
+#### Scenario: Nothing to draw
 
-- **Given** the atlas at 390 px wide with the Brain, eleven devbooks and a ghost devbook
-- **When** the reader looks for the last scope in the switch
-- **Then** the switch scrolls sideways to it, and no scope's name runs into its neighbour's
+- **Given** only a repository with no devbook pressed in the header's repository scope
+- **When** the reader opens the atlas
+- **Then** the atlas says none in scope has a devbook and draws no map
 
 ### Requirement: An unregistered alias is a ghost devbook
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Ghosts_is_a_toggle_that_draws_every_ghost_in_all_and_is_absent_without_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_ghost_row_steps_into_the_ghost_and_back_ghosts_off_or_a_shell_change_leaves_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.A_ghost_scope_makes_no_dust_and_its_outline_is_stroked_dashed_in_the_ghost_ink, unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests.At_any_angle_the_outline_hugs_the_turned_shell]
 ```
 
-The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words.
+The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words, drawn in All while the Ghosts toggle (offered while a ghost exists) is on, and its panel row steps into it alone.
 
 #### Scenario: Another machine's repository
 
 - **Given** Brain notes linking three chapters of an alias not registered here
-- **When** the reader opens the atlas
-- **Then** the alias has a dashed scope of its own, and its brain is a dashed outline holding those three chapters, each named as its link wrote it
+- **When** the reader turns on Ghosts and presses the alias's row
+- **Then** its brain alone is a dashed outline holding those three chapters, each named as its link wrote it
 
 #### Scenario: Its tag in All
 
-- **Given** a ghost devbook and a registered devbook
+- **Given** a ghost devbook, a registered devbook, and Ghosts on
 - **When** the reader opens the atlas in All
 - **Then** the registered devbook's tag gives its name and its count, and the ghost's reads its alias and "· not registered"
 
@@ -866,7 +817,6 @@ The system SHALL draw a repository alias the Brain links to that is not register
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_chapter_of_a_devbook_not_indexed_yet_says_so_rather_than_that_it_is_no_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_chapter_an_indexed_devbook_does_not_hold_is_still_no_chapter_in_its_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_chapter_of_a_devbook_not_indexed_yet_says_so_on_its_chip_as_the_card_does]
 ```
 
@@ -888,7 +838,6 @@ The system SHALL give a chapter the notes name in a registered devbook whose ind
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_brain_note_is_placed_by_its_para_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_para_field_wins_over_the_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_area_declared_beyond_para_is_parietal, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Archive_is_the_dust_and_no_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_brain_stem_holds_conventions_and_the_area_roots_and_occipital_the_repository_hubs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_para_attribute_wins_over_the_folder_for_a_note_and_its_chapters, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_para_area_in_a_folder_of_another_name_keeps_its_region]
 ```
 
@@ -922,7 +871,6 @@ The system SHALL place each Brain note in a region by its PARA area: Projects in
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_a_devbooks_scope_with_its_count_still_in_the_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_reader_shows_technology_with_its_chip_its_row_or_all, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_tech_toggle_shows_technology_in_all_and_leaves_each_scopes_own_chip_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_tech_toggle_is_alls_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_ghost_devbooks_named_technology_starts_hidden_in_its_scope_and_in_all_and_shows_with_its_chip_or_tech, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.The_index_in_all_leaves_out_the_regions_hidden_in_all, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.The_tech_regions_are_each_devbooks_parietal_ghosts_included_and_not_the_brains]
 ```
 
@@ -944,7 +892,7 @@ The system SHALL place each devbook chapter in a region by its folder: `arc42` i
 
 - **Given** registered devbooks with chapters under `tech/`
 - **When** the reader opens the All scope
-- **Then** no devbook's `tech/` chapter is drawn on the map or listed beside it, and the Tech toggle beside Labels reads not pressed
+- **Then** no devbook's `tech/` chapter is drawn on the map or listed beside it, and the Tech toggle after Labels and Pause reads not pressed
 
 #### Scenario: The reader shows technology in All
 
@@ -974,11 +922,10 @@ The system SHALL place each devbook chapter in a region by its folder: `arc42` i
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.A_brain_mark_wears_the_brains_tone_in_the_index_and_a_devbook_mark_stays_gold, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_component_stylesheet_paints_a_brain_mark_in_the_brains_accent]
 ```
 
-The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, with a bundle from each Brain repository hub to the chapters the notes link, solid when the link resolves and dashed when it does not.
+The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, with a bundle from each Brain repository hub to the chapters the notes link, solid when the link resolves and dashed otherwise.
 
 #### Scenario: Bundles in All
 
@@ -1008,29 +955,28 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_the_scopes_in_view_with_their_counts_and_a_row_asks_the_shell_for_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_there_are_no_chips_and_no_all_or_none, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_all_regions_and_starts_with_its_word, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Technology_starts_hidden_in_all_and_the_tech_toggle_beside_labels_reads_not_pressed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Without_a_host_to_ask_alls_rows_are_a_plain_legend_and_its_card_offers_nothing]
 ```
 
-The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, All, None and one chip per region (per scope in All) at the top right, apply the chips, Labels, All and None to the current scope only, hide a scope's Archive dust with its regions on None and show it again on All, and name the top right's All apart from the scope switch's All with a name that starts with "All".
+The system SHALL list the scopes in view with their counts in the left panel in All, a row asking the header's scope for that scope alone, and the six regions with what each holds and its count in a single scope; offer Labels and Pause at the top right, with All, None and one chip per region in a single scope and none of them in All; apply the chips, Labels, All and None to the current scope only; hide a scope's Archive dust with its regions on None and show it again on All; and name the top right's All "All regions".
 
 #### Scenario: None in one scope
 
 - **Given** the atlas in the Brain scope with every region shown, and a devbook's regions all shown
-- **When** the reader presses None and then picks that devbook's scope
+- **When** the reader presses None and then presses that devbook's header chip
 - **Then** the Brain's regions are hidden and the devbook's regions are all still shown
 
 #### Scenario: The panel follows the scope
 
 - **Given** the atlas in All
-- **When** the reader picks the Brain scope
+- **When** the reader presses the header's Brain chip alone
 - **Then** the left panel, headed Anatomical regions, lists the six regions in place of the scopes, and the chips at the top right are the six regions'
 
 #### Scenario: A row opens a scope
 
 - **Given** the atlas in All
 - **When** the reader presses a devbook's row in the left panel
-- **Then** the atlas shows that devbook's scope
+- **Then** the header's scope becomes that devbook alone and the atlas shows its scope
 
 #### Scenario: None hides the Archive
 
@@ -1038,21 +984,20 @@ The system SHALL list the scopes with their counts in the left panel in All and 
 - **When** the reader presses None, then All
 - **Then** None leaves no mark on the map and no row in the list, the archived note among them, and All brings the note back
 
-#### Scenario: Two buttons read All
+#### Scenario: No chips in All
 
-- **Given** the atlas in the Brain scope
-- **When** a screen reader reads the header
-- **Then** the scope switch's option is named "All" and the picture's tool "All regions"
+- **Given** the atlas in All
+- **When** the reader looks at the top right
+- **Then** there is no chip and no All or None
 
 ### Requirement: The scope card offers one action for its scope
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Step_into_the_brain_asks_the_shell_for_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_ghost_row_steps_into_the_ghost_and_back_ghosts_off_or_a_shell_change_leaves_it]
 ```
 
-The system SHALL show a scope card naming the scope with its counts, when its index was last built, and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
+The system SHALL show a scope card naming the scope with its counts, when its index was last built, and its action: Open in the pane for the Brain, Open devbook for a devbook, Register repository with Back to all scopes for a ghost devbook, and Step into the Brain for All, which asks the header's scope for the Brain.
 
 #### Scenario: A devbook
 
@@ -1064,7 +1009,7 @@ The system SHALL show a scope card naming the scope with its counts, when its in
 
 - **Given** the atlas in a ghost devbook's scope
 - **When** the reader reads its card
-- **Then** the card's one action is Register repository
+- **Then** the card offers Register repository and Back to all scopes
 
 #### Scenario: When it was indexed
 
@@ -1082,11 +1027,10 @@ The system SHALL show a scope card naming the scope with its counts, when its in
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_host_that_cannot_build_the_index_offers_only_the_way_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_lobes_source_builds_the_brains_index_through_the_refresher, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_empty_states_header_names_the_brain_beside_the_title]
 ```
 
-The system SHALL, with no Brain index built yet, name the Brain beside the atlas's title, say the Brain is not indexed yet and offer Build the index now and Back to notes instead of drawing an empty map.
+The system SHALL, with no Brain index yet, name the Brain beside the atlas's title, say it is not indexed and offer Build the index now and Back to notes instead of an empty map.
 
 #### Scenario: A Brain never indexed
 
@@ -1104,7 +1048,6 @@ The system SHALL, with no Brain index built yet, name the Brain beside the atlas
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera]
 ```
 
@@ -1120,11 +1063,10 @@ The system SHALL show under the map the drag and scroll hint with the zoom level
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_keyboard_arrows_through_the_list_without_opening_the_sheet_and_enter_opens_it, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.The_arrows_and_the_ends_move_the_active_row_and_leave_the_selection, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.Enter_or_space_selects_the_row_the_keyboard_is_on, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.Components_js_refuses_the_index_keys_default_at_the_keydown_and_lets_them_bubble, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasTests.Arrowing_the_index_spotlights_the_row_on_the_picture_and_enter_selects_it, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasTests.Clearing_the_selection_leaves_the_tab_stop_on_the_row_and_clears_the_spotlight]
 ```
 
-The system SHALL keep the list beside the map one tab stop whose arrow keys, Home and End move the focus and the map's spotlight from row to row without opening a mark's details, open them on Enter or Space, and on Escape close them with the focus back on the mark's row.
+The system SHALL keep the marks list one tab stop: arrows, Home and End move focus and spotlight between rows without opening details, Enter or Space opens them, and Escape closes them, refocusing the row.
 
 #### Scenario: Arrowing down the list
 
@@ -1142,7 +1084,6 @@ The system SHALL keep the list beside the map one tab stop whose arrow keys, Hom
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Every_control_of_the_atlas_is_a_real_button, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Every_control_of_the_empty_state_is_a_real_button, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_gives_every_atlas_control_a_44px_target_and_a_focus_ring]
 ```
 
@@ -1158,7 +1099,6 @@ The system SHALL make every control of the atlas a real button at least 44 px sq
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_brain_note_offers_to_open_in_the_pane, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_resolved_chapter_opens_its_devbook_and_a_dashed_one_says_why_it_cannot, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_devbook_chapter_no_note_links_to_still_opens_in_its_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_chapter_followed_out_of_the_atlas_opens_the_devbook_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_heading_chapter_followed_out_of_the_atlas_opens_the_devbook_at_that_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.A_request_with_an_anchor_into_an_arc42_chapter_brings_the_heading_into_view, unit:dotnet:Backlog.UI.Components.UnitTests.BacklogRevealHeadingScriptTests]
 ```
 
@@ -1186,15 +1126,14 @@ The system SHALL open a mark's details when the reader selects it on the map or 
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_on_the_atlas_button_opens_the_lobes_atlas_at_the_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_off_the_atlas_button_opens_todays_atlas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.On_the_brain_the_atlas_button_opens_the_lobes_atlas_at_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbooks_atlas_button_opens_the_atlas_at_its_scope_and_the_way_back_returns_to_the_devbook]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_on_the_atlas_button_opens_the_lobes_atlas_at_the_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.With_the_lobes_flag_off_the_atlas_button_opens_todays_atlas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneAtlasTests.On_the_brain_the_atlas_button_opens_the_lobes_atlas_at_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook]
 ```
 
-The system SHALL open the Lobes atlas at the pane's scope from the Devbook pane's Atlas button while `atlas-lobes` is on, and today's atlas while it is off, leaving the Technology section to its own views.
+The system SHALL open the Lobes atlas on the header's repository scope from the Devbook pane's Atlas button while `atlas-lobes` is on, and today's atlas otherwise, leaving the Technology section to its own views.
 
 #### Scenario: On a repository
 
-- **Given** `atlas-lobes` is on and the pane shows `backlog`
+- **Given** `atlas-lobes` is on, the header's scope is `backlog` alone, and the pane shows `backlog`
 - **When** the reader presses Atlas
 - **Then** the Lobes atlas opens in the `backlog` scope
 
@@ -1214,7 +1153,6 @@ The system SHALL open the Lobes atlas at the pane's scope from the Devbook pane'
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.A_fling_slows_and_comes_to_rest_within_a_second_and_a_half, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.One_long_frame_moves_the_camera_as_far_as_two_short_ones]
 ```
 
@@ -1248,7 +1186,6 @@ The system SHALL turn the near face of a brain with the pointer on both axes whi
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.A_zoom_keeps_the_point_under_the_cursor_where_it_is, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_pan_is_held_at_the_centre_until_zoomed_in_and_never_past_the_edge, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.An_easing_closes_on_its_target_and_then_stops_there]
 ```
 
@@ -1266,33 +1203,31 @@ The system SHALL zoom toward the point under the pointer when the reader scrolls
 - **When** the reader scrolls in again
 - **Then** the zoom stays at 2.4 times and the foot still reads 240%
 
-### Requirement: A scope switch eases the camera home
+### Requirement: A new layout eases the camera home
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_scope_curve_starts_at_rest_ends_at_rest_and_never_turns_back, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Easing_home_takes_the_short_way_round_however_far_the_idle_turn_wound]
 ```
 
-The system SHALL ease the camera from the last view to the default view, the short way round, when the reader switches scope.
+The system SHALL ease the camera from the last view to the default view, the short way round, when the header's scope or the Ghosts toggle changes what the atlas draws.
 
 #### Scenario: Switching scope
 
 - **Given** the reader has turned the brains in All
-- **When** the reader picks a devbook's scope
+- **When** the reader presses a devbook's header chip alone
 - **Then** the camera turns through the views in between and settles on the default view within a second
 
 #### Scenario: After a long idle turn
 
 - **Given** the brains have turned on their own for several minutes
-- **When** the reader switches scope
+- **When** the reader changes the header's scope
 - **Then** the camera turns less than half a turn on its way to the default view
 
 ### Requirement: A region or Labels toggle leaves the camera as it was
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL keep the camera's view and its motion when the reader shows or hides a region or turns Labels on or off.
@@ -1307,11 +1242,10 @@ The system SHALL keep the camera's view and its motion when the reader shows or 
 
 ```meta
 type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_waits_its_delay_then_ramps_in_over_transition_slow, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_waits_its_delay_then_ramps_in_over_transition_slow, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Resuming_after_a_pause_waits_the_delay_from_the_resume_then_eases_in, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Any_other_hand_over_keeps_the_last_input_it_remembers, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Pause_is_a_toggle_that_holds_the_idle_turn, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Pausing_changes_nothing_but_the_idle_turn, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.The_idle_turn_is_on_unless_paused_and_passes_through]
 ```
 
-The system SHALL turn the brains slowly on their own only after four seconds without input, and stop the turn at once when the reader presses, scrolls or rests the pointer on a mark.
+The system SHALL turn the brains slowly on their own only after four seconds without input, stop the turn at once when the reader presses, scrolls or rests the pointer on a mark, and offer a Pause toggle that holds the turn while the atlas is open until the reader presses it again.
 
 #### Scenario: Left alone
 
@@ -1325,19 +1259,30 @@ The system SHALL turn the brains slowly on their own only after four seconds wit
 - **When** the reader presses or scrolls on the map, or rests the pointer on a mark
 - **Then** the turn stops at once, and starts again only after four more seconds without input
 
+#### Scenario: Pausing
+
+- **Given** the brains are turning on their own
+- **When** the reader presses Pause
+- **Then** the brains stop, Pause reads pressed, and they stay still until Pause is pressed again
+
+#### Scenario: Resuming
+
+- **Given** the reader has paused the brains
+- **When** the reader presses Pause again
+- **Then** the brains wait four seconds without input, then ease into the turn
+
 ### Requirement: Reduced motion holds the atlas still
 
 ```meta
 type: requirement
-status: draft
 ```
 
-The system SHALL, under reduced motion, turn the brains only while a drag lasts, land a scroll and a scope switch at once, and never turn the brains on their own.
+The system SHALL, under reduced motion, turn the brains only while a drag lasts, land a scroll and a new layout at once, and never turn the brains on their own.
 
 #### Scenario: Reduced motion
 
 - **Given** reduced motion is on
-- **When** the reader drags quickly and lets go, then scrolls, then switches scope
+- **When** the reader drags quickly and lets go, then scrolls, then changes the header's scope
 - **Then** the drag turns the brains only until the release, and the zoom and the default view arrive at once
 
 #### Scenario: Waiting under reduced motion
@@ -1350,18 +1295,16 @@ The system SHALL, under reduced motion, turn the brains only while a drag lasts,
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#capture-into-the-brain]
 ```
 
-> The requirements of writing a new note into the Brain, from the pane and from
+> Writing a new note into the Brain, from the pane and from
 > Inbox triage.
 
 ### Requirement: Capture writes a note into the inbox area
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Capture_writes_a_note_into_inbox_and_opens_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_inbox_under_the_para_default, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_the_area_the_conventions_name_the_inbox, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_taken_name_gets_the_next_free_one_and_nothing_is_overwritten, e2e:dotnet:Backlog.EndToEndTests.BrainTests.Capture_writes_a_note_into_the_inbox_area_and_typed_structure_stays_text]
 ```
 
@@ -1377,7 +1320,6 @@ The system SHALL write a capture's title and body as a new note with a `meta` bl
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Typed_structure_is_written_as_text, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_typed_fence_in_an_inbox_note_stays_text, e2e:dotnet:Backlog.EndToEndTests.BrainTests.Capture_writes_a_note_into_the_inbox_area_and_typed_structure_stays_text]
 ```
 
@@ -1393,7 +1335,6 @@ The system SHALL write a capture's text so that no heading, fence or `meta` bloc
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.An_inbox_note_becomes_a_brain_note_with_its_title_and_body, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.An_inbox_note_keeps_its_title_and_body_and_stays_on_the_phone]
 ```
 
@@ -1409,17 +1350,15 @@ The system SHALL write an Inbox item routed **To Brain** as a note in the Brain'
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/brain/features.md#mcp-brain-scope]
 ```
 
-> The requirements of the knowledge tools the app serves over MCP, on the Brain.
+> The knowledge tools the app serves over MCP, on the Brain.
 
 ### Requirement: The knowledge tools take the Brain scope
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Reading_a_brain_note_answers_its_text, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.The_brain_scope_lists_the_brain_as_its_one_context, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Listing_brain_remarks_answers_the_written_live_ones_on_the_brain, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_brain_remark_is_resolved_under_the_brain_scope, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_blank_repository_is_still_required_rather_than_read_as_the_brain]
 ```
 
@@ -1435,7 +1374,6 @@ The system SHALL answer the tools that list knowledge contexts, read a chapter, 
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_second_capture_under_the_same_title_never_overwrites_the_first]
 ```
 

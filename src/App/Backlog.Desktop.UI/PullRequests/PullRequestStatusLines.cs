@@ -9,7 +9,8 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// An open pull request as its status line draws it
 /// (<c>.devbook/domain/progress/features.md#pull-request-status</c>): checks as
 /// <c>passed/total</c> from the head commit's counts, approvals as
-/// <c>received/required</c> against what its base branch's rules ask.
+/// <c>received/required</c> against what its base branch's rules ask, and "your review"
+/// where a pending request names the person the repository is read as.
 /// <para>
 /// One home for the desktop's open read, so the Pull requests pane's row and a task's
 /// work-link card draw the same marks for the same pull request. The required total is
@@ -37,6 +38,7 @@ public static class PullRequestStatusLines
             pull.CheckCounts is { } counts ? new PullRequestChecks(counts.Passed, counts.Failed, counts.Pending) : null,
             new PullRequestApprovals(pull.Approvals.Approvals, pull.Approvals.Required, pull.Approvals.RequiredRead),
             pull.Title,
-            pull.Url);
+            pull.Url,
+            pull.ViewerReviewRequested);
     }
 }

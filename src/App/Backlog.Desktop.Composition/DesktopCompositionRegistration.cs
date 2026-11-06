@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
@@ -379,6 +379,9 @@ public static class DesktopCompositionRegistration
         // the window's own task list and reader of pull requests.
         services.AddSingleton<ITasksViewPreferences>(sp =>
             new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        // The notification centre's Group by and filters, per device in the same file.
+        services.AddSingleton<INotificationCentrePreferences>(sp =>
+            new ShellNotificationCentrePreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.Add(new ServiceDescriptor(
             typeof(ShellGoalsViewSource),
             sp => new ShellGoalsViewSource(sp),
@@ -457,7 +460,10 @@ public static class DesktopCompositionRegistration
                 sp.GetService<INotifications>,
                 sp.GetService<TimeProvider>(),
                 sp.GetService<ILogger<QuestionRelay>>(),
-                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true);
+                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true,
+                // The keyed local reader: a reading of the plain port's decorators can close
+                // questions, which must not happen in the middle of this publish.
+                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey));
         });
         // The same relay as the port the MCP ask, get_answer and close tools reach it through.
         services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
@@ -525,6 +531,12 @@ public static class DesktopCompositionRegistration
         // owns and, while a question is open, takes the replies addressed to it every two
         // minutes. Answers to the sync switch and to the notifications switch.
         services.AddNotificationSyncClient(SyncServiceAddress);
+        // The repository each pushed notification is about (local ADR 0039 §6), by the rule
+        // the centre's header scope keeps — run off any window, so a linked task is read
+        // through its own scope rather than the window's rows. Each port is asked for per
+        // push, so one this head did not compose leaves its notifications not known.
+        services.AddSingleton<Backlog.Infrastructure.Sync.Notifications.INotificationRepositorySource>(
+            PublishedNotificationRepositories.Compose);
 
         // Which registered clone a session's working folder lies inside, read off the
         // repository list the Repositories screen writes, so a header scoped to one

@@ -33,6 +33,19 @@ public static class AskBacklogHook
     public static ReadOnlyMemory<byte> Bytes => Script.Value;
 
     /// <summary>
+    /// Where <see cref="Install"/> writes the script under <paramref name="appDataDirectory"/>:
+    /// <c>hooks\ask-backlog.mjs</c>. The path the Dev PC <c>backlog</c> row installs the hooks
+    /// with, so they run the installing build's own script — a Debug build's under
+    /// <c>Backlog.Debug</c>.
+    /// </summary>
+    public static string PathUnder(string appDataDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appDataDirectory);
+
+        return Path.Combine(appDataDirectory, FolderName, FileName);
+    }
+
+    /// <summary>
     /// Writes the script to <c>hooks\ask-backlog.mjs</c> under <paramref name="appDataDirectory"/>
     /// and answers its path. A file already holding the same bytes is left alone; a different one
     /// is replaced through a temporary file, so a hook starting meanwhile reads the old script or
@@ -40,10 +53,8 @@ public static class AskBacklogHook
     /// </summary>
     public static string Install(string appDataDirectory)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(appDataDirectory);
-
-        var folder = Path.Combine(appDataDirectory, FolderName);
-        var target = Path.Combine(folder, FileName);
+        var target = PathUnder(appDataDirectory);
+        var folder = Path.GetDirectoryName(target)!;
         var bytes = Script.Value;
 
         if (File.Exists(target) && File.ReadAllBytes(target).AsSpan().SequenceEqual(bytes)) return target;

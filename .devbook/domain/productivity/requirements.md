@@ -2,7 +2,6 @@
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md]
 ```
 
@@ -18,7 +17,6 @@ calendar weeks.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
 ```
 
@@ -29,7 +27,6 @@ related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answer
 
 ```meta
 type: requirement
-status: draft
 tests: integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview
 ```
 
@@ -45,7 +42,6 @@ The system SHALL show the dashboard's tabs in the order Overview, Productivity, 
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview]
 ```
 
@@ -67,7 +63,6 @@ The system SHALL show the Overview tab each time the dashboard pane opens, which
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#deltas-against-the-previous-window]
 ```
 
@@ -79,7 +74,6 @@ related: [.devbook/domain/productivity/features.md#deltas-against-the-previous-w
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_merged_pull_requests_tile_says_how_far_it_moved_against_the_previous_window, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_comparison_names_the_period_the_reader_picked, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it]
 ```
 
@@ -95,7 +89,6 @@ The system SHALL compare a headline figure over a window of N weeks with the sam
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Twenty_six_weeks_has_no_previous_agent_active_time_because_it_was_never_read, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Twelve_weeks_has_no_previous_when_the_records_begin_inside_the_twelve_before, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests.A_baseline_with_no_block_or_an_incomplete_one_gives_no_previous_figure, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests.Copilot_has_no_previous_spend_and_is_not_asked_for_one, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_merged_pull_requests_tile_draws_no_comparison_when_there_is_no_previous_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_agent_active_time_tile_compares_as_a_share_and_only_when_there_is_an_earlier_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Open_drift_reads_on_the_drift_tone_with_no_delta_or_trend]
 ```
 
@@ -135,7 +128,6 @@ The system SHALL leave out a figure's delta when its source does not hold the fi
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you]
 ```
 
@@ -147,7 +139,6 @@ related: [.devbook/domain/productivity/features.md#what-needs-you]
 
 ```meta
 type: requirement
-status: draft
 tests: unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.The_items_come_in_rule_order_drift_roadmap_budget_rework
 ```
 
@@ -163,7 +154,6 @@ The system SHALL list the items that need the person in this order: devbook unit
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_needs_you_when_more_than_a_quarter_of_reviewed_pull_requests_came_back_after_review, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_just_over_a_quarter_needs_you, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_of_exactly_a_quarter_does_not_need_you, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_divides_by_reviewed_not_merged_pull_requests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_over_no_reviewed_pull_requests_does_not_need_you]
 ```
 
@@ -203,7 +193,6 @@ The system SHALL list rework under Needs you only when more than 25% of the pull
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Nothing_needs_you_when_every_source_answers_clean, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Needs_you_says_nothing_needs_you_when_nothing_qualifies, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Needs_you_names_the_skipped_sources_under_an_empty_list]
 ```
 
@@ -225,7 +214,6 @@ The system SHALL show "Nothing needs you." in Needs you when no item qualifies.
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
 ```
 
@@ -237,11 +225,10 @@ related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budge
 
 ```meta
 type: requirement
-status: draft
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests.A_card_shows_spend_of_budget_with_a_projected_marker_and_says_it_will_pass]
 ```
 
-The system SHALL project a provider's month-end spend as its spend so far this month plus its average daily spend over the last seven days of the month up to and including today, times the days left after today.
+The system SHALL project a provider's month-end spend as its month-to-date spend plus its average daily spend over this month's last seven days through today, times the days left after today.
 
 #### Scenario: The first day of the month
 
@@ -271,7 +258,6 @@ The system SHALL project a provider's month-end spend as its spend so far this m
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#hours-worked]
 ```
 
@@ -282,7 +268,6 @@ related: [.devbook/domain/productivity/features.md#hours-worked]
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show for each day in the dashboard's window the person's actual hours split into the time inside that date's office hours and the time outside them, beside the date's planned hours.
@@ -297,7 +282,6 @@ The system SHALL show for each day in the dashboard's window the person's actual
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL count every actual hour on a date the person blocked as outside office hours.
@@ -312,7 +296,6 @@ The system SHALL count every actual hour on a date the person blocked as outside
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL take as the office hours of a date the person unblocked the start and end its weekday stores in the weekly pattern.
@@ -327,7 +310,6 @@ The system SHALL take as the office hours of a date the person unblocked the sta
 
 ```meta
 type: requirement
-status: draft
 ```
 
 The system SHALL show for each week in the dashboard's window the sum of its days' time inside office hours, time outside them, and planned hours.
@@ -342,7 +324,6 @@ The system SHALL show for each week in the dashboard's window the sum of its day
 
 ```meta
 type: requirements
-status: draft
 related: [.devbook/domain/productivity/features.md#asking-ai-about-a-part]
 ```
 
@@ -353,7 +334,6 @@ related: [.devbook/domain/productivity/features.md#asking-ai-about-a-part]
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_clears_an_earlier_answer, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_ends_an_ask_in_flight, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests]
 ```
 
@@ -375,7 +355,6 @@ The system SHALL open the assistant on the Dashboard with the question begun `Ab
 
 ```meta
 type: requirement
-status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.No_dashboard_part_offers_ask_ai_while_the_assistant_is_off, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests.Without_a_handler_cascaded_the_frame_draws_no_ask_ai]
 ```
 

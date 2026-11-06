@@ -42,9 +42,10 @@ internal sealed class ScriptedNotificationService
         NotificationSnapshot notification,
         DateTimeOffset at,
         string? ownerName = "WORKSTATION-01",
-        IReadOnlyList<NotificationReplyRejection>? rejected = null)
+        IReadOnlyList<NotificationReplyRejection>? rejected = null,
+        PublishedRepository? repository = null)
     {
-        var change = NotificationPayloads.ToChange(notification, rejected ?? [], at, ownerName);
+        var change = NotificationPayloads.ToChange(notification, rejected ?? [], at, ownerName, repository);
         lock (_lock) _feed.Add(new NotificationChangeRecord(change, Guid.NewGuid(), ++_serverTimestamp));
     }
 

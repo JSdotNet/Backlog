@@ -1,10 +1,14 @@
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
+using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
@@ -15,8 +19,8 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// What the takeover surfaces read from the window they are shown in, answered by the
 /// host from that window's own state (local ADR 0043 §1, §3, §5): the repository scope,
-/// the hues, the entries a session or a pull request names, a pull request's chip, and
-/// the Inbox's Capture.
+/// the hues, the entries a session or a pull request names, a pull request's chip, the
+/// repository each notification is about, and the Inbox's Capture.
 /// <para>
 /// One set per window, with the window's view state, built from the window's
 /// <see cref="TasksDesktopState"/> and navigator — so a surface draws the same in the
@@ -75,6 +79,53 @@ public static class ShellSurfaceWiring
                 return new DashboardSurfaceWiring
                 {
                     RepositoryAliases = () => state.SelectedRepositoryAliases,
+                    RepositoryColour = state.RepositoryColourFor,
+                };
+            },
+            windowStateLifetime));
+
+        // The atlas draws the window's repository scope; a row or its card asks the
+        // window to narrow it to one member, the plain press on that member's chip.
+        services.Add(new ServiceDescriptor(
+            typeof(AtlasSurfaceWiring),
+            sp =>
+            {
+                var state = sp.GetRequiredService<TasksDesktopState>();
+                return new AtlasSurfaceWiring
+                {
+                    RepositoryScope = () => state.SelectedRepositoryAliases,
+                    ScopeTo = member =>
+                    {
+                        if (BrainScope.Is(member)) state.SetBrainFilter();
+                        else state.SetRepositoryFilter(member);
+                    },
+                };
+            },
+            windowStateLifetime));
+
+        services.Add(new ServiceDescriptor(
+            typeof(NotificationsSurfaceWiring),
+            sp =>
+            {
+                var state = sp.GetRequiredService<TasksDesktopState>();
+                // Which repository a notification is about is worked out here, where the
+                // Sessions, Tasks and Devbook vocabularies meet; the centre sees only the
+                // answer. A port this head did not compose leaves its notifications to the
+                // rules that need nothing from it.
+                var repositories = new NotificationRepositories(
+                    state.RepositoryAliasFor,
+                    sp.GetService<IAgentSessionSource>(),
+                    sp.GetService<ISessionRepositoryResolver>(),
+                    taskId => !state.HasLoaded
+                        ? TaskFiling.NotRead
+                        : state.Rows.FirstOrDefault(row => row.Id == taskId) is { } row
+                            ? TaskFiling.Under(row.PreviewRepoIds.FirstOrDefault())
+                            : TaskFiling.NotHeld,
+                    sp.GetService<IConnectedTargets>());
+                return new NotificationsSurfaceWiring
+                {
+                    RepositoryScope = () => state.SelectedRepositoryAliases,
+                    RepositoriesOf = repositories.ResolveAsync,
                     RepositoryColour = state.RepositoryColourFor,
                 };
             },

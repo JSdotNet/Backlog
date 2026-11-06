@@ -2,15 +2,11 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this file
-> focuses on structure and relationships. Lifecycle and process flows live in
-> `flow.md`.
+> Structure and relationships of this context's aggregates, entities, and value
+> objects. Keep it in sync with `domain.md`.
 
 ## Model diagram
 
@@ -147,46 +143,38 @@ classDiagram
 
 ## Relationship notes
 
-- `RoadmapPlan` is a **singleton per workspace** — one plan per storage location,
-  not one per repository or per project. There is no `Plan` selector in the model
-  because a person has one set of intentions, read in different groupings.
-- `RoadmapItem` and `Milestone` are owned entities, not aggregates. They are drawn
-  with composition because they have no life outside the plan: deleting the plan
-  deletes them, and neither can be loaded, validated, or saved on its own.
+- `RoadmapPlan` is a **singleton per workspace**: one plan per storage location,
+  not per repository or project. The model has no `Plan` selector because a person
+  has one set of intentions, read in different groupings.
+- `RoadmapItem` and `Milestone` are owned entities, drawn with composition because
+  they have no life outside the plan. Deleting the plan deletes them, and neither can be loaded, validated or saved
+  on its own.
 - `Dependency` points at a **Roadmap Node**, the union of `RoadmapItem` and
-  `Milestone`, which is why both dotted associations leave the same class. There
-  is no inheritance between item and milestone: they share an id space and a role
-  as a dependency endpoint, and nothing else. Modelling a common base class would
-  suggest a shared lifecycle they do not have.
-- The dependency association is **one-way, and held by the waiting side**. The
-  plan can answer "what depends on this" by scanning, and does; storing the
-  reverse edge as well would create two places for one fact to be wrong.
-- `RepositoryScope` holds aliases as **plain strings, by value** — never a
+  `Milestone`, which is why both dotted associations leave the same class. They
+  share an id space and a role as a dependency endpoint, and nothing else. There
+  is no inheritance between them, because a common base class would suggest a shared
+  lifecycle they do not have.
+- The dependency association is **one-way, held by the waiting side**. The plan
+  answers "what depends on this" by scanning, so no reverse edge is stored.
+- `RepositoryScope` holds aliases as **plain strings, by value**, never a
   reference to a `Repository` from
-  [Repository Management](../repository-management/model.md). That is what keeps
-  the two contexts independent, and it is why resolution is a service on the read
-  path rather than a navigation in the model.
-- `TaskLink` is likewise **an id, not an association**. There is no line
-  from `RoadmapItem` to `Task` in this diagram, and there deliberately
-  cannot be: they are separate aggregates in separate contexts, related by
-  Partnership (see `dependencies.md`).
-- `RoadmapTag` is a **value object held by the item, not a shared registry**.
-  There is no `Tag` table the items point into, because two items may carry the
-  same slug. The diagram draws no line from `Title` to `Tag`, because
-  [renaming keeps the tag](domain.invariants.md#invariant-renaming-keeps-the-tag).
-- `KnowledgeRef` is **an id-shaped reference, not an association**, for the same
-  reason as `TaskLink`. The chapter it names lives in
-  [Devbook](../devbook/model.md), so there is no line to it and no
-  navigation through it. Both foreign references may dangle and neither is
-  validated.
+  [Repository Management](../repository-management/model.md). That keeps the two
+  contexts independent and makes resolution a read-path service.
+- `TaskLink` is likewise **an id, not an association**: `Task` is a separate
+  aggregate in another context, related by Partnership (see `dependencies.md`).
+- `RoadmapTag` is a **value object held by the item, not a shared registry**,
+  because two items may carry the same slug (no `Tag` table). No line runs from `Title` to `Tag`,
+  because [renaming keeps the tag](domain.invariants.md#invariant-renaming-keeps-the-tag).
+- `KnowledgeRef` is **an id-shaped reference, not an association**, like
+  `TaskLink`. The chapter it names lives in [Devbook](../devbook/model.md). Both
+  foreign references may dangle and neither is validated.
 - `RoadmapItemGathering`, `PlanSequencing` and `RepositoryScopeResolution` are
-  drawn as services because no answer they give is in a single node's own state.
-  Gathering reads foreign tasks and chapters
+  services because no answer they give is in a single node's own state. Gathering
+  reads foreign tasks and chapters
   ([Roadmap Item Gathering](domain.md#roadmap-item-gathering)), sequencing needs
   the whole graph, and resolution needs a foreign registry. The dotted lines from
-  gathering to `RoadmapTag`, `TaskLink`, and `KnowledgeRef` are the two ways it
-  reaches work. The foreign tasks and chapters are not on this diagram, because
-  they are not this context's model.
+  gathering are the two ways it reaches work; the foreign tasks and chapters are
+  not this context's model.
 - Both enumerations are the plan's own. `PlanningPriority` shares its four values
-  with Tasks's `Priority` on purpose, but the two are distinct types;
-  there is no association between them and no conversion in either direction.
+  with Tasks's `Priority`, but the types are distinct, with no association or
+  conversion.

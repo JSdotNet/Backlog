@@ -3,22 +3,14 @@
 ```meta
 ```
 
-This chapter links to the decision records rather than restating them. There are
-two sets, and they are numbered independently:
+This chapter links to the decision records rather than restating them. Two sets are numbered independently:
 
-- **Inherited decisions** live in `.devbook/arc42/adr/guidelines/`. They are the
-  organization's ADRs, imported into this repository on 2026-08-27 and
-  authoritative here since. Nothing is fetched at read time.
-- **Local decisions** live in `.devbook/arc42/adr/`. Backlog took them for itself,
-  in their own sequence.
+- **Inherited decisions** in `.devbook/arc42/adr/guidelines/` are the organization's ADRs, imported on 2026-08-27 and authoritative here since. Nothing is fetched at read time.
+- **Local decisions** in `.devbook/arc42/adr/` are Backlog's own.
 
-Both sequences start at 0001, so always name the folder when citing one:
-*guidelines 0003* is Aspire, *local ADR 0003* is SQLite.
+Both start at 0001, so name the folder when citing one: *guidelines 0003* is Aspire, *local ADR 0003* is SQLite.
 
-The ASP.NET-specific inherited decisions govern the **sync service** directly. It
-is not the only governed code: the modules, the shared kernel, and the shared
-component library are .NET too (see *Beyond the sync service* below). The IDE
-channel is TypeScript and stays outside the .NET decision set.
+The ASP.NET-specific inherited decisions govern the **sync service** directly; the modules, shared kernel and shared component library are .NET too (*Beyond the sync service*). The TypeScript IDE channel stays outside the .NET decision set.
 
 ## Sync-service alignments
 
@@ -26,28 +18,33 @@ channel is TypeScript and stays outside the .NET decision set.
 related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
-The *alignment* column is a reading of intent per decision, not a compliance
-audit of implemented code. Each linked document carries its own **Deviations and
-gaps** section, which is the accurate account.
+The *alignment* column reads intent, not compliance; each linked document's own **Deviations and gaps** section is the accurate account.
 
-An inherited decision marked `proposed` rather than `active` is one no shipped
-code applies yet; 0012, 0013, 0017, and 0018 are in that state. It still binds the
-first work that reaches its ground.
+An inherited decision marked `proposed` rather than `active` is one no shipped code applies yet. Decisions 0012, 0013, 0017 and 0018 are in that state. Such a decision still binds the first work that reaches its ground.
 
 | Decision | Current alignment for the sync service |
 |---|---|
 | **[0001 — .NET 10](adr/guidelines/0001-adopt-dotnet-10.md)** | Target framework of `Backlog.Modules.Sync.Api`. |
 | **[0003 — .NET Aspire](adr/guidelines/0003-aspire-for-web-services.md)** | Followed: the service is an Aspire resource (`sync`) and calls `AddServiceDefaults()`. |
 | **[0005 — Modular monolith structure](adr/guidelines/0005-modular-monolith-structure.md)** | Followed: the service is the `Sync` module's own `.Api` project under `src/Modules/Sync/`. |
-| **[0006 — CQRS](adr/guidelines/0006-cqrs-for-api-projects.md)** | Followed: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator, and every sync route delegates to one of the module's ten feature slices. |
-| **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, no controllers, thin lambdas over handlers, and two endpoint filters. OpenAPI is served in Development only; Scalar is not wired up. |
-| **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults, and the Sync module owns its own `ActivitySource` and counter on top of it — the only module that does. |
+| **[0006 — CQRS](adr/guidelines/0006-cqrs-for-api-projects.md)** | Followed: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator. |
+| **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, thin lambdas over handlers, and two endpoint filters. |
+| **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults. Sync alone among the modules adds its own `ActivitySource` and counter. |
 | **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
 | **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
 | **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
-| **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. Cosmos is the service's own outbound dependency and sits outside the standard HTTP pipeline by construction; its timeout and retry caps are set on the client. |
-| **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file, and unhandled exceptions go through `UseExceptionHandler()`. The `proposed` marker on the record has not caught up. |
+| **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
+| **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file. |
 | **[0018 — Configuration & options](adr/guidelines/0018-configuration-and-options-binding.md)** | Relevant for strongly typed settings and externalized secrets. |
+
+- **0006 — CQRS:** Every sync route delegates to one of the module's ten feature slices.
+- **0007 — Minimal APIs:** The service has no controllers. OpenAPI is served in
+  Development only, and Scalar is not wired up.
+- **0015 — Resilience:** Cosmos is the service's own outbound dependency and sits outside
+  the standard HTTP pipeline by construction. Its timeout and retry caps are set on the
+  client.
+- **0017 — Problem Details:** Unhandled exceptions go through `UseExceptionHandler()`.
+  The `proposed` marker on the record has not caught up.
 
 ## Beyond the sync service
 
@@ -57,10 +54,12 @@ related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building
 
 | Decision | Where it lands |
 |---|---|
-| **[0002 — Central Package Management](adr/guidelines/0002-central-package-management.md)** | Adopted. `Directory.Packages.props` is the version catalog; transitive pinning is deliberately off, for the reason recorded in that file. |
+| **[0002 — Central Package Management](adr/guidelines/0002-central-package-management.md)** | Adopted. `Directory.Packages.props` is the version catalog; transitive pinning is off, as that file records. |
 | **[0004 — Result objects](adr/guidelines/0004-result-objects-for-expected-failures.md)** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and module handlers return them. |
-| **[0009 — Feature slices](adr/guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Tasks` and `Backlog.Modules.Roadmap` use the prescribed layout: `DomainModels/`, `Features/`, the repository port at the module root, `Services/`, `Extensions/`. |
+| **[0009 — Feature slices](adr/guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Tasks` and `Backlog.Modules.Roadmap` use the prescribed layout. |
 | **[0011 — Centralized styling variables](adr/guidelines/0011-centralized-frontend-styling-variables.md)** | Design tokens live in one file, `src/Core/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. |
+
+- **0009 — Feature slices:** The prescribed layout is `DomainModels/`, `Features/`, the repository port at the module root, `Services/` and `Extensions/`.
 
 ## Local system decisions
 
@@ -68,18 +67,16 @@ related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building
 related: [".devbook/arc42/04-solution-strategy.md"]
 ```
 
-`.devbook/arc42/04-solution-strategy.md` frames these product choices, which no
-inherited decision covers:
+`.devbook/arc42/04-solution-strategy.md` frames these product choices, which no inherited decision covers:
 
 - **Local-first storage**, with one canonical local store per corpus: a SQLite
   database for tasks (local ADR 0003), and markdown for a repository's knowledge
   folders with a generated layer over it (local ADR 0004).
-- **Thin cloud, rich desktop** responsibility split.
-- **Conflict policy**: the glossary's *Last-write-wins* (`.devbook/arc42/12-glossary.md#terms`).
-- **Capture and Inbox kept as one pipeline**, with a possible later split.
+- **Thin cloud, rich desktop** splits the responsibilities.
+- **Conflict policy** follows the glossary's *Last-write-wins* (`.devbook/arc42/12-glossary.md#terms`).
+- **Capture and Inbox** stay one pipeline, with a possible later split.
 
-A choice that hardens into a governed decision becomes a record under `adr/`
-through the delivery engine's `flow-spec`, and is linked here.
+A choice that hardens into a governed decision becomes a record under `adr/` through `flow-spec` and is linked here.
 
 ## Local ADRs
 
@@ -125,8 +122,8 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0035 — Goals and impediments replace sprints](adr/0035-goals-and-impediments-replace-sprints.md) (§2, §8 and §9 amended by ADR 0037; §7's GitHub edge amended by ADR 0042)
 - [ADR 0037 — A session attaches to a goal as its own item](adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)
 - [ADR 0038 — Backlog queues session requests and a Manager session dispatches them](adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
-- [ADR 0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md) (proposed)
+- [ADR 0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md)
 - [ADR 0042 — Repository Management owns pull-request state, and every reader goes through its one contract](adr/0042-repository-management-owns-pull-request-state.md)
 - [ADR 0043 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0043-a-surface-can-open-in-its-own-window.md)
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
-- [ADR 0045 — The Domain view reads by unit](adr/0045-the-domain-view-reads-by-unit.md)
+- [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)

@@ -9694,6 +9694,13 @@ textarea {
     cursor: default;
 }
 
+/* A box blocked while a reply is on its way is read-only and aria-disabled
+   rather than disabled, so it keeps its tab stop; it reads as disabled does. */
+.field__input[aria-disabled="true"] {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
 .field--invalid .field__input {
     border-color: var(--color-border-strong);
     border-width: var(--border-width-2);
@@ -9975,6 +9982,13 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
+/* The extra content's wrapper is there for its id, which the control's
+   aria-describedby names; it takes no box, so the content stays a direct item
+   of the text block's grid as it was before the wrapper. */
+.toggle__content {
+    display: contents;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .toggle__track,
     .toggle__thumb {
@@ -10077,6 +10091,13 @@ select.field__input {
 .checkbox__input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* Busy: the box keeps its tab stop but ignores a change, so it reads as a
+   disabled one does and a press on it does not look lost. */
+.checkbox:has(> .checkbox__input[aria-disabled="true"]) {
+    cursor: default;
+    opacity: 0.55;
 }
 
 /*
@@ -10456,6 +10477,47 @@ select.field__input {
     border-radius: var(--border-radius-md);
     background: var(--color-background-raised);
     box-shadow: var(--shadow-lg);
+}
+
+/* PopoverButton: a trigger with a small panel of the host's controls under it,
+   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
+   opens inward from the end of a row. The
+   backdrop is the context menu's, for the same reason: it catches the closing
+   click, and it covers the trigger so a second press closes the panel too. */
+.popover-button {
+    position: relative;
+    display: inline-flex;
+}
+
+.popover-button__glyph {
+    display: inline-flex;
+}
+
+.popover-button__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: transparent;
+}
+
+.popover-button__panel {
+    position: absolute;
+    top: calc(100% + var(--spacing-xs));
+    left: 0;
+    z-index: 26;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 12rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.popover-button__panel--end {
+    right: 0;
+    left: auto;
 }
 
 .nav-list__items {
@@ -16146,6 +16208,19 @@ select.field__input {
 }
 
 /*
+  Waiting: something the host asked for on the bar's behalf has not come yet — a
+  session queued for the plan. News, not an alert, so no tone of its own: the queue
+  glyph in the bar's own ink, after the title and after an overdue marker or a tick
+  when the bar is that too. The bar's fill and outline stay whatever its other states
+  make them. The glyph is a shape, and the caller says what is awaited in the detail.
+*/
+.roadmap-bar__waiting {
+    position: relative;
+    flex: none;
+    color: currentColor;
+}
+
+/*
   The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
   end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
   action's own included, so a keyboard reader tabbing onto it sees what they reached;
@@ -19106,11 +19181,18 @@ select.field__input {
     cursor: default;
 }
 
+/* The panel takes the whole screen below the status bar, leaving a strip of
+   the dimmed screen to tap out on, and the field grows into what the controls
+   leave: a thought rarely fits four rows. A keyboard that shrinks the screen
+   makes the panel scroll rather than squeeze the controls. */
 .capture-sheet__panel {
     position: relative;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     gap: var(--spacing-md);
-    max-height: 92dvh;
+    min-height: 0;
+    margin-top: calc(env(safe-area-inset-top, 0px) + var(--spacing-xl));
     overflow-y: auto;
     padding: var(--spacing-xs) var(--spacing-md) calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
     border-radius: 1.5rem 1.5rem 0 0;
@@ -19125,8 +19207,12 @@ select.field__input {
     outline: none;
 }
 
+.capture-sheet__panel > * {
+    flex: none;
+}
+
 .capture-sheet__grip {
-    justify-self: center;
+    align-self: center;
     width: 40px;
     height: 5px;
     border-radius: var(--border-radius-full);
@@ -19182,9 +19268,23 @@ select.field__input {
     outline-offset: -2px;
 }
 
+/* The field, its box and the textarea in it stretch down the panel together. */
+.capture-sheet__panel > .capture-sheet__field {
+    flex: 1 0 8rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.capture-sheet__field > div {
+    flex: 1;
+    display: flex;
+}
+
 /* Prose, not Markdown source: the field takes the UI face the rest of the sheet
    uses rather than the editor's monospace. */
 .capture-sheet__field .field__input {
+    flex: 1;
+    resize: none;
     font-family: var(--font-family-base);
     font-size: var(--font-size-lg);
 }
@@ -19960,6 +20060,7 @@ select.field__input {
 
 .standup-goal {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     padding: 14px var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
@@ -19987,9 +20088,12 @@ select.field__input {
     gap: var(--spacing-sm);
 }
 
+/* A stand-up title with one long unbroken word, a path or a URL, breaks inside it
+   rather than running past the phone's edge; the work and impediment titles do too. */
 .standup-goal__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 0.9375rem;
     font-weight: var(--font-weight-semibold);
 }
@@ -20043,6 +20147,7 @@ select.field__input {
 .standup-work__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .standup-work__trailing {
@@ -20080,6 +20185,7 @@ select.field__input {
 .standup-impediment__title {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-weight: var(--font-weight-medium);
 }
 
@@ -21543,7 +21649,7 @@ select.field__input {
 
 /* --- Domain view: one unit at a time --------------------------------------- */
 /*
-  The Domain page of the Domain view (local ADR 0045). An unsplit domain.md
+  The Domain page of the Domain view (local ADR 0047). An unsplit domain.md
   offers its units in a chapter bar, each tab led by its type marker; a unit
   then reads as prose, cards for what it holds, rows of values, and one plain
   line per event. Monochrome: the marker and the words say the kind.
@@ -21558,7 +21664,7 @@ select.field__input {
     min-width: 0;
 }
 
-/* The chapter bar of an unsplit domain.md (local ADR 0045 §4): a caption that
+/* The chapter bar of an unsplit domain.md (local ADR 0047 §4): a caption that
    names the file, over a segmented bar — the open unit filled and bold — with
    each aggregate or domain service led by a square in its kind's tone
    (color-scheme.md#domain-view-element-tones). The name says the kind; the
@@ -22382,7 +22488,7 @@ select.field__input {
 
 /* --- Domain view: Glossary ------------------------------------------------- */
 /*
-  The Glossary unit of the Domain page (local ADR 0045). A fixed lead, then a
+  The Glossary unit of the Domain page (local ADR 0047). A fixed lead, then a
   labelled find box that fills the row beside the Show pills — All, Model, Terms,
   Borrowed, one choice, each with its count. Under them two columns that wrap
   under each other on a narrow pane: the A–Z card, a bordered list of divided
@@ -22709,7 +22815,7 @@ select.field__input {
 
 /* --- Domain view: Flow ----------------------------------------------------- */
 /*
-  The Flow page of the Domain view (local ADR 0045): a stateDiagram-v2 drawn as
+  The Flow page of the Domain view (local ADR 0047): a stateDiagram-v2 drawn as
   one row of states, each a box with its description. A move to the next state
   runs straight to it on top, a move back underneath in a dimmer tone; other
   forward arcs run in lanes above, other ways back in lanes below, the restore
@@ -23092,7 +23198,7 @@ select.field__input {
 /*
   The Features page reads a context's features in columns by what they build
   on, one card each; the Requirements page reads one feature's requirements
-  with their scenarios as Given / When / Then rows (local ADR 0045). Monochrome,
+  with their scenarios as Given / When / Then rows (local ADR 0047). Monochrome,
   as the Domain page is: a proposed card is dashed and a deprecated feature
   struck through in the box that gathers them, and each also says so in words.
   The flag and the status are information about the chapter, so each is a
@@ -24676,8 +24782,8 @@ select.field__input {
   the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
   a count in the mark's ink. Running and Short share the live ink; a different glyph tells
   them apart. A received count with no required total keeps the secondary ink: it is
-  information, not a verdict. Each mark is positioned because it holds an sr-only phrase,
-  for the reason .status-editor gives.
+  information, not a verdict. Each mark, and "your review", is positioned because it holds
+  an sr-only phrase, for the reason .status-editor gives.
 */
 .pull-request-status {
     display: inline-flex;
@@ -24724,6 +24830,14 @@ select.field__input {
 .pull-request-status__mark--received,
 .pull-request-status__merged {
     color: var(--color-text-secondary);
+}
+
+/* "your review" closes the line in the muted ink: the words carry the request, never
+   the colour (color-scheme.md#pull-request-status-marks). */
+.pull-request-status__your-review {
+    position: relative;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /*
@@ -24966,6 +25080,33 @@ select.field__input {
     min-width: 0;
 }
 
+/* A No goal row's state leads its title, drawn as the open goal's columns draw it: the
+   task's dot at the Tasks column's size, the pull request's status line unbroken. */
+.goals-board__no-goal-row .status-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goals-board__no-goal-pull {
+    flex: 0 0 auto;
+}
+
+/* The row carried onto a goal stays where it is, set back, so the outlined goal reads as
+   where it is going. */
+.goals-board__no-goal-row--carried {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* While a carried row is over no goal, nothing in the column takes the drop: the cursor
+   says so (interaction-guidelines.md#drop-indicators), the grip under it included. */
+.goals-board__goals--no-drop,
+.goals-board__goals--no-drop * {
+    cursor: not-allowed;
+}
+
 .goals-board__number,
 .goal-card__number,
 .work-item-search__number {
@@ -25011,9 +25152,11 @@ select.field__input {
     transform: none;
 }
 
-/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
-   row's grip is, with a target as tall as the guideline's drag affordance. */
-.goal-card__grip {
+/* The grip leads the head row, and a No goal row that can be carried onto a goal: a press
+   origin for the shared pointer reorder, as a task row's grip is, with a target as tall as
+   the guideline's drag affordance. */
+.goal-card__grip,
+.goals-board__no-goal-grip {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -25026,7 +25169,8 @@ select.field__input {
     touch-action: none;
 }
 
-.goal-card__grip:hover {
+.goal-card__grip:hover,
+.goals-board__no-goal-grip:hover {
     color: var(--color-text-secondary);
 }
 
@@ -25051,6 +25195,13 @@ select.field__input {
 .goal-card--dragging {
     opacity: 0.6;
     outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The goal a carried No goal row would attach to on a drop: the whole card, folded or
+   open, outlined in the primary ink (interaction-guidelines.md#drop-indicators). */
+.goal-card--drop-target {
+    outline: var(--border-width-2) solid var(--color-primary);
     outline-offset: 2px;
 }
 
@@ -25365,10 +25516,6 @@ select.field__input {
     white-space: nowrap;
 }
 
-.stand-up-panel__item--no-goal {
-    color: var(--color-text-secondary);
-}
-
 /* A planned item's effort sits at the row's end, in the points tag's figures. */
 .stand-up-panel__item--planned {
     display: flex;
@@ -25679,7 +25826,7 @@ select.field__input {
     min-width: 0;
 }
 
-/* The Domain view's context page (local ADR 0045), one page with no tabs: its
+/* The Domain view's context page (local ADR 0047), one page with no tabs: its
    dependency tables drawn as a board on top, then the Overview after its board —
    the context's badges, name and lead, the boundary as an Inside and an Outside
    card, what it holds as tiles, how well it is proved as two cards, how settled
@@ -26585,7 +26732,7 @@ select.field__input {
     }
 }
 
-/* The Domain view's Context map page (local ADR 0045): Map draws every bounded
+/* The Domain view's Context map page (local ADR 0047): Map draws every bounded
    context as a card on an ellipse with one line per pair of contexts; List names
    them in reading order. A line between two core contexts is amber, any other
    grey, a relation named and not built dashed. Pointing at or focusing a card
@@ -27046,7 +27193,7 @@ select.field__input {
     margin: 0;
 }
 
-/* The Domain view's Model page (local ADR 0045): a class diagram drawn as each
+/* The Domain view's Model page (local ADR 0047): a class diagram drawn as each
    aggregate's consistency-boundary band — the root in the middle, its composed
    parts as a tree above and below it joined by lines with the gold "owns" diamond
    on the root, what it names by id in a column outside the band on a dashed line,
@@ -27657,7 +27804,7 @@ select.field__input {
     }
 }
 
-/* The Model page's Fields and Events tabs (local ADR 0045 §6): the technical half
+/* The Model page's Fields and Events tabs (local ADR 0047 §6): the technical half
    of a context — each class's fields grouped by kind, the relationship notes, how
    each domain service runs, and each domain event as a contract. Cards on the
    raised surface, labels in the band's small caps, types in the mono face. */
@@ -28560,6 +28707,34 @@ button.domain-field-rules[aria-expanded="true"] {
     background: transparent;
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: var(--border-radius-full);
+}
+
+/* NotificationAskerBadge: who raised it, a glyph then the word. The three kinds differ
+   in fill as well as glyph — an agent's filled in the info tone, a person's outlined,
+   the app's own the plain raised face — so they part at a glance in a list. */
+.badge--notification-asker {
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-asker > svg {
+    flex: none;
+}
+
+.badge--notification-asker-agent {
+    background: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-person {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--notification-asker-system {
+    color: var(--color-text-secondary);
 }
 
 .notification-card__body {

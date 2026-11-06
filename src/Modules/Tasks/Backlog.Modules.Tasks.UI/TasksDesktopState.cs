@@ -2918,8 +2918,9 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// moved, so a screen that asks once per row it draws builds it once per change.
     /// <para>
     /// It is read again when a row's text, id or plan changes
-    /// (<see cref="EntryRow.EditStamp"/>, which also covers a keystroke in the raw
-    /// editor that raises nothing), when the list is replaced or grows or shrinks, and
+    /// (<see cref="EntryRow.EditStamp"/>, which also covers a keystroke in the body
+    /// or the raw editor, neither of which raises anything), when the list is replaced
+    /// or grows or shrinks, and
     /// when <see cref="_rowsVersion"/> moves, which every <see cref="Changed"/>, every
     /// <see cref="ApplyFilter"/> and a reorder in place (<see cref="NormalizeOrderAsync"/>)
     /// do.
@@ -3020,6 +3021,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// silently discard a chapter somebody typed into it, which is the one thing a
     /// raw-ish surface must never do.
     /// </para>
+    /// <para>
+    /// It raises no <see cref="Changed"/>, as <see cref="OnRawTextInput"/> raises
+    /// none: every screen that hears it would draw again per character, and the
+    /// editor already shows what was typed. The save after the pause raises it, and
+    /// the list row's steps catch up then.
+    /// </para>
     /// </summary>
     public void ChangeBody(EntryRow row, string body)
     {
@@ -3032,7 +3039,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         row.RawText = rewritten;
         ScheduleDebouncedSave(row);
-        Changed?.Invoke();
     }
 
     /// <remarks>

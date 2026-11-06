@@ -196,6 +196,11 @@ public static class AppFeatures
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(
+            AppFeatureKeys.CopyEntries,
+            "Copy entries and plans",
+            "Show the copy button on a task row, a board card, the open entry, the pressed plan chip and a planned item's dialog on the roadmap, to paste its text or the plan's tag into a session yourself. Turn it off once queueing a session from the same place does the job; the queue button stays.",
+            Group: AppFeatureGroup.CrossCutting),
+        new(
             AiAssistant,
             "AI assistant",
             "Ask questions about visible task content through Azure Foundry.",

@@ -24,6 +24,24 @@
         <PullRequestStatus Model="@Approved" TestId="pull-request-status-approved" />
     </Story>
 
+    <Story Name="Your review requested"
+           Description="An open pull request that asks for your review — a pending request names the account the repository is read as — ends on your review, after the approvals mark, in the muted ink: the words carry it, never the colour. A screen reader hears your review is requested. A merged or closed pull request never says it, and a request made to one of your teams does not count."
+           Code="@YourReviewCode">
+        <PullRequestStatus Model="@YourReview" TestId="pull-request-status-your-review" />
+    </Story>
+
+    <Story Name="Draft, your review requested"
+           Description="A draft that asks for your review says so as an open one does: its draft pill, its marks, then your review."
+           Code="@DraftYourReviewCode">
+        <PullRequestStatus Model="@DraftYourReview" TestId="pull-request-status-draft-your-review" />
+    </Story>
+
+    <Story Name="Merged, review still requested"
+           Description="A merged pull request whose request was never answered: its pill and merged, and no your review — a request on a pull request that is done asks nothing of anybody."
+           Code="@MergedYourReviewCode">
+        <PullRequestStatus Model="@MergedYourReview" TestId="pull-request-status-merged-your-review" />
+    </Story>
+
     <Story Name="Merged"
            Description="A merged pull request: its pill and merged, with no marks."
            Code="@MergedCode">
@@ -61,6 +79,15 @@
     private static readonly PullRequestStatusModel Approved =
         new(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), "Invoice PDF export");
 
+    private static readonly PullRequestStatusModel YourReview =
+        new(1363, "open", new PullRequestChecks(12, 0, 2), new PullRequestApprovals(0, 2), "Bank statement import", ReviewRequested: true);
+
+    private static readonly PullRequestStatusModel DraftYourReview =
+        new(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, 2), "Recurring invoices", ReviewRequested: true);
+
+    private static readonly PullRequestStatusModel MergedYourReview =
+        new(1355, "merged", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), "Payment reminders", ReviewRequested: true);
+
     private static readonly PullRequestStatusModel Merged =
         new(1352, "merged", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), "Reminder emails");
 
@@ -81,6 +108,23 @@
     private const string ApprovedCode = """
         <PullRequestStatus Model="@(new PullRequestStatusModel(1341, "open",
             new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2)))" />
+        """;
+
+    private const string YourReviewCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1363, "open",
+            new PullRequestChecks(12, 0, 2), new PullRequestApprovals(0, 2),
+            ReviewRequested: true))" />
+        """;
+
+    private const string DraftYourReviewCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1358, "draft",
+            new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, 2),
+            ReviewRequested: true))" />
+        """;
+
+    private const string MergedYourReviewCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1355, "merged",
+            ReviewRequested: true))" />
         """;
 
     private const string MergedCode = """

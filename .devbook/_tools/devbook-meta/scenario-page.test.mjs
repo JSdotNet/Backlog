@@ -3,7 +3,7 @@
 // headings the parts.
 //
 // The per-document rules are validateDocument's: where the type may sit, the
-// parts that owe no block, the anchors unique in a file, the fixed status set,
+// parts that owe no block, the anchors unique in a file, a journey's state moved to tooling,
 // the field set with `tests` refused, the setup fields only on a journey, the
 // step keywords, and the shape of a `Proved by:` case. The corpus-wide rules
 // are the graph build's: the setup fields resolved against chapters and the
@@ -51,6 +51,14 @@ const scenarios = (meta, body = "") =>
     check(errors(issues).length === 0 && warnings(issues).length === 0, "a journey in a split scenarios file is clean", dump(issues));
 }
 {
+    const issues = validateDocument(".devbook/domain/work/scenarios.returns.courier.md", scenarios("type: scenario\n"));
+    check(errors(issues).length === 0 && warnings(issues).length === 0, "a journey in a subpage of a split scenarios file is clean", dump(issues));
+}
+{
+    const issues = validateDocument(".devbook/domain/work/scenarios.returns.courier.late.md", scenarios("type: scenario\n"));
+    check(has(errors(issues), "outside a scenarios file"), "a scenarios file three suffixes deep is none, and its journey is an error", dump(issues));
+}
+{
     const issues = validateDocument(".devbook/domain/work/set-up.md", `# Set up\n\n${fence("type: scenario\n")}\n## A part\n\n- **Given** a\n`);
     check(has(errors(issues), "032-scenarios-md"), "a whole file typed scenario is an error naming the migration", dump(issues));
 }
@@ -61,8 +69,8 @@ const scenarios = (meta, body = "") =>
 for (const [folder, relPath, meta] of [
     ["arc42", ".devbook/arc42/set-up.md", "type: scenario\n"],
     ["design", ".devbook/design/set-up.md", "type: scenario\n"],
-    ["tech", ".devbook/tech/set-up.md", "type: scenario\nstatus: trial\n"],
-    ["ai", ".devbook/ai/set-up.md", "type: scenario\nstatus: trial\n"],
+    ["tech", ".devbook/tech/set-up.md", "type: scenario\nrating: trial\n"],
+    ["ai", ".devbook/ai/set-up.md", "type: scenario\nrating: trial\n"],
 ]) {
     const issues = validateDocument(relPath, `# Set up\n\n${fence(meta)}\nProse.\n`);
     check(has(errors(issues), `has type "scenario" in .${folder}`), `type: scenario in .${folder} is an error`, dump(issues));
@@ -91,23 +99,19 @@ for (const [folder, relPath, meta] of [
     check(!has(issues, "has no `meta` block"), "a part, and a heading under it, without a block is not reported", dump(issues));
 }
 
-// ── DB3: status ────────────────────────────────────────────────────────────
+// ── DB3: a journey carries no status ───────────────────────────────────────
 
 for (const status of ["draft", "proposed"]) {
     const issues = validateDocument(FILE, scenarios(`type: scenario\nstatus: ${status}\n`));
-    check(errors(issues).length === 0 && warnings(issues).length === 0, `status: ${status} is accepted`, dump(issues));
-}
-for (const status of ["active", "approved", "deprecated", "nonsense"]) {
-    const issues = validateDocument(FILE, scenarios(`type: scenario\nstatus: ${status}\n`));
-    check(has(errors(issues), `has status "${status}" on a journey`), `status: ${status} is an error`, dump(issues));
+    check(errors(issues).length === 1 && has(errors(issues), "038-workflow-state-leaves-the-chapter"), `status: ${status} on a journey is moved to tooling`, dump(issues));
 }
 
 // ── DB4: the field set ─────────────────────────────────────────────────────
 
 {
     const meta =
-        "type: scenario\nrelated: [.devbook/domain/work/features.md#backlog-board]\nroadmap: [scenario-pages]\n" +
-        "issue: \"#12\"\neffort: 3\ndate: 2026-10-07\nchange: add-scenarios\naliases: [Backlog setup]\next.spec-manager.pinned: yes\n";
+        "type: scenario\nrelated: [.devbook/domain/work/features.md#backlog-board]\n" +
+        "date: 2026-10-07\naliases: [Backlog setup]\next.spec-manager.pinned: yes\n";
     const issues = validateDocument(FILE, scenarios(meta));
     check(errors(issues).length === 0 && warnings(issues).length === 0, "the common fields, aliases, and ext.* are accepted on a journey", dump(issues));
 }
@@ -329,6 +333,20 @@ const proved = (target, requirementsPath = REQUIREMENTS) => ({
 {
     const graph = await graphOf(base("type: scenario\n", proved(`${FILE}#statuses-are-set-up`)));
     check(problemsAbout(graph, "has `Proved by:").length === 0, "a Proved by pointer by repository path resolves", dump(graph.problems));
+}
+{
+    const SUBPAGE = ".devbook/domain/work/scenarios.returns.courier.md";
+    const graph = await graphOf(
+        base("type: scenario\n", {
+            [SUBPAGE]: scenarios("type: scenario\n"),
+            [REQUIREMENTS]: requirements("Proved by: scenarios.returns.courier.md#statuses-are-set-up\n"),
+            [SPEC]: `// scenario: ${SUBPAGE}#set-up-and-fill-the-backlog\n// signature: 9c41e2a0\nimport { scenario } from "x";\n`,
+        })
+    );
+    const requirement = graph.nodes.find((n) => n.id === `${REQUIREMENTS}#requirement-columns-follow-the-status-order`);
+    check(problemsAbout(graph, "has `Proved by:").length === 0, "a Proved by pointer into a scenarios subpage resolves", dump(graph.problems));
+    check(graph.nodes.some((n) => n.id === `${SUBPAGE}#set-up-and-fill-the-backlog` && n.kind === "scenario"), "a subpage's journey is a chapter node of kind scenario");
+    check(JSON.stringify(requirement?.tests) === JSON.stringify([`e2e:playwright:${SPEC}#Statuses are set up`]), "a pointer into a subpage derives the e2e entry from the spec naming its journey", JSON.stringify(requirement));
 }
 {
     const graph = await graphOf(base("type: scenario\n", { [REQUIREMENTS]: requirements("Proved by: scenarios.md#statuses-are-set-up\n") }));

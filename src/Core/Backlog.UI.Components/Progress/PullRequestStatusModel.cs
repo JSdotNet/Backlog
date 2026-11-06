@@ -71,14 +71,23 @@ public enum PullRequestApprovalsVariant
 /// <param name="Approvals">The approvals, or null when they were not read.</param>
 /// <param name="Title">The pull request's title, for the pill's tooltip; optional.</param>
 /// <param name="Url">Where the pill leads; null draws it as plain text.</param>
+/// <param name="ReviewRequested">The pull request asks for the reader's review: the host's
+/// own reading of whether a pending request names the person it is read as.</param>
 public sealed record PullRequestStatusModel(
     int Number,
     string State,
     PullRequestChecks? Checks = null,
     PullRequestApprovals? Approvals = null,
     string? Title = null,
-    string? Url = null)
+    string? Url = null,
+    bool ReviewRequested = false)
 {
+    /// <summary>The visible words of the review request label.</summary>
+    public const string YourReview = "your review";
+
+    /// <summary>What a screen reader hears for the review request label.</summary>
+    public const string YourReviewSpoken = "your review is requested";
+
     /// <summary>The <c>gh</c> badge slugs a state may take; anything else draws as
     /// <c>unknown</c>.</summary>
     public static IReadOnlyList<string> States { get; } = ["open", "draft", "merged", "closed", "unknown"];
@@ -95,6 +104,11 @@ public sealed record PullRequestStatusModel(
 
     /// <summary>A merged pull request reads "merged" in place of both marks.</summary>
     public bool IsMerged => Slug == "merged";
+
+    /// <summary>"your review" follows the marks while the pull request can still be
+    /// reviewed — open or a draft — and asks for the reader's review; a merged, closed or
+    /// unknown one never shows it.</summary>
+    public bool ShowsYourReview => ReviewRequested && Slug is "open" or "draft";
 
     /// <summary>Passed when every check passed, failing once one failed, running
     /// otherwise; none when there is nothing to count.</summary>

@@ -1,7 +1,7 @@
 # Plan
 
 ```meta
-status: adopted
+rating: adopted
 type: stage
 ```
 
@@ -10,7 +10,7 @@ type: stage
 ## Devbook chapters through flow-spec
 
 ```meta
-status: adopted
+rating: adopted
 type: workflow
 stage: [specify]
 layer: [thread]
@@ -22,10 +22,21 @@ related: [".devbook/ai/concepts.md#task-scoped-context", ".devbook/ai/03-test.md
 date: 2026-09-26
 ```
 
-A change to an arc42 chapter, a decision record, a bounded context, the technology graph,
-a design guideline, or this record runs through the delivery engine's `flow-spec`. It loads
-the folder's own rule, drafts through the agent its `phase-drafting` entry binds for the
-folder, runs the devbook check, and stops at Personal Validation before a pull request.
+A change to any of these runs through the delivery engine's `flow-spec`:
+
+- an arc42 chapter
+- a decision record
+- a bounded context
+- the technology graph
+- a design guideline
+- this record
+
+```mermaid
+flowchart LR
+    rule["Load the folder's own rule"] --> draft["Draft through the bound agent"] --> check["Run the devbook check"] --> pv["Stop at Personal Validation"] --> pr["Pull request"]
+```
+
+The bound agent is the one the flow's `phase-drafting` entry binds for the folder.
 
 - **Used for** — decision records, domain model changes, technology ratings, and the
   adoption record itself.
@@ -39,7 +50,7 @@ folder, runs the devbook check, and stops at Personal Validation before a pull r
 ## Import plans
 
 ```meta
-status: adopted
+rating: adopted
 type: skill
 stage: [specify]
 substage: [specify/break-down]
@@ -50,10 +61,10 @@ related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-i
 date: 2026-09-25
 ```
 
-`import-plan` turns an agreed specification into a Backlog import plan. The plan has one
-`plan` entry, which Import turns into a Roadmap Item, and the step entries under it. An agent
-session runs a `prompt` step, and only a person does a `task` or `test` step. Each step's
-`after:` field orders it behind the steps it waits for.
+`import-plan` turns an agreed specification into a Backlog import plan: one `plan` entry,
+which Import turns into a Roadmap Item, and the step entries under it. An agent session runs
+a `prompt` step; only a person does a `task` or `test` step. Each step's `after:` field
+orders it behind the steps it waits for.
 
 - **Used for** — breaking a multi-session feature into roadmap items and the prompts that
   deliver them, with a review page beside the raw plan.
@@ -66,7 +77,7 @@ session runs a `prompt` step, and only a person does a `task` or `test` step. Ea
 ## Estimate against landed work
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [specify]
 substage: [specify/break-down]
@@ -77,8 +88,8 @@ date: 2026-09-26
 ```
 
 A unit of work gets story points on the 1/2/3/5/8/13/21 scale through the repository's own
-`estimate` procedure, sized against a table of Backlog's own finished work and naming the
-reference each estimate was compared with.
+`estimate` procedure. The procedure sizes it against a table of Backlog's own finished work
+and names the reference each estimate was compared with.
 
 - **Used for** — the `effort:` on plan entries and issues.
 - **Adopted by** — the procedure was adopted on 2026-09-26; plan entries written before it
@@ -91,7 +102,7 @@ reference each estimate was compared with.
 ## Answer remarks
 
 ```meta
-status: trial
+rating: trial
 type: skill
 stage: [specify]
 substage: [specify/specify]
@@ -102,10 +113,10 @@ related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-a
 date: 2026-09-26
 ```
 
-A [remark](../domain/devbook/domain.md#remark) is the note a person leaves on
-a devbook chapter while reading it in the app. `handle-remarks` reads the open remarks over the
-Backlog MCP server and answers each one in the chapter as an `annotation` fence. Only then does
-it resolve the remark in the app.
+A [remark](../domain/devbook/domain.md#remark) is the note a person leaves on a devbook
+chapter while reading it in the app. `handle-remarks` reads the open remarks over the Backlog
+MCP server, answers each in the chapter as an `annotation` fence, and only then resolves the
+remark in the app.
 
 - **Used for** — turning a reader's questions into written answers next to the passage they
   were asked about.

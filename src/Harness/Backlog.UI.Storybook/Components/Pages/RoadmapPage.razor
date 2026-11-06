@@ -230,6 +230,27 @@ A bar marked `Done` is drawn in the done tone — the success surface the progre
         <p class="sb-state" data-testid="solo-action-state">Last action: @(_lastAction ?? "(none)")</p>
     </Story>
 
+    <Story Name="Work waiting on something asked for"
+           Description="A bar marked `Waiting` draws the queue glyph after its title, in the bar's own ink: the host asked for something on the bar's behalf and it has not come yet. The roadmap marks a plan that has a session queued for it, on the one bar that ends the plan, from the press until the session links itself to the plan. It is news rather than an alert, so it takes no tone and leaves the fill and outline to the bar's other states; a late bar that waits wears both marks.
+
+The library does not know what is awaited: the host says it in the detail — the roadmap writes the request's state — straight after any overdue line, so the tooltip leads with it, because the glyph is hidden from a screen reader."
+           Code="@WaitingCode">
+        <div class="sb-stack">
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloWaiting"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    TestId="solo-waiting" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloWaitingOverdue"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Finance, Pieter"
+                                    TestId="solo-waiting-overdue" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="An item with its steps"
            Description="A bar handed `Steps` offers a disclosure at its leading edge and carries a progress fill: done effort over total estimated effort, with the count of unestimated steps beside it rather than folded in. Expanded, it opens one row per step in the order it was handed — here a chain of three, then two more — each step's width its share of the estimated effort inside the bar's window.
 
@@ -686,6 +707,23 @@ Every action is a real button named for its plan, and the shelf is a region name
         Overdue = true
     };
 
+    private static RoadmapBar SoloWaiting => Solo with
+    {
+        Id = "solo-waiting",
+        Title = "Session dispatch",
+        Detail = "Waiting for a session in JSdotNet/Backlog — a dispatcher is starting it\nHigh priority",
+        Waiting = true
+    };
+
+    private static RoadmapBar SoloWaitingOverdue => Solo with
+    {
+        Id = "solo-waiting-overdue",
+        Title = "Close the quarter's books",
+        Detail = "Overdue: ended 12 Apr 2026\nWaiting for a session in JSdotNet/Ledger — no dispatcher has picked the request up yet\nMedium priority",
+        Overdue = true,
+        Waiting = true
+    };
+
     private static RoadmapBar SoloOpen => Solo with
     {
         Id = "solo-open",
@@ -863,6 +901,17 @@ Every action is a real button named for its plan, and the shelf is a region name
                             {
                                 Detail = "Overdue: ended 12 Apr 2026",
                                 Overdue = true
+                            })"
+                            Geometry="@geometry" />
+        """;
+
+    private const string WaitingCode = """
+        // The host says what the bar waits for, after any overdue line; the library
+        // draws the glyph and hides it from a screen reader.
+        <RoadmapTimelineBar Bar="@(bar with
+                            {
+                                Detail = "Waiting for a session in JSdotNet/Backlog — a dispatcher is starting it",
+                                Waiting = true
                             })"
                             Geometry="@geometry" />
         """;

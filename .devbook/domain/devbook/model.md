@@ -2,13 +2,9 @@
 
 ```meta
 type: model
-status: draft
 ```
 
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships.
+> Structure and relationships of this context's model. Keep it in sync with `domain.md`.
 
 ## Chapter metadata the panels read
 
@@ -16,9 +12,9 @@ A devbook chapter is a file this context reads and never owns (see
 [Repository devbook areas](features.md#repository-devbook-areas)); a Brain note is
 one too, and the [Brain](../brain/model.md#model-diagram) models what it adds.
 What the panels read off a chapter is modelled here because it is mostly what they
-show, and because three of its parts are easy to confuse. `effort` and `roadmap`
-are the [planning fields](domain.md#shared-value-objects) Devbook registers. They
-and `issue` are read for tasks and the knowledge graph, and the chapter view
+show. `effort` and `roadmap` are the
+[planning fields](domain.md#shared-value-objects) Devbook registers. They and
+`issue` are read for tasks and the knowledge graph, and the chapter view
 [draws none of them](requirements.md#requirement-planning-fields-are-not-drawn).
 
 ```mermaid
@@ -120,12 +116,10 @@ classDiagram
   [the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
   `ReviewState` is replaced by `DecisionState` when approval is written. Neither
   is legal outside the domain area.
-- **`SubjectState` sits outside `ChapterMetadata`.** A decision or debt record's
-  workflow state, and a change proposal's, is a
-  [Subject State](domain.md#subject-state) the app keeps in its own store, keyed
-  by the repository and the subject, never by a `meta` block. That is why the
-  diagram draws it apart. The panel draws it beside a record's own `status`, and
-  neither replaces the other.
+- **`SubjectState` sits outside `ChapterMetadata`.** A decision, debt or proposal
+  workflow state is a [Subject State](domain.md#subject-state) in the app's own
+  store, keyed by repository and subject, never by a `meta` block. The panel draws
+  it beside a record's own `status`, and neither replaces the other.
 - **`type` is folder-relative too.** Domain, technology and AI chapters each
   draw from their own set; architecture and design define none. A domain
   context's additional page takes its own filename as its type.
@@ -136,7 +130,7 @@ classDiagram
   [Review Note](domain.md#review-note) is an `annotation` fence in the chapter
   file, read-only here. A [Remark](domain.md#remark) is the person's own note on a
   block, owned and replicated by this context. Both draw their kind from
-  `NoteKind`. A remark also keeps the branch it was left on, and none for the
+  `NoteKind`, and a remark also keeps the branch it was left on, or none for the
   default branch. The default branch's open review notes are imported into
   remarks once, and a remark never becomes a review note. Local ADR 0011
   (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)

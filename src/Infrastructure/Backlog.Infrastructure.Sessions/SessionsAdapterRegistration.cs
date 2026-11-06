@@ -62,15 +62,18 @@ public static class SessionsAdapterRegistration
     /// <summary>
     /// The key the local reader is registered under.
     /// <para>
-    /// Its value never has to agree with anything outside this file — the
-    /// composite collects <c>KeyedService.AnyKey</c> — so a second contributor in
-    /// another project picks its own. What the key does is keep this registration
-    /// out of the unkeyed slot the composite occupies, which is what stops the two
-    /// from overwriting one another and what stops the composite enumerating
-    /// itself.
+    /// The composite never has to agree with its value — it collects
+    /// <c>KeyedService.AnyKey</c> — so a second contributor in another project picks
+    /// its own. What the key does is keep this registration out of the unkeyed slot
+    /// the composite occupies, which is what stops the two from overwriting one
+    /// another and what stops the composite enumerating itself.
+    /// </para>
+    /// <para>
+    /// Public for a host that needs this machine's sessions without the decorators on
+    /// the unkeyed port, which read the question relay: the relay's own lookup.
     /// </para>
     /// </summary>
-    private const string LocalSourceKey = "sessions.local";
+    public const string LocalSourceKey = "sessions.local";
 
     /// <summary>The key the local activity reader is registered under, on the
     /// same terms as <see cref="LocalSourceKey"/> and for the second port.</summary>
@@ -178,7 +181,8 @@ public static class SessionsAdapterRegistration
                 sp.GetService<ISessionsSurfaceActivator>(),
                 sp.GetService<IDevbookSyncVerdicts>(),
                 sp.GetService<INotifications>,
-                sp.GetService<ILogger<LocalDeliverySurfaceLifecycle>>()));
+                sp.GetService<ILogger<LocalDeliverySurfaceLifecycle>>(),
+                sp.GetService<ISessionRepositoryResolver>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each

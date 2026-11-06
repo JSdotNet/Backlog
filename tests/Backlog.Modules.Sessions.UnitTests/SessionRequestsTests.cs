@@ -123,12 +123,49 @@ public sealed class SessionRequestsTests
     }
 
     [Fact]
-    public void A_dispatcher_whose_lease_ran_out_can_no_longer_report_its_session()
+    public void A_lapsed_holder_still_reports_its_session_while_nobody_else_claimed()
     {
-        var outcome = SessionRequests.Report(Claimed("manager-1"), "manager-1", "session-a", Noon.AddMinutes(2));
+        // start_session outlasted the lease: the session exists, so refusing the report
+        // would only have the request dispatched a second time.
+        var outcome = SessionRequests.Report(Claimed("manager-1"), "manager-1", "session-a", Noon.AddMinutes(3));
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(SessionRequestState.Started, outcome.Request!.State);
+        Assert.Equal("session-a", outcome.Request.SessionId);
+        Assert.Equal("manager-1", outcome.Request.ClaimedBy);
+        Assert.Null(outcome.Request.LeaseEndsAt);
+    }
+
+    [Fact]
+    public void A_lapsed_holder_cannot_report_after_another_dispatcher_claimed()
+    {
+        var reclaimed = SessionRequests.Claim(Claimed("manager-1"), "manager-2", Noon.AddMinutes(3)).Request!;
+
+        var outcome = SessionRequests.Report(reclaimed, "manager-1", "session-a", Noon.AddMinutes(4));
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("Another dispatcher holds the claim.", outcome.Refusal);
+        Assert.Same(reclaimed, outcome.Request);
+    }
+
+    [Fact]
+    public void A_lapsed_holder_cannot_release_the_request_it_no_longer_holds()
+    {
+        var lapsed = Claimed("manager-1");
+
+        var outcome = SessionRequests.Release(lapsed, "manager-1", Noon.AddMinutes(2));
 
         Assert.False(outcome.Succeeded);
         Assert.Contains("lease", outcome.Refusal, StringComparison.OrdinalIgnoreCase);
+        Assert.Same(lapsed, outcome.Request);
+    }
+
+    [Fact]
+    public void A_lapsed_holder_cannot_report_a_request_the_person_cancelled()
+    {
+        var cancelled = SessionRequests.Cancel(Claimed("manager-1"), Noon.AddMinutes(1)).Request!;
+
+        Assert.False(SessionRequests.Report(cancelled, "manager-1", "session-a", Noon.AddMinutes(3)).Succeeded);
     }
 
     [Fact]

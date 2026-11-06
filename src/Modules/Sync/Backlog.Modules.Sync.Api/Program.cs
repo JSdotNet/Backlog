@@ -8,6 +8,7 @@ using Backlog.Modules.Sync.Api;
 using Backlog.Modules.Sync.Api.Endpoints;
 using Backlog.Modules.Sync.Api.Options;
 using Backlog.Modules.Sync.Api.Security;
+using Backlog.Modules.Sync.Api.Transcription;
 using Backlog.Modules.Sync.Extensions;
 using Backlog.Modules.Sync.Observability;
 using Backlog.Modules.Sync.Services;
@@ -66,6 +67,12 @@ builder.Services.AddOptions<SyncAttachmentOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+// The dictation relay (local ADR 0045), on the nudge's terms: before AddSyncModule so the
+// Foundry-backed transcriber wins, and with no endpoint configured a no-op in every
+// environment — the module's stand-in answers 503 and every phone dictates on the device.
+// Its settings (the cap and the audio allowlist) are bound and validated either way.
+builder.AddDictationTranscription();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
@@ -115,6 +122,7 @@ sync.MapAnnotationSyncEndpoints();
 sync.MapDevbookSubjectSyncEndpoints();
 sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
+sync.MapTranscriptionEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,
 // nothing to protect — the commit is public history, and it is what lets a

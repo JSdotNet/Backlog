@@ -456,6 +456,121 @@ public sealed class NotificationSyncTests
         Assert.All(read.Notification.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
     }
 
+    // --- The repository a notification is about (local ADR 0039 §6) -----------------
+
+    [Fact]
+    public void A_payload_carries_a_repository_alias_and_the_brain_apart_from_not_known()
+    {
+        var question = Question(Guid.CreateVersion7());
+
+        var aboutBacklog = NotificationPayloads.Read(NotificationPayloads.ToChange(question, [], Noon, repository: new PublishedRepository("Backlog")));
+        var theBrains = NotificationPayloads.Read(NotificationPayloads.ToChange(question, [], Noon, repository: PublishedRepository.Brain));
+        var notKnown = NotificationPayloads.Read(NotificationPayloads.ToChange(question, [], Noon));
+
+        Assert.Equal("Backlog", aboutBacklog!.Repository!.Alias);
+        Assert.False(aboutBacklog.Repository.IsBrain);
+        Assert.True(theBrains!.Repository!.IsBrain);
+        Assert.Null(notKnown!.Repository);
+    }
+
+    [Fact]
+    public void A_repository_not_known_is_left_out_of_the_wire()
+    {
+        var change = NotificationPayloads.ToChange(Question(Guid.CreateVersion7()), [], Noon);
+
+        Assert.False(change.Notification.TryGetProperty("repository", out _));
+    }
+
+    [Fact]
+    public void A_payload_from_an_owner_before_the_repository_was_published_reads_as_not_known()
+    {
+        var change = NotificationPayloads.ToChange(Question(Guid.CreateVersion7()), [], Noon, repository: new PublishedRepository("Backlog"));
+
+        var older = System.Text.Json.Nodes.JsonNode.Parse(change.Notification.GetRawText())!;
+        Assert.True(older.AsObject().Remove("repository"));
+
+        var read = NotificationPayloads.Read(change with { Notification = JsonSerializer.SerializeToElement(older) });
+
+        Assert.NotNull(read);
+        Assert.Null(read.Repository);
+    }
+
+    [Fact]
+    public async Task A_push_carries_the_repository_the_owner_worked_out()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        var aboutBacklog = Question(Guid.CreateVersion7());
+        var pairing = Question(Guid.CreateVersion7());
+        fixture.Replication.Open.AddRange([aboutBacklog, pairing]);
+        var repositories = new ScriptedRepositories(new Dictionary<Guid, string?> { [aboutBacklog.Id] = "Backlog", [pairing.Id] = null });
+
+        var synced = await fixture.Session(repositories: repositories).SyncAsync(Cancellation);
+
+        Assert.True(synced.IsSuccess);
+        var pushed = PushedPayloads(fixture.PushedBodies.Single());
+        Assert.Equal("Backlog", pushed[aboutBacklog.Id]!.Alias);
+        Assert.True(pushed[pairing.Id]!.IsBrain);
+    }
+
+    [Fact]
+    public async Task A_notification_the_owner_could_not_work_out_is_pushed_with_no_repository()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        var question = Question(Guid.CreateVersion7());
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session(repositories: new ScriptedRepositories(new Dictionary<Guid, string?>())).SyncAsync(Cancellation);
+
+        Assert.True(synced.IsSuccess);
+        Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
+    }
+
+    [Fact]
+    public async Task Without_a_repository_source_the_push_carries_no_repository()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        var question = Question(Guid.CreateVersion7());
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session().SyncAsync(Cancellation);
+
+        Assert.True(synced.IsSuccess);
+        Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
+    }
+
+    [Fact]
+    public async Task A_failing_repository_source_never_fails_the_push()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        var question = Question(Guid.CreateVersion7());
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session(repositories: new FailingRepositories()).SyncAsync(Cancellation);
+
+        Assert.True(synced.IsSuccess);
+        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
+    }
+
+    /// <summary>The repository each notification of a push body carries, by id.</summary>
+    private static Dictionary<Guid, PublishedRepository?> PushedPayloads(string body) =>
+        JsonDocument.Parse(body).RootElement.GetProperty("notifications").EnumerateArray()
+            .Select(change => change.GetProperty("notification").Deserialize<NotificationPayload>(NotificationPayloads.Options)!)
+            .ToDictionary(payload => payload.Notification.Id, payload => payload.Repository);
+
+    private sealed class ScriptedRepositories(IReadOnlyDictionary<Guid, string?> answers) : INotificationRepositorySource
+    {
+        public Task<IReadOnlyDictionary<Guid, string?>> ResolveAsync(IReadOnlyList<NotificationSnapshot> notifications, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string?>>(
+                notifications.Where(n => answers.ContainsKey(n.Id)).ToDictionary(n => n.Id, n => answers[n.Id]));
+    }
+
+    private sealed class FailingRepositories : INotificationRepositorySource
+    {
+        public Task<IReadOnlyDictionary<Guid, string?>> ResolveAsync(IReadOnlyList<NotificationSnapshot> notifications, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The session catalog could not be read.");
+    }
+
     // --- Doubles ---------------------------------------------------------------------
 
     private static NotificationSnapshot Question(Guid id) =>
@@ -624,8 +739,8 @@ public sealed class NotificationSyncTests
             return fixture;
         }
 
-        public NotificationSyncSession Session(TimeProvider? clock = null) =>
-            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new FixedIdentity(), clock ?? Clock);
+        public NotificationSyncSession Session(TimeProvider? clock = null, INotificationRepositorySource? repositories = null) =>
+            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new FixedIdentity(), clock ?? Clock, repositories: repositories);
 
         public Task NextCycle()
         {

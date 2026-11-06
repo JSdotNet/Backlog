@@ -17,7 +17,12 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// (<see cref="LinkedPullRequestState.Unknown"/>).</param>
 /// <param name="InArchivedRepository">Whether its repository is archived, so the answer is
 /// whatever was last kept rather than read now (local ADR 0029). A held-back pull request
-/// there is never settled; the goals' counting ignores it. Last and defaulted.</param>
+/// there is never settled; the goals' counting ignores it. Defaulted.</param>
+/// <param name="ReviewRequested">An open or draft pull request asks for the viewer's review —
+/// the person the repository is read as, named directly — as GitHub last said.
+/// False for one nothing read, one merged or closed, one in an archived repository (never
+/// read again, so the request could never clear), and one written before the flag existed.
+/// Last and defaulted.</param>
 public sealed record GoalPullRequestDto(
     string Repository,
     string Number,
@@ -25,7 +30,8 @@ public sealed record GoalPullRequestDto(
     DateOnly? MergedOn,
     GoalPullRequestChecksDto? Checks,
     GoalPullRequestApprovalsDto? Approvals,
-    bool InArchivedRepository = false)
+    bool InArchivedRepository = false,
+    bool ReviewRequested = false)
 {
     /// <summary>A pull request nothing has read: unknown, with no checks and no approvals.</summary>
     public static GoalPullRequestDto Unread(PullRequestRefDto pullRequest)

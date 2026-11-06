@@ -61,8 +61,7 @@ public class McpToolCreationTests
         UsageTools.ListRunUsage,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
-        SessionRequestTools.ListDeliveries,
-        NotificationTools.GetAnswer
+        SessionRequestTools.ListDeliveries
     ];
 
     /// <summary>The one writer that destroys: <c>delete_goal</c> removes a goal and what
@@ -158,6 +157,7 @@ public class McpToolCreationTests
                 DecisionTools.ResolveNote,
                 DecisionTools.SetState,
                 SurfaceTools.FinishRun,
+                NotificationTools.GetAnswer,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
                 ImpedimentTools.LinkToImpediment,

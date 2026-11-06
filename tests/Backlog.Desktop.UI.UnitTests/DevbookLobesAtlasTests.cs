@@ -107,6 +107,15 @@ public sealed class DevbookLobesAtlasTests
         Assert.False(model.ShowLabels);
     }
 
+    /// <summary>The brains turn on their own unless the reader paused them
+    /// (WCAG 2.2.2, <c>.devbook/design/interaction-guidelines.md#motion-and-reduced-motion</c>).</summary>
+    [Fact]
+    public void The_idle_turn_is_on_unless_paused_and_passes_through()
+    {
+        Assert.True(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout).IdleMotion);
+        Assert.False(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout, idleMotion: false).IdleMotion);
+    }
+
     [Fact]
     public void A_blank_layout_is_all()
     {
@@ -228,6 +237,34 @@ public sealed class DevbookLobesAtlasTests
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenScopes").ValueKind);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenLobes").ValueKind);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenAllLobes").ValueKind);
+    }
+
+    /// <summary>The atlas draws only the scopes the shell's repository scope puts in
+    /// view, left out of the graph rather than hidden, so the renderer seats only
+    /// them.</summary>
+    [Fact]
+    public void InView_keeps_the_scopes_their_nodes_and_the_edges_between_them()
+    {
+        var graph = Graph() with { BrainIndexMissing = false };
+
+        var view = DevbookLobesAtlas.InView(graph, [Brain, Backlog]);
+
+        Assert.Equal([Brain, Backlog], view.Scopes.Select(scope => scope.Key));
+        Assert.All(view.Nodes, node => Assert.Contains(node.ScopeKey, new[] { Brain, Backlog }));
+        Assert.Equal(graph.Nodes.Count(node => node.ScopeKey != Stack), view.Nodes.Count);
+        Assert.Contains(view.Edges, edge => edge is { Source: "brain|hub:repo:backlog", Target: "repo:backlog|arc42/adr.md" });
+        Assert.DoesNotContain(view.Edges, edge => edge.Target.StartsWith("ghost:stack|", StringComparison.Ordinal));
+        Assert.True(view.Available);
+    }
+
+    [Fact]
+    public void InView_matches_a_scope_key_in_any_case_and_drops_one_the_graph_lacks()
+    {
+        var view = DevbookLobesAtlas.InView(Graph(), ["REPO:Backlog", "repo:nowhere"]);
+
+        Assert.Equal([Backlog], view.Scopes.Select(scope => scope.Key));
+        Assert.All(view.Nodes, node => Assert.Equal(Backlog, node.ScopeKey));
+        Assert.Empty(view.Edges);
     }
 
     private static LobesAtlasMark Mark(LobesAtlasModel model, string id) => model.Marks.Single(mark => mark.Id == id);

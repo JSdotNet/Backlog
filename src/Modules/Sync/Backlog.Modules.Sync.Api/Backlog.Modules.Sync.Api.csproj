@@ -39,6 +39,11 @@
     <!-- The Notification Hubs INotificationPushChannel (local ADR 0039 §4), on the same
          terms: the Notification Hubs client stays in that project. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.NotificationHubs\Backlog.Infrastructure.NotificationHubs.csproj" />
+    <!-- The Foundry transcription client the dictation relay calls (local ADR 0045 §3).
+         The host answers the module's IDictationTranscriber over it, so the adapter itself
+         never references the Sync module and the desktop that also composes it does not
+         carry the server-side module along. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.Goals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
@@ -18,8 +19,9 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// pull-request contract and the session list meet: the session card reads each linked pull
 /// request by number (<see cref="SessionPullRequestStatuses"/>), and a reading that finds
 /// it merged or closed is the end, which closes every notification about it with
-/// <see cref="SessionNotificationSubjects.PullRequestEndedReason"/> — once per process,
-/// since the card reads it again on every render. It also answers
+/// <see cref="SessionNotificationSubjects.PullRequestMergedReason"/> or
+/// <see cref="SessionNotificationSubjects.PullRequestClosedReason"/>, as the reading found
+/// it — once per process, since the card reads it again on every render. It also answers
 /// <see cref="ISessionPullRequestStates"/>, which the Sessions subject probe asks at
 /// startup, with the same read by number, through the contract's one cache.
 /// </para>
@@ -52,7 +54,11 @@ public sealed class PullRequestSubjects(
         {
             if (_notifications() is not { } port) return;
 
-            var closed = await port.CloseForSubjectAsync(subject, SessionNotificationSubjects.PullRequestEndedReason, cancellationToken).ConfigureAwait(false);
+            var reason = pull.State == PullRequestState.Merged
+                ? SessionNotificationSubjects.PullRequestMergedReason
+                : SessionNotificationSubjects.PullRequestClosedReason;
+
+            var closed = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
             if (closed.IsFailure) _logger.LogDebug("Notifications about pull request {Id} were not closed: {Error}", id, closed.Error.Message);
         }
         catch (Exception exception)

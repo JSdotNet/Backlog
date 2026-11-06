@@ -67,6 +67,12 @@
     the goal has reached that end. Dragging draws the goal held set back, in the place it
     would land.
 
+    With DropTarget the board can carry a No goal row onto the goal: the section is an item
+    of the same shared pointer reorder (data-reorder-item, with no data-draggable unless the
+    goal moves itself), so the hit test finds the whole card, folded or open. DropArmed
+    outlines it as the row's drop target (.devbook/design/interaction-guidelines.md
+    #drop-indicators); the board owns the carry and what a drop means.
+
     The forecast badge is the forecast family of .devbook/design/color-scheme.md
     #goal-forecast-badges: At risk takes the fault fill with its own ink as edge, On
     track the settled fill inside the strong edge.
@@ -76,7 +82,7 @@
          aria-labelledby="@TitleId"
          data-testid="@TestId"
          data-expanded="@(Expanded ? "true" : "false")"
-         data-reorder-item="@(CanMove ? Goal.Id : null)"
+         data-reorder-item="@(CanMove || DropTarget ? Goal.Id : null)"
          data-draggable="@(CanMove ? "true" : null)">
     @* The whole head row opens and folds the goal: most of a folded row is its bar, its
        line and the space between them, not its title. The title stays the one control
@@ -184,10 +190,10 @@
                     <span class="goal-card__column-title">Tasks</span>
                     @foreach (var task in Goal.Tasks)
                     {
-                        <span class="goal-card__task" data-status="@task.Status.ToString().ToLowerInvariant()">
-                            <StatusDot Tone="@Tone(task.Status)" />
+                        <span class="goal-card__task" data-status="@GoalTaskStatusText.Slug(task.Status)">
+                            <StatusDot Tone="@GoalTaskStatusText.Tone(task.Status)" />
                             <span class="goal-card__task-title">@task.Title</span>
-                            <span class="sr-only">, @StatusWords(task.Status)</span>
+                            <span class="sr-only">, @GoalTaskStatusText.Words(task.Status)</span>
                             @Detach(task.Subject, $"task {task.Title}")
                         </span>
                     }
@@ -324,6 +330,16 @@
     [Parameter]
     public bool Dragging { get; set; }
 
+    /// <summary>Whether the board can carry a No goal row onto this goal, which makes the
+    /// whole card an item the shared pointer reorder's hit test finds.</summary>
+    [Parameter]
+    public bool DropTarget { get; set; }
+
+    /// <summary>Whether a carried No goal row is over this goal, so a drop attaches it here:
+    /// the card is outlined as the drop target.</summary>
+    [Parameter]
+    public bool DropArmed { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -341,8 +357,9 @@
         {
             var expanded = Expanded ? " goal-card--expanded" : string.Empty;
             var dragging = Dragging ? " goal-card--dragging" : string.Empty;
+            var armed = DropArmed ? " goal-card--drop-target" : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"goal-card{expanded}{dragging}{extra}";
+            return $"goal-card{expanded}{dragging}{armed}{extra}";
         }
     }
 
@@ -626,20 +643,4 @@
         _focusSearch = false;
         await _search.FocusAsync();
     }
-
-    private static FlowStepTone Tone(GoalTaskStatus status) => status switch
-    {
-        GoalTaskStatus.Done => FlowStepTone.Done,
-        GoalTaskStatus.Doing => FlowStepTone.Active,
-        GoalTaskStatus.Blocked => FlowStepTone.Blocked,
-        _ => FlowStepTone.Pending
-    };
-
-    private static string StatusWords(GoalTaskStatus status) => status switch
-    {
-        GoalTaskStatus.Done => "done",
-        GoalTaskStatus.Doing => "in progress",
-        GoalTaskStatus.Blocked => "blocked",
-        _ => "not started"
-    };
 }

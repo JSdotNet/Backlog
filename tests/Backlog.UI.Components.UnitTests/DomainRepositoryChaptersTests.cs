@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The Domain view over this repository's own <c>.devbook/domain/</c> (local ADR
-/// 0045): every requirement a context writes is on its Requirements page, and every
+/// 0047): every requirement a context writes is on its Requirements page, and every
 /// invariant about an aggregate or a shared grouping on its Always true tab. A requirement or invariant whose shape the
 /// view cannot read would otherwise drop off its page without a sign.
 /// </summary>

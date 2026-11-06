@@ -158,9 +158,12 @@ test("a ## without type: scenario is no journey, and a whole file typed scenario
     assert.equal(legacy.isScenarios, false);
 });
 
-test("a scenarios file is scenarios.md or a split of it, directly in a bounded context", () => {
+test("a scenarios file is scenarios.md, a split of it, or a split's subpage, directly in a bounded context", () => {
     assert.equal(isScenariosPath(".devbook/domain/work/scenarios.md"), true);
     assert.equal(isScenariosPath(".devbook/domain/work/scenarios.returns.md"), true);
+    assert.equal(isScenariosPath(".devbook/domain/work/scenarios.returns.courier.md"), true);
+    assert.equal(isScenariosPath(".devbook/domain/work/scenarios.returns.courier.late.md"), false);
+    assert.equal(isScenariosPath(".devbook/domain/work/scenarios.returns.invariants.md"), false);
     assert.equal(isScenariosPath(".devbook/domain/work/deeper/scenarios.md"), false);
     assert.equal(isScenariosPath(".devbook/domain/scenarios.md"), false);
     assert.equal(isScenariosPath(".devbook/domain/work/requirements.md"), false);
@@ -172,6 +175,7 @@ test("an address splits into its file and anchor, and a journey runs beside its 
     assert.deepEqual(splitAddress(FILE), { path: FILE, anchor: null });
     assert.equal(runFolderOf({ path: FILE, slug: "close-the-sprint" }), ".devbook/domain/work/scenarios/close-the-sprint");
     assert.equal(runFolderOf({ path: ".devbook/domain/work/scenarios.returns.md", slug: "return" }), ".devbook/domain/work/scenarios.returns/return");
+    assert.equal(runFolderOf({ path: ".devbook/domain/work/scenarios.returns.courier.md", slug: "return" }), ".devbook/domain/work/scenarios.returns.courier/return");
 });
 
 test("reads a spec's header, its shot() labels, and its part titles", () => {

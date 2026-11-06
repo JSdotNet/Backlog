@@ -95,7 +95,7 @@ public static class DevbookFeatures
 
     /// <summary>Read the Domain area one unit at a time — the context map, each
     /// bounded context, each file inside it — on a page drawn for the kind of file
-    /// the unit is (local ADR 0045), instead of the Domain area as it reads today.
+    /// the unit is (local ADR 0047), instead of the Domain area as it reads today.
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
     /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane

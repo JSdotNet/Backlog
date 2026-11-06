@@ -2430,7 +2430,7 @@
         // The Brain's folder is part of what was loaded: a setting moved to
         // another Brain with the same areas is a different set of notes.
         // The New domain view switch too: on, a bounded context is listed by
-        // unit (local ADR 0045), so a menu loaded under the other setting is the
+        // unit (local ADR 0047), so a menu loaded under the other setting is the
         // other listing.
         var fingerprint = brain
             ? $"brain:{_brainRoot}|{string.Join("|", visibleKeys)}"
@@ -2605,7 +2605,7 @@
             "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("ai", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             @* The New domain view switch reads here and nowhere else in the pane:
-               on, the Domain area is read by unit (local ADR 0045); off, it is the
+               on, the Domain area is read by unit (local ADR 0047); off, it is the
                panel below, unchanged. *@
             "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter"
                                                             TaskReferencesFor="@TaskReferencesFor"

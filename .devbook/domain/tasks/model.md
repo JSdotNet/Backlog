@@ -2,13 +2,10 @@
 
 ```meta
 type: model
-status: draft
 ```
 
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships. `## Fields` groups the root's
+> Rules and responsibilities are in `domain.md`.
+> `## Fields` groups the root's
 > fields by purpose: one `###` per group, its first paragraph the question the
 > group answers, then one bullet per field — `` `name` — what it means `` —
 > ending in `Rules:` and links to the invariants that hold the field.
@@ -179,7 +176,7 @@ classDiagram
 
 Where is the work?
 
-- `status` — The recorded lifecycle state. It moves only along [the Task lifecycle](flow.md#task-lifecycle). Rules: [starts in draft](domain.invariants.md#invariant-a-new-task-starts-in-draft), [follows the lifecycle](domain.invariants.md#invariant-status-changes-follow-the-lifecycle).
+- `status` — The recorded lifecycle state. It moves only along [the Task lifecycle](domain.md#task). Rules: [starts in draft](domain.invariants.md#invariant-a-new-task-starts-in-draft), [follows the lifecycle](domain.invariants.md#invariant-status-changes-follow-the-lifecycle).
 - `priority` — Execution priority. Planning priority is the roadmap's word, not this one.
 - `started_on` — Stamped by the first move into progress; pausing keeps it. Rules: [the first move stamps the start](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start).
 - `completed_on` — The tick: the person has dealt with it. [Not a status](domain.md#completed).
@@ -249,13 +246,13 @@ Written by the device, never by hand.
 - `completed_on` is a fourth scalar of the same kind, recording
   [Completed](domain.md#completed), and deliberately not a `Task Status` value.
 - `started_on` is a fifth, recording [Started](domain.md#started), stamped by
-  the root. A date and not a `Timestamp` for the same reason as the tick: it is
-  read against a local calendar.
+  the root. It is a date and not a `Timestamp` for the same reason as the tick: it
+  is read against a local calendar.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
-  identity of its own. It describes the shape of the repeat only; the date of the
-  next occurrence is calculated by the `Occurrence Spawning` policy from `due_on`, and is
-  never stored.
+  identity of its own. It describes the shape of the repeat only. The
+  `Occurrence Spawning` policy calculates the date of the next occurrence from
+  `due_on`, and nothing stores it.
 - `depends_on` is the one self-association on the diagram. It is drawn dashed
   because it is a weak id reference rather than an object graph. Every `Task` is
   its own aggregate root, so a dependency crosses an aggregate boundary and

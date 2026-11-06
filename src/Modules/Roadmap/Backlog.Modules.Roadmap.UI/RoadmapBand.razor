@@ -36,6 +36,7 @@
     and the chart takes the width.
 *@
 @implements IDisposable
+@using global::Backlog.SharedKernel
 @using Microsoft.Extensions.Logging
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
@@ -173,6 +174,7 @@
                        OnOpenTasks="OpenTasksAsync"
                        OnComplete="CompleteAsync"
                        OnReopen="ReopenAsync"
+                       AllowCopy="@CopyEnabled"
                        PlanSession="@PlanSessionFor(_edited)"
                        WaitingSession="@_planSessions.OpenFor(_edited?.Tag)"
                        SessionBusy="@_planSessions.Busy"
@@ -590,17 +592,21 @@
     }
 
     /// <summary>The chart from what it was last read from, under show archived and the
-    /// Completed switch, with each item's bar action.</summary>
+    /// Completed switch, with each item's bar action and the waiting mark of each plan
+    /// with a session request open.</summary>
     private RoadmapTimelineModel Drawn() =>
-        RoadmapPlanView.WithActions(
-            RoadmapPlanView.From(
-                _plan,
-                Configured(),
-                _rollups,
-                _forecast,
-                showArchived: _showArchived?.Shown ?? false,
-                hideFinished: !_completedShown),
-            OnOpenTasks.HasDelegate);
+        RoadmapPlanView.WithSessionWaits(
+            RoadmapPlanView.WithActions(
+                RoadmapPlanView.From(
+                    _plan,
+                    Configured(),
+                    _rollups,
+                    _forecast,
+                    showArchived: _showArchived?.Shown ?? false,
+                    hideFinished: !_completedShown),
+                OnOpenTasks.HasDelegate),
+            _plan.Items,
+            _planSessions.OpenFor);
 
     public void Dispose()
     {
@@ -618,7 +624,22 @@
     /// <summary>The plan session requests the plans have open, the press and Cancel.</summary>
     private RoadmapSessionRequests _planSessions = null!;
 
-    private void OnPlanSessionsChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>A plan's wait changed, or a press started or ended: the chart is drawn
+    /// again, because the bars carry the waiting mark, and the dialog's chip follows.</summary>
+    private void OnPlanSessionsChanged() => _ = InvokeAsync(() =>
+    {
+        _view = Drawn();
+        StateHasChanged();
+    });
+
+    /// <summary>Whether the dialog offers the plan's copy: the copy-entries switch,
+    /// read per render. The switch is flipped on the Settings route, which remounts the
+    /// band, so it needs no change subscription — the session-requests switch is read
+    /// the same way. Resolved optionally, as the queue's port is: a host that composed
+    /// no feature switches keeps the copy.</summary>
+    private bool CopyEnabled =>
+        Services.GetService(typeof(IAppFeatureSettings)) is not IAppFeatureSettings features
+        || features.IsEnabled(AppFeatureKeys.CopyEntries);
 
     /// <summary>What the plan's queue icon offers on <paramref name="item"/>: nothing
     /// while the action is not offered; otherwise the item's tag in its first
@@ -631,7 +652,17 @@
     {
         if (PlanSessionFor(_edited) is not { IsEnabled: true } offer) return;
 
-        if (!await _planSessions.RequestAsync(offer) && _planSessions.Error is { } error) _editor?.Refuse(error);
+        if (await _planSessions.RequestAsync(offer))
+        {
+            // As the Tasks pane's plan row says it. Resolved optionally, as the queue's
+            // port is: a host that composed no toast tray still queues, without the news.
+            (Services.GetService(typeof(IToastChannel)) as IToastChannel)?
+                .Publish(ToastMessage.Info($"Asked for a session in {offer.Repository}.", "plan-session-request-queued"));
+        }
+        else if (_planSessions.Error is { } error)
+        {
+            _editor?.Refuse(error);
+        }
     }
 
     private async Task CancelPlanSessionAsync()

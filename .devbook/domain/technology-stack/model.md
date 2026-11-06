@@ -2,13 +2,7 @@
 
 ```meta
 type: model
-status: draft
 ```
-
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships.
 
 ## Model diagram
 
@@ -106,12 +100,12 @@ classDiagram
 ## Relationship notes
 
 - `TechnologyRegistry` is the single aggregate root (global singleton).
-  `Technology`, `BreakingChange`, `DeprecatedTechInUse`, and `MigrationApproval`
-  are owned entities. The remaining classes are immutable value objects and
+  The owned entities are `Technology`, `BreakingChange`, `DeprecatedTechInUse`
+  and `MigrationApproval`. The remaining classes are immutable value objects and
   enums (`TechStatus`, `TechCategory`).
-- `AdoptionSnapshot`, `VersionUsageMetric`, `AdoptionTrend`, and
-  `CompatibilityMatrix` (see `domain.md`) roll up into `AdoptionAnalytics`; only
-  the aggregate root writes them.
+- Four values roll up into `AdoptionAnalytics`, and only the aggregate root writes
+  them: `AdoptionSnapshot`, `VersionUsageMetric`, `AdoptionTrend` and
+  `CompatibilityMatrix` (see `domain.md`).
 - Baselines and adoption reference machines and repositories by id only. Dev PC
   Management and Repository Management report versions inward and consume
   baselines outward, so no foreign aggregate is held here.

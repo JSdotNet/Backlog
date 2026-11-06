@@ -18,7 +18,9 @@ export function isSupported() {
     return recognitionConstructor() !== null;
 }
 
-export function start(handler) {
+// `lang` is the Dictation setting's BCP 47 tag, or null for the browser's own
+// language.
+export function start(handler, lang) {
     abort();
 
     const Recognition = recognitionConstructor();
@@ -48,7 +50,7 @@ export function start(handler) {
     // once, after the turn ends, rather than a sentence rewriting itself.
     turn.recognition.continuous = false;
     turn.recognition.interimResults = false;
-    turn.recognition.lang = navigator.language || document.documentElement.lang || 'en-US';
+    turn.recognition.lang = lang || navigator.language || document.documentElement.lang || 'en-US';
 
     turn.recognition.onresult = (event) => {
         const results = event.results || [];

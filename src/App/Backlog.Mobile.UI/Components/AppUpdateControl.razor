@@ -21,8 +21,10 @@
 <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" CssClass="app-bar__title"
            OnClick="Open" TestId="app-version" id="@ButtonId"
            aria-haspopup="dialog" aria-label="@Label">
-    <span class="app-bar__name">Backlog</span>
-    <span class="app-bar__version" data-testid="app-version-number">@Updates.CurrentVersion</span>
+    <span class="app-bar__label">
+        <span class="app-bar__name">Backlog</span>
+        <span class="app-bar__version" data-testid="app-version-number">@Updates.CurrentVersion</span>
+    </span>
     @if (Watch.UpdateReady)
     {
         <span class="app-bar__update-dot" data-testid="app-update-dot" aria-hidden="true"></span>

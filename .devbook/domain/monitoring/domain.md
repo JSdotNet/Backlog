@@ -2,39 +2,31 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
-> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context; each chapter's
-> `type` records which of those it is. An Aggregate's owned Entities, Value
-> Objects, and Enums are chapters directly beneath it, typed `entity`,
-> `value-object`, and `enum`. Value Objects/Enums shared across multiple
-> aggregates get their own chapter at the end instead of being duplicated.
+> A chapter's `type` is `entity`, `value-object` or `enum` beneath its aggregate.
 
 ## Progress Signal
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
 aliases: [ProgressSignal, Signal]
 ```
 
 An immutable, timestamped record of a change somewhere in the system, captured
-from a domain or an external source. The aggregate guarantees that each signal
-records its `Signal Type`, source, subject reference and payload at detection
-time. A signal is never changed after capture; a correction arrives as a new
-signal. Signals are the raw material that dashboards and attention rules read.
+from a domain or an external source. A signal is never changed after capture; a
+correction arrives as a new signal. Signals are the raw material that dashboards
+and attention rules read.
 
-The Progress Signal aggregate is a single immutable record with no owned child
-entities; its variable payload is held in the `Signal Payload` value object.
+Each signal records its `Signal Type`, source, subject reference and payload at
+detection time. The aggregate is a single immutable record with no owned child
+entities; its variable payload is the `Signal Payload` value object.
 
 ### Signal Payload
 
 ```meta
 type: value-object
-status: draft
 aliases: [SignalPayload]
 ```
 
@@ -53,7 +45,6 @@ A payload is immutable, and two payloads are equal when their values are.
 
 ```meta
 type: enum
-status: draft
 aliases: [SignalType]
 ```
 
@@ -76,14 +67,38 @@ Kind of change a signal represents:
 
 ```meta
 type: domain-service
-status: draft
 ```
 
-Ingests signals from every source and correlates them, for example GitHub errors
+**Signal flow**
+
+```mermaid
+sequenceDiagram
+    participant Tasks as Tasks
+    participant Inbox as Inbox
+    participant GitHub as GitHub
+    participant AppInsights as Application Insights
+    participant DevPC as Dev PC Management
+    participant Monitoring as Monitoring
+    participant Dashboard as Dashboard
+
+    Tasks->>Monitoring: StatusChanged (item_id, new_status, changed_at)
+    Inbox->>Monitoring: QueueDepthChanged (depth, age_max, processing_rate)
+    GitHub->>Monitoring: IssueUpdated (task_id, url, status)
+    AppInsights->>Monitoring: MetricReceived (project, metric, value, severity)
+    DevPC->>Monitoring: MachineStatusChanged (machine_id, status, last_heartbeat)
+    DevPC->>Monitoring: ComplianceUpdated (machine_id, compliance_score)
+
+    Note over Monitoring: Signals aggregated and correlated
+
+    Monitoring->>Dashboard: ProgressSignals + QueueHealth + InfraDashboard
+    Note over Dashboard: Follow-up actions identified
+    Dashboard->>Inbox: FollowUpCaptured (title, source: monitoring)
+```
+
+Ingests signals from every source ([FollowUpCaptured](domain.md#followupcaptured) closes the loop) and correlates them, for example GitHub errors
 against backlog delays. It detects staleness and attention conditions against
-configurable thresholds, and computes rollups, team-level aggregates among them. It
-is a service because it spans many signal sources and produces cross-cutting views
-rather than changing one aggregate.
+configurable thresholds and computes rollups, including team-level aggregates. It
+is a service because it spans many signal sources rather than changing one aggregate.
 
 Invocation semantics: event-triggered read-side service, consuming the signals other
 contexts publish.
@@ -92,7 +107,6 @@ contexts publish.
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/arc42/08-crosscutting-concepts.md#observability]
 ```
 
@@ -106,8 +120,7 @@ views:
 - infrastructure: PC status and repository health.
 
 It emits `FollowUpCaptured` when a dashboard follow-up should become a new Inbox
-item. It is a service because it reads across aggregates and contexts to present
-state rather than own it.
+item. It is a service because it reads across aggregates and contexts and owns no state.
 
 Invocation semantics: query/composition service, invoked when a dashboard view or a
 follow-up decision is requested.
@@ -116,7 +129,6 @@ follow-up decision is requested.
 
 ```meta
 type: domain-event
-status: draft
 related: [.devbook/domain/monitoring/domain.md#dashboard]
 ```
 
@@ -138,16 +150,14 @@ Published by `Dashboard` when an observed condition should become a new Inbox it
 
 - Monitoring owns the observation payload; Inbox owns the resulting item lifecycle.
 - `FollowUpCaptured` is the only write Monitoring makes into another bounded
-  context. It closes the loop from observing a condition to acting on it.
+  context.
 
 ## Shared Enums
 
 ```meta
 type: shared-enums
-status: draft
 ```
 
 > Enums used by more than one aggregate in this bounded context.
 
-Monitoring has a single aggregate; `Signal Type` is documented under it. This
-chapter is reserved for future cross-aggregate enums.
+Monitoring has one aggregate, so `Signal Type` sits under it. This chapter is reserved for cross-aggregate enums.

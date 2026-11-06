@@ -156,8 +156,8 @@ public sealed class RemarkNotificationStore(
             Subject(remark.Id),
             NotificationKind.Alert,
             NotificationSeverity.Info,
-            Fit("Remark left on " + chapter, MaxTitleLength),
-            Fit(words, MaxSummaryLength),
+            NotificationText.Cut("Remark left on " + chapter, MaxTitleLength),
+            NotificationText.Cut(words, MaxSummaryLength),
             $"""
             A remark was left on `{chapter}`{(string.IsNullOrWhiteSpace(remark.Author) ? string.Empty : $" by {OneLine(remark.Author)}")}:
 
@@ -167,11 +167,7 @@ public sealed class RemarkNotificationStore(
             Origin: NotificationOrigin.Fit(NotificationOrigins.Backlog, chapter, askedBy: remark.Author));
     }
 
-    private static string Fit(string text, int length) =>
-        text.Length <= length ? text : text[..(length - 1)] + "…";
-
-    private static string OneLine(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    private static string OneLine(string? text) => NotificationText.OneLine(text);
 
     private async Task CloseAsync(Guid id)
     {

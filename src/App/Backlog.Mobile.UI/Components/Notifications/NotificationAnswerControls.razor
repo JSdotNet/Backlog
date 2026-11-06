@@ -1,0 +1,492 @@
+@namespace Backlog.Mobile.UI.Components.Notifications
+@using Backlog.Mobile.UI.Notifications
+@using Backlog.Modules.Notifications.Abstractions
+@inject ISpeechTranscriber Speech
+@implements IAsyncDisposable
+
+@*
+    The answer controls of one notification on the phone: the one implementation of the
+    answer shapes, which the card (list and detail) and the pager both draw
+    (.devbook/domain/notifications/features.md#answering-from-another-device).
+
+    They follow the question's shape and nothing else:
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
+      multiple choice    one Checkbox per set answer, and Answer to send the picks
+      open               a plain-text TextArea and Send
+      choices with open  the buttons, and the box with Send below them
+    The choices stack full width, one per row, so every button is the same width;
+    seven or eight wrap into two even columns. A question that takes a note adds
+    "Add a note (optional)" beside the last Send or Answer (on its own row under
+    choice buttons alone), folded until the person opens it; the box opens under
+    the answers, and whatever is in it goes with the answer.
+
+    Nothing is drawn unless the phone may answer now (PhoneNotification.CanAnswer):
+    a question that says answerOn: owner, an alert, and a reply on its way draw none.
+
+    Every plain-text box has a mic beside it, as the Notes editor has: one press is
+    one listening turn of ISpeechTranscriber, and what was heard is added to that
+    box for the person to read before they send it - dictation never answers on its
+    own (.devbook/domain/capture/features.md#speech-to-text-capture). One box listens
+    at a time; a device with no recogniser draws the mic disabled.
+
+    While a reply is on its way every control is busy, not disabled: it keeps its
+    tab stop, says aria-disabled, and ignores a press or an edit
+    (.devbook/design/interaction-guidelines.md#accessibility). The pressed choice, or
+    Answer or Send, shows the spinner; the other choices, Cancel, the checkboxes and
+    the mics only wait, and the boxes turn read-only. A control that is unavailable
+    rather than waiting - Answer with nothing picked, Send with an empty box, a mic
+    with no recogniser - keeps the native disabled.
+
+    The controls answer nothing themselves. They raise OnReply, and the host queues
+    the reply through the outbox. Handed another notification, they start over, and
+    a turn still listening is stopped and whatever it hears is dropped; so is a turn
+    whose notification stops taking answers here while it listens.
+*@
+
+@if (Notification.CanAnswer && Spec is { } spec)
+{
+    <div class="phone-notification__answer" data-testid="notification-answer">
+        @if (spec.AllowMultiple)
+        {
+            <fieldset class="phone-notification__checks" data-testid="notification-checkboxes">
+                <legend class="phone-notification__legend">@PickHint(spec)</legend>
+                @foreach (var choice in spec.Choices)
+                {
+                    <Checkbox Label="@choice.Label"
+                              Checked="@_picked.Contains(choice.Id)"
+                              CheckedChanged="@(on => Toggle(choice.Id, on))"
+                              Busy="@Busy"
+                              TestId="@($"notification-check-{choice.Id}")" />
+                }
+            </fieldset>
+            <div class="phone-notification__choices">
+                <AppButton Variant="ButtonVariant.Primary"
+                           Busy="@Busy"
+                           BusyLabel="Answering"
+                           Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
+                           TestId="notification-submit"
+                           OnClick="SubmitPicksAsync">Answer</AppButton>
+                @if (spec.Open is null)
+                {
+                    @NoteToggle(spec)
+                }
+            </div>
+        }
+        else if (spec.Choices.Count > 0)
+        {
+            <div class="@ChoicesClass(spec)" data-testid="notification-choices">
+                @foreach (var choice in spec.Choices)
+                {
+                    <AppButton Variant="@VariantFor(choice.Style)"
+                               Busy="@(Busy && _answering == choice.Id)"
+                               BusyLabel="Answering"
+                               aria-disabled="@Blocked"
+                               TestId="@($"notification-choice-{choice.Id}")"
+                               OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                }
+            </div>
+
+            @if (Composing is { } composing)
+            {
+                <div class="phone-notification__open" data-testid="notification-choice-text">
+                    <TextArea Label="@($"{composing.Label}: in your own words")"
+                              @bind-Value="_choiceText"
+                              Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                              Readonly="@Busy"
+                              aria-disabled="@Blocked"
+                              Rows="2"
+                              maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
+                    <div class="phone-notification__choices">
+                        <AppButton Variant="ButtonVariant.Primary"
+                                   Busy="@Busy"
+                                   BusyLabel="Sending"
+                                   Disabled="@(!NotificationStandings.Fits(spec, [composing.Id], _choiceText, _note))"
+                                   TestId="notification-choice-send"
+                                   OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   aria-disabled="@Blocked"
+                                   TestId="notification-choice-cancel"
+                                   OnClick="CancelChoiceTextAsync">Cancel</AppButton>
+                        @Mic(AnswerBox.ChoiceText, "Dictate your words", "notification-choice-dictate")
+                    </div>
+                    @SpeechStatus(AnswerBox.ChoiceText)
+                </div>
+            }
+        }
+
+        @if (spec.Open is { } open)
+        {
+            <div class="phone-notification__open" data-testid="notification-open-answer">
+                <TextArea Label="@(spec.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
+                          @bind-Value="_text"
+                          Placeholder="@(open.Placeholder ?? "Write an answer…")"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
+                          Rows="2"
+                          TestId="notification-text"
+                          maxlength="@open.MaxLength" />
+                <div class="phone-notification__choices">
+                    <AppButton Variant="@(spec.Choices.Count > 0 ? ButtonVariant.Secondary : ButtonVariant.Primary)"
+                               Busy="@Busy"
+                               BusyLabel="Sending"
+                               Disabled="@(string.IsNullOrWhiteSpace(_text))"
+                               TestId="notification-send"
+                               OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
+                    @Mic(AnswerBox.Open, "Dictate your answer", "notification-open-dictate")
+                    @NoteToggle(spec)
+                </div>
+                @SpeechStatus(AnswerBox.Open)
+            </div>
+        }
+
+        @if (spec.Note is { } note)
+        {
+            @if (spec.Open is null && !spec.AllowMultiple)
+            {
+                <div class="phone-notification__choices">@NoteToggle(spec)</div>
+            }
+            <div class="phone-notification__note" id="@_noteRegionId" hidden="@(!_noteOpen)" data-testid="notification-note">
+                <TextArea Label="Note"
+                          @bind-Value="_note"
+                          Placeholder="@note.Placeholder"
+                          Readonly="@Busy"
+                          aria-disabled="@Blocked"
+                          Rows="2"
+                          TestId="notification-note-text"
+                          maxlength="@note.MaxLength" />
+                <div class="phone-notification__choices">
+                    @Mic(AnswerBox.Note, "Dictate a note", "notification-note-dictate")
+                </div>
+                @SpeechStatus(AnswerBox.Note)
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private const string Listening = "Listening…";
+
+    private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
+    private string? _text;
+    private string? _composing;
+    private string? _choiceText;
+    private string? _note;
+    private string? _answering;
+    private bool _noteOpen;
+    private readonly string _noteRegionId = "notification-note-" + Guid.NewGuid().ToString("N");
+    private Guid _shownId;
+
+    /// <summary>aria-disabled for a control that waits on a reply on its way. It is
+    /// never the native attribute: that would drop the control from the tab order and
+    /// take the focus off it mid-act (.devbook/design/interaction-guidelines.md#accessibility).</summary>
+    private string? Blocked => Busy ? "true" : null;
+
+    private bool? _speechSupported;
+    private AnswerBox? _listeningTo;
+    private AnswerBox? _statusFor;
+    private string? _speechStatus;
+    private bool _disposed;
+
+    /// <summary>Moves on whenever a turn stops counting — the box it fills was cleared,
+    /// closed or handed another notification, or another mic was pressed — so its words,
+    /// arriving later, land nowhere.</summary>
+    private int _turn;
+
+    /// <summary>The plain-text boxes a mic fills.</summary>
+    private enum AnswerBox
+    {
+        Open,
+        ChoiceText,
+        Note
+    }
+
+    /// <summary>The notification to answer and where it stands for this phone.</summary>
+    [Parameter, EditorRequired]
+    public PhoneNotification Notification { get; set; } = default!;
+
+    /// <summary>True while the host is keeping a reply.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The picked choice ids and the typed text, for the host to queue.</summary>
+    [Parameter]
+    public EventCallback<NotificationAnswerPick> OnReply { get; set; }
+
+    private AnswerSpec? Spec => Notification.Notification.AnswerSpec;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_shownId == Notification.Id)
+        {
+            // The same notification stopped taking answers here (answered elsewhere, closed,
+            // a reply on its way): the mics are gone, so the turn ends and its words with it.
+            if (!Notification.CanAnswer && _listeningTo is not null) await StopDictatingAsync();
+            return;
+        }
+
+        // Controls handed another notification start their answer over.
+
+        _shownId = Notification.Id;
+        _picked.Clear();
+        _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
+        _noteOpen = false;
+
+        await StopDictatingAsync();
+    }
+
+    /// <summary>Asked after the first render, as the Notes editor asks: prerendered
+    /// there is no browser to ask, and "no" would be a lie.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _speechSupported = await Speech.IsSupportedAsync();
+        if (!_disposed) StateHasChanged();
+    }
+
+    /// <summary>Leaving stops listening: words heard after the card is gone have no box to go to.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        await StopDictatingAsync();
+    }
+
+    /// <summary>
+    /// The fold that opens the note box. It sits beside the last Send or Answer, so a
+    /// folded note costs no row of its own; with only choice buttons it gets one.
+    /// </summary>
+    private RenderFragment NoteToggle(AnswerSpec spec) => spec.Note is null
+        ? _ => { }
+        : @<FoldControl Label="Add a note (optional)"
+                        Expanded="_noteOpen"
+                        ExpandedChanged="open => _noteOpen = open"
+                        Controls="@_noteRegionId"
+                        CssClass="phone-notification__note-toggle"
+                        TestId="notification-note-toggle" />;
+
+    /// <summary>The choices stack full width, one per row; seven or eight wrap into two even columns.</summary>
+    private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
+        ? "phone-notification__choices phone-notification__choices--many"
+        : "phone-notification__choices phone-notification__choices--stack";
+
+    private static string PickHint(AnswerSpec spec)
+    {
+        var least = spec.MinChoices ?? 1;
+        var most = spec.MaxChoices ?? spec.Choices.Count;
+
+        return least == most ? $"Pick {least}" : most >= spec.Choices.Count ? $"Pick {least} or more" : $"Pick {least} to {most}";
+    }
+
+    private static ButtonVariant VariantFor(AnswerChoiceStyle style) => style switch
+    {
+        AnswerChoiceStyle.Primary => ButtonVariant.Primary,
+        AnswerChoiceStyle.Destructive => ButtonVariant.Danger,
+        _ => ButtonVariant.Secondary
+    };
+
+    private void Toggle(string id, bool on)
+    {
+        if (on) _picked.Add(id);
+        else _picked.Remove(id);
+    }
+
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private AnswerChoice? Composing => _composing is null
+        ? null
+        : Spec?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private async Task ChooseAsync(AnswerChoice choice)
+    {
+        // A busy choice is still focusable and pressable, so the press is dropped here.
+        if (Busy) return;
+
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is queued until Send.
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal))
+            {
+                // The box now belongs to another choice: what was being dictated for the last one is not its words.
+                if (_listeningTo == AnswerBox.ChoiceText) await StopDictatingAsync();
+                _choiceText = null;
+            }
+
+            _composing = choice.Id;
+            return;
+        }
+
+        // The pressed choice carries the spinner while its reply is kept; the others only wait.
+        _answering = choice.Id;
+        try
+        {
+            await ReplyAsync([choice.Id], null);
+        }
+        finally
+        {
+            _answering = null;
+        }
+    }
+
+    private async Task CancelChoiceTextAsync()
+    {
+        if (Busy) return;
+
+        _composing = null;
+        _choiceText = null;
+
+        if (_listeningTo == AnswerBox.ChoiceText || _statusFor == AnswerBox.ChoiceText) await StopDictatingAsync();
+    }
+
+    private Task SubmitPicksAsync() =>
+        ReplyAsync([.. Spec!.Choices.Where(choice => _picked.Contains(choice.Id)).Select(choice => choice.Id)], null);
+
+    private async Task ReplyAsync(IReadOnlyList<string> choiceIds, string? text)
+    {
+        if (Busy) return;
+
+        // Sent is sent: a turn still listening would add words to a box already gone.
+        await StopDictatingAsync();
+
+        var note = Spec?.Note is not null && !string.IsNullOrWhiteSpace(_note) ? _note.Trim() : null;
+        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text, note));
+
+        _picked.Clear();
+        _text = null;
+        _composing = null;
+        _choiceText = null;
+        _note = null;
+        _noteOpen = false;
+    }
+
+    /// <summary>A mic for one box, pressed while that box is listening.</summary>
+    private RenderFragment Mic(AnswerBox box, string label, string testId) =>
+        @<ToggleButton Pressed="@(_listeningTo == box)"
+                       PressedChanged="@((bool pressed) => OnDictateAsync(box, pressed))"
+                       Disabled="@(_speechSupported != true)"
+                       Busy="@Busy"
+                       AriaLabel="@(_listeningTo == box ? "Stop dictating" : label)"
+                       Title="@(_listeningTo == box ? "Stop dictating" : label)"
+                       CssClass="phone-notification__mic"
+                       TestId="@testId"><MicIcon /></ToggleButton>;
+
+    /// <summary>The dictation line under the box it is about, and under no other.</summary>
+    private RenderFragment SpeechStatus(AnswerBox box) =>
+        @<Alert Message="@(_statusFor == box ? _speechStatus : null)"
+                Role="status"
+                BaseClass="capture__status"
+                TestId="notification-speech-status" />;
+
+    private async Task OnDictateAsync(AnswerBox box, bool pressed)
+    {
+        if (!pressed)
+        {
+            // Asks for the words so far; they arrive as this turn's result.
+            await Speech.StopAsync();
+            return;
+        }
+
+        // One box at a time: another mic's turn ends here, and its words with it.
+        if (_listeningTo is not null) await StopDictatingAsync();
+
+        var turn = ++_turn;
+        _listeningTo = box;
+        _statusFor = box;
+        _speechStatus = Listening;
+
+        // Not awaited: ListenAsync ends when recognition does, and the pressed
+        // state has to reach the screen before that.
+        _ = ListenAsync(box, turn);
+    }
+
+    private async Task ListenAsync(AnswerBox box, int turn)
+    {
+        SpeechTranscript result;
+
+        try
+        {
+            result = await Speech.ListenAsync();
+        }
+        catch (Exception ex)
+        {
+            // A recogniser that throws is a failed turn, so the mic never stays on.
+            result = SpeechTranscript.Failed(ex.Message);
+        }
+
+        if (_disposed) return;
+
+        await InvokeAsync(() =>
+        {
+            if (turn != _turn || _disposed) return;
+
+            _listeningTo = null;
+            _speechStatus = result.IsError ? result.Error
+                : result.Text.Length == 0 ? "Nothing was heard."
+                : Take(box, result.Text);
+
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>Adds the heard words to the box, after what is already in it, and returns
+    /// the line to show: nothing, or that the box's limit cut them short.</summary>
+    private string? Take(AnswerBox box, string heard)
+    {
+        var limit = LimitOf(box);
+
+        switch (box)
+        {
+            case AnswerBox.Open:
+                _text = Append(_text, heard, limit, out var openCut);
+                return openCut ? CutShort(limit) : null;
+            case AnswerBox.ChoiceText:
+                _choiceText = Append(_choiceText, heard, limit, out var choiceCut);
+                return choiceCut ? CutShort(limit) : null;
+            default:
+                _note = Append(_note, heard, limit, out var noteCut);
+                return noteCut ? CutShort(limit) : null;
+        }
+    }
+
+    /// <summary>The box's own length limit, as its <c>maxlength</c> says. A typed value
+    /// never passes it; a dictated one is set from code, which <c>maxlength</c> does not stop.</summary>
+    private int LimitOf(AnswerBox box) => box switch
+    {
+        AnswerBox.Open => Spec?.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength,
+        AnswerBox.ChoiceText => Spec?.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength,
+        _ => Spec?.Note?.MaxLength ?? OpenAnswer.DefaultMaxLength
+    };
+
+    private static string CutShort(int limit) =>
+        $"Only the first {limit} characters fit, so the rest of what was heard was left out.";
+
+    /// <summary>Space-joins the heard words onto the box's text, as the Notes editor does,
+    /// and cuts the result to <paramref name="limit"/> without splitting a surrogate pair.</summary>
+    private static string Append(string? existing, string heard, int limit, out bool cut)
+    {
+        var before = existing?.TrimEnd() ?? string.Empty;
+        var joined = before.Length == 0 ? heard : $"{before} {heard}";
+
+        cut = joined.Length > limit;
+        if (!cut) return joined;
+
+        var end = char.IsHighSurrogate(joined[limit - 1]) ? limit - 1 : limit;
+        return joined[..end];
+    }
+
+    /// <summary>Ends the turn under way, if any, and drops whatever it still hears.</summary>
+    private async Task StopDictatingAsync()
+    {
+        _turn++;
+        _statusFor = null;
+        _speechStatus = null;
+
+        if (_listeningTo is null) return;
+
+        _listeningTo = null;
+        await Speech.StopAsync();
+    }
+}

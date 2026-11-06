@@ -21,7 +21,24 @@ public partial class App : Application
         var services = activationState?.Context.Services
             ?? throw new InvalidOperationException("The app has no services to open its main window with.");
 
-        var window = services.GetRequiredService<ShellWindows>().CreateMainWindow();
+        var windows = services.GetRequiredService<ShellWindows>();
+        var window = windows.CreateMainWindow();
+
+        // The windows the person remembered reopen once the main window is up, beside it
+        // (local ADR 0043 §5): queued like the launch link, so the main window finishes
+        // opening first, and a failure there never holds the main window up.
+        window.Created += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                windows.ReopenRemembered();
+            }
+            catch (Exception)
+            {
+                // Nothing to undo: the main window is open, and the next start tries
+                // the remembered windows again.
+            }
+        });
 
         // The backlog:// link the app was launched with opens once the main window is
         // up, beside it (local ADR 0043 §7): queued, so the main window finishes

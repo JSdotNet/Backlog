@@ -52,6 +52,7 @@ public sealed class GitHubPullRequestStatusesTests
             Deletions = 4,
             Reviews = new GitHubReviewSummary(GitHubReviewState.ChangesRequested, 1, 1) { Required = 2, RequiredRead = true },
             ClosingIssues = [new GitHubIssueReference("acme/app", 7)],
+            ViewerReviewRequested = true,
             MergedAt = Noon.AddHours(-1),
             ClosedAt = Noon.AddHours(-2)
         };
@@ -74,6 +75,7 @@ public sealed class GitHubPullRequestStatusesTests
         Assert.Equal(["frontend", "ready"], status.Labels);
         Assert.Equal([new IssueReference("acme/app", 7)], status.ClosingIssues);
         Assert.Equal((10, 4, true), (status.Additions, status.Deletions, status.IsCrossRepository));
+        Assert.True(status.ViewerReviewRequested);
         Assert.Equal(new PullRequestHandle("PR_kwDO42", "abc123", PullRequestMergeMethod.Squash), status.Handle);
         Assert.True(status.StatusRead);
         Assert.Null(status.StackParent);
@@ -116,6 +118,7 @@ public sealed class GitHubPullRequestStatusesTests
         Assert.Equal(pull.ClosingIssues, back.ClosingIssues);
         Assert.Equal(pull.Labels, back.Labels);
         Assert.Equal(pull.CheckCounts, back.CheckCounts);
+        Assert.True(back.ViewerReviewRequested);
         Assert.Equal(
             (pull.Url, pull.Title, pull.HeadRefName, pull.BaseRefName, pull.AuthorLogin, pull.ViewerDidAuthor, pull.UpdatedAt),
             (back.Url, back.Title, back.HeadRefName, back.BaseRefName, back.AuthorLogin, back.ViewerDidAuthor, back.UpdatedAt));
@@ -186,6 +189,7 @@ public sealed class GitHubPullRequestStatusesTests
         Assert.Equal(PullRequestState.Merged, status.State);
         Assert.Equal(("main", "main"), (status.BaseRefName, status.DefaultBranch));
         Assert.False(status.StatusRead);
+        Assert.False(status.ViewerReviewRequested);
         Assert.Null(status.Handle);
     }
 

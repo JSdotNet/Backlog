@@ -309,16 +309,20 @@
                                                       PressedChanged="_ => OnTagFilterPressed(tag.Value)">
                                             @tag.Label<span class="chip__count">@tag.OpenCount</span>
                                         </ToggleButton>
-                                        <CopyButton Text="@plan"
-                                                    Label="@($"Copy {plan}")"
-                                                    CssClass="filter-bar__plan-copy"
-                                                    ButtonBaseClass="filter-bar__plan-copy-button"
-                                                    StatusCssClass="sr-only"
-                                                    TestId="tag-filter-copy-plan"
-                                                    ButtonTestId="tag-filter-copy-plan-button"
-                                                    StatusTestId="tag-filter-copy-plan-status" />
+                                        @if (CopyEnabled)
+                                        {
+                                            <CopyButton Text="@plan"
+                                                        Label="@($"Copy {plan}")"
+                                                        CssClass="filter-bar__plan-copy"
+                                                        ButtonBaseClass="filter-bar__plan-copy-button"
+                                                        StatusCssClass="sr-only"
+                                                        TestId="tag-filter-copy-plan"
+                                                        ButtonTestId="tag-filter-copy-plan-button"
+                                                        StatusTestId="tag-filter-copy-plan-status" />
+                                        }
 
-                                        @* The plan's queue icon beside its copy, or the
+                                        @* The plan's queue icon beside its copy (or the
+                                           chip, with the copy-entries switch off), or the
                                            wait it is on — see RenderPlanSession. Inside
                                            the pair, so the strip keeps or clips them
                                            with the chip and components.js reserves the
@@ -523,6 +527,7 @@
                            pasted from the list. *@
                         <TaskBoard @ref="_board"
                                    Columns="@BoardColumns()"
+                                   AllowCopy="@CopyEnabled"
                                    CardCopyValue="@EntryCopyText"
                                    Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
                                    DropRuleFor="@BoardDropRule"
@@ -656,6 +661,7 @@
                                       OnTagSelected="OnRowTagSelected"
                                       OnContextMenu="OnEntryContextMenu"
                                       GroupCompleted="true"
+                                      AllowCopy="@CopyEnabled"
                                       RowCopyValue="@EntryCopyText"
                                       RowCssClass="@RepositoryMark"
                                       AriaLabel="Tasks"
@@ -1433,7 +1439,8 @@
             : $"Queue a session for the +{offer.Tag} plan";
 
     /// <summary>
-    /// The pressed plan's queue icon, fused to its copy as a third segment, or the
+    /// The pressed plan's queue icon, fused to its copy as a third segment (to the chip
+    /// itself while <see cref="AppFeatureKeys.CopyEntries"/> is off), or the
     /// waiting chip — with Cancel while no dispatcher has picked the request up — once
     /// a request is open; nothing while the action is not offered. The roadmap item
     /// dialog's plan icon on the same terms: disabled with the reason in the tooltip and
@@ -1988,6 +1995,7 @@
         LinkedSessionState.Running => IntegrationSessionState.Running,
         LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
         LinkedSessionState.Finished => IntegrationSessionState.Finished,
+        LinkedSessionState.Waiting => IntegrationSessionState.Waiting,
         _ => null
     };
 
@@ -2011,6 +2019,7 @@
         {
             LinkedSessionState.Stalled => "Quiet 30 min",
             LinkedSessionState.Finished => "finished",
+            LinkedSessionState.Waiting => "waiting",
             _ => "running"
         };
 
@@ -2068,6 +2077,10 @@
         };
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
+
+    /// <summary>Whether entries and the pressed plan offer their copy. Off, the queue
+    /// icon beside it is the only hand-off left; it is not gated here.</summary>
+    private bool CopyEnabled => IsFeatureEnabled(AppFeatureKeys.CopyEntries);
 
     /// <summary>The repositories an entry may be filed against: the ones the scope
     /// offers, so an archived repository only while show archived is on. Without the
@@ -3657,7 +3670,7 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderDetail(EntryRow row) =>
-        @<div id="@DetailElementId" class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
+        @<div id="@DetailElementId" class="entry-detail" data-testid="entry-detail" @onkeydown="@WithoutRedraw((KeyboardEventArgs e) => OnDetailKeyDownAsync(row, e))">
             <TaskPanel @ref="_panel"
                        Title="@DetailTitle(row)"
                        Done="@row.IsPreviewCompleted"
@@ -3665,6 +3678,7 @@
                        OnRename="title => State.RenameEntryAsync(row, title)"
                        OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
+                       AllowCopy="@CopyEnabled"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
@@ -3870,9 +3884,11 @@
             @* MarkdownEditor rather than a textarea: the toolbar is the closest this
                pane comes to the edit-in-place `#editing-model` asks for. The whole
                text, not the prose alone — a writer scoped to the prose would drop a
-               `##` chapter typed into it. *@
+               `##` chapter typed into it. A keystroke draws the editor and not this
+               pane: the editor already holds what was typed, and the save after the
+               pause draws the pane through State.Changed. *@
             <MarkdownEditor Value="@row.PreviewBody"
-                            ValueChanged="body => State.ChangeBody(row, body)"
+                            ValueChanged="@WithoutRedraw(body => State.ChangeBody(row, body))"
                             AriaLabel="Markdown"
                             ToolbarLabel="Formatting for the entry's markdown"
                             Rows="6"
@@ -3883,6 +3899,33 @@
         </CascadingValue>;
 
     private readonly BodyImageSource _bodyImages = new();
+
+    /// <summary>
+    /// A handler this pane does not draw again after. Blazor redraws the component
+    /// an event handler belongs to once the handler returns; a handler whose target
+    /// is a <see cref="IHandleEvent"/> of its own belongs to that instead, and it
+    /// draws nothing. For a write whose screens catch up later, so a keystroke does
+    /// not redraw the whole list. See Microsoft Learn, "ASP.NET Core Blazor rendering
+    /// performance best practices", <i>Avoid rerendering after handling events
+    /// without state changes</i>.
+    /// </summary>
+    private static Func<string, Task> WithoutRedraw(Action<string> write) =>
+        WithoutRedraw<string>(value =>
+        {
+            write(value);
+            return Task.CompletedTask;
+        });
+
+    /// <summary>The same for a handler that draws the pane itself, and only when
+    /// it did something — a key handler that hears every key typed beneath it.</summary>
+    private static Func<T, Task> WithoutRedraw<T>(Func<T, Task> handle) => new QuietHandler<T>(handle).InvokeAsync;
+
+    private sealed class QuietHandler<T>(Func<T, Task> handle) : IHandleEvent
+    {
+        public Task InvokeAsync(T value) => handle(value);
+
+        public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
+    }
 
     /// <summary>The stand-in the body cascades, pointed at the source for the
     /// repository the entry's references resolve against — the one its Devbook
@@ -4782,8 +4825,21 @@
     /// hides the canonical markdown. On the pane rather than on the toggle, because
     /// a shortcut that only worked while its own button had focus would be a
     /// shortcut for people who had already found the button.
+    /// <para>
+    /// Every key typed in the entry walks up to here, so the handler is
+    /// <see cref="WithoutRedraw{T}"/>'s and the pane draws only after a key it
+    /// acted on: a redraw of the whole pane per character typed in the body is
+    /// what made the characters arrive late.
+    /// </para>
     /// </summary>
     private async Task OnDetailKeyDownAsync(EntryRow row, KeyboardEventArgs e)
+    {
+        if (!await ActOnDetailKeyAsync(e)) return;
+
+        StateHasChanged();
+    }
+
+    private async Task<bool> ActOnDetailKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key is "Escape")
         {
@@ -4796,7 +4852,7 @@
             {
                 ClosePicker();
                 if (open is SchedulePicker.Devbook) _focusDevbookAction = true;
-                return;
+                return true;
             }
 
             // The source first: with the hatch open, Escape is about the hatch.
@@ -4805,14 +4861,17 @@
             if (State.RawHatchOpen)
             {
                 await State.ToggleRawHatchAsync();
-                return;
+                return true;
             }
 
             await CloseToListAsync();
-            return;
+            return true;
         }
 
-        if (e.CtrlKey && e.ShiftKey && e.Key is "M" or "m") await State.ToggleRawHatchAsync();
+        if (!(e.CtrlKey && e.ShiftKey && e.Key is "M" or "m")) return false;
+
+        await State.ToggleRawHatchAsync();
+        return true;
     }
 
     // --- Focus between the two halves --------------------------------------

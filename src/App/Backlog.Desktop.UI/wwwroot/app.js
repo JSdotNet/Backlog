@@ -83,7 +83,7 @@ window.backlogTakeoverEscape = (() => {
 
 // The shell header stays one row. When it runs out of room the navigation
 // options give up their words in tiers — `app-header--fold-1` hides the
-// Dashboard's, `--fold-2` the work in progress's as well, `--fold-3` the
+// Dashboard's, `--fold-2` the Goals group's as well, `--fold-3` the
 // Inbox's, `--fold-4` the view switch's — and this picks the fewest tiers that
 // fit. Measured rather than set at fixed breakpoints, because what the row holds
 // varies: how many repositories the scope shows, which flags are on.

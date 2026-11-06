@@ -8,9 +8,9 @@
            Guidelines="@Rules">
 
     <Story Name="Desktop header navigation"
-           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The work in progress group is led by Goals, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Goals is always offered, whether or not those two lists are. Dashboard and Tools stand loose.
+           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the Goals group and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The Goals group is led by Goals, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Goals is always offered, whether or not those two lists are. Dashboard and Tools stand loose.
 
-Each view and work-in-progress option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
+Each view and Goals group option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
 
 Every option is a surface that pops out, so each carries a ⧉ Open in new window button. It hangs centred under its option, clear of the word, the glyph and the selected underline, and shows on hover and while anything in the item has focus — always, where nothing can hover. It is placed absolutely, so showing it never moves the header. Its name is Open <name> in a new window, and every press opens one more window and changes nothing here.
 
@@ -31,7 +31,7 @@ The sample is live: pick a view, or press the Inbox, the Devbook or a takeover �
             </div>
             @* Goals leads the group though it is a view, not a takeover: it is the
                summary the two lists are behind, so a press shows it as a view. *@
-            <ButtonGroup AriaLabel="Work in progress" TestId="sb-work-in-progress">
+            <ButtonGroup AriaLabel="Goals" TestId="sb-goals-group">
                 @HeaderItem("Goals", @<ToggleButton Pressed="@ViewPressed("Goals")" OnClick="@(() => ShowView("Goals"))"><TargetIcon />Goals</ToggleButton>)
                 @HeaderItem("Sessions", @<ToggleButton Pressed="@(_takeover == "Sessions")" OnClick="@(() => ToggleTakeover("Sessions"))"><SquareTerminalIcon />Sessions</ToggleButton>)
                 @HeaderItem("Pull requests", @<ToggleButton Pressed="@(_takeover == "Pull requests")" OnClick="@(() => ToggleTakeover("Pull requests"))"><GitPullRequestIcon />Pull requests</ToggleButton>)
@@ -47,9 +47,11 @@ The sample is live: pick a view, or press the Inbox, the Devbook or a takeover �
     </Story>
 
     <Story Name="Popped-out window header"
-           Description="A surface popped out into its own window wears a slim header of three things: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
+           Description="A surface popped out into its own window wears a slim header: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, Keep on top — a pin, on the desktop head only, that keeps the window in front of other windows and is remembered for the surface's next window — Remember this window — a bookmark, on the desktop head only, that reopens this window at the next start — and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
 
-There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. The sample is live: press a chip, or Show in main window, and the line under it says what the window would do."
+Remember this window is an icon-only toggle immediately before Show in main window. Its name stays Remember this window, it reads pressed while this window is remembered, and its tooltip says what the next press does; what remembering does is the shell header guideline's. Both toggles wear the library toggle's pressed fill here, as the chips do. The two headers below show Remember this window unpressed and pressed.
+
+There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. Below 40rem of window width the title and the buttons share a row, the chips scroll sideways on a row of their own, Show in main window keeps only its icon and its name, and the footer goes. The sample is live: press a chip, either toggle, or Show in main window, and the line under it says what the window would do."
            Code="@WindowHeaderCode">
         <header class="sb-window-header" data-testid="sb-window-header">
             <h3 class="sb-window-header__title">Roadmap</h3>
@@ -60,13 +62,30 @@ There is no view switch, no takeover option, no Ask AI — it stays in the main 
                     <ToggleButton Pressed="@_windowScope.Contains(repository)" OnClick="() => ScopeWindow(repository)">@repository</ToggleButton>
                 }
             </ButtonGroup>
+            <ToggleButton TestId="sb-window-on-top"
+                          AriaLabel="Keep on top"
+                          Title="Keep this window on top of other windows"
+                          Pressed="_windowOnTop"
+                          PressedChanged="KeepWindowOnTop">
+                <PinIcon />
+            </ToggleButton>
+            @WindowRemember(_windowRemembered, "sb-window-remember", remembered => { _shownInMain = false; _windowRemembered = remembered; })
             <AppButton TestId="sb-window-show-in-main"
                        Title="Show this in the main window and close this window"
+                       aria-label="Show in main window"
+                       Icon="@WindowGlyph"
                        OnClick="ShowInMainWindow">
                 Show in main window
             </AppButton>
         </header>
         <p class="sb-state" data-testid="sb-window-state">@WindowState</p>
+        @* The same header with Remember this window pressed, so both states are on
+           the page at once rather than one press apart. *@
+        <header class="sb-window-header" data-testid="sb-window-header-remembered">
+            <h3 class="sb-window-header__title">Devbook</h3>
+            @WindowRemember(_rememberedSampleRemembered, "sb-window-remember-remembered", remembered => _rememberedSampleRemembered = remembered)
+            <AppButton Title="Show this in the main window and close this window">Show in main window</AppButton>
+        </header>
     </Story>
 
     <Story Name="Tab bar"
@@ -185,6 +204,29 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
 
     private List<string> _windowScope = [];
     private bool _shownInMain;
+    private bool _windowRemembered;
+    private bool _rememberedSampleRemembered = true;
+
+    /// <summary>Remember this window, its name fixed and its tooltip the next press,
+    /// wearing the library toggle's own pressed fill, as the scope chips beside it do,
+    /// so the two states read apart on this page.</summary>
+    private RenderFragment WindowRemember(bool remembered, string testId, Action<bool> pressed) =>
+        @<ToggleButton CssClass="sb-window-header__remember"
+                       Pressed="remembered"
+                       PressedChanged="pressed"
+                       TestId="@testId"
+                       AriaLabel="Remember this window"
+                       Title="@(remembered ? "Forget this window" : "Remember this window")"><BookmarkIcon /></ToggleButton>;
+
+    private bool _windowOnTop;
+
+    private static readonly RenderFragment WindowGlyph = @<AppWindowIcon />;
+
+    private void KeepWindowOnTop(bool onTop)
+    {
+        _shownInMain = false;
+        _windowOnTop = onTop;
+    }
 
     /// <summary>A plain press scopes that one; a press on the only one in scope
     /// clears it.</summary>
@@ -194,13 +236,20 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
         _windowScope = _windowScope is [var only] && only == scope ? [] : [scope];
     }
 
-    private void ShowInMainWindow() => _shownInMain = true;
+    private void ShowInMainWindow()
+    {
+        _shownInMain = true;
+        _windowRemembered = false;
+    }
 
     private string WindowState => _shownInMain
-        ? "The main window switches to the Roadmap, and this window closes."
-        : _windowScope is [var scope]
+        ? "The main window switches to the Roadmap, and this window closes; it is not remembered."
+        : (_windowRemembered
+            ? "This window is remembered: it reopens on the Roadmap at the next start."
+            : _windowScope is [var scope]
             ? $"This window shows {scope} alone; the main window's scope is unchanged."
-            : "This window shows every repository in scope; the main window's scope is unchanged.";
+            : "This window shows every repository in scope; the main window's scope is unchanged.")
+          + (_windowOnTop ? " It stays on top of other windows." : string.Empty);
 
     private string HeaderState
     {
@@ -265,7 +314,7 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
                 </ButtonGroup>
                 @HeaderItem(DevbookSurfaceId, @<ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>)
             </div>
-            <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
+            <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Goals">
                 @HeaderItem(GoalsViewId, @<ToggleButton Pressed="ViewOptionPressed(GoalsViewId)" Title="Goals" OnClick="() => ShowView(GoalsViewId)"><TargetIcon />Goals</ToggleButton>)
                 @HeaderItem(SessionsSurfaceId, @<ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>)
                 @HeaderItem(PullRequestsSurfaceId, @<ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>)
@@ -292,7 +341,19 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
                     <ToggleButton Pressed="InScope(repository)" OnClick="() => ScopeRepository(repository.Alias)">@repository.Alias</ToggleButton>
                 }
             </ButtonGroup>
-            <AppButton Title="Show this in the main window and close this window" OnClick="ShowInMainWindowAsync">Show in main window</AppButton>
+            <div class="surface-window__actions">
+                @if (CanKeepOnTop)
+                {
+                    <ToggleButton AriaLabel="Keep on top" Title="Keep this window on top of other windows" Pressed="_onTop" PressedChanged="SetOnTop"><PinIcon /></ToggleButton>
+                }
+                @if (CanRemember)
+                {
+                    <ToggleButton AriaLabel="Remember this window" Title="@(_remembered ? "Forget this window" : "Remember this window")" Pressed="_remembered" PressedChanged="SetRemembered"><BookmarkIcon /></ToggleButton>
+                }
+                <AppButton Title="Show this in the main window and close this window" aria-label="Show in main window" Icon="@AppWindowGlyph" OnClick="ShowInMainWindowAsync">
+                    <span class="surface-window__main-label">Show in main window</span>
+                </AppButton>
+            </div>
         </header>
         """;
 

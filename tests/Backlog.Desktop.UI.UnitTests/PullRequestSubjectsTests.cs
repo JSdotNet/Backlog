@@ -17,9 +17,9 @@ public sealed class PullRequestSubjectsTests
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
 
     [Theory]
-    [InlineData(PullRequestState.Merged)]
-    [InlineData(PullRequestState.Closed)]
-    public async Task A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once(PullRequestState state)
+    [InlineData(PullRequestState.Merged, "Pull request merged")]
+    [InlineData(PullRequestState.Closed, "Pull request closed")]
+    public async Task A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once(PullRequestState state, string reason)
     {
         var subjects = new PullRequestSubjects(() => null, () => _notifications);
         var pull = Pull(42, "JSdotNet/Backlog") with { State = state };
@@ -29,7 +29,7 @@ public sealed class PullRequestSubjectsTests
 
         var ended = Assert.Single(_notifications.Closed);
         Assert.Equal(new NotificationSubject("sessions", "pull-request", "jsdotnet/backlog#42"), ended.Subject);
-        Assert.Equal("Pull request merged", ended.Reason);
+        Assert.Equal(reason, ended.Reason);
     }
 
     [Fact]

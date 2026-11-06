@@ -380,19 +380,25 @@ public static class DevbookDatabaseBuilder
                 var slices = DevbookChapterText.Slices(markdown, chapters);
                 var sourceHash = DevbookMarkdown.Sha256(markdown);
                 var folderKind = layout.FolderKindForPath(relativePath);
-                var openAnnotations = DevbookAnnotations.OpenCounts(markdown, chapters);
 
                 for (var index = 0; index < chapters.Count; index++)
                 {
                     var chapter = chapters[index];
+                    // Devbook contract 38: `status` holds a `tech/` or `ai/`
+                    // block's `rating`, else a legacy `status` as written. And
+                    // no chapter carries an open note: the `annotation` fence is
+                    // retired and a review note is a thread in the app's own
+                    // store (local ADR 0044), as tools/devbook/build-database.mjs
+                    // writes it.
                     Bind(insert,
                         ("$path", relativePath), ("$folder", folderKind), ("$slug", chapter.Slug), ("$level", chapter.Level),
-                        ("$title", chapter.Text), ("$status", chapter.Meta?.GetValueOrDefault("status") as string),
+                        ("$title", chapter.Text),
+                        ("$status", (chapter.Meta?.GetValueOrDefault("rating") as string) ?? (chapter.Meta?.GetValueOrDefault("status") as string)),
                         ("$sync", chapter.Meta?.GetValueOrDefault("sync") as string), ("$line", chapter.Line),
                         ("$text", slices[index].Text), ("$searchText", slices[index].SearchText),
                         ("$contentHash", DevbookMarkdown.Sha256(slices[index].Text)), ("$sourceHash", sourceHash),
                         ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)),
-                        ("$openAnnotations", openAnnotations[index]));
+                        ("$openAnnotations", 0));
                     insert.ExecuteNonQuery();
 
                     // Every place the field names, whether or not the demo is

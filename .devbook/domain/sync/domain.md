@@ -1,35 +1,36 @@
 # Domain
 
 ```meta
-status: draft
 type: domain
 ```
 
-> The aggregates, the domain service and the value objects of the Sync context. The
-> rules they enforce are in [domain.invariants.md](domain.invariants.md). The types
+> The rules these types enforce are in [domain.invariants.md](domain.invariants.md). The types
 > live in `Backlog.Modules.Sync/DomainModels`.
 
 ## Device
 
 ```meta
-status: draft
 type: aggregate
 aliases: [device registration, registered device]
 related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
 ```
 
-One machine's registration with the sync service. It holds the machine's
-[DeviceId](#deviceid), the [OwnerId](#ownerid) whose data it may see, the name a
-person calls it in the device list, and a hash of its
-[Registration credential](#registration-credential). The service never holds the
-credential itself, so a copy of the record is not a copy of the secret.
+One machine's registration with the sync service. It holds:
+
+- the machine's [DeviceId](#deviceid);
+- the [OwnerId](#ownerid) whose data it may see;
+- the name a person calls it in the device list;
+- a hash of its [Registration credential](#registration-credential).
+
+The service never holds the credential itself, so a copy of the record is not a
+copy of the secret.
 
 A device comes in once, by registering as the first device of a new owner or by
 redeeming a [Pairing Code](#pairing-code). A paired device also names the device
 whose code it redeemed, so the desktop that issued the code can ask its person
 whether to keep it. It is the consistency boundary for "who is this caller": a
 token is minted only for a device whose stored hash matches the credential it
-presents. The device whose code paired it can revoke it; its credential then
+presents. The device whose code paired it can revoke it. Its credential then
 mints no further token, and a token it already holds lasts until it expires.
 
 It is not the machine. The machine is the shared kernel's
@@ -39,15 +40,14 @@ that machine as the sync service knows it, under an id the service issued.
 ## Pairing Code
 
 ```meta
-status: draft
 type: aggregate
 aliases: [PairingCode, pairing code, XXXX-XXXX code]
 related: [.devbook/domain/sync/domain.invariants.md#pairing-code, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#pairing-a-device]
 ```
 
 A short, single-use code a paired device issues so a second device can join its
-[Owner](#owner). Eight characters from an alphabet that drops visually confusable
-letters and digits (`PairingCodeFormat`), shown to the person as `XXXX-XXXX`. It
+[Owner](#owner). It has eight characters from an alphabet that drops visually confusable
+letters and digits (`PairingCodeFormat`), and the person sees it as `XXXX-XXXX`. It
 [works for ten minutes](requirements.md#requirement-a-pairing-code-works-for-ten-minutes)
 and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
 so a code that leaks unused stops being a way in on its own.
@@ -61,7 +61,6 @@ Redeeming it is the one transition, and the code is burned before the new
 ## Change Precedence
 
 ```meta
-status: draft
 type: domain-service
 aliases: [TaskChangePrecedence, AnnotationChangePrecedence, DevbookSubjectChangePrecedence, last-write-wins]
 related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/tasks/requirements.md#requirement-the-later-edit-wins-whole]
@@ -72,10 +71,9 @@ holds. It compares the device stamp (`updatedAt`) and the tombstone (`deletedAt`
 of the two copies and nothing else. It never reads the payload, which is what lets
 one rule serve documents whose meaning belongs to other contexts.
 
-It exists because every device pushes everything above its own watermark, and a
-document it received sits above that watermark exactly as one it edited does. Each
+Every device pushes everything above its own watermark, and a document it received sits above that watermark exactly as one it edited does. Each
 device therefore echoes every document it pulled, once, on its next push. Without
-the rule that echo would replace whatever the replica had learned in between: a
+the rule that echo would replace what the replica learned in between: a
 tombstone would come back as the live copy, and an edit would revert.
 
 There are three copies of the rule: `TaskChangePrecedence` for the task feed,
@@ -93,32 +91,27 @@ Invocation semantics: command-invoked, by a push, once per document.
 ## Shared Value Objects
 
 ```meta
-status: draft
 type: shared-value-objects
 related: [.devbook/domain/sync/domain.invariants.md#shared-value-objects]
 ```
 
-> Values the aggregates, the replicas and the endpoints all use.
-
 ### OwnerId
 
 ```meta
-status: draft
 type: value-object
 aliases: [ownerId, owner id]
 related: [.devbook/domain/sync/domain.md#owner]
 ```
 
 The identifier of an [Owner](#owner): a version 7 GUID minted when the first device
-registers. A type of its own rather than a bare GUID, because an owner id and a
+registers. It is a type of its own rather than a bare GUID. An owner id and a
 device id travel together through every call, and swapping them would not fail to
-compile. It is the partition key of every replica container. Equal when the GUIDs
-are equal.
+compile. It is the partition key of every replica container. Two are equal when their
+GUIDs are equal.
 
 ### DeviceId
 
 ```meta
-status: draft
 type: value-object
 aliases: [deviceId, device id, machine id]
 ```
@@ -131,7 +124,6 @@ installation identity, and the desktop maps one onto the other for its own recor
 ### OwnerScope
 
 ```meta
-status: draft
 type: value-object
 related: [.devbook/domain/sync/requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner]
 ```
@@ -146,7 +138,6 @@ the service reaches the store under one identity that can see every partition
 ### SyncCursor
 
 ```meta
-status: draft
 type: value-object
 aliases: [since cursor, sync cursor]
 ```
@@ -156,12 +147,11 @@ The service hands a client a signed cursor after each pull, and the client sends
 back as `since`. The codec (`HmacSyncCursorCodec`) checks the signature and the
 owner before it produces a `SyncCursor`. A store continuation embeds the partition
 it was minted for, so an unchecked one replayed by another owner would read that
-owner's data, and the store would not object.
+owner's data. The store would not object.
 
 ### Replica Cursor
 
 ```meta
-status: draft
 type: value-object
 aliases: [TaskReplicaCursor, SessionReplicaCursor, AnnotationReplicaCursor, DevbookSubjectReplicaCursor]
 related: [.devbook/domain/sync/domain.md#synccursor]
@@ -169,15 +159,14 @@ related: [.devbook/domain/sync/domain.md#synccursor]
 
 A verified position in one owner's task, session, annotation or devbook subject feed: an
 [OwnerId](#ownerid) and a continuation. There is one type per feed, so a
-continuation for one feed cannot be handed to another feed's replica, and no
-replica port takes a bare string; the service reads each from a verified
+continuation for one feed cannot be handed to another feed's replica. No
+replica port takes a bare string: the service reads each from a verified
 [SyncCursor](#synccursor). A page read from a feed always carries the cursor after it, even when the
 page is empty.
 
 ### Session Record Key
 
 ```meta
-status: draft
 type: value-object
 aliases: [SessionRecordKey]
 related: [.devbook/domain/sessions/domain.md#session-identity]
@@ -192,11 +181,8 @@ machine can overwrite another's record.
 ## Ubiquitous Language
 
 ```meta
-status: draft
 type: ubiquitous-language
 ```
-
-> The words this context owns that are not chapters above.
 
 ### Owner
 
@@ -209,10 +195,16 @@ related: [.devbook/domain/sync/domain.md#ownerid, .devbook/domain/sync/features.
 The backlog an [OwnerId](#ownerid) names. It is not a person's account, since the
 product requires none, but the identifier every device paired together shares. The
 first device to register mints it; every device paired to that device afterward
-registers under the same one. It is the partition every stored task, session
-record, annotation, devbook subject state and attachment carries. The sync service reads it out of a
-device's presented [Device token](#device-token) to decide which partition a call
-may touch.
+registers under the same one. The sync service reads it out of a device's presented
+[Device token](#device-token) to decide which partition a call may touch.
+
+It is the partition each stored document and file carries:
+
+- a task;
+- a session record;
+- an annotation;
+- a devbook subject state;
+- an attachment.
 
 ### Registration credential
 

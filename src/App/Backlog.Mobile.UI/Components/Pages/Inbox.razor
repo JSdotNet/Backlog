@@ -25,7 +25,8 @@
 <header class="inbox-heading">
     <div class="inbox-heading__titles">
         <span class="inbox-heading__lede" data-testid="inbox-count">@CountLabel</span>
-        <h1>Inbox</h1>
+        @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+        <h1 class="sr-only">Inbox</h1>
     </div>
     @* The pull gesture's twin, for a pointer, a keyboard and a screen reader —
        none of which can pull. *@

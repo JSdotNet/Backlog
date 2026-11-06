@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#iteration]
 ```
 
@@ -93,16 +92,16 @@ classDiagram
 ## Relationship notes
 
 - A Goal owns its attachments, and an Impediment owns its history and its holds-back
-  links. Neither aggregate refers to the other: an impediment reaches a goal only
-  through an item the goal counts, which is a held-back task or pull request, or an
-  entry of a held-back plan.
+  links. Neither aggregate refers to the other. An impediment reaches a goal only
+  through an item the goal counts: a held-back task or pull request, or an entry of a
+  held-back plan.
 - A held-back item names a task, a pull request or a plan exactly as a Goal
-  Attachment does, so the two share one search and one way of reading each kind. It
-  names no session.
+  Attachment does, and it names no session. The two share one search and one way of
+  reading each kind.
 - Every arrow out of Progress is a reference by identity. A plan is named by its
-  [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id and a pull request
-  by its repository and number, and a session by its agent and session id. None of them
-  is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`
+  [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id, a pull request
+  by its repository and number, and a session by its agent and session id. None of
+  them is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`
   Roadmap Planning's, `PullRequest` GitHub's and `AgentSession` Sessions'.
 - [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
   are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes

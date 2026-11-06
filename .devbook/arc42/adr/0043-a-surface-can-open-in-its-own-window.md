@@ -1,7 +1,7 @@
 # ADR 0043: A surface can open in its own window, and modules register the surfaces the shell shows
 
 ```meta
-date: 2026-10-28
+date: 2026-11-04
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
 ```
 
@@ -23,6 +23,8 @@ it decided had landed on `plan/shell-pop-out-windows`. Proposed 2026-10-28 by th
 flow-spec run `run-mvsnh91g-sidjhi`, the plan's first step, run unattended; the
 decisions were settled with the repository owner before the plan was imported, and
 this record writes them down. Built: §1 to §7, step by step, as the History records.
+Amended 2026-11-04: §5 lets a person remember a popped-out window, one window at a
+time. The repository owner decided it, and it is built, as the History records.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It keeps ADR 0022's rule of one main view per window and replaces ADR
@@ -142,10 +144,18 @@ A surface can be open in the main window and in its own windows at the same time
 it can have any number of windows: each ⧉ click opens another one. The main window's
 header does not change when a surface is popped out.
 
-A popped-out window has a slim header and no view switch. The header shows the surface
-title, the repository scope chips, a **Show in main window** control, which switches the
-main window to this surface and closes this window, and the OS close button. The window
-has no Ask AI; Ask AI stays in the main window only.
+A popped-out window has a slim header and no view switch. The header shows, in order,
+the surface title, the repository scope chips, a **Keep on top** pin, a **Remember this
+window** bookmark, a **Show in main window** control, which switches the main window to
+this surface and closes this window, and the OS close button. The window has no Ask AI;
+Ask AI stays in the main window only.
+
+Both toggles are icon-only and drawn by the desktop head alone. **Keep on top** keeps
+the window in front of other windows, which a browser tab cannot do. **Remember this
+window** marks this one window to reopen at the next start (§5); a window opened under
+no window key, such as a web harness tab or a loopback page, draws it nowhere. Their
+look and placement are the design chapter's
+([shell header](../../design/interaction-guidelines.md#shell-header)).
 
 ### 5. Each window has its own view state; the main window owns the app's life
 
@@ -156,9 +166,31 @@ Each window has its own view state. `WindowStateLifetime` becomes `Scoped` in th
 head, the same as the web harness. Data and change signals stay process-wide singletons,
 so a task saved in one window reloads in the others.
 
-Closing the main window quits the app and closes every popped-out window. The layout is
-not restored on the next start. Each surface remembers the size and position of its last
-popped-out window, and the next pop-out of that surface opens there.
+Closing the main window quits the app and closes every popped-out window. By default
+nothing reopens on the next start. A person opts in one window at a time: the
+**Remember this window** toggle in a popped-out window's header (§4) marks that window
+**remembered**.
+
+A remembered window reopens on the next start, after the main window. It shows the
+surface and query it showed when the app quit, after any jump or scope change. It opens
+at its own last bounds, maximised if it was, moved onto a connected monitor.
+
+- **Quitting the app keeps it remembered.** Closing the main window is not a choice
+  about the other windows.
+- **Closing that window forgets it.** So does **Show in main window**, and so does
+  pressing **Remember this window** again.
+- **A surface the catalog no longer offers is skipped,** and its remembered window is
+  dropped.
+- **A missing, corrupt or older store opens nothing extra,** and never holds up the main
+  window.
+
+A window that is not remembered keeps the placement it had before: each surface
+remembers the size and position of its last popped-out window, and the next pop-out of
+that surface opens there. Each surface also remembers whether its windows were kept on
+top, so the next one opens kept on top too. All three live in `shell-windows.json`: the
+per-surface bounds stay under `surfaces`, unchanged, and the kept-on-top surfaces
+(`onTop`) and the remembered windows (`remembered`) each get a section of their own
+beside it.
 
 ### 6. The route is `/window/{surfaceId}`, with the query keys the surface registered
 
@@ -230,10 +262,14 @@ Negative:
 - **Places that assume one window must change**: the single notification-centre
   listener, and the `FirstOrDefault()` window lookups behind app notifications and the
   Brain folder picker.
+- **A remembered window needs an identity that outlasts the run.** It keeps its window
+  key across starts, and it reports every jump and scope change to the store, so it
+  reopens on what it showed.
 
 Neutral:
 
-- **Nothing reopens at start.** Only each surface's last window bounds are remembered.
+- **Only a window the person remembered reopens at start.** By default nothing does, and
+  each surface keeps only its last window's bounds and whether it was kept on top.
 - **The phone is unchanged.** This record is about the desktop shell and the pages it
   serves.
 
@@ -251,8 +287,14 @@ Neutral:
 - **Keeping the enums and listing each surface in the shell.** Every window, page, tool
   and link would need its own copy of the list, and a module's screen would stay a shell
   edit.
-- **Restoring the window layout at start.** A layout of several windows across monitors
-  that changed is more often wrong than right. Each surface's last bounds are enough.
+- **Restoring the whole window layout at start, automatically.** A layout of several
+  windows across monitors that changed is more often wrong than right, and a window
+  popped out for a minute is not one a person wants back tomorrow. The narrower answer
+  is accepted instead: a person remembers the windows they want back (§5), so nothing
+  reopens on a guess.
+- **A remembered window that stays remembered after it is closed.** A window the person
+  closed would come back unasked at the next start. Closing it forgets it; only
+  **Remember this window** keeps a window across a quit.
 - **Tokens in `backlog://` links.** A 10-minute token is dead in a digest read the next
   morning. The protocol opens only the installed app, so it needs none.
 - **A feature flag for pop-out.** A window shows only a surface the catalog already
@@ -266,6 +308,10 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-04 | Both §4 toggles kept side by side after `main` landed **Keep on top**: the header reads title, scope chips, **Keep on top**, **Remember this window**, **Show in main window**. **Keep on top** keeps the pin; **Remember this window** wears Lucide's `bookmark` (`BookmarkIcon`). Both sit in `surface-window__actions`, so below 40rem they stay on the title's row. `IShellWindows` answers `CanKeepOnTop` and `CanRemember` apart, and `shell-windows.json` keeps `onTop` and `remembered` as sections of their own beside `surfaces`. | Two toggles on one glyph would read as one control, and the pin already meant on top. |
+| 2026-11-04 | §5's remembered windows built. `ShellWindowStore` keeps a `remembered` list (key, surface, query, bounds) beside `surfaces`, written only while one is remembered. A query value stored as null is left out on read. `ShellWindowReopenPlan` sorts the remembered windows into those to open and those whose surface `ISurfaceCatalog` no longer offers, which are forgotten. `ShellWindows.ReopenRemembered` runs from `App` once the main window is created. It reopens each window under its old key at its own bounds, clamped to a connected monitor, and one that throws is forgotten without stopping the rest. `SurfaceWindow` draws the **Remember this window** toggle through `IShellWindows.CanRemember`, which only the head's `ShellWindows` answers true. Each jump and chip press is reported through `ReportShowing`. `BookmarkIcon` joins the component library. Quitting, closing the window, and bounds after a restart have no unit test, because they live in the head; they are checked by hand. | The amendment's own row, below, built in the same pull request. |
+| 2026-11-04 | Amended §5: a person can remember a popped-out window, one window at a time. §4's header gains an icon-only toggle, **Remember this window**, in the desktop head, and none where a window has no key. A remembered window reopens on the next start, after the main window, on the surface and query it showed at quit, at its own last bounds, moved onto a connected monitor. Quitting keeps it; closing it, **Show in main window** or pressing the toggle again forgets it. `shell-windows.json` gains a section for remembered windows beside `surfaces`, which is unchanged. The default stays off. Rejected keeps the automatic layout restore out, now beside the opt-in that replaces it, and adds a remembered window that outlives its own close. The Consequences follow. Not built yet. | The repository owner wants chosen windows back after a restart without the app guessing a whole layout. |
+| 2026-11-04 | §4's header gains a **Keep on top** pin, and §5 remembers it per surface: `ShellWindowStore` keeps an `onTop` list beside the bounds in `shell-windows.json`, and `ShellWindows` sets the window's `OverlappedPresenter.IsAlwaysOnTop` and sets it again on the surface's next window. `IShellWindows` answers `CanKeepOnTop`, false by default, so the web harness and a browser tab draw no pin. Below 40rem a popped-out window is laid out as a docked list (`interaction-guidelines.md#shell-header`). | A Tasks window docked on a side monitor as the day's list was covered by other windows and spent its width on chrome. |
 | 2026-10-30 | Renumbered from 0042 to 0043: the file, its title, its entries in the ADR index and `09-architecture-decisions.md`, and every citation of it in the code, tests, plugins and devbook. | `main` took local ADR 0042 for the pull-request-state record while this one was in flight on `plan/shell-pop-out-windows`, so the closing merge would have landed two records numbered 0042. |
 | 2026-10-29 | §7's link-token cookie is set `Secure` as well as HttpOnly and SameSite=Strict. The listener is plain `http://localhost`, and a browser holds loopback to be a secure context, so Chromium, WebView2, Firefox and Safari keep the cookie and send it back there; the headless-Chromium circuit test is the proof. The HttpClient tests read their cookie jar under the address's `https` form, since `CookieContainer` sends a `Secure` cookie only to `https`. | CodeQL flagged the cookie for lacking `Secure` on the plan's closing pull request. |
 | 2026-10-29 | Renumbered from 0041 to 0042: the file, its title, its entries in the ADR index and `09-architecture-decisions.md`, and every citation of it in the code, tests, plugins and devbook. | `main` took local ADR 0041 for the agent-questions record while this one was in flight on `plan/shell-pop-out-windows`, so the closing merge would have landed two records numbered 0041. |

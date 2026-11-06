@@ -135,6 +135,7 @@ public sealed class AppFeatureSettingsStoreTests
                 TasksFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,
+                AppFeatureKeys.CopyEntries,
                 AppFeatures.AiAssistant,
                 AppFeatures.UsageMetrics
             ],

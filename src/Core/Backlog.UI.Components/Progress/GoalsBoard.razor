@@ -17,6 +17,26 @@
     leading + or # tolerated. A query that hides every row says No matches; clearing it
     shows them all. The query is the board's own and never reaches the host.
 
+    Each No goal row says how its work stands, drawn the way the open goal's columns draw
+    it: a task with its StatusDot (in progress, blocked) and the words after its title for
+    a screen reader, a pull request with its PullRequestStatus line — the gh pill carrying
+    its number, then the checks and approvals marks and "your review" — in place of the
+    plain number. A row the host handed no state draws its title, and a pull request its
+    number, as before.
+
+    With a host listening on OnAttach and at least one goal, each No goal row also leads
+    with a grip and can be carried onto a goal: the same shared pointer reorder, the row an
+    item of the goals column's data-list-owner under a "nogoal:" id so it never reads as a
+    goal, and every goal card an item of it too, so the hit test finds the whole card,
+    folded or open. The carried row is drawn set back and the card under the pointer
+    outlined as the drop target; anywhere else in the column the cursor says not-allowed
+    (interaction-guidelines.md#drop-indicators). Releasing over a goal attaches the row's
+    work to it through OnAttach, the path Attach… takes, unless a reading during the carry
+    took the row out of No goal; once the host has answered without a refusal, the live
+    region says so ("Attached ‹title› to ‹goal›."). Releasing anywhere else — another row, a
+    gap, off the column — or Escape attaches nothing. Attach… stays the keyboard's way in. While the host writes, a
+    row is not picked up.
+
     The open goal is edited in place, its rows detached and the goal deleted through
     GoalCard; each act reaches the host only when it listens (OnEditGoal, OnDetach,
     OnDeleteGoal, and OnQuickAddTask for the open goal's "New task" row, with the goal and
@@ -71,13 +91,13 @@
 
     <Alert Message="@Error" TestId="@Part("error")" />
 
-    @if (CanMoveGoals)
+    @if (CanMoveGoals || CanDropAttach)
     {
-        <p class="sr-only" role="status" aria-live="polite" data-testid="@Part("move-announcement")">@_moveAnnouncement</p>
+        <p class="sr-only" role="status" aria-live="polite" data-testid="@Part("move-announcement")">@_announcement</p>
     }
 
     <div class="goals-board__layout">
-        <div class="goals-board__goals" data-testid="@Part("goals")" data-list-owner="@(CanMoveGoals ? _id : null)">
+        <div class="@(_carrying is not null && _dropOn is null ? "goals-board__goals goals-board__goals--no-drop" : "goals-board__goals")" data-testid="@Part("goals")" data-list-owner="@(CanMoveGoals || CanDropAttach ? _id : null)">
             <SectionHeader Title="Goals" Level="2" CssClass="goals-board__section-header">
                 <Actions>
                     <Badge Kind="tone" Slug="quiet" TestId="@Part("goals-count")">@Model.Goals.Count</Badge>
@@ -107,6 +127,8 @@
                               CanMoveUp="@(place > 0)"
                               CanMoveDown="@(place < shown.Count - 1)"
                               Dragging="@(goal.Id == _dragging)"
+                              DropTarget="CanDropAttach"
+                              DropArmed="@(_carrying is not null && goal.Id == _dropOn)"
                               Goal="goal"
                               Expanded="@(goal.Id == _selected)"
                               OnToggle="() => ToggleAsync(goal.Id)"
@@ -142,13 +164,32 @@
                         }
                         @foreach (var item in noGoalShown)
                         {
-                            <div class="goals-board__no-goal-row" data-kind="@WorkItemSearch.KindLabel(item.Kind)">
+                            var rowId = NoGoalRowId(item);
+                            <div class="@(rowId == _carryingId ? "goals-board__no-goal-row goals-board__no-goal-row--carried" : "goals-board__no-goal-row")"
+                                 data-kind="@WorkItemSearch.KindLabel(item.Kind)"
+                                 data-status="@(item.Status is { } status ? GoalTaskStatusText.Slug(status) : null)"
+                                 data-reorder-item="@(CanDropAttach ? rowId : null)"
+                                 data-draggable="@(CanDropAttach ? "true" : null)"
+                                 data-testid="@Part($"no-goal-row-{item.Subject.Key}")">
+                                @if (CanDropAttach)
+                                {
+                                    <span class="goals-board__no-goal-grip" data-reorder-grip aria-hidden="true" data-testid="@Part($"no-goal-grip-{item.Subject.Key}")">⠿</span>
+                                }
+                                @if (item.Status is { } dotted)
+                                {
+                                    <StatusDot Tone="@GoalTaskStatusText.Tone(dotted)" />
+                                }
+                                else if (item.PullRequest is { } pull)
+                                {
+                                    <PullRequestStatus Model="pull" CssClass="goals-board__no-goal-pull" TestId="@Part($"no-goal-pull-request-{pull.Number}")" />
+                                }
                                 <span class="goals-board__no-goal-item">
-                                    @if (item.Number is { } number)
+                                    @if (item.PullRequest is null && item.Number is { } number)
                                     {
                                         <span class="goals-board__number">#@number</span>@(" ")
                                     }
-                                    @item.Title
+                                    @* One line: a line break here would be read aloud as a space before the comma. *@
+                                    @item.Title@if (item.Status is { } said) {<span class="sr-only">, @GoalTaskStatusText.Words(said)</span>}
                                 </span>
                                 <AppButton Size="ButtonSize.Small"
                                            Variant="ButtonVariant.Ghost"
@@ -339,11 +380,27 @@
     /// reading — a new <see cref="Model"/> — says what was stored.</summary>
     private List<string>? _placed;
     private GoalsBoardModel? _modelSeen;
-    private string? _moveAnnouncement;
+    private string? _announcement;
 
     /// <summary>The goal held in a pointer drag, and the goal it is over.</summary>
     private string? _dragging;
     private string? _over;
+
+    /// <summary>The No goal row carried in a pointer drag, its reorder id, and the goal it
+    /// would attach to on a drop.</summary>
+    private GoalsItem? _carrying;
+    private string? _carryingId;
+    private string? _dropOn;
+
+    /// <summary>The prefix a No goal row's reorder id carries, so it is never read as a
+    /// goal's id.</summary>
+    private const string NoGoalPrefix = "nogoal:";
+
+    /// <summary>Whether a No goal row can be carried onto a goal: a host listening, and a
+    /// goal to drop it on, as Attach… asks.</summary>
+    private bool CanDropAttach => OnAttach.HasDelegate && Model.Goals.Count > 0;
+
+    private static string NoGoalRowId(GoalsItem item) => NoGoalPrefix + item.Subject.Key;
     private DotNetObjectReference<GoalsBoard>? _dragSelf;
 
     /// <summary>The goals in the order drawn: the model's, or the one a move drew at once.</summary>
@@ -389,7 +446,7 @@
         order.RemoveAt(from);
         order.Insert(to, goal);
         _placed = [.. order.Select(g => g.Id)];
-        _moveAnnouncement = $"Moved {goal.Title} to position {to + 1} of {order.Count}.";
+        _announcement = $"Moved {goal.Title} to position {to + 1} of {order.Count}.";
 
         await OnMoveGoal.InvokeAsync(new GoalMoveRequest(goalId, to));
     }
@@ -400,7 +457,22 @@
     [JSInvokable]
     public void PointerDragStart(string id)
     {
-        if (!CanMoveGoals || Busy || Model.Goals.All(goal => goal.Id != id)) return;
+        if (Busy) return;
+
+        if (id.StartsWith(NoGoalPrefix, StringComparison.Ordinal))
+        {
+            // A No goal row picked up by its grip is carried, never reordered: nothing moves
+            // until a drop on a goal.
+            if (!CanDropAttach || NoGoalShown.FirstOrDefault(item => NoGoalRowId(item) == id) is not { } row) return;
+
+            ClearCarry();
+            _carrying = row;
+            _carryingId = id;
+            StateHasChanged();
+            return;
+        }
+
+        if (!CanMoveGoals || Model.Goals.All(goal => goal.Id != id)) return;
 
         _dragging = id;
         _over = null;
@@ -412,20 +484,59 @@
     /// now sits under the pointer, so taking either as one would put the order back and bring
     /// the target under the pointer again, frame after frame — the last target stands, as
     /// <c>TaskListView.DragOver</c> keeps it, and Escape is the way out.</summary>
+    /// <remarks>A carried No goal row takes the goal under the pointer as its drop target, and
+    /// anything else — another row, a gap — as none: a carry reflows nothing, so there is no
+    /// oscillation to guard against, and the outline says at every moment where a drop
+    /// lands. A goal held in a reorder passes over No goal rows as over a gap.</remarks>
     [JSInvokable]
     public void PointerDragOver(string? id)
     {
-        if (_dragging is not { } dragging || id is null || string.Equals(id, dragging, StringComparison.Ordinal)) return;
+        if (_carrying is not null)
+        {
+            var target = id is not null && Model.Goals.Any(goal => goal.Id == id) ? id : null;
+            if (target == _dropOn) return;
+
+            _dropOn = target;
+            StateHasChanged();
+            return;
+        }
+
+        if (_dragging is not { } dragging || id is null || id.StartsWith(NoGoalPrefix, StringComparison.Ordinal)
+            || string.Equals(id, dragging, StringComparison.Ordinal)) return;
 
         _over = id;
         StateHasChanged();
     }
 
     /// <summary>The pointer was released: the held goal takes the place of the last goal it
-    /// was over, as the board was already showing. Never over another goal, nothing moves.</summary>
+    /// was over, as the board was already showing. Never over another goal, nothing moves.
+    /// A carried No goal row released over a goal is attached to it, through the path
+    /// Attach… takes, and the drop is said; released anywhere else, nothing is.</summary>
     [JSInvokable]
     public async Task PointerDragEnd()
     {
+        var (carrying, dropOn) = (_carrying, _dropOn);
+        ClearCarry();
+
+        if (carrying is not null)
+        {
+            // A reading that landed during the carry may have taken the row out of No goal —
+            // attached elsewhere, finished — so the drop attaches only what No goal still holds.
+            if (dropOn is not null
+                && Model.Goals.FirstOrDefault(goal => goal.Id == dropOn) is { } goal
+                && Model.NoGoal.Any(row => row.Subject == carrying.Subject))
+            {
+                await OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, carrying.Subject));
+
+                // Said once the host has answered, and only when it did not refuse: a refusal
+                // shows in Error instead.
+                if (Error is null) _announcement = $"Attached {carrying.Title} to {goal.Title}.";
+            }
+
+            StateHasChanged();
+            return;
+        }
+
         var (dragging, over) = (_dragging, _over);
         _dragging = null;
         _over = null;
@@ -440,13 +551,22 @@
     }
 
     /// <summary>The drag was taken away — Escape, a cancelled pointer, the window losing
-    /// focus: the goal goes back where it was.</summary>
+    /// focus: the goal goes back where it was, and a carried row attaches nothing.</summary>
     [JSInvokable]
     public void PointerDragCancel()
     {
         _dragging = null;
         _over = null;
+        ClearCarry();
         StateHasChanged();
+    }
+
+    /// <summary>Puts down a carried No goal row, if any, and its drop target.</summary>
+    private void ClearCarry()
+    {
+        _carrying = null;
+        _carryingId = null;
+        _dropOn = null;
     }
 
     public async ValueTask DisposeAsync()
@@ -494,7 +614,7 @@
     /// is told, so it never believes no goal is open.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (CanMoveGoals && _dragSelf is null)
+        if ((CanMoveGoals || CanDropAttach) && _dragSelf is null)
         {
             _dragSelf = DotNetObjectReference.Create(this);
 

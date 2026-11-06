@@ -126,7 +126,7 @@ internal sealed class BrainPaneMode(IServiceProvider services, IDevbookPersonalS
     };
 
     /// <summary>Every link the Brain holds into the repository, for the Domain
-    /// view's badges and boxes (local ADR 0045), in Devbook's own words.</summary>
+    /// view's badges and boxes (local ADR 0047), in Devbook's own words.</summary>
     public async Task<IReadOnlyList<DevbookChapterNote>> ChapterNotesAsync(string repositoryAlias, CancellationToken cancellationToken = default)
     {
         if (services.GetService<IBrainBacklinks>() is not { } backlinks) return [];

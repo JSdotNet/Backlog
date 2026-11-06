@@ -14,6 +14,10 @@
     alone, and so it does when the read never asked the rules — then with no verdict in
     the spoken words either. A host that draws the number itself — the Pull requests pane's row — passes
     ShowNumber="false" and gets the marks alone.
+
+    An open or draft pull request that asks for the reader's review ends on "your review",
+    after the approvals mark — or where it would be when no approvals mark draws — in the
+    muted ink, so the words carry it. A screen reader hears "your review is requested".
 *@
 <span class="@ClassValue" data-testid="@TestId" data-state="@Model.Slug">
     @if (ShowNumber)
@@ -57,6 +61,13 @@
                 <UserCheckIcon Size="14" CssClass="pull-request-status__glyph" />
                 <span class="pull-request-status__count" aria-hidden="true">@Model.ApprovalsCount</span>
                 <span class="sr-only">@Model.ApprovalsSpoken</span>
+            </span>
+        }
+        @if (Model.ShowsYourReview)
+        {
+            <span class="pull-request-status__your-review" data-testid="@Part("your-review")">
+                <span aria-hidden="true">@PullRequestStatusModel.YourReview</span>
+                <span class="sr-only">@PullRequestStatusModel.YourReviewSpoken</span>
             </span>
         }
     }

@@ -135,10 +135,15 @@ public static class MauiProgram
             AzureFoundrySettings = _ => new AzureFoundrySettingsStore(),
             // The desktop head's tools adapter runs the CLIs, and reads this head's
             // MCP endpoint - registered below - to describe the Backlog server's row.
+            // Its backlog row installs the question hooks naming this build's own script,
+            // the one written below under this build's app data folder (local ADR 0041).
             DevToolService = sp => new DevToolService(
                 sp.GetRequiredService<ITaskStore>(),
                 sp.GetRequiredService<IMcpEndpointSource>(),
-                sp.GetService<ILogger<DevToolService>>()),
+                sp.GetService<ILogger<DevToolService>>())
+            {
+                QuestionHookScriptPath = AskBacklogHook.PathUnder(appData)
+            },
             // Beside settings.json in the same per-user folder, and never in the
             // Brain folder itself (local ADR 0026).
             BrainSettings = _ => new BrainSettingsStore(Path.Combine(appData, BrainSettingsStore.FileName)),

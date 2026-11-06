@@ -69,6 +69,8 @@ public sealed class GoalScreenTests
         Assert.DoesNotContain("checks", visible, StringComparison.Ordinal);
         Assert.DoesNotContain("approvals", visible, StringComparison.Ordinal);
         Assert.Contains("badge--gh-open", mapping.QuerySelector("[data-testid='goal-item-pr-number']")!.ClassList);
+        // A desktop last read it asking for the reader's review: the line ends on "your review".
+        Assert.Equal("your review", mapping.QuerySelector("[data-testid='goal-item-pr-your-review'] [aria-hidden='true']")!.TextContent);
 
         var task = Assert.Single(app.FindAll("[data-testid='goal-task']"));
         Assert.Contains("Invoice PDF export", task.TextContent, StringComparison.Ordinal);

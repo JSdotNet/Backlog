@@ -75,7 +75,7 @@ public sealed record DomainRequirementGroup(
 }
 
 /// <summary>
-/// Reads the Requirements page of the Domain view (local ADR 0045) from a
+/// Reads the Requirements page of the Domain view (local ADR 0047) from a
 /// context's files: per feature, each requirement with its SHALL sentence and its
 /// proof, each scenario as Given / When / Then rows. Pure, like
 /// <see cref="DomainUnits"/>.

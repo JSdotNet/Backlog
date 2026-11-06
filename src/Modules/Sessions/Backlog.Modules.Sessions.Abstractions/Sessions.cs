@@ -21,12 +21,15 @@ public enum AgentSessionKind
 /// <summary>
 /// How far along a session is.
 /// <para>
-/// Three members, not five. The control library's <c>IntegrationSessionState</c>
-/// also carries Starting, Waiting and Failed, and none of those is derivable from
-/// what a session leaves on disk: a transcript that stops says nothing about
-/// whether it was answered, abandoned or crashed. Claiming Failed from an absent
-/// file would be inventing a fact, so this enum stops at what the files support
-/// and the pane maps these three onto the library's vocabulary.
+/// Four members, not five. Running, Stalled and Finished are what a session leaves on
+/// disk supports. Waiting is not read from a file — a transcript that stops says
+/// nothing about whether a question is pending — but from the question relay: a live
+/// session holding an open Waiting Question is Waiting
+/// (<see cref="WaitingQuestions.StateWith"/>, local ADR 0041). The control library's
+/// <c>IntegrationSessionState</c> also carries Starting and Failed, and neither is
+/// derivable: a transcript that stops says nothing about whether it was answered,
+/// abandoned or crashed, and claiming Failed from an absent file would be inventing a
+/// fact. The pane maps these four onto the library's vocabulary.
 /// </para>
 /// </summary>
 public enum AgentSessionState

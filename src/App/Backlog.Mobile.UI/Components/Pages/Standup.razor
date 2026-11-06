@@ -31,7 +31,8 @@
 <PageTitle>Stand-up</PageTitle>
 
 <header class="standup-heading">
-    <h1>Stand-up</h1>
+    @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+    <h1 class="sr-only">Stand-up</h1>
     <IconButton AriaLabel="Refresh" Title="Refresh the stand-up" Disabled="_refreshing"
                 OnClick="RefreshAsync" CssClass="standup-heading__refresh" TestId="standup-refresh">
         <RefreshCwIcon Size="20" />

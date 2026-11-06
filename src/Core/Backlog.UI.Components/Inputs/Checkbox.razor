@@ -19,6 +19,14 @@
     selection looked plainly unchecked and `aria-checked` was carrying the whole
     state on its own. `.devbook/design/interaction-guidelines.md#focus-and-selection`
     asks for the indeterminate state by name, so it has to be visible.
+
+    Busy is ToggleButton's Busy: the act the box belongs to is running, so the box
+    keeps its tab stop (.devbook/design/interaction-guidelines.md#accessibility),
+    says aria-disabled, and drops a change. Dropping it in the handler alone is not
+    enough: the browser has already flipped the box, and a re-render with the same
+    Checked writes nothing back. So the click's default is prevented too, which
+    stops the flip, from the pointer and from Space alike. Disabled is a standing
+    state and keeps the native attribute.
 *@
 
 <label class="@ClassValue" data-testid="@TestId">
@@ -27,7 +35,9 @@
            type="checkbox"
            checked="@Checked"
            disabled="@Disabled"
+           aria-disabled="@(Busy && !Disabled ? "true" : null)"
            aria-checked="@AriaChecked"
+           @onclick:preventDefault="Busy"
            @onchange="OnChangeAsync"
            @attributes="AdditionalAttributes" />
     <span class="checkbox__label">@Label</span>
@@ -54,6 +64,11 @@
 
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>Ignores a change without removing the box from the tab order, so
+    /// focus survives while the act it belongs to runs; see <see cref="ToggleButton.Busy"/>.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
 
     /// <summary>Some but not all of whatever this box stands for. It wins over
     /// <see cref="Checked"/> in both places the state is expressed — the
@@ -90,6 +105,8 @@
 
     private Task OnChangeAsync(ChangeEventArgs e)
     {
+        if (Busy) return Task.CompletedTask;
+
         Checked = e.Value is bool value && value;
         return CheckedChanged.InvokeAsync(Checked);
     }

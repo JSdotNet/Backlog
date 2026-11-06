@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: draft
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -12,52 +11,36 @@ status: draft
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-What Progress owns and what it leaves to Tasks and Roadmap Planning is in
-[context.md](context.md). The model holds no copy of a task, a plan, a pull
-request or a session. A goal names each by its identity, and asks their owners for their state on
-every reading.
+What Progress owns and what it leaves to Tasks and Roadmap Planning is in [context.md](context.md). The model holds no copy of a task, plan, pull request or session. A goal names each by its identity and asks its owner for its state on every reading.
 
 ## Goal
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/domain.md#iteration]
 aliases: [goal, goals]
 ```
 
-Something a person is working towards, and when it should be reached by. A goal
-holds:
+Something a person is working towards, and when it should be reached. A goal holds:
 
 - its `title`, such as "Customers get paid faster";
 - an optional `outcome`, one line saying what is true once it is reached;
 - an optional `due date`;
-- its [Goal Attachments](#goal-attachment): the plans, tasks, pull requests and
-  sessions whose work reaches it;
+- its [Goal Attachments](#goal-attachment): the plans, tasks, pull requests and sessions whose work reaches it;
 - the moment it was last changed, which travels with it to every device.
 
-How far it has come is its [Goal Progress](#goal-progress), and whether it lands in
-time is its [Goal Forecast](#goal-forecast). Neither is stored: both are read afresh
-from the attached work on every reading, so a task finished elsewhere moves the goal
-at once.
+How far it has come is its [Goal Progress](#goal-progress), and whether it lands in time is its [Goal Forecast](#goal-forecast). Both are read afresh from the attached work on every reading, so a task finished elsewhere moves the goal at once.
 
-A goal without a due date is due on the last day of [next](#iteration), in the
-person's chosen iteration length. That day is worked out afresh on every reading and
-never stored, so the goal moves with the iteration until the person gives it a date.
+A goal without a due date is due on the last day of [next](#iteration), in the person's chosen iteration length. That day is worked out on every reading, so the goal moves with the iteration until the person gives it a date.
 
-The goal is the consistency boundary for its own attachments: one item is attached
-once, and the counting rules see the whole set. That one item belongs to at most one
-goal is a rule across goals, held by [Goal Assignment](#goal-assignment). The rules
-the goal holds are in [its invariants](domain.invariants.md#goal).
+The goal is the consistency boundary for its own attachments: one item is attached once, and the counting rules see the whole set. That an item belongs to at most one goal is a rule across goals, held by [Goal Assignment](#goal-assignment). The goal's rules are in [its invariants](domain.invariants.md#goal).
 
-Deleting a goal removes it and its attachments. The plans, tasks and pull requests
-it held are unchanged and belong to no goal from then on.
+Deleting a goal removes it and its attachments. The work it held is unchanged and belongs to no goal.
 
 ### Goal Attachment
 
 ```meta
 type: value-object
-status: draft
 aliases: [attached item, GoalAttachment]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
@@ -71,21 +54,9 @@ One piece of work attached to a goal, of one of four kinds:
 | Pull request | its repository and number | the pull request alone |
 | Session | its agent and session id | the session, the tasks linked to it, and the pull request on its branch |
 
-A plan counts exactly the entries its roadmap item's bar gathers by tag: the ones
-filed under `+tag`, and the ones carrying the bare tag, as an entry filed before the
-sigil does or one tagged `#tag` is stored. A person tag spelled like the plan is not
-one of them. Tasks owns that rule, and whoever hands Progress its tasks names each
-task's slugs by it, so a goal and the roadmap never count a plan differently.
+A plan counts exactly the entries its roadmap item's bar gathers by tag. These are the entries filed under `+tag` and those carrying the bare tag, as an entry filed before the sigil or tagged `#tag` is stored. A person tag spelled like the plan is not one of them. Tasks owns that rule, and whoever hands Progress its tasks names each task's slugs by it, so a goal and the roadmap never count a plan differently.
 
-A session is named by its [Session Identity](../sessions/domain.md#session-identity):
-the agent and the full id the agent gave it, because a session id is unique only within
-its agent. The short id the screens show, "Session abcd1234", only finds a session and
-is never stored. The **tasks linked to it** are the tasks whose `session`
-[Projection Ref](../tasks/domain.md#projection-ref) names its session id. **The pull
-request on its branch** is the newest pull request whose head is the session's branch,
-in its resolved repository; a session with no branch or no resolved repository has
-none. Sessions owns the session, Tasks the link and GitHub the pull request, and all
-three are read on every reading (local
+A session is named by its [Session Identity](../sessions/domain.md#session-identity): the agent and the full id the agent gave it, because a session id is unique only within its agent. The short id the screens show, "Session abcd1234", only finds a session and is never stored. Its **linked tasks** are the tasks whose `session` [Projection Ref](../tasks/domain.md#projection-ref) names its session id. Its **branch pull request** is the newest one whose head is the session's branch, in its resolved repository; a session with no branch or resolved repository has none. Sessions owns the session, Tasks the link and GitHub the pull request, and all three are read on every reading (local
 [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)).
 
 Equality is by kind and identity. The attachment also stores the day it was made.
@@ -94,117 +65,75 @@ Equality is by kind and identity. The attachment also stores the day it was made
 
 ```meta
 type: value-object
-status: draft
 aliases: [progress, done/total, GoalProgress]
 related: [.devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
 ```
 
-How much of a goal is [done](#done), as `done/total` over its items. Each item counts
-once:
+How much of a goal is [done](#done), as `done/total` over its items. Each item counts once:
 
 - an attached plan counts each of its entries;
-- an attached task counts 1, and the pull requests it links ride along with it and
-  do not count again;
+- an attached task counts 1, and the pull requests it links do not count again;
 - an attached pull request counts 1;
-- an attached session counts 1, and the tasks linked to it and the pull request on its
-  branch ride along with it and do not count again;
-- a task that is both attached directly and an entry of an attached plan counts once,
-  and so does a pull request attached directly that an attached task already links;
-- a session one of whose linked tasks the goal counts on its own does not count again,
-  and a pull request attached directly that is an attached session's branch pull request
-  counts once, as the session.
+- an attached session counts 1, and its linked tasks and branch pull request do not count again;
+- a task attached directly and also an entry of an attached plan counts once;
+- a pull request attached directly that an attached task already links counts once;
+- a session one of whose linked tasks the goal counts on its own does not count again;
+- a pull request attached directly that is an attached session's branch pull request counts once, as the session.
 
-Beside `done/total` it carries how the open items stand: doing, blocked and to do. An
-open session is blocked when one of its linked tasks is marked blocked. It is doing
-when it is running or stalled, when its pull request is open or a draft, or when a
-linked task is in progress, and to do otherwise. Goal Progress also carries how many items were done in the last iteration, shown as `+3`. Equality
-is by value.
+Beside `done/total` it carries how the open items stand: doing, blocked and to do. An open session is blocked when one of its linked tasks is marked blocked. It is doing when it is running or stalled, its pull request is open or a draft, or a linked task is in progress. Otherwise it is to do. It also carries how many items were done in the last iteration, shown as `+3`. Equality is by value.
 
 ### Goal Forecast
 
 ```meta
 type: value-object
-status: draft
 aliases: [forecast, landing date, lands, At risk, On track, GoalForecast]
 related: [.devbook/domain/progress/requirements.md#the-goals-view]
 ```
 
-When a goal is expected to land, and whether that is in time. The **landing date**
-comes from the goal's done rate: the items it had done in each of the last four
-iterations of the person's chosen [Iteration](#iteration) length, averaged. The open
-items at that rate give how many more iterations it needs, and the landing date is
-the last day of the last of them.
+When a goal is expected to land, and whether that is in time. The **landing date** comes from the goal's done rate: the items it had done in each of the last four iterations of the person's chosen [Iteration](#iteration) length, averaged. The open items at that rate give the iterations still needed, and the landing date is the last day of the last of them.
 
-A goal is **At risk** when its landing date falls after its due date, or, for a goal
-without one, after the last day of [next](#iteration). It is also At risk when an open
-[Impediment](#impediment) [holds it back](#holds-back), even one that reads
-[Ready to resolve](#ready-to-resolve): only the person's Resolve lifts it. Otherwise
-it is **On track**.
-A goal with no open item is On track unless an open impediment holds it back. A goal that did no item in the last four
-iterations has no landing date, and is At risk while it has open items.
+A goal is **At risk** when its landing date falls after its due date, or, for a goal without one, after the last day of [next](#iteration). It is also At risk when an open [Impediment](#impediment) [holds it back](#holds-back), even one that reads [Ready to resolve](#ready-to-resolve): only the person's Resolve lifts it. Otherwise it is **On track**. A goal with no open item is On track unless an open impediment holds it back. A goal that did no item in the last four iterations has no landing date, and is At risk while it has open items.
 
 ## Goal Assignment
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#goal-assignment, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
 aliases: [GoalAssignment]
 ```
 
-Attaches an item to a goal, and holds the one rule that spans goals: an item belongs
-to at most one goal. It is a service because no single goal can see the others. It
-treats a plan's entries the same way: an entry that another goal holds as an attached
-task counts in that goal, and not in the goal that holds its plan.
+Attaches an item to a goal, and holds the one rule that spans goals: an item belongs to at most one goal. It is a service because no single goal can see the others. A plan's entry that another goal holds as an attached task counts in that goal, not in the goal that holds its plan.
 
-An item another goal holds is refused, naming that goal, unless the attach asks to
-move it (`moveFromOtherGoal`). The move is opt-in: the view asks the person first and
-attaches again with the move on yes. Then the item leaves the other goal in the same
-change, and both goals are saved, so it is never in two.
+An item another goal holds is refused, naming that goal, unless the attach asks to move it (`moveFromOtherGoal`). The view asks the person first and attaches again with the move on yes. The item then leaves the other goal in the same change, and both goals are saved, so it is never in two.
 
-Invocation semantics: command-invoked, on every attach. Its rules are in
-[its invariants](domain.invariants.md#goal-assignment).
+Invocation semantics: command-invoked, on every attach. Its rules are in [its invariants](domain.invariants.md#goal-assignment).
 
 ## Impediment
 
 ```meta
 type: aggregate
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#impediment, .devbook/domain/progress/features.md#tracking-an-impediment]
 aliases: [impediment, impediments, blocker]
 ```
 
-Something outside the person's own work that holds it back, tracked until it is
-resolved. An impediment holds:
+Something outside the person's own work that holds it back, tracked until resolved. An impediment holds:
 
 - its `title`, such as "Bank sample files missing";
 - its [Impediment State](#impediment-state);
-- who it was reported or escalated to, as a name in words, such as "bank support" or
-  "account manager";
-- who handles it, as a name in words;
+- who it was reported or escalated to, and who handles it, each a name in words such as "bank support";
 - an optional `check again` date, the day the person means to look at it next;
 - an optional `note`;
 - its history of [State Changes](#state-change);
-- the tasks, pull requests and plans it [Holds Back](#holds-back), and through them
-  the goals it holds back.
+- the tasks, pull requests and plans it [Holds Back](#holds-back), and through them the goals it holds back.
 
-A person raises an impediment and links the work it holds back. Nothing raises one
-for them: a task's [blocked mark](../tasks/features.md#marking-a-task-blocked) is Tasks'
-alone and raises nothing here (local
-[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
+A person raises an impediment and links the work it holds back. Nothing raises one for them: a task's [blocked mark](../tasks/features.md#marking-a-task-blocked) raises nothing here (local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
 
-An impediment is open until it is Resolved, and only a person resolves it. Once every
-item it holds back is [settled](#settled), it reads
-[Ready to resolve](#ready-to-resolve), which tells the person it may go and changes
-nothing on it. Its age is the working days since it was raised, counted in the person's
-[working week](../roadmap/domain.md#working-week). The rules it holds are in
-[its invariants](domain.invariants.md#impediment).
+An impediment is open until a person resolves it. Once every item it holds back is [settled](#settled), it reads [Ready to resolve](#ready-to-resolve), which changes nothing on it. Its age is the working days since it was raised, counted in the person's [working week](../roadmap/domain.md#working-week). Its rules are in [its invariants](domain.invariants.md#impediment).
 
 ### Impediment State
 
 ```meta
 type: enum
-status: draft
 aliases: [ImpedimentState, impediment state]
 related: [.devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
@@ -225,8 +154,7 @@ stateDiagram-v2
 
 - `New`: raised, and not yet reported to anyone.
 - `Reported`: told to whoever can remove it.
-- `Escalated`: taken higher because the report was not enough. A state an impediment
-  may skip.
+- `Escalated`: taken higher because the report was not enough. An impediment may skip it.
 - `BeingHandled`: someone is working on removing it. Shown as "Being handled".
 - `Resolved`: no longer in the way.
 
@@ -234,95 +162,66 @@ stateDiagram-v2
 
 ```meta
 type: entity
-status: draft
 aliases: [history, StateChange]
 ```
 
-One step in an impediment's history: the state it moved to, the day it moved, and
-who it was with at that step, such as "Reported · bank support". The history is
-in the order the steps happened, and the first step is always `New`.
+One step in an impediment's history: the state it moved to, the day, and who it was with, such as "Reported · bank support". The history is in the order the steps happened, and the first step is always `New`.
 
 ### Holds Back
 
 ```meta
 type: value-object
-status: draft
 aliases: [holds back, held-back item, blocks, HoldsBack]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.invariants.md#impediment]
 ```
 
-A link from an impediment to one piece of work it holds back. A held-back item is one
-of three kinds, each named the way a [Goal Attachment](#goal-attachment) names it:
+A link from an impediment to one piece of work it holds back, of three kinds, each named as a [Goal Attachment](#goal-attachment) names it:
 
 | Kind | Named by | The goal it holds back |
 |---|---|---|
 | Task | its task id | the goal that counts the task |
-| Pull request | its repository and number | the goal that counts the pull request: attached directly, linked by a task the goal counts, or on the branch of a session the goal counts |
-| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts one of the entries the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), including entries filed later |
+| Pull request | its repository and number | the goal that counts the pull request |
+| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts an entry the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), later entries included |
 
-A pull request is named by its own identity, not reached through a task, so one that
-no task links can be held back too. A plan is named by its tag, not by the entries it
-had when it was linked, so an entry filed later is held back as well. A session is not
-a kind an impediment holds back.
+A goal counts a pull request attached directly, linked by a task the goal counts, or
+on the branch of a session the goal counts.
 
-Equality is by kind and identity. Linking or unlinking an item changes nothing on the
-work it names. The goals an impediment holds back are the goals of its items, read
-afresh on every reading. An item stays held back once its work is
-[settled](#settled), until the person unlinks it or resolves the impediment.
+A pull request is named by its own identity, so one that no task links can be held back too. A plan is named by its tag, so an entry filed later is held back as well. A session is not a kind an impediment holds back.
+
+Equality is by kind and identity. Linking or unlinking an item changes nothing on the work it names. The goals an impediment holds back are the goals of its items, read on every reading. An item stays held back once its work is [settled](#settled), until the person unlinks it or resolves the impediment.
 
 ## Blocked Task Policy
 
 ```meta
 type: domain-service
-status: deprecated
 related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 aliases: [BlockedTaskPolicy]
 ```
 
-Retired. The policy raised a `New` impediment, titled with the task's title, whenever
-a task gained the blocked mark and no impediment tracked that block. It raised them
-and never resolved one, so the stand-up filled with impediments whose tasks were long
-done. A person now [raises an impediment](features.md#raising-an-impediment) and links
-what it holds back, and a task's blocked mark raises nothing (local
-[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
+Retired. The policy raised a `New` impediment, titled with the task's title, whenever a task gained the blocked mark and no impediment tracked that block. It never resolved one, so the stand-up filled with impediments whose tasks were long done. A person now [raises an impediment](features.md#raising-an-impediment) and links what it holds back (local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
 
-The impediments it raised are kept as they are. Each holds back the one task it was
-raised for, so it reads [Ready to resolve](#ready-to-resolve) once that task is
-[settled](#settled), and the person resolves it.
+The impediments it raised are kept. Each holds back the one task it was raised for, so it reads [Ready to resolve](#ready-to-resolve) once that task is [settled](#settled), and the person resolves it.
 
-Invocation semantics: it was an event-triggered policy, run by an adapter beside
-Progress that heard every task written on the device. Nothing runs it now.
+Invocation semantics: it was event-triggered, run by an adapter that heard every task written on the device. Nothing runs it now.
 
 ## Stand-up Reading
 
 ```meta
 type: domain-service
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
 aliases: [StandUpReading]
 ```
 
-Reads the goals and the impediments against the current state of the work they name,
-over one [Iteration](#iteration). It resolves each goal's items, decides which are
-[done](#done), and gives each goal its [Goal Progress](#goal-progress) and
-[Goal Forecast](#goal-forecast). It gives the four blocks of the
-[stand-up](#stand-up): the goals, what was finished in the last window, what is
-[planned](#planned) for the next, and the open impediments.
+Reads the goals and impediments against the current state of the work they name, over one [Iteration](#iteration). It resolves each goal's items, decides which are [done](#done), and gives each goal its [Goal Progress](#goal-progress) and [Goal Forecast](#goal-forecast). It gives the four blocks of the [stand-up](#stand-up): the goals, what was finished in the last window, what is [planned](#planned) for the next, and the open impediments.
 
-For each open impediment it also reads whether every item the impediment holds back
-is [settled](#settled), and so whether it is [Ready to resolve](#ready-to-resolve).
-A task's status comes from Tasks, a plan's entries from the tasks gathered by its tag,
-and a pull request's state from GitHub as a desktop last read it. The rules of that
-reading are in [its invariants](domain.invariants.md#stand-up-reading).
+For each open impediment it reads whether every held-back item is [settled](#settled), and so whether it is [Ready to resolve](#ready-to-resolve). A task's status comes from Tasks, a plan's entries from the tasks gathered by its tag, and a pull request's state from GitHub as a desktop last read it. The rules are in [its invariants](domain.invariants.md#stand-up-reading).
 
-Invocation semantics: query/composition-oriented. It stores nothing, and it moves no
-impediment.
+Invocation semantics: query/composition-oriented. It stores nothing and moves no impediment.
 
 ## Shared Value Objects
 
 ```meta
 type: shared-value-objects
-status: draft
 related: [.devbook/domain/progress/domain.invariants.md#iteration]
 ```
 
@@ -332,25 +231,22 @@ related: [.devbook/domain/progress/domain.invariants.md#iteration]
 
 ```meta
 type: value-object
-status: draft
 aliases: [iteration, window, last, next, Iteration]
 related: [.devbook/domain/progress/domain.invariants.md#iteration, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
 ```
 
-A viewing window over the calendar, not a thing anyone creates or closes. It is
-shared by the goals, the impediments and the stand-up. Its **length** is one of four:
+A viewing window over the calendar that nobody creates or closes, shared by the goals, impediments and stand-up. Its **length** is one of four:
 
 | Length | One window |
 |---|---|
 | Day | one working day of the person's [working week](../roadmap/domain.md#working-week) |
 | Week | Monday to Friday |
-| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it; until a start is chosen, from the Monday of the current week |
+| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it |
 | Month | one calendar month, from its first day to its last |
 
-**Next** is the window that holds today. When today falls in no window, such as a
-Saturday in a Monday-to-Friday week, next is the first window after today. **Last** is
-the window just before next. On Saturday 17 October 2026, with Week chosen, last is
-12 to 16 October and next is 19 to 23 October.
+Until a person chooses a two-week start, two-week windows count from the Monday of the current week.
+
+**Next** is the window that holds today, or the first window after today when it falls in none, such as a Saturday in a Monday-to-Friday week. **Last** is the window just before next. On Saturday 17 October 2026, with Week chosen, last is 12 to 16 October and next is 19 to 23 October.
 
 Equality is by length and first day.
 
@@ -358,34 +254,23 @@ Equality is by length and first day.
 
 ```meta
 type: ubiquitous-language
-status: draft
 ```
 
 ### Done
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed, .devbook/domain/sessions/domain.md#session-state]
 ```
 
-A task is done when its status is Done, or when every pull request it links is
-merged. Either is enough. A task with no linked pull request is done only by its
-status. A pull request is done when it is merged. A plan's entry is a task, done the
-same way. The day an item was done is the day its task was
-[completed](../tasks/domain.md#completed), or the day its last pull request merged.
+A task is done when its status is Done, or when every pull request it links is merged; either is enough. A task with no linked pull request is done only by its status. A pull request is done when merged. A plan's entry is a task, done the same way. An item was done on the day its task was [completed](../tasks/domain.md#completed), or its last pull request merged.
 
-A session is done when the pull request on its branch is merged, or when it has linked
-tasks and every one of them is done. Either is enough. Its
-[state](../sessions/domain.md#session-state) never makes it done: a finished session
-may have shipped nothing. It was done on the earlier of the day that pull request merged
-and the day its last linked task was done.
+A session is done when the pull request on its branch is merged, or when it has linked tasks and every one is done. Its [state](../sessions/domain.md#session-state) never makes it done: a finished session may have shipped nothing. It was done on the earlier of the day that pull request merged and the day its last linked task was done.
 
 ### Settled
 
 ```meta
 type: term
-status: draft
 aliases: [settled]
 related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ```
@@ -399,59 +284,40 @@ the other:
 | Pull request | it is merged or closed | it is open or a draft, or its state cannot be read |
 | Plan | it gathers at least one entry, and every entry it gathers is `done` or `archived` | one entry is in any other status, or it gathers none |
 
-Settled is not [done](#done). A closed pull request and an archived task are settled
-and not done, and a task whose pull requests all merged is done but settled only once
-its status says so. The stand-up's Finished block lists what is done, never what is
-settled.
+Settled is not [done](#done). A closed pull request and an archived task are settled and not done, and a task whose pull requests all merged is done but settled only once its status says so. The stand-up's Finished block lists what is done, never what is settled.
 
-What cannot be read is never settled. A deleted task, a pull request in an archived or
-unconfigured repository, and any pull request while no GitHub answers keep their
-impediment from reading [Ready to resolve](#ready-to-resolve). The person unlinks such
-an item, or resolves the impediment, by hand.
+What cannot be read is never settled: a deleted task, a pull request in an archived or unconfigured repository, and any pull request while no GitHub answers. They keep their impediment from reading [Ready to resolve](#ready-to-resolve), until the person unlinks the item or resolves the impediment.
 
 ### Ready to resolve
 
 ```meta
 type: term
-status: draft
 aliases: [Ready to resolve, ready to resolve, resolvable]
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
 ```
 
-An open [Impediment](#impediment) is ready to resolve when it holds back at least one
-item and every item it holds back is [settled](#settled). It is a reading, not a
-state. [Stand-up Reading](#stand-up-reading) decides it afresh on every reading and
-stores nothing, so it appears when the last item settles and goes again when one
-comes back, such as a task reopened from `done`.
+An open [Impediment](#impediment) is ready to resolve when it holds back at least one item and every held-back item is [settled](#settled). It is a reading, not a state. [Stand-up Reading](#stand-up-reading) decides it on every reading and stores nothing, so it appears when the last item settles and goes when one comes back, such as a task reopened from `done`.
 
-Ready to resolve moves nothing. The impediment keeps its
-[state](#impediment-state) and its history, and it keeps showing among the open
-impediments until the person resolves it. An impediment that holds back nothing is
-never ready to resolve: nothing it names can tell it is out of the way.
+It moves nothing. The impediment keeps its [state](#impediment-state) and history, and stays among the open impediments until the person resolves it. An impediment that holds back nothing is never ready: nothing it names can tell it is out of the way.
 
 ### Stand-up
 
 ```meta
 type: term
-status: draft
 aliases: [standup, stand-up]
 related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/domain.md#stand-up-reading]
 ```
 
-The short reading a person gives of their work, in four blocks: goal progress, what
-was finished in the last iteration, what is planned for the next, and the
-impediments.
+The short reading a person gives of their work, in four blocks: goal progress, what was finished in the last iteration, what is planned for the next, and the impediments.
 
 ### Planned
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
 ```
 
-The work a stand-up expects in the next iteration. Nobody picks it: it is derived from
-three sources, each item listed once:
+The work a stand-up expects in the next iteration. Nobody picks it; it is derived from three sources, each item listed once:
 
 - the items goals hold that are in progress and not blocked;
 - the items due inside the next window, under No goal when no goal holds them;
@@ -462,11 +328,7 @@ three sources, each item listed once:
 
 ```meta
 type: term
-status: draft
 related: [.devbook/domain/roadmap/context.md#story-points-a-week]
 ```
 
-The story points a person gets done in a working week, as the Roadmap measures it or
-the person typed it ([Story points a week](../roadmap/context.md#story-points-a-week)).
-A stand-up scales it to the next window: the pace times the window's working days,
-divided by the working days of a working week, rounded to whole points.
+The story points a person gets done in a working week, as the Roadmap measures it or the person typed it ([Story points a week](../roadmap/context.md#story-points-a-week)). A stand-up scales it to the next window: pace times the window's working days, divided by a working week's, rounded to whole points.

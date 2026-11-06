@@ -67,6 +67,28 @@ public sealed class NotificationExchangeTests : IDisposable
         Assert.Equal(["yes", "no"], payload.Notification.AnswerSpec!.Choices.Select(choice => choice.Id));
     }
 
+    /// <summary>Local ADR 0039 §6: the repository the owner worked out rides on the document,
+    /// and the sync service, which reads none of it, hands it to the phone as it was written.</summary>
+    [Fact]
+    public async Task The_repository_the_owner_published_reaches_the_phone_untouched()
+    {
+        var owner = await OwnerWithViewersAsync(new EveryNotificationAbout("Backlog"));
+        var id = await owner.AskAsync();
+
+        Assert.True((await owner.Session.SyncAsync(Cancellation)).IsSuccess);
+
+        var arrived = Assert.Single((await owner.Phone.PullNotifications()).Notifications);
+        var payload = NotificationPayloads.Read(arrived.Change);
+        Assert.Equal(id, payload!.Notification.Id);
+        Assert.Equal("Backlog", payload.Repository!.Alias);
+    }
+
+    private sealed class EveryNotificationAbout(string alias) : INotificationRepositorySource
+    {
+        public Task<IReadOnlyDictionary<Guid, string?>> ResolveAsync(IReadOnlyList<NotificationSnapshot> notifications, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string?>>(notifications.ToDictionary(n => n.Id, _ => (string?)alias));
+    }
+
     /// <summary>
     /// <c>requirements.md</c> — "Two replies race": the phone replies Yes and the second desktop
     /// No, and the owner processes the phone's first. The answer is Yes, the laptop's reply is
@@ -288,7 +310,7 @@ public sealed class NotificationExchangeTests : IDisposable
 
     // --- The owner and its viewers ------------------------------------------------------
 
-    private async Task<Owner> OwnerWithViewersAsync()
+    private async Task<Owner> OwnerWithViewersAsync(INotificationRepositorySource? repositories = null)
     {
         var desktopHttp = _service.CreateClient();
         var registration = await desktopHttp.RegisterDevice("Study desktop");
@@ -314,7 +336,8 @@ public sealed class NotificationExchangeTests : IDisposable
             new FileNotificationSyncStateStore(Path.Combine(_root, "notification-sync-state.json")),
             new InMemoryDeviceCredentialStore(new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential)),
             identity,
-            TimeProvider.System);
+            TimeProvider.System,
+            repositories: repositories);
 
         return new Owner(
             desktopHttp,

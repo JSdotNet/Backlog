@@ -141,6 +141,48 @@ public sealed class GitHubClientPullRequestFactsTests
         Assert.Equal(1, pull.Reviews.ChangesRequested);
     }
 
+    // --- Review requests --------------------------------------------------------
+
+    /// <summary>"Your review" is GitHub's answer for the account the repository is read
+    /// as: a pending request naming that user directly. A request to another person or to
+    /// a team — even one the viewer is in — is not one.</summary>
+    [Theory]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": { "__typename": "User", "isViewer": true } } ] }""", true)]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": { "__typename": "Team" } }, { "requestedReviewer": { "__typename": "User", "isViewer": true } } ] }""", true)]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": { "__typename": "User", "isViewer": false } } ] }""", false)]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": { "__typename": "Team" } } ] }""", false)]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": { "__typename": "Bot" } } ] }""", false)]
+    [InlineData("""{ "nodes": [ { "requestedReviewer": null } ] }""", false)]
+    [InlineData("""{ "nodes": [ {} ] }""", false)]
+    [InlineData("""{ "nodes": [ null ] }""", false)]
+    [InlineData("""{ "nodes": [] }""", false)]
+    [InlineData("null", false)]
+    public async Task A_pending_request_naming_the_viewer_is_a_request_for_their_review(string requests, bool expected)
+    {
+        var pull = Assert.Single(await Open(Node(reviewRequests: requests)));
+
+        Assert.Equal(expected, pull.ViewerReviewRequested);
+    }
+
+    [Fact]
+    public async Task A_node_without_review_requests_asks_nothing_of_the_viewer()
+    {
+        var pull = Assert.Single(await Open(Node().Replace("\"reviewRequests\": null,", string.Empty, StringComparison.Ordinal)));
+
+        Assert.False(pull.ViewerReviewRequested);
+    }
+
+    [Fact]
+    public async Task A_pinned_pull_request_reads_the_viewers_review_request_too()
+    {
+        var requested = """{ "nodes": [ { "requestedReviewer": { "__typename": "User", "isViewer": true } } ] }""";
+
+        var pulls = await new GitHubClient(new RoutingTransport().Returns("graphql", Pinned(("p12", PinnedNode(12, "OPEN", reviewRequests: requested)))))
+            .ListPullRequestsAsync(Repository, [12], Cancellation);
+
+        Assert.True(Assert.Single(pulls).ViewerReviewRequested);
+    }
+
     // --- Closing issues -------------------------------------------------------
 
     [Fact]
@@ -171,6 +213,8 @@ public sealed class GitHubClientPullRequestFactsTests
         Assert.Contains("latestOpinionatedReviews(", query, StringComparison.Ordinal);
         Assert.Contains("checkRunCountsByState", query, StringComparison.Ordinal);
         Assert.Contains("closingIssuesReferences(", query, StringComparison.Ordinal);
+        Assert.Contains("reviewRequests(", query, StringComparison.Ordinal);
+        Assert.Contains("isViewer", query, StringComparison.Ordinal);
         Assert.Contains("additions", query, StringComparison.Ordinal);
         Assert.Contains("deletions", query, StringComparison.Ordinal);
     }
@@ -186,12 +230,14 @@ public sealed class GitHubClientPullRequestFactsTests
     [InlineData("closingIssuesReferences", null)]
     [InlineData("labels", null)]
     [InlineData("reviewDecision", null)]
+    [InlineData("reviewRequests", null)]
     public async Task A_refusal_confined_to_an_extra_fact_keeps_the_row(string field, string? inner)
     {
         var node = JsonNode.Parse(List(Node(
             contexts: "null",
             reviews: "null",
-            closingIssues: "null")))!;
+            closingIssues: "null",
+            reviewRequests: "null")))!;
 
         var path = field == "checkCounts"
             ? $"""["repository", "pullRequests", "nodes", 0, "commits", "nodes", 0, "commit", "{field}", "{inner}"]"""
@@ -206,6 +252,7 @@ public sealed class GitHubClientPullRequestFactsTests
         Assert.Null(pull.CheckCounts);
         Assert.Equal(0, pull.Reviews.Approvals);
         Assert.Empty(pull.ClosingIssues);
+        Assert.False(pull.ViewerReviewRequested);
     }
 
     // --- Merged -------------------------------------------------------------------
@@ -339,7 +386,8 @@ public sealed class GitHubClientPullRequestFactsTests
         string contexts = "null",
         string reviewDecision = "null",
         string reviews = "null",
-        string closingIssues = "null") => $$"""
+        string closingIssues = "null",
+        string reviewRequests = "null") => $$"""
         {
           "id": "PR_kwDOlist",
           "number": 712,
@@ -359,6 +407,7 @@ public sealed class GitHubClientPullRequestFactsTests
           "reviewDecision": {{reviewDecision}},
           "latestOpinionatedReviews": {{reviews}},
           "closingIssuesReferences": {{closingIssues}},
+          "reviewRequests": {{reviewRequests}},
           "commits": { "nodes": [ { "commit": {
             "statusCheckRollup": {{(rollup == "null" ? "null" : "{ \"state\": " + rollup + " }")}},
             "checkCounts": {{(rollup == "null" ? "null" : "{ \"contexts\": " + contexts + " }")}}
@@ -379,7 +428,7 @@ public sealed class GitHubClientPullRequestFactsTests
         }
         """;
 
-    private static string PinnedNode(int number, string state, bool draft = false) => $$"""
+    private static string PinnedNode(int number, string state, bool draft = false, string reviewRequests = "null") => $$"""
         {
           "id": "PR_{{number}}",
           "number": {{number}},
@@ -398,6 +447,7 @@ public sealed class GitHubClientPullRequestFactsTests
           "author": { "login": "someone" },
           "autoMergeRequest": null,
           "updatedAt": "2026-10-02T09:00:00Z",
+          "reviewRequests": {{reviewRequests}},
           "commits": { "nodes": [] }
         }
         """;

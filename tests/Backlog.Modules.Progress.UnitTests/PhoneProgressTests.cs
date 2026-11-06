@@ -58,7 +58,7 @@ public sealed class PhoneProgressTests : IDisposable
         _tasks.Tasks.Add(task);
         await _goals.SaveAsync(MakeGoal.Named("Merge without opening GitHub", MakeGoal.Task(task.Id), MakeGoal.PullRequest("JSdotNet/Backlog", 1364)), Cancellation);
         _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1360", LinkedPullRequestState.Open, null,
-            new GoalPullRequestChecksDto(9, 0, 5, []), new GoalPullRequestApprovalsDto(1, 2)));
+            new GoalPullRequestChecksDto(9, 0, 5, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true));
         _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1364", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 16),
             new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, null)));
 
@@ -74,6 +74,8 @@ public sealed class PhoneProgressTests : IDisposable
         Assert.Equal(new GoalPullRequestChecksDto(9, 0, 5, []).Total, running.Checks!.Total);
         Assert.Equal(9, running.Checks.Passed);
         Assert.Equal(new GoalPullRequestApprovalsDto(1, 2), running.Approvals);
+        Assert.True(running.ReviewRequested);
+        Assert.False(context.PullRequests[1].ReviewRequested);
         Assert.Equal(new DateOnly(2026, 10, 16), context.PullRequests[1].MergedOn);
         Assert.Null(context.PullRequests[1].Approvals!.Required);
         Assert.Equal(IterationLength.Week, context.Length);
@@ -360,7 +362,7 @@ public sealed class ProgressDocumentsTests
             new DateTimeOffset(2026, 10, 19, 9, 0, 0, TimeSpan.Zero));
         var context = new StandUpContextDto(
             new DateTimeOffset(2026, 10, 19, 9, 0, 0, TimeSpan.Zero),
-            [new GoalPullRequestDto("JSdotNet/Backlog", "1364", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(2, 1, 11, ["build"]), new GoalPullRequestApprovalsDto(0, 2))],
+            [new GoalPullRequestDto("JSdotNet/Backlog", "1364", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(2, 1, 11, ["build"]), new GoalPullRequestApprovalsDto(0, 2), ReviewRequested: true)],
             18m,
             WorkingHours.Default,
             IterationLength.TwoWeeks,
@@ -375,8 +377,25 @@ public sealed class ProgressDocumentsTests
         Assert.Equal(new DateOnly(2026, 10, 12), back.TwoWeekStart);
         Assert.Equal(["build"], back.PullRequests[0].Checks!.FailingNames);
         Assert.Equal(new GoalPullRequestApprovalsDto(0, 2), back.PullRequests[0].Approvals);
+        Assert.True(back.PullRequests[0].ReviewRequested);
         Assert.True(back.Week!.IsWorked(DayOfWeek.Monday));
         Assert.False(back.Week.IsWorked(DayOfWeek.Saturday));
+    }
+
+    /// <summary>A context a desktop wrote before the review request travelled has no key for
+    /// it; the phone reads that as no request rather than refusing the context.</summary>
+    [Fact]
+    public void A_context_written_without_the_review_request_reads_as_none_asked()
+    {
+        var context = ProgressDocuments.ReadContext("""
+            {"readAt":"2026-10-19T09:00:00+00:00","pullRequests":[
+              {"repository":"JSdotNet/Backlog","number":"1364","state":"Open","mergedOn":null,
+               "checks":{"passed":2,"failed":0,"pending":1,"failingNames":[]},"approvals":{"received":0,"required":2}}]}
+            """)!;
+
+        var pull = Assert.Single(context.PullRequests);
+        Assert.Equal("1364", pull.Number);
+        Assert.False(pull.ReviewRequested);
     }
 
     [Fact]

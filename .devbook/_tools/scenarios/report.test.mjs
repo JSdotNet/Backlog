@@ -116,6 +116,31 @@ test("writeRun writes run.json version 3 and one PNG per label into the journey'
     }
 });
 
+test("writeRun writes a subpage's journey into a run folder beside the subpage", async () => {
+    const root = await repo();
+    try {
+        const subpage = ".devbook/domain/work/scenarios.board.mobile.md";
+        await writeFile(path.join(root, subpage), PAGE);
+        await writeRun({
+            repoRoot: root,
+            journey: parseScenariosFile(PAGE, subpage).journeys[0],
+            signature: "1234abcd",
+            ranAt: "2026-10-08T08:30:00.000Z",
+            profile: "tenant-acme",
+            effectiveConfig: {},
+            parts: { "statuses-are-set-up": { outcome: "passed", durationMs: 1 }, "an-item-is-moved": { outcome: "passed", durationMs: 1 } },
+            captured: { "statuses-set-up": { path: path.join(root, "out/a.png") }, "item-moved": { path: path.join(root, "out/b.png") } },
+        });
+        const folder = path.join(root, ".devbook/domain/work/scenarios.board.mobile/set-up-and-fill-the-backlog");
+        const run = JSON.parse(await readFile(path.join(folder, "run.json"), "utf8"));
+        assert.equal(run.journey, `${subpage}#set-up-and-fill-the-backlog`);
+        assert.deepEqual((await readdir(folder)).sort(), ["item-moved.png", "run.json", "statuses-set-up.png"]);
+        assert.equal(existsSync(runFolder(root)), false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("an unreached label keeps its file and earlier entry; a dropped label and a stale failure shot are pruned", async () => {
     const root = await repo();
     try {

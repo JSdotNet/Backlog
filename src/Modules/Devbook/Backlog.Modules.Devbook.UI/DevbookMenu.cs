@@ -23,7 +23,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
     }
 
     /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
-    /// 0045) rather than as the flat list of its files.</summary>
+    /// 0047) rather than as the flat list of its files.</summary>
     private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>
@@ -654,7 +654,7 @@ public sealed record DevbookMenuNode(
     public bool HasChildren => Children.Count > 0;
 
     /// <summary>The number the row shows beside its label, or null for none —
-    /// how many pages a kind's row holds in the New domain view (local ADR 0045).</summary>
+    /// how many pages a kind's row holds in the New domain view (local ADR 0047).</summary>
     public int? Count { get; init; }
 }
 

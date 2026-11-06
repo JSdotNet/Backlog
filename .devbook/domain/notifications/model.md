@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: draft
 related: [.devbook/domain/notifications/domain.md#notification, .devbook/domain/notifications/domain.md#reply, .devbook/domain/notifications/domain.md#answer]
 ```
 

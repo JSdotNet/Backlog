@@ -65,14 +65,19 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    instructions say work is done there — the matching flow its gate names, and its review
    and validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
    a sub-item's status line cannot be changed through the connector — no tool edits one.
-6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
-   repository; a chapter this item rewrote may carry a remark the change now answers. When it
-   answers `archived: true`, skip this step: the repository's devbook is read-only. Answer
-   each open note by steps 3–5 of `../handle-remarks/SKILL.md` — fence first, resolve
-   second. Name the changed chapter files and offer the commit; never push.
-   `handle-remarks` is the skill to invoke when notes are the whole job.
+6. **Answer the notes the item leaves open.** With the connector, list the notes on each
+   chapter this item rewrote — `devbook_list_notes` per chapter address, `list_annotations`
+   per `chapterPath` — since one may carry a remark the change now answers. When
+   `list_annotations` answers `archived: true`, skip this step: the repository's devbook is
+   read-only. Answer each open note by steps 3–5 of `../handle-remarks/SKILL.md` and its
+   table: a default-branch note by a reply through `devbook_post_note` (`replyTo` the note's
+   id), then `devbook_resolve_note`; a note those refuse (`unknown-note`, a branch-snapshot
+   note) by the answer in your report, then `resolve_annotation`. Answer first, resolve
+   second. Never write an `annotation` fence: devbook contract 38 retired it and the checker
+   rejects one. Name the notes answered; never push. `handle-remarks` is the skill to invoke
+   when notes are the whole job.
 7. **Close.** The devbook reminder is a real step — do it through the repository's
-   devbook skills. Report `(tag, id)`, what was done, and the evidence behind anything
+   devbook skills. Report, opened with the `show-me` skill's orientation card when it has one: `(tag, id)`, what was done, and the evidence behind anything
    skipped as already done. The flow's own Work Item Update phase is the one that speaks to
    the entry; with the connector it is these calls, once each, after the pull request opens:
    - `link_change` with the pull request number, so the task links to it — not idempotent,

@@ -9,14 +9,17 @@
 //   pre     PreToolUse / AskUserQuestion  ask (kind dialog). Route session: exit, the dialog opens.
 //                                         Route backlog: hold on get_answer until answered, closed
 //                                         or the dialog wait runs out; answered prints allow with
-//                                         updatedInput {questions, answers}; out of time closes
-//                                         the question as timed-out.
-//   post    PostToolUse / AskUserQuestion close answered-in-session, with the dialog's answers.
+//                                         updatedInput {questions, answers}, a multi-select as an
+//                                         array of its labels; out of time closes the question as
+//                                         timed-out.
+//   post    PostToolUse / AskUserQuestion close answered-in-session, with the dialog's answers as
+//                                         the dialog gave them, strings or arrays.
 //   stop    Stop                          the last assistant message, when it ends in a question:
 //                                         ask (kind prose) with it as one free-text question.
 //   prompt  UserPromptSubmit              close the session's open prose questions
 //                                         answered-in-session, the prompt as the answer.
-//   end     SessionEnd                    close every open question of the session session-ended.
+//   end     SessionEnd                    close every open question of the session session-ended,
+//                                         then sweep state files other sessions left behind.
 //
 // The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with the bearer
 // token. Port and token come from BACKLOG_MCP_PORT / BACKLOG_MCP_TOKEN, else from the app's
@@ -24,12 +27,14 @@
 // the way telemetry-forwarder.mjs finds them.
 //
 // There is no tool that lists a session's questions, so the ids this script was given are kept
-// in a small file per session under state\ beside it; prompt, post and end close from that.
+// in a small file per session under state\ beside it; prompt, post and end close from that. A
+// session that crashed or was killed never runs its own end, so every end also deletes state files
+// untouched for STATE_MAX_AGE_MS and temporary files a cut-off write left (prune).
 //
 // Must never hold a session up on Backlog: every error exits 0 with no output, so the dialog
 // opens and the turn goes on.
 
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -44,6 +49,12 @@ const ANSWER_WAIT_SECONDS = 50;
 // How long to wait before asking again while Backlog does not answer. Overridable only so the
 // tests need not sit through it.
 const RETRY_MS = Number(process.env.ASK_BACKLOG_RETRY_MS) || 15_000;
+// A state file untouched this long belongs to a session that ended without its own end hook: far
+// past the eight-hour dialog wait, so no question still held is swept.
+const STATE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// A temporary file this old is a write that never reached its rename; a younger one may be a
+// write in flight in another hook, and is left to finish.
+const TEMPORARY_MAX_AGE_MS = 10 * 60 * 1000;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -171,10 +182,36 @@ function parseRpc(body) {
     return found;
 }
 
+// The folder the per-session state files live in.
+function stateFolder() {
+    return process.env.ASK_BACKLOG_STATE_DIR || path.join(here, "state");
+}
+
 // The ids this script was given for a session, so the hooks that come after can close them.
 function stateFile(sessionId) {
-    const folder = process.env.ASK_BACKLOG_STATE_DIR || path.join(here, "state");
-    return path.join(folder, `${encodeURIComponent(sessionId)}.json`);
+    return path.join(stateFolder(), `${encodeURIComponent(sessionId)}.json`);
+}
+
+// Deletes the state files other sessions left behind: a .json untouched for STATE_MAX_AGE_MS, a
+// .tmp untouched for TEMPORARY_MAX_AGE_MS. Never throws: a file that cannot be read or deleted -
+// gone already, locked by another hook - is simply left for the next end.
+async function prune(now = Date.now()) {
+    let names;
+    try {
+        names = await readdir(stateFolder());
+    } catch {
+        return;
+    }
+    for (const name of names) {
+        const limit = name.endsWith(".json") ? STATE_MAX_AGE_MS : name.endsWith(".tmp") ? TEMPORARY_MAX_AGE_MS : null;
+        if (limit === null) continue;
+        try {
+            const file = path.join(stateFolder(), name);
+            if (now - (await stat(file)).mtimeMs > limit) await rm(file, { force: true });
+        } catch {
+            // Left for the next end.
+        }
+    }
 }
 
 async function readState(sessionId) {
@@ -257,7 +294,7 @@ async function pre(input) {
                 hookSpecificOutput: {
                     hookEventName: "PreToolUse",
                     permissionDecision: "allow",
-                    updatedInput: { questions, answers: answer.answers || {} },
+                    updatedInput: { questions, answers: dialogInput(answer) },
                 },
             });
             return;
@@ -274,8 +311,21 @@ async function pre(input) {
     await forget(sessionId, [asked.id]);
 }
 
+// The answers Backlog accepted as the dialog takes them, keyed by question text: a multi-select as
+// the array of its labels from selections - Claude reads a multi-select as an array of labels or
+// ", "-joined, and only the array keeps a label holding a comma whole - and every other answer as
+// the string answers holds. An app that sends no selections gets its joined strings through.
+function dialogInput(answer) {
+    const answers = { ...(answer.answers && typeof answer.answers === "object" ? answer.answers : {}) };
+    const selections = answer.selections && typeof answer.selections === "object" ? answer.selections : {};
+    for (const [question, labels] of Object.entries(selections)) {
+        if (Array.isArray(labels) && labels.length > 0) answers[question] = labels;
+    }
+    return answers;
+}
+
 // The answers the dialog returned, keyed by question text, out of whatever shape the tool result
-// arrives in.
+// arrives in: each a string, or for a multi-select an array of labels, passed on as it came.
 function dialogAnswers(input) {
     let response = input.tool_response;
     if (typeof response === "string") {
@@ -383,6 +433,7 @@ async function end(input) {
         await callTool("close", { id: question.id, sessionId, reason: "session-ended" });
     }
     await writeState(sessionId, []);
+    await prune();
 }
 
 const modes = { pre, post, stop, prompt, end };

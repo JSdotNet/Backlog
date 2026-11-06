@@ -24,6 +24,7 @@ using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -253,7 +254,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// Every header item the window draws for a catalog surface pops out, not the
     /// Devbook alone (local ADR 0043 §4, "each shell header item"): the Inbox, the
-    /// views, the work in progress and the other takeovers each stand in an item of
+    /// views, the Goals group and the other takeovers each stand in an item of
     /// their own beside a ⧉ named as the option is. A press opens a window on that
     /// surface with no query — only the Devbook hands a scope over — and this window
     /// keeps its view, with nothing taking its screen.
@@ -657,7 +658,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The header's nav, left to right, as the design draws it: the Inbox toggle, the
-    /// fused view switch, the Devbook toggle; then the fused work in progress —
+    /// fused view switch, the Devbook toggle; then the fused Goals group —
     /// Goals, Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
     /// toggle, and no "Workspace" option anywhere.
     /// </summary>
@@ -671,7 +672,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var nav = component.Find(".app-header__nav");
             var groups = nav.Children.Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["workspace-navigation", "work-in-progress-switcher", "workspace-surface-switcher"], groups);
+            Assert.Equal(["workspace-navigation", "goals-switcher", "workspace-surface-switcher"], groups);
 
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
@@ -688,14 +689,14 @@ public sealed class HomeWorkspaceSurfaceTests
                 GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                GroupOptionIds(component, "work-in-progress-switcher"));
+                GroupOptionIds(component, "goals-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
                 GroupOptionIds(component, "workspace-surface-switcher"));
 
             // Fused where the design fuses, loose where it does not.
             Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='view-switch']").ClassName);
-            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='work-in-progress-switcher']").ClassName);
+            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='goals-switcher']").ClassName);
             Assert.Contains("header-group--loose", component.Find("[data-testid='workspace-surface-switcher']").ClassName);
             Assert.Contains("header-group__option--loose", component.Find("[data-testid='inbox-pane-option']").ClassName);
             Assert.Contains("header-group__option--loose", component.Find("[data-testid='devbook-pane-option']").ClassName);
@@ -1626,7 +1627,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Every view option and every work-in-progress option leads with a glyph. The
+    /// Every view option and every Goals group option leads with a glyph. The
     /// glyph is decoration, hidden from assistive technology and out of the tab
     /// order, so the option's name is still its word alone
     /// (accessibility.md#iconography-accessibility).
@@ -1667,7 +1668,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The header stays one row by folding the options' words away in tiers: the
-    /// Dashboard first, then the work in progress, then the Inbox, then the view
+    /// Dashboard first, then the Goals group, then the Inbox, then the view
     /// switch. Each word wears its tier, and the option's title names it, so a
     /// folded option still says what it is on hover.
     /// </summary>
@@ -2336,8 +2337,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Single(component.FindAll("main"));
             Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
 
-            // Next to Sessions in the work in progress, as the same context's second list.
-            var options = GroupOptionIds(component, "work-in-progress-switcher");
+            // Next to Sessions in the Goals group, as the same context's second list.
+            var options = GroupOptionIds(component, "goals-switcher");
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
@@ -2506,18 +2507,21 @@ public sealed class HomeWorkspaceSurfaceTests
 
     // --- What a change draws again ------------------------------------------
     //
-    // Every keystroke in an entry's body and every move of the selection is a
-    // change the Tasks state announces, and the shell hears every one. The
-    // header draws nothing those change, so the shell is not drawn again for
-    // them; the Tasks pane listens for itself and is. Each change is made on the
-    // renderer's thread, as the editor's own ValueChanged makes it.
+    // Every move of the selection is a change the Tasks state announces, and the
+    // shell hears every one. The header draws nothing a move changes, so the shell
+    // is not drawn again for it; the Tasks pane listens for itself and is. A
+    // keystroke in an entry's body announces nothing until its save lands. Each
+    // change is made on the renderer's thread, as the editor's own ValueChanged
+    // makes it.
 
-    /// <summary>Five keystrokes in the open entry's Markdown: five redraws of the
-    /// pane that shows the entry, none of the shell around it.</summary>
+    /// <summary>Five keystrokes in the open entry's Markdown draw neither the pane
+    /// nor the shell; the save after the pause draws the pane and still not the
+    /// shell.</summary>
     [Fact]
-    public async Task Typing_in_the_open_entry_redraws_the_pane_and_not_the_shell()
+    public async Task Typing_in_the_open_entry_redraws_the_pane_once_it_saves_and_never_the_shell()
     {
-        using var harness = CreateHarness(seed: PlanEntryText);
+        var clock = new FakeTimeProvider();
+        using var harness = CreateHarness(seed: PlanEntryText, clock: clock);
         var component = Render(harness);
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
         component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
@@ -2533,10 +2537,14 @@ public sealed class HomeWorkspaceSurfaceTests
 
         Assert.Equal("Read it", row.PreviewBody.Trim());
         Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
-        // One pane redraw per keystroke, not the two it took while the shell redrew
-        // too. The debounced save runs on the real clock and may land under load,
-        // adding a redraw, so the count is a range below the old two-per-change.
-        Assert.InRange(ShellRenderCount.TasksPane(component), paneBefore + 5, paneBefore + 9);
+        Assert.Equal(paneBefore, ShellRenderCount.TasksPane(component));
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        component.WaitForAssertion(
+            () => Assert.True(ShellRenderCount.TasksPane(component) > paneBefore, "The save after the pause redraws the pane."),
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
     }
 
     /// <summary>Opening one entry after another moves the selection the pane draws
@@ -2886,7 +2894,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Goals leads the work in progress group, always offered: its word and title are
+    /// Goals leads the Goals group, always offered: its word and title are
     /// Goals, a target leads it, it carries no feature badge, and a press shows the Goals
     /// view, with no Now board, and remembers it as <c>Goals</c>.
     /// </summary>
@@ -2899,7 +2907,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                GroupOptionIds(component, "work-in-progress-switcher")));
+                GroupOptionIds(component, "goals-switcher")));
 
         var option = component.Find("[data-testid='goals-view-option']");
         Assert.Equal("Goals", option.GetAttribute("title"));
@@ -2937,7 +2945,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
-            Assert.Equal(["goals-view-option"], GroupOptionIds(component, "work-in-progress-switcher")));
+            Assert.Equal(["goals-view-option"], GroupOptionIds(component, "goals-switcher")));
 
         component.Find("[data-testid='goals-view-option']").Click();
 
@@ -3255,15 +3263,15 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas at the
-    /// Devbook's scope over the Devbook; its close, Escape and its option pressed
-    /// again return to the Devbook rather than the view under it — where the person
-    /// was.</summary>
+    /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas over the
+    /// Devbook on the shell's repository scope — the one the Devbook reads; its close,
+    /// Escape and its option pressed again return to the Devbook rather than the view
+    /// under it — where the person was.</summary>
     [Theory]
     [InlineData("close")]
     [InlineData("escape")]
     [InlineData("option")]
-    public async Task The_devbooks_atlas_button_opens_the_atlas_at_its_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
+    public async Task The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
     {
         using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
         var component = Render(harness);
@@ -3458,9 +3466,10 @@ public sealed class HomeWorkspaceSurfaceTests
                 component.Find("[data-testid='dashboard-toggle-button']").Click();
                 component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
                 component.Find("[data-testid='atlas-toggle-button']").Click();
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']")));
+                component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
 
-                component.Find("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']").Click();
+                component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click();
                 component.WaitForAssertion(() =>
                     Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
                 component.Find("[data-testid='lobes-atlas-card-action']").Click();
@@ -3493,11 +3502,12 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Back from Settings once the ghost's alias is registered: the atlas opens on
-    /// that devbook's scope rather than on a ghost the graph no longer holds.
+    /// Back from Settings once the ghost's alias is registered: the shell is scoped to
+    /// that repository, and the atlas follows it onto that devbook rather than a
+    /// ghost the graph no longer holds.
     /// </summary>
     [Fact]
-    public void Back_from_registering_the_ghosts_alias_opens_that_devbooks_scope()
+    public void Back_from_registering_the_ghosts_alias_scopes_the_shell_to_it_and_the_atlas_follows()
     {
         var path = NewShellNavigationPath();
 
@@ -3509,9 +3519,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
             using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes);
             var component = Render(harness);
+            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
             component.WaitForAssertion(() =>
             {
+                Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
                 Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
                 Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
             });
@@ -3583,18 +3595,20 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
         component.Find("[data-testid='atlas-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='brain']")));
+        component.WaitForAssertion(() => Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
 
-        // No Brain composed in this host: said out loud, the atlas stays.
-        component.Find("[data-testid='lobes-atlas-scope'][data-scope='brain']").Click();
-        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-card-action']").Click());
+        // No Brain composed in this host: said out loud, the atlas stays. The
+        // header's Brain chip is what puts the atlas on the Brain.
+        component.Find("[data-testid='brain-scope-option']").Click();
+        component.WaitForAssertion(() => Assert.Equal("brain", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+        component.Find("[data-testid='lobes-atlas-card-action']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.Equal("tasks-devbook-unavailable", Assert.Single(toasts.Visible).TestId);
             Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
         });
 
-        component.Find("[data-testid='lobes-atlas-scope'][data-scope='repo:backlog']").Click();
+        component.Find("[data-testid='repository-filter-option']").Click();
         component.WaitForAssertion(() =>
             Assert.Equal("Open devbook", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
         component.Find("[data-testid='lobes-atlas-card-action']").Click();
@@ -3604,6 +3618,69 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
         });
+    }
+
+    /// <summary>
+    /// The atlas draws the shell's repository scope, so that scope stays plural while
+    /// the atlas has the screen: opening it does not narrow the scope to its anchor,
+    /// and Ctrl on a header chip adds or takes a member there.
+    /// </summary>
+    [Fact]
+    public void Opening_the_atlas_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it_while_it_has_the_screen()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+            Assert.Equal("all", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal("repo:backlog", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+            Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+        });
+    }
+
+    /// <summary>A plain press on a header chip while the atlas is open lays the atlas
+    /// out again on that member, without reopening it.</summary>
+    [Fact]
+    public void A_header_chip_press_lays_the_open_atlas_out_again()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("all", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+
+        component.Find("[data-testid='repository-filter-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("repo:backlog", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope"));
+            Assert.Equal("Devbook folders", component.Find(".lobes-atlas__panel-title").TextContent.Trim());
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click();
+        component.WaitForAssertion(() => Assert.Equal("brain", component.Find("[data-testid='lobes-atlas']").GetAttribute("data-scope")));
+        Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
     }
 
     private static void AddLobes(IServiceCollection services) =>
@@ -3887,7 +3964,8 @@ public sealed class HomeWorkspaceSurfaceTests
         ShellNavigationStore? shellNavigation = null,
         string? seed = null,
         Action<IServiceCollection>? configureServices = null,
-        string[]? moreSeeds = null)
+        string[]? moreSeeds = null,
+        TimeProvider? clock = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -4001,7 +4079,8 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
-            toasts: sp.GetRequiredService<IToastChannel>()));
+            toasts: sp.GetRequiredService<IToastChannel>(),
+            clock: clock));
         // Which task a session or a pull request belongs to is Tasks' answer over the
         // same state, composed as the application hosts compose it (local ADR 0042, V8).
         context.Services.AddScoped<ITaskLookupCandidates>(sp => sp.GetRequiredService<TasksDesktopState>());

@@ -1,28 +1,24 @@
 # Requirements
 
 ```meta
-status: draft
 type: requirements
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it.
+> requirement is one SHALL sentence with the scenarios that prove it. A feature
+> chapter says what the capability is and why it exists; this file says what it
+> promises.
 
 ## Name the source that could not be read
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#name-the-source-that-could-not-be-read]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
-
 ### Requirement: One unreadable source costs only its own sessions
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.An_unreadable_source_is_named_above_the_rows_that_did_arrive, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.Unreadable_is_the_union_and_names_each_source_once]
 ```
@@ -39,18 +35,13 @@ cannot be read, and name the one it could not read.
 ## Only what the dashboard recorded
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#only-what-the-dashboard-recorded]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
-
 ### Requirement: A figure a run did not measure is left out
 
 ```meta
-status: draft
 type: requirement
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_this_product_recorded_claims_no_figure_it_could_not_measure
 ```
@@ -67,20 +58,16 @@ measured, rather than show them as zero.
 ## What a run cost, reported by the session itself
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
 > [Delivery Run Telemetry](domain.md#delivery-run-telemetry) is the reaction that
-> keeps them.
+> keeps these promises.
 
 ### Requirement: A session's telemetry reaches only a run it drives
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.Another_sessions_run_is_left_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_run_with_no_session_yet_is_adopted_by_the_first_one_that_reports, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_session_in_a_subfolder_reports_to_the_worktree_above_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_finished_run_takes_no_more_telemetry]
 ```
@@ -103,7 +90,6 @@ session's worktree that lists the session, or that lists no session yet.
 ### Requirement: A message's tokens are counted once
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.Tokens_are_folded_from_the_transcripts_once_per_message, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_line_still_being_written_waits_for_the_next_event]
 ```
@@ -120,7 +106,6 @@ events follow it and however many lines the message is written over.
 ### Requirement: A run never counts what came before its session was seen
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_session_with_no_run_records_nothing_and_a_later_run_does_not_absorb_its_past, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.Tokens_are_folded_from_the_transcripts_once_per_message]
 ```
@@ -137,7 +122,6 @@ when telemetry first saw the session on a run.
 ### Requirement: A delegated agent with no figures adds nothing
 
 ```meta
-status: draft
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_delegated_agent_without_totals_records_none, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.A_delegated_agent_carries_the_totals_its_response_reported]
 ```
@@ -154,7 +138,6 @@ call's response stated them, and record no zero in their place.
 ### Requirement: Telemetry never fails the tool call it reports on
 
 ```meta
-status: draft
 type: requirement
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunTelemetryTests.Malformed_events_are_recorded_as_nothing
 ```
@@ -171,18 +154,13 @@ and without raising an error to the hook that reported it.
 ## Share of the week and the weekly limit
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises.
-
 ### Requirement: A share of the weekly limit is labelled an estimate
 
 ```meta
-status: draft
 type: requirement
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.After_a_weekly_refusal_the_share_carries_an_estimate_of_the_limit
 ```
@@ -198,22 +176,18 @@ The system SHALL mark every percentage of a weekly limit it shows as an estimate
 ## Start a session from an entry
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. Local ADR 0038 decides
-> them. Both sides are built: the queue icons that create a request (on an entry,
-> on a plan's roadmap item, and beside a selected plan filter chip), and the
-> dispatcher side, the wait route and the claim, mark and list tools a Manager
-> session uses.
+> Local ADR 0038 decides these requirements. Both sides are built. The queue icons
+> create a request on an entry, on a plan's roadmap item, and beside a selected plan
+> filter chip. The dispatcher side is the wait route and the claim, mark and list tools
+> a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -234,7 +208,6 @@ The system SHALL create a session request only when the person queues a session 
 ### Requirement: A dispatcher is handed no entry text
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -249,7 +222,6 @@ The system SHALL hand a dispatcher a request's kind, entry id or plan tag, repos
 ### Requirement: A waiting dispatcher gets the oldest request first
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -270,7 +242,6 @@ The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` wit
 ### Requirement: The wait takes the MCP listener's token
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -285,7 +256,6 @@ The system SHALL refuse a call to `GET /session-requests/wait` that does not car
 ### Requirement: Only one dispatcher holds a request
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -300,22 +270,33 @@ The system SHALL let only one dispatcher claim a request at a time.
 ### Requirement: A claim that is not answered in time lapses
 
 ```meta
-status: draft
 type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_from_the_lapsed_holder_writes_Started_while_nobody_else_claimed, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_late_report_is_refused_once_another_dispatcher_claimed_in_between]
 ```
 
-The system SHALL return a Claimed request to Requested when two minutes pass without its dispatcher reporting a session.
+The system SHALL hand a Claimed request to the next dispatcher once two minutes pass without a reported session, and accept the late report of the dispatcher that claimed it until another dispatcher claims it.
 
 #### Scenario: A dispatcher stops mid-dispatch
 
 - **Given** a dispatcher claimed a request
 - **When** two minutes pass without it reporting a session
-- **Then** the request is Requested again and the next waiting dispatcher receives it
+- **Then** the request is Requested again, and the next waiting dispatcher receives and claims it
+
+#### Scenario: A slow start is reported after the lease ran out
+
+- **Given** a dispatcher claimed a request and no other dispatcher claimed it since
+- **When** it reports its started session more than two minutes after the claim
+- **Then** the request is Started with that session
+
+#### Scenario: A late report after another dispatcher claimed
+
+- **Given** a dispatcher's claim lapsed and a second dispatcher claimed the request
+- **When** the first dispatcher reports its started session
+- **Then** the report is refused and the request stays Claimed by the second dispatcher
 
 ### Requirement: A request waits until it is answered or cancelled
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -336,7 +317,6 @@ The system SHALL keep a request until a session answers it or the person cancels
 ### Requirement: The started session links the request
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -351,7 +331,6 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 ### Requirement: The flag off offers no session requests
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -366,23 +345,19 @@ The system SHALL offer no queue icon, no wait route and no dispatcher tool while
 ## Answer a session's question from elsewhere
 
 ```meta
-status: draft
 type: requirements
 related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/sessions/domain.md#question-relay, .devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
 ```
 
-> The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. Local ADR 0041
-> decides them. None of them is built yet.
+> Local ADR 0041 decides these requirements. None of them is built yet.
 
 ### Requirement: A question asked while the person is away is notified at once
 
 ```meta
-status: draft
 type: requirement
 ```
 
-The system SHALL publish a session's question as a notification when it is asked while the person is away: after the away setting, 10 minutes by default, without keyboard or mouse input, or while the screen is locked.
+The system SHALL publish as a notification a question asked while the person is away: no keyboard or mouse input for the away setting, 10 minutes by default, or a locked screen.
 
 #### Scenario: The person left the desk
 
@@ -399,11 +374,10 @@ The system SHALL publish a session's question as a notification when it is asked
 ### Requirement: A question asked at the keyboard waits before it is notified
 
 ```meta
-status: draft
 type: requirement
 ```
 
-The system SHALL keep a question asked while the person is at the keyboard in the session, and SHALL publish it only if it is still open after the notify setting, 15 minutes by default.
+The system SHALL keep a question asked while the person is at the keyboard in the session, and publish it only if it is still open after the notify setting, 15 minutes by default.
 
 #### Scenario: Answered in time
 
@@ -420,7 +394,6 @@ The system SHALL keep a question asked while the person is at the keyboard in th
 ### Requirement: Coming back never takes a question back
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -435,7 +408,6 @@ The system SHALL keep a Notified question published when the person returns to t
 ### Requirement: An answer in the session closes the question
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -450,11 +422,10 @@ The system SHALL close a question answered in the session, with the answers, and
 ### Requirement: A dialog asked while the person is away is answered through the hook
 
 ```meta
-status: draft
 type: requirement
 ```
 
-The system SHALL answer the `get_answer` call of the hook holding a dialog asked while the person is away with the accepted answers, holding each call at most 55 seconds, for up to the dialog wait setting, 8 hours by default.
+The system SHALL give the hook holding a dialog asked while away the accepted answers through `get_answer`, holding each call at most 55 seconds, up to the dialog wait setting, 8 hours by default.
 
 #### Scenario: Answered on the phone
 
@@ -471,11 +442,10 @@ The system SHALL answer the `get_answer` call of the hook holding a dialog asked
 ### Requirement: Any other answer reaches the session through the Manager
 
 ```meta
-status: draft
 type: requirement
 ```
 
-The system SHALL turn the answer to a prose question, or to a dialog that escalated from the session, into a delivery that the dispatch wait route hands to a waiting Manager before any session request.
+The system SHALL turn the answer to a prose question or an escalated dialog into a delivery the dispatch wait route hands a waiting Manager before any session request.
 
 #### Scenario: A prose question answered on the phone
 
@@ -492,7 +462,6 @@ The system SHALL turn the answer to a prose question, or to a dialog that escala
 ### Requirement: A waiting session is not working
 
 ```meta
-status: draft
 type: requirement
 ```
 
@@ -507,7 +476,6 @@ The system SHALL count a session with an open question as waiting, not working, 
 ### Requirement: The relay sits behind the notifications flag
 
 ```meta
-status: draft
 type: requirement
 ```
 

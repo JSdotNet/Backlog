@@ -1,26 +1,31 @@
 # Invariants
 
 ```meta
-status: draft
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces.
 
 ## Roadmap Plan
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
-> The rules the Roadmap Plan holds its items, milestones and dependencies to, including those its [Planned Window](domain.md#planned-window), [Milestone](domain.md#milestone), [Roadmap Tag](domain.md#roadmap-tag), [Repository Scope](domain.md#repository-scope), [Planning Lane](domain.md#planning-lane) and [Dependency](domain.md#dependency) enforce.
+> The rules the Roadmap Plan holds its items, milestones and dependencies to. They
+> include the rules these parts enforce:
+>
+> - [Planned Window](domain.md#planned-window);
+> - [Milestone](domain.md#milestone);
+> - [Roadmap Tag](domain.md#roadmap-tag);
+> - [Repository Scope](domain.md#repository-scope);
+> - [Planning Lane](domain.md#planning-lane);
+> - [Dependency](domain.md#dependency).
 
 ### Invariant: An empty plan is valid
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.EmptyPlan_IsAValidPlan
 ```
@@ -33,33 +38,30 @@ Enforced at: `RoadmapPlan.Empty()`
 ### Invariant: A cycle is refused
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADirectCycleIsRefused_AndThePlanIsLeftAsItWas, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.AnIndirectCycleIsRefused_HoweverManyStepsAway, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ACycleThroughAMilestoneIsRefusedToo]
 ```
 
 A dependency that would close a cycle, directly or through any number of nodes, is refused and leaves the plan as it was (`roadmap.cyclic_dependency`).
-A cycle already written into a hand-edited file is read as it stands, which is why the rule is the refusal rather than a property of every loaded plan.
+A cycle already written into a hand-edited file is read as it stands, so the rule is the refusal, not a property of every loaded plan.
 
 Enforced at: `AddDependency()`
 
 ### Invariant: A dependency names a node in the plan
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADependencyOnSomethingNotInThePlan_IsRefused, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RehydrationTests.ADanglingDependencyIsDroppedRatherThanFailingTheLoad, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.RemovingAnItem_AlsoForgetsEveryDependencyOnIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.RemovingAMilestone_AlsoForgetsEveryDependencyOnIt]
 ```
 
 A dependency names an item or milestone in this plan; an edge to an unknown id is refused (`roadmap.node_not_found`).
-An edge to nothing is not a weaker plan, it is a wrong one.
+An edge to nothing is not a weaker plan but a wrong one.
 
 Enforced at: `AddDependency()`; `Rehydrate()` drops a dangling edge, and `RemoveItem()` and `RemoveMilestone()` forget every edge to the node they remove
 
 ### Invariant: Nothing waits for itself
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.NothingCanWaitForItself
 ```
@@ -71,7 +73,6 @@ Enforced at: `AddDependency()`
 ### Invariant: A dependency declared twice is one dependency
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.DeclaringTheSameDependencyTwice_ChangesNothingAndSucceeds
 ```
@@ -83,7 +84,6 @@ Enforced at: `AddDependency()`; `Dependencies.Of()` collapses duplicates when a 
 ### Invariant: A window does not end before it starts
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlannedWindowTests.AWindowThatEndsBeforeItStarts_IsRefusedRatherThanThrown
 ```
@@ -95,7 +95,6 @@ Enforced at: constructor (`PlannedWindow`): `Create()` refuses, and `Of()` clamp
 ### Invariant: A window counts both its days
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlannedWindowTests.BothEndsAreInclusive_SoASingleDayIsOneDayLong
 ```
@@ -107,7 +106,6 @@ Enforced at: `PlannedWindow.Days`
 ### Invariant: A milestone is a day
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.AMilestoneIsADay_NotAOneDayItem
 ```
@@ -119,7 +117,6 @@ Enforced at: constructor (`Milestone`, which holds a single `On` date and no win
 ### Invariant: Planning priority never touches the task
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
 ```
@@ -132,7 +129,6 @@ Enforced at: `Prioritise()`
 ### Invariant: The task priority never overwrites the plan
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -143,7 +139,6 @@ Enforced at: all mutations (`RoadmapItem.Prioritise()` is internal, and none of 
 ### Invariant: An unresolved scope alias is kept
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RehydrationTests.AnAliasThatNoLongerResolves_IsKeptRatherThanDeleted
 ```
@@ -156,20 +151,18 @@ Enforced at: constructor (`RepositoryScope`): `Of()` normalizes the aliases and 
 ### Invariant: Scope aliases are normalized and distinct
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AliasesAreNormalizedTheWayTheSettingsStoreWritesThem, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.DuplicatesCollapse_AndTypingOrderDoesNotAffectEquality]
 ```
 
 A Repository Scope holds each alias once, trimmed and in lower case, and two scopes naming the same aliases are equal whatever order they were typed in.
-The aliases are written the way the settings store writes them, so a scope and the registry compare without translation.
+The aliases are written as the settings store writes them, so a scope and the registry compare without translation.
 
 Enforced at: constructor (`RepositoryScope`): `Of()`
 
 ### Invariant: An empty scope is unfiled
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AnEmptyScopeIsUnfiled_NotAnError
 ```
@@ -182,7 +175,6 @@ Enforced at: constructor (`RepositoryScope`): `Of()` returns `Unfiled`
 ### Invariant: A blank lane is the default lane
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.BlankIsTheDefaultLane, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.ALaneIsWhateverThePersonCalledIt]
 ```
@@ -194,7 +186,6 @@ Enforced at: constructor (`PlanningLane`): `Of()`
 ### Invariant: A task link is only an id
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
 ```
@@ -206,7 +197,6 @@ Enforced at: constructor (`RoadmapItem.TaskId` is a bare `Guid?`, set by `LinkTo
 ### Invariant: Every item has a tag
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.AnItemAddedWithoutATag_GetsOneDerivedFromItsTitle
 ```
@@ -218,7 +208,6 @@ Enforced at: constructor (`RoadmapItem`)
 ### Invariant: Renaming keeps the tag
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.RenamingTheTitle_LeavesTheTagAlone, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.UpdatingWithNoTag_RederivesFromTheTitle_BecauseTheFieldWasCleared]
 ```
@@ -231,7 +220,6 @@ Enforced at: `Rename()`
 ### Invariant: A tag is lowercase kebab-case
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.EveryProducedTagMatchesTheAgreedShape, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.AnExplicitValueIsNormalizedThroughTheSameRules, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.DiacriticsAreFoldedRatherThanDropped]
 ```
@@ -244,20 +232,18 @@ Enforced at: constructor (`PlanningTag`): `From()` and `Of()` slugify every valu
 ### Invariant: A title that slugifies to nothing gets the tag item
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.ATitleThatSlugifiesToNothing_FallsBackToAStableValue
 ```
 
 A title the slug rule reduces to nothing gets the tag `item`.
-There must always be something to file work against, and punctuation, an emoji, or a script the slug rule strips would otherwise leave an empty tag.
+Work needs something to be filed against, and otherwise punctuation, an emoji or a script the slug rule strips would leave an empty tag.
 
 Enforced at: constructor (`PlanningTag`): `From()` and `Of()`
 
 ### Invariant: Two items may share a tag
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.TwoItemsMayShareATag_AndBothAreFound, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.TheDistinctTagsInUseAreReported_OnceEach]
 ```
@@ -270,7 +256,6 @@ Enforced at: `AddItem()` and `UpdateItem()` never compare a tag with the other i
 ### Invariant: A knowledge ref is never read through
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -281,7 +266,6 @@ Enforced at: constructor (`KnowledgeReferences`, which holds strings nothing in 
 ### Invariant: Links are never validated or repaired
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -292,7 +276,6 @@ Enforced at: constructor (`RoadmapItem.TaskId` is a bare `Guid?`, and `Knowledge
 ### Invariant: All changes go through the plan
 
 ```meta
-status: draft
 type: invariant
 ```
 
@@ -303,20 +286,18 @@ Enforced at: all mutations (every mutator on `RoadmapItem`, `Milestone` and `Dep
 ### Invariant: A reschedule leaves the dependencies alone
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDoesNotTouchDependencies, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong]
 ```
 
 Moving or editing an item changes neither its own dependencies nor the window of anything that waits on it.
-Dependent work that is not dragged along is how a date that no longer fits becomes visible.
+Dependent work not dragged along is how a date that no longer fits becomes visible.
 
 Enforced at: `Reschedule()` and `UpdateItem()`, which change the one item's window and never its `Dependencies`
 
 ### Invariant: A hand move hands the window to the person
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.Rescheduling_ClearsIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.ALaneOnlyDrop_KeepsIt_BecauseNoDateWasOverruled, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.EditingTheWindow_ClearsTheImportProvenance, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PinItemEndTests.PinEnd_ToTheDateTheImporterPlaced_StillHandsTheWindowToThePerson, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.The_editor_offers_no_update_from_tasks_and_a_save_that_leaves_the_dates_keeps_the_placement]
 ```
@@ -329,7 +310,6 @@ Enforced at: `RoadmapItem.MoveTo()`, which clears the value only when the window
 ### Invariant: The importer never moves a window a person placed
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.TheImporterMayNotMoveAWindowAPersonPlaced, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.TheImporterMayReplaceItsOwnWindow, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.AReimport_KeepsAWindowMovedByHand_AndStillRevisesTheRest]
 ```
@@ -342,7 +322,6 @@ Enforced at: `PlaceByImport()`; `AddImportedItem()` is the only other operation 
 ### Invariant: Gathered tasks outrank a completion by hand
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheirProgressWins_OverTheHandSetDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhenTasksCarryTheItemAndAreAllDone_ItEndsWhenTheLastTaskWasTickedOff, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheLayoutFollowsTheTasks_NotTheHandSetDay]
 ```
@@ -355,7 +334,6 @@ Enforced at: `RoadmapItemCompletion.IsFinished()`, `IsCompletedByHand()` and `Fi
 ### Invariant: A devbook chapter does not carry an item
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AKnowledgeChapter_IsNoTask_SoTheHandSetDayStillCounts, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AnItemWhoseWorkWasNotRead_ReadsAsHavingGatheredNothing]
 ```
@@ -368,7 +346,6 @@ Enforced at: `RoadmapItemCompletion.HasTasks()`, which counts gathered backlog e
 ### Invariant: A completion day is not after today
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_RefusesADayAfterToday_AndSavesNothing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_TakesToday]
 ```
@@ -381,7 +358,6 @@ Enforced at: `CompleteItemCommandHandler`, against today on its clock
 ### Invariant: Completing again replaces the completion day
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_AgainOnAnotherDay_MovesTheDay
 ```
@@ -393,7 +369,6 @@ Enforced at: `RoadmapPlan.CompleteItem()`
 ### Invariant: Reopening clears the completion day
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_ClearsTheDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_OnAnOpenItem_LeavesItOpen]
 ```
@@ -405,7 +380,6 @@ Enforced at: `RoadmapPlan.ReopenItem()`
 ### Invariant: Completing leaves the window where it was planned
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_RecordsTheDay_AndLeavesTheWindowWhereItWasPlanned
 ```
@@ -417,7 +391,6 @@ Enforced at: `RoadmapPlan.CompleteItem()` and `ReopenItem()`
 ### Invariant: Moving or editing a completed item keeps it completed
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.MovingOrEditingACompletedItem_KeepsItCompleted
 ```
@@ -430,7 +403,6 @@ Enforced at: `Reschedule()`, `PinEnd()`, `UnpinEnd()`, `Prioritise()` and `Updat
 ## Plan Sequencing
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
@@ -440,20 +412,18 @@ related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ### Invariant: A contradiction is reported, never corrected
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.OverlappingDatesAcrossADependency_AreReportedNotRefused, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDatesIntoAContradiction_IsAllowedAndReported]
 ```
 
-A change that makes work open on or before the close of something it waits on is accepted, and the contradiction is reported rather than refused or repaired.
-A plan is allowed to be temporarily wrong, because that is how a person finds out a date does not fit.
+A change that makes work open on or before the close of what it waits on is accepted, and the contradiction is reported, never refused or repaired.
+A plan may be temporarily wrong, because that is how a person finds out a date does not fit.
 
 Enforced at: `PlanSequencing.Contradictions()`, a pure query over the nodes; `AddDependency()`, `Reschedule()` and `UpdateItem()` accept the change that makes one
 
 ## Roadmap Item Gathering
 
 ```meta
-status: draft
 type: invariants
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ```
@@ -463,7 +433,6 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ### Invariant: Registered effort is summed
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoTotalsTests.AMixOfEstimatedAndUnestimated_SumsTheOne_AndCountsTheOther
 ```
@@ -475,7 +444,6 @@ Enforced at: `RoadmapItemRollupDto.TotalEffort`
 ### Invariant: No estimate is invented
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoTotalsTests.Null_ContributesNothing_ButRaisesTheUnestimatedCount
 ```
@@ -487,7 +455,6 @@ Enforced at: `RoadmapItemRollupDto.UnestimatedCount`
 ### Invariant: Something reached both ways is counted once
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.TheSameThingReachedBothWays_isCountedOnce_andWearsBoth, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.Keys_compareCaseInsensitively_soOneThingIsNotTwo, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AChapterBothReferencedAndRoadmapTagged_IsCountedOnce_WearingBoth]
 ```
@@ -500,7 +467,6 @@ Enforced at: `RoadmapRollup.Merge()`, keyed without regard to case; `RoadmapItem
 ### Invariant: A plan tag matches with or without its sigil
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryWearingThePlanSigil_AndOneWearingTheBareSlug_BothRollUp, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.APersonTagSpellingTheSlug_DoesNotRollUp]
 ```
@@ -513,7 +479,6 @@ Enforced at: `RoadmapItemRollupBuilder.CarriesPlanTag()`, which lifts only a lea
 ### Invariant: Unknown progress is never finished
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.SomethingThatRegisteredNoProgress_IsNotDone, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AKnowledgeChapter_RegistersNoProgress]
 ```
@@ -526,7 +491,6 @@ Enforced at: `RoadmapGatheredLink.IsDone`, true only for `RoadmapProgress.Done`
 ### Invariant: A wait on work the item did not gather is dropped
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.ADependencyOnSomethingTheItemDidNotGather_IsNotCarried, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.ADependencyOnSomethingAbsent_OrdersNothing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupWaveTests.AWaitOnSomethingNotGathered_CountsAsNothing]
 ```
@@ -539,20 +503,18 @@ Enforced at: `RoadmapItemRollupBuilder.GatheredDependencies()`; `RoadmapRollup.I
 ### Invariant: Finished effort counts registered estimates only
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.DoneEffort_SumsOnlyWhatIsFinished_AndTotalEffortStillSumsTheLot, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.FinishedWorkThatRegisteredNoEstimate_RaisesTheDoneCount_ButNotTheDoneEffort]
 ```
 
 The finished effort is the sum of the estimates registered on finished work, and the finished count counts every finished thing, estimated or not.
-A reading drawn from effort alone would overstate how far along an item is as soon as finished work turned out to be unsized.
+A reading from effort alone would overstate how far along an item is as soon as finished work turned out to be unsized.
 
 Enforced at: `RoadmapItemRollupDto.DoneEffort` and `RoadmapItemRollupDto.DoneCount`
 
 ### Invariant: An entry's own dates win over its sessions'
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntrysOwnDates_WinOverItsSessions
 ```
@@ -564,7 +526,6 @@ Enforced at: `RoadmapItemRollupBuilder.Dates()`
 ### Invariant: A session never ends open work
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnUndatedEntry_WithLinkedSessions_StartsWithTheFirstSession, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.NeedsSessionDates_OnlyForAnEntryWithSessionsAndAMissingDate]
 ```
@@ -577,7 +538,6 @@ Enforced at: `RoadmapItemRollupBuilder.Dates()` and `NeedsSessionDates()`
 ### Invariant: Nothing is placed before what it waits on
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AStepComesAfterTheOneItWaitsOn_WhateverOrderItArrivedIn, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AChain_ComesOutInChainOrder, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.EveryStepComesBackExactlyOnce]
 ```
@@ -589,7 +549,6 @@ Enforced at: `RoadmapRollup.InDependencyOrder()`
 ### Invariant: Steps equally free keep the order they were gathered in
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.TwoStepsWaitingOnNothing_KeepTheOrderTheyArrivedIn, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AStepFreedLaterStillLosesATieToOneThatArrivedEarlier]
 ```
@@ -602,20 +561,18 @@ Enforced at: `RoadmapRollup.InDependencyOrder()`
 ### Invariant: A cycle of waits is released at the earliest waiter
 
 ```meta
-status: draft
 type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.ACycle_FallsBackToAppearanceOrder_RatherThanThrowing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.WorkDownstreamOfACycle_StillLandsAfterIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupWaveTests.ACycle_StillPlacesEveryStepExactlyOnce]
 ```
 
 When every remaining step waits on another, the earliest gathered of them is released and the ordering goes on, rather than the item being refused.
-Tasks lets a person write a cycle, and a reading that failed on one would break on a typed `after:`.
+Tasks lets a person write a cycle, so a typed `after:` must not break the reading.
 
 Enforced at: `RoadmapRollup.InDependencyOrder()`
 
 ### Invariant: A whole plan is gathered the way each item is
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.BuildPlan_AgreesWithBuild_ForTheSameItem
 ```
@@ -627,7 +584,6 @@ Enforced at: `RoadmapItemRollupBuilder.BuildPlan()`, which builds each item thro
 ### Invariant: Every item of a plan is answered
 
 ```meta
-status: draft
 type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.BuildPlan_AnswersEveryItem_IncludingTheOnesThatGatheredNothing
 ```
@@ -640,7 +596,6 @@ Enforced at: `RoadmapItemRollupBuilder.BuildPlan()`
 ### Invariant: Gathering never writes
 
 ```meta
-status: draft
 type: invariant
 ```
 

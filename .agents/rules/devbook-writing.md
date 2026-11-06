@@ -5,12 +5,28 @@ description: How a devbook chapter reads. Plain sentences a new team member unde
 
 # Writing a devbook chapter
 
+This file exceeds the 60-line body budget on purpose: it is the whole standard
+`prose-check` reports against, and a convention stated by half reports the wrong sentence.
+
+A change's proposal and deltas follow this rule too, because a delta becomes a chapter.
+
 Write a chapter for a person first: a new team member reading it without context. An agent
 reads the same text, and plain sentences cost it less than packed ones.
 
 This rule covers the prose. The folder's own rule says which sections a chapter has, and
 `devbook-chapter-metadata.md` covers the `meta` block. Skills, agents, and rules use a terser
 style meant for a model. Never copy that style into a chapter.
+
+## The goal
+
+Deliver information efficiently, in a form a person reads easily.
+
+Use the fewest words that stay plain. A rewrite that grows a passage is wrong unless it adds a
+fact. Diagrams and extra lines do not count against it: only words do.
+
+Prefer a picture over text wherever the content has a shape, and put it at the top of the
+chapter. Add an opening sentence only when the title and the folder's convention leave the
+subject unclear. A section the folder rule requires first keeps its place.
 
 ## Show it first
 
@@ -31,9 +47,10 @@ relationships between them, is a view of the C4 model, embedded as `devbook-arc4
 whichever skill or row above asked for it. A chapter outside `arc42/` links to the section
 that embeds the view. Only a repository without an `arc42/` folder draws one in Mermaid.
 
-Put the diagram before the prose. The prose then says only what the diagram cannot show: why
-it works this way, the exceptions, and the limits. Never narrate a diagram box by box. Keep a
-diagram to about nine nodes, and split a larger one.
+Put the diagram before the prose. A diagram or C4 view replaces its narration, so the prose
+says only what it cannot show: why it works this way, the exceptions, and the limits. Never
+narrate one box by box, and never convert one into steps that retell it. Keep a diagram to
+about nine nodes, and split a larger one.
 
 ## Sentences
 
@@ -43,7 +60,8 @@ diagram to about nine nodes, and split a larger one.
   order run retry policy".
 - Open a section with its point. Background comes after.
 - Use at most one dash per paragraph. Never chain clauses with dashes or write fragments
-  such as "no X, no Y, no Z": write sentences or a bulleted list.
+  such as "no X, no Y, no Z": write sentences or a bulleted list. A field line or a list
+  item under a lead-in, below, are the only places a fragment stands.
 - Use each term the glossary or ubiquitous language defines in that one meaning, never a
   synonym. Never coin a name, such as a "fill-run", unless the same change defines it there.
 - Explain an abbreviation or code name at its first use in a chapter, or link to where it is
@@ -52,6 +70,34 @@ diagram to about nine nodes, and split a larger one.
 - Write in the language the chapter is in, as a native speaker would. Never carry English
   sentence structure into another language.
 - Cut what the reader does not need: a closing summary, "note that", a hedge.
+
+## Lists, fields, and tables
+
+When a passage enumerates, list
+it, and keep sentences for what connects the items. A list must not cost words: its items
+repeat no subject and no lead-in, and a list longer than the sentence it replaces is wrong.
+
+- Write a block's scope as labelled lists: **Owns**, then **Nested blocks** where it has
+  them, one short item each. Write what lies outside it as a table of concern and owner.
+- When sibling sections share one shape, such as one section per skill, open each with the
+  same bold field lines as list items, such as `**Does:**`, `**Refuses:**`, `**Only writer
+  of:**`, and `**Never:**`, labelled in the chapter's language. A field line may be a
+  fragment. Leave out what its label already says, and keep only the words a plain reading needs.
+- Keep a table cell to about 15 words. Cut first, and move only what the reader needs to the
+  section below, with a link. Moved text never repeats the row's name or restates the row.
+- Say a phrase that repeats across rows or sections once, as a column or one sentence before
+  them, and leave it out of every row.
+- Put the reason for a fact on its own `**Why:**` field line after it. A decision record keeps its
+  reasoning in prose, because there the reasoning is the content.
+- Use an arrow only for a sequence or a direction, such as `detect → plan → stamp`, and never
+  in place of a verb.
+
+```markdown
+### update
+- **Does:** detect → resolve → plan → migrate → materialize → stamp → verify, idempotently.
+- **Refuses:** a repository without a stamp.
+- **Why:** with no provenance, every file on disk would read as customized.
+```
 
 ## Steps
 
@@ -75,6 +121,4 @@ Before:
 
 After:
 
-> Dit is de zichtbare kant van de poort van Financieel. Zolang die poort dicht is, gebeurt er
-> in dit dossier niets met geld: er worden geen betaalopdrachten gemaakt, geen potjes
-> aangevuld en geen betalingen geprobeerd.
+> Dit toont de poort van Financieel. Zolang die dicht is, beweegt er in dit dossier geen geld.
