@@ -112,15 +112,74 @@ public class ArchifyRendersAreNotCommittedTests
     /// rendered now is an index entry filed under its fence's hash, with the
     /// specification it names still there.</para>
     ///
-    /// <para>Asserted on what <c>verify</c> reports rather than on its exit code.
-    /// A <c>stale</c> diagram is a fence edited after its specification was
-    /// rendered — drift a person re-authors, which the presence or absence of a
-    /// render has no bearing on — so it is left to <c>verify</c> itself. Only the
-    /// two states a missing render could cause are ruled out here. Skipped where
-    /// Node is absent.</para>
+    /// <para>Proved on a throwaway repository holding one chapter and the script,
+    /// because the devbook cannot prove it. Editing a fence stales its diagram, so
+    /// any chapter edit can leave no diagram <c>rendered</c>, and a local preview
+    /// beside a specification would hide the very dependency this rules out. Skipped
+    /// where Node is absent.</para>
     /// </summary>
     [Fact]
     public void The_artifact_check_needs_no_committed_render()
+    {
+        Assert.SkipUnless(NodeInstalled(), "Node.js is not installed.");
+
+        var root = Directory.CreateTempSubdirectory("archify-check-").FullName;
+
+        try
+        {
+            var script = Path.Combine(root, "tools", "diagrams", "archify-artifacts.mjs");
+            Directory.CreateDirectory(Path.GetDirectoryName(script)!);
+            File.Copy(RepositoryRoot.File("tools", "diagrams", "archify-artifacts.mjs"), script);
+
+            var chapters = Path.Combine(root, ".devbook", "arc42");
+            var artifacts = Path.Combine(chapters, "_archify");
+            Directory.CreateDirectory(artifacts);
+            File.WriteAllText(Path.Combine(chapters, "chapter.md"), "# Chapter\n\n```mermaid\nflowchart LR\n  A --> B\n```\n");
+
+            var specification = Path.Combine(artifacts, "chapter.1.workflow.json");
+            File.WriteAllText(specification, "{}\n");
+
+            var (state, hash) = ScanTheOneDiagram(script);
+            Assert.Equal("unrendered", state);
+
+            // Filed under another fence's hash, the entry is an older picture.
+            FileIndexEntry(artifacts, new string('0', 64), specification);
+            Assert.Equal("stale", ScanTheOneDiagram(script).State);
+
+            FileIndexEntry(artifacts, hash, specification);
+            Assert.Empty(Directory.GetFiles(artifacts, "*.html"));
+            Assert.Equal("rendered", ScanTheOneDiagram(script).State);
+
+            var (verifyExit, verifyOutput) = Node([script, "verify", "--json"]);
+            Assert.True(verifyExit == 0, $"verify calls a rendered diagram with no HTML out of date:\n{verifyOutput}");
+
+            File.Delete(specification);
+            Assert.Equal("missing", ScanTheOneDiagram(script).State);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A leftover temp folder must not replace the assertion that failed.
+            }
+        }
+    }
+
+    /// <summary>
+    /// The devbook's own diagrams stay in a state a missing render cannot explain.
+    ///
+    /// <para>Asserted on what <c>verify</c> reports rather than on its exit code. A
+    /// <c>stale</c> diagram is a fence edited after its specification was rendered —
+    /// drift a person re-authors, which the presence or absence of a render has no
+    /// bearing on — so it is left to <c>verify</c> itself. For the same reason no
+    /// diagram has to be <c>rendered</c> here. Skipped where Node is absent.</para>
+    /// </summary>
+    [Fact]
+    public void The_devbook_has_no_unrendered_diagram_and_each_rendered_one_has_its_specification()
     {
         Assert.SkipUnless(NodeInstalled(), "Node.js is not installed.");
 
@@ -144,13 +203,11 @@ public class ArchifyRendersAreNotCommittedTests
         Assert.Equal(0, scanExit);
 
         using var rows = JsonDocument.Parse(scanOutput);
-        var rendered = rows.RootElement.EnumerateArray()
-            .Where(row => row.GetProperty("state").GetString() == "rendered")
-            .ToList();
+        var diagrams = rows.RootElement.EnumerateArray().ToList();
 
-        Assert.NotEmpty(rendered);
+        Assert.NotEmpty(diagrams);
 
-        foreach (var row in rendered)
+        foreach (var row in diagrams.Where(row => row.GetProperty("state").GetString() == "rendered"))
         {
             var spec = row.GetProperty("spec").GetString()!;
             Assert.True(
@@ -158,6 +215,27 @@ public class ArchifyRendersAreNotCommittedTests
                 $"{row.GetProperty("chapter").GetString()} #{row.GetProperty("ordinal").GetInt32()} is reported "
                 + $"rendered, but its specification {spec} is not there to draw it from.");
         }
+    }
+
+    private static (string State, string Hash) ScanTheOneDiagram(string script)
+    {
+        var (exit, output) = Node([script, "scan", "--json"]);
+        Assert.True(exit == 0 && output.Length > 0, $"archify-artifacts.mjs scan exited {exit}:\n{output}");
+
+        using var rows = JsonDocument.Parse(output);
+        var row = Assert.Single(rows.RootElement.EnumerateArray());
+
+        return (row.GetProperty("state").GetString()!, row.GetProperty("hash").GetString()!);
+    }
+
+    private static void FileIndexEntry(string artifacts, string hash, string specification)
+    {
+        var entries = new Dictionary<string, object>
+        {
+            [hash] = new { chapter = "chapter.md", ordinal = 1, type = "workflow", spec = Path.GetFileName(specification) }
+        };
+
+        File.WriteAllText(Path.Combine(artifacts, "index.json"), JsonSerializer.Serialize(new { schemaVersion = 1, entries }));
     }
 
     private static List<string> TrackedFiles(string[] pathspecs) =>
