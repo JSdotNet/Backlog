@@ -695,7 +695,8 @@ test; where the chapters still state a rating or a status, one bar shows how
 settled they are; the switches table links the
 features each switch gates. The page's own words are its section headings, the
 two card labels, the line under Switches, the note under How settled, and the question beside each page it
-offers; every other word is a chapter's.
+offers; every other word is a chapter's. A diagram in the boundary's prose — a
+process no chapter owns — is drawn in the lifecycle's style, as a unit's flows are.
 
 **Technical detail lives on Model.** Field types, how a domain service is invoked
 and what an event carries are shown on Model only. The functional pages, from the

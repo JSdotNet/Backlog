@@ -257,6 +257,32 @@ public sealed class DomainContextViewTests
             view.FindAll("[data-testid='domain-context-page-status']").Count);
     }
 
+    /// <summary>A diagram in context.md's prose is drawn in the lifecycle's style,
+    /// not handed to Mermaid, with the words around it kept.</summary>
+    [Fact]
+    public void A_diagram_in_the_boundary_is_drawn_in_the_lifecycle_style()
+    {
+        using var context = Context();
+        const string more = """
+            Before the drawing.
+
+            ```mermaid
+            flowchart LR
+                S[Source] -->|raw content| C[Capture]
+            ```
+
+            After the drawing.
+            """;
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board() with { More = more }));
+
+        var section = view.Find("[data-testid='domain-context-page-more']");
+        Assert.NotNull(section.QuerySelector("[data-testid='domain-flowchart']"));
+        Assert.Empty(section.QuerySelectorAll("[data-testid='diagram-view']"));
+        Assert.Contains("Before the drawing.", section.TextContent);
+        Assert.Contains("After the drawing.", section.TextContent);
+    }
+
     /// <summary>Past devbook contract 38 a domain chapter states no status, so the
     /// page draws no How settled bar rather than one that reads all active.</summary>
     [Fact]

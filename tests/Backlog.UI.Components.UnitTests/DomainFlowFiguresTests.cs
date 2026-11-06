@@ -285,6 +285,28 @@ public sealed class DomainFlowFiguresTests
         Assert.Equal(["DomainFlowDiagram", "DomainFlowchartDiagram", "DomainSequenceDiagram"], kinds.Order(StringComparer.Ordinal));
     }
 
+    /// <summary>Every Mermaid diagram in a context's <c>context.md</c> — a process no
+    /// chapter owns — is a figure the context page draws itself, with the prose
+    /// around it kept as markdown.</summary>
+    [Fact]
+    public void Every_diagram_in_the_repository_context_files_is_drawn_in_the_lifecycle_style()
+    {
+        var domain = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "domain");
+        var files = Directory.EnumerateFiles(domain, "context.md", SearchOption.AllDirectories).ToList();
+        Assert.NotEmpty(files);
+
+        var drawn = 0;
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            var pieces = DomainFlows.Pieces(text);
+            Assert.Equal(Regex.Matches(text, @"^\s*```mermaid", RegexOptions.Multiline).Count, pieces.Count(piece => piece.Figure is not null));
+            Assert.All(pieces.Where(piece => piece.Figure is null), piece => Assert.DoesNotContain("```mermaid", piece.Markdown));
+            drawn += pieces.Count(piece => piece.Figure is not null);
+        }
+        Assert.True(drawn > 0);
+    }
+
     /// <summary>A diagram that opens a chapter, as contract 37 places it, is read
     /// with the bold line above it as its title and the words between as its lead;
     /// a typed chapter inside the unit brings its own, and a fence the page cannot

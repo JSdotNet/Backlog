@@ -328,6 +328,46 @@ public static partial class DomainFlows
         return flows;
     }
 
+    /// <summary>
+    /// Markdown cut around the Mermaid fences the view draws itself — a state row,
+    /// a flowchart, a sequence — in source order: a piece of markdown, or a figure.
+    /// A page that shows a chapter's prose, such as a context's Overview, draws
+    /// each figure in the lifecycle's style rather than handing it to Mermaid; a
+    /// fence none of the three reads stays in its markdown.
+    /// </summary>
+    public static IReadOnlyList<(string Markdown, DomainFlowFigure? Figure)> Pieces(string markdown)
+    {
+        var pieces = new List<(string, DomainFlowFigure?)>();
+        var lines = markdown.Replace("\r\n", "\n").Split('\n');
+        var text = new StringBuilder();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].Trim();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                var end = i + 1;
+                while (end < lines.Length && !lines[end].Trim().StartsWith("```", StringComparison.Ordinal)) end++;
+                if (string.Equals(trimmed[3..].Trim(), "mermaid", StringComparison.OrdinalIgnoreCase)
+                    && Figure(string.Join('\n', lines[(i + 1)..Math.Min(end, lines.Length)])) is { } figure)
+                {
+                    if (text.ToString().Trim().Length > 0) pieces.Add((text.ToString().Trim(), null));
+                    text.Clear();
+                    pieces.Add((string.Empty, figure));
+                    i = end;
+                    continue;
+                }
+
+                // Any other fence is copied whole, so a fence inside it is not read.
+                for (var j = i; j <= Math.Min(end, lines.Length - 1); j++) text.Append(lines[j]).Append('\n');
+                i = end;
+                continue;
+            }
+            text.Append(lines[i]).Append('\n');
+        }
+        if (text.ToString().Trim().Length > 0) pieces.Add((text.ToString().Trim(), null));
+        return pieces;
+    }
+
     /// <summary>A sub-chapter read as a card: a first paragraph of nothing but code
     /// spans or emphasis is its tag, a last paragraph of one link its footer.</summary>
     private static DomainFlowCard Card(DomainChapter chapter)

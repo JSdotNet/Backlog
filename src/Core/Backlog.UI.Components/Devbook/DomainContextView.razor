@@ -374,18 +374,28 @@
             : OnOpenAlwaysTrue.InvokeAsync(new DomainAlwaysTrueLink("Always true", unit[..hash], unit[(hash + 1)..]));
     }
 
+    // A diagram in context.md's prose — a process no chapter owns, where devbook
+    // contract 37 may put it — is drawn in the lifecycle's style, never as Mermaid.
     private RenderFragment Markdown(string source) => __builder =>
     {
-        if (!_parsed.TryGetValue(source, out var blocks))
+        foreach (var (text, figure) in DomainFlows.Pieces(source))
         {
-            blocks = MarkdownPreview.ParseDocument(source);
-            _parsed[source] = blocks;
+            if (figure is not null)
+            {
+                <DomainFlowFigures Diagrams="@([figure])" Title="@ContextName" DocumentPath="@(DocumentPath ?? string.Empty)" OnNavigate="OnNavigate" />
+                continue;
+            }
+            if (!_parsed.TryGetValue(text, out var blocks))
+            {
+                blocks = MarkdownPreview.ParseDocument(text);
+                _parsed[text] = blocks;
+            }
+            <MarkdownView Blocks="@blocks"
+                          Source="@text"
+                          DevbookDocumentPath="@DocumentPath"
+                          DevbookFolder="DevbookFolder.Domain"
+                          OnDevbookNavigate="OnNavigate" />
         }
-        <MarkdownView Blocks="@blocks"
-                      Source="@source"
-                      DevbookDocumentPath="@DocumentPath"
-                      DevbookFolder="DevbookFolder.Domain"
-                      OnDevbookNavigate="OnNavigate" />
     };
 
     private RenderFragment ProofCard(string kind, string title, DomainProof proof, string facts, Func<Task>? open) => __builder =>
