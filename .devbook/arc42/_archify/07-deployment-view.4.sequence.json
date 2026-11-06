@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Phone App Update Check and Install",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1320, 600]
+  },
+  "participants": [
+    { "id": "person", "type": "external", "label": "Person" },
+    { "id": "app", "type": "frontend", "label": "Phone app" },
+    { "id": "gh", "type": "cloud", "label": "GitHub Releases API" },
+    { "id": "pi", "type": "external", "label": "Android PackageInstaller" }
+  ],
+  "messages": [
+    { "id": "list-releases", "from": "app", "to": "gh", "y": 180, "label": "GET /repos/{channel}/releases?per_page=100", "variant": "default" },
+    { "id": "every-release", "from": "gh", "to": "app", "y": 226, "label": "every release, v* and mobile-v*", "variant": "return", "note": "App then: highest Backlog.Mobile_x.y.z.apk above the installed versionCode" },
+    { "id": "dot", "from": "app", "to": "person", "y": 280, "label": "dot on the version control", "variant": "return" },
+    { "id": "install-update", "from": "person", "to": "app", "y": 324, "label": "Install update", "variant": "default" },
+    { "id": "check-download", "from": "app", "to": "gh", "y": 368, "label": "check again, then download the APK", "variant": "default" },
+    { "id": "commit-session", "from": "app", "to": "pi", "y": 412, "label": "commit an install session", "variant": "default" },
+    { "id": "confirm-install", "from": "pi", "to": "person", "y": 456, "label": "confirm the install", "variant": "return" },
+    { "id": "replace-app", "from": "pi", "to": "app", "y": 500, "label": "replace the app, keeping its data", "variant": "default" }
+  ]
+}

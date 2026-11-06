@@ -1,26 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Desktop Release and Update Delivery",
+    "title": "Packaged AppData Migration on First Start",
     "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [
-    { "id": "pipeline", "label": "Release pipeline" },
-    { "id": "target", "label": "Install target" }
+    { "id": "check", "label": "First start" },
+    { "id": "copy", "label": "PackagedAppData copy" }
   ],
-  "mainPath": ["tag", "workflow", "release", "machine"],
   "nodes": [
-    { "id": "tag", "lane": "pipeline", "col": 0, "type": "external", "label": "v* tag or dispatch", "sublabel": "nightly or Deploy All", "width": 120 },
-    { "id": "workflow", "lane": "pipeline", "col": 2, "type": "backend", "label": "Release All workflow", "width": 150 },
-    { "id": "release", "lane": "pipeline", "col": 4, "type": "cloud", "label": "GitHub Release vX.Y.Z", "width": 150 },
-    { "id": "machine", "lane": "target", "col": 5, "type": "frontend", "label": "Windows machine", "width": 108 }
+    { "id": "start", "lane": "check", "col": 0, "type": "frontend", "label": "First start of a packaged build", "width": 270 },
+    { "id": "redirect", "lane": "check", "col": 1, "type": "security", "label": "Redirected AppData", "sublabel": "folder exists?", "width": 190 },
+    { "id": "done", "lane": "check", "col": 4, "type": "database", "label": "Use the real folder", "width": 190 },
+    { "id": "migrate", "lane": "copy", "col": 1, "type": "backend", "label": "PackagedAppData copies backlog.db", "sublabel": "(SQLite backup API), _inbox, config, .tools and the per-device JSON files", "width": 400 },
+    { "id": "skip", "lane": "copy", "col": 3, "type": "backend", "label": "Skips anything already", "sublabel": "in the real folder", "width": 210 },
+    { "id": "settings", "lane": "copy", "col": 4, "type": "backend", "label": "Writes settings.json last", "width": 230 }
   ],
   "edges": [
-    { "id": "tag-to-workflow", "from": "tag", "to": "workflow" },
-    { "id": "workflow-to-release", "from": "workflow", "to": "release", "label": "signed MSIX + .appinstaller + .cer", "variant": "emphasis", "labelAt": [412, 165] },
-    { "id": "first-install", "from": "release", "to": "machine", "label": "first install (sideload)", "role": "main", "fromSide": "right", "toSide": "top", "labelAt": [618, 170] },
-    { "id": "update-check", "from": "release", "to": "machine", "label": "OnLaunch / background / Settings check", "role": "branch", "fromSide": "bottom", "toSide": "left", "labelAt": [500, 200] }
+    { "id": "start-to-redirect", "from": "start", "to": "redirect" },
+    { "id": "redirect-no", "from": "redirect", "to": "done", "label": "no" },
+    { "id": "redirect-yes", "from": "redirect", "to": "migrate", "label": "yes", "toSide": "top" },
+    { "id": "migrate-to-skip", "from": "migrate", "to": "skip" },
+    { "id": "skip-to-settings", "from": "skip", "to": "settings" },
+    { "id": "settings-to-done", "from": "settings", "to": "done" }
   ]
 }

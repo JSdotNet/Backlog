@@ -94,9 +94,9 @@ const ALL_TYPES = ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycl
 
 /** The Archify quality profile a specification is rendered at.
  *
- *  `showcase` for everything, with one recorded exception. Three diagrams in this
+ *  `showcase` for everything, with one recorded exception. Four diagrams in this
  *  repository are provably non-planar — `.devbook/domain/context-map.md` #1,
- *  `.devbook/arc42/05-building-block-view.md` #3 and `.devbook/tech/technology-graph.md` #1
+ *  `.devbook/arc42/05-building-block-view.md` #2 and #6, and `.devbook/tech/technology-graph.md` #2
  *  (tools/diagrams/README.md has each proof) — so at least one
  *  edge crossing is forced in every possible drawing of them, and showcase raises
  *  `composition/proper-crossing` as an error. No faithful specification of either

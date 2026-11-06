@@ -2,28 +2,32 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Brain — built and kept current",
+    "title": "Brain repo links — the four readers",
     "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [
-    { "id": "settings", "type": "backend", "label": "IBrainSettings", "sublabel": "BrainFolder", "pos": [40, 340], "size": [200, 80] },
-    { "id": "watch", "type": "backend", "label": "BrainFolderWatch", "sublabel": "Infrastructure.FileSystem", "pos": [330, 220], "size": [220, 80] },
-    { "id": "refresher", "type": "backend", "label": "DevbookDatabaseRefresher", "sublabel": ".WatchBrain", "pos": [710, 220], "size": [220, 80] },
-    { "id": "conventions", "type": "backend", "label": "BrainConventions", "sublabel": "CONVENTIONS.md areas, or PARA", "pos": [1090, 40], "size": [230, 80] },
-    { "id": "builder", "type": "backend", "label": "Devbook builder", "sublabel": "DevbookCorpusKind.Brain", "pos": [1090, 220], "size": [230, 80] },
-    { "id": "db", "type": "database", "label": "Brain database", "sublabel": "app storage", "pos": [1090, 460], "size": [230, 80] },
-    { "id": "source", "type": "backend", "label": "BrainFolderSource", "sublabel": "IBrainFolderSource, key brain", "pos": [330, 460], "size": [220, 80] },
-    { "id": "pane", "type": "frontend", "label": "Devbook pane", "pos": [710, 460], "size": [220, 80] }
+    { "id": "link", "type": "backend", "label": "BrainRepoLink", "sublabel": "alias, path, slug", "pos": [40, 80], "size": [230, 80] },
+    { "id": "resolver", "type": "backend", "label": "BrainRepoLinkResolver", "sublabel": "asks IDevbookFolderSource", "pos": [360, 80], "size": [230, 80] },
+    { "id": "panel", "type": "frontend", "label": "BrainDevbookPanel", "sublabel": "RepoLinkChip", "pos": [680, 80], "size": [230, 80] },
+    { "id": "shell", "type": "frontend", "label": "Shell", "sublabel": "DevbookOpenRequest", "pos": [1080, 80], "size": [230, 80] },
+    { "id": "brainDb", "type": "database", "label": "Brain database", "sublabel": "DevbookDatabase.RepoLinks()", "pos": [40, 300], "size": [230, 80] },
+    { "id": "atlas", "type": "backend", "label": "Brain atlas", "sublabel": "DevbookAtlasService.ReadBrainAsync", "pos": [360, 300], "size": [230, 80] },
+    { "id": "backlinks", "type": "backend", "label": "BrainBacklinkReader", "sublabel": "IBrainBacklinks", "pos": [360, 500], "size": [230, 80] },
+    { "id": "box", "type": "frontend", "label": "BrainBacklinksBox", "pos": [680, 500], "size": [230, 80] },
+    { "id": "lobes", "type": "backend", "label": "Lobes", "pos": [680, 300], "size": [230, 80] },
+    { "id": "repoDb", "type": "database", "label": "RepoDb", "pos": [1080, 300], "size": [230, 80] }
   ],
   "connections": [
-    { "id": "settings-watch", "from": "settings", "to": "watch", "label": "Changed", "fromSide": "top", "toSide": "left" },
-    { "id": "watch-refresher", "from": "watch", "to": "refresher", "label": "re-points the watch", "fromSide": "right", "toSide": "left" },
-    { "id": "refresher-builder", "from": "refresher", "to": "builder", "label": "rebuild after a change", "fromSide": "right", "toSide": "left" },
-    { "id": "conventions-builder", "from": "conventions", "to": "builder", "fromSide": "bottom", "toSide": "top" },
-    { "id": "builder-db", "from": "builder", "to": "db", "fromSide": "bottom", "toSide": "top" },
-    { "id": "watch-source", "from": "watch", "to": "source", "label": "raises Changed", "fromSide": "bottom", "toSide": "top", "labelAt": [492, 380] },
-    { "id": "settings-source", "from": "settings", "to": "source", "fromSide": "bottom", "toSide": "left" },
-    { "id": "source-pane", "from": "source", "to": "pane", "fromSide": "right", "toSide": "left" }
+    { "id": "link-resolver", "from": "link", "to": "resolver", "fromSide": "right", "toSide": "left" },
+    { "id": "resolver-panel", "from": "resolver", "to": "panel", "fromSide": "right", "toSide": "left" },
+    { "id": "panel-shell", "from": "panel", "to": "shell", "label": "OnOpenRepositoryChapter", "fromSide": "right", "toSide": "left" },
+    { "id": "braindb-backlinks", "from": "brainDb", "to": "backlinks", "fromSide": "bottom", "toSide": "left" },
+    { "id": "backlinks-box", "from": "backlinks", "to": "box", "fromSide": "right", "toSide": "left" },
+    { "id": "braindb-atlas", "from": "brainDb", "to": "atlas", "fromSide": "right", "toSide": "left" },
+    { "id": "resolver-atlas", "from": "resolver", "to": "atlas", "fromSide": "bottom", "toSide": "top" },
+    { "id": "braindb-lobes", "from": "brainDb", "to": "lobes", "fromSide": "bottom", "toSide": "bottom", "via": [[155, 440], [795, 440]] },
+    { "id": "repodb-lobes", "from": "repoDb", "to": "lobes", "fromSide": "left", "toSide": "right" },
+    { "id": "resolver-lobes", "from": "resolver", "to": "lobes", "fromSide": "bottom", "toSide": "top" }
   ]
 }
