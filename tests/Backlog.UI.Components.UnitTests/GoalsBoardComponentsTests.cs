@@ -284,6 +284,44 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     }
 
     [Fact]
+    public void An_open_pull_request_with_a_title_draws_it_above_its_status_line()
+    {
+        var titled = Paid with { PullRequests = [new PullRequestStatusModel(1341, "open", Title: "Invoice PDF export")] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, titled).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        var title = card.Find("[data-testid='goal-pull-request-1341-title']");
+        Assert.Equal("Invoice PDF export", title.TextContent);
+        Assert.Equal("goal-pull-request-1341", title.NextElementSibling!.GetAttribute("data-testid"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public void A_pull_request_with_no_title_draws_only_its_status_line(string? known)
+    {
+        var untitled = Paid with { PullRequests = [new PullRequestStatusModel(1341, "open", Title: known)] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, untitled).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        Assert.Empty(card.FindAll("[data-testid='goal-pull-request-1341-title']"));
+        Assert.NotNull(card.Find("[data-testid='goal-pull-request-1341'].pull-request-status"));
+    }
+
+    /// <summary>A merged pull request stays a pill under its number; its title is the
+    /// pill's tooltip, never a line of its own.</summary>
+    [Fact]
+    public void A_merged_pull_requests_title_stays_the_pills_tooltip()
+    {
+        var merged = Paid with { PullRequests = [new PullRequestStatusModel(1352, "merged", Title: "Reminder emails")] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, merged).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        Assert.Empty(card.FindAll("[data-testid='goal-pull-request-1352-title']"));
+        Assert.Equal("Reminder emails", card.Find("[data-testid='goal-merged'] .badge--gh-merged").GetAttribute("title"));
+    }
+
+    [Fact]
     public void The_attach_search_lists_matches_under_their_kind_and_hands_back_the_pick()
     {
         GoalSubject? attached = null;

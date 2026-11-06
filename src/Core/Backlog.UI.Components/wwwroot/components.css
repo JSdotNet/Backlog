@@ -22840,6 +22840,20 @@ select.field__input {
     min-width: 0;
 }
 
+/* The title over its status line. It takes the row's free width, so Detach keeps the end. */
+.goal-card__pull-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* A title with no break in it still wraps rather than widening the column. */
+.goal-card__pull-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .goal-card__task-title {
     flex: 1 1 auto;
     min-width: 0;
