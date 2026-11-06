@@ -57,6 +57,11 @@ public static class MobileShellServiceCollectionExtensions
         // in the browser harness, shared by every browser on it, as one pretend phone.
         services.TryAddSingleton<ISpeechSettingsStore, InMemorySpeechSettingsStore>();
 
+        // The Notifications tab's From and Repository choices, kept the same way: the
+        // Android head registers its preferences store first, anything else keeps them in
+        // memory.
+        services.TryAddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore, Backlog.Mobile.UI.Notifications.InMemoryNotificationFilterStore>();
+
         // Whether the sync service is newer than this app, which the layout's
         // sync-paused callout reads. AddSyncClient registers the verdict a head's
         // clients write to; TryAdd so a host composed without one — the tests'
@@ -76,6 +81,35 @@ public static class MobileShellServiceCollectionExtensions
         services.TryAddSingleton<CaptureOpenRequests>();
         services.TryAddSingleton<IPushTokenSource, NoPushTokenSource>();
         services.TryAddSingleton<PushRegistration>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Dictation as the screens inject it (local ADR 0045 §6): <typeparamref name="TOnDevice"/>,
+    /// the host's own recogniser, and the cloud engine, behind the
+    /// <see cref="SelectingSpeechTranscriber"/> that picks one each turn.
+    /// </summary>
+    /// <remarks>
+    /// The host registers the rest, because each is its own: the <see cref="IAudioRecorder"/>
+    /// for its platform, and <see cref="CloudTranscriptionClient"/> as a typed client against
+    /// its sync address with the sync pipeline and no retry. Scoped, like the recognisers:
+    /// one turn per screen's circuit or web view. The per-run fallback is a singleton.
+    /// </remarks>
+    public static IServiceCollection AddDictation<TOnDevice>(this IServiceCollection services)
+        where TOnDevice : class, ISpeechTranscriber
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddScoped<TOnDevice>();
+        services.TryAddSingleton<CloudDictationAvailability>();
+        services.AddScoped<CloudSpeechTranscriber>();
+        services.AddScoped<ISpeechTranscriber>(provider => new SelectingSpeechTranscriber(
+            provider.GetRequiredService<TOnDevice>(),
+            provider.GetRequiredService<CloudSpeechTranscriber>(),
+            provider.GetRequiredService<ISpeechSettingsStore>(),
+            provider.GetRequiredService<CloudDictationAvailability>(),
+            provider.GetRequiredService<ISyncStatusSource>()));
 
         return services;
     }

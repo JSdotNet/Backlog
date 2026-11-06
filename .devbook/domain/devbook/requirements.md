@@ -5,9 +5,9 @@ type: requirements
 related: [.devbook/domain/devbook/features.md]
 ```
 
-> What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it. The Brain's
-> own requirements are the [Brain's](../brain/requirements.md).
+> What each feature guarantees: one SHALL sentence per requirement, with its
+> scenarios. A review note is an `annotation` fence. A [Sync Verdict](domain.md#sync-verdict)
+> is the sweep's last word on a chapter. The Brain's are in [its own file](../brain/requirements.md).
 
 ## Unified search
 
@@ -15,9 +15,6 @@ related: [.devbook/domain/devbook/features.md]
 type: requirements
 related: [.devbook/domain/devbook/features.md#unified-search]
 ```
-
-> The requirements of one search across the Brain and every configured
-> repository's devbook.
 
 ### Requirement: Results are grouped by source, Brain first
 
@@ -81,12 +78,6 @@ The system SHALL open a result in the devbook it came from, moving the pane to t
 type: requirements
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```
-
-> The requirements of how a chapter's metadata and workflow state are shown: the
-> decision state a domain chapter carries, the state the app keeps for a decision
-> or debt record and a proposal, the state another tool keeps on a chapter, and
-> the planning fields the view leaves out. They also say how the app's store first
-> takes the states a repository's Markdown still writes.
 
 ### Requirement: Decision state is shown beside the status
 
@@ -231,10 +222,6 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 
-> The requirements of where the read view shows a reader's remark once the chapter
-> it was left on has changed, on which branch it shows, and how a repository's
-> open review notes become remarks.
-
 ### Requirement: A remark follows its passage
 
 ```meta
@@ -303,7 +290,7 @@ related: [.devbook/domain/devbook/domain.md#remark]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.List_answers_only_the_remarks_for_the_branch_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_branch_across_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch]
 ```
 
-The read view SHALL show a remark left on a named branch only while that branch is read, and a remark left on the default branch only while the default branch or the clone is read.
+The read view SHALL show a remark left on a named branch only while that branch is read, and one left on the default branch only while that branch or the clone is read.
 
 #### Scenario: Reading a feature branch
 
@@ -317,9 +304,6 @@ The read view SHALL show a remark left on a named branch only while that branch 
 type: requirements
 related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 ```
-
-> The requirements of the review notes a repository keeps in its chapters as
-> `annotation` fences.
 
 ### Requirement: A review note never travels as the chapter's content
 
@@ -343,8 +327,6 @@ The system SHALL leave a chapter's review notes out of everything it hands on as
 type: requirements
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
 ```
-
-> The requirements of the [Sync Verdict](domain.md#sync-verdict) a chapter shows.
 
 ### Requirement: A sweep replaces only the verdicts of the chapters it checked
 
@@ -383,8 +365,7 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
 ```
 
-> The requirements of the Devbook pane's source field: the local clone or a branch,
-> read from GitHub (local ADR 0008).
+> The source field is the local clone or a branch, read from GitHub (local ADR 0008).
 
 ### Requirement: Typing narrows the sources
 
@@ -408,7 +389,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.Opening_the_pane_loads_once_and_the_picker_and_tabs_ask_nothing_more, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.The_list_says_the_branches_are_loading_while_the_first_load_runs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchOverviewTests.While_a_refresh_runs_the_field_keeps_naming_the_source_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.The_first_load_lists_compares_every_branch_and_checks_the_clone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_second_load_answers_from_the_first_and_asks_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.Loads_asked_for_at_once_share_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.One_caller_giving_up_does_not_cancel_the_shared_load, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_refresh_loads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchOverviewTests.A_load_that_runs_out_of_time_stops_the_comparisons_it_started, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_load_entry_becomes_a_refresh_once_the_overview_is_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.No_load_entry_is_offered_while_the_overview_loads, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_branches_refreshes_the_overview, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.While_the_overview_loads_the_suggestions_say_so_and_the_entry_names_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_the_branches_does_not_change_what_is_current, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsDevbookFolderStatusTests.After_a_refresh_the_source_select_is_rebuilt_on_the_source_read, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Branches_past_the_first_page_are_listed, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Listing_stops_at_the_ceiling, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Branch_heads_are_paged_to_the_same_ceiling]
 ```
 
-The system SHALL load a repository's branches, each compared with the default branch, and the local clone's currency once per app session in the background when the Devbook pane first opens on the repository, page by page up to 1000 branches, reuse that load for every later ask until the reader picks "Refresh branches", show "Loading branches…" in the list while a load runs, and never change the source being read or hold back the pane while it does.
+The system SHALL load a repository's branches, each compared with the default branch, and the local clone's currency once per app session in the background when the Devbook pane first opens on the repository, page by page up to 1000 branches, reuse that load for every later ask until the reader picks "Refresh branches", show "Loading branches…" in the list while it runs, and never change the source being read or hold back the pane meanwhile.
 
 #### Scenario: Reopening the picker asks nothing again
 
@@ -517,7 +498,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_before_the_list_is_loaded_fetches_it_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_the_list_lacks_asks_github_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_an_unknown_branch_says_so_and_leaves_the_source_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_branch_typed_in_another_case_means_the_branch_as_it_is_spelled, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.A_branch_that_is_gone_resolves_to_null_rather_than_throwing]
 ```
 
-The system SHALL ask GitHub for a branch the reader commits by name that the loaded list does not hold, switch to it when GitHub has it, and otherwise say there is no such branch and leave the source as it was.
+The system SHALL ask GitHub for a branch the reader names that the loaded list lacks, switch to it when GitHub has it, and otherwise say there is no such branch and keep the source.
 
 #### Scenario: A branch newer than the list
 
@@ -568,9 +549,6 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#reviewing-what-a-branch-changed]
 ```
 
-> The requirements of **Review changes** in the Devbook pane, read from GitHub and
-> held in memory for the session.
-
 ### Requirement: Only a branch can be reviewed
 
 ```meta
@@ -593,7 +571,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_asks_for_the_three_dot_compare_of_the_two_refs, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_carries_the_merge_base_and_how_far_apart_the_two_are, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.The_branch_is_compared_with_the_default_branch_by_their_heads, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.Commits_are_listed_newest_first_with_short_sha_subject_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Opening_the_review_shows_the_branch_its_chapters_and_the_first_comparison]
 ```
 
-The system SHALL list, in a branch review, the commits the branch holds that the repository's default branch does not, newest first with short SHA, subject, and age, beside an entry for all the branch's changes against the default branch.
+The system SHALL list, in a branch review, the commits the branch holds that the default branch lacks, newest first with short SHA, subject and age, beside an entry for all the branch's changes against the default branch.
 
 #### Scenario: Opening a review
 
@@ -667,9 +645,6 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 type: requirements
 related: [.devbook/domain/devbook/features.md#technology-view]
 ```
-
-> The requirements of the Technology area of the Devbook pane: its five views,
-> the measures they compute from `depends-on`, and how they are operated.
 
 ### Requirement: Five views replace the Atlas and Layers tabs
 
@@ -969,7 +944,7 @@ The system SHALL leave a technology out of its own Used by, Breaks if it changes
 type: requirement
 ```
 
-The system SHALL give every member of a `depends-on` cycle the depth of the longest chain that leaves the cycle, count no hop between two members, and end every walk at a technology it has already visited.
+The system SHALL give every member of a `depends-on` cycle the depth of the longest chain leaving it, count no hop between members, and end every walk at a technology it already visited.
 
 #### Scenario: Two technologies naming each other
 
@@ -984,7 +959,7 @@ The system SHALL give every member of a `depends-on` cycle the depth of the long
 type: requirement
 ```
 
-The system SHALL count a chapter of another devbook folder that a technology's `depends-on` names in the measures, and leave it out of the folder's per-type, per-family and per-status counts, the Complexity scatter and the Clusters map.
+The system SHALL count another devbook folder's chapter that a technology's `depends-on` names in the measures, and leave it out of the folder's per-type, per-family and per-status counts, the Complexity scatter and the Clusters map.
 
 #### Scenario: A depends-on into another folder
 
@@ -1026,7 +1001,7 @@ The system SHALL place a technology on the Complexity scatter in Hubs at used by
 type: requirement
 ```
 
-The system SHALL place a technology across the Complexity scatter at the square root of its used by over the square root of the axis's end, the end being the largest used by and never less than 4.
+The system SHALL place a technology across the Complexity scatter at the square root of its used by over that of the axis's end, which is the largest used by and never less than 4.
 
 #### Scenario: Half way across
 
@@ -1058,7 +1033,7 @@ The system SHALL draw the technologies with the same used by and rests on as one
 type: requirement
 ```
 
-The system SHALL show each technology the Dependencies view reaches once, at its nearest hop, marked with every further hop it is also reached at, and from 2 hops with the technology one hop nearer that it is reached through.
+The system SHALL show each technology the Dependencies view reaches once at its nearest hop, marked with every further hop and, from 2 hops, the technology one hop nearer it is reached through.
 
 #### Scenario: Reached at one and two hops
 
@@ -1159,7 +1134,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TechnologyClustersViewTests.Each_cluster_is_one_tab_stop_its_button_first_and_the_browser_roves_it, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_answers_the_arrows_home_and_end_unmodified_on_its_own_buttons, unit:dotnet:Backlog.UI.Components.UnitTests.RovingButtonsScriptTests.A_roving_group_moves_its_one_stop_and_the_focus_wrapping_and_skipping_disabled]
 ```
 
-The system SHALL make each cluster on the All layers map one tab stop, its open-layer button first and then its dots, across which the arrow keys, Home and End move the stop and wrap at either end.
+The system SHALL make each cluster on the All layers map one tab stop, its open-layer button then its dots, across which the arrow keys, Home and End move it and wrap at either end.
 
 #### Scenario: Tabbing into a cluster
 
@@ -1217,7 +1192,7 @@ The system SHALL keep exactly one tab stop in each cluster on All layers when a 
 type: requirement
 ```
 
-The system SHALL show on the Type lenses board one card per type in use, each with its type's lens for the selected technology when that technology is of its type and otherwise for the type's most-used technology, and a Lens per type table below the cards.
+The Type lenses board SHALL show one card per type in use, with its lens for the selected technology when of that type, else its most-used technology, and a Lens per type table below.
 
 #### Scenario: The most-used technology of a type
 

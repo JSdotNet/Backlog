@@ -27,7 +27,8 @@
 
 <header class="notes-heading">
     <span class="notes-heading__kicker" data-testid="notes-count">@CountLabel(shown.Count)</span>
-    <h1>Notes</h1>
+    @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+    <h1 class="sr-only">Notes</h1>
 </header>
 
 @if (_pullNotice is not null)

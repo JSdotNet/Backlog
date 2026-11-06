@@ -12,13 +12,12 @@ type: domain
 > aggregates get their own chapter at the end instead of being duplicated.
 
 What Roadmap Planning owns and what it leaves to Tasks and Devbook is in
-[context.md](context.md). The plan is stored in its own right rather than as a
-view over [Tasks](../tasks/domain.md#task), because it has to hold work that has
-not been refined into a task yet. A Roadmap Item may name the task that executes
-it. Every item names its repositories from the
+[context.md](context.md). The plan is stored in its own right, not as a view over
+[Tasks](../tasks/domain.md#task), because it holds work not yet refined into a
+task. A Roadmap Item may name the task that executes it. Every item names its
+repositories from the
 [Repository Registry](../repository-management/domain.md#repository-registry) by
-alias. That is what makes a portfolio-wide plan readable as one [band](#band) per
-repository rather than one undifferentiated list.
+alias, so a portfolio-wide plan reads as one [band](#band) per repository.
 
 ## Roadmap Plan
 
@@ -47,14 +46,12 @@ stateDiagram-v2
 ```
 
 The states are the values of `placed_by_import` on a
-[Roadmap Item](domain.md#roadmap-item), and that chapter defines a
-[hand move](domain.md#roadmap-item). The two transitions to the person's state are
+[Roadmap Item](domain.md#roadmap-item), which defines a
+[hand move](domain.md#roadmap-item). Both transitions to the person's state are
 [a hand move](domain.invariants.md#invariant-a-hand-move-hands-the-window-to-the-person),
-and no transition leaves it, because
+and none leaves it, because
 [the importer never moves a window a person placed](domain.invariants.md#invariant-the-importer-never-moves-a-window-a-person-placed)
-and an import never deletes an item. A drop on a Calendar day still places the
-window by the `effort` rule, from the day dropped on. The window is the person's
-because they chose that day.
+and an import never deletes an item.
 
 The single plan for the workspace, and the consistency boundary for every item,
 milestone, and dependency in it.
@@ -65,12 +62,11 @@ also say *a plan* for one imported plan, which the roadmap holds as one
 *item* for the one item.
 
 The plan is the aggregate root rather than the Roadmap Item, because
-**acyclicity is an invariant across items, not within one**. That reason
-outweighs the convenience of a smaller boundary. An item cannot tell whether the
-dependency it is about to accept closes a loop three items away. A boundary drawn
-around a single item would push the most important rule outside the model, into
-whatever happened to call it. The plan is also read and written as a whole, so
-the boundary and the transaction have the same shape. This mirrors
+**acyclicity is an invariant across items, not within one**. An item cannot tell
+whether a dependency it is about to accept closes a loop three items away, and a
+boundary around one item would push that rule outside the model. The plan is also
+read and written as a whole, so the boundary and the transaction share a shape.
+This mirrors
 [Repository Registry](../repository-management/domain.md#repository-registry),
 the other singleton-registry aggregate in this product.
 
@@ -96,58 +92,53 @@ A single piece of planned work, identified by `roadmap_item_id`. It holds:
 - `placed_by_import`, when an import placed its window;
 - `completed_on`, the day a person completed it by hand, while it stays completed.
 
-`placed_by_import` records which rule an import placed the window by. How the
-value is set and cleared is drawn in
-[Who placed an item's window](domain.md#roadmap-plan).
+`placed_by_import` records which rule an import placed the window by, as drawn in
+[Who placed an item's window](domain.md#roadmap-plan). The value reads:
 
 - `effort`: the start comes from its predecessors, and the length from the
   gathered effort over the reader's pace.
 - `due-date`: the end is the `due:` the plan wrote.
 - Absent: a person placed the window.
 
-A **hand move** is a person changing the window's dates: by dragging or resizing
+A **hand move** is a person changing the window's dates by dragging or resizing
 the bar, from the keyboard, or in the item's editor. A drop onto another lane, or
-a Save in the editor, that leaves the dates alone is not a hand move. A hand move
+a Save that leaves the dates alone, is not one. A hand move
 [hands the window to the person](domain.invariants.md#invariant-a-hand-move-hands-the-window-to-the-person),
 and from then on
 [the importer never moves it](domain.invariants.md#invariant-the-importer-never-moves-a-window-a-person-placed).
 
-An import can be told the day a person chose for the window to open, when a plan
-is dropped on a day of the Tasks Calendar. It then places the window from that
-day by the `effort` rule and leaves the value absent, because the day was the
-person's. That day wins even over work that has already begun. The stored window
-opens on it, and its end is counted from there for the points still open.
+When a plan is dropped on a day of the Tasks Calendar, the import is told that
+day. It places the window from it by the `effort` rule and leaves the value
+absent, because the day was the person's. That day wins even over work that has
+begun, and the end is counted from there for the points still open.
 
 While the value is `effort` and its work is not finished, the item **keeps up
 with its work** without being asked, over the reader's
 [Working Week](#working-week) (ADR 0019), as
 [its requirement](requirements.md#requirement-a-plan-sized-by-its-effort-keeps-up-with-its-work)
 says. The value stays `effort`, because the window is still the importer's rule
-applied (ADR 0013, ruling 5 as amended on 2026-09-27 and on 2026-10-07). Where the
-re-laid window starts is in
-[Placing a plan in time](features.md#placing-a-plan-in-time).
+(ADR 0013, ruling 5 as amended on 2026-09-27 and on 2026-10-07). See
+[Placing a plan in time](features.md#placing-a-plan-in-time) for where the
+re-laid window starts.
 
 The effort is laid out one [part](#part) per repository, and the window the item
 stores is the one
 [its parts make together](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
 
-It has no status and no percentage. Both are questions about execution, and
-execution belongs to Tasks. An item that gathers tasks shows their progress. An
-item that gathers no task has no execution to read, so a person can **complete it
-by hand**: `completed_on` records the day its work was done, and reopening clears
-it. Once tasks carry the item,
+It has no status and no percentage, because execution belongs to Tasks. An item
+that gathers tasks shows their progress. An item that gathers none can be
+**completed by hand**: `completed_on` records the day, and reopening clears it.
+Once tasks carry the item,
 [their progress wins](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand)
-and the day is kept but not read. Outside the plan, its
-identity matters as a dependency endpoint and as the tag other contexts file work
-under. That is why the id is stable across every reschedule.
+and the day is kept but not read. The id is stable across every reschedule,
+because it is a dependency endpoint and the tag other contexts file work under.
 
 An item gathers the work it stands for two ways, by name and by tag, and
 [counts something reached both ways once](domain.invariants.md#invariant-something-reached-both-ways-is-counted-once).
 Over everything it gathers it reports its
 [total registered effort](#effort), with the count of gathered things that
-registered no estimate beside it. The item owns none of these values.
-[Roadmap Item Gathering](#roadmap-item-gathering) does the gathering and the
-totalling, because neither answer is in the item's own state.
+registered no estimate beside it. The item owns none of these values:
+[Roadmap Item Gathering](#roadmap-item-gathering) gathers and totals them.
 
 ### Milestone
 
@@ -156,17 +147,20 @@ type: entity
 aliases: [roadmap_milestone_id, fixed point]
 ```
 
-A point in time the plan is read against, identified by `roadmap_milestone_id`:
-`title`, the single day it falls `on`, its `Milestone Kind`, and its optional
-`Repository Scope` and `Planning Lane`.
+A point in time the plan is read against, identified by `roadmap_milestone_id`.
+It holds:
 
-A Milestone is an entity of this aggregate rather than a degenerate Roadmap Item,
-because it is a different thing, not a smaller one. It has no duration to
-lengthen or shorten. Rescheduling it moves one date rather than two. "Is this
-late" is answered against a day rather than a span. It is also a first-class
-dependency endpoint: work waits on a release, and a release waits on work. That
-is why both entities live in one aggregate, because a dependency crossing between
-them must be validated on one side of a boundary, not two.
+- a `title`;
+- the single day it falls `on`;
+- its `Milestone Kind`;
+- its optional `Repository Scope` and `Planning Lane`.
+
+A Milestone is an entity of this aggregate, not a degenerate Roadmap Item. It has
+no duration, rescheduling it moves one date rather than two, and "Is this late"
+is answered against a day rather than a span. It is also a dependency endpoint:
+work waits on a release, and a release waits on work. Both entities live in one
+aggregate so that a dependency between them is validated on one side of a
+boundary.
 
 ### Planned Window
 
@@ -179,8 +173,8 @@ When an item is intended to run: `start` and `end`, both inclusive. Equality is
 by value.
 
 It is inclusive on both ends because that is how a plan is spoken: "through the
-31st" means the 31st. An exclusive end would also make the shortest possible
-piece of work indistinguishable from no work at all.
+31st" means the 31st. An exclusive end would make the shortest piece of work
+indistinguishable from no work.
 
 ### Repository Scope
 
@@ -194,8 +188,8 @@ normalized, and what an empty scope means, are
 [invariants of the plan](domain.invariants.md#invariant-scope-aliases-are-normalized-and-distinct).
 
 Aliases are the shared key with
-[Repository Management](../repository-management/domain.md#repository) and
-are held as opaque strings. Resolution is a separate concern; see
+[Repository Management](../repository-management/domain.md#repository), held as
+opaque strings and resolved by
 [Repository Scope Resolution](#repository-scope-resolution).
 
 ### Dependency
@@ -210,9 +204,8 @@ An edge from the node that must land first to the node that waits for it:
 What the plan accepts as a dependency is in
 [its invariants](domain.invariants.md#invariant-a-dependency-declared-twice-is-one-dependency).
 
-It is held on the waiting node rather than in a separate edge list. "What am I
-waiting for" is the question a reader asks of an item, and the direction in which
-a plan is edited.
+It is held on the waiting node, because "what am I waiting for" is the question a
+reader asks of an item and the direction in which a plan is edited.
 
 ### Planning Lane
 
@@ -225,9 +218,9 @@ A free-form row label within a [band](#band), such as "platform" or "migration":
 whatever the person actually calls it. What a blank lane reads as is
 [an invariant of the plan](domain.invariants.md#invariant-a-blank-lane-is-the-default-lane).
 
-Deliberately a string rather than an enum, for the same reason `area` is on a
-[Task](../tasks/domain.md#task): the taxonomy is the person's. An enum here would
-mean shipping a release every time someone invents a workstream.
+It is a string rather than an enum, as `area` is on a
+[Task](../tasks/domain.md#task): the taxonomy is the person's, and an enum would
+need a release for every new workstream.
 
 ### Task Link
 
@@ -240,9 +233,8 @@ An optional foreign id naming the
 [Task](../tasks/domain.md#task) that executes this
 item. Equality is by value. The link
 [may dangle](domain.invariants.md#invariant-links-are-never-validated-or-repaired),
-because a task can be deleted
-while the plan still intends the work. A dangling link reads as unlinked rather
-than as an error.
+because a task can be deleted while the plan still intends the work. It reads as
+unlinked, not as an error.
 
 ### Roadmap Tag
 
@@ -257,22 +249,19 @@ is by value. The tag starts from the item's title and is then freely editable in
 its own right. Its shape, where it comes from, and what a rename does to it are
 [invariants of the plan](domain.invariants.md#invariant-every-item-has-a-tag).
 
-The tag is load-bearing rather than cosmetic, because it is a word other
-contexts have already written down: a Task filed under it, or a devbook chapter
-naming it in its `roadmap` list. Reslugging it on a rename would make every one of
-those references silently stop matching, with nothing to report it. So the tag
-drifts away from the title on purpose. Staying put while the title moves is the
-whole point of holding it apart rather than deriving it on read.
+The tag is load-bearing, because other contexts have written it down: a Task
+filed under it, or a devbook chapter naming it in its `roadmap` list. Reslugging
+on a rename would make every such reference silently stop matching. So the tag
+drifts away from the title on purpose.
 
 Tags are **not required to be unique** across items:
 [two items may share one](domain.invariants.md#invariant-two-items-may-share-a-tag)
-on purpose, because the person means to group them. A tag names a grouping, not
-one item, so the plan reports the tags in use and the items sitting under each.
+to group them. A tag names a grouping, so the plan reports the tags in use and the
+items under each.
 
-Two other contexts borrow this vocabulary. The [Tasks](../tasks/domain.md#task)
-tag picker offers every roadmap tag, and a devbook chapter names roadmap tags in
-its `roadmap` list. The tag's stability across a rename is therefore a contract
-with them, not an internal detail. On a Task the tag wears the
+The [Tasks](../tasks/domain.md#task) tag picker offers every roadmap tag, and a
+devbook chapter names roadmap tags in its `roadmap` list. The tag's stability
+across a rename is therefore a contract with them. On a Task the tag wears the
 [Plan Sigil](#plan-sigil), while the item holds the bare slug.
 
 An outside system can file work under a tag too. A [Source Label](#source-label)
@@ -294,15 +283,14 @@ A direct reference from the item to a devbook chapter that informs it:
 `<path>#<slug>`, naming a chapter in one of the devbook folders. Equality is by
 value; an item may hold several or none.
 
-It is the knowledge counterpart of the `Task Link`, and it behaves the same way
-on purpose. The chapter can be moved, renamed, or deleted while the plan still
-points at where it was, so the reference
+It is the knowledge counterpart of the `Task Link` and behaves the same way. The
+chapter can be moved, renamed, or deleted while the plan still points at where it
+was, so the reference
 [may dangle](domain.invariants.md#invariant-links-are-never-validated-or-repaired)
-and reads as unresolved rather than as an error. The plan
+and reads as unresolved, not as an error. The plan
 [never reads through it](domain.invariants.md#invariant-a-knowledge-ref-is-never-read-through);
 [Roadmap Item Gathering](#roadmap-item-gathering) looks it up when a reader asks.
-A plan that refused to hold a reference to
-something temporarily missing would lose the intent the reference recorded.
+Refusing a reference to something temporarily missing would lose its intent.
 
 ### Planning Priority
 
@@ -314,10 +302,9 @@ aliases: [PlanningPriority, planning priority]
 How much the plan wants this item relative to the others: `low`, `medium`,
 `high`, `critical`.
 
-The same four words as [Priority](../tasks/domain.md#priority) in Tasks, chosen on
-purpose: two vocabularies for the same idea would make every conversation about
-priority start with "which kind". They remain different values owned by
-different contexts.
+It uses the same four words as [Priority](../tasks/domain.md#priority) in Tasks,
+so no conversation about priority starts with "which kind". They remain different
+values owned by different contexts.
 
 ### Milestone Kind
 
@@ -327,8 +314,7 @@ type: enum
 
 What kind of fixed point it is: `release`, `freeze`, `review`, `commitment`.
 
-Business kinds, not shapes. How each one is drawn is a presentation decision and
-belongs to the view, not here.
+These are business kinds, not shapes. The view decides how each is drawn.
 
 ## Plan Sequencing
 
@@ -342,15 +328,13 @@ the order the dependencies imply, which nodes are reachable from which, and wher
 the plan holds a [Contradiction](#contradiction).
 
 It [reports a contradiction and never corrects it](domain.invariants.md#invariant-a-contradiction-is-reported-never-corrected).
-A plan is allowed to be temporarily wrong: that is how a person discovers a date
-does not fit, and silently shifting the dependent work would hide exactly the
-fact worth seeing.
-Cycle rejection is not this service's: it stays
-[a rule of the root](domain.invariants.md#invariant-a-cycle-is-refused).
+A plan may be temporarily wrong: that is how a person discovers a date does not
+fit, and silently shifting dependent work would hide that fact. Cycle rejection
+stays [a rule of the root](domain.invariants.md#invariant-a-cycle-is-refused).
 
-It is a service because every one of these answers needs the whole graph rather
-than one node's own state. Invocation semantics: query/composition-oriented, and
-command-invoked as the validation step behind adding a dependency.
+It is a service because each answer needs the whole graph. Invocation semantics:
+query/composition-oriented, and command-invoked as the validation step behind
+adding a dependency.
 
 ## Repository Scope Resolution
 
@@ -364,11 +348,10 @@ recognizes, by asking the
 [Repository Registry](../repository-management/domain.md#repository-registry),
 and reports which aliases did not resolve.
 
-It exists so the aggregate never holds a foreign repository model and never
-depends on the registry being reachable. An unresolved alias
+It keeps the aggregate free of a foreign repository model and of the registry
+being reachable. An unresolved alias
 [is kept](domain.invariants.md#invariant-an-unresolved-scope-alias-is-kept) and
-has a normal presentation: the [band](#band) for work under no repository.
-Invocation semantics:
+shows in the [band](#band) for work under no repository. Invocation semantics:
 query/composition-oriented, on the read path.
 
 ## Roadmap Item Gathering
@@ -388,52 +371,44 @@ and totals the registered story points over the result. It reaches work two ways
   devbook chapter whose own `roadmap` list names that tag. The item reaches
   these without naming them.
 
-It is a service because none of this is in the item's own state. The Tasks
-entries filed under its tag live in Tasks, and the devbook chapters naming its
-tag live in Devbook. Those contexts register the effort values, not the plan.
-Like [Repository Scope Resolution](#repository-scope-resolution), it reads foreign
-data on the read path and holds none of it. An unreachable supplier therefore
-degrades a total and does not corrupt a plan.
-
-Two things about the arithmetic are deliberate.
+It is a service because none of this is in the item's own state: Tasks and
+Devbook hold the entries and chapters and register the effort. Like
+[Repository Scope Resolution](#repository-scope-resolution), it reads foreign data
+on the read path and holds none, so an unreachable supplier degrades a total and
+never corrupts a plan.
 
 - **[Something reached both ways is counted once](domain.invariants.md#invariant-something-reached-both-ways-is-counted-once)**,
-  and carried in the result as reached both ways. The two ways overlap on
-  purpose, because a person may both link a task and tag it. A single count would
-  hide that, and invite deleting the link that was actually holding the work.
+  and carried in the result as reached both ways. A person may both link a task
+  and tag it, and a single count would hide that and invite deleting the link
+  that was holding the work.
 - **The total is the [total registered effort](#effort)**, with the count of
-  gathered things that registered no estimate reported next to it rather than
-  folded into it. A total that silently dropped unestimated work would read as
-  smaller than the work in front of the person.
+  gathered things that registered no estimate reported beside it. Folding them in
+  silently would make the total read smaller than the work.
 
 Each gathered thing is carried with **how far along it is** and **what else in the
-same gathering it waits on**. The item can then be read as a sequence of steps,
-not only as a total. Both are said in the roadmap's own words. Progress is the
-plan's own four-state reading: planned, ready, in progress, done. A dependency is
-the key of another gathered thing, never a foreign identifier. A supplier's own
-vocabulary is translated once, at the boundary, because the plan has no say in
-another context's states. A thing that registers no progress at all, as a
-devbook chapter does,
+same gathering it waits on**, so the item reads as a sequence of steps and not
+only a total. Progress is the plan's own four-state reading: planned, ready, in
+progress, done. A dependency is the key of another gathered thing, never a foreign
+identifier. A supplier's vocabulary is translated once, at the boundary.
+
+A thing that registers no progress, such as a devbook chapter,
 [is never read as finished](domain.invariants.md#invariant-unknown-progress-is-never-finished).
 A dependency on work this item did not gather
 [is dropped](domain.invariants.md#invariant-a-wait-on-work-the-item-did-not-gather-is-dropped):
-it really blocks, but there is no edge this item could draw for it.
+it blocks, but this item has no edge to draw for it.
 
-The same "registered values only" rule governs the two figures a progress reading
-is drawn from: how much of the registered effort is **finished**, and **how many**
-finished things there are
+The same "registered values only" rule governs how much registered effort is
+**finished** and **how many** things are finished
 ([invariant](domain.invariants.md#invariant-finished-effort-counts-registered-estimates-only)).
-They are reported together for the same reason as the total and the unestimated
-count. The total less the finished effort is the effort **still to do**, which an
-item still sized by its effort is laid out from.
+The total less the finished effort is the effort **still to do**, which an item
+still sized by its effort is laid out from.
 
 A gathered backlog entry also carries **when** its work happened, as Tasks
 recorded it: the day it first moved to in progress, the day it was ticked off,
 and the day it was created. When every backlog entry the item gathered is done,
-the item reads two more things from those dates. It is **finished**, and its work
-actually ran from the earliest start to the latest end. A devbook chapter is not
-asked, because it has no work to finish. Each entry's dates come from the first
-source in this order that has one:
+the item is **finished** and its work ran from the earliest start to the latest
+end. A devbook chapter is not asked, having no work to finish. Each entry's dates
+come from the first source in this order that has one:
 
 | Tried | Actual start of an entry | Actual end of a finished entry |
 |---|---|---|
@@ -448,21 +423,20 @@ When no entry was ticked and no session dates the end, the item has no actual en
 and its planned end stands. Like progress, the actual dates are read off the
 gathering each time, and the Planned Window is left as it was.
 
-Ordering the steps is arithmetic too, and tolerant by design.
+Ordering the steps is tolerant arithmetic.
 [Nothing is placed before what it waits on](domain.invariants.md#invariant-nothing-is-placed-before-what-it-waits-on),
 and [things equally free to go next keep the order they were gathered in](domain.invariants.md#invariant-steps-equally-free-keep-the-order-they-were-gathered-in).
-The supplying context permits someone to write a cycle, so
+Tasks permits a cycle, so
 [a cycle is released at the earliest waiter](domain.invariants.md#invariant-a-cycle-of-waits-is-released-at-the-earliest-waiter)
-rather than the item being refused.
+and the item is not refused.
 
-A whole plan is gathered in one pass as well as an item at a time. Reading every
-item of a plan is one read of each supplier rather than one per item, and
+A whole plan is also gathered in one pass: one read of each supplier, not one per
+item, and
 [both readings answer the same way](domain.invariants.md#invariant-a-whole-plan-is-gathered-the-way-each-item-is).
-The per-item reading serves the one item a person opened, and the plan-wide one
-draws them all, [answering every item](domain.invariants.md#invariant-every-item-of-a-plan-is-answered).
-A thing may sit under two items of one plan, because a tag is not exclusive, and
-each item's reading names it. Which of them may draw it is a question for whoever
-draws them.
+The per-item reading serves the item a person opened, and the plan-wide one
+[answers every item](domain.invariants.md#invariant-every-item-of-a-plan-is-answered).
+A thing may sit under two items, because a tag is not exclusive, and each item's
+reading names it. Whoever draws them decides which may draw it.
 
 Invocation semantics: query/composition-oriented, on the read path.
 [It never writes](domain.invariants.md#invariant-gathering-never-writes).
@@ -520,9 +494,8 @@ aliases: [RoadmapNodeId, node, dependency endpoint]
 related: [.devbook/domain/roadmap/domain.md#dependency]
 ```
 
-Either end of a dependency: a Roadmap Item or a Milestone. The term exists because
-a dependency does not care which of the two it points at, and inventing a shared
-base type would imply a shared lifecycle they do not have.
+Either end of a dependency: a Roadmap Item or a Milestone. A dependency does not
+care which, and a shared base type would imply a lifecycle they do not share.
 
 ### Part
 
@@ -534,19 +507,17 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadma
 
 The work a [Roadmap Item](#roadmap-item) gathered that is filed in one
 repository. An item's effort is laid out one part per repository, each at the
-reader's pace for that repository and
-[counting the full effort of its own tasks and of the shared tasks it carries](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
-A part is finished when every task it counts is done.
-When the work hands over to
-another repository and back, that repository has one part per phase of the
-hand-over.
+reader's pace for that repository. Each part
+[counts the full effort of its own tasks and of the shared tasks it carries](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
+A part is finished when every task it counts is done. When the work hands over to
+another repository and back, that repository has one part per phase.
 
-A part waits on the parts holding the tasks its own tasks wait on, which are the
-waits [Roadmap Item Gathering](#roadmap-item-gathering) carries. The item's window
-starts on the earliest part start and ends on the latest part end, and that
-window is what the item stores. Parts are worked out on every reading and are
-never stored. Where a part starts and how it is drawn is in
-[Placing a plan in time](features.md#placing-a-plan-in-time).
+A part waits on the parts holding the tasks its own tasks wait on, as
+[Roadmap Item Gathering](#roadmap-item-gathering) carries them. The item's window
+runs from the earliest part start to the latest part end and is what the item
+stores. Parts are worked out on every reading and never stored. See
+[Placing a plan in time](features.md#placing-a-plan-in-time) for where a part
+starts and how it is drawn.
 
 ### Band
 
@@ -603,9 +574,9 @@ related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely, .de
 ```
 
 The heading of one column on the roadmap's time axis: a day, a week, a month or a
-quarter. A day or week head carries an hours figure. A day head is also a button
-that blocks or unblocks its date as a [day override](#day-override). What a head
-shows is in [Reading the near term closely](features.md#reading-the-near-term-closely).
+quarter. A day or week head carries an hours figure, and a day head is a button
+that blocks or unblocks its date as a [day override](#day-override). See
+[Reading the near term closely](features.md#reading-the-near-term-closely).
 
 ### Plan Sigil
 
@@ -615,14 +586,13 @@ aliases: [plan sigil]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/inbox/domain.md#plan-tag, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md]
 ```
 
-The `+` a [Roadmap Tag](#roadmap-tag) wears on a Task: `+release-q4`. On a line a
-person reads, it tells a plan tag apart from a `#` general tag and an `@` person.
-The item holds the bare slug, because that is the word a devbook chapter names
-in its `roadmap` list and the word this context lists as in use. The gathering
+The `+` a [Roadmap Tag](#roadmap-tag) wears on a Task: `+release-q4`. It tells a
+plan tag apart from a `#` general tag and an `@` person. The item holds the bare
+slug, the word a devbook chapter names in its `roadmap` list. The gathering
 [matches a task's tag with or without the sigil](domain.invariants.md#invariant-a-plan-tag-matches-with-or-without-its-sigil),
-so a task tagged before the sigil existed still counts. Only the adapters on the two edges
-lift the sigil: the rollup and the shelf when they read, and the intake when it
-writes (ADR 0013).
+so a task tagged before the sigil existed still counts. Only the adapters on the
+two edges lift the sigil: the rollup and the shelf when they read, and the intake
+when it writes (ADR 0013).
 
 ### Effort
 
@@ -632,18 +602,14 @@ aliases: [effort, story points, story-point estimate, total registered effort]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/domain.md#effort]
 ```
 
-Size measured in story points. Roadmap Planning never registers effort; Tasks
-and devbook chapters do. Roadmap **totals** it instead. Over everything a
-Roadmap Item gathers, the *total registered effort* is plain arithmetic over the
-points that were actually registered, reported beside the count of gathered
-things that registered none. It is a total, not a measurement of time, and never
-an inference. Unestimated work is counted as unestimated, not as a zero hidden in
-the sum.
+Size measured in story points. Tasks and devbook chapters register effort;
+Roadmap Planning only **totals** it. The *total registered effort* of a Roadmap
+Item is plain arithmetic over the points actually registered, reported beside the
+count of gathered things that registered none. It is never a measurement of time
+or an inference, and unestimated work is not a zero hidden in the sum.
 
-The term differs from Tasks' [Effort](../tasks/domain.md#effort) in what it
-sizes. Tasks' Effort is one task's own estimate, registered on the task.
-Roadmap's is the sum over an item's gathered work, and it never sets any task's
-value.
+Tasks' [Effort](../tasks/domain.md#effort) is one task's own estimate. Roadmap's
+is the sum over an item's gathered work, and it never sets any task's value.
 
 ### Working Week
 
@@ -655,9 +621,9 @@ related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/
 
 The hours the person means to work. Its **weekly pattern** is
 [Productivity's Working week setting](../productivity/context.md#working-week).
-Roadmap adds the [day overrides](#day-override) on top of it, which the person
-sets on the roadmap from a [column head](#column-head) or in the Days off dialog.
-The pattern and the overrides both travel with the pace.
+Roadmap adds the [day overrides](#day-override) on top of it, set from a
+[column head](#column-head) or in the Days off dialog. The pattern and the
+overrides both travel with the pace.
 
 Roadmap Planning reads the working week for two things. An effort-sized Planned
 Window [counts its hours forward](requirements.md#requirement-an-effort-window-counts-the-overrides)
@@ -689,9 +655,8 @@ A weekend in the pattern is a day off, not an override; the word is kept for the
 dates that break the pattern (ADR 0019). That is why
 [a range of days off blocks only the worked dates](requirements.md#requirement-a-range-of-days-off-blocks-only-the-worked-dates).
 
-The person sets an override on the roadmap: by pressing a date's
-[column head](#column-head), or in the Days off dialog, which also lists them
-all. Both write the same override.
+The person sets an override by pressing a date's [column head](#column-head) or
+in the Days off dialog, which also lists them all. Both write the same override.
 
 ### Actual Hours
 
@@ -710,15 +675,15 @@ How they are counted, across sessions, across 04:00 and up to now, is
 
 Only time the person was there counts, so
 [only a human turn makes a stretch](requirements.md#requirement-only-the-persons-turns-make-a-stretch).
-Subagents working overnight, scheduled sweeps and automated sessions add nothing,
-and neither does a Copilot session, whose transcript does not record who made a
-turn. The owner decided this on 2026-10-03, after agent-active time had
-counted 13.1 hours on one day, most of them overnight subagents.
+Subagents, scheduled sweeps and automated sessions add nothing, and neither does
+a Copilot session, whose transcript does not record who made a turn. The owner
+decided this on 2026-10-03, after agent-active time had counted 13.1 hours on one
+day, most of them overnight subagents.
 
 Actual hours are presentation only: they move no bar and change no pace. A begun
-[column head](#column-head) shows them, as
-[Reading the near term closely](features.md#reading-the-near-term-closely) says.
-The dashboard's [Hours worked](../productivity/features.md#hours-worked) part
+[column head](#column-head) shows them, per
+[Reading the near term closely](features.md#reading-the-near-term-closely). The
+dashboard's [Hours worked](../productivity/features.md#hours-worked) part
 splits the same hours by [office hours](../productivity/domain.md#office-hours).
 They come from [Sessions](dependencies.md), never from tasks, because a task
 records only the dates it started and finished.
@@ -733,11 +698,11 @@ related: [.devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/sessio
 
 A span of time in one session during which the person was working. Each of its
 [human turns](../sessions/domain.md#human-turn) comes less than 30 minutes after
-the stretch so far ended, which is when the agent finished answering; a later
+the stretch so far ended, which is when the agent finished answering. A later
 turn starts a new stretch
 ([scenarios](requirements.md#requirement-actual-hours-count-the-persons-working-stretches)).
-The gap is measured from the end of the answer rather than from the previous
-turn, because reading the answer is work (the owner's decision of 2026-10-05).
+The gap runs from the end of the answer, not the previous turn, because reading
+the answer is work (the owner's decision of 2026-10-05).
 
 The stretch starts at its first turn. It ends when the agent finishes answering
 its last turn, which is the end of the run that turn started. When no run follows
@@ -759,8 +724,8 @@ related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 A plan that disagrees with itself about dates: work opening before the thing it
 waits on has closed, or finishing after a milestone it was meant to precede. It
 is [reported, never corrected](domain.invariants.md#invariant-a-contradiction-is-reported-never-corrected).
-A **cycle** is different and [is refused](domain.invariants.md#invariant-a-cycle-is-refused),
-because a contradiction is a plan with a date problem and a cycle is not a plan.
+A **cycle** [is refused](domain.invariants.md#invariant-a-cycle-is-refused),
+because a contradiction is a date problem and a cycle is not a plan.
 
 ### Source Label
 

@@ -102,6 +102,14 @@ subscription ("high demand in <region>", `ServiceUnavailable`, zone redundancy o
 verified 2026-09-14; the error points at a region-access request, `aka.ms/cosmosdbquota`).
 Set it to `westeurope` once that request is granted.
 
+A second optional variable: `SYNC_FOUNDRY_ACCOUNT_NAME` turns on cloud dictation (local
+ADR 0045). Set it to the Foundry account that carries the `gpt-4o-transcribe` deployment
+(`backlog-foundry`, provisioned with `includeSpeechModel = true`). The next provision grants the
+sync service's managed identity *Cognitive Services OpenAI User* on that account and sets the
+`Modules__Sync__Transcription__*` settings. The account is looked up in the sync resource
+group unless `foundryResourceGroupName` in `infra/sync/main.bicep` says otherwise. Unset, the
+transcription route answers `503 sync.transcription_unavailable` and phones dictate on-device.
+
 One more, on the **repository** rather than the environment: `BACKLOG_SYNC_SERVICE_URL`,
 read by `Release All` (`.github/workflows/release-all.yml`). The sideloaded APK has
 no Settings field for the address, so the workflow compiles this value into it through the

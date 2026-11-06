@@ -80,6 +80,7 @@ public sealed class NotificationSyncSession
     private readonly IDeviceIdentitySource _identity;
     private readonly TimeProvider _time;
     private readonly INotifications? _owner;
+    private readonly INotificationRepositorySource? _repositories;
     private readonly ILogger _log;
 
     /// <summary>Why a notification the replica holds under another owner instance is closed
@@ -96,7 +97,8 @@ public sealed class NotificationSyncSession
         IDeviceIdentitySource identity,
         TimeProvider time,
         ILogger<NotificationSyncSession>? log = null,
-        INotifications? owner = null)
+        INotifications? owner = null,
+        INotificationRepositorySource? repositories = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(notifications);
@@ -114,6 +116,7 @@ public sealed class NotificationSyncSession
         _identity = identity;
         _time = time;
         _owner = owner;
+        _repositories = repositories;
         _log = log ?? NullLogger<NotificationSyncSession>.Instance;
     }
 
@@ -245,11 +248,11 @@ public sealed class NotificationSyncSession
         for (var start = 0; start < dirty.Count; start += PushBatchSize)
         {
             var batch = new List<(NotificationChange Change, NotificationSnapshot Snapshot)>();
+            var held = new List<NotificationSnapshot>();
 
             foreach (var id in dirty.Skip(start).Take(PushBatchSize))
             {
                 var snapshot = await _notifications.GetAsync(id, cancellationToken).ConfigureAwait(false);
-                var entry = _state.Current.Tracked[id];
 
                 if (snapshot is null)
                 {
@@ -257,7 +260,18 @@ public sealed class NotificationSyncSession
                     continue;
                 }
 
-                var change = NotificationPayloads.ToChange(snapshot, entry.RejectedReplies, StampAfter(entry.PushedAt), _credentials.Current?.DeviceName);
+                held.Add(snapshot);
+            }
+
+            var repositories = await RepositoriesOfAsync(held, cancellationToken).ConfigureAwait(false);
+
+            foreach (var snapshot in held)
+            {
+                var id = snapshot.Id;
+                var entry = _state.Current.Tracked[id];
+                var repository = repositories.TryGetValue(id, out var alias) ? PublishedRepository.Of(alias) : null;
+
+                var change = NotificationPayloads.ToChange(snapshot, entry.RejectedReplies, StampAfter(entry.PushedAt), _credentials.Current?.DeviceName, repository);
 
                 if (NotificationRecordLimits.WhyRefused(change) is { } reason)
                 {
@@ -310,6 +324,26 @@ public sealed class NotificationSyncSession
         }
 
         return (pushed, settled);
+    }
+
+    /// <summary>The repository each of <paramref name="notifications"/> is about, as it stands
+    /// now (local ADR 0039 §6), or nothing at all without a source. A source that fails is a
+    /// convenience lost, never a push lost: its notifications go out as not known.</summary>
+    private async Task<IReadOnlyDictionary<Guid, string?>> RepositoriesOfAsync(
+        IReadOnlyList<NotificationSnapshot> notifications,
+        CancellationToken cancellationToken)
+    {
+        if (_repositories is null || notifications.Count == 0) return new Dictionary<Guid, string?>();
+
+        try
+        {
+            return await _repositories.ResolveAsync(notifications, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _log.LogWarning(exception, "Could not work out which repository {Count} notifications are about; they are pushed as not known.", notifications.Count);
+            return new Dictionary<Guid, string?>();
+        }
     }
 
     /// <summary>

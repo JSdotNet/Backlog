@@ -4,8 +4,6 @@
 type: requirements
 ```
 
-> What the sync service promises the devices that pair with it and sync through
-> it, and what each device's sync client promises about the service it talks to.
 > The service is the `Backlog.Modules.Sync` module, hosted by
 > `Backlog.Modules.Sync.Api`; the client is `Backlog.Infrastructure.Sync`.
 
@@ -15,9 +13,6 @@ type: requirements
 type: requirements
 related: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
-
-> What the sync service promises about pairing codes, credentials and device
-> tokens.
 
 ### Requirement: A pairing code works for ten minutes
 
@@ -56,7 +51,7 @@ type: requirement
 tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it]
 ```
 
-The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let the device whose code paired another revoke it, and no other device, after which the revoked device's credential mints no token.
+The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let only the device whose code paired another revoke it, after which its credential mints no token.
 
 #### Scenario: The person refuses a device
 
@@ -100,9 +95,6 @@ The sync service SHALL refuse a [Device token](domain.md#device-token) after its
 type: requirements
 related: [.devbook/domain/sync/features.md#syncing-between-devices]
 ```
-
-> What the sync service promises about whose data a call reaches, and what a
-> device promises about a service newer than its app.
 
 ### Requirement: Every sync call is scoped to the token's owner
 

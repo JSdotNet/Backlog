@@ -4,14 +4,13 @@
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-> `.devbook/design` is the durable, checked-in record of the UX and visual design
-> guidelines for the Backlog product. It is the authoritative local guide for
-> *how the product should look and behave* across every channel: desktop,
-> mobile and IDE extensions. It complements `.devbook/arc42` (architecture) and
-> `.devbook/domain` (domain model). Design tokens and UX guidance were adapted from the
-> JSdotNet design style guide. This folder holds the relevant, product-specific
-> rules and **is the authoritative source for them**; nothing is fetched from
-> elsewhere at read time.
+> `.devbook/design` is the checked-in record of the Backlog product's UX and
+> visual design guidelines. It says *how the product should look and behave*
+> across desktop, mobile and IDE extensions. It complements `.devbook/arc42`
+> (architecture) and `.devbook/domain` (domain model). Design tokens and UX
+> guidance were adapted from the JSdotNet design style guide. This folder holds
+> the relevant, product-specific rules and **is the authoritative source for
+> them**; nothing is fetched from elsewhere at read time.
 
 This folder holds **guidelines only**. Wireframes, user flows and implementation
 code live elsewhere.
@@ -22,15 +21,15 @@ code live elsewhere.
 ```
 
 The Backlog product spans several UI channels that share one canonical data
-format (Markdown) and one design language. These files establish the binding,
+format (Markdown) and one design language. These files hold the binding,
 testable rules that keep those channels consistent:
 
-- one shared set of **design tokens** (materialized in `color-scheme.md`),
-- consistent **typography, spacing, and layout**,
-- consistent **interaction behavior** (auto-save, drag-and-drop reorder,
-  keyboard alternatives),
-- consistent **content-editing** behavior (direct Markdown WYSIWYG editing),
-- a common **accessibility** target (WCAG 2.1 AA),
+- one shared set of **design tokens** (materialized in `color-scheme.md`);
+- **typography, spacing, and layout**;
+- **interaction behavior** (auto-save, drag-and-drop reorder, keyboard
+  alternatives);
+- **content editing** (direct Markdown WYSIWYG);
+- a common **accessibility** target (WCAG 2.1 AA);
 - a per-channel **component-library** recommendation.
 
 ## Headline Principles
@@ -43,7 +42,7 @@ every channel and component:
 
 | # | Principle | What it means | Detailed in |
 |---|---|---|---|
-| 1 | **Dark mode only** | There is no light theme and no theme toggle. All palette, contrast, and elevation rules are authored for dark surfaces only. | `color-scheme.md`, `design-principles.md#dark-mode-only` |
+| 1 | **Dark mode only** | No light theme and no toggle; every palette, contrast and elevation rule targets dark surfaces. | `color-scheme.md`, `design-principles.md#dark-mode-only` |
 | 2 | **No save buttons** | Every edit auto-saves, and a save-state indicator shows the state. | `design-principles.md#no-save-buttons--auto-save-everywhere`, `interaction-guidelines.md#auto-save-no-save-buttons` |
 
 ## How to Use This Folder
@@ -53,13 +52,12 @@ every channel and component:
 
 - Treat every rule marked with **MUST** / **MUST NOT** as testable acceptance
   criteria for design review.
-- When building a screen or component, read `color-scheme.md`,
-  `typography-and-layout.md`, and `interaction-guidelines.md` first; they cover
-  the majority of decisions.
+- Read `color-scheme.md`, `typography-and-layout.md` and
+  `interaction-guidelines.md` first when building a screen or component. They
+  cover the majority of decisions.
 - Token names are canonical. Reference tokens by name (e.g. `color-primary`),
   never by raw hex value, in product code. `color-scheme.md` and
-  `typography-and-layout.md` are the only files that declare token values;
-  every other file references token names.
+  `typography-and-layout.md` are the only files that declare token values; every other file references token names.
 - Any decision the style guide did not settle is marked `[TODO: clarify]` and
   must be resolved before that area ships.
 
@@ -71,15 +69,13 @@ related: [".devbook/design/color-scheme.md", ".devbook/design/typography-and-lay
 
 These files are the written rules; the **storybook** is where they are visible
 and runnable. It renders every component of the shared Razor library on its own,
-against the same stylesheet the desktop app links, so it is the review surface
-for anything specified here.
+against the same stylesheet the desktop app links. That makes it the review
+surface for anything specified here.
 
-The division of labour goes both ways. A storybook page says how a component is
-*used*: its parameters, its callbacks, and what the host owns. A **Design rules**
-block in its header links the chapters here that govern how it may *look and
-behave*. The page does not restate a rule, because a rule written in two places
-can disagree with itself. Anything normative belongs here; anything about the API
-belongs there.
+A storybook page says how a component is *used*: its parameters, its callbacks,
+and what the host owns. A **Design rules** block in its header links the chapters
+here that govern how it may *look and behave*. The page does not restate a rule,
+because a rule written in two places can disagree with itself.
 
 | What | Where |
 |---|---|
@@ -97,64 +93,100 @@ Page map — each file here and the storybook pages that show it:
 
 | File | Storybook pages |
 |---|---|
-| `design-principles.md` | *Foundations* (one dark palette, no light column); *Entry edit* (edits auto-save, no save button); *Integrations* → **AI in the document** (AI attribution) |
-| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges*, *Devbook* → **State**, *Task detail* and *Focus*; `#chart-roles` → *Usage metrics*, *Productivity over time*, *Stand-up*; `#impediment-state-tones` and `#goal-forecast-badges` → *Goals view*, *Stand-up*; `#pull-request-status-marks` → *Pull request status*, *Goals view*, *Work cards*; `#integration-roles` → the *Integrations* pages |
+| `design-principles.md` | *Foundations*, *Entry edit*, and *Integrations* → **AI in the document** |
+| `color-scheme.md` | *Foundations* → **Colour**, plus one set of pages per chapter |
 | `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion**; `#metadata-lines` → *Task list*, *Integrations* → **References** |
-| `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton); *Overlays*; *Capture* (the phone's capture sheet and its Inbox row); *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*, *Today*, *Task detail*, *Focus*; `#optimistic-ui` → *Today*, *Capture*; `#auto-save-no-save-buttons` → *Notes* (a note that saves a second after typing stops, and its Saved / Waiting to sync line); `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#focus-and-selection` → *Selection bar*, *Goals* (the goal picker's dialog: searching, nothing to choose, the note before a move); `#empty-states`, `#error-states` and `#busy-actions` → *Goals*; `#combobox` → *Inputs*; `#popover-button` → *Overlays*; `#timelines-and-roadmaps` → *Roadmap* |
-| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *Live editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
+| `interaction-guidelines.md` | *Feedback*, *Overlays*, *Capture*, *Entry edit*, plus one set of pages per chapter |
+| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *Live editing*, *File view*, *Code*, *Entry edit*, *Section comparison* |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
-| `component-libraries.md` | *Diagrams*, *Diagrams in markdown* (Mermaid); *Graph explorer*, *Graph atlas* and *Lobes atlas* (the first-party canvas renderer, which draws the Brain's and a repository devbook's atlas, and the Lobes atlas); *Technology page* (the technology graph, drawn with CSS-positioned components); plus the library itself |
-| `effort-and-mode-chips.md` | `#effort-chips` → *Session list* (the effort ladder, an effort nobody recorded, and the stage strip beside it); `#mode-chips`, `#stage-marks` and `#legend` → *Badges* |
-| `settings-pages.md` | *Settings frame* (panel, headline, Saved as you go, the phone-width grouped list), *Settings menu* (groups, badges, matched cards), *Settings card*. Those pages do not yet link back to it, as its *Materialization* chapter says. |
+| `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer*, *Graph atlas*, *Lobes atlas*, *Technology page*, plus the library itself |
+| `effort-and-mode-chips.md` | *Session list* for the effort chips; *Badges* for the rest |
+| `settings-pages.md` | *Settings frame*, *Settings menu*, *Settings card* |
 
-The storybook's own order is a rule of its own: **nothing is shown before its
-parts.** Its groups run in this order:
+Page by page:
+
+- **`design-principles.md`:** *Foundations* shows one dark palette with no light
+  column. *Entry edit* shows edits that auto-save with no save button.
+  *Integrations* → **AI in the document** shows AI attribution.
+- **`color-scheme.md`:** *Foundations* → **Colour** measures each token's
+  contrast in the live document against the thresholds in
+  `#contrast-rules-wcag-aa-minimum`. The chapters map to pages as follows:
+  - `#badge-and-chip-tones` → *Badges*, *Devbook* → **State**, *Task detail* and
+    *Focus*
+  - `#chart-roles` → *Usage metrics*, *Productivity over time*, *Stand-up*
+  - `#impediment-state-tones` and `#goal-forecast-badges` → *Goals view*,
+    *Stand-up*
+  - `#pull-request-status-marks` → *Pull request status*, *Goals view*, *Work
+    cards*
+  - `#integration-roles` → the *Integrations* pages
+- **`interaction-guidelines.md`:** the general pages are *Feedback*
+  (SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton), *Capture* (the
+  phone's capture sheet and its Inbox row) and *Entry edit* (debounced text save,
+  immediate task-toggle save). The chapters map to pages as follows:
+  - `#task-rows` → *Task list*, *Today*, *Task detail*, *Focus*
+  - `#optimistic-ui` → *Today*, *Capture*
+  - `#auto-save-no-save-buttons` → *Notes*, with a note that saves a second
+    after typing stops and its Saved / Waiting to sync line
+  - `#action-density-and-overflow` → *Integrations* → **Density and overflow**
+  - `#focus-and-selection` → *Selection bar*, *Goals*, in the goal picker's
+    dialog: searching, nothing to choose, the note before a move
+  - `#empty-states`, `#error-states` and `#busy-actions` → *Goals*
+  - `#combobox` → *Inputs*
+  - `#popover-button` → *Overlays*
+  - `#timelines-and-roadmaps` → *Roadmap*
+- **`content-editing.md`:** `#ai-proposals-in-a-document` → *Integrations* →
+  **AI in the document**.
+- **`component-libraries.md`:** the diagram pages show Mermaid. The atlas and
+  explorer pages show the first-party canvas renderer, which draws the Brain's
+  and a repository devbook's atlas, and the Lobes atlas. *Technology page* shows
+  the technology graph, drawn with CSS-positioned components.
+- **`effort-and-mode-chips.md`:** `#effort-chips` → *Session list*, which shows
+  the effort ladder and an effort nobody recorded, with the stage strip beside
+  it. `#mode-chips`, `#stage-marks` and `#legend` → *Badges*.
+- **`settings-pages.md`:** *Settings frame* shows the panel, headline, Saved as
+  you go and the phone-width grouped list. *Settings menu* shows groups, badges
+  and matched cards. Those pages do not yet link back to it, as its
+  *Materialization* chapter says.
+
+The storybook's own order is a rule: **nothing is shown before its parts.** Its
+groups run in this order:
 
 1. Parts: input and action, structure, feedback, content, knowledge metadata.
 2. Subjects that are a convention rather than a component: Integrations, Task
    list, Roadmap, Dashboard.
-3. *Combined usage*, where whole surfaces are composed out of everything above:
-   a document, a file, a folder, an editor, a comparison.
+3. *Combined usage*: whole surfaces composed from everything above, namely a
+   document, a file, a folder, an editor, a comparison.
 
 A reviewer reading top to bottom therefore meets every component before the
-thing built out of it.
-
-Rules:
+thing built out of it. Storybook rules:
 
 - The storybook MUST NOT restyle a library component; it adds page chrome only,
   so what it shows is what the app shows.
 - A storybook page MUST NOT state a design or UX rule. It explains how a component
-  is used and links the chapter here that governs it. A page whose prose argues
-  for a tone, a hierarchy or a contrast ratio keeps a second copy of one of these
-  files.
+  is used and links the chapter here that governs it. A page that argues for a
+  tone, a hierarchy or a contrast ratio keeps a second copy of one of these files.
 - Every component page MUST carry at least one link back into this folder. A
-  rule with no review surface and a component with no governing rule then both
-  show as omissions.
-- A storybook page MUST show the one subject it is named for. A sample that is
-  really about another page's subject belongs on that page, linked rather than
-  drawn a second time. A page that demonstrates five other chapters to make its
-  own point buries the component a reviewer opened it for, and keeps five copies
-  that can drift. Where the reading order forces a borrow, `StorybookIndex`
-  records the borrow against that page, so a bent rule reads as a bend rather
-  than as the convention.
+  rule with no review surface and a component with no governing rule then show
+  as omissions.
+- A storybook page MUST show the one subject it is named for. A sample about
+  another page's subject belongs on that page, linked rather than drawn a second
+  time. Otherwise the page buries its component and keeps copies that can drift. Where
+  the reading order forces a borrow, `StorybookIndex` records the borrow against
+  that page, so a bent rule reads as a bend rather than as the convention.
 - A subject that carries a convention of its own MUST get its own page rather
   than a row in a larger group. Examples are how a task row states what it is
-  waiting on, and how a bar states which quarter it lands in. A convention read
-  as one of nine sibling links is a convention nobody reads.
-- Every sample MUST be its own section, with its own name, anchor and test id.
-  With fifty-odd samples, "the third one down on the layout page" is no longer a
-  way to point at one in review. A page that runs its examples together leaves a
-  reviewer nothing to link to and a test nothing to address.
+  waiting on, and how a bar states which quarter it lands in.
+- Every sample MUST be its own section with its own name, anchor and test id. A
+  reviewer then has something to link to, and a test something to address.
 - A sample's explanation is collapsed when it holds more than one paragraph, or
   one paragraph longer than two lines (220 characters at this measure). Below
   that it stays open, because a fold trigger costs more to read than the sentence
   or two it would hide.
 - Every sample MUST carry the text behind it in one collapsed disclosure: the
   usage that produced the sample and, when the sample draws content, the content
-  it was handed. A call and the text it was given are one thing to read, and two
-  triggers would make two clicks out of one question. A sample therefore has at
-  most two folds: the explanation's, above it, and this disclosure, below it.
-  Both start closed; the sample between them is always shown.
+  it was handed. A sample therefore has at most two folds: the explanation's,
+  above it, and this disclosure, below it. Both start closed; the sample between
+  them is always shown.
 - `components.css` is the single declaration of tokens in code. The desktop's
   `app.css` links it and declares only app-specific values on top. A token value
   changed in one place MUST be changed in the other and here.
@@ -170,14 +202,14 @@ Rules:
 | File | Scope |
 |---|---|
 | [`design-principles.md`](design-principles.md) | Product-level UX principles: local-first/offline UX, keyboard-first, low-chrome, AI-first surfaces, dark-mode-only. |
-| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic token table, badge and chip tones, chart and integration roles, contrast rules, elevation-by-color, per-stack token mapping. |
+| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic and role tokens, badge, chart and integration roles, contrast, elevation, per-stack mapping. |
 | [`typography-and-layout.md`](typography-and-layout.md) | Type scale, font choices, spacing scale, density, grid/layout rules, iconography, metadata lines. |
-| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, drag-and-drop reordering of items and chapters, keyboard alternatives, feedback, motion, empty/loading/error states, task rows, the shell header, workspace panes, group shapes, the combobox, action density and overflow, timelines. |
+| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, reordering, feedback, motion, screen states, task rows, shell header, panes, group shapes, combobox, action density, timelines. |
 | [`content-editing.md`](content-editing.md) | Direct Markdown editing where Markdown is canonical, and what AI may propose against a document. |
 | [`accessibility.md`](accessibility.md) | WCAG AA target, keyboard nav, screen-reader announcements, focus visibility, reduced motion, target sizes. |
 | [`component-libraries.md`](component-libraries.md) | Per-channel component-library research and recommendation. |
-| [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, the not-as-configured and inferred marks, and the legend of a delivery run's stage list. |
-| [`settings-pages.md`](settings-pages.md) | The Settings screen pattern a registered page follows: panel and headline, menu groups, badges and the Off state, declared card titles and search, the settings card and figure tiles, lists that expand in place, phone width, and `settings/{page}` addresses. |
+| [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, two stage marks (not-as-configured, inferred), and the stage-list legend. |
+| [`settings-pages.md`](settings-pages.md) | The Settings screen pattern a registered page follows: panel, menu groups, badges, cards, lists, `settings/{page}` addresses. |
 
 ## Provenance
 
@@ -185,11 +217,11 @@ Rules:
 ```
 
 The visual design tokens and UX patterns in this folder were adapted from the
-JSdotNet design style guide (`JSdotNet/Project-Guidelines-MCP`, `design/`) and
-imported into this repository on **2026-08-27**, from which date this folder is
-authoritative. The specific upstream guides each file drew on are named in that
-file. The org palette **includes a defined dark mode**, so the "dark mode only"
-requirement was met by selecting the dark column of the org tokens, and no draft
+JSdotNet design style guide (`JSdotNet/Project-Guidelines-MCP`, `design/`). They
+were imported into this repository on **2026-08-27**, and this folder is
+authoritative from that date. The specific upstream guides each file drew on are named in that
+file. The org palette **includes a defined dark mode**, so selecting the dark
+column of the org tokens met the "dark mode only" requirement. No draft
 palette was invented. There is no sync back to the upstream guide: a change here
 is a change to the product's design language.
 
@@ -206,7 +238,7 @@ Write `status` only for `draft` or `deprecated`. `active` is the resting value,
 so a current guideline omits the field. Absence therefore means `active` here; it
 never means "nobody has decided". The Devbook panels offer **No status** as an
 option wherever absence means `active`. Removing the field leaves the `meta`
-fence in place even when nothing else is left inside it, because the fence is
+fence in place even when nothing else is left inside it. The fence is
 what marks a heading as an addressable chapter for the index generator.
 
 The same reading applies in `.devbook/arc42` and `.devbook/domain`, and not in

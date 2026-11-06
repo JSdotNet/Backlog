@@ -114,7 +114,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   the phone's own captures as cards the library draws (CaptureRow). Colours are
   the library's tokens.
 */
-.inbox-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .inbox-heading__titles { display: grid; gap: .125rem; }
 .inbox-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
@@ -157,6 +157,8 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 /* The settings sheet (SettingsControl) rises the same way; a group's control sits
    under a small label naming it. */
 .app-settings-sheet__label { display: block; margin-bottom: var(--spacing-2xs); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.app-settings-sheet__label--next { margin-top: var(--spacing-sm); }
+.app-settings-sheet__hint { margin: var(--spacing-2xs) 0 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 
 /* The update window's status line. AppUpdatePresentation composes these names
    in C#, the same ones the desktop window wears, so each head colours them. */
@@ -170,7 +172,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   only lays them out down the screen and pins the capture button above the tab
   bar, where a thumb already is. Colours are the library's tokens.
 */
-.today-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.today-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .today-heading__titles { display: grid; gap: .125rem; }
 .today-heading__date { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .today-heading h1 { margin: 0; font-family: var(--font-family-heading); }
@@ -302,7 +304,8 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   this file lays them out down the screen. Every target keeps the 44px touch
   minimum, and the colours are the library's tokens.
 */
-.standup-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+/* The heading is screen-reader only, so the refresh is the one thing on the row: keep it at the end. */
+.standup-heading { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin-bottom: .75rem; }
 .standup-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 /* The artboard's refresh: a 44px box on the raised surface, inside the border. */
 .standup-heading__refresh {
@@ -426,10 +429,17 @@ html, body { background-color: var(--color-background); color: var(--color-text-
   as small tags with the age across from them, the title, the summary, the answer
   controls, where it stands, and the desktop that owns it in the mono line.
 */
-.notifications-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.notifications-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .notifications-heading__titles { display: grid; gap: .125rem; }
 .notifications-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .notifications-heading h1 { margin: 0; font-family: var(--font-family-heading); }
+
+/* The From and Repository filters under the heading, side by side while they fit, Clear
+   filters at the row's end; both views share them. */
+.notifications-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; margin-bottom: .75rem; }
+.notifications-filters__filter { flex: 1 1 9rem; min-width: 0; margin: 0; }
+.notifications-filters__filter .field__input { min-height: 44px; width: 100%; }
+.notifications-filters__clear { min-height: 44px; }
 
 .notifications { padding-bottom: 1.5rem; }
 .notifications__list { display: grid; gap: .75rem; list-style: none; padding: 0; margin: 0; }
@@ -471,10 +481,17 @@ h1.phone-notification__title { font-family: var(--font-family-heading); font-siz
 .phone-notification__body { min-width: 0; overflow-x: auto; }
 .phone-notification__answer { display: grid; gap: .5rem; }
 .phone-notification__choices { display: flex; flex-wrap: wrap; gap: .375rem; }
+/* Answer choices stack one per row, so every button is the full width rather than its label's. */
+.phone-notification__choices--stack { display: grid; grid-template-columns: minmax(0, 1fr); }
+.phone-notification__choices--stack .btn { min-width: 0; overflow-wrap: anywhere; }
 /* Seven or eight choices wrap into two even columns, so every button stays a thumb's width. */
 .phone-notification__choices--many { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .phone-notification__choices--many .btn { min-width: 0; overflow-wrap: anywhere; }
-.phone-notification__note { display: grid; gap: .375rem; }
+/* The note's fold sits beside Send or Answer, so a folded note costs no row of its own. */
+.phone-notification__choices:has(> .phone-notification__note-toggle) { align-items: center; }
+.phone-notification__note-toggle { justify-content: center; margin-inline-start: .5rem; }
+.phone-notification__note-toggle .fold__trigger { min-height: 44px; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.phone-notification__note:not([hidden]) { display: grid; gap: .375rem; }
 .phone-notification__checks { display: grid; gap: .25rem; margin: 0; padding: 0; border: 0; }
 .phone-notification__legend { padding: 0; margin-bottom: .25rem; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .phone-notification__open { display: grid; gap: .375rem; }

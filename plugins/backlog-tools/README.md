@@ -226,6 +226,16 @@ running plan.
   under `node --test plugins/backlog-tools/tests/devbook-sweep-select.test.mjs`. Not a flow:
   it is the target of the routine below, and run by hand the same way.
 
+`import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `close-merged`,
+`handle-remarks` and `tend-brain` open what they hand back with the `show-me` skill's
+orientation card when it has one, and read as before without it. `devbook-sweep` and
+`dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
+those three skip it.
+
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
+skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
+nobody present, so they do not.
+
 ### The devbook sweep routine
 
 Run the two sweeps as **one local routine per repository**, the way `delivery-schedule`

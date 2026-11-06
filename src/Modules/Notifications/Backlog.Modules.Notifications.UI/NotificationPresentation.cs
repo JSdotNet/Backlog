@@ -186,15 +186,7 @@ public static class NotificationPresentation
 
     /// <summary>Who raised it, by its source alone — "Sessions", "MCP", "Devbook". What a
     /// notification without an origin is drawn by.</summary>
-    public static string SourceLabel(NotificationSource source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-
-        var context = source.Context.Trim();
-        if (context.Length == 0) return context;
-        if (context.Length <= 3) return context.ToUpperInvariant();
-        return char.ToUpperInvariant(context[0]) + context[1..];
-    }
+    public static string SourceLabel(NotificationSource source) => NotificationOrigins.SourceLabel(source);
 
     /// <summary>Who raised it, as a person reads it: the origin's "System · Place" where the
     /// notification names one, otherwise its source — "Sessions", "MCP".</summary>
@@ -206,12 +198,13 @@ public static class NotificationPresentation
     }
 
     /// <summary>The system a notification comes from, which the centre's "From" filter picks by:
-    /// its origin's system, or its source for one that names no origin.</summary>
+    /// its origin's system, or its source for one that names no origin — the rule the phone's
+    /// From filter shares (<see cref="NotificationOrigins.From"/>).</summary>
     public static string From(NotificationView notification)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
-        return notification.Origin?.System ?? SourceLabel(notification.Source);
+        return NotificationOrigins.From(notification.Origin, notification.Source);
     }
 
     /// <summary>Every system the notifications come from, once each, in alphabetical order — the

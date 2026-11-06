@@ -19,13 +19,16 @@ related: [".devbook/tech/cloud.md#firebase-cloud-messaging", ".devbook/tech/shar
 The primary mobile target platform; the platform head that `.devbook/tech/shared.md#net-maui`
 uses on this channel.
 
-- **Used for** — speech-shortcut capture, share-sheet capture, launcher-shortcut
-  capture (a dynamic shortcut through `ShortcutManagerCompat`), inbox review, and
-  push notifications.
+- **Used for** — these phone features:
+  - speech-shortcut capture;
+  - share-sheet capture;
+  - launcher-shortcut capture (a dynamic shortcut through `ShortcutManagerCompat`);
+  - inbox review;
+  - push notifications.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.
 
-The mobile app shell itself, .NET MAUI with Blazor Hybrid, is documented once in
+The mobile app shell is documented once, in
 [.NET MAUI](shared.md#net-maui) and [Blazor Hybrid](shared.md#blazor-hybrid),
 because the desktop channel uses the same framework
 ([ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)).
@@ -67,8 +70,8 @@ The image codec the phone downscales a note's pictures with, before they
 enter the outbox. It serves the Notes editor and the capture sheet's photo.
 
 - **Used for** — decoding a photo, resizing it to a 1600 px longest edge
-  and re-encoding it as JPEG; the EXIF orientation is carried over by hand and
-  everything else in EXIF is dropped.
+  and re-encoding it as JPEG. The downscaler carries the EXIF orientation over by
+  hand and drops everything else in EXIF.
 - **Why** — it is MIT-licensed, with the Android and Windows natives in the
   package. The MAUI head, the browser harness and the unit tests therefore run
   one codec, and the downscaler has one implementation a test can hold. The
@@ -103,7 +106,7 @@ Android push through (local ADR 0039).
   and Lifecycle past MAUI's own pins. So `Backlog.Mobile` also references their
   `-ktx` and companion packages at the matching versions, which keeps each class
   in the dex once. `Directory.Packages.props` says why beside each version.
-- **Status** — `candidate` until a push reaches a phone.
+- **Rating** — `candidate` until a push reaches a phone.
 
 ## Android SDK Build Tools
 
@@ -152,18 +155,22 @@ The packaging and release format for the Android client.
   publishing it to GitHub Releases; `build/Install-AndroidApp.ps1` uses the
   same publish shape for developer sideloads.
 - **Why** — the app is installed by sideloading rather than through Google
-  Play, and an `.apk` (not `.aab`) is required because `.aab` bundles are only
-  consumable by the Play Store.
+  Play. It requires an `.apk`, not an `.aab`, because only the Play Store can
+  consume `.aab` bundles.
 - **How** — `dotnet publish` targets `net10.0-android` with
   `AndroidPackageFormat=apk`. `ApplicationDisplayVersion` is the semantic
   version. `ApplicationVersion` is a packed integer `versionCode`
   (`major*10^7 + minor*10^5 + patch`), so `0.1.123` packs to `100123` and a
   newer release always installs over an older one. The release number comes
   from `build/Get-NextReleaseVersion.ps1`, which the desktop MSIX shares.
-- **Signing** — `.github/workflows/release-all.yml` passes the signing values
-  on the publish command line from repository secrets: `AndroidSigningKeyStore`,
-  `AndroidSigningKeyAlias`, `AndroidSigningStorePass`, and
-  `AndroidSigningKeyPass`. `Backlog.Mobile.csproj` carries none of them. The
+- **Signing** — `.github/workflows/release-all.yml` passes these signing values
+  on the publish command line from repository secrets:
+  - `AndroidSigningKeyStore`;
+  - `AndroidSigningKeyAlias`;
+  - `AndroidSigningStorePass`;
+  - `AndroidSigningKeyPass`.
+
+  `Backlog.Mobile.csproj` carries none of them. The
   workflow refuses to produce an unsigned package and runs `apksigner verify`
   before publishing. The keystore is self-signed, and Android rejects signature
   changes, so an APK signed with a different key cannot upgrade an existing
@@ -174,6 +181,6 @@ The packaging and release format for the Android client.
   only its APKs carry the release key a later release can update. A target in
   `Backlog.Mobile.csproj` compiles it into `UpdateChannelBuildDefaults.Repository`
   and fails the build on a value that is not `owner/repository`. Empty is the
-  default and means a development build: `build/Install-AndroidApp.ps1` and a
+  default and means a development build. `build/Install-AndroidApp.ps1` and a
   debug deploy leave it out, and their update window reports that the build
   cannot update itself.

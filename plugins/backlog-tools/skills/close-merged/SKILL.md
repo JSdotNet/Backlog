@@ -35,8 +35,8 @@ page, or by auto-merge after the session ended.
    list it under *needs a person*; never pick one.
 5. **Move.** An entry the step 2 list kept → `transition` to `done`. A refused move comes
    back with the legal ones: report it, never route around it.
-6. **Report.** A table: entry title, pull request, the branch it merged into, from → to.
-   Then every refused move and every *needs a person* row. Nothing to commit.
+6. **Report**, opened with the `show-me` skill's orientation card when it has one. A table: entry title, pull request, the branch it merged into, from → to.
+   Then every refused move and every *needs a person* row. Nothing to commit. Keep the report's prose to `../../resources/chat-reports.md`.
 
 ## Never
 

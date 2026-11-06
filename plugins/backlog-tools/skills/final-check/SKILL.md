@@ -36,10 +36,10 @@ and `../execute-plan/assets/landing-modes.md`.
 4. **Build.** The build and test commands the repository's own instructions name, and its
    checks (the devbook check where there is one), at the tip; read what the test run reported,
    not its exit code. Then `gh run list --branch <base> --limit 5` for red CI on the tip.
-5. **Report.** One table: `<n> - <Title>`, status, pull request, verdict, evidence. Then build,
+5. **Report**, opened with the `show-me` skill's orientation card when it has one. One table: `<n> - <Title>`, status, pull request, verdict, evidence. Then build,
    tests and CI with their failures verbatim, the cross-entry findings, the `task`/`test`
    entries still open — the sign-off ready to tick or not, and why. Close with the fixes as a
-   question; a fix the person accepts goes through the repository's gate as its own change.
+   question; a fix the person accepts goes through the repository's gate as its own change. Keep the report's prose to `../../resources/chat-reports.md`.
 
 ## Never
 

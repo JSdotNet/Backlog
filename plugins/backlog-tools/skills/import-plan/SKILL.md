@@ -186,11 +186,11 @@ decision, not the plan's.
    republish the view to the same link rather than patching the view.
 7. Show the full plan text inline, ready to paste. Write it to a file too only when the user
    named a path.
-8. Report the review view's link (or the fallback path), the file path when one was written, the entry
+8. Open the report with the `show-me` skill's orientation card when it has one. Report the review view's link (or the fallback path), the file path when one was written, the entry
    count, the repositories targeted, the dependency chain, the interview's answers and the
    prompts each went into, which drafted tasks or tests became prompts, every step kept
    manual with its reason, and which sizing answered — the
-   `estimate` skill, or this skill's fallback and the step it anchored on. Stop — do
+   `estimate` skill, or this skill's fallback and the step it anchored on. Keep the report's prose to `../../resources/chat-reports.md`. Stop — do
    not open the Backlog app, run a prompt, or create a pull request.
 
 ## Interview

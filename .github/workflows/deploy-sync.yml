@@ -119,6 +119,9 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      # Optional: the Foundry account cloud dictation relays to (local ADR 0045).
+      # Unset or empty leaves the relay off, and every phone dictates on-device.
+      SYNC_FOUNDRY_ACCOUNT_NAME: ${{ vars.SYNC_FOUNDRY_ACCOUNT_NAME }}
       # SYNC_TOKEN_SIGNING_KEY is deliberately not here: it is set on the steps
       # that read it (Verify, Preview, Provision, Load, Deploy), so the third-party
       # actions and the other steps never run with it in their environment.

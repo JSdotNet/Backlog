@@ -4,10 +4,7 @@
 type: model
 ```
 
-> Structural view of the domain model for this bounded context: aggregates,
-> entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships.
+> Rules and responsibilities are in `domain.md`.
 
 ## Model diagram
 
@@ -149,13 +146,13 @@ classDiagram
 - `completed_on` is a fourth scalar of the same kind, recording
   [Completed](domain.md#completed), and deliberately not a `Task Status` value.
 - `started_on` is a fifth, recording [Started](domain.md#started), stamped by
-  the root. A date and not a `Timestamp` for the same reason as the tick: it is
-  read against a local calendar.
+  the root. It is a date and not a `Timestamp` for the same reason as the tick: it
+  is read against a local calendar.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
-  identity of its own. It describes the shape of the repeat only; the date of the
-  next occurrence is calculated by the `Occurrence Spawning` policy from `due_on`, and is
-  never stored.
+  identity of its own. It describes the shape of the repeat only. The
+  `Occurrence Spawning` policy calculates the date of the next occurrence from
+  `due_on`, and nothing stores it.
 - `depends_on` is the one self-association on the diagram. It is drawn dashed
   because it is a weak id reference rather than an object graph. Every `Task` is
   its own aggregate root, so a dependency crosses an aggregate boundary and

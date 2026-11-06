@@ -93,7 +93,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_open_impediment_on_the_goals_plan_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_with_no_open_item_held_back_by_an_open_impediment_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_finished_goal_stays_at_risk_until_the_impediment_holding_it_back_is_resolved]
 ```
 
-The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, or a plan one of whose entries it counts, whatever its landing date.
+The system SHALL show a goal as At risk while an open impediment holds back one of its counted items, or a plan with an entry it counts, whatever its landing date.
 
 #### Scenario: An impediment on a plan's entry
 
@@ -159,7 +159,7 @@ The system SHALL list under No goal each task in progress and each open pull req
 
 - **Given** pull request #1362 "Credit notes" in `JSdotNet/Backlog` is open with 10 checks, 1 failing and 2 running, and asks for the person's review
 - **When** the Goals view is read
-- **Then** #1362 is listed under No goal with its status line — its number, its checks and approvals and "your review" — in place of its plain number
+- **Then** #1362 is listed under No goal with its status line in place of its plain number: its number, its checks and approvals and "your review"
 
 ## Setting a goal
 
@@ -292,7 +292,7 @@ type: requirement
 related: [.devbook/domain/progress/domain.md#done]
 ```
 
-The system SHALL count an attached session as done when the pull request on its branch is merged, or when it has linked tasks and every one of them is done, and SHALL NOT count it done because the session finished.
+The system SHALL count an attached session as done when the pull request on its branch is merged or it has linked tasks that are all done, and never because the session finished.
 
 #### Scenario: Its pull request merges
 
@@ -319,7 +319,7 @@ type: requirement
 related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal]
 ```
 
-The system SHALL find a session in a goal's attach search by its session id, typed whole or as its first eight characters, and SHALL list the session first, then each task linked to it, then the pull request on its branch when there is one.
+The system SHALL find a session in a goal's attach search by its session id, whole or its first eight characters, listing it first, then each linked task, then any pull request on its branch.
 
 #### Scenario: Typing a short id
 
@@ -360,7 +360,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests]
 ```
 
-The system SHALL NOT attach a plan, task, pull request or session that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
+The system SHALL NOT attach an item another goal holds without naming that goal, asking whether to move the item and moving it only on yes, so the item is never in two goals.
 
 #### Scenario: A task another goal holds
 
@@ -393,7 +393,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.With_a_host_listening_and_a_goal_each_no_goal_row_has_a_grip_and_every_goal_takes_a_drop, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Without_a_host_listening_or_without_a_goal_no_row_can_be_carried, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_row_dropped_on_a_goal_attaches_to_it_and_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_carried_row_follows_the_pointer_and_a_drop_off_every_goal_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_row_a_reading_took_out_of_no_goal_during_the_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_drop_the_host_refuses_is_not_said, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_cancelled_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.While_the_host_writes_a_row_is_not_picked_up, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_goal_drag_passing_over_a_no_goal_row_still_reorders_and_attaches_nothing]
 ```
 
-The system SHALL attach a No goal row dragged onto a goal, open or folded, to that goal as Attach does, and SHALL attach nothing when it is dropped anywhere else or the drag is cancelled.
+The system SHALL attach a No goal row dragged onto a goal, open or folded, to that goal as Attach does, and attach nothing when it is dropped anywhere else or the drag is cancelled.
 
 #### Scenario: Dropping a task on a folded goal
 
@@ -554,7 +554,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Planned_is_derived_from_three_sources, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_item_from_two_sources_is_planned_once]
 ```
 
-The system SHALL list under Planned, each once, the items goals hold that are in progress, the items due inside the next window, and for each attached plan its first ready entry in plan order that is not in progress.
+The system SHALL list under Planned, each once, the items goals hold in progress, items due inside the next window, and each attached plan's first ready entry in plan order not in progress.
 
 #### Scenario: All three sources
 
@@ -596,7 +596,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_names_the_goal_of_the_first_item_linked]
 ```
 
-The system SHALL list under Impediments every impediment that is not Resolved, with its state, who it is with, its age in working days and the goal it holds back, followed by how many were resolved in the last window.
+The system SHALL list under Impediments every open impediment, with its state, who it is with, its age in working days and the goal it holds back, then the count resolved in the last window.
 
 #### Scenario: One escalated, one resolved
 
@@ -796,7 +796,7 @@ related: [.devbook/domain/progress/domain.md#settled]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_is_settled_when_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_the_reading_does_not_have_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_is_settled_when_merged_or_closed_and_read_from_a_repository_that_is_not_archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_with_no_answer_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_is_settled_when_every_entry_it_gathers_is_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_with_an_open_entry_or_no_entry_is_not_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_lists_each_held_back_item_with_whether_it_is_settled]
 ```
 
-The system SHALL count a held-back task as settled when its status is Done or Archived, a pull request when it is merged or closed, and a plan when it gathers at least one entry and every entry is Done or Archived.
+The system SHALL count a held-back task as settled when Done or Archived, a pull request when merged or closed, and a plan when it gathers at least one entry, all Done or Archived.
 
 #### Scenario: An archived task
 
@@ -842,7 +842,7 @@ related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/p
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state]
 ```
 
-The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and every item it holds back is settled, leaving its state and history unchanged.
+The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and all are settled, leaving its state and history unchanged.
 
 #### Scenario: A done task still marked blocked
 

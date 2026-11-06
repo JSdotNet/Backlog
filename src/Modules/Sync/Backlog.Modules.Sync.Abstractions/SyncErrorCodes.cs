@@ -115,6 +115,29 @@ public static class SyncErrorCodes
     /// unlike a success with <c>registered: false</c>, which says there is no hub.</summary>
     public const string PushUnavailable = "sync.push_unavailable";
 
+    /// <summary>The service has no transcription endpoint configured (local ADR 0045 §6).
+    /// Mapped to 503: the phone falls back to on-device dictation for the rest of the app run
+    /// rather than asking again.</summary>
+    public const string TranscriptionUnavailable = "sync.transcription_unavailable";
+
+    /// <summary>Foundry failed, answered non-success after its one retry, or ran past the
+    /// service's budget. Mapped to 502 with a fixed detail — Foundry's own message may quote
+    /// the input, so it never reaches the answer. The phone shows a failed turn and does not
+    /// fall back: the person can simply try again.</summary>
+    public const string TranscriptionFailed = "sync.transcription_failed";
+
+    /// <summary>A recording over the transcription cap, whether its <c>Content-Length</c> said
+    /// so up front or the body ran past it. Mapped to 413.</summary>
+    public const string TranscriptionTooLarge = "sync.transcription_too_large";
+
+    /// <summary>A recording whose <c>Content-Type</c> is missing or not on the audio
+    /// allowlist. Mapped to 415, naming what was sent.</summary>
+    public const string TranscriptionTypeNotAllowed = "sync.transcription_type_not_allowed";
+
+    /// <summary>A transcription request that is not one — a language hint other than those in
+    /// <see cref="SyncTranscriptionLimits.Languages"/>. Mapped to 400, naming the value.</summary>
+    public const string TranscriptionInvalid = "sync.transcription_invalid";
+
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that
     /// stopped batching or a caller that is not one of ours.</summary>

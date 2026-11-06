@@ -73,6 +73,9 @@ public enum OwnerPresence
 /// <param name="Standing">Where it stands for this phone.</param>
 /// <param name="Verdict">The winning answer, the rejection's reason, or the close reason, in words.</param>
 /// <param name="Waiting">The outbox entry still carrying this phone's reply, or null.</param>
+/// <param name="Repository">The repository its owner published it as being about — an alias or
+/// the Brain (local ADR 0039 §6) — or null when the owner could not work it out or predates the
+/// field: not known, so kept under every Repository choice.</param>
 public sealed record PhoneNotification(
     NotificationSnapshot Notification,
     string? OwnerName,
@@ -80,7 +83,8 @@ public sealed record PhoneNotification(
     DateTimeOffset? OwnerSeenAt,
     NotificationStanding Standing,
     string? Verdict,
-    OutboxEntry? Waiting)
+    OutboxEntry? Waiting,
+    PublishedRepository? Repository = null)
 {
     public Guid Id => Notification.Id;
 

@@ -9,15 +9,26 @@ related: [.devbook/arc42/05-building-block-view.md#desktop-app, .devbook/arc42/a
 
 The Sessions context owns the record of what the AI coding agents have been doing. It
 says which sessions an environment has run and which agent ran each one. It also says
-where each worked, when it was last active, and whether it is still going. It owns no work item, machine
-or repository. Each of those belongs to a supplier context, and this one holds only the
+where each worked, when it was last active, and whether it is still going. It owns no
+work item, machine or repository. Each of those belongs to a supplier context, and this one holds only the
 identifier it was given.
+
+```mermaid
+flowchart LR
+    Session[Agent Session] -->|leaves| Records[Agents' records]
+    Records --> Log[Session Log]
+    Replica[Another machine's records] -->|replication| Log
+    Updates[Collections MCP updates] -.->|optional enrichment| Log
+    Person -->|click| Request[Session Request]
+    Request --> Dispatcher
+    Dispatcher -->|starts| Session
+```
 
 It is a **read model over evidence somebody else wrote.** The agents leave records
 on the environments they run on; this context reads them and says what they mean. It
-never starts, stops or names a session. That is why nothing here is a command, and why
-the [Session Log](domain.md#session-log) aggregate has no invariant about state
-transitions: a session's state is derived on every reading, not advanced.
+never starts, stops or names a session. That is why nothing here is a command. The
+[Session Log](domain.md#session-log) aggregate has no invariant about state
+transitions, because a session's state is derived on every reading, not advanced.
 
 One record here is not evidence: a [Session Request](domain.md#session-request) asks
 for a session that does not exist yet. A person creates it with a click, and a
@@ -43,8 +54,9 @@ Pull requests are outside it too. A session or a delivery run often opens one, b
 whether it is ready, the stack it sits in and the commands that merge it are
 [Repository Management](../repository-management/context.md)'s. That includes the
 [pull requests pane](../repository-management/features.md#pull-request-readiness)
-and its merge and re-run acts. A session's detail panel shows, on each pull request
-the session produced, the
+and its merge and re-run acts.
+
+A session's detail panel shows, on each pull request the session produced, the
 [readiness verdict](../repository-management/domain.md#readiness-verdict) that
 context publishes. The desktop shell composes that card, so this context holds only
 the pull request's number and references nothing of Repository Management. Local

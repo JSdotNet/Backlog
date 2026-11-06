@@ -15,21 +15,28 @@ depends-on: [.devbook/domain/devbook/features.md#devbook-retrieval]
 related: [.devbook/domain/devbook/requirements.md#unified-search, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
+```mermaid
+flowchart LR
+    T[The reader types] --> W[Words answer drawn]
+    T -->|typing pauses, switched on, a model there| M[Meaning answer]
+    W --> G[Merged within each source]
+    M --> G
+    G --> R[Results grouped by source, the Brain first]
+```
+
 Ask one question of the Brain and every configured repository's devbook at once.
 The search offers scope chips (**Everywhere**, **Brain**, and one per
-repository) and groups its results by where they came from, the Brain's group
-first. It searches by words and by meaning, as
+repository). It searches by words and by meaning, as
 [Devbook retrieval](#devbook-retrieval) does for one devbook, over each source's
 own database. A source with no database yet is named as not searchable rather
 than silently left out.
 
-Search by meaning is additive, as it is for one devbook: it is asked only while
-it is switched on and a model is there to answer, once typing pauses, and the words answer is drawn while it is
-on its way. Within a source the two answers are merged by where each put a
-chapter, never by their scores, which are on different scales; a chapter both
-found is one result. Opening a result from the devbook on screen opens it there.
-Opening one from another devbook moves the pane to that devbook and opens it,
-without touching the header's scope or the task filter.
+Search by meaning is additive, as for one devbook. The words answer is drawn
+while the meaning answer is on its way. Within a source the two are merged by where
+each put a chapter, never by their scores, which are on different scales. A
+chapter both found is one result. A result from the devbook on screen opens there.
+One from another devbook moves the pane to that devbook and opens it, leaving the
+header's scope and the task filter alone.
 
 ## Repository devbook areas
 
@@ -39,16 +46,22 @@ feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
-Read the knowledge a repository already carries alongside its code, next to the
-backlog rather than in a separate tool. Knowledge is grouped into named areas:
-working instructions, domain, architecture, technology, and design. Each is backed
-by the repository's own folder for that subject. Tasks are not an area. They are
-their own workspace section, read and written rather than browsed, so a
-repository's backlog folder is not a knowledge area.
+Read the devbook a repository already carries alongside its code, next to the
+backlog. A devbook is grouped into named areas:
 
-Areas are browsed in the Devbook, which takes the whole screen in place of the
-task list and keeps it underneath, so one press moves between knowledge and work
-(local ADR 0022, amendment of 2026-10-15).
+- working instructions;
+- domain;
+- architecture;
+- technology;
+- design.
+
+Each is backed by the repository's own folder for that subject. Tasks are not an
+area: they are their own workspace section, read and written rather than browsed,
+so a repository's backlog folder is not one.
+
+Areas are browsed in the Devbook, which takes the whole screen in place of the task
+list and keeps it underneath. One press moves between the devbook and work (local
+ADR 0022, amendment of 2026-10-15).
 
 ### Area selection and scope
 
@@ -59,25 +72,26 @@ related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane, .dev
 ```
 
 Switch between areas, and between repositories when more than one is registered,
-so the knowledge shown always belongs to a known repository or to the Brain.
+so what the pane shows always belongs to a known repository or to the Brain.
 
 | Scope | The pane shows | The `Brain \| <repo>` switch |
 | --- | --- | --- |
 | Nothing pressed | The [Brain](../brain/features.md#brain-mode-of-the-devbook-pane) | Absent |
 | Brain alone | The Brain | Absent |
 | Repositories, no Brain | The anchor's repository | Absent |
-| Brain and at least one repository | The anchor's side | Shown; with Brain as the anchor and several repositories, its other side is the first of them |
+| Brain and at least one repository | The anchor's side | Shown |
 
-The pane reads one devbook at a time, even when the backlog beside it is scoped to
-several. It follows the scope's anchor, the first chip taken into that scope, so
-widening the list never moves the knowledge already being read. Nothing pressed
-shows the Brain because the Brain is always there. The switch flips what the pane
+With Brain as the anchor and several repositories, the switch's other side is the
+first of them. The pane reads one devbook at a time, even when the backlog beside
+it is scoped to several. It follows the scope's anchor, the first chip taken into
+that scope, so widening the list never moves the chapter being read. Nothing
+pressed shows the Brain, which is always there. The switch flips what the pane
 shows and leaves the task filter alone (local ADR 0027).
 
 The folder the backlog is kept in is never read as a devbook of its own. Every
-area is opt-in. Each can be switched off on its own or pointed at a non-standard
-folder. When none is left on, there is nothing to browse, and the pane says so
-rather than offering an empty tab strip.
+area is opt-in, can be switched off, and can be pointed at a non-standard folder.
+When none is on, the pane says there is nothing to browse instead of offering an
+empty tab strip.
 
 ### Rendered devbook documents
 
@@ -87,20 +101,21 @@ feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/doma
 related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
 
-Present each area's documents as readable content rather than raw files:
-headings and sections, the metadata each chapter declares, cross-references
-between devbook documents, and embedded diagrams rendered as diagrams. A
-cross-reference may name a chapter in the repository's backlog folder, even though
-that folder is not a browsable area. It is read with that folder's own status
-vocabulary rather than as an unknown one.
+Present each area's documents as readable content, not raw files: headings and
+sections, the metadata each chapter declares, cross-references between documents,
+and diagrams rendered as diagrams.
 
-Two parts of this are switches of their own, both off by default.
+A cross-reference may name a chapter in the repository's backlog folder, though
+that folder is not a browsable area. It is read with that folder's own status
+vocabulary, not as an unknown one.
+
+Two parts are switches of their own, both off by default.
 [Devbook status](context.md#devbook-status) draws the status and decision state
 beside each file and chapter, and the state the app keeps for a decision or debt
 record. [Devbook editing](context.md#devbook-editing) offers Edit on a repository
-chapter; a Brain note keeps Edit either way. What follows about showing a status
-or a decision holds while status is on. Off, the file still states them, the app
-still keeps a record's state, and the app draws none of it.
+chapter; a Brain note keeps Edit either way. What follows about status or decisions
+holds while status is on. Off, the file still states them, the app still keeps a
+record's state, and the app draws none of it.
 
 Documents appear in the order the convention gives them:
 
@@ -109,125 +124,137 @@ Documents appear in the order the convention gives them:
 3. a folder's usual chapters in their usual places;
 4. the rest by name.
 
-A repository therefore never has to write its reading order down, and a file that
-tries to is ignored. Inside a bounded context, the rules a domain page's types
-enforce are a page of their own that reads directly after it. The menu lists that
-page as the page's invariants rather than by its file name: "Invariants", or
-"Order invariants" beside a page split out for one aggregate. A context that still
-keeps its rules in the older single invariants file has them read and listed where
-they always were.
+A repository never writes its reading order down, and a file that tries to is
+ignored. Inside a bounded context, the rules a domain page's types enforce are a
+page of their own that reads directly after it. The menu lists it as the page's
+invariants: "Invariants", or "Order invariants" beside a page split out for one
+aggregate. A context that still keeps its rules in the older single invariants file
+has them read and listed where they always were.
 
 The metadata is read against the devbook convention the repository's own checks
 enforce, folder by folder, so a chapter the app shows as fine is not one those
 checks reject:
 
-- **A status at rest says nothing.** Architecture, domain and design chapters
-  that are simply current carry no status at all and are shown as current. The
-  app writes no status into those chapters. A status one states anyway is shown
-  as a badge, and a chapter that spells out "current" is pointed out. Technology
-  and AI-adoption chapters are ratings, so the file always states theirs. The app
-  reads a rating from the `rating` field, and from `status` until the repository
-  migrates. A rating is the one value the reader picks, and the app writes it into
-  whichever of the two fields the chapter carries.
+- **A status at rest says nothing.** Architecture, domain and design chapters that
+  are current carry no status and are shown as current. The app writes no status
+  into them, and a status one states anyway is shown as a badge. A chapter that
+  spells out "current" is pointed out. Technology and AI-adoption chapters are
+  ratings, so the file always states theirs. The app reads a rating from `rating`,
+  and from `status` until the repository migrates, and writes the reader's pick
+  into whichever of the two the chapter carries.
 - **A decision is state, not content.** A domain chapter can state that it stands
   approved (someone agreed it), and above that accepted (someone saw the built
-  work against it and accepted it). Where a review stands on the way there is
-  state too: requested, changes requested or cleared, and who owes the next move.
-  The app shows them as the chapter states them and never writes them. Where that
-  state is shown is in
-  [the requirements of this sub-feature](requirements.md#rendered-devbook-documents).
-  No other area has them, and a chapter outside the domain that carries one is
-  pointed out.
+  work against it and accepted it). A review on the way there is state too:
+  requested, changes requested or cleared, and who owes the next move. The app
+  shows them as the chapter states them and never writes them
+  ([requirements](requirements.md#rendered-devbook-documents)). No other area has
+  them, and a chapter outside the domain that carries one is pointed out.
 - **A record's workflow state is the app's.** The app keeps the state of a
   decision record and a debt record itself, never in the file
   ([Subject State](domain.md#subject-state), local ADR 0044). The states a
   repository's default branch still writes in its Markdown are imported into that
   store once. The record shows that state beside its name, with who set it and
-  when. A debt record's state is picked there, on a branch snapshot too, because
-  picking it writes no file. A
-  decision record's state is shown and never picked. It is kept per pull request,
-  which the panel does not know, so the panel shows the state set most recently
-  for that path, in any pull request. An assistant sets it over the app's MCP
-  server, and a change proposal's state, approval and acceptance the same way.
-  No panel shows a proposal's state yet.
+  when. Three cases differ:
+  - A debt record's state is picked there, on a branch snapshot too, because
+    picking it writes no file.
+  - A decision record's state is shown and never picked. It is kept per pull
+    request, which the panel does not know, so the panel shows the state set most
+    recently for that path, in any pull request.
+  - A change proposal's state, approval and acceptance are set by an assistant
+    over the app's MCP server. No panel shows a proposal's state yet.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
-  kinds. A domain context's set covers its boundary document, its requirements and
-  invariants and the single rules inside them, and its switches and settings. It
-  also covers its actors, and a page of its own that the convention does not name. A requirements
+  kinds. A domain context's set covers:
+
+  - its boundary document;
+  - its requirements and invariants and the single rules inside them;
+  - its switches and settings;
+  - its actors;
+  - a page of its own that the convention does not name.
+
+  A requirements
   or invariants page is shown under the title it carries, which names what it
-  holds rather than the context. How a bounded context ships, as a service of its
-  own or as a module inside a shared host, is shown with it. When the context map
-  and the context's own boundary document disagree about it, the app says so.
-- **Everything else a chapter declares** is shown as it was written: the tests
-  that back it, its number and place in the reading order, and the day it
-  records. State another tool keeps on the chapter under its own name is
+  holds. How a bounded context ships, as a service of its own or as a module in a
+  shared host, is shown with it. The app says so when the context map and the
+  boundary document disagree.
+- **Everything else a chapter declares** is shown as written: the tests that back
+  it, its number and place in the reading order, and the day it records. State
+  another tool keeps under its own name is
   [carried as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
 - **Planning fields are not drawn.** The chapter view shows no `issue`, `effort`,
-  `roadmap` or `change` field. The app still reads them where tasks and the
-  knowledge graph need them.
+  `roadmap` or `change` field, though the app still reads them for tasks and the
+  knowledge graph.
 
-A bounded context's click demo is shown with the page it belongs to. A demo is
-the one HTML file a context holds: a clickable picture of what a person sees. It
-pairs with a page in two ways. By name, `demo.html` belongs to the context's
-boundary document and `<page>.demo.html` to the page beside it. By field, a
-chapter's `demo` metadata names a demo and the places in it that show the
-chapter. The context view shows the context's own demo, and every other page
-shows the demos paired with it.
+A bounded context's click demo, the one HTML file a context holds, is shown with
+the page it belongs to. It pairs with a page in two ways. By name, `demo.html`
+belongs to the context's boundary document and `<page>.demo.html` to the page
+beside it. By field, a chapter's `demo` metadata names a demo and the places in it
+that show the chapter. The context view shows the context's own demo, and every other
+page shows the demos paired with it.
 
 Each demo runs in a frame of its own, isolated from the app, and can go full
 screen. It keeps its own look, so the pane never forces its dark theme onto it.
-Every place a chapter names in the demo is offered as a chip above the frame.
-The first place opens as soon as the demo says it is ready, and picking another
-chip moves the demo there. Notes on a demo are placed in spec-manager, the
-specification review tool, so the pane neither pins notes nor follows where the
-reader clicks inside the demo.
+Every place a chapter names in the demo is a chip above the frame. The first place
+opens when the demo says it is ready, and picking another chip moves the demo
+there. Notes on a demo are placed in spec-manager, so the pane neither pins notes
+nor follows where the reader clicks inside the demo.
 
-A scenarios file is listed in the bounded context it lives in, at whatever depth,
-like any page beside it. It is the context's `scenarios.md`, or a split
-`scenarios.<name>.md`. Each `##` chapter that says `type: scenario` in its own
-metadata is one end-to-end journey, and its `###` parts are the outcomes the actor
-reaches. Which files hold journeys comes from the scenario register the
-repository's devbook commits. A repository that commits no register is read for
-the scenarios files whose journeys say so themselves.
+A scenarios file is listed in the bounded context it lives in, at any depth: the
+context's `scenarios.md`, or a split `scenarios.<name>.md`. Each `##` chapter with
+`type: scenario` is one end-to-end journey, and its `###` parts are the outcomes
+the actor reaches. The scenario register the repository's devbook commits says
+which files hold journeys. A repository with no register is read for the scenarios
+files whose journeys say so themselves.
 
 In the menu each scenarios file carries the scenario mark and one dot for the last
 runs of all its journeys: passed, failed, stale, or never run. The dot takes the
 first of never run, stale and failed that any journey is, and reads passed only
-when every journey passed. The dot differs by shape as well as by colour, and a
-screen reader hears its state. Under the menu a legend draws the four dots, each
-beside its word, so a reader who has not learned the shapes can tell them apart.
-The legend is there only while the repository has at least one journey, and never
-for a Brain, which has none.
+when every journey passed. It differs by shape as well as colour, and a screen
+reader hears its state. A legend under the menu draws the four dots beside their
+words, so the shapes need not be learned. It shows only while the repository has a journey, and never for a Brain.
 
 Each journey's run is committed beside its scenarios file, at
 `<scenarios file without .md>/<journey>/run.json`. The app reads all three run
-versions: version 3 names the journey, version 2 names the journey page it ran
-before journeys moved into scenarios files, and version 1 is the older format
-spec-manager's test tooling writes. It reads the register at schema 2 only, and
-treats any other register as none. Whether a run is stale is worked out, never
-stored. The app signs each journey as it reads now, the way devbook computes a
-journey signature. A run that proved a different signature is stale, and so is a
-version 1 run, which proves no signature at all.
+versions:
 
-Opening a scenarios file shows each journey's run above the file. The run shows
-the setup the journey runs under: where it starts, who is signed in, the profile,
-the data sets, and the flag and setting overrides. Under the setup is a summary
-line, then each part with its outcome and the screenshots it took. A failed part
-also shows the screenshot taken where it failed. A journey opened from a reference
-that names one of its parts, such as a part pressed in a task's acceptance
-checklist, opens at that part, marks it as the one asked for, and scrolls it into
-view. The mark stays until the reader picks another chapter, and it belongs to the
-repository the reference named.
+- version 3 names the journey;
+- version 2 names the journey page it ran before journeys moved into scenarios files;
+- version 1 is the older format spec-manager's test tooling writes.
+
+It reads the register at schema 2 only and treats any other as none. Staleness is
+worked out, never stored: the app signs each journey as it reads now, the way
+devbook computes a journey signature. A run that proved a different signature is
+stale, and so is a version 1 run, which proves no signature.
+
+Opening a scenarios file shows each journey's run above the file. The run shows the
+setup the journey runs under:
+
+- where it starts;
+- who is signed in;
+- the profile;
+- the data sets;
+- the flag and setting overrides.
+
+Under the setup is a summary line, then each part with its outcome and
+screenshots. A failed part also shows the screenshot taken where it failed.
+
+A reference can name one of a journey's parts, such as a part pressed in a task's
+acceptance checklist. The journey then opens at that part, marks it and scrolls it
+into view. The mark stays until the reader picks another chapter and belongs to
+the repository the reference named.
 
 An image written `scenario:<scenarios file>#<label>` in any chapter shows that
-screenshot from the last run of the journey that holds the label. The
-file is named by its path inside the domain folder, such as `work/scenarios.md`,
-and a label is unique in its file. Inside the scenarios file itself, `shot:<label>`
-is enough. A source line under the image names the journey, the part, the run's
-state and the time of the capture. Two such images in one paragraph sit side by
-side. A label the file does not have lists the labels it does have. A scenarios
-file that does not exist says so. A label the run never captured says that too. A
-capture older than the last run says so on its source line.
+screenshot from the last run of the journey that holds the label. The file is named
+by its path inside the domain folder, such as `work/scenarios.md`, and a label is
+unique in its file. Inside the scenarios file itself, `shot:<label>` is enough. A
+source line under the image names the journey, the part, the run's state and the
+time of the capture, and two such images in one paragraph sit side by side.
+
+The image reports what went wrong:
+
+- A label the file does not have lists the labels it does have.
+- A scenarios file that does not exist says so.
+- A label the run never captured says that too.
+- A capture older than the last run says so on its source line.
 
 ### Remarks on a chapter
 
@@ -237,28 +264,29 @@ related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-contai
 ```
 
 Let a reader leave a [remark](domain.md#remark) against one block of a chapter
-while reading it, and keep it. A remark has a kind: a comment, a question, a
-suggestion or a flag. It sits beside the prose rather than inside it. It belongs
-to the person, not to the repository. The app keeps it, it moves with the person's
-backlog, and it reaches their other devices through sync. Because it stays out
-of the repository, a reader can remark on a chapter read from a branch nobody
-can edit; [the Remark invariants](domain.invariants.md#remark) say how. A remark
-can be resolved, which keeps it visible and quiet, or deleted.
+while reading it. A remark has a kind (comment, question, suggestion or flag) and
+sits beside the prose. It belongs to the person: the app keeps it, it moves with
+the person's backlog, and it reaches their other devices through sync.
 
-A remark is kept per branch. A remark left on a named branch shows only while
-that branch is read. A remark left on the default branch shows on a clone and on
-the default branch's snapshot alike.
+Because a remark stays out of the repository, a reader can remark on a chapter read
+from a branch nobody can edit
+([the Remark invariants](domain.invariants.md#remark)). A remark can be resolved,
+which keeps it visible and quiet, or deleted.
+
+A remark is kept per branch. One left on a named branch shows only while that
+branch is read. One left on the default branch shows on a clone and on the default
+branch's snapshot alike.
 
 A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
-repository writes into a chapter; those are shown under
+repository writes into a chapter, shown under
 [Review notes in a chapter](#review-notes-in-a-chapter). A repository's open
-review notes on its default branch arrive as remarks once, imported by the app.
-The app does not turn a remark into a review note.
+review notes on its default branch arrive as remarks once, but the app never turns
+a remark into a review note.
 
-A remark is anchored to the block it was left on, and remembers what that block
-said, so the chapter can change under it without the remark being lost. Where the
-read view then shows it is in
-[the requirements of this feature](requirements.md#remarks-on-a-chapter).
+A remark is anchored to the block it was left on and remembers what the block said,
+so the chapter can change under it without losing it. See
+[the requirements](requirements.md#remarks-on-a-chapter) for where the read view
+then shows it.
 
 ### Review notes in a chapter
 
@@ -268,20 +296,18 @@ related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-contai
 ```
 
 Show the [review notes](domain.md#review-note) a repository keeps in its own
-chapters as notes attached to their passage, open or resolved, rather than as the
-raw text they are stored in. Each shows its kind and its replies. Whoever reviews
-the chapter reads the same notes, and they leave with the change that resolves
-them.
+chapters as notes attached to their passage, open or resolved, not as the raw text
+they are stored in. Each shows its kind and its replies. Whoever reviews the
+chapter reads the same notes, and they leave with the change that resolves them.
 
 A review note is never read as what the chapter says, because an open question
-about whether a rule still holds is not the rule. What that keeps out of an
-assistant's read, search and excerpts is in
-[the requirements of this sub-feature](requirements.md#review-notes-in-a-chapter).
+about whether a rule still holds is not the rule. See
+[the requirements](requirements.md#review-notes-in-a-chapter) for what that keeps
+out of an assistant's read, search and excerpts.
 
-The app shows these notes and does not write them; the convention's own tooling
-does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
-shown apart. The default branch's open notes are imported once into remarks, as
-local ADR 0011 records, and the app still never writes a review note.
+The convention's own tooling writes these notes; the app only shows them, apart
+from the reader's [remarks](#remarks-on-a-chapter). The default branch's open notes
+are imported once into remarks (local ADR 0011).
 
 ### Sync verdicts beside a chapter
 
@@ -296,14 +322,14 @@ or unresolved). The root chapter of a [Sync Unit](domain.md#sync-unit) also show
 the unit's own verdict and what the sweep did about it. Each badge leads to the
 pull request or drift issue the sweep opened, where the verdict is argued.
 
-Only the latest verdict per chapter is shown, in the sweep's own words, so a
-chapter last checked a month ago keeps that month-old word until a sweep checks it
-again. Which verdict that is, and how a word the app does not know looks, are in
-[the requirements of this sub-feature](requirements.md#sync-verdicts-beside-a-chapter).
-A chapter no sweep has checked carries nothing.
+Only the latest verdict per chapter is shown, in the sweep's own words. A
+chapter last checked a month ago keeps that word until a sweep checks it again.
+See [the requirements](requirements.md#sync-verdicts-beside-a-chapter) for which
+verdict that is and how an unknown word looks. A chapter no sweep has checked
+carries nothing.
 
-Each verdict also keeps the unit's sync direction as the sweep resolved it, and where
-it was inherited from. The dashboard's
+Each verdict also keeps the unit's sync direction as the sweep resolved it, and
+where it was inherited from. The dashboard's
 [Drift at a glance](../productivity/features.md#drift-at-a-glance) part reads the
 same verdicts a unit at a time and groups them by that direction.
 
@@ -314,26 +340,28 @@ type: sub-feature
 related: [.devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
+```mermaid
+flowchart LR
+    O[The reader opens a chapter] --> C{Does the prepared view prove itself current?}
+    C -->|yes| V[Shown from the prepared view]
+    C -->|no, or nothing prepared| F[Read directly from the folder]
+```
+
 Show what a repository's folders actually say, including when a chapter was
-edited outside the app: by another tool, by a pull request, or by hand in an
-editor. The folders are the source of truth and the app never owns them. A
-prepared view over them is a convenience. It has to prove itself current before it
-is shown, and it gives way to reading the folder directly when it cannot.
+edited outside the app, by another tool, a pull request, or hand. The folders are
+the source of truth and the app never owns them.
 
 A repository where nothing has been prepared is a normal state, not an error: its
-knowledge is still browsable, only slower. Preparing it is never a precondition
+devbook is still browsable, only slower, and preparing it is never a precondition
 for reading it.
 
-Preparation happens without being asked for and without being waited on. It never
-slows opening the app, and never holds back a pane that is ready to show something.
-A chapter edited moments ago is shown from the folder itself rather than held back
-until the prepared view catches up. What is on screen is never older than what is
-on disk.
+Preparation happens unasked and unawaited. It never slows opening the app or holds
+back a pane ready to show something. A chapter edited moments ago is shown from the
+folder itself, so what is on screen is never older than what is on disk.
 
-The prepared view is the app's own and is kept with the app, never in the
-repository. Nothing is added to a repository's folders, and nothing there needs to
-be told to ignore it. It is prepared per copy of the repository, so two clones or
-two worktrees of one repository are each prepared from their own files. A
+The prepared view is kept with the app, never in the repository, so nothing is
+added to a repository's folders or needs ignoring. It is prepared per copy of the
+repository, so two clones or worktrees are each prepared from their own files. A
 repository read from a branch without a clone is prepared too.
 
 ### The devbook on the repository's latest version
@@ -343,42 +371,43 @@ type: sub-feature
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
-Say whether the knowledge in view is the latest version the repository has, and
-bring it up to date when it is not. A repository's folders are read from a local
-clone, and a clone falls behind in silence: every chapter still opens, and nothing
-in one says that somebody else has revised it since.
+```mermaid
+flowchart TD
+    O[The pane first opens on the repository in an app session] --> Q[Background check of the clone]
+    P[Somebody presses for a check] --> Q
+    Q --> S{What stands in the way?}
+    S -->|being behind, nothing else| U[Offers Pull latest]
+    S -->|anything else| R[Reports the state as it stands]
+    U -->|somebody presses| N[The chapters on screen become the chapters that arrived]
+```
 
-The question is asked once on its own: the first time the pane opens on the
-repository in an app session, beside loading
-[its branches](#choosing-where-the-devbook-is-read-from). Answering means reaching
-for the repository itself, so it runs in the background and opening a folder never
-waits on it. A clone it finds behind is offered "Pull latest" straight away, with
-no "Check now" pressed first and no sentence nobody asked for. After that the
-question is asked when somebody presses for it.
+Say whether the devbook in view is the latest version the repository has, and
+bring it up to date when it is not. A local clone falls behind in silence: every
+chapter still opens, and nothing says somebody has revised it since.
 
-The question is only about the local clone, so the version control shows only
-while the pane reads the clone. A branch snapshot keeps itself current on its own
-cadence (local ADR 0008), and a control there would only hurry along what happens
-anyway.
+The first question is asked on its own, beside loading
+[its branches](#choosing-where-the-devbook-is-read-from). It reaches for the
+repository itself, so opening a folder never waits on
+it. A clone found behind is offered "Pull latest" straight away, with no "Check
+now" first.
 
-The answer says how far behind the clone is. It offers to bring the clone up to
-date only when being behind is all that is in the way. Three other states are
-reported as they stand rather than reconciled on the reader's behalf:
+The question concerns only the local clone, so the control shows only while the
+pane reads the clone. A branch snapshot keeps itself current on its own cadence
+(local ADR 0008).
+
+The answer says how far behind the clone is. Three other states are not reconciled for the reader:
 
 - a clone carrying edits nobody has committed;
 - a clone holding revisions the repository does not have;
 - a clone whose history has parted from the repository's.
 
-What to do about any of those belongs to whoever owns the clone. Knowledge kept
-outside a repository has no latest version to be on, and is not asked about.
-Nor is the devbook of an
+Whoever owns the clone decides what to do about those. A devbook kept outside a
+repository has no latest version and is not asked about, nor is that of an
 [archived repository](../repository-management/domain.md#archived-repository),
 which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
-Bringing a clone up to date happens only when somebody presses for it, because a
-pull touches a working tree somebody may be editing in. It replaces what the
-clone's folders say, so the knowledge on screen becomes the knowledge that arrived
-with it.
+Updating happens only when somebody presses for it, because a pull touches a
+working tree somebody may be editing in.
 
 ### Choosing where the devbook is read from
 
@@ -388,22 +417,19 @@ feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
-Read a repository's devbook from its local clone or from any of its branches,
-chosen beside the area strip rather than in settings. Knowledge under review lives
-on a branch long before it reaches the default one. The reader who wants it is
-rarely the one who has that branch checked out, and a repository nobody has cloned
-has only its branches to offer (local ADR 0008).
+Read a repository's devbook from its local clone or any of its branches, chosen
+beside the area strip and not in settings. A chapter under review lives on a branch
+long before the default one, and its reader rarely has that branch checked out. A
+repository nobody has cloned has only its branches (local ADR 0008).
 
 The choice is one field the reader types into. It suggests the default branch, the
 local clone where there is one, and the branches that change the devbook, narrowed
-to what the typed text contains. A branch that touches no devbook area has nothing
-to read that the default branch lacks, so it is not suggested; it can still be
-typed by name.
+to the typed text. A branch that touches no devbook area has nothing the default branch lacks, so it
+is not suggested but can be typed by name.
 
-Each branch says why it is worth reading: the glyph of every area it changes, and
-how many commits it is ahead of and behind the default branch. The local clone says
-how far it is ahead of and behind the branch it tracks, and nothing when it tracks
-none.
+Each branch shows the glyph of every area it changes and how many commits it is
+ahead of and behind the default branch. The local clone shows how far it is ahead
+of and behind the branch it tracks, and nothing when it tracks none.
 
 ```mermaid
 flowchart TD
@@ -417,25 +443,24 @@ flowchart TD
     G -->|no| R[Says so and leaves the source alone]
 ```
 
-Knowing what a branch changes means comparing it with the default branch, one call
-per branch. The branches are therefore loaded once per repository per app session,
-in the background, when the pane first opens on it: the list, a comparison per
-branch, and a look at the clone. Reopening the picker, switching tabs or source, or
-a second window reuses that load rather than asking again. The pane never waits on
-it: the field works from the start, and "Loading branches…" in the list marks a
-load still running. "Refresh branches" asks again. The list stops at a ceiling
-instead of paging without end.
+Knowing what a branch changes means one comparison call per branch with the default
+branch. The branches are loaded once per repository per app session, in the
+background, when the pane first opens on it. A load is the list, a comparison per branch, and
+a look at the clone. Reopening the picker, switching tabs or source, or a second
+window reuses that load.
 
-A load can fail, or part of it can. A branch GitHub would not compare is not placed;
-a refused listing is said beside the field, and the default branch, the clone and
-the configured branch stay offered. A refused refresh keeps what the last good load
-listed. A typed branch the list does not hold is asked of GitHub before it is
-turned down, because the list may simply be older than the branch. A search is not
-a choice: only a named source switches what the pane reads.
+The pane never waits on it: the field works from the
+start, and "Loading branches…" marks a load still running. "Refresh branches" asks
+again. The list stops at a ceiling instead of paging without end.
 
-Switching says, under the strip, whether the pane now reads the clone or a branch
-snapshot, and a branch snapshot is read-only. The settings screen offers the same
-choice with the same entries.
+A load, or part of it, can fail. A branch GitHub would not compare is not placed. A
+refused listing is said beside the field, and the default branch, the clone and the
+configured branch stay offered. A refused refresh keeps the last good load. GitHub is
+asked about a typed branch because the list may be older than the branch.
+
+Switching says, under the strip, whether the pane now reads the clone or a
+read-only branch snapshot. The settings screen offers the same choice with the same
+entries.
 
 ### Reviewing what a branch changed
 
@@ -446,10 +471,9 @@ depends-on: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-r
 related: [.devbook/domain/devbook/requirements.md#reviewing-what-a-branch-changed, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md]
 ```
 
-See what a branch did to the devbook before it is merged, commit by commit, in
-the pane that already shows the branch. A pull request's diff shows Markdown as
-lines; a reader reviewing knowledge wants the chapters that moved and what moved
-in each, beside the devbook they belong to.
+See what a branch did to the devbook before it is merged, commit by commit, in the
+pane that already shows the branch. A pull request's diff shows Markdown as lines;
+a devbook reviewer wants the chapters that moved and what moved in each.
 
 ```mermaid
 flowchart LR
@@ -460,15 +484,15 @@ flowchart LR
     R -. close, switch to the clone, or another repository .-> P[Back to the chapters]
 ```
 
-**Review changes** is never offered for the local clone: the clone's history is
-the reader's own working copy, not a proposal. The branch's own commits are the
-ones it holds that the default branch does not, and the whole branch is compared
-against the default branch. A chapter is compared before and after.
+**Review changes** is never offered for the local clone, whose history is the
+reader's own working copy, not a proposal. The branch's own commits are those the
+default branch lacks, and the whole branch is compared against the default branch.
+A chapter is compared before and after.
 
-Where GitHub answered with only part of the history or the file list, the review
-says so instead of passing a partial answer off as whole. The review is read from
-GitHub and held only for the session. Nothing is cloned, written to disk, or
-prepared, so a review leaves no trace in the repository or the app's storage.
+Where GitHub answered with only part of the history or file list, the review says
+so. The review is read from GitHub and held only for the session: nothing is cloned,
+written to disk or prepared, so it leaves no trace in the repository or the app's
+storage.
 
 ## Technology view
 
@@ -479,30 +503,28 @@ depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/requirements.md#technology-view, .devbook/tech/technology-graph.md#graph, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md#how-a-reader-degrades]
 ```
 
-See what a repository's technology stack rests on and what would break if one
-part of it changed, in the Technology area of the Devbook pane. A layer file reads
-one technology at a time; the questions a reader brings to a stack are about the
-links between them: what sits under this, what uses it, and how far a change
-travels. The view answers them from the stack's own `depends-on` metadata, so it
-needs nothing a repository does not already write. The agreed design is the
-artifact <https://claude.ai/artifact/D5xzbYTojBsrWQwaN89QBK>.
+See what a repository's technology stack rests on and what would break if one part
+changed, in the Technology area of the Devbook pane. A layer file reads one
+technology at a time, but a reader asks about the links: what sits under this, what
+uses it, and how far a change travels. The view answers from the stack's own
+`depends-on` metadata, so it needs nothing a repository does not already write. The
+agreed design is the artifact <https://claude.ai/artifact/D5xzbYTojBsrWQwaN89QBK>.
 
-The area shows five views, switched from one tab bar, in place of the Atlas and
-Layers tabs it had before:
+The area shows five views, switched from one tab bar, in place of its earlier Atlas
+and Layers tabs:
 
 | View | What it answers |
 | --- | --- |
-| **Overview** | Everything in use: the technologies as a table that sorts by each measure, narrowed by type, with the selected one in an inspector beside it. |
-| **Dependencies** | One technology in context: what it sits on and what sits on it, hop by hop, and how far a breaking change reaches. |
-| **Complexity** | Blast radius against depth: each technology placed by how many use it and how much sits under it. |
+| **Overview** | Everything in use: a table narrowed by type, sorted by measure, with an inspector beside it. |
+| **Dependencies** | What one technology sits on and what sits on it, hop by hop: a change's reach. |
+| **Complexity** | Blast radius against depth: how many use each technology and how much sits under it. |
 | **Clusters** | The whole stack by layer: open a layer to see its technologies, then follow one's links. |
 | **Type lenses** | One technology read through the lens its type chooses. |
 
-One technology is selected at a time, and the selection is shared: picking one in
-any view and switching views keeps it selected.
+One technology is selected at a time, and the selection is shared across views.
 
-**Measures.** Every number the views show is computed from `depends-on`, the edges each
-technology chapter declares to what it sits on:
+**Measures.** Every number the views show is computed from `depends-on`, the edges
+each technology chapter declares to what it sits on:
 
 | Measure | What it counts |
 | --- | --- |
@@ -512,24 +534,23 @@ technology chapter declares to what it sits on:
 | **Depth** | The longest `depends-on` chain from it down to a technology with none. |
 | **Complexity** | Rests on plus depth, banded Low below 6, Medium from 6 to 9, and High from 10. |
 
-A technology with nothing under it is a foundation; one nothing uses is a leaf.
-The measures are read from the layer files' own metadata, so a repository whose
-devbook database has not been built shows the same numbers (local ADR 0004).
+A technology with nothing under it is a foundation; one nothing uses is a leaf. The
+measures come from the layer files' own metadata, so a repository whose devbook
+database has not been built shows the same numbers (local ADR 0004).
 
 **Cycles.** The metadata permits a cycle, though a stack should not have one. Every
-walk ends at a technology it has already visited, so a cycle is found and recorded on
-the graph rather than walked forever. A technology never counts itself: one that names
-itself in `depends-on` is not its own user and does not rest on itself. Depth needs one
-more rule, because inside a cycle the longest chain has no end. The members of a cycle
-share one depth, that of the longest chain that leaves the cycle, and a hop between two
-members is not a hop down the stack.
+walk ends at a technology it has visited, so a cycle is recorded on the graph and
+not walked forever. A technology never counts itself, even if it names itself in
+`depends-on`. Inside a cycle the longest chain has no end, so depth needs one more rule. The
+members share one depth, that of the longest chain leaving the cycle, and a hop
+between two members is not a hop down the stack.
 
 **Technologies from other folders.** A `depends-on` may name a chapter in another
-devbook folder. The walks run through it: it counts in rests on, used by, breaks if it
-changes and depth, as a foundation of its own. It is not one of the folder's
-technologies, though. It is left out of the per-type, per-family and per-status
-counts, and it is not drawn on the Complexity scatter or the Clusters map. The
-Dependencies view shows it where it is reached, and the inspector links to its chapter.
+devbook folder. The walks run through it, and it counts in rests on, used by,
+breaks if it changes and depth, as a foundation of its own. It is not one of the
+folder's technologies, so it is left out of the per-type, per-family and per-status
+counts and off the Complexity scatter and the Clusters map. The Dependencies view
+shows it where it is reached, and the inspector links to its chapter.
 
 **Complexity.** The scatter places each technology by used by across and rests on up.
 The used-by axis is square-root scaled, so the long tail of technologies with one or
@@ -544,13 +565,12 @@ The quadrants split at used by 3.5 and rests on 4.5:
 | **Foundations** | Rests on 4 or fewer, used by 4 or more | Load-bearing. Upgrade on purpose, never in passing. |
 | **Leaves** | Rests on 4 or fewer, used by 3 or fewer | Cheap to change or replace. |
 
-A quadrant with no technology in it adds "None today." to its line. Technologies at the
-same used by and rests on would hide each other, so they are drawn as one point labelled
-with every name. A crowded point prints three names and a count of the rest. Pressing
-the point selects its first technology, and pressing it again selects the next one. The
-point is filled while any of its technologies is adopted. Beside the scatter, Most
-complex lists the six that rest on the most, and Widest blast radius the five used by
-the most.
+A quadrant with no technology adds "None today." to its line. Technologies at the
+same used by and rests on are drawn as one point labelled with every name, three
+names and a count of the rest when crowded. Pressing the point selects its first
+technology, and pressing again selects the next. The point is filled while any of
+its technologies is adopted. Beside the scatter, Most complex lists the six that
+rest on the most, and Widest blast radius the five used by the most.
 
 **Dependencies.** The view walks out from the selected technology hop by hop, on the
 side the reader chooses: what it sits on, what uses it, or both. The reader limits the
@@ -558,28 +578,31 @@ hops to 1, 2 or all, and groups the cards by hop or by layer. A technology reach
 several hops shows once, at its nearest hop, marked with every further hop it is also
 reached at ("also 3, 4 hops"). From 2 hops, a card names the technology one hop nearer
 that it is reached through ("via ASP.NET Core"). Below the board, the view lists at most
-10 paths down to a foundation, says when more lead down, and shows the longest path
+10 paths down to a foundation and says when more lead down. It also shows the longest path
 running through the selected technology.
 
-**Clusters.** The view opens on the selected technology's layer, with that technology
-in focus. With nothing selected, it opens on All layers. An open layer groups its
-technologies in one headed group per type family, in the family order listed below. Each
-technology followed from the open layer joins a trail of the last 6 visited, and pressing
-a step goes back to it. Back steps to the previous technology on the trail, then out to
-its layer, then to All layers. The breadcrumb reads All layers, the open layer and the
+**Clusters.** The view opens on the selected technology's layer, with that
+technology in focus, or on All layers with nothing selected. An open layer groups
+its technologies in one headed group per type family, in the order listed below.
+Each technology followed from the open layer joins a trail of the last 6 visited,
+and pressing a step goes back to it.
+
+The Back button steps to the previous technology on the trail, then out to its
+layer, then to All layers. The breadcrumb reads All layers, the open layer and the
 technology in focus, and its layer step takes the technology out of focus without
 clearing the shared selection.
 
-On All layers every dot is a button. A reader moves through a cluster from the keyboard,
-one cluster per Tab, and pressing a dot opens its layer with that technology in focus.
+On All layers every dot is a button. The keyboard moves one cluster per Tab, and
+pressing a dot opens its layer with that technology in focus.
 
 **Type lenses.** The board shows one card per type in use, the types with the most
-technologies first. A card shows its type's lens for the selected technology when that
-technology is of its type, and otherwise for the type's most-used technology. Below the
-cards, the Lens per type table says what each lens shows and which metadata it reads.
+technologies first. A card shows its type's lens for the selected technology when
+that technology is of its type, and otherwise for the type's most-used technology.
+Below the cards, the Lens per type table says what each lens shows and which
+metadata it reads.
 
-**Type families and status.** A technology's type decides its colour. The thirteen types fall into eight
-families, so the views stay readable:
+**Type families and status.** A technology's type decides its colour. The thirteen
+types fall into eight families, so the views stay readable:
 
 1. framework;
 2. platform;
@@ -590,30 +613,28 @@ families, so the views stay readable:
 7. agent, service and format;
 8. protocol.
 
-Status is never left to colour. A technology not yet `adopted` is drawn hollow,
-so a candidate or a trial reads apart from an adopted choice in any family.
+Status is never left to colour: a technology not yet `adopted` is drawn hollow, so
+a candidate or a trial reads apart from an adopted choice in any family.
 
-**The inspector and its lenses.** The inspector opens on the same three facts for every technology: its status,
-what it sits on, and what uses it. Below them comes a section its type chooses:
-a package's version, a framework's stack above and below it, the alternatives a
-tool was chosen over. A lens shows only what the pane already holds: the
-chapter's metadata (`version`, `alternatives`, `related`, `depends-on`) and the
-graph. A fact the chapter does not record is left out rather than shown empty
-or filled in from somewhere else.
+**The inspector and its lenses.** The inspector opens on the same three facts for
+every technology: its status, what it sits on, and what uses it. Below them comes a
+section its type chooses: a package's version, a framework's stack above and below
+it, the alternatives a tool was chosen over. A lens shows only what the pane
+holds, the chapter's metadata (`version`, `alternatives`, `related`, `depends-on`)
+and the graph, and leaves out a fact the chapter does not record.
 
 Status stays editable from the inspector. A change is written back to the
-technology's chapter in its layer file under `.devbook/tech`, as the Technology
-area has always done.
+technology's chapter in its layer file under `.devbook/tech`.
 
-**Drawn as buttons, operated from a list.** The Clusters map and the Complexity scatter are drawn as components the app
-positions with CSS, and every technology on them is a real button. The
-first-party canvas atlas no longer draws the stack; it draws the Brain's atlas
-and the repository devbook atlas, which offers no Technology scope and leaves
-`.tech` chapters out.
+**Drawn as buttons, operated from a list.** The Clusters map and the Complexity
+scatter are components the app positions with CSS, and every technology on them is
+a real button. The first-party canvas atlas no longer draws the stack; it draws the
+Brain's atlas and the repository devbook atlas. That atlas offers no Technology scope
+and leaves `.tech` chapters out.
 
-Every view a pointer operates has a list or table companion, on screen, that
-operates the same selection. A reader without a mouse, or with a screen reader,
-picks a technology from the companion and loses nothing but the picture.
+Every view a pointer operates has an on-screen list or table companion that
+operates the same selection, so a reader without a mouse or with a screen reader
+loses nothing but the picture.
 
 ## Instruction optimization
 
@@ -624,19 +645,18 @@ depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
 ```
 
-Review the working instructions as what they are: documents whose readers are
-mostly not people. The coding agents working in the repository read them on every
-run, and each tool reads its own files. The area grows by addition, because adding
-a rule feels safe and removing one feels risky. Findings say what an instruction
-set costs, where it disagrees with itself, and what would make it sharper. The
-repository keeps ownership of every word, so a finding is a proposal and nothing
-is rewritten unattended.
+Review the working instructions as documents whose readers are mostly not people:
+the coding agents in the repository read them on every run, each tool its own
+files. The area grows by addition, because adding a rule feels safe and removing
+one feels risky. Findings say what an instruction set costs, where it disagrees
+with itself, and what would make it sharper. The repository owns every word, so a
+finding is a proposal and nothing is rewritten unattended.
 
-Two costs are named separately and never traded silently. One is the
-[Context Load](domain.md#context-load). The other is the person's own cost of
-knowing which document to reach for, which is not a number to drive to zero. An
-instruction set that got smaller while the agents got worse has failed, and the
-review reports that rather than a saving.
+Two costs are named separately and never traded silently: the
+[Context Load](domain.md#context-load), and the person's own cost of knowing which
+document to reach for. That second cost is not a number to drive to zero. An instruction set
+that got smaller while the agents got worse has failed, and the review reports
+that and not a saving.
 
 ### Instruction set inventory
 
@@ -645,10 +665,10 @@ type: sub-feature
 related: [.devbook/domain/devbook/domain.md#instruction-set]
 ```
 
-See every [Instruction Set](domain.md#instruction-set) the repository carries, document by document. Each is shown with what it costs to load and whether
-that cost is paid always or only on the branch that reaches it. A document
-belonging to a tool the product does not recognize is listed as exactly that
-rather than dropped, because the next tool arriving is a normal event.
+See every [Instruction Set](domain.md#instruction-set) the repository carries,
+document by document, with what each costs to load and whether always or only on
+the branch that reaches it. A document of a tool the product does not recognize is
+listed as such and not dropped, because a new tool is a normal event.
 
 ### Context-load budget
 
@@ -658,10 +678,10 @@ related: [.devbook/domain/devbook/domain.md#context-load]
 ```
 
 Weigh a repository's always-loaded instruction weight against a budget and rank
-what carries that weight, heaviest first, with the one change that would lighten
-each. The ranking follows what a line actually costs across the turns that pay for
-it, not how long its file is. A short document loaded every run therefore outranks
-a long one reached twice a month.
+what carries it, heaviest first, with the one change that would lighten each. The
+ranking follows what a line costs across the turns that pay for it, not its file's
+length. A short document loaded every run outranks a long one reached twice a
+month.
 
 ### Duplicate rule detection
 
@@ -670,11 +690,10 @@ type: sub-feature
 related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 ```
 
-Surface a rule stated in more than one place, across two documents or twice
-inside one, and name the single place that should own it. The half that matters
-is the same meaning in different words; identical sentences are the easy case. A
-candidate is offered for judgement rather than merged, because two rules that read
-alike are sometimes two different rules and collapsing them loses one.
+Surface a rule stated in more than one place, across two documents or twice inside
+one, and name the single place that should own it. The same meaning in different
+words matters most; identical sentences are the easy case. A candidate is offered
+for judgement, not merged, because two rules that read alike may differ.
 
 ### Cross-tool alignment validation
 
@@ -685,9 +704,10 @@ related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 
 Check whether the instruction sets different tools read for one repository still
 agree where they overlap, and surface a rule one tool is told and another is not.
-Documents in [Instruction Alignment](domain.md#instruction-alignment) are not duplicates, so the finding is a disagreement or an omission and never the fact that both exist. Documents
-maintained as a pair are named as a pair, so editing one raises the other as work
-not yet finished.
+Documents in [Instruction Alignment](domain.md#instruction-alignment) are not
+duplicates, so a finding is a disagreement or an omission, never that both exist.
+Documents maintained as a pair are named as a pair, so editing one raises the other
+as unfinished work.
 
 ### Pointer and phrasing review
 
@@ -696,15 +716,13 @@ type: sub-feature
 ```
 
 Judge the wording that is supposed to do the work. A line naming a document held
-elsewhere is judged on two things: whether it will actually make an agent reach
-for that document, and whether the conditions it lists cover the cases the
-document handles. Must-have guidance behind wording that only sometimes fires is
-worse than guidance that is absent, because it fails unpredictably rather than
-visibly.
+elsewhere is judged on whether it will make an agent reach for that document and
+whether its conditions cover the cases the document handles. Must-have guidance
+behind wording that only sometimes fires is worse than none, because it fails
+unpredictably.
 
-A rule written as a prohibition is judged the same way. It is offered back stated
-as the behaviour that is wanted, since naming the banned behaviour is what puts it
-in front of the reader.
+A rule written as a prohibition is offered back stated as the wanted behaviour,
+since naming the banned behaviour puts it in front of the reader.
 
 ### Prune candidates
 
@@ -719,8 +737,8 @@ Surface the lines that no longer earn their load:
 - guidance that restates what the repository's own configuration, scripts, or
   folder layout already state, a copy that can only drift out of date.
 
-These are proposals for review. Whether an instruction changes anything is settled
-by running the agent without it, not by arguing about it.
+These are proposals for review. Running the agent without an instruction settles
+whether it changes anything.
 
 ### Reviewed change proposals
 
@@ -730,10 +748,9 @@ related: [.devbook/domain/devbook/domain.md#instruction-review]
 ```
 
 Apply an accepted proposal one at a time on an explicit yes, with the previous
-wording recoverable exactly as it was. Then measure what the change did, and offer
-to withdraw it when the effect is not an improvement. Code blocks, commands, paths,
-and error strings pass through a rewrite unchanged: they are the part of an
-instruction that has to be exact.
+wording recoverable exactly. Then measure what the change did, and offer to
+withdraw it when the effect is not an improvement. Code blocks, commands, paths and
+error strings pass through a rewrite unchanged, because they have to be exact.
 
 ### Saving evidence
 
@@ -742,7 +759,8 @@ type: sub-feature
 related: [.devbook/domain/devbook/domain.md#saving-evidence]
 ```
 
-Show every claimed reduction with its [Saving Evidence](domain.md#saving-evidence); a figure with none is not shown.
+Show every claimed reduction with its [Saving Evidence](domain.md#saving-evidence).
+A figure with none is not shown.
 
 ## Devbook retrieval
 
@@ -751,27 +769,23 @@ type: feature
 related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
-Find the chapter that answers a question across every area and every note at
-once. Search works both by the words a chapter uses and by what it means, so a
-recollection that does not share the author's vocabulary still lands. Results name the chapter
-they came from rather than returning loose text, because a chapter address is
-what every other part of this context already links by.
+Find the chapter that answers a question across every area and every note at once.
+Search works by the words a chapter uses and by what it means, so a recollection
+that does not share the author's vocabulary still lands. Results name the chapter
+they came from, because a chapter address is what this context links by.
 
-This is the same surface that knowledge-backed AI assistance reads, so an answer
-can always cite the chapters behind it. Retrieval by meaning is additive: when it
-is unavailable, retrieval by words alone still answers, and neither is a
-precondition for browsing an area.
+Devbook-backed AI assistance reads the same surface, so an answer can cite the
+chapters behind it. Retrieval by meaning is additive: when unavailable, words alone
+still answer, and neither is a precondition for browsing an area.
 
-Retrieval is the one capability that a repository nothing has prepared cannot
-offer, because answering a question by reading every chapter each time is not a
-slower answer but no answer. Where browsing quietly falls back to the folder,
-search says plainly that it has nothing to search yet, and what would make it
+A repository nothing has prepared cannot offer retrieval, because reading every
+chapter on each question is no answer. Where browsing falls back to the folder,
+search says plainly that it has nothing to search yet and what would make it
 available.
 
 Click demos are indexed beside the chapters, each with the page it pairs with by
-name and every chapter `demo` field that points into it. A demo is not a
-chapter, so it has no place in the reading order and is not searched. An
-assistant that reads a page is told which demos the page has, by path and by the
-place each field names, but never receives a demo's HTML. A demo runs to
-hundreds of kilobytes, and the assistant can open the file from its own checkout
-when it needs one.
+name and every chapter `demo` field pointing into it. A demo is not a chapter, so
+it has no place in the reading order and is not searched. An assistant that reads
+a page is told which demos it has, by path and by the place each field names. It
+never receives a demo's HTML, which runs to hundreds of kilobytes. It can open the
+file from its own checkout.

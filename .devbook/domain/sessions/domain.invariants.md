@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each. Each rule names where it is enforced and the unit test that proves it.
 
 ## Session Log
 
@@ -13,7 +13,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-log]
 ```
 
-> The rules the Session Log holds every reading and every record to, including those of the delivery runs and session rows it owns. No domain type holds the log: the readers in the sessions infrastructure, and for a replicated record the Sync module and the sync infrastructure, keep these rules, so `Enforced at:` names them.
+> The rules the Session Log holds every reading and every record to, including those of the delivery runs and session rows it owns. No domain type holds the log. The readers in the sessions infrastructure, and for a replicated record the Sync module and the sync infrastructure, keep these rules, so `Enforced at:` names them.
 
 ### Invariant: A session appears once
 
@@ -23,7 +23,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSource
 ```
 
 A session appears once in the log, however many records the environment holds for it.
-An agent may leave one record per process and another per transcript, or file one transcript under two working folders when the session moved between them; the session went somewhere, it did not become two.
+An agent may leave one record per process and another per transcript, or file one transcript under two working folders when the session moved between them. The session went somewhere, it did not become two.
 
 Enforced at: `ClaudeTranscripts.Newest()`, `ClaudeSessionReader` (one live row per session id), `CompositeAgentSessionSource.GetSessionsAsync()`
 
@@ -149,7 +149,7 @@ tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.A
 ```
 
 A session record is written only by the environment that gathered it, and a record that arrived through sync is never pushed again.
-A second push of the same session replaces that environment's own record and reaches no other; an environment that re-published another's records would attach somebody else's work to itself.
+A second push of the same session replaces that environment's own record and reaches no other. An environment that re-published another's records would attach somebody else's work to itself.
 
 Enforced at: `SessionRecordKey.For()`, which leads the key with the machine id; `PushSessionsCommandHandler`, which takes the machine from the sender's token because the record carries none; `SessionSyncSession`, which pushes only sessions of local or recorded origin (`IsOwn()`)
 
@@ -234,8 +234,8 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.A_reading_that_knows_less_takes_nothing_from_the_record, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.Activity_is_kept_before_the_reading_and_hits_are_a_union, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.Human_turns_are_a_union, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.A_reading_without_activity_keeps_the_records, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.A_second_reading_amends_the_record, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.An_unreadable_record_is_never_overwritten]
 ```
 
-A reading amends an environment's session record without taking anything from it: a value the reading lacks keeps the recorded one, activity from before the reading's first instant is kept, and limit hits and human turns are a union.
-The record has to answer once the transcript is gone, and a reading that knows less than the record would otherwise erase what only the record still holds.
+A reading amends a session record and takes nothing from it: a value it lacks keeps the recorded one, activity before its first instant stays, and limit hits and human turns are a union.
+The record has to answer once the transcript is gone. A reading that knows less than the record would otherwise erase what only the record still holds.
 
 Enforced at: `AgentSessionRecords.Amend()`; `AgentSessionRecordStore`, which never overwrites a record it cannot read
 
@@ -338,7 +338,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.Two_surfaces_reports_of_one_run_are_one_run, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.Two_files_from_one_surface_are_two_runs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.A_different_skill_is_a_different_run, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.A_different_worktree_is_a_different_run_and_letter_case_is_not_a_difference, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.Different_folders_pair_only_on_a_shared_session, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.Starts_further_apart_than_the_window_are_two_runs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.An_undated_start_never_pairs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.Session_ids_must_agree_and_none_on_either_side_is_agreement, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.A_partner_that_never_arrived_does_not_take_the_next_runs_file, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.One_run_reported_to_two_surfaces_is_read_as_one]
 ```
 
-Two run files from different dashboards are one delivery run when they name the same skill, both started within five minutes of each other, and they agree on the session: under one worktree key with session ids that do not contradict, or in two folders that both name one session id.
+Two dashboards' files are one delivery run when they name one skill, start within five minutes, and agree on the session: one worktree key with compatible session ids, or two folders naming one session id.
 A pair that names different sessions stays two runs.
 
 Enforced at: `DeliveryRunMerging.Merge()`, which the reader applies before anything else sees the catalog
@@ -350,7 +350,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.The_dashboard_is_the_record_and_the_backlog_fills_only_its_gaps, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunMergingTests.The_orch_dashboard_outranks_the_backlog_and_a_dashboard_nobody_listed_ranks_last]
 ```
 
-A merged run's id, status word, stages and measured figures are those of the first of `delivery-surface-dashboard`, `orch-dashboard` and `backlog` that reported it; the other files only fill what it left blank and add the references it did not name.
+A merged run's id, status word, stages and measured figures come from the first reporter among `delivery-surface-dashboard`, `orch-dashboard` and `backlog`; the others only fill its blanks and add references it did not name.
 One measurement is shown rather than the sum of two that overlap.
 
 Enforced at: `DeliveryRunMerging.Merge()`
@@ -374,7 +374,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_run_only_row_speaks_with_the_runs_own_facts, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.Scheduled_runs_with_no_session_are_one_row_per_schedule_and_repository]
 ```
 
-A row with no session is titled by the schedule that fired its runs, or else by its run's worktree, and is dated by the run and placed on the environment the run file was read on.
+A row with no session is titled by the schedule that fired its runs or else its run's worktree, dated by the run, and placed on the environment that read the run file.
 
 Enforced at: `SessionRow` (`Title`, `StartedAt`, `LastActivityAt`, `EnvironmentId`)
 
@@ -417,7 +417,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_run_records_every_session_that_drove_it
 ```
 
-A session that reattaches to a run is appended to the sessions the run names, never put in place of the one that started it, and a session the run already names is not added twice.
+A reattaching session is appended to the sessions the run names, never put in place of the one that started it, and a session already named is not added twice.
 
 Enforced at: `LocalDeliverySurfaceLifecycle.StartRunAsync()`
 
@@ -591,7 +591,13 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_stage_re_entered_after_requested_changes_is_estimated_rather_than_reported_in_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.Two_overlapping_calls_of_one_agent_claim_no_requests_and_fall_back_to_their_estimates, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_call_with_no_end_claims_its_agents_requests_in_the_stage_only_when_it_is_the_only_call, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_stage_whose_window_holds_unnamed_sub_agent_requests_is_estimated_rather_than_reported_in_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_named_sub_agent_request_keeps_the_stage_reported]
 ```
 
-A stage re-entered after requested changes, a stage whose window holds a sub-agent's request that names no agent, a call that recorded no end unless it is its agent's only call in the stage, and two overlapping calls of one agent are given an estimated cost, never a reported one.
+Four units are given an estimated cost, never a reported one:
+
+- a stage re-entered after requested changes;
+- a stage whose window holds a sub-agent's request that names no agent;
+- a call that recorded no end, unless it is its agent's only call in the stage;
+- two overlapping calls of one agent.
+
 A reported figure over a window that holds only part of the work would read as the whole.
 
 Enforced at: `DeliveryRunCosts.Of()` and `HasUnnamedSubAgentRequests()`
@@ -677,7 +683,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_run_joins_the_session_in_its_worktree_whose_window_it_overlaps, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_run_in_another_worktree_is_not_the_sessions_whatever_the_window_says, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_session_in_the_worktree_that_ended_before_the_run_began_does_not_claim_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_folder_in_another_letter_case_is_the_same_worktree, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_session_started_in_a_subfolder_still_claims_its_worktrees_runs, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.A_session_without_a_folder_is_matched_on_the_key_its_record_carried, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRowsTests.Of_two_overlapping_sessions_the_one_that_started_with_the_run_wins]
 ```
 
-A run that names no session joins a session only when the run's worktree key equals a key derived from the session's folder or a folder above it, compared without regard to case, and the session's activity window overlaps the run's.
+A run naming no session joins one only when its worktree key matches, ignoring case, a key derived from the session's folder or one above it, and the session's activity window overlaps the run's.
 The worktree alone names a place; only the overlap names a time.
 
 Enforced at: `SessionRows.Of()`
@@ -723,7 +729,7 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Every_
 ```
 
 A plan is Imported when any of its sessions is a `+PLAN` session or a plan run, Draft when it has only `PLAN:` sessions, and of unknown state otherwise.
-The state comes from every row of the reading, so a narrowing applied first never changes it, and Plan State keeps every row of a plan in that state.
+The state comes from every row of the reading, so a narrowing applied first never changes it. Plan State keeps every row of a plan in that state.
 
 Enforced at: `SessionPlans.Of()`, `SessionPlans.InState()` (its `plans` parameter); the Sessions pane, which passes the plans of its whole reading
 
@@ -822,7 +828,15 @@ type: invariant
 tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_new_entry_request_is_Requested_and_carries_only_its_target_repository_and_folder
 ```
 
-A session request holds its kind, an entry id or a plan tag, a repository, a clone folder, its state, lease and claiming dispatcher, the session id it was answered with and when it was asked, and no field for anything an entry says.
+A session request holds these and no field for anything an entry says:
+
+- its kind;
+- an entry id or a plan tag;
+- a repository and a clone folder;
+- its state, lease and claiming dispatcher;
+- the session id it was answered with;
+- when it was asked.
+
 Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
 
 Enforced at: `SessionRequest`, which has no field for entry text (ADR 0038 §1)
@@ -844,7 +858,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Claimed_or_Started_request_also_blocks_a_duplicate, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Linked_or_Cancelled_request_does_not_block_a_new_one, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_second_ask_for_an_entry_with_an_open_request_returns_the_open_one_and_stores_nothing]
 ```
 
-A second ask for an entry or a plan that already has a request in Requested, Claimed or Started answers that request and queues nothing; once it is Linked or Cancelled, a new ask queues a new one.
+A second ask for an entry or plan with a request in Requested, Claimed or Started answers that request and queues nothing; once it is Linked or Cancelled, a new ask queues a new one.
 A second click while the first waits must not start the same work twice.
 
 Enforced at: `SessionRequests.OpenDuplicateOf()`, applied by `SqliteSessionRequestStore.RequestAsync()` inside one immediate transaction
@@ -869,7 +883,8 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_cl
 ```
 
 A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested to every other dispatcher, and the next one may claim it.
-The dispatcher whose lease ran out may still report its `started` session while nobody else claimed the request since, because that session was started; once another dispatcher claims it, the late report is refused, and a lapsed holder can never release it.
+The dispatcher whose lease ran out may still report its `started` session while nobody else claimed the request since, because that session was started.
+Once another dispatcher claims it, the late report is refused, and a lapsed holder can never release it.
 A dispatcher that stopped mid-dispatch does not keep the request from the next one, and a slow start is not dispatched a second time by the same dispatcher.
 
 Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks, and `SessionRequests.Report()`, applied by `SqliteSessionRequestStore.ReportStartedAsync()` inside one immediate transaction (ADR 0038 §3)
@@ -903,7 +918,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#question-relay]
 ```
 
-> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them, `QuestionRelay` the route, the publishing and the answers, `SqliteWaitingQuestionStore` the record, and the session-request tools and the dispatch wait route hand the deliveries to the Manager.
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them. `QuestionRelay` holds the route, the publishing and the answers, and `SqliteWaitingQuestionStore` the record. The session-request tools and the dispatch wait route hand the deliveries to the Manager.
 
 ### Invariant: Presence picks the route once
 
@@ -983,7 +998,8 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_s
 ```
 
 A delivery is claimed only while Pending, under a two-minute lease; a lease that runs out reads as Pending again, and Delivered is final.
-Only the dispatcher holding the claim marks it, but its `delivered` still counts after its lease ran out while nobody else claimed it, because the answer was sent; a release holds the delivery back from the wait route and from a new claim for one lease.
+Only the dispatcher holding the claim marks it, but its `delivered` still counts after its lease ran out while nobody else claimed it, because the answer was sent.
+A release holds the delivery back from the wait route and from a new claim for one lease.
 
 Enforced at: `WaitingQuestions.ClaimDelivery()`, `MarkDelivered()`, `ReleaseDelivery()`, applied in one write by `SqliteWaitingQuestionStore.ChangeAsync()` (ADR 0041, Amends)
 
@@ -995,6 +1011,7 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests
 ```
 
 The dispatch wait route hands out a due delivery, oldest answer first, before any session request, because its session already holds a worktree.
-A delivery whose session the Claude desktop app holds no open record of is never handed out: a CLI session gets its answer only through the hook or in the session, and an ended one has nobody to send it to.
+A delivery whose session has no open record in the Claude desktop app is never handed out.
+A CLI session gets its answer only through the hook or in the session, and an ended one has nobody to send it to.
 
 Enforced at: `SessionRequestWaitEndpoint.WaitAsync()`, `WaitingQuestions.DueDeliveries()`, `DesktopSessionIds` (ADR 0041, Amends)

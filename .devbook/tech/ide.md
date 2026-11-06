@@ -5,9 +5,9 @@ rating: candidate
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
-> Two separate extension stacks that bring backlog items, prompts, and project
-> knowledge into the editor where the work actually happens. The VS Code side
-> exists; the Visual Studio side is still a named intention.
+> Two extension stacks that bring backlog items, prompts, and project knowledge
+> into the editor. The VS Code side exists; the Visual Studio side is a named
+> intention.
 
 ## VS Code Extension API
 
@@ -28,13 +28,15 @@ The extensibility model for the VS Code channel.
   credential the pair command gets for a desktop-issued pairing code.
 - **Why** — the only supported way to extend VS Code.
 - **How** — the AppHost registers two explicit-start resources for it:
-  `ide-vscode-build` runs `npm run watch` to keep `out/extension.js` current, and
-  `ide-vscode-host` launches an Extension Development Host with the extension
-  side-loaded. Because Aspire assigns a dynamic port per run, `backlog.cloudUrl`
-  has no default — it is copied from the dashboard. The pairing, token and inbox
-  calls live in `src/sync-client.ts`, which imports nothing from `vscode`, so
-  `npm test` runs it under Node's built-in `node:test` runner with a stub
-  `fetch`; the `vscode-extension` job in `pull-request.yml` runs that too.
+  - `ide-vscode-build` runs `npm run watch` to keep `out/extension.js` current.
+  - `ide-vscode-host` launches an Extension Development Host with the extension
+    side-loaded.
+
+  Aspire assigns a dynamic port per run, so `backlog.cloudUrl` has no default,
+  and a person copies it from the dashboard. The pairing, token and inbox calls
+  live in `src/sync-client.ts`, which imports nothing from `vscode`. So `npm test`
+  runs it under Node's `node:test` runner with a stub `fetch`, and so does the
+  `vscode-extension` job in `pull-request.yml`.
 
 ## VS Code Webview UI
 
@@ -48,8 +50,8 @@ alternatives: ["Native tree/quick-pick UI only"]
 The HTML-based panel UI hosted inside the extension.
 
 - **Used for** — richer views (prompt browsing, item detail) that native VS Code
-  UI primitives cannot express. Not yet built: the extension currently
-  contributes only commands and a tree view.
+  UI primitives cannot express. Not yet built: the extension contributes
+  only commands and a tree view.
 - **Why** — keeps complex views feasible without leaving the editor.
 
 ## Visual Studio Extensibility

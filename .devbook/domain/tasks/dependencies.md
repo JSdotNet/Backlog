@@ -11,70 +11,102 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 
 ## Outbound dependencies
 
+Tasks is the customer in every Customer/Supplier row.
+
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | GitHub (external) | ACL | REST call via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Multi-repo tasks project to one GitHub issue per target repo; status syncs bidirectionally through an adapter. |
-| Copilot CLI (external) | ACL | Command/task projection via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Entries can project to one CLI task per target repo without taking a dependency on CLI task internals. |
-| [Brain](../brain/domain.md#knowledge-note) | Partnership | Id-based cross-link and read-side embedding | `.devbook/domain/brain/domain.md#cross-linking` | Entries embed or deep-link Knowledge Note content for context; queries can span both contexts while each side keeps only foreign ids. |
-| [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Tasks = customer) | Repo-registry lookup by opaque id, plus a registration trigger via the registry's own registration capability | `.devbook/domain/repository-management/domain.md#repository`, `.devbook/domain/repository-management/features.md#repository-registration` | `repo_ids` resolve to registered repos and their local clone paths; importing a plan that names an unregistered repository triggers registration rather than failing the import. |
-| [Environment](../environment/domain.md#environment-catalog) | Customer/Supplier (Tasks = customer) | Shortcut lookup by opaque environment id | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Work views can expose quick links to relevant environments without Tasks owning endpoint or launch semantics. |
+| Copilot CLI (external) | ACL | Command/task projection via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Entries can project to one CLI task per target repo without depending on CLI task internals. |
+| [Brain](../brain/domain.md#knowledge-note) | Partnership | Id-based cross-link and read-side embedding | `.devbook/domain/brain/domain.md#cross-linking` | Entries embed or deep-link Knowledge Note content for context; each side keeps only foreign ids. |
+| [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier | Registry lookup by opaque id; registration trigger | `.devbook/domain/repository-management/domain.md#repository`, `.devbook/domain/repository-management/features.md#repository-registration` | `repo_ids` resolve to registered repos and their local clone paths. |
+| [Environment](../environment/domain.md#environment-catalog) | Customer/Supplier | Shortcut lookup by opaque environment id | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Work views can expose quick links to relevant environments without Tasks owning endpoint or launch semantics. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Publishes `AIWorkLogged` from tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity on a task is available for productivity analysis without Productivity reading task internals. |
-| [Sessions](../sessions/domain.md#session-state) | Customer/Supplier (Tasks = customer) | Port in Tasks' abstractions (`ILinkedSessionStates`), answered by an infrastructure adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state — stalled highlighted as the state that needs the person ("Quiet 30 min"), running neutral, finished muted. A finished session also says whether the Claude desktop app still holds it: Open in muted ink ("finished, still open") or Archived in quiet ink ("finished, archived"), read from the desktop app's records as `LinkedSession(State, Archived)`; a session with no desktop record draws as before. Tasks keeps only the session id it was linked with; the state and the archived fact are read on load and on every reload, never stored, and a session the record no longer holds draws with no state. |
-| [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier (Tasks = customer) | Port in Tasks' abstractions (`ILinkedPullRequestStates`), shaped like `ILinkedSessionStates`, answered by an adapter under `Infrastructure.FileSystem/Tasks/` over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row's badge, its merge offer and a prompt entry's auto-Done read a linked pull request's state and verdict, and the row merges and switches auto-merge through the same port (local [ADR 0042 §4](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port)). Tasks keeps its own small record: the state, the verdict's label and tone, and for a merge the base and default branch. That a pull request merged is Repository Management's settled fact, which Tasks reads through the port's `Kept` from the first frame. Which of a task's entries a merge has finished stays with Tasks, in its own `IPullRequestFinishMemory`. The adapter is `LinkedPullRequestStates`. A host that composes no Repository Management answers nothing, and the badge draws as it did before. |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier (Tasks = customer) | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag so a task can be filed against planned work using the plan's own slug. Tasks conforms to that vocabulary; it does not define roadmap tags and holds no roadmap state. |
-| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | The desktop's `TaskSyncWorker` pushes and pulls the task feed through the sync service; `TaskReplicaMerge` in `Backlog.Infrastructure.Sync` applies each pulled document to the local store | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. Sync stores the document without reading it; what a task is, and how a pulled copy merges into the local store, stay with Tasks ([Multi-device sync](features.md#multi-device-sync)). |
+| [Sessions](../sessions/domain.md#session-state) | Customer/Supplier | Port `ILinkedSessionStates`, answered by an adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. |
+| [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier | Port `ILinkedPullRequestStates`, answered by an adapter over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row reads and acts on a linked pull request's state and verdict. |
+| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag, so a task can be filed against planned work. |
+| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls the task feed; `TaskReplicaMerge` applies pulled documents | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. |
+
+- **Brain:** Queries can span both contexts.
+- **Repository Management, for the registry:** Importing a plan that names an
+  unregistered repository triggers registration rather than failing.
+- **Sessions:** The badge highlights a stalled session as the state that needs the
+  person ("Quiet 30 min"), draws a running one neutral, and mutes a finished one.
+  - A finished session also says whether the Claude desktop app still holds it:
+    Open in muted ink ("finished, still open") or Archived in quiet ink
+    ("finished, archived"). Tasks reads this from the desktop app's records as
+    `LinkedSession(State, Archived)`, and a session with no desktop record draws as
+    before.
+  - Tasks keeps only the session id. It reads state and archived fact on every load and never stores them. A session the record no longer holds draws with no state.
+- **Repository Management, for pull request state:** A task row's badge, its merge
+  offer and a prompt entry's move to Done read the state and verdict. The row merges
+  and switches auto-merge through the same port (local
+  [ADR 0042 §4](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port)).
+  The port is shaped like `ILinkedSessionStates`. The adapter is
+  `LinkedPullRequestStates`, under `Infrastructure.FileSystem/Tasks/`.
+  - Tasks keeps its own small record: the state, the verdict's label and tone, and
+    for a merge the base and default branch.
+  - That a pull request merged is Repository Management's fact, read through the port's `Kept` from the first frame.
+  - Which of a task's entries a merge has finished stays with Tasks, in `IPullRequestFinishMemory`.
+  - A host that composes no Repository Management answers nothing, and the badge
+    draws as it did before.
+- **Roadmap Planning:** A task is filed under the plan's own slug. Tasks conforms to
+  that vocabulary and holds no roadmap state.
+- **Sync:** The feed moves through the sync service, and `TaskReplicaMerge` lives in
+  `Backlog.Infrastructure.Sync`. Sync stores the document without reading it. What a
+  task is, and how a pulled copy merges into the local store, stay with Tasks
+  ([Multi-device sync](features.md#multi-device-sync)).
 
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on Tasks creating a draft task from a triaged item. |
+| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks creating a draft task from a triaged item. |
 | [Brain](../brain/domain.md#knowledge-note) | Partnership | Bi-directional link by id | `.devbook/domain/brain/domain.md#cross-linking` | Notes link to tasks and tasks link back; either can spawn the other without a shared aggregate. |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Partnership | Optional cross-link by foreign id; read-side gather by tag and by effort | `.devbook/domain/roadmap/domain.md#task-link` | Relies on a task id staying resolvable so a planned item can show real progress, and on tasks carrying its tag plus their registered `effort` so an item can gather and total the work behind it. The link is optional and may dangle: deleting a task must not corrupt a plan, and Tasks holds no roadmap state of its own. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Subscribes to status/projection events. Intended: Tasks emits none of them yet | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Relies on work-state and projection-state changes for progress signals and GitHub-sync comparison, and on occurrence provenance to read a recurring task as one series rather than as unrelated items. |
-| [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | Relies on AI-assisted activity evidence linked to a task. |
-| [Sessions](../sessions/context.md) | Customer/Supplier (Tasks = supplier) | Calls a capability Tasks publishes in `Backlog.Modules.Tasks.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry` | Relies on Tasks filing exactly one `ready` prompt after the gated entry per notification id, in the gated entry's plan and repository, so an answer handed over twice files one follow-up. **Built**: `ITaskFollowUps`, implemented by the `FileFollowUp` feature. |
-| Desktop shell (composition root), for Repository Management's pull requests pane and Sessions' detail panel | OHS + Published Language (Tasks = supplier) | A lookup port in Tasks' abstractions, `ITaskLookup`, that answers the task a session id names and the task a pull request names | `.devbook/domain/tasks/domain.md#projection-ref` | The pane's Mine view and the task card on a pull request, the task card on a session, and a task's side panel find their task through the port (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)). It relies on a link being the `session` or `pull-request` Projection Ref a task carries. |
+| [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Partnership | Optional cross-link by foreign id; read-side gather by tag and by effort | `.devbook/domain/roadmap/domain.md#task-link` | A task id staying resolvable, and tasks carrying its tag plus their registered `effort`. |
+| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Intended subscription to status and projection events; Tasks emits none yet | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Work-state and projection-state changes, and occurrence provenance. |
+| [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity evidence linked to a task. |
+| [Sessions](../sessions/context.md) | Customer/Supplier (Tasks = supplier) | Calls a capability Tasks publishes in `Backlog.Modules.Tasks.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry` | Tasks filing exactly one `ready` prompt after the gated entry per notification id. |
+| Desktop shell (composition root), for Repository Management's pull requests pane and Sessions' detail panel | OHS + Published Language (Tasks = supplier) | A lookup port in Tasks' abstractions, `ITaskLookup`, from a session id or a pull request to its task | `.devbook/domain/tasks/domain.md#projection-ref` | A link being the `session` or `pull-request` Projection Ref a task carries. |
+
+- **Roadmap Planning:** The task id shows a planned item's progress. The tag and
+  effort gather and total the work behind it. The link is optional and may dangle:
+  deleting a task must not corrupt a plan.
+- **Monitoring:** State changes feed progress signals and the GitHub-sync
+  comparison. Occurrence provenance lets it read a recurring task as one series.
+- **Sessions:** The prompt lands in the gated entry's plan and repository. One prompt
+  per notification id means an answer handed over twice files one follow-up.
+  **Built**: `ITaskFollowUps`, implemented by the `FileFollowUp` feature.
+- **Desktop shell:** These find their task through the port
+  (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)):
+  - the pane's Mine view;
+  - the task card on a pull request;
+  - the task card on a session;
+  - a task's side panel.
 
 ## Notes
 
 - Keep `repo_ids` as opaque identifiers so Tasks does not couple to Repository
   Management internals; only the Projection policy resolves them for GitHub/CLI.
-- Import can trigger repository registration when a plan names a repository
-  the registry does not yet have. It does so through Repository Management's own
-  registration capability rather than gaining new authority. Tasks remains the
-  customer, and what a registered repository holds is still Repository
-  Management's decision.
-- GitHub issue sync is a two-way relationship. Mismatch detection, such as the
-  backlog saying done while the issue is still open, is owned jointly with
-  Monitoring.
-- The `ItemTriaged` payload is Inbox's published language; treat it as a stable
-  contract, not an Inbox internal.
+- Import triggers registration, when a plan names a repository the registry lacks, through Repository Management's own capability. Tasks, the customer, therefore
+  gains no authority over what a registered repository holds.
+- GitHub issue sync runs both ways. Mismatch detection, such as the backlog saying
+  done while the issue is open, is owned jointly with Monitoring.
+- Treat the `ItemTriaged` payload as Inbox's stable published language.
 - The Roadmap relationship has three threads, and Tasks owns the state in each:
   - **Partnership by task id.** A Roadmap Item may name a task by one optional
-    foreign id, held on the Roadmap side. Roadmap never writes status or
-    priority.
+    foreign id, held on the Roadmap side. Roadmap never writes status or priority.
   - **Tag vocabulary.** Tasks reads the roadmap tags for its picker, as the
     outbound Customer/Supplier row says. A roadmap tag is a slug Tasks conforms
     to, not one it defines, which is why renaming a roadmap item's title must not
-    change it. Tasks reads them again whenever the plan changes, so an item just
-    planned is offered — in the picker and in the Goals view's attach search —
-    without a reload.
-  - **Gathering.** Roadmap gathers tasks by their tag and totals the `effort`
-    they registered. Tasks registers the effort and files the tag.
-- Roadmap is not a consumer of a projection, and Tasks does not know what is
-  planned. See `.devbook/domain/context-map.md` for why the word *priority*
-  means a different thing on each side of the relationship.
+    change it. Tasks reads them again whenever the plan changes, so the picker and
+    the Goals view's attach search offer an item just planned without a reload.
+  - **Gathering.** Roadmap gathers tasks by tag and totals their registered `effort`. Tasks registers the effort and files the tag.
+- Roadmap consumes no projection, and Tasks does not know what is planned. See
+  `.devbook/domain/context-map.md` for why *priority* means different things on each side.
 - Task-to-task dependencies stay inside this context and add no cross-context
   relationship. `depends_on` holds Task ids only, and readiness is derived here
   rather than published. Roadmap Planning's dependencies are a separate graph
   over planned work, not the same edge seen twice.
-- `OccurrenceSpawned` links a completed occurrence to its successor. Consumers
-  treat the link as provenance, not ownership: each occurrence is a separate
-  task with its own lifecycle, and a series is not one work item.
-- Pull requests run both ways between Tasks and Repository Management, through
-  two different parts (local ADR 0042). Tasks reads a pull request's
-  state through its own port, and an adapter translates Repository Management's
-  contract into it. The reverse question, which task a pull request belongs to,
-  is asked by the desktop shell through Tasks' lookup, never by Repository
-  Management. So neither module references the other, and the two form no cycle.
+- `OccurrenceSpawned` links a completed occurrence to its successor as provenance,
+  not ownership: each occurrence is a separate task and a series is not one work item.
+- Pull requests run both ways through two different parts (local ADR 0042). Tasks reads a pull request's state through its own port, and an adapter translates Repository Management's contract into it. The desktop shell asks Tasks' lookup which task a pull request belongs to, never Repository Management. Neither module references the other, so the two form no cycle.

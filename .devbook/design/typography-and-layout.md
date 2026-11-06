@@ -104,10 +104,12 @@ These heading defaults are the **document/display** ramp: they apply to page and
 section headings and to a Markdown document rendered as a document.
 
 They are **not** what `MarkdownView` currently renders. Inside a list row or an
-entry card, a body is rendered on a deliberately compact ramp, because a 48 px
+entry card, a body is rendered on a deliberately compact ramp. A 48 px
 `H1` inside a card is a layout, not a heading. That ramp runs from `#` at
 `font-size-lg` down to `font-size-sm`, with `####`–`######` as uppercase
-secondary labels. Both ramps are legitimate, and the surface decides which one
+secondary labels.
+
+Both ramps are legitimate, and the surface decides which one
 applies. A document surface MUST use the table above. See
 `content-editing.md#materialization`.
 
@@ -228,15 +230,12 @@ renders inside a native `dialog` opened with `showModal()`, which puts it in the
 browser's top layer, above every z-index in the page. A modal has to cover the
 window wherever its host renders it, and a z-index cannot promise that. A pane
 becomes the containing block and stacking context of every `position: fixed`
-descendant when it sets any of these:
-
-- `container-type`, as the Inbox does for its container queries;
-- a transform;
-- a filter.
+descendant when it sets `container-type` (as the Inbox does for its container
+queries), a transform, or a filter.
 
 An inline backdrop inside such a pane is clipped to the pane and painted under
 its neighbour. The top layer is out of reach of all three, so containment on a
-pane cannot trap a dialog, and a dialog opened from a dialog stacks above it in
+pane cannot trap a dialog. A dialog opened from a dialog stacks above it in
 open order. For `Modal`, the top layer therefore takes the place of
 `z-index-modal`. The toast tray follows a modal into that layer while one is
 open, per `interaction-guidelines.md#feedback-and-toasts`.
@@ -275,15 +274,17 @@ Rules:
   view switch and the Goals group
   (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
   label's text, so the nav-item default does not apply.
-- A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks: before
-  the label on the Devbook pane's section tabs, and after the branch name on a
-  source picker option for each area the branch changes (never Instructions,
-  which a branch is not listed for). One map assigns the
-  glyphs, so an area is drawn the same way in both places: `scroll-text`
-  (Instructions), `boxes` (Domain), `landmark` (Architecture), `cpu` (Technology),
-  `palette` (Design), `sparkles` (AI). On a tab the glyph takes the tab's colour;
-  on an option it is `color-text-secondary`. The glyph is `aria-hidden`; the tab's
-  label, or a visually-hidden "Changes <area>" on the option, says it in words.
+- A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks. It
+  sits before the label on the Devbook pane's section tabs, and after the branch
+  name on a source picker option for each area the branch changes. A branch is
+  never listed for Instructions.
+
+  One map assigns the glyphs, so an area is drawn the same way in both places:
+  `scroll-text` (Instructions), `boxes` (Domain), `landmark` (Architecture),
+  `cpu` (Technology), `palette` (Design) and `sparkles` (AI). On a tab the glyph
+  takes the tab's colour; on an option it is `color-text-secondary`. The glyph is
+  `aria-hidden`; the tab's label, or a visually-hidden "Changes <area>" on the
+  option, says it in words.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading). The drag grip is the
   `⠿` text glyph, not an icon (`interaction-guidelines.md#drag-affordances`).
@@ -295,26 +296,41 @@ related: [".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/desi
 ```
 
 A metadata line, as drawn, is the run of small facts set beside or beneath a
-title: a due date, a reminder, a repeat, a step count, a freshness reading, a
-tag. It appears on a task row, on an integration reference, and under a
-devbook heading, and it is one pattern in all three. This section is about the
-drawn line. The backtick-token line an entry is written with in Markdown is its
-source, and `content-editing.md#structured-metadata-sigils` owns that.
+title. Facts include a due date, a reminder, a repeat, a step count, a freshness
+reading and a tag. It is one pattern wherever it appears: on a task row, on an integration
+reference and under a devbook heading. This section is about the drawn line. The
+backtick-token line an entry is written with in Markdown is its source, and
+`content-editing.md#structured-metadata-sigils` owns that.
 
 | Rule | Requirement |
 |---|---|
-| Size | A metadata line is set at `font-size-xs` with `color-text-secondary`. It MUST NOT compete with the title it belongs to. |
-| Order | Facts are ordered by what a reader asks first: what this belongs to, how far through it is, then when it has to happen. A fact about the *list* precedes a fact about the *item*. |
-| Emphasis | The facts that make a row urgent — a due date, a reminder — MAY take `color-text-primary`; a fact about shape rather than time (a repeat, a step count) MUST stay secondary. At most two facts on a line may be brought forward. |
-| Finished rows | When the item is finished the **whole line** drops to secondary at once. Its urgency is over, and a line with one fact still emphasised reads as a deadline that still stands. |
-| Glyphs | A glyph is decoration on top of the words and never instead of them: `aria-hidden` on the glyph, the name in text or in a visually-hidden span. A screen reader hears "Reminder 09:00", never "alarm clock emoji". |
-| Names, not counts | A fact that tells a reader they are blocked MUST name what it is waiting for rather than counting it. "Waiting on 2" says they are stuck without saying what to do about it. |
+| Size | A metadata line is set at `font-size-xs` with `color-text-secondary`, below its title, and MUST NOT compete with it. |
+| Order | Facts follow what a reader asks first; a fact about the *list* precedes one about the *item*. |
+| Emphasis | Urgent facts MAY take `color-text-primary`; shape facts MUST stay secondary; at most two come forward. |
+| Finished rows | When the item is finished, the **whole line** drops to secondary at once. |
+| Glyphs | A glyph is decoration on top of the words and never instead of them. |
+| Names, not counts | A fact that says a reader is blocked MUST name what it waits for, not count it. |
 | Absent facts | An absent fact is left out, never filled in with a placeholder or an em dash. |
-| Tags | Tags are chips rather than more of the line, and are set **smaller than a tag anywhere else in the product**, so a chip cannot out-shout the title it belongs to. |
-| Truncation | The line gives up room before the title does; the title is what identifies the item. What is truncated MUST stay in the DOM so a screen reader still reads it. |
+| Tags | Tags are chips, set **smaller than a tag anywhere else in the product**. |
+| Truncation | The line gives up room before the title does; truncated text MUST stay in the DOM. |
 
-Review surface: storybook → *Task list* → **Tags, dates, reminders and repeats**,
-and *Integrations* → **References**.
+- **Order:** the facts run from what this belongs to, to how far through it is,
+  to when it has to happen.
+- **Emphasis:** the facts that make a row urgent are a due date and a reminder.
+  A fact about shape rather than time is a repeat or a step count.
+- **Finished rows:** the item's urgency is over, and a line with one fact still
+  emphasised reads as a deadline that still stands.
+- **Glyphs:** set `aria-hidden` on the glyph, and put the name in text or in a
+  visually-hidden span. A screen reader hears "Reminder 09:00", never "alarm
+  clock emoji".
+- **Names, not counts:** "Waiting on 2" says they are stuck without saying what
+  to do about it.
+- **Truncation:** the title is what identifies the item, and a screen reader
+  still reads what was truncated.
+
+Review surface: storybook → *Task list* → **Tags, dates, reminders and
+repeats**.
+Storybook → *Integrations* → **References** shows the same line.
 
 ## Materialization
 
@@ -347,13 +363,13 @@ Rules and known gaps:
   the token from the table above; it MUST NOT invent a value.
 - **Fonts are declared but not loaded.** Nothing in the repository ships Inter,
   Poppins or Fira Code. No host has an `@font-face` rule or a webfont link, so
-  text falls through to the system stack, and the type tokens describe an
+  text falls through to the system stack. The type tokens therefore describe an
   intention rather than a fact. The storybook's **Typography** story measures this
   and says so on the page. Closing the gap is a product decision between two
   options:
   - ship the `woff2` files from the library's own `wwwroot`, since the shipping
     heads are offline-capable MAUI apps and a CDN is not an option;
-  - rewrite these tokens to name the system stack actually in use.
+  - rewrite these tokens to name the system stack in use.
 
   `[TODO: clarify]`
 - **The z-index scale is not materialized.** `components.css` uses small local

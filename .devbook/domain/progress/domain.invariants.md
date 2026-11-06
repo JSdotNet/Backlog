@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it once the rule is built.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each. A chapter gives each rule, where it is enforced and, once the rule is built, the unit test that proves it.
 
 ## Goal
 
@@ -88,7 +88,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_another_goal_holds_is_refused_naming_that_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_plan_or_a_pull_request_belongs_to_one_goal_too, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Moving_an_item_takes_it_out_of_the_other_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_to_the_goal_that_holds_it_already_is_no_conflict, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_task_another_goal_holds_through_its_plan_may_be_attached_directly]
 ```
 
-Attaching a plan, task, pull request or session that another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
+Attaching an item another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
 An item counted in two goals would move both when it is done.
 
 Enforced at: `Assign()`

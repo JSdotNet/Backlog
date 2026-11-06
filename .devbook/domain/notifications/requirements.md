@@ -164,6 +164,21 @@ The system SHALL reject a reply that does not fit the answer spec with its reaso
 - **When** a viewer sends 250 characters
 - **Then** the reply is rejected as too long, and the viewer can send a shorter one
 
+### Requirement: A dictated answer is sent only when the person sends it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Dictating_an_open_answer_adds_the_words_and_sends_nothing_until_send, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationPagerScreenTests.Dictating_on_the_pager_fills_the_box_and_waits_for_send]
+```
+
+The system SHALL add the words heard while the person dictates into an answer box to that box, and SHALL send the reply only when the person presses Send.
+
+#### Scenario: Dictating an open answer on the phone
+
+- **Given** an Open question with an open answer that the phone may answer
+- **When** the person dictates "ja" into the answer box
+- **Then** the box reads "ja" and no reply is queued, and pressing Send queues the reply
+
 ### Requirement: A viewer acknowledges an alert through its owner
 
 ```meta
@@ -171,7 +186,7 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
-The system SHALL let any paired viewer acknowledge an open alert, SHALL mark the alert Acknowledged only when its owner instance takes the acknowledgement, and SHALL then take it out of every device's open stack while it stays in each device's list as settled.
+The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled in its list.
 
 #### Scenario: Dismissing an alert on the phone
 
@@ -209,6 +224,120 @@ The system SHALL let any paired viewer acknowledge an open alert, SHALL mark the
 - **Given** an open alert owned by Desktop A
 - **When** the phone and Desktop B both acknowledge it
 - **Then** Desktop A takes the first, the second changes nothing, and every device shows it as Acknowledged
+
+### Requirement: The owner publishes the repository a notification is about
+
+```meta
+type: requirement
+related: [.devbook/domain/notifications/context.md#owner-screens, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+```
+
+The system SHALL publish with each notification the owner instance pushes the repository it is about, as the alias the owner's header scope shows, worked out by the rule the owner's centre keeps, or the Brain for a notification about no repository, and SHALL publish neither when the owner could not work it out.
+
+#### Scenario: A run's validation question
+
+- **Given** Desktop A aliases its clone of `JSdotNet/Backlog` as "Backlog"
+- **When** a run in that clone reaches Personal Validation and Desktop A pushes its question
+- **Then** the published question names the repository "Backlog"
+
+#### Scenario: A pairing question
+
+- **Given** a device redeems Desktop A's pairing code
+- **When** Desktop A pushes "Pair *device name*?"
+- **Then** the published question is the Brain's
+
+#### Scenario: The repository cannot be worked out
+
+- **Given** Desktop A cannot read the source that would name a notification's repository
+- **When** it pushes the notification
+- **Then** the published notification names no repository and is not the Brain's, and reads as not known
+
+#### Scenario: An owner from before the repository was published
+
+- **Given** a notification an older owner pushed without a repository
+- **When** the phone reads it
+- **Then** its repository reads as not known
+
+### Requirement: The phone filters its notifications by system and repository
+
+```meta
+type: requirement
+related: [.devbook/domain/notifications/domain.md#origin, .devbook/domain/notifications/context.md#owner-screens]
+```
+
+The system SHALL let the person narrow both views of the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
+
+#### Scenario: Picking a system
+
+- **Given** the phone holds open questions from Claude Code and from spec-manager
+- **When** the person picks Claude Code under From
+- **Then** the list shows only Claude Code's notifications, and the pager's stack, its position and its end screen count only Claude Code's waiting questions
+
+#### Scenario: Picking the Brain
+
+- **Given** the phone holds a pairing question and a question about the repository "Backlog"
+- **When** the person picks Brain under Repository
+- **Then** both views show the pairing question and not the one about "Backlog"
+
+#### Scenario: A repository not known
+
+- **Given** a notification whose repository is not known
+- **When** the person picks any choice under Repository
+- **Then** the notification is still shown
+
+### Requirement: Each phone filter counts what it keeps and shows only a real choice
+
+```meta
+type: requirement
+```
+
+The system SHALL show beside each option of a phone filter how many notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
+
+#### Scenario: Counts under the other filter
+
+- **Given** Repository is set to "Backlog", which holds two Claude Code notifications and one from spec-manager
+- **When** the person opens From
+- **Then** Claude Code reads 2 and spec-manager reads 1
+
+#### Scenario: One system only
+
+- **Given** every notification on the phone came from Claude Code
+- **When** the person opens the Notifications tab
+- **Then** no From filter is shown
+
+### Requirement: The phone remembers its filters until the person clears them
+
+```meta
+type: requirement
+```
+
+The system SHALL keep the phone's From and Repository choices on the device across both views and across restarts, and SHALL set both back to All when the person presses Clear filters.
+
+#### Scenario: Filters survive a restart
+
+- **Given** the person picked Claude Code under From
+- **When** they close the app and open it again on the Notifications tab
+- **Then** From still reads Claude Code, in the pager and in the list
+
+#### Scenario: A filter that leaves nothing
+
+- **Given** the person picked a repository whose notifications have all been closed
+- **When** the tab has nothing left to show
+- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters shows every notification again
+
+### Requirement: Phone filters never hide what waits
+
+```meta
+type: requirement
+```
+
+The system SHALL count every open question in the tab's waiting count and SHALL push every notification to the phone, whatever the phone's filters hold.
+
+#### Scenario: A question outside the filter
+
+- **Given** the person picked spec-manager under From
+- **When** Desktop A publishes a Claude Code question
+- **Then** the phone's tray shows it, and the waiting count counts it, though neither view lists it
 
 ### Requirement: Android is the only phone platform
 
