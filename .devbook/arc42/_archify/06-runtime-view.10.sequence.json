@@ -2,30 +2,30 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "IDE Context-aware Capture",
+    "title": "Notification Reply",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [960, 540]
+    "viewBox": [1200, 780]
   },
   "participants": [
-    { "id": "me", "type": "external", "label": "ME" },
-    { "id": "ext", "type": "frontend", "label": "VS Code extension" },
-    { "id": "sync", "type": "cloud", "label": "Sync Service" }
-  ],
-  "segments": [
-    { "from": 150, "to": 292, "label": "Confirm the title" },
-    { "from": 308, "to": 448, "label": "Post to the inbox" }
+    { "id": "source", "type": "backend", "label": "Source on Desktop A" },
+    { "id": "owner", "type": "backend", "label": "Notifications on Desktop A" },
+    { "id": "sync", "type": "cloud", "label": "Sync Service" },
+    { "id": "phone", "type": "frontend", "label": "Phone" }
   ],
   "messages": [
-    { "id": "run-capture", "from": "me", "to": "ext", "y": 182, "label": "Select text, run backlog.capture", "variant": "default" },
-    { "id": "title-box", "from": "ext", "to": "me", "y": 226, "label": "Title box, pre-filled with the selection's first line", "variant": "default" },
-    { "id": "confirm-title", "from": "me", "to": "ext", "y": 270, "label": "Confirm the title", "variant": "default" },
-    { "id": "post-inbox", "from": "ext", "to": "sync", "y": 338, "label": "POST /api/sync/inbox (title, source=vscode)", "variant": "emphasis" },
-    { "id": "inbox-created", "from": "sync", "to": "ext", "y": 382, "label": "201 Created", "variant": "return" },
-    { "id": "captured", "from": "ext", "to": "me", "y": 426, "label": "\"Backlog: captured …\"", "variant": "return" }
-  ],
-  "activations": [
-    { "participant": "sync", "from": 332, "to": 388, "type": "cloud" }
+    { "id": "register-token", "from": "phone", "to": "sync", "y": 182, "label": "PUT notifications/push with its FCM token, once paired", "variant": "emphasis" },
+    { "id": "publish", "from": "source", "to": "owner", "y": 226, "label": "PublishAsync(question)", "variant": "default", "note": "Notifications then: Store locally, show a Windows notification" },
+    { "id": "post-notification", "from": "owner", "to": "sync", "y": 270, "label": "POST notification with its push preview", "variant": "emphasis" },
+    { "id": "push-new", "from": "sync", "to": "phone", "y": 314, "label": "Push through Notification Hubs: new, so it sends", "variant": "dashed" },
+    { "id": "get-feed", "from": "phone", "to": "sync", "y": 358, "label": "GET notifications feed, then show the tray entry", "variant": "emphasis", "note": "Phone then: Lock-screen action or inline reply into the outbox" },
+    { "id": "post-reply", "from": "phone", "to": "sync", "y": 402, "label": "Flush the outbox: POST reply", "variant": "emphasis" },
+    { "id": "nudge", "from": "sync", "to": "owner", "y": 446, "label": "Web PubSub nudge", "variant": "dashed" },
+    { "id": "get-replies", "from": "owner", "to": "sync", "y": 490, "label": "GET replies", "variant": "emphasis", "note": "Notifications then: Check the reply against the answer spec, accept the first valid one" },
+    { "id": "handle-answer", "from": "owner", "to": "source", "y": 534, "label": "HandleAnswerAsync(answer)", "variant": "default" },
+    { "id": "post-answered", "from": "owner", "to": "sync", "y": 578, "label": "POST notification, state Answered", "variant": "emphasis" },
+    { "id": "push-answered", "from": "sync", "to": "phone", "y": 622, "label": "Push, state answered", "variant": "dashed", "note": "Phone then: Take the entry out of the tray" },
+    { "id": "get-feed-answered", "from": "phone", "to": "sync", "y": 666, "label": "GET notifications feed, shows \"Answered from this phone\"", "variant": "emphasis" }
   ]
 }

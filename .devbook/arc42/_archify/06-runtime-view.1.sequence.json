@@ -2,33 +2,38 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Backlog Entry to GitHub Issue",
+    "title": "Mobile Capture and Sync",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [980, 696]
+    "viewBox": [1080, 750]
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
-    { "id": "ui", "type": "frontend", "label": "Desktop UI" },
-    { "id": "backlog", "type": "backend", "label": "Backlog Service" },
-    { "id": "store", "type": "database", "label": "Local SQLite Store" },
-    { "id": "github", "type": "external", "label": "GitHub API" }
+    { "id": "app", "type": "frontend", "label": "Phone App" },
+    { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
+    { "id": "sync", "type": "backend", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 340, "label": "Local write" },
-    { "from": 356, "to": 494, "label": "Loop: for each repo_id" },
-    { "from": 510, "to": 606, "label": "Issue links surfaced" }
+    { "from": 150, "to": 292, "label": "Captured locally" },
+    { "from": 308, "to": 346, "label": "Loop: oldest entry first; Alt: Service reports a newer version than the app; Outbox: 426 from the app itself, nothing sent: held in place, attempts kept, stop the flush, retry in 10 min" },
+    { "from": 370, "to": 424, "label": "Else" },
+    { "from": 448, "to": 546, "label": "Inner alt: 201 Created, or 200 for an id it already holds; Outbox: DELETE entry" },
+    { "from": 562, "to": 600, "label": "Inner else: No network, timeout, 5xx or 401; Outbox: attempts+1, last_error, wait 2s·2^(n-1), stop the flush" },
+    { "from": 616, "to": 654, "label": "Inner else: Any other 4xx; Outbox: set aside as refused, continue with the next entry" }
   ],
   "messages": [
-    { "id": "create-task", "from": "me", "to": "ui", "y": 186, "label": "Create task", "variant": "default" },
-    { "id": "create-task-call", "from": "ui", "to": "backlog", "y": 230, "label": "createTask(title, body, repo_ids, tags)", "variant": "emphasis" },
-    { "id": "upsert-row", "from": "backlog", "to": "store", "y": 274, "label": "Upsert task row", "variant": "default" },
-    { "id": "task-created", "from": "backlog", "to": "ui", "y": 318, "label": "Task created (id)", "variant": "return" },
-    { "id": "post-issue", "from": "backlog", "to": "github", "y": 384, "label": "POST /repos/{repo}/issues", "variant": "emphasis", "note": "Async GitHub sync - one issue per repo_id" },
-    { "id": "issue-created", "from": "github", "to": "backlog", "y": 428, "label": "201 Created (issue_number, html_url)", "variant": "return" },
-    { "id": "update-entry", "from": "backlog", "to": "store", "y": 472, "label": "Update entry with github_issue_ids", "variant": "default" },
-    { "id": "ids-available", "from": "backlog", "to": "ui", "y": 540, "label": "github_issue_ids available", "variant": "return" },
-    { "id": "entry-visible", "from": "ui", "to": "me", "y": 584, "label": "Entry visible with GitHub issue links", "variant": "return" }
+    { "id": "capture", "from": "me", "to": "app", "y": 182, "label": "Capture (title)", "variant": "default" },
+    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 226, "label": "INSERT outbox (id v7, kind=capture, attempts=0)", "variant": "emphasis" },
+    { "id": "row-shown", "from": "app", "to": "me", "y": 270, "label": "Row shown at once, marked waiting", "variant": "return" },
+    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 402, "label": "POST /api/sync/inbox (same id every attempt)", "variant": "emphasis" },
+    { "id": "capture-returned", "from": "sync", "to": "outbox", "y": 480, "label": "Capture", "variant": "return" },
+    { "id": "refresh-inbox", "from": "app", "to": "sync", "y": 524, "label": "GET /api/sync/inbox (refresh, cache the list)", "variant": "default" }
+  ],
+  "activations": [
+    { "participant": "sync", "from": 396, "to": 486, "type": "backend" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Note over Phone App and SQLite Outbox", "items": ["Five failures park the head entry and hold the queue behind it, resume, network back or a tap tries again"] }
   ]
 }
