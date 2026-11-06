@@ -104,10 +104,12 @@ These heading defaults are the **document/display** ramp: they apply to page and
 section headings and to a Markdown document rendered as a document.
 
 They are **not** what `MarkdownView` currently renders. Inside a list row or an
-entry card, a body is rendered on a deliberately compact ramp, because a 48 px
+entry card, a body is rendered on a deliberately compact ramp. A 48 px
 `H1` inside a card is a layout, not a heading. That ramp runs from `#` at
 `font-size-lg` down to `font-size-sm`, with `####`–`######` as uppercase
-secondary labels. Both ramps are legitimate, and the surface decides which one
+secondary labels.
+
+Both ramps are legitimate, and the surface decides which one
 applies. A document surface MUST use the table above. See
 `content-editing.md#materialization`.
 
@@ -233,7 +235,7 @@ queries), a transform, or a filter.
 
 An inline backdrop inside such a pane is clipped to the pane and painted under
 its neighbour. The top layer is out of reach of all three, so containment on a
-pane cannot trap a dialog, and a dialog opened from a dialog stacks above it in
+pane cannot trap a dialog. A dialog opened from a dialog stacks above it in
 open order. For `Modal`, the top layer therefore takes the place of
 `z-index-modal`. The toast tray follows a modal into that layer while one is
 open, per `interaction-guidelines.md#feedback-and-toasts`.
@@ -273,8 +275,8 @@ Rules:
   (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
   label's text, so the nav-item default does not apply.
 - A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks. It
-  sits before the label on the Devbook pane's section tabs and after the branch
-  name on a source picker option for each area the branch changes; a branch is
+  sits before the label on the Devbook pane's section tabs, and after the branch
+  name on a source picker option for each area the branch changes. A branch is
   never listed for Instructions.
 
   One map assigns the glyphs, so an area is drawn the same way in both places:
@@ -294,8 +296,8 @@ related: [".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/desi
 ```
 
 A metadata line, as drawn, is the run of small facts set beside or beneath a
-title: a due date, a reminder, a repeat, a step count, a freshness reading, a
-tag. It is one pattern wherever it appears: on a task row, on an integration
+title. Facts include a due date, a reminder, a repeat, a step count, a freshness
+reading and a tag. It is one pattern wherever it appears: on a task row, on an integration
 reference and under a devbook heading. This section is about the drawn line. The
 backtick-token line an entry is written with in Markdown is its source, and
 `content-editing.md#structured-metadata-sigils` owns that.
@@ -361,13 +363,13 @@ Rules and known gaps:
   the token from the table above; it MUST NOT invent a value.
 - **Fonts are declared but not loaded.** Nothing in the repository ships Inter,
   Poppins or Fira Code. No host has an `@font-face` rule or a webfont link, so
-  text falls through to the system stack, and the type tokens describe an
+  text falls through to the system stack. The type tokens therefore describe an
   intention rather than a fact. The storybook's **Typography** story measures this
   and says so on the page. Closing the gap is a product decision between two
   options:
   - ship the `woff2` files from the library's own `wwwroot`, since the shipping
     heads are offline-capable MAUI apps and a CDN is not an option;
-  - rewrite these tokens to name the system stack actually in use.
+  - rewrite these tokens to name the system stack in use.
 
   `[TODO: clarify]`
 - **The z-index scale is not materialized.** `components.css` uses small local

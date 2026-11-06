@@ -4,6 +4,14 @@
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons", ".devbook/design/typography-and-layout.md#type-scale", ".devbook/design/accessibility.md"]
 ```
 
+```mermaid
+flowchart LR
+  MD["Canonical Markdown"] -->|parse| View["WYSIWYG view"]
+  View -->|"serialize, auto-save"| MD
+  MD -->|"exact source"| Raw["Raw-Markdown escape hatch"]
+  Raw -->|"same document, auto-save"| MD
+```
+
 > Rules for the product's core editing surface: **direct Markdown editing through
 > a rich text (WYSIWYG-style) editor**. Markdown is a task's canonical content,
 > stored as text in SQLite
@@ -207,9 +215,8 @@ The plan tag files the entry under a roadmap item and is stored with its sigil (
   - See [Scheduling and Dependency Tokens](#scheduling-and-dependency-tokens). A
     new sigil would trade a readable name for a character nobody remembers.
   - `+` is the one admission since the rule was written, and it is not a new
-    kind. A plan tag is a tag, and `#`/`+` tell two sub-kinds of the same kind
-    apart on a line a person reads, the way `@` tells a person from a general tag
-    in the body.
+    kind. A plan tag is a tag. `#`/`+` tell two sub-kinds of the same kind apart
+    on a line a person reads, as `@` tells a person from a general tag in the body.
   - That is the test for admitting a sigil: the kind already has one and only the
     sub-kind is new. It is why `+` is a row here and a `plan:` token is not
     (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
@@ -231,7 +238,7 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
-> same backtick-quoted metadata line — but as `name:value` tokens rather than
+> same backtick-quoted metadata line, as `name:value` tokens rather than
 > one-character sigils. Five date-shaped facts cannot be told apart by
 > punctuation a reader will remember, and this line is hand-edited.
 
@@ -309,10 +316,10 @@ although neither is saved yet and so neither has a real `task_id`:
   - `myday:` is not a flag. The entry is in My Day exactly while that date is the
     reader's current local date, so yesterday's list clears itself with no timer
     and no overnight sweep.
-  - Unless [Clear My Day
-    overnight](../domain/tasks/context.md#clear-my-day-overnight) is off: then an
+  - With [Clear My Day
+    overnight](../domain/tasks/context.md#clear-my-day-overnight) off, an
     unfinished entry with an earlier date stays in My Day until it is finished or
-    taken out, and shows no agenda time.
+    taken out. It shows no agenda time.
   - A later date is never today's. The switch never rewrites a `myday:` date.
 - **An agenda time is a time of day:** `at:` runs `HH:MM`, `00:00` to `23:59`.
   Together they are the entry's [Agenda
@@ -334,7 +341,7 @@ although neither is saved yet and so neither has a real `task_id`:
   task to tomorrow on the phone drops them, as any change to `myday:` does.
 - **A path is taken as written:** separators, drive letters and spaces all
   survive. Nothing is checked against the disk. A path is meaningful on the
-  machine that wrote it, so an entry read elsewhere may name a place that is not
+  machine that wrote it. An entry read elsewhere may name a place that is not
   there and is no less valid for it.
 - **One attached place, and never a list:** a second `files:` replaces the first,
   the opposite of `after:`. A task waiting on two things is ordinary, but an
@@ -361,7 +368,7 @@ although neither is saved yet and so neither has a real `task_id`:
   - The registry is
     `.devbook/domain/repository-management/domain.md#repository-registry`, and
     nothing hand-typed can know the `repo_id`.
-  - A name the registry does not recognize is simply unresolved, as with an
+  - A name the registry does not recognize is unresolved, as with an
     unrecognized sigil value. This token never registers a repository on its own.
   - Only the narrower import policy
     (`.devbook/domain/tasks/features.md#repository-resolution-on-import`)
@@ -400,7 +407,7 @@ although neither is saved yet and so neither has a real `task_id`:
     text somebody may have typed, and dropping it would be the silent loss
     `#round-trip-fidelity` forbids.
 - **No surface may hide body text without saying so:** silently showing less
-  reads as text the app has lost, the failure `#round-trip-fidelity` exists to
+  reads as text the app has lost. That is the failure `#round-trip-fidelity` exists to
   prevent, on screen rather than on disk. The desktop detail shows the body
   whole, in one editor.
 
@@ -411,8 +418,8 @@ related: [".devbook/design/content-editing.md#editing-feedback-and-state"]
 ```
 
 > While an entry is focused, the editor shows a single-line "reads as" hint
-> beneath the raw Markdown, restating exactly what the current text will be
-> saved as — produced from the same parse the save uses, not a separate guess.
+> beneath the raw Markdown. The hint restates exactly what the current text will
+> be saved as.
 
 | Rule | Requirement |
 |---|---|
@@ -453,7 +460,7 @@ related: [".devbook/design/interaction-guidelines.md#feedback-and-toasts", ".dev
 |---|---|
 | Slash menu | Typing `/` at the start of an empty block MUST open a command menu. |
 | Keyboard-driven | The slash menu MUST be fully keyboard-operable and rendered on `z-index-dropdown`. |
-| Inline autoformat | Standard Markdown autoformat MUST work: `# ` → heading, `- `/`* ` → list, `1. ` → ordered list, `> ` → quote, ``` ``` ``` → code block, `[ ] ` → task, `**x**` → bold, etc. |
+| Inline autoformat | Standard Markdown autoformat MUST work. |
 | Escape autoformat | Undo (Ctrl/Cmd+Z) immediately after an autoformat MUST revert to the literal typed characters. |
 | Consistent command surface | Slash commands and the command palette SHOULD share one command registry (see `design-principles.md#ai-first-surfaces`). |
 | Accessible | Command menus follow menu ARIA and announcement rules in `accessibility.md`. |
@@ -462,6 +469,8 @@ related: [".devbook/design/interaction-guidelines.md#feedback-and-toasts", ".dev
   quote, divider, image) and invokes AI actions.
 - **Keyboard-driven:** type to filter, arrows to move, Enter to select, Escape
   to dismiss.
+- **Inline autoformat:** `# ` → heading, `- `/`* ` → list, `1. ` → ordered list,
+  `> ` → quote, ``` ``` ``` → code block, `[ ] ` → task, `**x**` → bold, etc.
 
 ## Unsupported Syntax Preservation
 
@@ -487,7 +496,7 @@ related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabu
 
 | Rule | Requirement |
 |---|---|
-| Save state | The editor surfaces the shared save-state indicator (`Saved` / `Saving…` / `Offline` / `Conflict` / error) — never a save button. |
+| Save state | The editor surfaces the shared save-state indicator (`Saved` / `Saving…` / `Offline` / `Conflict` / error), never a save button. |
 | Undo/redo | Standard undo/redo applies to all editor changes and coalesces rapid keystrokes (see `interaction-guidelines.md#undo-and-history`). |
 | Conflicts | Concurrent edits resolve last-write-wins with passive `Conflict` surfacing (see `interaction-guidelines.md#conflict-handling`). |
 | Spellcheck scope | Spellcheck applies to prose, not to code blocks, inline code, or raw passthrough blocks. |
@@ -547,11 +556,11 @@ Review surface: storybook → *Integrations* → **AI in the document**.
 related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/content-editing.md#materialization", ".devbook/domain/devbook/context.md#devbook-status"]
 ```
 
-> The repository's own documentation — `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
-> `.devbook/design` — writes a fenced `meta` block under every addressable heading. Two
-> levels carry one, and they are not the same fact: the block under a file's `#`
-> title describes **the file**, the block under a `##` heading describes **that
-> chapter**. Where each is drawn follows from that.
+> The repository's own documentation (`.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
+> `.devbook/design`) writes a fenced `meta` block under every addressable heading. Two
+> levels carry one, and they are not the same fact. The block under a file's `#`
+> title describes **the file**, and the block under a `##` heading describes **that
+> chapter**.
 
 | Rule | Requirement |
 |---|---|
@@ -592,7 +601,7 @@ related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typogr
     either level.
   - Where stating none is itself an answer, the record MUST stay and report it as
     such. An explicitly selected "No status" invents nothing and keeps clearing a
-    status reversible; judged on the folder's word list alone, the control would
+    status reversible. Judged on the folder's word list alone, the control would
     disappear the moment a reader used it.
 - **Opt-in:** everywhere else, such as an entry body somebody typed or a snippet
   quoted in a chat, a fence that says `meta` stays the fenced block it has
@@ -645,7 +654,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 - **What a file says it is for:** the block shows the description as prose,
   `applyTo` and `tools` as badges, and every other key as a label and a value.
   A view must not hide what it does not show. It is asked for, never
-  assumed, and leaves the read view when shown: `---` parses as a divider, so
+  assumed, and leaves the read view when shown. `---` parses as a divider, so
   frontmatter otherwise reads as two rules around a run-together paragraph. A
   buffer being edited keeps the block verbatim, since a save without those lines
   would drop them.
@@ -653,10 +662,12 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
   `Bare` gives up its frame so `FileView` can show it without a second header or
   scroll region.
 - **Entry list and detail pane:** the `SplitPane` is anchored to the end, so the
-  open entry is the fixed half and the list flexes. The open entry holds its own
-  row (the title as a field), its body (one `MarkdownEditor` over the whole text
-  with no label above it), the `TaskAction` rows, the selectors and the raw
-  hatch.
+  open entry is the fixed half and the list flexes. The open entry holds:
+  - its own row (the title as a field);
+  - its body (one `MarkdownEditor` over the whole text with no label above it);
+  - the `TaskAction` rows;
+  - the selectors;
+  - the raw hatch.
 - **The body:** a step is a `##` chapter written in the body as text. A person edits it there as text;
   `[x]` in its heading or `!done` on its line ticks it. There is no step list and no Steps / Markdown switch. A
   `view:` token is kept and not read (`#scheduling-and-dependency-tokens`).
@@ -674,7 +685,7 @@ What is true today, and where it differs from the model above:
 
   Markdown being canonical is therefore trivially satisfied.
   `#round-trip-fidelity` is under pressure only where a field rewrite touches
-  text it was not asked about, so each of those rewrites is scoped to one chapter
+  text it was not asked about. Each of those rewrites is therefore scoped to one chapter
   and leaves the rest byte-for-byte.
 
   Steps have no control of their own. A step is a `##` chapter, edited in the
@@ -684,8 +695,8 @@ What is true today, and where it differs from the model above:
 - **The escape hatch has a shortcut but not yet a command.**
   `#raw-markdown-escape-hatch` asks for the raw view "via a command and keyboard
   shortcut". Ctrl+Shift+M opens it and Escape closes it. The pane carries no
-  control that reveals it, and there is no command palette to list it in, so
-  only a reader who knows the shortcut can find the hatch. The command half stays
+  control that reveals it, and there is no command palette to list it in. Only
+  a reader who knows the shortcut can find the hatch. The command half stays
   unmet until there is a palette.
 - **The shortcut does not reach the pane from one field.** The entry's heading
   rename contains its own keydown (`interaction-guidelines.md#task-rows`,
@@ -707,7 +718,7 @@ What is true today, and where it differs from the model above:
 - **Body text renders in `color-text-secondary`.** `design-principles.md#low-chrome-content-first`
   reserves `color-text-primary` for content and `color-text-secondary` for
   chrome. The read view has that the other way round for paragraphs, list items
-  and code blocks, and the live editor's raw passthrough block draws its author
+  and code blocks. The live editor's raw passthrough block draws its author
   text the same way. It reads as intended inside a dense card and washed-out in a
   document; a document surface SHOULD move to `color-text-primary`.
   `[TODO: clarify]`

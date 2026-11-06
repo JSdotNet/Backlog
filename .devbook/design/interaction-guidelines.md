@@ -4,11 +4,17 @@
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/design/accessibility.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-> Binding interaction rules for the Backlog product: auto-save, drag-and-drop
-> reordering with keyboard equivalents, responsiveness, feedback and motion, the
-> empty, loading and error states, the desktop shell, and the combobox, popover
-> button, action density and timelines. Motion tokens and interaction patterns
-> were adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
+> Binding interaction rules for the Backlog product:
+>
+> - auto-save
+> - drag-and-drop reordering with keyboard equivalents
+> - responsiveness
+> - feedback and motion
+> - the empty, loading and error states
+> - the desktop shell
+> - the combobox, popover button, action density and timelines
+>
+> Motion tokens and interaction patterns were adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
 > `09-interaction-patterns`). Conflict handling follows the last-write-wins rule in
 > `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
 > declared in `color-scheme.md` and `typography-and-layout.md`.
@@ -19,8 +25,19 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
+```mermaid
+flowchart LR
+    E[Edit] --> U[UI updates at once]
+    U --> K{Kind of change?}
+    K -- continuous text --> D[Debounce, or flush on blur, navigation or close]
+    K -- discrete --> W[Write local Markdown]
+    D --> W
+    W -- written --> S[Background sync]
+    W -- failed --> F[Roll back or error toast]
+```
+
 `design-principles.md#no-save-buttons--auto-save-everywhere` sets the rule that
-the product has no save affordance. This section specifies how auto-save behaves.
+the product has no save affordance.
 
 ### Save Timing and Debounce
 
@@ -141,7 +158,7 @@ affordance language and both with mandatory keyboard equivalents:
   (`#keyboard-accessible-reordering`).
 - **Press origin:** a task row's press may land on its grip too. In other lists,
   such as a goal card or a No goal row, the rest of the item is a control of its
-  own: a goal's head opens and folds it.
+  own. A goal's head opens and folds it.
 - **Set-back feedback:**
   - The dragged item is faded, its border or outline dashed in
     `color-border-focus`, and the drop indicator (`#drop-indicators`) says where
@@ -155,7 +172,7 @@ affordance language and both with mandatory keyboard equivalents:
   - Under reduced motion the copy still follows the pointer, untilted, and
     nothing unfolds or glides.
 - **Handle target:** a grip that is the only press origin MUST be at least
-  1.5rem (24 px) wide and 2.75rem (44 px) tall, the bounded exception in
+  1.5rem (24 px) wide and 2.75rem (44 px) tall. That is the bounded exception in
   `accessibility.md#target-sizes-and-text`.
 
 ### Drop Indicators
@@ -176,7 +193,7 @@ affordance language and both with mandatory keyboard equivalents:
 
 > The drag handle and the drop target are not the same hit area. A handle
 > sized for a dense row (`#drag-affordances`) is reliably graspable but too
-> small to reliably *catch* a drop — the drop target must be sized for
+> small to reliably *catch* a drop. The drop target must be sized for
 > releasing, not for picking up.
 
 | Rule | Requirement |
@@ -190,9 +207,9 @@ affordance language and both with mandatory keyboard equivalents:
 
 - **Drop target covers the row:** the halves split by height. Releasing anywhere
   over the row commits to the nearer half, not just to the handle's footprint.
-- **One scroller per column:** given a bounded height, the board fills it, and
-  each column scrolls its own cards inside itself, never beside the board's or
-  the pane's scrollbar.
+- **One scroller per column:** given a bounded height, the board fills it. Each
+  column scrolls its own cards inside itself, never beside the board's or the
+  pane's scrollbar.
 - **Drop target covers the column:** the full height is the box the board is
   given when that has a height, else the tallest column. A card carried sideways
   from low in a long column arrives beside a short column's foot. That space MUST
@@ -201,8 +218,6 @@ affordance language and both with mandatory keyboard equivalents:
   immediately preceding `dragover` was cancelled. A target that only appears
   once dragging has started needs its `dragenter` cancelled too. Otherwise the
   first `dragover` over it can be missed.
-- **Handle target size still applies:** the handle is an independent pointer
-  target, whatever the size of the drop target.
 
 ### Keyboard-Accessible Reordering
 
@@ -277,11 +292,6 @@ both items and chapters.
 related: [".devbook/design/interaction-guidelines.md#loading-states", ".devbook/design/interaction-guidelines.md#error-states", ".devbook/design/interaction-guidelines.md#motion-and-reduced-motion", ".devbook/design/accessibility.md#screen-reader--announcements", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
-A press is answered at once, whatever the work behind it costs. The control the
-reader pressed shows that it heard them, and a slow act shows that it is still
-working. A part of the screen that reloads shows its own loader, and the rest of
-the screen stays usable.
-
 ```mermaid
 flowchart LR
     P[Press] --> A[Pressed state, within one frame]
@@ -291,6 +301,9 @@ flowchart LR
     B --> R
     B --> E[Error toast or inline error, control restored]
 ```
+
+A press is answered at once, whatever the work behind it costs. A part of the
+screen that reloads shows its own loader, and the rest of the screen stays usable.
 
 ### Press Feedback
 
@@ -392,10 +405,10 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 - **Inline confirmation:** an example is a brief saved-confirmation flash on a
   saved inline edit, per `#motion-and-reduced-motion`.
 - **Above an open dialog:** a modal sits in the browser's top layer
-  (`typography-and-layout.md#z-index-scale`), so the tray is lifted into that
-  layer above each modal as it opens and let down when the last one closes. The
-  toast is visible, not interactive: the modal makes everything outside itself
-  inert, so the dismiss control does not answer until the modal closes, and the
+  (`typography-and-layout.md#z-index-scale`). The tray is therefore lifted into
+  that layer above each modal as it opens, and let down when the last one closes.
+  The toast is visible, not interactive. The modal makes everything outside itself
+  inert, so the dismiss control does not answer until the modal closes. The
   toast's own timer still dismisses it.
 
 ## Motion and Reduced Motion
@@ -429,7 +442,7 @@ Standard combinations:
 
 **Recorded deviation:** the org style guide pairs the saved-confirmation flash
 with `ease-bounce`. The product uses a smooth `ease-out` instead, by explicit
-decision — a bounce on every auto-save is a lot of movement for something that
+decision. A bounce on every auto-save is a lot of movement for something that
 happens continuously and unprompted. The desktop declares this as
 `--ease-saved-flash` in `app.css`.
 
@@ -440,8 +453,16 @@ turn in a hundred seconds. The turn ramps in over `transition-slow` on
 product keeps it by explicit decision, so the map reads as three-dimensional at
 rest: the brains show their depth without anyone dragging them.
 
-- A press or a scroll on the map stops the turn, and so does resting the pointer
-  on a mark. The turn restarts after four more seconds without input.
+```mermaid
+stateDiagram-v2
+    [*] --> Still
+    Still --> Turning: four seconds without input
+    Turning --> Still: press or scroll on the map, or pointer resting on a mark
+    Still --> Paused: Pause
+    Turning --> Paused: Pause
+    Paused --> Still: Pause again
+```
+
 - The turn never runs under `prefers-reduced-motion: reduce`, nor while the
   document is hidden. A page whose picture must be still turns it off, as a
   page-level switch, not a reader control.
@@ -450,8 +471,7 @@ rest: the brains show their depth without anyone dragging them.
   keyboard and a pointer both reach, and it reads as pressed while the turn is held.
 - Pause holds only the turn. A fling still slows to rest, and a drag and the zoom
   still move the map.
-- The pause lasts while the atlas is open. Pressing Pause again resumes the turn
-  as after any input: it waits four seconds, then ramps in over `transition-slow`.
+- The pause lasts while the atlas is open.
 - Under reduced motion Pause stays enabled, and the brains still never turn.
 
 Rules:
@@ -459,10 +479,11 @@ Rules:
 - Default to `ease-in-out`; use `ease-out` for entering elements, `ease-in` for
   exiting. `ease-bounce` is reserved for positive confirmations, never errors.
 - Animate `transform`/`opacity`, not layout properties (`width`/`height`/`top`/`left`).
-- Under `prefers-reduced-motion: reduce`: replace all translate/scale/rotate and
-  slide effects with instant changes or opacity-only fades; spinners stop
-  spinning (show a static/indeterminate state); autoscroll keeps working but no
-  parallax. See `accessibility.md#reduced-motion`.
+- Under `prefers-reduced-motion: reduce` (see `accessibility.md#reduced-motion`):
+  - replace all translate/scale/rotate and slide effects with instant changes or
+    opacity-only fades;
+  - spinners stop spinning (show a static/indeterminate state);
+  - autoscroll keeps working but no parallax.
 
 ## Focus and Selection
 
@@ -488,8 +509,8 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 - **Entering a multi-select:**
   - The toggle is a control such as a Select chip, and hover or focus alone is
     not asking. The controls leave again with the mode.
-  - A reader scanning a list is not offered a selection they did not ask for, and
-    selection never shares a paint with hover or focus (*Selection distinct from
+  - A reader scanning a list is not offered a selection they did not ask for.
+    Selection never shares a paint with hover or focus (*Selection distinct from
     focus*).
   - This is `design-principles.md#low-chrome-content-first` one level down: the
     bulk-action bar and the row's checkbox are not on screen until selecting is.
@@ -499,8 +520,8 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
   - A plain press selects this one chip, or none when it was already alone. Ctrl
     follows the file-manager convention.
   - When one consumer of the scope takes only one value (the Devbook pane reads
-    one devbook), it follows the **anchor**: the first chip taken, which stays
-    put while others join.
+    one devbook), it follows the **anchor**. The anchor is the first chip taken,
+    which stays put while others join.
   - The desktop header's Brain chip is a member like any other, so an anchor of
     Brain shows the Brain in the Devbook pane. With nothing pressed the pane
     shows the Brain too, because it is always there.
@@ -589,7 +610,7 @@ related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/d
 
 A task row is the product's densest composition. One line holds a completion
 control, a title that can be renamed in place, a metadata line, badges and
-actions, and a list may hold hundreds of such rows.
+actions. A list may hold hundreds of such rows.
 
 | Rule | Requirement |
 |---|---|
@@ -634,8 +655,8 @@ actions, and a list may hold hundreds of such rows.
   - A title with no address draws no link and no empty slot.
 - **Escape belongs to the innermost draft:**
   - A row's rename, a list's add-row composer and the side panel's heading
-    rename all stop the key, so a surface whose own Escape dismisses something
-    never takes that decision out of the same press.
+    rename all stop the key. A surface whose own Escape dismisses something
+    therefore never takes that decision out of the same press.
   - Closing the field is not containment. An event's path is fixed before the
     first handler runs, so a field that removes itself is still on the path the
     key climbs.
@@ -656,7 +677,7 @@ actions, and a list may hold hundreds of such rows.
   - A backlog's prompts, tasks, ideas and tests are one example of kinds. The
     glyph comes ahead of the list the row belongs to and ahead of a blocked
     row's wait.
-  - A mark is only a mark if it is always in the same place: a reader scanning a
+  - A mark is only a mark if it is always in the same place. A reader scanning a
     column for the prompts finds it at the line's left edge.
   - The glyph stands alone. The word is the tooltip and a visually-hidden span,
     per `typography-and-layout.md#metadata-lines`. Both come from the host, since
@@ -671,8 +692,8 @@ actions, and a list may hold hundreds of such rows.
 - **One next:** rows that are merely startable take a second, quieter marker.
   The vocabulary MUST NOT change with the count.
 - **Following a dependency:** where a scope hides that row, only the scopes
-  hiding it are widened, rather than the entry being opened beside a list that
-  does not show it. A name that resolves to nothing stays text.
+  hiding it are widened. The entry never opens beside a list that does not show
+  it. A name that resolves to nothing stays text.
 - **Unresolvable dependencies:** dropping the id would report the row ready when
   the step it waits on is merely missing.
 - **Cycles:** nothing is offered. Choosing which dependency is the wrong one is
@@ -688,9 +709,8 @@ Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/color-scheme.md#the-identity-edge", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
-A board card states the same facts a task row does, stacked rather than laid
-along one line, because a board column is narrow and tall where a list is wide
-and short. The rows above hold for the facts; these rules hold for the stack.
+A board card stacks the same facts a task row lays along one line, because a
+board column is narrow and tall where a list is wide and short. The rows above hold for the facts; these rules hold for the stack.
 
 | Rule | Requirement |
 |---|---|
@@ -786,8 +806,8 @@ as its kind:
 - **Devbook toggle:** see `#workspace-panes`. The toggle is named for what the
   Devbook shows. It reads **Brain**, in the Brain's accent
   (`color-scheme.md#the-brains-accent`), while the Devbook reads or would open
-  on the Brain: nothing pressed, the Brain as anchor, or the Brain side of its
-  `Brain | <repo>` switch. Otherwise it reads **Devbook**. The word changes, the
+  on the Brain. That is nothing pressed, the Brain as anchor, or the Brain side
+  of its `Brain | <repo>` switch. Otherwise it reads **Devbook**. The word changes, the
   control does not.
 - **Goals group:** it holds the Progress context's [Goals
   view](../domain/progress/features.md#the-goals-view) and the Sessions
@@ -893,7 +913,7 @@ as its kind:
   - A docked window sits beside other work, such as a list for today on a side
     monitor.
   - Its header MUST put the title and its buttons on one row and the scope chips
-    on a row of their own, which scrolls sideways rather than running off the
+    on a row of their own. That row scrolls sideways rather than running off the
     edge.
   - **Show in main window** keeps only its glyph, and its name stays on the
     control.
@@ -906,9 +926,9 @@ as its kind:
   `aria-expanded`. Ask AI keeps `aria-expanded`, because it is a disclosure.
 - **The filter bar is the task views':**
   - Those views show the same filtered rows read three ways.
-  - The Board adds its **Columns** choice first on the bar, a select with no
-    visible word beside it, because the grouping it shows says what the columns
-    are. It is named `Columns` to assistive technology and in its tooltip.
+  - The Board adds its **Columns** choice first on the bar. It is a select with
+    no visible word beside it, because the grouping it shows says what the
+    columns are. It is named `Columns` to assistive technology and in its tooltip.
   - The Roadmap view carries its own Planning heading row instead, and Goals
     carries its own iteration choice.
 - **A control acts on what is on screen:** the GitHub check renders only beside
@@ -916,8 +936,8 @@ as its kind:
   Inbox and Devbook toggles, the takeover groups and the identity region stay on
   every screen, since they are the way to everything else.
 - **The shell reopens where it was left:** this includes after Settings and
-  back. The scope comes back in its order, so the anchor is still first, Brain
-  is in its place when it was pressed, and a repository no longer configured is
+  back. The scope comes back in its order, so the anchor is still first and Brain
+  is in its place when it was pressed. A repository no longer configured is
   dropped from it.
 - **The Brain chip leads the scope:**
   - The chip MUST offer no remove control and MUST lead with a decorative brain
@@ -967,8 +987,8 @@ The desktop shell has no side panes. The task list is the Tasks view, which is
 never closed. The Inbox and the Devbook each take the whole screen in place of
 the main view and keep it underneath, as a takeover does (see `#shell-header`).
 Triage reads one item at a time, and a chapter or the Brain reads full width, so
-neither shares the window with the view (local ADR 0022, amendments of
-2026-10-12 and 2026-10-15).
+neither shares the window with the view. See local ADR 0022, amendments of
+2026-10-12 and 2026-10-15.
 
 | Rule | Requirement |
 |---|---|
@@ -989,10 +1009,15 @@ tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_gly
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
-along the bottom, where a thumb already is: **Today**, **Inbox**,
-**Notifications** once the phone holds a notification, **Stand-up** once a
-desktop has sent the stand-up, and **Notes**. Each is a route of its own,
-so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
+along the bottom, where a thumb already is:
+
+- **Today**
+- **Inbox**
+- **Notifications**, once the phone holds a notification
+- **Stand-up**, once a desktop has sent the stand-up
+- **Notes**
+
+Each is a route of its own, so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
 they lead with a glyph as the desktop's views do (`#shell-header`).
 
 | Rule | Requirement |
@@ -1095,8 +1120,8 @@ figure typed, a figure refused).
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-A popover button shows a small panel of the host's own controls under a button:
-settings a reader flips now and then and would rather not see all day. It is a
+A popover button shows a small panel of the host's own controls under a button.
+They are settings a reader flips now and then and would rather not see all day. It is a
 disclosure, not a menu. The panel holds switches, buttons and links, not menu
 items, so the arrow keys stay those controls' own. The desktop header's
 **Settings** gear is its first use (`#shell-header`). `PopoverButton` in the
