@@ -339,6 +339,52 @@ The system SHALL find a session in a goal's attach search by its session id, who
 - **When** the person types `abcd1234` in the goal's attach search
 - **Then** no session is listed
 
+### Requirement: A finished plan and a done task are not offered
+
+```meta
+type: requirement
+related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/domain/progress/domain.md#settled]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_matches_every_unfinished_plan_every_open_task_and_every_open_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_leaves_out_a_plan_whose_entries_are_all_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_an_open_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_no_entries]
+```
+
+The system SHALL leave out of a goal's attach search and an impediment's Link… search every done task and every plan that gathers at least one entry, all of them done or archived.
+
+#### Scenario: A plan with every entry over, in the attach search
+
+- **Given** every entry `+bank-integration` gathers is done or archived
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is not offered
+
+#### Scenario: A plan with every entry over, in Link…
+
+- **Given** every entry `+bank-integration` gathers is done or archived
+- **When** the person types `bank` in an impediment's Link… search
+- **Then** `+bank-integration` is not offered
+
+#### Scenario: A plan with an open entry
+
+- **Given** `+bank-integration` gathers one done entry and "Bank import mapping", which is in progress
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
+#### Scenario: A plan with no entries
+
+- **Given** `+bank-integration` gathers no entry
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
+#### Scenario: A done task
+
+- **Given** the task "Bank import mapping" is done
+- **When** the person types `bank import` in the attach search of "Customers get paid faster"
+- **Then** "Bank import mapping" is not offered
+
+#### Scenario: Reopening an entry
+
+- **Given** every entry `+bank-integration` gathers is done or archived, so it is not offered
+- **When** the person reopens its entry "Bank import mapping" and types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
 ### Requirement: A task in an attached plan counts once
 
 ```meta
