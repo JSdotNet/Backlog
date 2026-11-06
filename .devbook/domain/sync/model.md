@@ -114,5 +114,5 @@ classDiagram
   [Replica Cursor](domain.md#replica-cursor) naming one. Nothing reaches a replica
   without saying whose data it wants.
 - **An attachment is a blob, not a document.** It is stored under
-  `{ownerId}/{attachmentId}` beside the replica, and a capture document carries its
+  `{ownerId}/{attachmentId}` beside the replica. A capture document carries its
   metadata and never its bytes (local ADR 0014).

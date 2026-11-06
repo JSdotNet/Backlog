@@ -76,12 +76,12 @@ classDiagram
   may carry: a note carries them, and Devbook defines them.
 - `Brain` is the folder the person picked, not an aggregate: it holds the notes
   as Markdown files. Its areas are the ones `CONVENTIONS.md` declares, the PARA
-  set when it declares none, then every other top folder holding a note, minus
-  the folders its `## Ignore` lists. A note's `PARACategory` is one of those
+  set when it declares none, then every other top folder holding a note. The
+  folders its `## Ignore` lists drop out. A note's `PARACategory` is one of those
   areas, read from the note's top folder unless its `para` field overrides it.
 - `ProjectRef` is written as the note's `repos` field and `TaskLink` as its
   `tasks` field (local ADR 0026). A `repo:` link to a repository chapter is not a
-  `ProjectRef`: it addresses one chapter, and the Brain's database keeps it as an
+  `ProjectRef`: it addresses one chapter. The Brain's database keeps it as an
   edge that resolves only on a machine where that repository is configured.
 - `TaskLink` references a Task by id only, never by object reference,
   so the two contexts stay decoupled. It is a value on the note's node, not an

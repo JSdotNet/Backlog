@@ -61,12 +61,12 @@ stateDiagram-v2
 
 A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
-of truth on the device that holds it: one logical item with one priority and one status even when it targets
-multiple repositories. The rules it holds are in
+of truth on the device that holds it. Even when it targets multiple repositories,
+it is one logical item with one priority and one status. The rules it holds are in
 [its invariants](domain.invariants.md#task).
 
 A task that stands for an item in an outside system carries a [Source Ref](#source-ref)
-and is a [Linked Task](#linked-task); the source then owns its title, status
+and is a [Linked Task](#linked-task). The source then owns its title, status
 and assignee (local ADR 0020).
 
 The task also carries two attributes that place it in the person's own working
@@ -354,9 +354,9 @@ material lives, not that the reader can reach it.
 Two things are read off the path rather than stored:
 
 - Its `name` is the last segment.
-- Whether it is an archive is decided by the path's spelling, not by
-  asking the disk, so the value stays comparable and a renamed file
-  cannot change what the task says.
+- The path's spelling decides whether it is an archive, not the disk. The
+  value therefore stays comparable, and a renamed file cannot change what
+  the task says.
 
 A folder called `backup.zip` is an archive by this rule, which only decides which word to call it.
 
@@ -463,25 +463,21 @@ flowchart TD
 - Completing one task unblocks its dependents with nothing to recalculate, because
   [readiness is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored).
 - The first question is the [tick](domain.md#completed), not `Task Status`; see
-  [Readiness](domain.md#readiness) and
   [A ticked task reads done](domain.invariants.md#invariant-a-ticked-task-reads-done).
 - [An id that resolves to no visible task leaves the task blocked](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks),
   and [a dependency loop leaves every member blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
   [Dependency](domain.md#dependency) says why.
 
 Where a task stands once the tasks it waits on are counted:
-`done`, `ready`, `blocked`. It is read from `depends_on`, and
-[how it is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored)
-is an invariant of the task.
+`done`, `ready`, `blocked`. It is read from `depends_on`.
 
 There are three values because "not done" covers both the task that can
-be picked up now and the one that cannot, and telling them apart is the whole
+be picked up now and the one that cannot. Telling them apart is the whole
 reason to write a dependency down.
 
 Readiness is orthogonal to `Task Status`: status is the recorded lifecycle state,
 readiness a conclusion about whether the task can be started. Readiness's
-`done` is the [tick](#completed), not the status of the same name; see
-[an invariant of the task](domain.invariants.md#invariant-a-ticked-task-reads-done).
+`done` is the [tick](#completed), not the status of the same name.
 
 ## Projection
 
@@ -543,8 +539,8 @@ flowchart TD
   [the tick spawns the next occurrence](requirements.md#requirement-the-tick-spawns-the-next-occurrence).
 - The finished occurrence stays in place and the next is a separate aggregate.
   The link between them, `recurrence_source_id`, is provenance, not ownership.
-- The spawn is a synchronous step inside the save (solid arrow). The dashed arrow is the event that would tell Monitoring,
-  which this context documents but does not yet emit, so a consumer
+- The spawn is a synchronous step inside the save (solid arrow). The dashed arrow is the event that would tell Monitoring.
+  This context documents it but does not yet emit it, so a consumer
   reads a series by following `recurrence_source_id`.
 - The next due date comes from the completed occurrence's `due_on`, not
   from when it was finished, so lateness does not drift a schedule.
@@ -593,7 +589,7 @@ completed occurrences archive out of default views.
 
 Two use cases run it. The desktop's own save runs it when the save ticks the
 task off. The replica merge runs it when a pulled copy ticks off a
-task the desktop held unticked, which is how a tick made on the phone or on
+task the desktop held unticked. That is how a tick made on the phone or on
 another desktop gets its successor.
 [A task that arrives ticked spawns nothing](requirements.md#requirement-a-task-that-arrives-ticked-spawns-nothing),
 as a task created ticked spawns nothing: it records something done.
@@ -604,9 +600,9 @@ desktop spawns the same task and the replica keeps one copy.
 Nothing is created when a task with that id already exists,
 live or deleted. Deleting the successor is how the person stops that repeat, so
 [a deleted successor is not spawned again](requirements.md#requirement-a-deleted-successor-is-not-spawned-again).
-A successor spawned before its id was derived carries a random id, so an
-occurrence ticked before that change can still gain a second successor if it is
-unticked and ticked again.
+A successor spawned before its id was derived carries a random id. An
+occurrence ticked before that change can therefore still gain a second successor
+if it is unticked and ticked again.
 
 [Unticking leaves the successor in place](requirements.md#requirement-unticking-leaves-the-successor-in-place):
 unticking clears `completed_on` and nothing else, and the successor is
@@ -931,7 +927,7 @@ like success.
 Dependency cycles are surfaced rather than prevented: nothing refuses one, and
 [every member of a loop reads blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
 A cycle spans aggregate boundaries, so no single task can enforce its absence
-transactionally, and only the person who wrote the edges can say which one is
+transactionally. Only the person who wrote the edges can say which one is
 wrong.
 
 ### Occurrence
@@ -1060,8 +1056,8 @@ The source speaks for three of its fields: the title, the status and the
 assignee. Each sync applies what it says on the terms the
 [Linked tasks requirements](requirements.md#linked-tasks) set.
 [The assignee follows the source](requirements.md#requirement-the-assignee-follows-the-source),
-[the title follows it until the person renames the task](requirements.md#requirement-the-title-follows-the-source-until-the-person-renames-it),
-and [the status follows the source's state moves](requirements.md#requirement-the-status-follows-the-sources-state-moves)
+and [the title follows it until the person renames the task](requirements.md#requirement-the-title-follows-the-source-until-the-person-renames-it).
+[The status follows the source's state moves](requirements.md#requirement-the-status-follows-the-sources-state-moves)
 through the item's [Source State](#source-state), read through its
 [Connected Target](#connected-target)'s status map. A task the person finished
 [stays done](requirements.md#requirement-a-task-finished-here-stays-done), and
@@ -1109,8 +1105,12 @@ The reasons it recognises are:
 - nobody signed in.
 
 A connector declares what it can do, but only three things change anything yet:
-completing an item at the source, marking a target as a code repository, and
-asking the person questions about its items. Effort,
+
+- completing an item at the source;
+- marking a target as a code repository;
+- asking the person questions about its items.
+
+Effort,
 dependencies, setting a status and commenting are declared but drive nothing.
 A connector a person signs in to may also say what it asks of them beside the
 sign-in, such as signing in again to send answers that wait.

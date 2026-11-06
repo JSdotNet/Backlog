@@ -28,7 +28,7 @@ uses on this channel.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.
 
-The mobile app shell itself, .NET MAUI with Blazor Hybrid, is documented once in
+The mobile app shell is documented once, in
 [.NET MAUI](shared.md#net-maui) and [Blazor Hybrid](shared.md#blazor-hybrid),
 because the desktop channel uses the same framework
 ([ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)).
@@ -70,8 +70,8 @@ The image codec the phone downscales a note's pictures with, before they
 enter the outbox. It serves the Notes editor and the capture sheet's photo.
 
 - **Used for** — decoding a photo, resizing it to a 1600 px longest edge
-  and re-encoding it as JPEG; the EXIF orientation is carried over by hand and
-  everything else in EXIF is dropped.
+  and re-encoding it as JPEG. The downscaler carries the EXIF orientation over by
+  hand and drops everything else in EXIF.
 - **Why** — it is MIT-licensed, with the Android and Windows natives in the
   package. The MAUI head, the browser harness and the unit tests therefore run
   one codec, and the downscaler has one implementation a test can hold. The
@@ -181,6 +181,6 @@ The packaging and release format for the Android client.
   only its APKs carry the release key a later release can update. A target in
   `Backlog.Mobile.csproj` compiles it into `UpdateChannelBuildDefaults.Repository`
   and fails the build on a value that is not `owner/repository`. Empty is the
-  default and means a development build: `build/Install-AndroidApp.ps1` and a
+  default and means a development build. `build/Install-AndroidApp.ps1` and a
   debug deploy leave it out, and their update window reports that the build
   cannot update itself.

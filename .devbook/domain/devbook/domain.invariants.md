@@ -22,7 +22,8 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Editing_and_resolving_stamp_the_remark_for_the_next_push, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_edit_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_deletion_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it]
 ```
 
-Editing, resolving or deleting a remark stamps it later than the copy it changed, even when that copy arrived from a device whose clock runs ahead, because replication picks the newer by stamp.
+Editing, resolving or deleting a remark stamps it later than the copy it changed, even when that copy arrived from a device whose clock runs ahead.
+Replication picks the newer by stamp.
 
 Enforced at: `DevbookAnnotationStore.Edit()`, `SetResolved()` and `Delete()`, through `Stamp()`
 
@@ -56,7 +57,8 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_fresh_remark_is_a_draft_on_the_block_it_was_asked_for, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_push_selects_what_changed_after_the_watermark_and_never_a_draft, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_draft_removes_it_outright]
 ```
 
-A live remark with an empty body is a draft: it stays on this device and is never replicated, and deleting it leaves no tombstone, since a draft never pushed leaves nothing to replicate.
+A live remark with an empty body is a draft: it stays on this device and is never replicated, and deleting it leaves no tombstone.
+A draft never pushed leaves nothing to replicate.
 
 Enforced at: `DevbookAnnotation.IsDraft`; `DevbookAnnotationStore.ListChangedSince()` leaves drafts out of a push, and `Delete()` removes a draft
 
@@ -68,7 +70,13 @@ tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionT
 ```
 
 A remark the sync service would refuse is left out of the push, named in a warning without its body, and offered again only after an edit.
-The service refuses a remark with no repository, a blank chapter path, a negative block index, a kind other than comment, question, suggestion or flag, or a field past its bound, the branch name included. The service refuses a push whole, so one such remark would hold back every other on each cycle.
+The service refuses a push whole, so one such remark would hold back every other on each cycle. It refuses a remark with:
+
+- no repository;
+- a blank chapter path;
+- a negative block index;
+- a kind other than comment, question, suggestion or flag;
+- a field past its bound, the branch name included.
 
 Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimits.WhyRefused()`, the rule the sync endpoint runs
 
@@ -102,7 +110,8 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_overwrites_a_remark_the_store_holds, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_import_never_brings_back_a_remark_the_person_deleted, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.An_import_writes_only_what_is_absent_and_raises_changed_once]
 ```
 
-Importing a repository's open review notes writes only remarks the store holds no document for, so a held remark, a tombstone included, stays as it is, as the person may have changed it.
+Importing a repository's open review notes writes only remarks the store holds no document for, so a held remark, a tombstone included, stays as it is.
+The person may have changed it.
 
 Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which checks and writes under one lock; `SessionDevbookAnnotationStore.ImportIfAbsent()` holds the same rule
 
@@ -113,7 +122,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.An_imported_remark_stamped_in_the_past_is_not_pushed_as_a_new_change
 ```
 
-An imported remark is stamped with its review note's date, or with the time of the commit that added the chapter when the note states none, never with the store's clock. Every device imports under the same id, and a remark stamped in the past is not pushed as a new change.
+An imported remark is never stamped with the store's clock. It carries its review note's date or, when the note states none, the time of the commit that added the chapter. Every device imports under the same id, and a remark stamped in the past is not pushed as a new change.
 
 Enforced at: `DevbookAnnotationStore.ImportIfAbsent()`, which writes the remark's own stamps
 
@@ -215,7 +224,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.The_id_is_the_same_on_every_device_for_the_same_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.Another_repository_or_pull_request_is_another_subject, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSubjectTests.An_alias_names_one_repository_whatever_its_case, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectReplicaMergeTests.A_record_filed_under_another_id_than_its_subjects_is_not_taken]
 ```
 
-On every device a subject's state has the same id, derived from the case-insensitive repository alias and the subject's name, and a pulled state filed under any other id is not taken.
+On every device a subject's state has the same id, derived from the case-insensitive repository alias and the subject's name. A pulled state filed under any other id is not taken.
 Two devices that set a state on one subject before either has synced would otherwise keep two states with nothing to say which is current.
 
 Enforced at: `DevbookSubject.IdFor()`, through `AliasKey()`; `DevbookSubjectReplicaMerge.ToState()` refuses a record whose id is not its subject's
@@ -227,8 +236,13 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DevbookSubjectSyncSessionTests.A_state_the_service_would_refuse_is_left_out_and_named_without_holding_back_the_rest, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevbookSubjectRecordLimitsTests.A_change_the_service_would_not_store_is_refused_with_a_reason]
 ```
 
-A state with no repository, a kind or state outside the contract, a decision on anything but a proposal, or a field past its bound stays out of the push, named in a warning.
-It is offered again only once its state is set again. The sync service refuses a push whole, so sending it would hold back every state beside it on every cycle.
+A state the sync service would refuse stays out of the push, named in a warning, until its state is set again.
+The service refuses a push whole, so sending it would hold back every state beside it on every cycle. It refuses a state with:
+
+- no repository;
+- a kind or state outside the contract;
+- a decision on anything but a proposal;
+- a field past its bound.
 
 Enforced at: `DevbookSubjectSyncSession.PushAsync()`, through `DevbookSubjectRecordLimits.WhyRefused()`, the rule the sync endpoint runs
 
@@ -263,7 +277,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookSubjectStateStoreTests.An_imported_state_stamped_in_the_past_is_not_pushed_as_a_new_change
 ```
 
-An imported state is stamped with the time the repository authored it, or with the time of the commit that added its file when it has no record, and never with the store's clock.
+An imported state is never stamped with the store's clock. It carries the time the repository authored it or, with no record, the time of the commit that added its file.
 Every device imports for itself under the same id, so a state stamped in the past is not pushed as a new change.
 
 Enforced at: `DevbookSubjectStateStore.ImportIfAbsent()`, which writes the state's own stamps

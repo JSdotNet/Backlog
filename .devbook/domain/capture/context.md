@@ -7,9 +7,8 @@ deployment: module
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
-Capture owns **how items enter the system**. It acquires raw content from a
-source, normalizes it, and delivers it to the [Inbox](../inbox/domain.md#inbox-item)
-as an Inbox Item. Once an item is delivered, Capture's responsibility ends. The
+Capture owns **how items enter the system**. Once an item reaches the
+[Inbox](../inbox/domain.md#inbox-item) as an Inbox Item, Capture's responsibility ends. The
 sources are:
 
 - mobile devices;
@@ -24,6 +23,12 @@ Outside it: triage, routing, and everything that happens to an item after it
 arrives, which the [Inbox](../inbox/domain.md#inbox-item) answers. In-app feedback
 is the one capture that does not reach the Inbox: it is filed as an issue on the
 product's own repository.
+
+```mermaid
+flowchart LR
+    S[Source] -->|raw content| C[Capture: acquires and normalizes]
+    C -->|delivers| I[Inbox Item]
+```
 
 ## Feedback reporting
 

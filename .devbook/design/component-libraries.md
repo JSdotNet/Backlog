@@ -44,8 +44,8 @@ related: [".devbook/design/color-scheme.md#per-stack-token-mapping"]
 > XAML and web or webview content: they are different rendering technologies.
 > The **shared layer is the design-token set**, not shared components. Desktop
 > and the IDE webviews share one rendering technology (Chromium, through WebView2
-> or the VS Code webview), so they can also share one web component library and
-> one editor. A native mobile app would be the outlier, with its own native
+> or the VS Code webview). They can therefore also share one web component library
+> and one editor. A native mobile app would be the outlier, with its own native
 > library mapped to the same logical tokens (`color-scheme.md`). The mobile head
 > as built is not native: it hosts `Backlog.Mobile.UI` in a `BlazorWebView`, over
 > the same shared library as the desktop (see [Materialization](#materialization)).
@@ -73,7 +73,7 @@ app is a MAUI shell (WinUI 3 head) rendering its entire UI as Razor components
 in an embedded WebView2, not native WinUI 3 XAML. That puts desktop on the same
 rendering technology as the IDE webviews.
 
-> **What was actually built is a first-party library, not one of the candidates
+> **What was built is a first-party library, not one of the candidates
 > below.** `Backlog.UI.Components` is a Razor class library written for this
 > product, reviewed in the storybook. Read the recommendation here as the option
 > still open for the IDE channels, not a description of the desktop today (see
@@ -274,7 +274,7 @@ All diagram and graph rendering must follow the product defaults:
   announced state changes.
 
 For a canvas the last of those is the design, not a caveat. A `canvas` element
-publishes nothing to the accessibility tree, and a node drawn at the size a
+publishes nothing to the accessibility tree. A node drawn at the size a
 readable layout allows is roughly a third of the 44px target
 `accessibility.md#target-sizes-and-text` requires. The pointer surface therefore
 cannot be the primary one, however carefully labelled. The canvas is
@@ -360,7 +360,7 @@ arrangement, the DSL subset, and what the drawing cannot say.
 related: [".devbook/tech/tooling.md#archify", ".devbook/design/design-principles.md", ".devbook/design/accessibility.md"]
 ```
 
-An Archify artifact is a whole generated document rather than a picture, and the
+An Archify artifact is a whole generated document rather than a picture. The
 rules that follow are about showing somebody else's viewer inside a chapter
 without it reading as a foreign object.
 
@@ -373,7 +373,7 @@ without it reading as a foreign object.
 | It is a document, not an image | The frame is not labelled `role="img"`; the frame's title carries the accessible name instead. |
 
 - **The reader chooses the renderer:** an artifact is a *re-authoring* of the
-  fence, not a rendering of it, so a reader who doubts the picture must be able
+  fence, not a rendering of it. A reader who doubts the picture must be able
   to see the fence drawn instead. Both wear the same badge as the rest of the
   header.
 - **The frame is sized to the drawing:** a landscape runtime view and a portrait
@@ -382,14 +382,14 @@ without it reading as a foreign object.
 - **The diagram sits on the chapter:** a diagram in a body is part of the prose,
   not a card laid on top of it.
 - **No control that visibly refuses:** the app pins the dark theme from outside
-  per `design-principles.md`. Everything the viewer can actually do stays: zoom,
+  per `design-principles.md`. Everything the viewer can do stays: zoom,
   drag-to-pan, presets, presentation and export.
 - **It is a document, not an image:** the role would collapse a structured
   document into one opaque graphic for a screen reader. What is inside stays reachable.
 
 **Not every diagram can have one.** Archify has five types: architecture,
 workflow, sequence, dataflow and lifecycle. Class and ER diagrams have none, so
-a bounded context's aggregate model is always Mermaid, and the app offers nothing
+a bounded context's aggregate model is always Mermaid. The app offers nothing
 for it rather than offering something it cannot deliver.
 
 The review surface is Storybook → *Diagrams*, in two stories that exercise the
@@ -408,10 +408,10 @@ governs the frame.
 |---|---|
 | The demo keeps its own look | The document goes in unchanged: the app pins no theme and lays no stylesheet over it. |
 | The sandbox allows scripts and nothing else | The frame carries `sandbox="allow-scripts"` without `allow-same-origin`, as the contract requires of every host. |
+| The places a chapter names are chips | Every address the page's or its chapters' `demo` fields name is a chip above the frame. |
 
 A demo is the one framed document the dark-mode default does not reach, and it
 talks to the pane only through its messages.
-| The places a chapter names are chips | Every address the page's or its chapters' `demo` fields name is a chip above the frame. |
 
 - **The places a chapter names are chips:** the chips take the badge style of
   the renderer switch. The first is sent as `demo:goto` once the demo reports
@@ -446,7 +446,7 @@ sample demo.
 - **No shared cross-stack component library covering mobile:** desktop does not
   duplicate this effort, because ADR 0001 puts its UI in Razor/WebView2.
 - **Native controls lack accessible keyboard reorder out of the box:** desktop
-  reuses neither; it has its own pointer gesture in the shared library, with the
+  reuses neither. It has its own pointer gesture in the shared library, with the
   arrow-key route built in.
 - **Diagram libraries can become remote-CDN dependencies:** remote loading is
   acceptable only as a development fallback with source-visible fallback
@@ -470,7 +470,7 @@ shared editor, and whether the token pipeline is delivered in the first release.
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/tech/shared.md#mermaid", ".devbook/tech/shared.md#net-maui"]
 ```
 
-What the product actually uses today, against the recommendations above. For
+What the product uses today, against the recommendations above. For
 Diagrams, the Technology graph and the knowledge graphs, it uses what was
 recommended.
 

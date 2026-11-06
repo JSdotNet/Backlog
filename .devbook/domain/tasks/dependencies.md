@@ -11,17 +11,19 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 
 ## Outbound dependencies
 
+Tasks is the customer in every Customer/Supplier row.
+
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | GitHub (external) | ACL | REST call via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Multi-repo tasks project to one GitHub issue per target repo; status syncs bidirectionally through an adapter. |
 | Copilot CLI (external) | ACL | Command/task projection via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Entries can project to one CLI task per target repo without depending on CLI task internals. |
 | [Brain](../brain/domain.md#knowledge-note) | Partnership | Id-based cross-link and read-side embedding | `.devbook/domain/brain/domain.md#cross-linking` | Entries embed or deep-link Knowledge Note content for context; each side keeps only foreign ids. |
-| [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Tasks = customer) | Registry lookup by opaque id; registration trigger | `.devbook/domain/repository-management/domain.md#repository`, `.devbook/domain/repository-management/features.md#repository-registration` | `repo_ids` resolve to registered repos and their local clone paths. |
-| [Environment](../environment/domain.md#environment-catalog) | Customer/Supplier (Tasks = customer) | Shortcut lookup by opaque environment id | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Work views can expose quick links to relevant environments without Tasks owning endpoint or launch semantics. |
+| [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier | Registry lookup by opaque id; registration trigger | `.devbook/domain/repository-management/domain.md#repository`, `.devbook/domain/repository-management/features.md#repository-registration` | `repo_ids` resolve to registered repos and their local clone paths. |
+| [Environment](../environment/domain.md#environment-catalog) | Customer/Supplier | Shortcut lookup by opaque environment id | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Work views can expose quick links to relevant environments without Tasks owning endpoint or launch semantics. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Publishes `AIWorkLogged` from tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity on a task is available for productivity analysis without Productivity reading task internals. |
-| [Sessions](../sessions/domain.md#session-state) | Customer/Supplier (Tasks = customer) | Port `ILinkedSessionStates`, answered by an adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. |
-| [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier (Tasks = customer) | Port `ILinkedPullRequestStates`, answered by an adapter over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row reads and acts on a linked pull request's state and verdict. |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier (Tasks = customer) | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag, so a task can be filed against planned work. |
+| [Sessions](../sessions/domain.md#session-state) | Customer/Supplier | Port `ILinkedSessionStates`, answered by an adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. |
+| [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier | Port `ILinkedPullRequestStates`, answered by an adapter over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row reads and acts on a linked pull request's state and verdict. |
+| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag, so a task can be filed against planned work. |
 | [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls the task feed; `TaskReplicaMerge` applies pulled documents | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. |
 
 - **Brain:** Queries can span both contexts.
@@ -74,16 +76,19 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 - **Sessions:** The prompt lands in the gated entry's plan and repository. One prompt
   per notification id means an answer handed over twice files one follow-up.
   **Built**: `ITaskFollowUps`, implemented by the `FileFollowUp` feature.
-- **Desktop shell:** The pane's Mine view and the task card on a pull request, the
-  task card on a session, and a task's side panel find their task through the port
-  (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)).
+- **Desktop shell:** These find their task through the port
+  (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)):
+  - the pane's Mine view;
+  - the task card on a pull request;
+  - the task card on a session;
+  - a task's side panel.
 
 ## Notes
 
 - Keep `repo_ids` as opaque identifiers so Tasks does not couple to Repository
   Management internals; only the Projection policy resolves them for GitHub/CLI.
-- Import triggers registration, when a plan names a repository the registry lacks, through Repository Management's own capability, so
-  Tasks, the customer, gains no authority over what a registered repository holds.
+- Import triggers registration, when a plan names a repository the registry lacks, through Repository Management's own capability. Tasks, the customer, therefore
+  gains no authority over what a registered repository holds.
 - GitHub issue sync runs both ways. Mismatch detection, such as the backlog saying
   done while the issue is open, is owned jointly with Monitoring.
 - Treat the `ItemTriaged` payload as Inbox's stable published language.
@@ -104,4 +109,4 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
   over planned work, not the same edge seen twice.
 - `OccurrenceSpawned` links a completed occurrence to its successor as provenance,
   not ownership: each occurrence is a separate task and a series is not one work item.
-- Pull requests run both ways through two different parts (local ADR 0042). Tasks reads a pull request's state through its own port, and an adapter translates Repository Management's contract into it. The desktop shell asks Tasks' lookup which task a pull request belongs to, never Repository Management, so neither module references the other and the two form no cycle.
+- Pull requests run both ways through two different parts (local ADR 0042). Tasks reads a pull request's state through its own port, and an adapter translates Repository Management's contract into it. The desktop shell asks Tasks' lookup which task a pull request belongs to, never Repository Management. Neither module references the other, so the two form no cycle.

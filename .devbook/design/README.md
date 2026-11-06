@@ -4,8 +4,8 @@
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-> `.devbook/design` is the checked-in record of the UX and visual design
-> guidelines for the Backlog product: *how the product should look and behave*
+> `.devbook/design` is the checked-in record of the Backlog product's UX and
+> visual design guidelines. It says *how the product should look and behave*
 > across desktop, mobile and IDE extensions. It complements `.devbook/arc42`
 > (architecture) and `.devbook/domain` (domain model). Design tokens and UX
 > guidance were adapted from the JSdotNet design style guide. This folder holds
@@ -69,8 +69,8 @@ related: [".devbook/design/color-scheme.md", ".devbook/design/typography-and-lay
 
 These files are the written rules; the **storybook** is where they are visible
 and runnable. It renders every component of the shared Razor library on its own,
-against the same stylesheet the desktop app links, so it is the review surface
-for anything specified here.
+against the same stylesheet the desktop app links. That makes it the review
+surface for anything specified here.
 
 A storybook page says how a component is *used*: its parameters, its callbacks,
 and what the host owns. A **Design rules** block in its header links the chapters
@@ -106,7 +106,7 @@ Page map — each file here and the storybook pages that show it:
 Page by page:
 
 - **`design-principles.md`:** *Foundations* shows one dark palette with no light
-  column, *Entry edit* shows edits that auto-save with no save button, and
+  column. *Entry edit* shows edits that auto-save with no save button.
   *Integrations* → **AI in the document** shows AI attribution.
 - **`color-scheme.md`:** *Foundations* → **Colour** measures each token's
   contrast in the live document against the thresholds in
@@ -165,12 +165,12 @@ thing built out of it. Storybook rules:
 - A storybook page MUST NOT state a design or UX rule. It explains how a component
   is used and links the chapter here that governs it. A page that argues for a
   tone, a hierarchy or a contrast ratio keeps a second copy of one of these files.
-- Every component page MUST carry at least one link back into this folder, so a
-  rule with no review surface and a component with no governing rule both show
+- Every component page MUST carry at least one link back into this folder. A
+  rule with no review surface and a component with no governing rule then show
   as omissions.
 - A storybook page MUST show the one subject it is named for. A sample about
   another page's subject belongs on that page, linked rather than drawn a second
-  time, or the page buries its component and keeps copies that can drift. Where
+  time. Otherwise the page buries its component and keeps copies that can drift. Where
   the reading order forces a borrow, `StorybookIndex` records the borrow against
   that page, so a bent rule reads as a bend rather than as the convention.
 - A subject that carries a convention of its own MUST get its own page rather
@@ -217,11 +217,11 @@ thing built out of it. Storybook rules:
 ```
 
 The visual design tokens and UX patterns in this folder were adapted from the
-JSdotNet design style guide (`JSdotNet/Project-Guidelines-MCP`, `design/`) and
-imported into this repository on **2026-08-27**, from which date this folder is
-authoritative. The specific upstream guides each file drew on are named in that
-file. The org palette **includes a defined dark mode**, so the "dark mode only"
-requirement was met by selecting the dark column of the org tokens, and no draft
+JSdotNet design style guide (`JSdotNet/Project-Guidelines-MCP`, `design/`). They
+were imported into this repository on **2026-08-27**, and this folder is
+authoritative from that date. The specific upstream guides each file drew on are named in that
+file. The org palette **includes a defined dark mode**, so selecting the dark
+column of the org tokens met the "dark mode only" requirement. No draft
 palette was invented. There is no sync back to the upstream guide: a change here
 is a change to the product's design language.
 
@@ -238,7 +238,7 @@ Write `status` only for `draft` or `deprecated`. `active` is the resting value,
 so a current guideline omits the field. Absence therefore means `active` here; it
 never means "nobody has decided". The Devbook panels offer **No status** as an
 option wherever absence means `active`. Removing the field leaves the `meta`
-fence in place even when nothing else is left inside it, because the fence is
+fence in place even when nothing else is left inside it. The fence is
 what marks a heading as an addressable chapter for the index generator.
 
 The same reading applies in `.devbook/arc42` and `.devbook/domain`, and not in

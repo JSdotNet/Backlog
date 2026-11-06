@@ -218,13 +218,12 @@ database, and the containers below.
 - **How** — `infra/sync/main.bicep` declares the account with
   `disableLocalAuth: true`, so it accepts no account key. The service reaches it
   as a managed identity holding the built-in data-plane contributor role. The 180
-  days on `tasks` is a provisioned value the service stamps on each tombstone,
-  because a container has one TTL and a container-level 180 days would expire
-  live tasks too. Local runs use the Cosmos vNext emulator the Aspire AppHost
+  days on `tasks` is a provisioned value the service stamps on each tombstone. A
+  container has one TTL, and a container-level 180 days would expire live tasks too. Local runs use the Cosmos vNext emulator the Aspire AppHost
   starts, so the sync path needs no Azure account.
-- **Rating** — `trial` and no higher. The account is provisioned in `JS-AI` and
-  the hand-deployed sync service reaches it, but the `Deploy Sync` workflow has
-  completed only a `preview` run and no real multi-device use has validated it.
+- **Rating** — `trial` and no higher. The account is provisioned in `JS-AI`, and
+  the hand-deployed sync service reaches it. The `Deploy Sync` workflow has
+  completed only a `preview` run, and no real multi-device use has validated it.
 
 ## Azure Blob Storage
 
@@ -286,8 +285,8 @@ a workspace-based Application Insights resource over it.
   a sink its telemetry ends when the replica does.
 - **How** — provisioned by `infra/sync/main.bicep`. The container app environment
   logs through the `azure-monitor` destination and a diagnostic setting, not the
-  `log-analytics` destination, which wants the workspace's shared key inline and
-  this deployment issues no keys.
+  `log-analytics` destination. That one wants the workspace's shared key inline,
+  and this deployment issues no keys.
 - **Constraint** — application observability **only**. The service writes no task
   or session content here, and nothing that identifies the owner. A telemetry
   pipeline samples and drops under load, so a dashboard answered from it would be
@@ -343,10 +342,12 @@ ADR 0039).
   [Firebase Cloud Messaging](#firebase-cloud-messaging) (FCM). Calling FCM directly
   would need workload identity federation set up with `gcloud`, outside the stack.
 - **How** — the Free tier, which allows one million pushes a month and 500
-  devices. Notification Hubs supports no managed identity, so
+  devices. Notification Hubs supports no managed identity. So
   `infra/sync/main.bicep` declares a `sync-send` and a `sync-manage` rule on the
-  `backlog` hub and passes both connection strings straight into container app
-  secrets; no person handles them. The service-side client is
+  `backlog` hub, and passes both connection strings straight into container app
+  secrets. No person handles them.
+
+  The service-side client is
   `Microsoft.Azure.NotificationHubs` 4.2.0, in
   `Backlog.Infrastructure.NotificationHubs` alone. It keeps one FCM v1
   installation per phone and sends to the owner's tag. There is no emulator, so

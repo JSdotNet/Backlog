@@ -68,15 +68,21 @@ Debt that belongs to no single decision:
 
 - **D1:** The conventions cover C# style and testing (unit, integration, e2e, architecture). They also cover object calisthenics, validation strategy, logging and audit logging (`.devbook/arc42/adr/guidelines/README.md`). They belong in `.agents/rules/`, where they load while code is edited. See
   [TDR 0002](tdr/0002-coding-and-testing-conventions-have-no-checked-in-home.md).
-- **D2:** The screen told the user every entry was a markdown file and invited them to point the folder at a synced one, though since ADR 0003 the store is one binary SQLite file. The copy now says the backlog is a single SQLite database that must stay on a local disk, and that a file-sync folder cannot merge it and will lose edits. It was the instruction that caused the loss in R9, whose mitigation points here. `SettingsStorageCopyTests` pins the warning and the absence of the retired advice.
-- **D3:** Local **ADR 0006** records the mechanism: additive, idempotent bootstrapping by the adapter on any open whose file is not stamped with the store's current schema definition. It allows three shapes and states the boundary. `updated_at` and `deleted_at` landed through it, seeded from `created_at`. The residual gap: no schema version, no ordered step list or record of which step has run, and no defined behaviour when an older build opens a newer database. The first non-additive change triggers building one, and ADR 0006 supersedes itself then.
+- **D2:** The screen told the user every entry was a markdown file and invited them to point the folder at a synced one. Since ADR 0003 the store is one binary SQLite file. The copy now says the backlog is a single SQLite database that must stay on a local disk. It also says a file-sync folder cannot merge it and will lose edits. It was the instruction that caused the loss in R9, whose mitigation points here. `SettingsStorageCopyTests` pins the warning and the absence of the retired advice.
+- **D3:** Local **ADR 0006** records the mechanism: additive, idempotent bootstrapping by the adapter on any open whose file is not stamped with the store's current schema definition. It allows three shapes and states the boundary. `updated_at` and `deleted_at` landed through it, seeded from `created_at`. The residual gap:
+  - no schema version;
+  - no ordered step list or record of which step has run;
+  - no defined behaviour when an older build opens a newer database.
+
+  The first non-additive change triggers building one, and ADR 0006 supersedes itself then.
 - **D4:** The lazy branch snapshot (local ADR 0008, third amendment) excludes `_archify/`
-  from the content fetch so that it can be fetched only when a rendered diagram is
+  from the content fetch so it can be fetched only when a rendered diagram is
   shown. The on-demand half was never built; `ArchifyDiagramArtifacts` reads the snapshot folder directly. See
-  [TDR 0001](tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md). Since
-  [local ADR 0034](adr/0034-archify-renders-are-generated-on-demand-not-committed.md) the
-  renders are not committed and the app draws them from the specifications. `_archify/` therefore holds only small JSON and the exclusion's cost premise is gone, so fetching it with its area (TDR option C) is now the cheap fix. Meanwhile the out-of-date signal and the render/author affordances never appear, though a clone shows all of it.
-- **D5:** This dates from plan `devbook-adoption`, entry `fix-check-findings`. Both devbook checks exit 0 with nothing blocking, but warn on the section headings inside decision and debt records and domain events, Inbox requirements proved only by `unit` tests, and terms two chapters claim. Each prose finding left standing has an owning plan entry; [TDR 0003](tdr/0003-the-devbook-check-is-not-a-zero-warning-signal.md) has the counts and list. A new warning is found by comparing counts, not by the exit code, and agents read the deferred prose as current until the owning entries land.
+  [TDR 0001](tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md).
+
+  Since [local ADR 0034](adr/0034-archify-renders-are-generated-on-demand-not-committed.md) the
+  renders are not committed and the app draws them from the specifications. `_archify/` therefore holds only small JSON and the exclusion's cost premise is gone. Fetching it with its area (TDR option C) is now the cheap fix. Meanwhile the out-of-date signal and the render/author affordances never appear, though a clone shows all of it.
+- **D5:** This dates from plan `devbook-adoption`, entry `fix-check-findings`. Both devbook checks exit 0 with nothing blocking. They warn on the section headings inside decision and debt records and domain events, Inbox requirements proved only by `unit` tests, and terms two chapters claim. Each prose finding left standing has an owning plan entry; [TDR 0003](tdr/0003-the-devbook-check-is-not-a-zero-warning-signal.md) has the counts and list. A new warning is found by comparing counts, not by the exit code, and agents read the deferred prose as current until the owning entries land.
 - **D6:** A task row's badge reads a linked session through Tasks' port, while the task's
   side panel reads the session record straight from the Sessions adapter in the shell.
   See [TDR 0004](tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md)

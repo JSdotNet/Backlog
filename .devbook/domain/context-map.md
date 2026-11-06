@@ -194,7 +194,7 @@ flowchart LR
   keep only foreign ids, and the [Cross-Linking](brain/domain.md#cross-linking) service coordinates the links.
 - `Brain` is downstream of `Devbook` as a Customer/Supplier, not a Shared Kernel
   (local ADR 0040). It conforms to the devbook convention and reads, indexes and
-  renders its notes through Devbook's machinery; a need of its own enters through
+  renders its notes through Devbook's machinery. A need of its own enters through
   a hook Devbook offers, and Devbook knows no PARA, area or capture. Its repo links
   run one way, into a repository chapter, and its backlinks are read from the
   owner's Brain, never written into the repository. Its [Lobes atlas](brain/features.md#lobes-atlas) reads the
@@ -233,7 +233,7 @@ flowchart LR
   [status](repository-management/domain.md#pull-request-status), its
   [readiness verdict](repository-management/domain.md#readiness-verdict), its stack,
   the [merge commands](repository-management/domain.md#merge-command) and the one
-  cache, and it is the one place an archived repository's pull requests are skipped.
+  cache. It is the one place an archived repository's pull requests are skipped.
   Every reader goes through its contract:
   - `Tasks` and `Progress` through an adapter that answers their own port, so
     neither references Repository Management;
@@ -242,7 +242,7 @@ flowchart LR
 
   No module screen reads pull request state from the GitHub adapter or sends a
   merge command there. The reverse question, which task a session or a pull request
-  belongs to, is `Tasks`' lookup, asked by the shell, so no two contexts
+  belongs to, is `Tasks`' lookup. The shell asks it, so no two contexts
   form a cycle. The pull request activity history that the dashboard
   and `Productivity` read is a different question and stays outside this rule.
 - A `Sessions` [Environment](sessions/domain.md#environment) is not an
@@ -252,7 +252,7 @@ flowchart LR
   own under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds
   another context's identity for it. The Sessions Environment's `EnvironmentId` is
   the product-wide device identity issued by the shared kernel
-  (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns and which is still not a Machine.
+  (`.devbook/domain/tasks/domain.md#device`). No bounded context owns it, and it is still not a Machine.
 - `Progress` reads each thing it names from its owner on every reading. It names
   them by these identities:
   - a task by its id;
@@ -261,23 +261,26 @@ flowchart LR
   - a session by its agent and session id.
 
   An impediment holds back tasks, pull requests and plans by the same
-  identities. `Tasks` knows no goals or impediments: no task
+  identities. `Tasks` knows no goals or impediments. No task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. A task's blocked mark is Tasks' alone and raises no
-  impediment; Tasks does not call Progress and stores no impediment id
+  impediment. Tasks does not call Progress and stores no impediment id
   (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
+
   Progress publishes no event, so it has no row in the published-language table;
   its edges are Customer/Supplier reads. The Sessions edge is local ADR 0037's.
 - `Sync` carries other contexts' documents without interpreting them.
   It stores each one whole under its [Owner](sync/domain.md#owner), orders
   pushed copies by stamp and tombstone
   ([Change Precedence](sync/domain.md#change-precedence)), and hands them back.
-  It reads no payload field, and the merge into a device's store stays with the
+  It reads no payload field. The merge into a device's store stays with the
   document's owner: Tasks, Sessions, Devbook, or the Inbox for a `capture`-kind
-  document. A context that wants its documents on every device conforms to the
-  replica protocol through an adapter in `Backlog.Infrastructure.Sync`; it never
+  document.
+
+  A context that wants its documents on every device conforms to the
+  replica protocol through an adapter in `Backlog.Infrastructure.Sync`. It never
   reaches into another context's documents on the replica.
 - `Notifications` is downstream of `Sync` and upstream of every context that
   publishes (local ADR 0039). It conforms to the replica protocol for its
@@ -286,7 +289,7 @@ flowchart LR
   way they depend on `Tasks.Abstractions`, and never on its module. Notifications
   reads no publisher's data: the context that owns a subject reports the end
   through `CloseForSubjectAsync`, and answers a probe at startup. The pairing
-  question makes `Sync` both its supplier and a publisher, and the two edges run
+  question makes `Sync` both its supplier and a publisher. The two edges run
   through different parts: the desktop sync client carries the documents, and the
   pairing flow publishes the question.
 - `Sessions` and `Tasks` supply each other through different parts, so the two
@@ -294,7 +297,9 @@ flowchart LR
   state a task's work badge shows. Tasks supplies
   [filing a follow-up after an entry](tasks/features.md#filing-a-follow-up-after-an-entry),
   which the Sessions answer handler calls when the person approves a run with a
-  follow-up. Sessions records the answer on the run; Tasks decides
+  follow-up.
+
+  Sessions records the answer on the run; Tasks decides
   what the follow-up is born with. Both use infrastructure adapters, and
   neither module references the other. The follow-up is a task, never a session
   request (local ADR 0038 §1).

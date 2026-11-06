@@ -62,7 +62,7 @@ flowchart LR
     label["Label the unclassified open issues"] --> close["Close the ones evidence shows done"] --> resolve["Resolve some of the rest"] --> brief["Land the brief"]
 ```
 
-It closes only issues that high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its `maxResolve` of the rest, one at a time, each as a draft pull request whose body says what could not be proved. The brief
+It closes only issues that high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its `maxResolve` of the rest, one at a time, each as a draft pull request. Each body says what could not be proved. The brief
 is a `schedule-report` issue.
 
 - **Used for** — keeping the issue list triaged and turning small issues into reviewable
@@ -84,8 +84,8 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`,
-posts its verdict on each as a comment, and skips one already reviewed at its current head.
+Every weekday, `merge-review` reviews up to ten open, non-draft pull requests against `main`
+and posts its verdict on each as a comment. It skips one already reviewed at its current head.
 
 - **Used for** — a second reading of every pull request before the owner merges it.
 - **Adopted by** — the schedule, since 2026-09-26.
@@ -185,7 +185,7 @@ date: 2026-09-26
 ```
 
 Every Thursday, `instruction-review` opens a draft pull request cutting what does not change
-an agent's behaviour from the instruction files and rules, with a ledger of every cut.
+an agent's behaviour from the instruction files and rules. A ledger lists every cut.
 
 - **Used for** — keeping the standing brief short enough to be read every time.
 - **Adopted by** — the schedule, since 2026-09-26.
@@ -205,7 +205,7 @@ date: 2026-09-26
 ```
 
 Every Saturday, `package-update` moves NuGet packages by minor and patch versions and opens
-one pull request, listing each package it skipped because the bump broke the build or tests.
+one pull request. It lists each package skipped because the bump broke the build or tests.
 
 - **Used for** — keeping dependencies current without a person starting the work.
 - **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.

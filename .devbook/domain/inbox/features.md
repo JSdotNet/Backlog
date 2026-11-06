@@ -15,27 +15,6 @@ related: [.devbook/domain/capture/features.md#normalized-delivery]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-Receive normalized Inbox Items from all Capture sources into a single shared
-queue. New items default to `unprocessed` and are read newest first by capture
-timestamp. Every row leads with its `Content Kind` and its `Source`, so the
-reader sees what a thing is and who sent it before deciding on it. The selected
-item opens in a detail view shaped by its kind.
-
-The rows are grouped by how long ago they were captured: **Today**, **This
-week** and **Older than a week**, each heading with its count. An empty group
-is not shown. On the desktop the Inbox takes the whole screen in place of
-the main view, in three columns: the side menu, the rows, and the detail of the
-chosen item.
-
-**Deferred** is the one [slice](domain.md#slice) without age
-headings. Its rows run in the order they come back, soonest review date first.
-
-A row is a tile with the kind's mark, the title, a line saying what kind of
-thing it is and where it came from ("Article · Web clipper"), and how long ago
-it arrived. A row whose item has a [suggestion](#classification-and-enrichment)
-the reader can take says **suggested** under its age. Tags and
-repositories are shown in the detail, not on the row.
-
 **Capture intake and acknowledgement**
 
 The replica document and its `capture` kind token are
@@ -83,7 +62,7 @@ sequenceDiagram
 - The intake decides by id and status and parses no token. Every case has an
   answer and none is an error, because the caller is the sync client and an error
   would replay the page for ever. For the same reason, a file entry
-  no fetch could honour is left off the item rather than thrown, and a file that
+  no fetch could honour is left off the item rather than thrown. A file that
   fails to download leaves the item Received.
 - Only a route, archive or delete of a
   [replica-backed item](domain.md#replica-backed-item) puts an acknowledgement
@@ -100,6 +79,33 @@ sequenceDiagram
   instead.
 - The phone's own "Triage" acknowledges the same way: the service tombstones the
   capture document.
+
+Receive normalized Inbox Items from all Capture sources into a single shared
+queue. New items default to `unprocessed` and are read newest first by capture
+timestamp. Every row leads with its `Content Kind` and its `Source`, so the
+reader sees what a thing is and who sent it before deciding on it. The selected
+item opens in a detail view shaped by its kind.
+
+The rows are grouped by how long ago they were captured: **Today**, **This
+week** and **Older than a week**, each heading with its count. An empty group
+is not shown. On the desktop the Inbox takes the whole screen in place of
+the main view. It has three columns: the side menu, the rows, and the detail of
+the chosen item.
+
+**Deferred** is the one [slice](domain.md#slice) without age
+headings. Its rows run in the order they come back, soonest review date first.
+
+A row is a tile with:
+
+- the kind's mark;
+- the title;
+- a line saying what kind of thing it is and where it came from ("Article · Web
+  clipper");
+- how long ago it arrived.
+
+A row whose item has a [suggestion](#classification-and-enrichment)
+the reader can take says **suggested** under its age. Tags and
+repositories are shown in the detail, not on the row.
 
 ### Add by hand
 
@@ -144,7 +150,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:
 ```
 
 A thought captured on the phone often comes with a photo, a screenshot or a
-PDF, which the reader sees on the desktop while deciding what to do with
+PDF. The reader sees it on the desktop while deciding what to do with
 the item.
 
 The item arrives first with the list of files the
@@ -188,8 +194,8 @@ related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/re
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-A row of pills over the rows, led by **All** with the slice's count, then one
-pill per `Content Kind` present in the selected slice, each with its count.
+A row of pills sits over the rows. **All** leads it with the slice's count, then
+one pill per `Content Kind` present in the slice, each with its count.
 Toggling kind pills narrows the rows to those kinds; **All** clears them and is
 the pressed pill while no kind is. The pills are a lens over a list, never a
 place an item goes.
@@ -248,7 +254,7 @@ Five acts are offered across the selection:
   [batch](#route-a-batch-to-tasks).
 
 Each of the first four is the same decision the item's own detail makes,
-applied to each picked item in turn, so an item the single-item act would
+applied to each picked item in turn. So an item the single-item act would
 refuse is refused here too. Tags are added to what each item already carries.
 Repositories replace what each item targeted before. An item already at the
 value is left alone. The tags and repositories of an item already routed or
@@ -310,13 +316,22 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests]
 ```
 
+```mermaid
+flowchart TD
+    A["A decision is taken"] --> B{"Another row after this one?"}
+    B -->|yes| C["The next row"]
+    B -->|no| D{"An item still waiting?"}
+    D -->|yes| E["The first item still waiting"]
+    D -->|no| F["Inbox zero"]
+```
+
 **Start triage** in the header, or **t**, shows one item at a time, full width.
 From the top down the screen holds:
 
 - **Progress.** **Back to the list** (**Esc**), a bar, and beside it the line
   "n of total · m decided this session". The line says where the item stands
-  among the rows of the slice still open when triage first saw them, and how
-  many decisions the reader has taken since the app opened. A row already moved
+  among the rows of the slice still open when triage first saw them. It also
+  counts the decisions the reader has taken since the app opened. A row already moved
   to the backlog is stepped over and not counted. The bar fills with the rows
   decided since triage began, and an item that arrives during triage is counted
   after those rows. Previous (**k**) and **Skip** (**j**) step without deciding.
@@ -340,11 +355,10 @@ Beside the item an **Up next** list shows the next four items in the order
 triage will show them. Under it, **Just decided** shows the session's last
 decision as "*title* → *what became of it*", with **Undo** (**u**).
 
-Each decision (archive, defer, move to a list, move to the backlog, merge into a
-task) moves on to the next row. Past the last it goes back to the first item
-still waiting, where a reader who skipped some with **j** left them.
-When none is left, triage gives way to [Inbox zero](#inbox-zero). Tags and
-repositories are not decisions and leave the reader where they are. Escape, or
+The decisions that move on are archive, defer, move to a list, move to the
+backlog and merge into a task. A reader who skipped items with **j** finds them
+again past the last row, and [Inbox zero](#inbox-zero) follows when none is left.
+Tags and repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
 
 ### AI triage cards
@@ -400,7 +414,7 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 
 A capture that repeats a task already in the backlog is folded into that task
 rather than filed a second time. The capture's title, link and notes are added
-to the task as a comment, and the capture is archived as a duplicate: its
+to the task as a comment. The capture is archived as a duplicate: its
 `DuplicateOf` names the task. The task keeps everything it had.
 Merging is a decision of the session and can be undone ([Undo a
 decision](#undo-a-decision)).
@@ -414,6 +428,14 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests]
 ```
 
+```mermaid
+flowchart TD
+    U["u, or Undo beside the last decision, takes the newest one not yet undone"] --> R{"The undo"}
+    R -->|succeeds| O["The item is open again where it was before"]
+    R -->|is refused| D["The undo is dropped, so the next u reaches the decision before it"]
+    R -->|fails: the store could not take the decision back| S["The undo stays on top and says it could not be done. The decision still stands and counts. The next u tries it again"]
+```
+
 Every decision taken in this session can be taken back, newest first, until the
 app closes:
 
@@ -423,9 +445,6 @@ app closes:
 - move to the backlog;
 - merge into a task;
 - To Brain.
-
-**u**, or **Undo** beside the last decision, takes back the
-newest one not yet undone, and the item is open again where it was before.
 
 Two decisions reach outside the Inbox, and undoing them is bounded by that:
 
@@ -440,21 +459,15 @@ back the same way. Undoing a link leaves the task it named alone. A bulk act
 over several items (a bulk archive, a bulk move, or a batch route with the
 duplicates it merged) is one decision to undo and brings every item back at once.
 
-An undo that is refused is dropped, so the next **u** reaches the decision before it.
+In a bulk act, only the items that failed stay on top. The sentence says what
+was refused, what failed and how many items came back.
 
-An undo that fails because the store could not take the decision back stays on
-top instead. The decision still stands and counts, and the undo says it
-could not be done. The next **u** tries it again. In a bulk act, only the items
-that failed stay on top, and the sentence says what was
-refused, what failed and how many items came back.
-
-An undo outlasts the decision's [sync echo](domain.md#sync-echo).
-[Undo and a returning tombstone](domain.md#inbox-item) shows
-the timing. Archiving or moving a capture from the phone sends the replica an
-acknowledgement, and a later pull may deliver it again, even days later. The
-item stays open, because the acknowledgement is older than the undo. A
-dismissal that the phone or another desktop makes after the undo still closes
-the item.
+An undo outlasts the decision's [sync echo](domain.md#sync-echo), even one a
+pull delivers days later. [Undo and a returning tombstone](domain.md#inbox-item)
+shows the timing. Archiving or moving a capture from the phone sends the replica an
+acknowledgement. The item stays open, because that acknowledgement is older than
+the undo. A dismissal that the phone or another desktop makes after the undo still
+closes the item.
 
 Decisions are not remembered past the app: change an earlier session's decision
 by deciding again.
@@ -772,7 +785,7 @@ says so. Only one route runs at a time: a batch waits for a single route to
 finish, and a single route waits for a batch.
 
 An item whose entries were made but which could not then be marked routed is
-named along with those entries, so the reader need not route it again and
+named along with those entries. The reader then need not route it again and
 duplicate them.
 
 [Before you route](#before-you-route) settles which item waits on which.
@@ -853,7 +866,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotn
 keeping its title and its body. Under the default
 [PARA](../brain/domain.md#para-category) areas that area is the `_inbox`
 folder. It is the route for [collected material](domain.md#collected-material),
-a capture the reader wants to keep rather than act on, and for an Inbox
+a capture the reader wants to keep rather than act on. It also takes an Inbox
 [note](domain.md#note) the reader has finished with on the phone.
 
 It ends the item's triage as Route to Tasks does: the item is routed, once, and
@@ -874,9 +887,8 @@ own reason instead of being refused once pressed.
 
 The toast names the note it wrote. Undo returns the item to the queue and
 leaves the note where it is, as the person's file by then. Routing the same item
-To Brain again reuses that note while nobody has edited it, meaning the file
-still holds exactly the text the route would write, instead of writing a `-2`
-copy. A note somebody has edited is theirs, and a second route writes a new one.
+To Brain again reuses that note, instead of writing a `-2` copy, while the file
+still holds exactly the text the route would write. A note somebody has edited is theirs, and a second route writes a new one.
 Only a route reuses: two captures in the Brain with the same words are two notes.
 
 ### Defer
@@ -890,7 +902,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit
 
 Put an item aside with an optional **Review on** date from its detail. The item
 leaves the Inbox and appears under the side menu's fixed
-**Deferred** row, which counts every deferred item wherever it is filed and
+**Deferred** row. That row counts every deferred item wherever it is filed and
 lists them soonest review date first, undated last. A deferred item keeps its
 list and can still be archived or routed. Deferring it again changes the
 date, and **Return to inbox** brings it back at once.
@@ -949,8 +961,8 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
-The Inbox half of queue health, at the foot of the side menu: how many items
-wait unprocessed, and a bar in three parts that splits them by age:
+The Inbox half of queue health sits at the foot of the side menu. It shows how
+many items wait unprocessed, and a bar in three parts that splits them by age:
 
 - captured under 3 days ago;
 - from 3 days up to the stale threshold;
@@ -1031,11 +1043,14 @@ tools.
 
 [A note on the phone](features.md#notes) shows how it saves. The
 editor has no save button: the note is saved a second after typing stops.
-Leaving a field or the editor saves at once, as do picking a file and the app
-going to the background, where the phone may end it before the second is up.
+These save at once:
 
-A note made or changed on the phone is kept on the phone first and sent through
-the outbox, so it works with no signal. Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
+- leaving a field or the editor;
+- picking a file;
+- the app going to the background, where the phone may end it before the second
+  is up.
+
+Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
 item are not part of the phone's Notes tab.
 
 ### Notes on the desktop

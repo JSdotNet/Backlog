@@ -57,7 +57,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/f
 Choose a task's tags from a picker that offers every
 [Roadmap Item](../roadmap/domain.md#roadmap-item) tag alongside the tags already
 in use. A person files a task against planned work by picking the plan's own
-vocabulary rather than retyping it, so the tag matches exactly and the roadmap can gather the task back later.
+vocabulary rather than retyping it. The tag then matches exactly, and the roadmap can gather the task back later.
 
 The picker offers **every** roadmap tag, including ones no task has used yet. The
 tag is the same slug the roadmap item holds, and it keeps
@@ -117,7 +117,9 @@ tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, 
 
 A task can point at the parts of a journey that prove it. A journey is one
 end-to-end walk, a `##` chapter of a context's scenarios file in the repository's
-devbook, and each of its `###` parts is an outcome the journey reaches. The task
+devbook. Each of its `###` parts is an outcome the journey reaches.
+
+The task
 points at a part as `<scenarios file>#<part>`. It
 can also point at a journey or a whole scenarios file, which stand for every
 part they hold. A requirement stands for the parts its `Proved by:` lines name. A
@@ -126,7 +128,7 @@ part reached two ways counts once.
 The open task lists these parts under its Devbook references as an acceptance
 checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
 part. A quieter line names the journey by its anchor, which also names the
-run folder, and says when it last ran, as
+run folder. It says when the journey last ran, as
 "place-an-order · 14 Oct 2026 09:30", or "Never run". A failed part whose run recorded the step it stopped on adds that step, as
 "· step 2".
 
@@ -136,7 +138,7 @@ only when its last run passed on the journey as it stands now. A part that passe
 before the journey was edited is stale, because the run proved a different journey,
 and it shows no step.
 
-Pressing a part opens its scenarios file in the Devbook pane at that part, marked and scrolled into view until the
+Pressing a part opens its scenarios file in the Devbook pane at that part. The part stays marked and scrolled into view until the
 reader picks another chapter or reference. A part the file no longer has opens the file and marks nothing.
 
 When every part passes, the task is proved. That is a signal only: the task keeps its status until a person moves it.
@@ -147,7 +149,7 @@ Markdown source, so the image reads as the text written. Drawing it waits for a 
 screenshot is shown where its scenarios file is read in the Devbook pane
 ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 
-A coding session gets the same answer: listing a task's Devbook references gives
+A coding session gets the same answer. Listing a task's Devbook references gives
 each part with its state, last run and failed step, and a count
 with whether the task is proved.
 
@@ -178,7 +180,7 @@ value is left alone and counted as unchanged.
 
 The outcome is a count of the tasks that changed. A task that
 cannot be saved is reported alongside that count rather than abandoning the
-rest of the batch, so a batch that only partly succeeds says so.
+rest of the batch. A batch that only partly succeeds says so.
 
 Marking a batch done spawns a successor for each recurring task it holds, as
 completing them one at a time does.
@@ -198,7 +200,7 @@ depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
 ```
 
-Record a task's [Effort](domain.md#effort), so the size of the work is a fact
+Record a task's [Effort](domain.md#effort). The size of the work is then a fact
 about the task rather than a guess made each time someone reads the plan it sits
 under. A task with none is not estimated, which is a normal state. A re-estimate happens when the *understanding of
 the size* changes, not when time passes.
@@ -237,8 +239,8 @@ these sections:
   as its own line.
 - How the open work splits by status, priority, type and repository.
 - What needs attention: the tasks overdue and due within the week, each named
-  and opening from the report, and how many tasks are waiting and what they
-  weigh.
+  and opening from the report. It also says how many tasks are waiting and what
+  they weigh.
 
 Waiting work is totalled rather than listed, because each row in the pane
 already names [what it waits on](#task-dependencies).
@@ -261,7 +263,7 @@ with a due date in the past is overdue, read by comparison rather than
 recorded as a status, so nothing has to sweep the backlog.
 
 The scheduling fields are written on the task's metadata line as named tokens,
-such as `due:2026-08-21`, `remind:2026-08-21T09:00` and `repeat:weekly`, beside the sigil tokens for type, priority, status, area and tags. They are
+such as `due:2026-08-21`, `remind:2026-08-21T09:00` and `repeat:weekly`. They sit beside the sigil tokens for type, priority, status, area and tags. They are
 named because the punctuation namespace is nearly
 exhausted, and five one-character marks for five date-shaped concepts would be
 unreadable in a hand-edited file.
@@ -295,7 +297,7 @@ related: [.devbook/domain/tasks/domain.md#occurrence-spawning, .devbook/domain/t
 
 Repeat a task every day, week, month or year,
 optionally restricted to particular weekdays so "every weekday" is expressible.
-The repeat is anchored to the due date, not to when the work finished, so a task completed three days late still falls due on its original
+The repeat is anchored to the due date, not to when the work finished. A task completed three days late still falls due on its original
 weekday.
 
 Ticking a recurring task off, which is what [Completed](domain.md#completed)
@@ -314,13 +316,13 @@ setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
 related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-Pick the tasks to work on today, separately from when they are due: a task
+Pick the tasks to work on today, separately from when they are due. A task
 due next Friday can be in today's [My Day](domain.md#my-day), and a task due
 today need not be.
 
 My Day expires on its own unless the person turns
 [Clear My Day overnight](context.md#clear-my-day-overnight) off. With it on,
-the default, yesterday's list clears itself without a timer or an overnight sweep, so a device that was switched off for a week comes back to an
+the default, yesterday's list clears itself without a timer or an overnight sweep. A device that was switched off for a week comes back to an
 empty My Day.
 
 With it off, an unfinished task picked on an earlier day stays in today's My Day
@@ -351,6 +353,8 @@ date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
 a bar. It shows My Day, never a due-date grouping,
 and splits it into four groups:
 
+**Today's groups**
+
 ```mermaid
 flowchart TD
     MyDay["Tasks in today's My Day"] --> Ticked{"Ticked off today?"}
@@ -368,13 +372,26 @@ open step, a bar of its steps, and the ways into Focus and the task's own page.
 Between blocks it shows the next timed task, labelled
 `Next · 14:00`. With none still to come there is no card.
 
-- **Agenda** holds the other open timed tasks in time order, each showing its
+- **Agenda:** the other open timed tasks in time order, each showing its
   block as `10:45–11:30`.
-- **Anytime today** holds the open tasks without an agenda time, in the order My
+- **Anytime today:** the open tasks without an agenda time, in the order My
   Day keeps them.
-- **Done today** holds the tasks ticked off today.
+- **Done today:** the tasks ticked off today.
 
 Every row ticks its task off or back on, and opens the task's own page.
+
+**The phone's screens**
+
+```mermaid
+flowchart TD
+    Today["Today"] -- "a row, or the Now card" --> Page["The task's own page"]
+    Today -- "the Now card" --> Focus["Focus"]
+    Page -- "Focus on this" --> Focus
+    Page -- "Move to tomorrow, Mark done" --> Today
+    Focus -- "Complete task" --> Today
+    Focus -- "Capture a thought" --> Sheet["Capture sheet"]
+    Sheet -- "save, cancel, or tap outside" --> Focus
+```
 
 The task's own page shows, from top to bottom:
 
@@ -384,7 +401,7 @@ The task's own page shows, from top to bottom:
 - **Focus on this**, when the task has an agenda time today;
 - the task's steps as a checklist headed by how many are done, as `2 of 5`;
 - the task's own text, read-only;
-- **Move to tomorrow** and **Mark done**, which both return to Today.
+- **Move to tomorrow** and **Mark done**.
 
 The steps, Move to tomorrow and Mark done change a task only while it is in
 today's My Day and not yet ticked off. Any other task shows its steps
@@ -399,8 +416,7 @@ and the title. A ring counts down to the end of the block every second, as
 Below the ring sit the current step, the first not ticked off, as
 `Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off the
 current step. When none is left it becomes **Complete task**, which ticks off
-the task and returns to Today. **Capture a thought** opens the capture sheet over
-Focus, and saving, cancelling or tapping outside returns to Focus.
+the task. **Capture a thought** opens the capture sheet over Focus.
 
 The phone changes four things about a task and nothing
 else:
@@ -457,7 +473,7 @@ related: [.devbook/domain/progress/features.md#raising-an-impediment, .devbook/d
 ```
 
 Mark a task blocked by hand when something outside the backlog holds it up. Readiness differs: it reads blocked from `depends_on`. The mark is the
-`blocked:` token on the task's metadata line, with the day it was set, and an agent
+`blocked:` token on the task's metadata line, with the day it was set. An agent
 sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
 
 The mark is the task's alone and raises no impediment. A person who wants the block
@@ -492,8 +508,8 @@ The follow-up is an ordinary [Task](domain.md#task), born as follows:
 | Provenance | the id of the notification whose answer asked for it |
 
 The gated entry's plan tag is its `import_plan_id`, or else the one plan tag it
-carries. The follow-up carries that tag and no `import_plan_id`, so the plan still lists it, and
-[re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
+carries. The follow-up carries that tag and no `import_plan_id`, so the plan still lists it.
+[Re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
 the re-import clears tasks by `import_plan_id`. A gated entry outside any plan gets
 a follow-up with no plan tag. A follow-up of a follow-up stays in the plan through
 the tag its gated entry carries. Sessions names the gated entry by its id, or by
@@ -546,30 +562,39 @@ feature-flag: .devbook/domain/tasks/context.md#github-integration
 related: [.devbook/domain/repository-management/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
 ```
 
+**The background check of a linked pull request**
+
+```mermaid
+flowchart TD
+    Due["Every pull request due a check"] --> Read["One read through the shared cache"]
+    Read --> Answer{"The answer"}
+    Answer -- "merged" --> Merged["Link turns green, the merge is remembered"]
+    Merged --> Prompt["A prompt entry moves to Done"]
+    Answer -- "closed without merging" --> Closed["Shown, not remembered"]
+    Answer -- "open, or could not be read" --> Wait["Asked again after two minutes"]
+    Wait --> Due
+```
+
 Push a task to its target repository as an issue carrying the task's title,
 body, and tags. The resulting issue reference is kept on the task, so the link
 is part of the item rather than a note about it. The task can then be asked to
 re-read that issue's current state, and the pull request that references it.
 Downstream progress is then visible from the backlog.
 
-The pull requests a task records are also checked in the background, so a
-merge turns its link green without the person asking. Every pull request due a
-check is asked about in one read, through the cache the pull requests pane,
-Progress and the side panel share. Merged and closed answers land on screen
-before open ones. A pull request still open, or one that could not be read,
-is asked about again after two minutes.
+The pull requests a task records are also checked in the background, without the
+person asking. The pull requests pane, Progress and the side panel share the cache that one read goes through. Merged and closed answers land on screen
+before open ones.
 
 A merge is remembered on this device. Repository Management keeps it in app storage, so the backlog opens instantly and offline
 and draws a merged link from the first frame. Tasks keeps only which of its
-entries each merge has finished (`IPullRequestFinishMemory`), so a restart
-neither moves an entry to Done twice nor forgets a move still owed. A pull
-request closed without merging is not remembered, and neither fact is written to the
+entries each merge has finished (`IPullRequestFinishMemory`). A restart therefore
+neither moves an entry to Done twice nor forgets a move still owed. Neither fact is written to the
 task: losing the memory costs one read per
 pull request. An open pull request's status is never remembered, because a
 stale one would offer a merge GitHub no longer allows.
 
-A prompt entry moves to Done when its pull request merges into the
-repository's default branch or a `plan/` branch — once per entry and merge,
+A prompt entry moves to Done only when the merge is into the
+repository's default branch or a `plan/` branch. It moves once per entry and merge,
 and only where its lifecycle allows the move. A task or test entry stays the
 person's to tick.
 
@@ -584,7 +609,7 @@ Connect a GitHub repository or a spec-manager product, and every open item in it
 appears on the Tasks list as a [Linked Task](domain.md#linked-task). The item
 needs no triage and no copying. Each sync keeps the title, status and assignee
 in step with the source on the terms
-[its requirements](requirements.md#linked-tasks) set, and leaves the person's
+[its requirements](requirements.md#linked-tasks) set. It leaves the person's
 own priority, My Day, area, sub-items and notes alone.
 
 Every linked task shows a source badge on its row, in the editor header and in
@@ -650,11 +675,22 @@ type: sub-feature
 related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-reconnecting-a-target-restores-the-tasks-deleted-with-it, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
+```mermaid
+stateDiagram-v2
+    state "Live" as Live
+    state "Tombstone, deleted with its source" as WithSource
+    state "Tombstone, deleted on its own" as Alone
+    Live --> WithSource : Delete tasks, target disconnected
+    Live --> Alone : the person deletes it
+    WithSource --> Live : next sync fetches its item, target connected again
+    WithSource --> Live : Restore deleted tasks
+    Alone --> Live : Restore deleted tasks
+```
+
 Disconnecting a target keeps its tasks on the list as they are. Settings →
 Connectors lists each source that left tasks behind under **Disconnected
 sources**, with how many tasks it left. **Delete tasks** asks first and then
 makes every one of them a [Tombstone](domain.md#tombstone), whatever its status.
-Each tombstone is marked as deleted with its source.
 
 The confirmation says that the items at the source stay untouched and that the
 deletion reaches the other devices. It also says that connecting the target
@@ -662,8 +698,7 @@ again brings the tasks back, and how many other tasks will wait on a missing
 one. A source connected again before the delete runs is refused, because its
 tasks belong to the sync again.
 
-When the target is connected again, its next sync restores each deleted task
-whose item it fetches and brings it up to date from the source. A first sync
+The sync that restores a task brings it up to date from the source. A first sync
 fetches open items only, so a task whose item has closed since stays deleted
 until the person restores it. A task deleted on its own is never brought back
 by the sync.
@@ -802,7 +837,7 @@ in both plan columns. The choice of columns is remembered with the view.
 While the columns are by status, the status filter steps aside, since every
 status is a column. A task can then be dragged to another column, but only a move
 the [task lifecycle](domain.md#task) allows is taken. While a task is
-held, the columns it may go to are marked, and the others say why not: a ready task, for example, has to be started before it can be
+held, the columns it may go to are marked, and the others say why not. A ready task, for example, has to be started before it can be
 done. Dropping it makes the same status change as the task's status picker.
 
 Each status column ends in a way to write a new task into that status.
@@ -979,11 +1014,19 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/ta
 related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage, .devbook/domain/tasks/requirements.md#import]
 ```
 
+```mermaid
+flowchart TD
+    Doc["A document, uploaded or pasted"] --> Count["Import says how many roadmap items and tasks it will produce"]
+    Count --> Tasks["Task entries are written as Tasks"]
+    Tasks --> Plans["plan entries go to Roadmap Planning"]
+    Plans --> Result["The result reports both halves apart"]
+```
+
 Bring in a plan that lists a sequence of work across one or more repositories,
 in the order its entries depend on each other. Import turns the whole plan into
 tasks in one step. Most plans
-are sequences of AI prompts to run, which is the case Import was written for. A
-plan can be uploaded as a file or pasted; both read the same plan. Import is a faster way of filling the backlog, not
+are sequences of AI prompts to run, which is the case Import was written for. An
+uploaded file and a paste read the same plan. Import is a faster way of filling the backlog, not
 a second way of holding work.
 
 Each entry in the plan becomes one [Task](domain.md#task) of the
@@ -1002,17 +1045,17 @@ Where the entry came from decides which status the task is born with:
 | States a status | At that status, set directly rather than as a lifecycle step |
 | States no status | `ready` |
 
-A stated status is reachable whatever it is, the settled ones included, so a plan
-can record a step finished before import, or hold back
+A stated status is reachable whatever it is, the settled ones included. A plan
+can therefore record a step finished before import, or hold back
 one still being shaped as `draft`.
 
 `ready` is the one default Import sets differently from a hand-typed task, which starts at `draft` while it is being shaped. A
-plan is work already agreed, and if every entry
+plan is work already agreed. If every entry
 landed at `draft`, somebody would have to promote each one by hand before
 [Readiness](domain.md#readiness) showed any of it.
 
-An entry drafted from an inbox item carries that item as its `source_inbox_id`:
-the item a plan was drafted from (`sourceInboxId`), or for a batch routed together, the item the entry's `id:` maps to
+An entry drafted from an inbox item carries that item as its `source_inbox_id`.
+That is the item a plan was drafted from (`sourceInboxId`), or for a batch routed together, the item the entry's `id:` maps to
 (`sourceInboxIds`). A model wrote the entry about captured content and nobody
 has read it yet, so the provenance decides the status, not the text. This
 governs birth only: a later version that restates the status of a task already
@@ -1025,8 +1068,8 @@ plan's local entry references resolved to the real task ids. "What's next" for a
 [Readiness](domain.md#readiness), grouped by [repository](#multi-repo-targeting).
 
 The plan itself becomes one of the task's tags, filed like a task
-[filed against a roadmap tag](#filing-a-task-against-a-roadmap-tag), so everything
-one plan brought in can be found and filtered as a group.
+[filed against a roadmap tag](#filing-a-task-against-a-roadmap-tag). Everything
+one plan brought in can then be found and filtered as a group.
 
 A plan also carries work around a prompt that is not the prompt itself:
 
@@ -1044,8 +1087,7 @@ Every task import creates carries where it came from; see
 
 A document may also carry entries that are not tasks. Import hands an entry
 whose type word is `plan` to
-[Roadmap Planning](../roadmap/features.md#laying-out-imported-plans) after the
-task entries have been written. Such an entry describes the plan as planned work:
+[Roadmap Planning](../roadmap/features.md#laying-out-imported-plans). Such an entry describes the plan as planned work:
 
 - its title;
 - its tag;
@@ -1059,15 +1101,14 @@ nothing else in this context will. Pasted anywhere but Import, it is refused.
 The decision is
 `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
 
-Before anything is written, Import says how many
-roadmap items and how many tasks the document will produce. A document of task entries alone can also be
+A document of task entries alone can also be
 laid out on the roadmap at once, but only when the person asks. It then gets one
 item per plan tag its entries carry, titled from the tag and scoped to the
 repositories those entries name. This is off by default, so a plan re-imported for its tasks does not grow an unwanted item.
 
 Each level waits only on its own kind. A task entry's `after:`
 naming a `plan` entry, or the other way round, is reported as unresolved.
-The result reports both halves apart. The tasks are written first, and a roadmap that refuses its half,
+A roadmap that refuses its half,
 such as plans waiting on each other in a circle, leaves the tasks
 written and says so.
 
@@ -1125,7 +1166,7 @@ An `in_progress` task takes these from the new version:
 - its setup, devbook and manual sub-items.
 
 Status moves only when the new version restates it. Otherwise the task keeps the progress
-it has made, since a plan silent on an entry's status is not asking for work under way to return to `draft`.
+it has made. A plan silent on an entry's status is not asking for work under way to return to `draft`.
 
 A `done` or `archived` task is left alone, as the settled record of what was done.
 
@@ -1149,7 +1190,7 @@ related: [.devbook/domain/devbook/features.md#repository-devbook-areas, .devbook
 Ask questions about the work currently in view and get an answer grounded in it.
 The answer comes from the tasks the active filters leave visible plus
 the loaded backlog knowledge, not the entire backlog. Entries that were opened but never
-edited are left out, and the assembled context is capped so a large backlog
+edited are left out. The assembled context is capped so a large backlog
 degrades into a partial answer rather than a failure. AI assistance is opt-in
 and the product stays fully usable with it off.
 
@@ -1164,7 +1205,7 @@ Move tasks between active and archived states; archived tasks are excluded
 from default views but always accessible and restorable.
 
 Reopening a `done` task returns it to `in_progress`, whatever status it held
-before; the earlier status is deliberately not kept, because reopening starts the work
+before. The earlier status is deliberately not kept, because reopening starts the work
 again. [Task](domain.md#task) holds the lifecycle this follows.
 
 Ticking a task off records that it is [Completed](domain.md#completed), a
@@ -1195,7 +1236,7 @@ the shared backlog file. Neither its setting in Settings →
 Storage nor the check exists any more.
 
 It was an interim mechanism that did not work. It assumed two machines could
-share one backlog through a shared folder, which held while a task was its own
+share one backlog through a shared folder. That held while a task was its own
 Markdown file and stopped when the store became a single binary
 database. A file-sync product produced conflicted
 copies of that database and silently reverted committed edits. Polling more
@@ -1213,14 +1254,14 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation]
 
 Keep the same backlog on more than one of the person's machines, without either
 giving up its own copy. Each device reads and writes its own store and
-reconciles with the others through the sync service; the cloud carries a replica
+reconciles with the others through the sync service. The cloud carries a replica
 of the tasks and is never the authority for them.
 
 Working offline is the ordinary case. Every task can be
 created, edited, completed and deleted with no connectivity, and connectivity only
 lets the other machine find out sooner. The task list then shows what
-arrived without reopening the app, except for an entry being
-edited: that change waits until the editing is done rather than replacing
+arrived without reopening the app. A change to an entry being
+edited waits until the editing is done rather than replacing
 the text under the caret.
 
 When the same task was edited in two places,
@@ -1252,14 +1293,14 @@ history, and the newest is always at the same address. A backup that would
 commit exactly what the repository holds is skipped.
 
 Backups run on a schedule, every day at a set time or every week on a set day
-and time, or on demand from **Back up now** on Settings → Storage &
-backup. A scheduled backup missed while the app was closed is taken shortly after
+and time. **Back up now** on Settings → Storage &
+backup runs one on demand. A scheduled backup missed while the app was closed is taken shortly after
 the app next opens.
 
 The page's headline answers whether the backlog is safe: *Backed up 3 h
 ago — 7 daily copies kept.*, or *Not backed up yet.* It moves when a backup
 completes while the page is open. The Backup card shows the same two figures,
-**Last backup** and **Keeping n daily copies**, over a line that says whether the
+**Last backup** and **Keeping n daily copies**. A line under them says whether the
 last backup committed anything and when the next one is due. A daily copy is a
 day on which this machine committed a new copy. Every commit stays in the
 repository's history, so the count only grows.
@@ -1308,6 +1349,6 @@ related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-time
 [reading and rescheduling on a timeline](../roadmap/features.md#reading-and-rescheduling-on-a-timeline)
 and
 [reading the plan by repository](../roadmap/features.md#reading-the-plan-by-repository)
-in Roadmap Planning. Now/Next/Later is not how the plan is read — a horizon is a
+in Roadmap Planning. Now/Next/Later is not how the plan is read. A horizon is a
 grouping, and the plan is read against dates, in repository bands with the
 person's own lanes inside them.

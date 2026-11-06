@@ -54,7 +54,7 @@ related: [".devbook/design/design-principles.md#keyboard-first", ".devbook/desig
 | Full operability | Every interactive element and command MUST be operable by keyboard alone, with no keyboard traps. |
 | Logical order | Tab order MUST follow visual/reading order. |
 | Standard keys | Enter/Space activate; Escape closes menus/dialogs and cancels a reorder; arrow keys navigate composite widgets. |
-| Reorder without a mouse | Reordering items and chapters MUST be fully possible via keyboard (grab/move model + explicit Move up/down/top/bottom commands) — see `interaction-guidelines.md#keyboard-accessible-reordering`. |
+| Reorder without a mouse | Reordering items and chapters MUST be fully possible by keyboard (grab/move model + explicit Move up/down/top/bottom commands); see `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Editing without a mouse | The Markdown editor, slash menu, raw-Markdown toggle, and all block insertions MUST be keyboard-operable (see `content-editing.md`). |
 | Shortcuts discoverable | Keyboard shortcuts MUST be discoverable via the command palette and documented; they MUST NOT clobber platform/assistive-tech shortcuts. |
 | Non-native controls | Elements not natively focusable that become interactive MUST get `tabindex="0"` (or platform equivalent) and explicit focus styles. |
@@ -70,9 +70,8 @@ related: [".devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter", 
 
 The editable `sync` direction of a devbook block is an arrow pad: four keys
 around a centre naming the direction in force, each key where its arrow points.
-The pad is one tab stop, roving: Tab reaches the key for what the block states,
-or the centre when it states `sync`, `off` or nothing, and leaves the pad on the
-next press.
+The pad is one roving tab stop. Tab reaches the key for what the block states,
+or the centre when it states `sync`, `off` or nothing. The next Tab leaves the pad.
 
 | Key | States | Announced as |
 |---|---|---|
@@ -236,7 +235,7 @@ related: [".devbook/design/interaction-guidelines.md#motion-and-reduced-motion"]
 |---|---|
 | Honor preference | The product MUST honor `prefers-reduced-motion` (and the platform equivalent on WinUI/MAUI). |
 | Degrade gracefully | Under reduced motion, use instant changes or opacity-only fades. |
-| Function preserved | Reduced motion MUST NOT remove functionality — drag autoscroll, reorder, and save feedback still work, just without decorative motion. |
+| Function preserved | Reduced motion MUST NOT remove functionality: drag autoscroll, reorder, and save feedback still work, without decorative motion. |
 
 Slide-ins and parallax stop, and so do translate, scale and rotate effects.
 Spinners show a static or indeterminate state, and the skeleton pulse is
@@ -265,15 +264,14 @@ reaches a further `spacing-sm` outward in the direction of its arrow. It never
 reaches inward or sideways, so a loose press on one key cannot land on the
 centre or a neighbour.
 
-The exception holds because the pad is an inline control beside a
-block's status, and three rows of 44 px keys would stand far taller than the
-heading the pad sits on. It is bounded:
-
-- Every direction stays reachable without a pointer, per
-  `#sync-direction-arrow-pad`, and `sync` and `off` through the centre's menu.
-- The centre is a badge-sized button, and the same exception covers it.
-- The exception covers this pad only. Any other control below 44 × 44 px needs
-  its own exception here.
+- **Why:** the pad is an inline control beside a block's status, and three rows
+  of 44 px keys would stand far taller than the heading the pad sits on.
+- **Bounds:**
+  - Every direction stays reachable without a pointer, per
+    `#sync-direction-arrow-pad`, and `sync` and `off` through the centre's menu.
+  - The centre is a badge-sized button, and the same exception covers it.
+  - The exception covers this pad only. Any other control below 44 × 44 px needs
+    its own exception here.
 
 **Exception — the dots on the Technology Clusters map.** On All layers each
 technology is a dot button that opens its layer on it. A dot's press area is its
@@ -281,27 +279,29 @@ own cell in the cluster's grid, and the dot is drawn at 0.8 of that cell. The
 cell is at most 2% of the map's width, and smaller in a crowded cluster. Press
 areas tile the cluster and never overlap a neighbour's.
 
-The exception holds under WCAG 2.2's 2.5.8 equivalent-control clause, because
-the side panel offers the same action at full size. It is bounded:
-
-- The side panel's layer list opens any layer, and its technology list picks any
-  technology in the open layer.
-- Every dot is reachable without a pointer, through its cluster's
-  [roving button group](#roving-button-groups).
-- The exception covers these dots only. The cluster circles, pills and
-  satellites on the same map are not covered by it.
+- **Why:** WCAG 2.2's 2.5.8 equivalent-control clause applies, because the side
+  panel offers the same action at full size.
+- **Bounds:**
+  - The side panel's layer list opens any layer, and its technology list picks
+    any technology in the open layer.
+  - Every dot is reachable without a pointer, through its cluster's
+    [roving button group](#roving-button-groups).
+  - The exception covers these dots only. The cluster circles, pills and
+    satellites on the same map are not covered by it.
 
 **Exception — the drag grips.** A grip that is an item's only press origin, as
-on a goal card or a No goal row, is 1.5rem (24 px) wide, WCAG 2.2's 2.5.8 AA
-minimum, and 2.75rem (44 px) tall. A wider grip would take the row's width from
-its title on every row of a dense list. The exception holds because the grip is
-the pointer's shortcut for a move the row already offers. It is bounded:
+on a goal card or a No goal row, is 1.5rem (24 px) wide and 2.75rem (44 px) tall.
+The width is WCAG 2.2's 2.5.8 AA minimum.
 
-- Every move a grip makes is reachable without it: a goal through **Move up**
-  and **Move down**, a No goal row through **Attach…**
-  (`interaction-guidelines.md#drag-affordances`).
-- A task row's grip needs no exception: the whole row is its press origin.
-- The exception covers drag grips only, at no less than 24 × 44 px.
+- **Why:** the grip is the pointer's shortcut for a move the row already offers.
+  A wider grip would take the row's width from its title on every row of a dense
+  list.
+- **Bounds:**
+  - Every move a grip makes is reachable without it: a goal through **Move up**
+    and **Move down**, a No goal row through **Attach…**
+    (`interaction-guidelines.md#drag-affordances`).
+  - A task row's grip needs no exception: the whole row is its press origin.
+  - The exception covers drag grips only, at no less than 24 × 44 px.
 
 ## Iconography Accessibility
 
@@ -384,11 +384,13 @@ What holds today:
 - `TaskListView` and `RoadmapTimeline` each carry one for reorder, per
   `#reorder-announcements`.
 
-**Reduced motion** by component: the fold chevron and toggle drop their
-transitions, and the spinner stops turning and becomes an opacity-only pulse.
-The skeleton stops altogether rather than substituting one, graph cards keep
-colour transitions only, and the copy confirmation keeps its cross-fade but
-stops scaling.
+**Reduced motion** by component:
+
+- The fold chevron and toggle drop their transitions.
+- The spinner stops turning and becomes an opacity-only pulse.
+- The skeleton stops altogether rather than substituting one.
+- Graph cards keep colour transitions only.
+- The copy confirmation keeps its cross-fade but stops scaling.
 
 **Not by colour alone:** save state carries text, not just a dot, and badges
 carry their label. The inert-link style is a dotted underline as well as a
@@ -423,6 +425,6 @@ Gaps, tracked rather than assumed:
   exceptions (`#target-sizes-and-text`), not gaps.
 - **Both app channels are web-rendered.** The desktop and the Android head each
   host Razor components in a WebView (the phone's from `Backlog.Mobile.UI` over
-  the shared library), so every rule above applies as written and MAUI's
+  the shared library). Every rule above therefore applies as written, and MAUI's
   `SemanticProperties` has nothing to govern. The IDE webviews have no
   implementation to check.

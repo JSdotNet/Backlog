@@ -7,7 +7,10 @@ type: context
 Productivity turns AI-assisted work activity into personal insight for the one
 person using it, and owns none of the work it measures.
 
-Inside the boundary: the productivity ledger and the summaries read off it, and the choices that shape how a week is read. These are the reader's working week, which follows them between devices, and the weekly assistant allowance reset and the monthly spend budget for each assistant, which stay on each device.
+Inside the boundary: the productivity ledger and the summaries read off it, and the choices that shape how a week is read:
+
+- the reader's working week, which follows them between devices;
+- the weekly reset of the assistant's allowance and the monthly spend budget for each assistant, which stay on each device.
 
 Outside it: task work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task) and [Repository Management](../repository-management/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers. The model is in [domain.md](domain.md).
 
@@ -22,15 +25,26 @@ related: [.devbook/domain/productivity/features.md#personal-productivity-dashboa
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
 ```
 
-Which hours the reader meant to be working, as seven independent days. Each day is worked or not, with its own start and end. The setting holds seven days rather than one range plus a set of working days, because a reader who starts at seven on Fridays cannot say so with a single range.
+```mermaid
+flowchart LR
+    Week[Working week] -->|outlined, nothing recomputed| Grids[Hour grids]
+    Week -->|counted, days not worked skipped| Roadmap
+    Week --> Hours[Hours worked]
+    Roadmap -->|sets| Override[Day override]
+    Override --> Hours
+```
 
-On the dashboard the working week is presentation only. The hour grids outline the hours the week claims, and nothing else changes: no figure is recomputed and no work is excluded. Agent-active time at eleven at night counts as much as time at eleven in the morning. A grid that quietly dropped out-of-hours work would answer a different question from the one its tile is named for, so the outline lets the reader see the difference.
+Which hours the reader meant to be working, as seven independent days. Each day is worked or not, with its own start and end. The setting holds seven days rather than one range plus a set of working days.
+
+- **Why:** a single range cannot say that a reader starts at seven on Fridays.
+
+On the dashboard the working week is presentation only. The hour grids outline the hours the week claims, and nothing else changes: no figure is recomputed and no work is excluded. Agent-active time at eleven at night counts as much as time at eleven in the morning. A grid that quietly dropped out-of-hours work would answer a different question from the one its tile is named for. The outline lets the reader see the difference.
 
 The roadmap does count it ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md), proposed). A plan sized by its effort is counted over the hours this week claims and skips the days not worked. A pace's week is this week's total hours. Day and week columns show their working hours, and days not worked are shaded. See [Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time).
 
 This setting holds the weekly pattern only. A single date that differs from it, a holiday or a worked Saturday, is a [day override](../roadmap/domain.md#day-override). The person sets it on the roadmap, by pressing a day head ([Blocking and unblocking a day](../roadmap/features.md#blocking-and-unblocking-a-day)) or in the Days off dialog ([Setting days off in a list](../roadmap/features.md#setting-days-off-in-a-list)). A day override travels inside the same `workingWeek` key.
 
-The dashboard's hour grids read the weekly pattern only and ignore the overrides. Its [Hours worked](features.md#hours-worked) part reads them too, because it splits the person's actual hours by their [office hours](domain.md#office-hours), and a blocked date has none.
+The dashboard's hour grids ignore the overrides. Its [Hours worked](features.md#hours-worked) part reads them, because it splits the person's actual hours by their [office hours](domain.md#office-hours), and a blocked date has none.
 
 An hour is outlined when **any part** of it falls inside that day's hours, so a day ending at 17:30 outlines the 17:00 hour. There is no half-marked cell to draw, and leaving the hour out would claim that work at ten past five happened out of hours.
 
@@ -40,7 +54,7 @@ Per value:
 - **A day whose end is at or before its start** outlines nothing. The settings screen refuses such a range with a message naming the hours it will not take, so only editing the file by hand reaches this state. A grid that outlined every hour because two times were the wrong way round would be worse than one that outlined none.
 - **No file, or one nobody can read,** is the default week. A day the file does not mention also comes from the default, rather than being read as a day off. Nothing stored means nobody said, and answering "not a working day" for the reader is the assumption this surface exists to avoid.
 
-The person changes it on the settings screen, one day at a time. It is stored in its own file beside the app's other per-device choices, because a section of the workspace pointer would be rewritten every time somebody moved Friday's finishing time. Times are written as `HH:mm`, as the reader spells them.
+The person changes it on the settings screen, one day at a time. It is stored in its own file beside the app's other per-device choices. A section of the workspace pointer would be rewritten every time somebody moved Friday's finishing time. Times are written as `HH:mm`, as the reader spells them.
 
 The Working week page's headline says the week in force in one sentence, read from the stored week, so a refused time never reaches it:
 
@@ -64,11 +78,11 @@ tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettin
 
 When the assistant's weekly usage allowance starts again: a day of the week and a time, recurring every seven days.
 
-It decides where the dashboard cuts a week. The columns of the Sessions tab's weekly charts run from one reset to the next rather than from a calendar Monday, so a column is the week the allowance is spent in. It changes no figure, only where the boundaries fall.
+It decides where the dashboard cuts a week. The columns of the Sessions tab's weekly charts run from one reset to the next rather than from a calendar Monday. A column is the week the allowance is spent in. It changes no figure, only where the boundaries fall.
 
 The hour grid beside those charts does not follow the reset. It is a calendar week, Monday to Sunday, so its seven rows are whole days and its "week N" title names the week the reader knows. Pressing a column opens the grid on the calendar week that usage week begins in, and the grid's caption says the columns run from the reset.
 
-The time is on this machine's clock, not UTC, because the reader copies the reset off the assistant's own usage screen ("Resets Mon 2:00 PM") and should not have to convert it.
+The time is on this machine's clock, not UTC. The reader copies the reset off the assistant's own usage screen ("Resets Mon 2:00 PM") and should not have to convert it.
 
 Three cuts can decide where a week starts. The first that applies wins:
 
@@ -80,7 +94,7 @@ Three cuts can decide where a week starts. The first that applies wins:
 
 Resolving through the zone's offset means a reset falling in a daylight-saving gap or overlap still names one instant. A configured reset outranks a detected one on purpose, because the usage records on a machine may come from an older plan or month. The surface says which of the three cuts won.
 
-The person sets and clears it on the settings screen. Clearing removes the file and hands the week back to detection. It is stored per device beside the working week. Unlike the working week, nothing syncs it, so `scope: user` is only the nearest rung the vocabulary offers: the same reader on a second machine starts again unset.
+The person sets and clears it on the settings screen. Clearing removes the file and hands the week back to detection. It is stored per device beside the working week. Unlike the working week, nothing syncs it, so `scope: user` is only the nearest rung the vocabulary offers. The same reader on a second machine starts again unset.
 
 ## Monthly spend budget
 
@@ -103,7 +117,7 @@ Per value:
 
 An amount is a bare number with no currency. It is read in the currency that provider reports its spend in, because Backlog holds no exchange rate. A provider with no spend yet this month has no currency of its own: its budget is read in the currency of the month's other spend, and in US dollars when nothing has been spent. A negative amount, or text that is not an amount, is refused with a message, and the budget in force stays. A file entry that cannot be read is dropped, and the other budgets are kept.
 
-The person sets it in Dashboard settings. It is stored per device beside the weekly usage reset, and clearing the last budget removes the file. Like the reset, nothing syncs it, so `scope: user` is the nearest rung the vocabulary offers: the same reader on a second machine starts with no budgets.
+The person sets it in Dashboard settings. It is stored per device beside the weekly usage reset, and clearing the last budget removes the file. Like the reset, nothing syncs it, so `scope: user` is the nearest rung the vocabulary offers. The same reader on a second machine starts with no budgets.
 
 ## AI usage metrics
 

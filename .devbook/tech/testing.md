@@ -49,7 +49,7 @@ The test host that replaces VSTest for this solution.
 
 - **Used for** — running the suite. `global.json` selects it
   (`"test": { "runner": "Microsoft.Testing.Platform" }`), which changes the
-  command-line contract of `dotnet test`: the solution is named with
+  command-line contract of `dotnet test`. The solution is named with
   `--solution`, and options are the platform's, not VSTest's.
 - **Why** — xUnit v3 targets it, and it makes each test assembly a self-contained
   executable.
@@ -185,11 +185,11 @@ related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".de
 
 Browser automation for end-to-end validation.
 
-- **Used for** — two things:
+- **Used for** —
   - The `phase-verify` stage of a code-modifying `flow-*` run. It drives the Blazor
-    Server harnesses and the storybook, captures screenshots and video as evidence,
-    and attaches to the desktop head over WebView2's Chrome DevTools Protocol (CDP)
-    debugging port.
+    Server harnesses and the storybook, and captures screenshots and video as
+    evidence. It attaches to the desktop head over WebView2's Chrome DevTools
+    Protocol (CDP) debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
     `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
     reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.

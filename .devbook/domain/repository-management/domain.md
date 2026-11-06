@@ -238,8 +238,6 @@ and `TechAdoptionTrends`.
 type: enum
 ```
 
-The kind of repository:
-
 - `service`;
 - `library`;
 - `frontend`;
@@ -261,7 +259,7 @@ type: domain-service
 related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repository-management/domain.invariants.md#repository-scan]
 ```
 
-Runs scheduled or on-demand scans of a repository. A scan parses dependency manifests, detects the technology stack, fetches GitHub metadata and security alerts, and recomputes the health score from package freshness, GitHub backlog, coverage and security.
+Runs scheduled or on-demand scans of a repository. A scan parses dependency manifests, detects the technology stack, and fetches GitHub metadata and security alerts. It then recomputes the health score from package freshness, GitHub backlog, coverage and security.
 
 It is a service because it coordinates external systems (file system, GitHub, package registries) to refresh the aggregate. Invocation semantics: scheduled or on-demand orchestration service. It is planned and not built.
 
@@ -272,7 +270,11 @@ type: domain-service
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-Coordinates portfolio-wide actions: queueing package updates across repositories, running synchronized upgrades through GitHub Actions, such as "upgrade all ASP.NET Core projects to 9.0", and generating migration guides.
+Coordinates portfolio-wide actions:
+
+- queueing package updates across repositories;
+- running synchronized upgrades through GitHub Actions, such as "upgrade all ASP.NET Core projects to 9.0";
+- generating migration guides.
 
 It is a service because it spans many repositories rather than a single aggregate. Invocation semantics: command-invoked orchestration service.
 
@@ -304,7 +306,7 @@ aliases: [Archived, archive, unarchive, archived row]
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/repository-management/features.md#archiving-a-repository, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 ```
 
-A registered [Repository](#repository) a person has set aside as no longer active work. It keeps its `RepositoryId`, alias and every setting, and a task filed against it keeps naming it. Backlog reads nothing from GitHub for it, leaves it out of the scope and the pickers unless [show archived](#show-archived) is on, and opens its devbook for reading only. To **archive** a repository is the registry edit that sets it aside; to **unarchive** it makes it active again. Both are a person's choice, never inferred from GitHub.
+A registered [Repository](#repository) a person has set aside as no longer active work. It keeps its `RepositoryId`, alias and every setting, and a task filed against it keeps naming it. Backlog reads nothing from GitHub for it and opens its devbook for reading only. The scope and the pickers leave it out unless [show archived](#show-archived) is on. To **archive** a repository is the registry edit that sets it aside; to **unarchive** it makes it active again. Both are a person's choice, never inferred from GitHub.
 
 It is not the `archived` [Task Status](../tasks/domain.md#task-status) of a task, nor a devbook note in its archive area. Those are archived things inside a repository; this is the repository itself.
 

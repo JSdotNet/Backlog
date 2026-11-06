@@ -120,7 +120,11 @@ misses them. Open draws a quiet **Idle** badge where the Finished chip would sta
 "Open in the Claude desktop app with no process running; reads Finished". The desktop app's scheduled routine runs sit in one folded
 **Scheduled** section at the end of the list.
 
-Open reads only this PC's desktop app, so it never holds a session from another machine, a CLI-only session, or a running session the desktop app keeps no record of, such as a side session.
+Open reads only this PC's desktop app, so it never holds:
+
+- a session from another machine;
+- a CLI-only session;
+- a running session the desktop app keeps no record of, such as a side session.
 
 The desktop app's store is a private format this product
 conforms to ([dependencies](dependencies.md)). Each row keeps the title the transcript
@@ -239,8 +243,8 @@ A session that ran on one of the person's machines can be read on another. The
 record travels and the work stays where it happened. What arrives joins the same list,
 not a panel of its own: agents on a desktop and a laptop are one set of sessions.
 
-It is off until the person switches it on. The one Sync switch that turns on pairing
-and the tasks' sync also turns this on, and it starts off. A person should agree to let a record of what
+It is off until the person switches it on, with the one Sync switch that also turns on
+pairing and the tasks' sync. A person should agree to let a record of what
 the assistants have done leave a machine, not find out it has. One switch is enough because the question
 is whether this machine takes part in sync at all. The sanitization
 boundary makes that answer safe to give
@@ -268,7 +272,7 @@ session it has read, with or without sync. The session stays in the list after t
 files are gone. It keeps its title and folder, with its dates and measurements, and the refusals it met.
 
 While the transcript is there the row is read from it. A row answered from the record says so under its folder, in the origin
-line's quiet register, and shows what the last reading kept.
+line's quiet style, and shows what the last reading kept.
 
 The pane amends the records of the sessions that moved each time it opens. **Update
 records**, beside Refresh, amends every record the files still hold, under
@@ -397,9 +401,9 @@ screen beside the title, above the controls that act on the list, so a grouping 
 a filter in disguise.
 
 The count answers to the filters, never to the grouping: it does not move while `Group by` moves the same rows around. When the filters leave
-some rows out, the count names both numbers, kept and total. One number where two are owed would let the controls that remove
-rows (Show, With delivery runs, Machine, Purpose, Plan and Plan state) borrow the
-innocence of the one that does not.
+some rows out, the count names both numbers, kept and total. Show, With delivery runs,
+Machine, Purpose, Plan and Plan state remove rows. One number where two are owed would
+let them pass for `Group by`, which does not.
 
 ## Honest partial answers
 
@@ -468,7 +472,7 @@ wants both answers in one place.
 the same work from two sides, and this environment may hold either. The run's session may have aged out of the reading, or been read on another machine. So the row is the unit of the list: a session with the runs it drove, or a run standing on its own.
 
 A dashboard keeps a run's file outside the repository, keyed by the worktree it ran
-in. Many run files do not say which session drove them, so this context matches the worktree key derived from a session's folder and the window
+in. Many run files do not say which session drove them. So this context matches the worktree key derived from a session's folder and the window
 the two were open together. [Run Attachment](domain.md#run-attachment) has the full
 rule.
 
@@ -529,9 +533,12 @@ related: [.devbook/domain/sessions/domain.md#delivery-run]
 
 A flow reports its run to every surface it is bound to, and each surface files it as
 a run of its own. The list shows such a run as one line under its session. The
-[Delivery Run](domain.md#delivery-run) says when two files are one run and which is the record. The two must name the same
-skill, come from different dashboards, start within five minutes of each other, and
-agree on the session.
+[Delivery Run](domain.md#delivery-run) says when two files are one run and which is the record. The two must:
+
+- name the same skill;
+- come from different dashboards;
+- start within five minutes of each other;
+- agree on the session.
 
 The line shows the record of the preferred surface: `delivery-surface-dashboard`, then
 `orch-dashboard`, then `backlog`. Its run details name the surfaces that reported the
@@ -658,7 +665,7 @@ no run at all. Now a row appears when the work starts.
 **Asking to see the runs brings the pane forward, and answers with the application.** A
 session that reports here can ask for the surface. It gets back what the window
 did: it showed the pane, or did not because the area is switched off, or had nothing to
-show because no window is open. Never an address, because a link would open a second window onto the application the
+show because no window is open. It never gets an address, because a link would open a second window onto the application the
 session is already talking to.
 
 ### Picking a run back up
@@ -711,9 +718,9 @@ a task, so it never says proved. A stage that reported no evidence shows nothing
 A verify stage also reports the scenarios it exercised, each with its status, its
 notes and the screenshots it took. For a scenario page those are the page's label
 screenshots, and a failed part adds the screenshot taken where it failed, named
-`fail.<part>.png`. The stage's panel lists them under "Screenshots": each scenario
-with its name and status, then each screenshot by its file name, with the full
-path as the stage sent it in the tooltip. A failure screenshot is marked as one in
+`fail.<part>.png`. The stage's panel lists them under "Screenshots". It shows each scenario
+with its name and status, then each screenshot by its file name. The tooltip holds the full
+path as the stage sent it. A failure screenshot is marked as one in
 words, not only colour.
 
 A stage's links show in its panel under "Links". Personal Validation sends them
@@ -972,7 +979,7 @@ because an inferred value reads as convincingly as a recorded one.
 [Stage Resolution](domain.md#stage-resolution) says what a stage is compared on. The model is compared by family, because a configuration names an alias such as
 `opus` and the run records the id it resolved to.
 
-For example, take a run whose [phase map](domain.md#phase-map) configures Implement on
+Take a run whose [phase map](domain.md#phase-map) configures Implement on
 `sonnet` at `high` effort, while its Implement stage recorded `claude-opus-5-5` at
 `medium`. Implement shows ≠ with the tooltip "Not as configured: model Sonnet →
 Opus 5.5 · effort high → medium". In a run whose context holds no phase map, a stage a
@@ -1047,8 +1054,7 @@ flowchart LR
     C -->|no| E[Cost from the price table, marked estimated]
 ```
 
-The cost of a run comes from the `claude_code.api_request` events Claude Code sends
-through OpenTelemetry to the desktop app. Each event carries `cost_usd`, Claude Code's own estimate of what the request cost, which the product shows as
+Each `claude_code.api_request` event carries `cost_usd`, Claude Code's own estimate of what the request cost, which the product shows as
 Claude Code's, not as an invoice. It is preferred because Claude Code knows the price it applied; a price the product worked out afterwards would be a second guess.
 
 The desktop app takes Claude Code's OpenTelemetry logs at
@@ -1123,15 +1129,14 @@ related: [.devbook/domain/sessions/features.md#delivery-economics, .devbook/doma
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_run_reads_its_cost_against_the_usual_run_of_its_flow, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_runs_insight_line_opens_delivery_economics_on_its_flow]
 ```
 
-Each stage row on a run card shows its cost, its share of the run's cost, and its ratio
-to that stage's median cost over the last 30 finished runs of the same flow. The ratio
+Each stage row on a run card shows its cost and its share of the run's cost. It also shows
+its ratio to that stage's median cost over the last 30 finished runs of the same flow. The ratio
 wears the bands of the [Cost Baseline](domain.md#cost-baseline): green when lower than
 usual, "typical" near the median, highlighted when higher, and otherwise the plain
 ratio, such as "1.2×". The ratio's tooltip names the median and how many runs it was
 taken over. The baseline also says when a stage has no ratio.
 
-The run's own figures are tiles under its header: stages done, the cost, the context
-peak and the tool calls. An estimated cost is labelled "Est. cost". The context peak is
+On the run's [figure tiles](#under-the-session-that-drove-it), an estimated cost is labelled "Est. cost". The context peak is
 in tokens, with its share of the limit under it where known. The
 output tokens are in the run details with every other token count.
 
@@ -1162,13 +1167,19 @@ related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessio
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.WeeklyUsageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.The_panel_and_the_run_show_their_share_of_the_week, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.After_a_weekly_refusal_the_share_carries_an_estimate_of_the_limit]
 ```
 
+**Where the week ends**
+
+```mermaid
+flowchart LR
+    R{Weekly-limit refusal recorded?} -->|all-models| A[Reset time of the latest all-models refusal]
+    R -->|Fable only| F[Reset time of the latest Fable refusal]
+    R -->|neither| S[The last seven days]
+```
+
 Each run and each session shows its share of the week's usage. The share is the cost
 Claude Code reported for it inside the week, over the cost reported for every session
 that week. The session's share is a fact on the session detail, and each run's is a line
-under the run. The week ends at the reset time the latest all-models weekly-limit
-refusal carried, rolled forward a week at a time once that reset has passed. With no
-all-models refusal recorded, the latest Fable refusal's reset time places the week
-instead. With neither recorded, the week is the last seven days.
+under the run. A reset time that has passed rolls forward a week at a time.
 
 Only refusals from the last 28 days count, for the week and for the limits below, so after four
 weeks without one the week is the last seven days again and no percentage is shown.
@@ -1205,8 +1216,8 @@ related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost
 ```
 
 The page has a button in the Sessions header. A run's insight callout also opens it,
-through its "Compare configurations for this flow" link, filtered to that run's flow,
-because the insight raises the question "is this stage
+through its "Compare configurations for this flow" link, filtered to that run's flow.
+The insight raises the question "is this stage
 always this expensive?". A Sessions breadcrumb at the top of the page leads back to the list, and the focus
 returns to whichever way in was used.
 
@@ -1220,8 +1231,8 @@ Four tiles sit above the table:
 
 | Tile | What it says |
 | --- | --- |
-| Median run | The median whole-run cost, with the 90th percentile beneath it and how many runs were only partly priced. |
-| Implement + Review | What Implement and Review cost over all the runs, as a share of all finished stages' cost. |
+| Median run | The median whole-run cost, the 90th percentile beneath it, and how many runs were partly priced. |
+| Implement + Review | Their cost over all the runs, as a share of all finished stages' cost. |
 | Two or more review rounds | How many runs took two or more, and their median whole-run cost against one-round runs'. |
 | Escaped review | The defects Verify found that review had passed, and how many runs that is. |
 
@@ -1239,7 +1250,14 @@ type: sub-feature
 ```
 
 The table has one row per phase of the flow, in the order the latest run runs them. A
-row shows the configuration now (as the latest run configured it), how many runs priced the phase, the median phase cost, the phase's share of the run, its [quality measure](#the-quality-measure-per-phase) and its [verdict](#the-verdict-per-phase).
+row shows:
+
+- the configuration now, as the latest run configured it;
+- how many runs priced the phase;
+- the median phase cost;
+- the phase's share of the run;
+- its [quality measure](#the-quality-measure-per-phase);
+- its [verdict](#the-verdict-per-phase).
 
 The share is the phase's median over the sum of the medians of the phases the latest run
 carries, so the shares add up to the whole. A phase only older runs carried keeps its
@@ -1249,7 +1267,7 @@ Selecting a phase opens its configurations as recorded: the model, the effort, t
 that ran it and, where the runs differ on it, the mode. Each one shows its runs, its
 median phase cost, its quality measure over its own runs, and its median whole-run cost.
 Whole-run cost sits beside phase cost because a smaller model in implement can save money there and then cost more in extra review
-rounds; comparing the phase alone would recommend that mistake.
+rounds. Comparing the phase alone would recommend that mistake.
 
 ### The quality measure per phase
 
@@ -1334,7 +1352,9 @@ The page draws its findings as lesson cards. The selected phase's panel shows on
 two configurations of the phase each priced at least five runs of it at different
 medians. The card compares the cheaper configuration with the dearer one, on phase cost
 and whole-run cost. For example: "Sonnet at high effort runs Implement for $2.00 less than
-Opus (medians), and whole runs cost $2.00 less". Where the cheaper phase makes whole runs
+Opus (medians), and whole runs cost $2.00 less".
+
+Where the cheaper phase makes whole runs
 dearer, the card says so. It sets the phase's
 quality measure for the two configurations side by side, and states the number of runs
 each side is drawn from.
@@ -1470,17 +1490,26 @@ type: sub-feature
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
 ```
 
+```mermaid
+flowchart LR
+    L[Pull request a task links] --> O{Listed by the open read?}
+    O -->|yes| A[Open read answers]
+    O -->|no, once the open read has landed| N[Read by number]
+    N -->|merged| K[Read once, kept on this device]
+    N -->|closed or open| R[Read again with the next open read]
+    N -->|GitHub cannot find it| X[Not asked about again]
+```
+
 Every pull request a task links is known by its state, by who opened it, and by
-when it merged. Its state is open, draft, merged or closed. The open read answers for one still
-open in a configured repository. The rest are read by number, once the open read has
-landed, so the open cards never wait. That read carries what a row of the
+when it merged. Its state is open, draft, merged or closed. The open read answers only for one still
+open in a configured repository. The open cards never wait for the read by number. That read carries what a row of the
 open list carries, checks and branches included, and asks GitHub about at most
 twenty-five numbers a query.
 
-A merged pull request is read once and kept on this device, so it still reads merged
-after a restart with GitHub out of reach. A closed or open one is
-read again with the next read of the open list, at most once a minute, because GitHub
-can reopen a closed one. A number GitHub cannot find is not asked about again. The side
+A kept merged pull request still reads merged
+after a restart with GitHub out of reach. A closed or open one is read again
+at most once a minute, because GitHub
+can reopen a closed one. The side
 panel reads none of them on its own.
 
 The cards draw what they drew before: a link carries the state, author and merge
@@ -1544,7 +1573,7 @@ related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
 a session. A coding session then starts in that repository's clone folder, running that
-entry or plan, where before they copied the entry, opened a session in the right
+entry or plan. Before, they copied the entry, opened a session in the right
 folder and pasted it.
 
 The press creates a [Session Request](domain.md#session-request). A dispatcher, first
@@ -1585,7 +1614,7 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   from the Tasks pane and from the roadmap alike.
 - While the request is Requested, Claimed or Started, a **Waiting for a session** chip
   replaces the queue icon. It stands on the entry's row, in the open
-  entry, in the item's dialog and beside the pressed plan chip, and its tooltip says which
+  entry, in the item's dialog and beside the pressed plan chip. Its tooltip says which
   of the three it is. On the roadmap, the item's bar that ends last shows a waiting
   mark after its title, and its tooltip gains a line
   saying which of the three it is. Cancel is offered only while Requested: the

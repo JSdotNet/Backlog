@@ -79,7 +79,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStor
 
 Backlog records when each usage source was last read, so the AI providers settings can say how fresh each figure is. Each Claude organization is one source, the GitHub AI-credit report is another, and Azure Foundry's Cost Management scope is a third.
 
-Each source keeps the time of its last successful read. When its most recent read failed, it also keeps that time and a one-line reason; a later success clears the failure. A Claude organization counts as read when Anthropic answered any day in the window, because a day still being aggregated is refused as a matter of course. GitHub counts as read when any month answered, and Azure Foundry when Cost Management answered, with cost lines or without. A window answered wholly from the settled-day cache asks the provider nothing and records nothing, and neither does a cancelled read.
+Each source keeps the time of its last successful read. When its most recent read failed, it also keeps that time and a one-line reason; a later success clears the failure. A Claude organization counts as read when Anthropic answered any day in the window, because a day still being aggregated is routinely refused. GitHub counts as read when any month answered, and Azure Foundry when Cost Management answered, with cost lines or without. A window answered wholly from the settled-day cache asks the provider nothing and records nothing, and neither does a cancelled read.
 
 The record is runtime state of one device, kept in `usage-reads.json` in the per-user folder. It survives a restart and never travels through the GitHub settings sync or the workspace. Settings reads it through a read model that raises a change each time a read is recorded.
 
@@ -157,13 +157,19 @@ The pane holds six tabs, in this order:
 | Devbook | Which devbook [sync units](../devbook/domain.md#sync-unit) have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
 
-- **Sessions:** The tab's parts are [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked) and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped).
+- **Sessions:** [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked) and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped).
 
-The Devbook tab carries a badge with the number of [drift issues](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) open. It is hidden when no issue is open and when the issues could not be read, because a zero or a dash gives the reader nothing to act on. Every tab reads its figures as the pane opens, so the badge is there before anyone opens the Devbook tab.
+The Devbook tab carries a badge with the number of [drift issues](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) open. It is hidden when no issue is open and when the issues could not be read. A zero or a dash gives the reader nothing to act on. Every tab reads its figures as the pane opens, so the badge is there before anyone opens the Devbook tab.
 
 The pane opens on the Overview every time. Nothing on the dashboard outlives the pane being closed: the scope, window and tab are forgotten. The tabs hold no folds of their own, because a tab is already the second look a fold used to give. A part that folds some figures away keeps that fold, such as the Sessions tab's More, and the fold starts closed each time the pane opens.
 
-The Productivity tab opens with five throughput tiles in one row: pull requests merged, issues closed, the share that came back after review, how long a first review took, and commits per pull request.
+The Productivity tab opens with five throughput tiles in one row:
+
+- pull requests merged;
+- issues closed;
+- the share that came back after review;
+- how long a first review took;
+- commits per pull request.
 
 Merged and closed also say how many a week. Each tile draws its own weeks as a sparkline. A week with no reviewed merge has no review point, and a week with no detail read has no commits point, so the line shows a gap rather than a zero. The share that came back reads "N of M", the pull requests that came back of those reviewed, and shows a dash when none was reviewed.
 
@@ -176,7 +182,7 @@ Beside the chart, two scores rate the window, kept apart so a reader can tell wh
 - The **Quality score** is made of proportions of what could have counted: review
   promptness, freedom from churn, and two size measures.
 
-Each score shows its inputs as labelled bars, with the reading and weight printed under each. The person's own record is the last 24 weeks, read as six blocks of four weeks. Full marks come from the block with the most merged pull requests, the **best block**. The record counts merged pull requests and closed issues only, so lines changed is not a Volume input: there is no best block of lines to give full marks from. The score's note says so.
+Each score shows its inputs as labelled bars, with the reading and weight printed under each. The person's own record is the last 24 weeks, read as six blocks of four weeks. Full marks come from the block with the most merged pull requests, the **best block**. The record counts merged pull requests and closed issues only, so lines changed is not a Volume input. There is no best block of lines to give full marks from. The score's note says so.
 
 Last comes rework after review, as two labelled groups of tiles:
 
@@ -197,11 +203,11 @@ The Tasks tab opens with its six task figures in one joined row, in this order:
 
 With no measured pace, the pace says "No pace" and still to do says there is no pace to tell how long, rather than showing 0 points a week. The backlog and the roadmap each answer for their own figures, so one failing leaves the other's standing. The two weekly task charts, Tasks completed and Effort completed, sit side by side under the row. The roadmap timeline grows a row per plan, so it comes last rather than pushing the charts off the screen.
 
-The Sessions tab's weekly chart opens on agent-active hours, titled "Agent-active hours per week", cut By model, By repository or All. A measure select beside it keeps the tab's other weekly measures within reach. Cut by model, each session's agent-active hours go to the model that wrote most of its output tokens, because the records do not say which model was working at a given moment. The chart's caption says the hours go to a session's main model. A session that recorded no usage sits in the "Model not recorded" band.
+The Sessions tab's weekly chart opens on agent-active hours, titled "Agent-active hours per week", cut By model, By repository or All. A measure select beside it keeps the tab's other weekly measures within reach. Cut by model, each session's agent-active hours go to the model that wrote most of its output tokens. The records do not say which model was working at a given moment. The chart's caption says the hours go to a session's main model. A session that recorded no usage sits in the "Model not recorded" band.
 
-Beside the chart, the hour grid shows one calendar week, Monday to Sunday, from 06:00 to 23:00. It is titled "When the agent worked · week 42", and a legend names the outlined cells "Office hours". The chart's columns still run from one [weekly usage reset](context.md#weekly-usage-reset) to the next, and pressing a column opens the grid on the calendar week that usage week begins in. Activity before 06:00 is not drawn on the grid, and the figures above it still count it.
+Beside the chart, the hour grid shows one calendar week, Monday to Sunday, from 06:00 to 23:00. It is titled "When the agent worked · week 42", and a legend names the outlined cells "Office hours". The chart's columns still run from one [weekly usage reset](context.md#weekly-usage-reset) to the next. Pressing a column opens the grid on the calendar week that usage week begins in. Activity before 06:00 is not drawn on the grid, and the figures above it still count it.
 
-[The header and its controls](#the-header-and-its-controls) and [Deltas against the previous window](#deltas-against-the-previous-window) follow. [The requirements](requirements.md#six-tabs-and-what-each-answers) say what the tabs promise.
+[The requirements](requirements.md#six-tabs-and-what-each-answers) say what the tabs promise.
 
 ### The header and its controls
 
@@ -222,7 +228,7 @@ The pane's header names the tab on show as an eyebrow, such as "Dashboard · Tas
 | Devbook | "34 of 42 units agree with the code" |
 | Cost | "€212 this month, heading for €312" |
 
-- **Overview:** The sentence gives today's ISO week, the repositories in scope, and the window.
+- **Overview:** today's ISO week, the repositories in scope, and the window.
 - **Productivity:** The share is of the reviewed ones, and it reads "none reviewed" when none was.
 
 With several [spend providers](domain.md#spend-provider), the Cost headline gives one clause per provider, each named and in its own currency: "Anthropic €178 this month, heading for €266; Azure AI Foundry €34, heading for €46". It never adds them up, for the reason [Spend against a monthly budget](#spend-against-a-monthly-budget) gives.
@@ -247,7 +253,7 @@ tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests,
 
 A headline figure carries a delta against the previous window of the same length: a window of N weeks is compared with the N weeks just before it. Pull requests merged and story points done show the difference as a count. Agent-active time shows it as a share of the earlier figure.
 
-Story points are counted in whole weeks, so the earlier window ends on the day before the first week shown and is as long as the current one, with no day counted twice. A previous window with no points done is a zero, not a missing figure.
+Story points are counted in whole weeks. The earlier window ends on the day before the first week shown and is as long as the current one, with no day counted twice. A previous window with no points done is a zero, not a missing figure.
 
 Spend this month is a calendar month, compared with the same days of last month; when last month was shorter, the comparison runs to its last day. Only Anthropic and Azure AI Foundry report spend by day, so only they carry this delta. Copilot reports a whole month at once, and its tile shows none. Last month in another currency gives none either, because Backlog holds no exchange rate.
 
@@ -268,7 +274,22 @@ related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answer
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests]
 ```
 
-The Overview opens with five headline tiles: pull requests merged, story points done out of those planned, agent-active time, spend this month out of the monthly budget, and devbook drift issues open.
+```mermaid
+flowchart LR
+  D[Devbook tab: a unit failed to sync or conflicts] --> N[Needs you on the Overview]
+  T[Tasks tab: a plan is behind pace] --> N
+  C[Cost tab: a provider will pass its budget] --> N
+  P[Productivity tab: over a quarter of reviewed pull requests came back] --> N
+  N --> B[Carrying into next week, in the weekly brief]
+```
+
+The Overview opens with five headline tiles:
+
+- pull requests merged;
+- story points done out of those planned;
+- agent-active time;
+- spend this month out of the monthly budget;
+- devbook drift issues open.
 
 The spend tile gives each provider its own line, with that provider's spend set against its budget. It never adds the providers into one total, for the reason [Spend against a monthly budget](#spend-against-a-monthly-budget) gives.
 
@@ -290,15 +311,6 @@ Below the tiles come two columns. The main column holds throughput and the roadm
 - Hours worked is one bar split into the hours inside and outside office hours, with the hours worked set against the hours planned.
 
 Every block reads its own tab's figures and shows its own loading and unavailable state, so a provider that cannot answer leaves the other blocks standing. A refresh on any block reads its source again, and every other block reading the same source follows it. A refresh on Needs you reads drift, the plan, spend and productivity again.
-
-```mermaid
-flowchart LR
-  D[Devbook tab: a unit failed to sync or conflicts] --> N[Needs you on the Overview]
-  T[Tasks tab: a plan is behind pace] --> N
-  C[Cost tab: a provider will pass its budget] --> N
-  P[Productivity tab: over a quarter of reviewed pull requests came back] --> N
-  N --> B[Carrying into next week, in the weekly brief]
-```
 
 Needs you lists what the person should look at, in this order:
 
@@ -354,9 +366,11 @@ Every amount on the dashboard is written one way. Euros, dollars and pounds carr
 
 The Cost tab holds one card per provider. A card shows the spend so far out of the budget, with a marker where the projected month-end spend falls. A chip beside the provider's name says "Will pass budget" or "Within budget". For a provider that reports what its plan already covered, the card says what was charged against what was consumed, and over which days: "1–12 Oct". A provider with no budget shows its spend and projection, without a meter or a chip.
 
-Below the cards, a chart draws spend over time for every day of the month, cumulative or per day. Its axis names the first day, today and the last day: "1 Oct", "Today, 12 Oct" and "31 Oct". A day after today is projected at the providers' average daily spend and drawn faded, so a projection never reads as spend that happened. The cumulative view draws the budget line, the sum of the providers' budgets. The tab ends with spend by model: each model's share, input and output tokens, and spend. A provider that reports only a token total, or no tokens, shows a dash in both token columns.
+Below the cards, a chart draws spend over time for every day of the month, cumulative or per day. Its axis names the first day, today and the last day: "1 Oct", "Today, 12 Oct" and "31 Oct". A day after today is projected at the providers' average daily spend and drawn faded, so a projection never reads as spend that happened. The cumulative view draws the budget line, the sum of the providers' budgets.
 
-Each card keeps its provider's spend on its own, because the figures differ in kind (one provider calls its figure an estimate, another reports what it charged) and may be in different currencies. The chart is the one place the providers are added up, because its budget line is a sum. When the providers report in different currencies, the chart says it cannot add them and draws nothing. No provider reports spend per repository, so the repository chips do not narrow spend. [The requirements](requirements.md#spend-against-a-monthly-budget) say what the projection promises.
+The tab ends with spend by model: each model's share, input and output tokens, and spend. A provider that reports only a token total, or no tokens, shows a dash in both token columns.
+
+Each card keeps its provider's spend on its own. The figures differ in kind (one provider calls its figure an estimate, another reports what it charged) and may be in different currencies. The chart is the one place the providers are added up, because its budget line is a sum. When the providers report in different currencies, the chart says it cannot add them and draws nothing. No provider reports spend per repository, so the repository chips do not narrow spend. [The requirements](requirements.md#spend-against-a-monthly-budget) say what the projection promises.
 
 ### The weekly brief
 
@@ -379,12 +393,12 @@ The title adds ", at a cost" when a provider is projected past its budget, and o
 
 The brief has one block each for Shipping, Plan, Sessions and Cost. Each opens with a headline sentence from a template, adds one supporting sentence, and shows its figure and the eight weeks up to the reported one as bars, that week highlighted. A block's link opens the tab it reads. The brief closes with "Carrying into next week", which holds the items of [What needs you](#what-needs-you).
 
-| Block | Headline | Supporting sentence | Figure |
+| Block | Headline, against the week before | Supporting sentence | Figure |
 | --- | --- | --- | --- |
-| Shipping | Pull requests merged, against the week before | Issues closed, and the median wait for a first review | Pull requests merged |
-| Plan | Story points done, against the week before | Roadmap items behind pace, and the points done of those planned | The points done of those planned: "41 of 55 pts" |
-| Sessions | Agent-active hours, against the week before | Sessions last active that week | Agent-active hours |
-| Cost | Spend, against the week before | Whether a provider is on course to pass its monthly budget | Each provider's month to date against its budget: "€178 of €250 · €34 of €50" |
+| Shipping | Pull requests merged | Issues closed, and the median wait for a first review | Pull requests merged |
+| Plan | Story points done | Roadmap items behind pace, and the points done of those planned | The points done of those planned: "41 of 55 pts" |
+| Sessions | Agent-active hours | Sessions last active that week | Agent-active hours |
+| Cost | Spend | Whether a provider is on course to pass its monthly budget | Each provider's month to date against its budget: "€178 of €250 · €34 of €50" |
 
 The Plan and Cost figures are running totals, so they show only for the week the brief opens on. A week paged back to shows its own points and spend, because the plan and month as they stand now say nothing about that week. A provider with no budget shows its month to date alone.
 
@@ -409,7 +423,13 @@ This part sits on the Sessions tab. Beside time, it reads what the session recor
 
 Both are charts of their own, because a count of tokens and a count of hours are two measures. Each figure is over the sessions that could say, and says it is partial when that is fewer than the sessions counted. Copilot records neither, and a missing figure is never read as zero.
 
-The limit-hits tile says what overage did about each refusal: fell back to overage, a wall for the reason the assistant gave ("org spend cap reached"), or nothing said. It counts the refusals inside the window only. An older Claude Code wrote some refusals without the time the limit resets; those are not counted, so the tile says its count can be a floor. A Claude session sits in the band of the registered clone its folder lies in, not in "No repository recorded".
+The limit-hits tile says what overage did about each refusal:
+
+- fell back to overage;
+- a wall, for the reason the assistant gave ("org spend cap reached");
+- nothing said.
+
+It counts the refusals inside the window only. An older Claude Code wrote some refusals without the time the limit resets; those are not counted, so the tile says its count can be a floor. A Claude session sits in the band of the registered clone its folder lies in, not in "No repository recorded".
 
 ### The longest sessions
 
@@ -443,14 +463,14 @@ related: [.devbook/domain/productivity/requirements.md#hours-worked, .devbook/do
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
 ```
 
-Show how long the person actually worked, and how much of it fell outside the hours they meant to work. The dashboard shows the person's [actual hours](../roadmap/domain.md#actual-hours) over the window, split into the time **inside** and **outside** their [office hours](domain.md#office-hours), beside the planned hours of the working week, in two places:
+Show how long the person actually worked, and how much of it fell outside the hours they meant to work. The dashboard shows the person's [actual hours](../roadmap/domain.md#actual-hours) over the window, split into the time **inside** and **outside** their [office hours](domain.md#office-hours). It sets them beside the planned hours of the working week, in two places:
 
 - The Hours worked part on the Sessions tab draws them per day over four weeks, and per calendar week, Monday first, over a longer window. Tiles above the chart give the window's totals.
 - The Overview holds one bar of the window's hours split inside and outside office hours, with the hours worked set against the hours planned. It is the sum of the Sessions tab's chart.
 
 The part draws days over four weeks, because a month of weeks is five columns that hide the day off it exists to show. It draws weeks over longer windows, because a quarter of days is ninety columns nobody can read.
 
-Actual hours are the union of the person's [working stretches](../roadmap/domain.md#working-stretch), as Roadmap Planning defines them, so the axis and this part count the same time. Office hours apply the [day overrides](../roadmap/domain.md#day-override) set on the roadmap: a blocked day off counts all its work outside, and an unblocked Saturday has office hours from its stored times. Neither the repository chips nor the machine select narrow it, because a working stretch is the person's own, merged over every machine.
+Actual hours are the union of the person's [working stretches](../roadmap/domain.md#working-stretch), as Roadmap Planning defines them, so the axis and this part count the same time. Office hours apply the [day overrides](../roadmap/domain.md#day-override) set on the roadmap. A blocked day off counts all its work outside, and an unblocked Saturday has office hours from its stored times. Neither the repository chips nor the machine select narrow it, because a working stretch is the person's own, merged over every machine.
 
 It is presentation only, like the hour grids: no other dashboard figure changes and no work is left out. [The requirements](requirements.md#hours-worked) say what it promises.
 
@@ -500,17 +520,17 @@ related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/d
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
 ```
 
-See, without opening the roadmap, which plans will land inside the window they were given. The Tasks tab draws the roadmap as a week-by-week timeline of the plans whose window overlaps the weeks the selector picks, plus every plan whose window is still sized by its effort. The Overview's roadmap chart sets the same plans against their pace, and a plan that is behind pace is listed under [What needs you](#what-needs-you).
+See, without opening the roadmap, which plans will land inside the window they were given. The Tasks tab draws the roadmap as a week-by-week timeline of the plans whose window overlaps the weeks the selector picks. It also draws every plan whose window is still sized by its effort. The Overview's roadmap chart sets the same plans against their pace, and a plan that is behind pace is listed under [What needs you](#what-needs-you).
 
 Each plan is finished, on track, behind, overdue, not sized, or with no pace to read it at.
 
-A finished plan's bar ends in the week its work landed, never at its planned end, because done work cannot run on past today; one that landed before its planned start begins there too. A finished plan that landed before the window opened is drawn in the window's first week and cut off there, not left as an empty row. Every other plan's bar runs from its planned start to its planned end.
+A finished plan's bar ends in the week its work landed, never at its planned end, because done work cannot run on past today. One that landed before its planned start begins there too. A finished plan that landed before the window opened is drawn in the window's first week and cut off there, not left as an empty row. Every other plan's bar runs from its planned start to its planned end.
 
-The timeline starts where the window starts and runs past today to the latest drawn end of the plans it holds, so a plan still running is drawn whole. It stops 26 weeks past today, and a bar running beyond that stays visibly cut. A "Today" line marks today, and today's week is emphasised. Without a window, the axis is the plans' own stretch. Each row has a one-sentence outlook saying how the plan's work stands and why, behind an info mark beside the row's progress, reachable by keyboard and touch as well as mouse.
+The timeline starts where the window starts and runs past today to the latest drawn end of the plans it holds, so a plan still running is drawn whole. It stops 26 weeks past today, and a bar running beyond that stays visibly cut. A "Today" line marks today, and today's week is emphasised. Without a window, the axis is the plans' own stretch. Each row has a one-sentence outlook saying how the plan's work stands and why. It sits behind an info mark beside the row's progress, reachable by keyboard and touch as well as mouse.
 
 A plan is **behind pace** when its projection ends after its window, or when its window has ended with work still open. Both share the Behind tone, and the outlook sentence says which. The dashboard counts it one way in the Tasks tab's figures, the Overview's tile and chips, the header, Needs you and the brief.
 
-Each plan's outlook is decided in this order:
+**Each plan's outlook, in the order it is decided**
 
 ```mermaid
 flowchart TD
@@ -521,6 +541,8 @@ flowchart TD
     Z -->|no| X[Not sized, or no pace]
     Z -->|yes| P[Projected part by part, below]
 ```
+
+**A plan projected part by part**
 
 A plan placed by hand or by its due date is projected one
 [part](../roadmap/domain.md#part) at a time, the same parts

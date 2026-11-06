@@ -21,9 +21,9 @@ related: [".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-25
 ```
 
-An agent brings an open pull request to merge-ready: it levels the branch with `main`,
-repairs failing checks, and answers review findings, through the delivery engine's
-`pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills.
+An agent brings an open pull request to merge-ready through the delivery engine's
+`pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills. It levels the branch with
+`main`, repairs failing checks, and answers review findings.
 
 - **Used for** — pull requests left red by a flaky runner or a moved base.
 - **Adopted by** — the repository owner, on demand.

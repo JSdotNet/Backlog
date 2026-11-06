@@ -141,8 +141,8 @@ classDiagram
   on its own.
 - `Dependency` points at a **Roadmap Node**, the union of `RoadmapItem` and
   `Milestone`, which is why both dotted associations leave the same class. They
-  share an id space and a role as a dependency endpoint, and nothing else, so
-  there is no inheritance between them: a common base class would suggest a shared
+  share an id space and a role as a dependency endpoint, and nothing else. There
+  is no inheritance between them, because a common base class would suggest a shared
   lifecycle they do not have.
 - The dependency association is **one-way, held by the waiting side**. The plan
   answers "what depends on this" by scanning, so no reverse edge is stored.

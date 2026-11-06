@@ -60,7 +60,7 @@ app from Recents after Android ended it does not bring the sheet back.
 
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and bounded. A person is sent as the person, never as
-a tag; on the desktop it becomes the item's source person, and the tags
+a tag. On the desktop it becomes the item's source person, and the tags
 are stored bare and once each. A phone that sends only a title and a source gets
 the same answer as one that sends everything.
 
@@ -132,7 +132,7 @@ loses one. It appears in the Inbox list at once, marked `Waiting`, and
 captures leave in the order they were made. A failed send is retried on its own a
 few times, with growing waits, before it reads `Waiting — tap to retry`. The
 status line says how many captures are waiting. A capture reads `Sent` the moment
-the service takes it, and stays in the list until the next pull brings it back,
+the service takes it. It stays in the list until the next pull brings it back,
 even when that pull was asked before it landed, or fails.
 
 Resending after a lost answer delivers a capture once: the service answers with the
@@ -187,7 +187,7 @@ Pictures are made smaller before they leave:
 Files go as they are, each uploaded before the note that
 names it. A file already sent is never sent again, and a failed one is
 retried on its own. A note saved without a title is named after the first line of
-its body; with no body, "Photo · <date>" when a picture is attached, else the
+its body. With no body, it is "Photo · <date>" when a picture is attached, else the
 first file's name.
 
 ### Share-sheet and shortcuts
@@ -231,7 +231,7 @@ so instead of silently finding nothing. With no source on, the run points
 at the panel.
 
 Each source's row also carries when it was last looked at and how many new
-captures that run delivered, above a log of earlier runs with the same
+captures that run delivered. A log of earlier runs sits below, with the same
 per-source line. The log is a bounded window, not an archive (the capture run log in
 [Capture sources](context.md#capture-sources)).
 
@@ -323,8 +323,8 @@ It converts the clip to markdown and keeps the source link.
 type: feature
 ```
 
-An adapter that lets an IDE-class host capture selected code or text, or a session
-note, with context metadata: the file path, line number and
+An adapter lets an IDE-class host capture selected code or text, or a session
+note. The capture carries context metadata: the file path, line number and
 branch, or the session and worktree. It covers editor extensions (VS Code, Visual
 Studio) and agentic session tools (GitHub Copilot App).
 
@@ -358,10 +358,17 @@ type: sub-feature
 related: [.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/inbox/domain.md#inbox-list]
 ```
 
+```mermaid
+flowchart LR
+    E[Another tool's export] --> S[import-inbox skill]
+    S --> M[Manifest]
+    M --> R[Import file… row]
+    R --> I[unprocessed Inbox Items, source import]
+```
+
 Bring the items from another tool into the Inbox by importing a manifest.
-Microsoft To Do is the first tool. The `import-inbox` skill in the `backlog-tools`
-plugin, outside the product, reads the tool's export and writes
-the manifest. It leaves out completed items, maps the tool's lists to Inbox
+Microsoft To Do is the first tool. The `import-inbox` skill sits in the `backlog-tools`
+plugin, outside the product. It leaves out completed items, maps the tool's lists to Inbox
 Lists, and maps the labels the person chooses to tags.
 
 The manifest is Markdown with front matter. A `---` block names the `schema` and
@@ -376,7 +383,7 @@ manifest picked or dropped there is imported at once, through the same run the
 Capture button uses. The row shows the import's line, last run, and a log
 of earlier imports, like each monitor's row.
 
-Every item arrives as an `unprocessed` Inbox Item with source `import`. Its
+An item's
 `url` and `captured_at` are kept as written. A stated `kind` is kept; without
 one, the kind is read off the item the way any capture's is. An item is filed
 in the Inbox List its `list` names when that list exists. It lands unfiled when
