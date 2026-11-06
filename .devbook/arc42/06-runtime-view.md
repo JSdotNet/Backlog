@@ -64,14 +64,14 @@ sequenceDiagram
                 Outbox->>Outbox: DELETE entry
                 App->>Sync: GET /api/sync/inbox (refresh, cache the list)
             else No network, timeout, 5xx or 401
-                Outbox->>Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush
+                Outbox->>Outbox: attempts+1, last_error, wait 2s·2^(n-1), stop the flush
             else Any other 4xx
-                Outbox->>Outbox: set aside as refused; continue with the next entry
+                Outbox->>Outbox: set aside as refused, continue with the next entry
             end
         end
     end
 
-    Note over App,Outbox: Five failures park the head entry and hold the queue behind it; resume, network back or a tap tries again
+    Note over App,Outbox: Five failures park the head entry and hold the queue behind it, resume, network back or a tap tries again
 ```
 
 - **One outbox, many kinds.** Each row is `id, kind, payload, attempts, last_error, created_at`. Every kind shares one queue and order:
