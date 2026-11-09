@@ -8598,6 +8598,15 @@ a.pull-request-detail-checks__name:hover {
     color: inherit;
 }
 
+/* A guideline ADR numbers from 0001 as a local one does: the word before its number
+   tells the two apart without relying on colour. */
+.devbook-record-model__scope {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 .devbook-record-model__citation {
     border: 0;
     color: inherit;
