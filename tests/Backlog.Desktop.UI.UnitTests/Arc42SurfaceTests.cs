@@ -53,6 +53,9 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal("proposed", decisions.Single(record => record.Number == "0006").Note);
         Assert.True(decisions[^1].Guideline);
 
+        // A record with no state stored stands: accepted, as the log's filter counts it.
+        Assert.Equal([true, true, false, true], decisions.Select(record => record.Accepted));
+
         var debt = Assert.Single(Arc42Surface.Debt(catalog));
         Assert.Equal("High · planned", debt.Note);
     }
@@ -259,6 +262,36 @@ public sealed class Arc42SurfaceTests : IDisposable
         });
     }
 
+    /// <summary>The design's decision log: All, Accepted or Proposed, each with its
+    /// count, the list narrowed to the choice.</summary>
+    [Fact]
+    public async Task The_decision_log_filters_by_status()
+    {
+        await using var harness = CreateHarness();
+        var component = harness.Render(null);
+        Settle(component);
+
+        await component.Find("[data-testid='arc42-surface-decisions']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-surface-decision-filter']")));
+
+        string[] Numbers() =>
+        [
+            .. component.FindAll("[data-testid='arc42-surface-record'] .arc42-surface-nav__number").Select(number => number.TextContent.Trim())
+        ];
+
+        var choices = component.FindAll("[data-testid='arc42-surface-decision-filter'] button");
+        Assert.Equal(["All 3", "Accepted 2", "Proposed 1"], choices.Select(choice => choice.TextContent.Trim()));
+        Assert.Equal("true", choices[0].GetAttribute("aria-checked"));
+        Assert.Equal(["0003", "0005", "0006", "0004"], Numbers());
+
+        await component.Find("[data-testid='arc42-surface-decision-filter-proposed']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal(["0006"], Numbers()));
+
+        await component.Find("[data-testid='arc42-surface-decision-filter-accepted']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal(["0003", "0005", "0004"], Numbers()));
+        Assert.Equal("true", component.Find("[data-testid='arc42-surface-decision-filter-accepted']").GetAttribute("aria-checked"));
+    }
+
     [Fact]
     public async Task Technical_debt_opens_the_risks_chapter_beside_the_debt()
     {
@@ -457,7 +490,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · planned", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Planned", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
 
@@ -466,7 +501,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · resolved", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Resolved", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 2 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
     }

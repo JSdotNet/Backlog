@@ -15,7 +15,9 @@ public sealed class C4ElementInspectionTests
             !identifiers hierarchical
             model {
                 backlog = softwareSystem "Prompt Backlog" "The system" {
-                    desktop = container "Desktop App" "Windows client" ".NET MAUI"
+                    desktop = container "Desktop App" "Windows client" ".NET MAUI" {
+                        devbook = component "Devbook" "Draws the devbook" "Razor"
+                    }
                     store = container "Local Task Store" "Canonical" "SQLite"
                 }
                 github = softwareSystem "GitHub" "Issues"
@@ -169,6 +171,195 @@ public sealed class C4ElementInspectionTests
         Assert.True(crossCutting[0].OpenDebt);
         Assert.Equal("resolved", crossCutting[1].Lifecycle);
         Assert.False(crossCutting[1].OpenDebt);
+    }
+
+    /// <summary>The views map may list a chapter of another devbook folder against a
+    /// view — the domain's context map beside the container view — but the section is
+    /// "Documented in arc42", so only the arc42 folder's chapters are listed.</summary>
+    [Fact]
+    public void Documented_in_lists_only_arc42_chapters()
+    {
+        var entry = Entry with
+        {
+            References = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["containers"] =
+                [
+                    ".devbook/arc42/05-building-block-view.md#container-view",
+                    ".devbook/domain/context-map.md",
+                    ".devbook/arc42/adr/0030-credentials.md",
+                ],
+            }
+        };
+
+        var records = C4ElementInspection.For(CatalogWith(), entry, Chapters, "backlog.desktop");
+
+        var chapter = Assert.Single(records.DocumentedIn);
+        Assert.Equal(".devbook/arc42/05-building-block-view.md#container-view", chapter.Path);
+    }
+
+    /// <summary>A decision's state is the host's (local ADR 0044): proposed, decided or
+    /// declined. A merged record with no state stored stands, so it counts as accepted,
+    /// as "decided" and a file's own "accepted" do.</summary>
+    [Fact]
+    public void Each_decision_says_whether_it_is_accepted()
+    {
+        var accepted = Decision(".devbook/arc42/adr/0001-desktop.md", "ADR 0001: Desktop stack", "Accepted");
+        var superseded = Decision(".devbook/arc42/adr/0002-old.md", "ADR 0002: Old", "superseded");
+        var unstated = Decision(".devbook/arc42/adr/0003-store.md", "ADR 0003: Store", null);
+        var decided = Decision(".devbook/arc42/adr/0004-index.md", "ADR 0004: Index", "decided");
+        var declined = Decision(".devbook/arc42/adr/0005-replica.md", "ADR 0005: Replica", "declined");
+        var proposed = Decision(".devbook/arc42/adr/0030-credentials.md", "ADR 0030: Credentials", "proposed");
+
+        var records = C4ElementInspection.For(
+            CatalogWith(
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, accepted),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, proposed),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, superseded),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, unstated),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, decided),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, declined)),
+            Entry,
+            Chapters,
+            "backlog.desktop");
+
+        Assert.Equal([true, false, true, true, false, false], records.Decisions.Select(record => record.Accepted));
+        Assert.Equal([false, false, false, false, false, true], records.Decisions.Select(record => record.Proposed));
+    }
+
+    /// <summary>The design's Containers screen: Desktop App lists the debt named on its
+    /// Devbook component, saying which component carries it. Decisions are not rolled
+    /// up — they anchor where they are.</summary>
+    [Fact]
+    public void A_container_lists_the_debt_on_its_components_naming_the_component()
+    {
+        var onComponent = Debt(".devbook/arc42/tdr/0001-renders.md", "TDR 0001: Renders vanish on a snapshot", DevbookDebtSeverity.Medium, DevbookDebtLifecycle.Identified);
+        var onContainer = Debt(".devbook/arc42/tdr/0004-sessions.md", "TDR 0004: Sessions", DevbookDebtSeverity.Low, DevbookDebtLifecycle.Planned);
+        var decision = Decision(".devbook/arc42/adr/0015-storage.md", "ADR 0015: Storage", "accepted");
+
+        var records = C4ElementInspection.For(
+            CatalogWith(
+                new C4ElementLink("backlog.desktop.devbook", C4LinkKind.About, onComponent),
+                new C4ElementLink("backlog.desktop.devbook", C4LinkKind.About, decision),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, onContainer)),
+            Entry,
+            Chapters,
+            "backlog.desktop");
+
+        Assert.Empty(records.Decisions);
+        Assert.Equal(["0001", "0004"], records.Debt.Select(record => record.Number));
+        Assert.Equal("Devbook", records.Debt[0].OnComponent);
+        Assert.Null(records.Debt[1].OnComponent);
+
+        var component = C4ElementInspection.For(
+            CatalogWith(new C4ElementLink("backlog.desktop.devbook", C4LinkKind.About, onComponent)),
+            Entry,
+            Chapters,
+            "backlog.desktop.devbook");
+        Assert.Null(Assert.Single(component.Debt).OnComponent);
+    }
+
+    /// <summary>The design's Components screen: a debt record carries what its file
+    /// says — the debt in a sentence, the preferred remediation, and the decision it
+    /// originates in.</summary>
+    [Fact]
+    public void Debt_carries_its_summary_remediation_and_origin()
+    {
+        const string path = ".devbook/arc42/tdr/0001-renders.md";
+        var debt = Debt(path, "TDR 0001: Renders vanish on a snapshot", DevbookDebtSeverity.Medium, DevbookDebtLifecycle.Identified);
+
+        IReadOnlyList<DevbookDocument> chapters =
+        [
+            .. Chapters,
+            DevbookMarkdownParser.Parse(path, """
+                # TDR 0001: Renders vanish on a snapshot
+
+                ```meta
+                severity: medium
+                related: [".devbook/arc42/adr/0008-branch-snapshot.md"]
+                ```
+
+                ## Status
+
+                **Identified**.
+
+                ## The debt
+
+                A branch-sourced repository never shows a **rendered** diagram.
+
+                Second paragraph.
+
+                ## Origin
+
+                The third amendment to local ADR 0008 excluded the folder.
+
+                ## Remediation options
+
+                ### Option A — fetch `_archify` lazily per diagram (preferred before local ADR 0034)
+
+                Text.
+
+                ### Option B — fetch the index
+
+                Text.
+
+                ### Option C — drop the exclusion (preferred since local ADR 0034)
+
+                Text.
+                """),
+            DevbookMarkdownParser.Parse(".devbook/arc42/adr/0008-branch-snapshot.md", "# ADR 0008: Branch snapshot\n\nText.\n"),
+        ];
+
+        var records = C4ElementInspection.For(
+            CatalogWith(new C4ElementLink("backlog.desktop", C4LinkKind.About, debt)),
+            Entry,
+            chapters,
+            "backlog.desktop");
+
+        var detail = Assert.Single(records.Debt).Detail;
+        Assert.NotNull(detail);
+        Assert.Equal("A branch-sourced repository never shows a rendered diagram.", detail.Summary);
+        Assert.Equal("Option C — drop the exclusion", detail.Remediation);
+        var origin = Assert.Single(detail.Origin);
+        Assert.Equal(".devbook/arc42/adr/0008-branch-snapshot.md", origin.Path);
+        Assert.Equal("ADR 0008", origin.Label);
+    }
+
+    [Fact]
+    public void A_single_option_marked_preferred_is_the_remediation()
+    {
+        const string path = ".devbook/arc42/tdr/0002-conventions.md";
+        var debt = Debt(path, "TDR 0002: Conventions", DevbookDebtSeverity.Low, DevbookDebtLifecycle.Identified);
+
+        var records = C4ElementInspection.For(
+            CatalogWith(new C4ElementLink("backlog.desktop", C4LinkKind.About, debt)),
+            Entry,
+            [
+                .. Chapters,
+                DevbookMarkdownParser.Parse(path, "# TDR 0002: Conventions\n\n## Remediation options\n\n### Option A — one rule per group (preferred)\n\nText.\n\n### Option B — import them\n\nText.\n"),
+            ],
+            "backlog.desktop");
+
+        Assert.Equal("Option A — one rule per group", Assert.Single(records.Debt).Detail?.Remediation);
+    }
+
+    [Fact]
+    public void Debt_whose_file_has_none_of_those_sections_carries_an_empty_detail()
+    {
+        const string path = ".devbook/arc42/tdr/0002-conventions.md";
+        var debt = Debt(path, "TDR 0002: Conventions", DevbookDebtSeverity.Low, DevbookDebtLifecycle.Identified);
+
+        var records = C4ElementInspection.For(
+            CatalogWith(new C4ElementLink("backlog.desktop", C4LinkKind.About, debt)),
+            Entry,
+            [.. Chapters, DevbookMarkdownParser.Parse(path, "# TDR 0002: Conventions\n\nText.\n")],
+            "backlog.desktop");
+
+        var detail = Assert.Single(records.Debt).Detail;
+        Assert.NotNull(detail);
+        Assert.Null(detail.Summary);
+        Assert.Null(detail.Remediation);
+        Assert.Empty(detail.Origin);
     }
 
     [Fact]

@@ -7,7 +7,8 @@
       this view" with the way to every chapter, and "Records": the decisions with how
       many are still proposed, and the technical debt.
     - On a chapter: the arc42 chapters with their C4 / ADR / TDR badges.
-    - On a decision record, or the decisions chapter: the decision log.
+    - On a decision record, or the decisions chapter: the decision log, with the
+      design's status filter — All, Accepted, Proposed — over it.
     - On a debt record, or the risks chapter: the debt.
 
     Every document list ends with the way back to the model. Which list is drawn, and
@@ -112,11 +113,29 @@
         case Arc42SurfaceMode.Decisions:
             <section class="arc42-surface-nav__group" aria-labelledby="@Id("decisions")" data-testid="arc42-surface-decision-log">
                 <h2 class="arc42-surface-nav__heading" id="@Id("decisions")">Decisions · @Decisions.Count(record => !record.Guideline)</h2>
-                @RecordList(Decisions.Where(record => !record.Guideline), "ADR")
-                @if (Decisions.Any(record => record.Guideline))
+
+                @* The status filter: one choice, counted over the local decisions the
+                   heading counts, and applied to the guidelines below them too. *@
+                <ButtonGroup Radio="true"
+                             CssClass="arc42-surface-nav__filter"
+                             AriaLabel="Status filter"
+                             TestId="arc42-surface-decision-filter">
+                    @foreach (var choice in StatusChoices)
+                    {
+                        <ToggleButton @key="choice"
+                                      Pressed="@(_status == choice)"
+                                      PressedChanged="@(pressed => ChooseStatus(choice, pressed))"
+                                      BaseClass="arc42-surface-nav__filter-choice"
+                                      PressedCssClass="arc42-surface-nav__filter-choice--active"
+                                      TestId="@($"arc42-surface-decision-filter-{choice.ToString().ToLowerInvariant()}")">@choice @Decisions.Count(record => !record.Guideline && Keeps(choice, record))</ToggleButton>
+                    }
+                </ButtonGroup>
+
+                @RecordList(Decisions.Where(record => !record.Guideline && Keeps(_status, record)), "ADR")
+                @if (Decisions.Any(record => record.Guideline && Keeps(_status, record)))
                 {
-                    <h3 class="arc42-surface-nav__subheading">Guidelines · @Decisions.Count(record => record.Guideline)</h3>
-                    @RecordList(Decisions.Where(record => record.Guideline), "ADR")
+                    <h3 class="arc42-surface-nav__subheading">Guidelines · @Decisions.Count(record => record.Guideline && Keeps(_status, record))</h3>
+                    @RecordList(Decisions.Where(record => record.Guideline && Keeps(_status, record)), "ADR")
                 }
                 @AllChapters
                 @BackToModel
@@ -210,6 +229,32 @@
     }
 
     private string Id(string part) => $"{_id}-{part}";
+
+    /// <summary>What the decision log's filter keeps.</summary>
+    private enum DecisionStatus
+    {
+        All,
+        Accepted,
+        Proposed
+    }
+
+    private static readonly DecisionStatus[] StatusChoices = [DecisionStatus.All, DecisionStatus.Accepted, DecisionStatus.Proposed];
+
+    /// <summary>The filter chosen. Kept while the navigation lives, so moving from one
+    /// record to the next keeps the list the reader narrowed.</summary>
+    private DecisionStatus _status = DecisionStatus.All;
+
+    private void ChooseStatus(DecisionStatus choice, bool pressed)
+    {
+        if (pressed) _status = choice;
+    }
+
+    private static bool Keeps(DecisionStatus status, Arc42SurfaceRecord record) => status switch
+    {
+        DecisionStatus.Accepted => record.Accepted,
+        DecisionStatus.Proposed => record.Proposed,
+        _ => true
+    };
 
     /// <summary>One group of the views list, under its heading.</summary>
     private RenderFragment ViewGroup(C4ViewIndexGroup key, IReadOnlyList<C4ViewIndexEntry> entries) => @<text>

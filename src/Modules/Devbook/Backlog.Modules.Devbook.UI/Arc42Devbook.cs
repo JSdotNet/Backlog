@@ -362,6 +362,11 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
             && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Whether the path sits in the arc42 folder, in either layout — not in
+    /// another devbook folder such as <c>domain/</c>.</summary>
+    public static bool IsArc42Path(string path) =>
+        Within(path).StartsWith(".arc42/", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>A path folded to the legacy spelling, <c>.arc42/…</c>, whichever
     /// layout wrote it.</summary>
     private static string Within(string path)
