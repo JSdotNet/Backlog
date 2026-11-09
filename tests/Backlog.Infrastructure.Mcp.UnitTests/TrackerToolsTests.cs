@@ -964,13 +964,15 @@ public class TrackerToolsTests
     /// and leaves every task, plan and pull request it held as it was (local ADR 0035 §6).
     /// It is excepted by name, on <see cref="GoalTools"/> alone, so a second delete
     /// anywhere still fails here and has to be argued for in this list.
+    /// <c>archive_inbox_item</c> is the other name excepted: it archives an Inbox capture, which stays
+    /// restorable, and is never a backlog entry's archive.
     /// </para>
     /// </summary>
     [Fact]
     public void No_tool_in_the_catalog_is_a_delete()
     {
         Assert.DoesNotContain(
-            BacklogMcpTools.ToolNames.Where(name => name != GoalTools.DeleteGoal),
+            BacklogMcpTools.ToolNames.Where(name => name != GoalTools.DeleteGoal && name != InboxTools.ArchiveInboxItem),
             name => name.Contains("delete", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("remove", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("archive", StringComparison.OrdinalIgnoreCase));

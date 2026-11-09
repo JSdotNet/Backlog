@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -275,6 +276,12 @@ public static class BacklogMcpTools
         typeof(NotificationTools),
         [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
 
+    /// <summary>The Inbox's captures, behind the Inbox pane's key.</summary>
+    public static McpToolGroup Inbox { get; } = new(
+        InboxFeatures.Pane,
+        typeof(InboxTools),
+        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem]);
+
     /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or
     /// as a web link (local ADR 0043 §7), and the one group behind no key.
@@ -292,7 +299,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Inbox, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

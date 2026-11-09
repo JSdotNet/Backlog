@@ -407,6 +407,7 @@
         "dependencies": {
           "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",

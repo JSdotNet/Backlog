@@ -108,6 +108,11 @@ public class BacklogMcpToolsTests
                 "get_answer",
                 "close",
 
+                // The Inbox's captures: list, read, archive once filed.
+                "list_inbox_items",
+                "read_inbox_item",
+                "archive_inbox_item",
+
                 // The surface windows (local ADR 0043 §7).
                 "open_window"
             ],
@@ -175,9 +180,9 @@ public class BacklogMcpToolsTests
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the groups name are six: the session request queue's dispatcher tools
+    /// keys the groups name are seven: the session request queue's dispatcher tools
     /// have <c>session-requests</c> to themselves, and the notification tools
-    /// <c>notifications</c>.
+    /// <c>notifications</c>, and the Inbox tools the Inbox pane's <c>inbox-pane</c>.
     /// </para>
     /// </summary>
     [Fact]
@@ -191,7 +196,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(6, byKey.Count);
+        Assert.Equal(7, byKey.Count);
 
         // The impediment and goal tools are Progress's, which has no switch of its own:
         // goals are always on, so they ride the Tasks key, which cannot be turned off either.
@@ -302,6 +307,7 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
+            InboxTools.ArchiveInboxItem,
             DecisionTools.SetState,
             DecisionTools.Approve,
             DecisionTools.Accept,
