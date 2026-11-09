@@ -12,7 +12,7 @@
     The Goals view's host (.devbook/domain/progress/features.md#the-goals-view): it reads
     the stand-up through IStandUp at the person's own iteration length, each goal's
     attachments through IGoals.ListAsync over the last window, and the status of every
-    pull request the board shows through IGoalPullRequestReader, and hands GoalsMapper's
+    pull request the board reads through IGoalPullRequestReader, and hands GoalsMapper's
     board to the library's GoalsBoard. The shell hands in its tasks, plan tags and open
     pull requests as GoalsCandidates, because Progress UI may not reach Tasks
     (ADR 0035 §6, local ADR 0028).

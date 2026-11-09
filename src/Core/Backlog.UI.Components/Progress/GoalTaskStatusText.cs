@@ -17,8 +17,8 @@ internal static class GoalTaskStatusText
         _ => FlowStepTone.Pending
     };
 
-    /// <summary>What a screen reader hears after the title, since the dot alone carries
-    /// nothing to it.</summary>
+    /// <summary>The status in words, after the title: on screen in the open goal's Tasks
+    /// column, for a screen reader alone on a No goal row.</summary>
     public static string Words(GoalTaskStatus status) => status switch
     {
         GoalTaskStatus.Done => "done",

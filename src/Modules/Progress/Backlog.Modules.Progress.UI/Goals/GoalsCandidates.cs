@@ -16,13 +16,27 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// the roadmap item of each gathers by tag, a bare <c>#slug</c> tag included.</param>
 /// <param name="PullRequests">The pull requests it links.</param>
 /// <param name="InScope">Whether the header's repository scope holds it.</param>
+/// <param name="MarkedBlocked">Whether it carries a <c>blocked:</c> mark, whatever its status.
+/// Apart from <paramref name="Status"/>, which says blocked only of a task in progress:
+/// where a task stands on a goal reads the mark on any open task, and No goal lists work in
+/// progress, which a marked task that has not started is not.</param>
+/// <param name="StoredPullRequests">Every pull request link as the task stores it, unparsed:
+/// what the goal's bar reads, including a <c>#582</c> or a link outside any <c>owner/name</c>
+/// that <paramref name="PullRequests"/> leaves out. Null reads <paramref name="PullRequests"/>;
+/// see <see cref="LinksForStanding"/>.</param>
 public sealed record GoalsTaskCandidate(
     Guid Id,
     string Title,
     GoalTaskStatus Status,
     IReadOnlyList<string> PlanTags,
     IReadOnlyList<PullRequestRefDto> PullRequests,
-    bool InScope);
+    bool InScope,
+    bool MarkedBlocked = false,
+    IReadOnlyList<PullRequestRefDto>? StoredPullRequests = null)
+{
+    /// <summary>The links that decide where the task stands on a goal.</summary>
+    public IReadOnlyList<PullRequestRefDto> LinksForStanding => StoredPullRequests ?? PullRequests;
+}
 
 /// <summary>An open pull request the shell's reader found.</summary>
 /// <param name="Repository">Its repository, <c>owner/name</c>.</param>

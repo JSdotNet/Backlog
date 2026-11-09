@@ -33,11 +33,20 @@ public enum GoalTaskStatus
     Done
 }
 
-/// <summary>A plan attached to a goal, with its own count.</summary>
+/// <summary>A plan attached to a goal, with its own counts.</summary>
 /// <param name="Title">The plan's name as the host shows it.</param>
+/// <param name="Done">Its entries done.</param>
+/// <param name="Total">Every entry filed under it.</param>
 /// <param name="Subject">The plan as the host names it, handed back on detach; null draws the
 /// row with no detach.</param>
-public sealed record GoalPlanModel(string Title, int Done, int Total, GoalSubject? Subject = null);
+/// <param name="Doing">Its entries in progress.</param>
+/// <param name="Blocked">Its entries blocked.</param>
+public sealed record GoalPlanModel(string Title, int Done, int Total, GoalSubject? Subject = null, int Doing = 0, int Blocked = 0)
+{
+    /// <summary>The plan's entries as its bar draws them. Not started is what the total leaves,
+    /// computed here because the bar's label reads it; a plan has no window of its own.</summary>
+    public GoalCounts Counts => new(Done, Total, Doing, Blocked, Math.Max(0, Total - Done - Doing - Blocked), 0);
+}
 
 /// <summary>A task attached to a goal.</summary>
 /// <param name="Id">The host's id for the task.</param>

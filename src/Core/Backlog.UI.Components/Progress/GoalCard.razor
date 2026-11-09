@@ -6,9 +6,10 @@
     anywhere on that row opens the goal, or folds the open one; the title is its button,
     which the keyboard reaches and which carries aria-expanded. Nothing in the body
     toggles. Opened, the bar runs under the title and the goal lists what is
-    attached to it in three columns — Plan with each plan's done/total, Tasks with a
-    status dot each, Pull requests with a status line each, the merged ones gathered
-    on one line as pills and "merged" — and below them the attach search.
+    attached to it in three columns — Plan with each plan's own stacked bar and a line
+    such as "5/9 · 2 in progress · 1 blocked", Tasks with a status dot and the status in a
+    word under the title each, Pull requests with a status line each, the merged ones
+    gathered on one line as pills and "merged" — and below them the attach search.
 
     The attach search is the library's WorkItemSearch, drawn in this card's classes. It
     matches the host's candidates — plans, tasks and pull requests — by
@@ -174,11 +175,14 @@
                     <span class="goal-card__column-title">Plan</span>
                     @foreach (var plan in Goal.Plans)
                     {
-                        <span class="goal-card__plan">
-                            <span class="goal-card__plan-title">@plan.Title</span>
-                            <span class="goal-card__plan-count">@plan.Done/@plan.Total</span>
-                            @Detach(plan.Subject, $"plan {plan.Title}")
-                        </span>
+                        <div class="goal-card__plan">
+                            <div class="goal-card__plan-head">
+                                <span class="goal-card__plan-title">@plan.Title</span>
+                                @Detach(plan.Subject, $"plan {plan.Title}")
+                            </div>
+                            <GoalProgressBar Counts="plan.Counts" TestId="@Part("plan-bar")" />
+                            <span class="goal-card__plan-count">@GoalsText.PlanLine(plan)</span>
+                        </div>
                     }
                     @if (Goal.Plans.Count == 0)
                     {
@@ -192,8 +196,10 @@
                     {
                         <span class="goal-card__task" data-status="@GoalTaskStatusText.Slug(task.Status)">
                             <StatusDot Tone="@GoalTaskStatusText.Tone(task.Status)" />
-                            <span class="goal-card__task-title">@task.Title</span>
-                            <span class="sr-only">, @GoalTaskStatusText.Words(task.Status)</span>
+                            <span class="goal-card__task-text">
+                                <span class="goal-card__task-title">@task.Title</span>
+                                <span class="goal-card__task-word">@GoalTaskStatusText.Words(task.Status)</span>
+                            </span>
                             @Detach(task.Subject, $"task {task.Title}")
                         </span>
                     }
