@@ -1730,6 +1730,27 @@
     object-fit: contain;
 }
 
+/* The preview of one picture: as wide as the window allows rather than the
+   dialog's reading width, the picture contained so its whole edge shows. */
+.inbox-pane__preview {
+    width: min(64rem, 100%);
+}
+
+.inbox-pane__preview-body {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+}
+
+.inbox-pane__preview-image {
+    display: block;
+    max-width: 100%;
+    /* The dialog stops at 85vh; the header, footer, gaps and padding take the
+       rest, so the whole picture shows without the dialog scrolling. */
+    max-height: calc(85vh - 12rem);
+    object-fit: contain;
+}
+
 .inbox-pane__thumbnail-pending {
     padding: var(--spacing-xs);
     color: var(--color-text-secondary);

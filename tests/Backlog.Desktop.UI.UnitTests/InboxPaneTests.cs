@@ -599,9 +599,82 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-row-{jpeg.Id:N}']"));
 
         await pane.Find($"[data-testid='inbox-attachment-open-{pdf.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([pdf.Id], harness.Inbox.Opened);
+    }
+
+    [Fact]
+    public async Task Clicking_a_picture_previews_it_in_the_app_and_open_in_external_app_hands_it_over()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']"));
+
+        // The click previews rather than leaving the app.
         await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
 
-        Assert.Equal([pdf.Id, jpeg.Id], harness.Inbox.Opened);
+        var preview = pane.WaitForElement("[data-testid='inbox-attachment-preview']");
+        Assert.Contains("whiteboard.jpg", preview.TextContent);
+        var image = pane.Find("[data-testid='inbox-attachment-preview-image']");
+        Assert.Equal("data:image/jpeg;base64,/9j/4AECAw==", image.GetAttribute("src"));
+        Assert.Equal("whiteboard.jpg", image.GetAttribute("alt"));
+        Assert.Empty(harness.Inbox.Opened);
+
+        // The way out to the machine's own application, which closes the preview.
+        await pane.Find("[data-testid='inbox-attachment-preview-open']").ClickAsync(new());
+
+        Assert.Equal([jpeg.Id], harness.Inbox.Opened);
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']")));
+    }
+
+    [Fact]
+    public async Task Escape_closes_a_picture_preview_without_opening_the_file()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
+
+        await pane.WaitForElement("[data-testid='inbox-attachment-preview']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']")));
+        Assert.Empty(harness.Inbox.Opened);
+    }
+
+    [Fact]
+    public async Task A_preview_left_open_does_not_come_back_with_its_item()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        var other = harness.Inbox.Seed("Something else", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
+        pane.WaitForElement("[data-testid='inbox-attachment-preview']");
+
+        await harness.SelectAsync(pane, other.Id);
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']"));
     }
 
     [Fact]
