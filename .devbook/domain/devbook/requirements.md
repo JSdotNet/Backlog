@@ -767,13 +767,25 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ElementInspectorTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ElementInspectionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_inspector_lists_the_records_and_opens_one_in_the_surface]
 ```
 
-The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening on the surface in place of the view), and a zoom-in button only when a deeper view of it exists.
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters and no other folder's that document a view showing it, the ADRs that name it and the TDRs that name it or, on a container, one of its components (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, a component's TDR marked with the component, each opening on the surface in place of the view), and a zoom-in button only when a deeper view of it exists.
 
 #### Scenario: A container with records
 
 - **Given** the Containers view is open
 - **When** the reader selects Desktop App
 - **Then** the inspector reads Container, its description and .NET MAUI Blazor Hybrid, lists the arc42 chapters, ADRs and TDRs that name it, and offers to open its components
+
+#### Scenario: Debt on a component of the container
+
+- **Given** one TDR names the Devbook component of Desktop App and none names Desktop App
+- **When** the reader selects Desktop App on the Containers view
+- **Then** the Technical debt section lists that TDR marked "On component Devbook"
+
+#### Scenario: A chapter of another folder against the view
+
+- **Given** the views map lists the domain's context map against the Containers view
+- **When** the reader selects Desktop App
+- **Then** "Documented in arc42" lists the arc42 chapters only
 
 #### Scenario: An element with nothing deeper
 
