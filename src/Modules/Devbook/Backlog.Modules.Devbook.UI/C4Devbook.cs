@@ -108,6 +108,10 @@ public sealed class C4DevbookStore : IDisposable
     private string? _cachedFor;
     private C4Catalog? _cached;
 
+    /// <summary>The files <see cref="_cached"/> was read from, as they were. See
+    /// <see cref="C4DevbookInputs"/>.</summary>
+    private C4DevbookInputs? _cachedInputs;
+
     /// <summary>The catalog a chapter save left with only its links in doubt, and the
     /// scope it was read for. See <see cref="ChapterSaved"/>.</summary>
     private C4Catalog? _relinkFrom;
@@ -157,13 +161,10 @@ public sealed class C4DevbookStore : IDisposable
         int generation;
         C4Catalog? relink;
 
+        if (CachedFor(key) is { } cached) return cached;
+
         lock (_gate)
         {
-            if (_cached is not null && string.Equals(_cachedFor, key, StringComparison.Ordinal))
-            {
-                return _cached;
-            }
-
             generation = _generation;
             relink = _relinkFrom is not null && string.Equals(_relinkFromKey, key, StringComparison.Ordinal) ? _relinkFrom : null;
         }
@@ -198,9 +199,17 @@ public sealed class C4DevbookStore : IDisposable
         var reuse = relink?.LinkSource?.Workspace;
 
         // On the pool, because deriving reads every chapter in the folder and the
-        // caller's continuation is the UI thread in the desktop host.
+        // caller's continuation is the UI thread in the desktop host. The inputs are
+        // stamped before they are read, as DevbookFileCache stamps: a write landing
+        // between the two is a re-read on the next load, never a stale catalog kept.
         var prepared = location;
-        var catalog = await Task.Run(() => Read(prepared, domain, reuse)).ConfigureAwait(false);
+        var (catalog, inputs) = await Task.Run(() =>
+        {
+            var stamped = C4DevbookInputs.Take(
+                prepared is { Available: true } ? prepared.FullPath : null,
+                domain is { Available: true } ? domain.FullPath : null);
+            return (Read(prepared, domain, reuse), stamped);
+        }).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -208,10 +217,62 @@ public sealed class C4DevbookStore : IDisposable
             {
                 _cachedFor = key;
                 _cached = catalog;
+                _cachedInputs = inputs;
             }
         }
 
         return catalog;
+    }
+
+    /// <summary>
+    /// The cached catalog for <paramref name="key"/>, while the files it was read from
+    /// are as they were — or null, to be read.
+    /// <para>
+    /// Nothing tells the app about a file changed outside it, so each load stats the
+    /// inputs (<see cref="C4DevbookInputs"/>): a building block, an ADR or the
+    /// workspace a <c>git pull</c> or an editor added, changed or removed is read on the
+    /// next load rather than when a feature switch next moves. A change to the chapters
+    /// alone is taken as a chapter save is (<see cref="ChapterSaved"/>): the links are
+    /// read again over the workspace already parsed. A change to the workspace, what it
+    /// includes or the reference map drops the catalog whole.
+    /// </para>
+    /// </summary>
+    private C4Catalog? CachedFor(string key)
+    {
+        C4Catalog cached;
+        C4DevbookInputs? inputs;
+        int generation;
+
+        lock (_gate)
+        {
+            if (_cached is null || !string.Equals(_cachedFor, key, StringComparison.Ordinal)) return null;
+
+            cached = _cached;
+            inputs = _cachedInputs;
+            generation = _generation;
+        }
+
+        if (inputs is null) return cached;
+
+        var now = inputs.Again();
+        if (inputs.Same(now)) return cached;
+
+        lock (_gate)
+        {
+            // Another load or a drop got here first; whichever it was left the cache
+            // as it should be, and this load reads afresh either way.
+            if (generation != _generation) return null;
+
+            var relink = cached.LinkSource is not null && inputs.SameModel(now);
+            _relinkFrom = relink ? cached : null;
+            _relinkFromKey = relink ? key : null;
+            _cached = null;
+            _cachedFor = null;
+            _cachedInputs = null;
+            _generation++;
+        }
+
+        return null;
     }
 
     private static C4Catalog Read(DevbookFolderLocation location, DevbookFolderLocation? domain = null, C4Workspace? reuse = null)
@@ -667,6 +728,7 @@ public sealed class C4DevbookStore : IDisposable
 
             _cached = null;
             _cachedFor = null;
+            _cachedInputs = null;
             _generation++;
         }
     }
@@ -677,6 +739,7 @@ public sealed class C4DevbookStore : IDisposable
         {
             _cached = null;
             _cachedFor = null;
+            _cachedInputs = null;
             _relinkFrom = null;
             _relinkFromKey = null;
             _generation++;
