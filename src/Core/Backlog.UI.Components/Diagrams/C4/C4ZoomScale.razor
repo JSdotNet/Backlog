@@ -1,0 +1,72 @@
+@using System.Globalization
+
+@*
+    The − / Fit / + of the C4 zoom surface: the size a level's picture is drawn at,
+    one step of Steps per press, and Fit back to the picture's own size.
+
+    It holds no state of its own. The host keeps the step — Index, bound with
+    @bind-Index — because the host decides when a new picture resets it, and applies
+    Percent to its own canvas, because what "the picture" is differs per level: an SVG
+    scaled to its frame on a view, the class boxes on the Code level.
+*@
+
+<ButtonGroup CssClass="@CssClass" AriaLabel="Zoom" TestId="@TestId">
+    <AppButton Size="ButtonSize.Small"
+               Variant="ButtonVariant.Secondary"
+               aria-label="Zoom out"
+               title="Zoom out"
+               Disabled="@(Index <= 0)"
+               TestId="@($"{TestId}-out")"
+               OnClick="() => MoveAsync(Index - 1)">−</AppButton>
+    <AppButton Size="ButtonSize.Small"
+               Variant="ButtonVariant.Secondary"
+               title="@FitTitle"
+               TestId="@($"{TestId}-fit")"
+               OnClick="() => MoveAsync(FitIndex)">Fit</AppButton>
+    <AppButton Size="ButtonSize.Small"
+               Variant="ButtonVariant.Secondary"
+               aria-label="Zoom in"
+               title="Zoom in"
+               Disabled="@(Index >= Steps.Count - 1)"
+               TestId="@($"{TestId}-in")"
+               OnClick="() => MoveAsync(Index + 1)">+</AppButton>
+</ButtonGroup>
+
+@code {
+    /// <summary>The sizes a picture is drawn at, smallest first; 1 is its own size.</summary>
+    public static IReadOnlyList<double> Steps { get; } = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+    /// <summary>The step Fit goes back to: the picture at its own size.</summary>
+    public const int FitIndex = 2;
+
+    /// <summary>A step as a percentage: 100 at <see cref="FitIndex"/>.</summary>
+    public static int Percent(int index) =>
+        (int)Math.Round(Steps[Math.Clamp(index, 0, Steps.Count - 1)] * 100, MidpointRounding.AwayFromZero);
+
+    /// <summary>A step as the CSS number it is drawn with: "1.25".</summary>
+    public static string Factor(int index) =>
+        Steps[Math.Clamp(index, 0, Steps.Count - 1)].ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>The step the picture is drawn at, an index into <see cref="Steps"/>.</summary>
+    [Parameter]
+    public int Index { get; set; } = FitIndex;
+
+    [Parameter]
+    public EventCallback<int> IndexChanged { get; set; }
+
+    /// <summary>What Fit says it does, on hover.</summary>
+    [Parameter]
+    public string FitTitle { get; set; } = "Fit the picture to its frame";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "c4-zoom-scale";
+
+    private Task MoveAsync(int index)
+    {
+        var next = Math.Clamp(index, 0, Steps.Count - 1);
+        return next == Index ? Task.CompletedTask : IndexChanged.InvokeAsync(next);
+    }
+}

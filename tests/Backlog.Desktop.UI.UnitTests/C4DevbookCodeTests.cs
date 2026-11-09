@@ -62,6 +62,31 @@ public sealed class C4DevbookCodeTests : IDisposable
         Prose.
         """;
 
+    /// <summary>A debt record whose title names the Refresher type: the type's own
+    /// debt.</summary>
+    private const string RefresherDebt = """
+        # TDR 0001: Refresher polls the folder instead of watching it
+
+        ```meta
+        c4: [backlog.desktop.devbook]
+        severity: medium
+        ```
+
+        Prose.
+        """;
+
+    /// <summary>A debt record on the component that names none of its types.</summary>
+    private const string PanelDebt = """
+        # TDR 0002: The panels share one cache
+
+        ```meta
+        c4-touches: [backlog.desktop.devbook]
+        severity: low
+        ```
+
+        Prose.
+        """;
+
     private const string Refresher = """
         namespace Shop.Devbook;
 
@@ -96,6 +121,8 @@ public sealed class C4DevbookCodeTests : IDisposable
         var arc42 = Path.Combine(root, ".devbook", "arc42");
         Write(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
         Write(Path.Combine(arc42, "adr", "0004-knowledge-index.md"), Decision);
+        Write(Path.Combine(arc42, "tdr", "0001-refresher-polls.md"), RefresherDebt);
+        Write(Path.Combine(arc42, "tdr", "0002-one-cache.md"), PanelDebt);
         if (withBuildingBlock) Write(Path.Combine(arc42, "building-blocks", "devbook.md"), BuildingBlock);
         Directory.CreateDirectory(Path.Combine(root, ".devbook", "domain"));
 
@@ -186,6 +213,45 @@ public sealed class C4DevbookCodeTests : IDisposable
         Assert.Equal("0004", decision.Number);
         Assert.Equal("Knowledge index is a generated database", decision.Title);
         Assert.EndsWith("adr/0004-knowledge-index.md", decision.Path, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The type panel's Technical debt: the component's debt records, and per type the
+    /// ones whose title names it — a chapter and its code are paired through naming,
+    /// never a path (devbook-chapter-metadata.md).
+    /// </summary>
+    [Fact]
+    public async Task The_components_debt_is_on_the_level_and_a_type_carries_the_debt_that_names_it()
+    {
+        var catalog = await LoadAsync(CreateRepository());
+        var code = new C4DevbookCode(new CSharpCodeReader(), new RecordingLauncher()).For(catalog);
+
+        var level = await code.Load(Devbook, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["0001", "0002"], level.Debt.Select(record => record.Number).Order(StringComparer.Ordinal));
+        Assert.Contains(level.Debt, record => record.Title == "Refresher polls the folder instead of watching it");
+
+        var refresher = level.Types.Single(type => type.Name == "Refresher");
+        var debt = Assert.Single(refresher.Debt);
+        Assert.Equal("0001", debt.Number);
+        Assert.EndsWith("tdr/0001-refresher-polls.md", debt.Path, StringComparison.Ordinal);
+
+        Assert.Empty(level.Types.Single(type => type.Name == "Builder").Debt);
+
+        // A debt record is no decision.
+        Assert.Equal(["0004"], level.Decisions.Select(record => record.Number));
+    }
+
+    /// <summary>A type is named as a word, its type parameters aside: "Builder" is not
+    /// named by "Builders" or "DevbookBuilder", and "Cache&lt;T&gt;" is by "Cache".</summary>
+    [Fact]
+    public void A_record_names_a_type_by_its_name_as_a_whole_word()
+    {
+        Assert.True(C4DevbookCode.Names("Refresher polls the folder", "Refresher"));
+        Assert.True(C4DevbookCode.Names("The Cache leaks", "Cache<T>"));
+        Assert.False(C4DevbookCode.Names("Builders are slow", "Builder"));
+        Assert.False(C4DevbookCode.Names("DevbookBuilder is slow", "Builder"));
+        Assert.False(C4DevbookCode.Names("anything", ""));
     }
 
     /// <summary>Scenario "The source changed": a type added since the last opening is
@@ -292,6 +358,9 @@ public sealed class C4DevbookCodeTests : IDisposable
 
         var record = C4DevbookCode.Record(new C4LinkedRecord(".devbook/arc42/adr/0015-store.md", "ADR 0015: The devbook database lives in app storage", C4RecordKind.Decision, null, null, []));
         Assert.Equal(("0015", "The devbook database lives in app storage"), (record.Number, record.Title));
+
+        var debt = C4DevbookCode.Record(new C4LinkedRecord(".devbook/arc42/tdr/0001-polls.md", "TDR 0001: Refresher polls", C4RecordKind.Debt, null, null, []));
+        Assert.Equal(("0001", "Refresher polls"), (debt.Number, debt.Title));
 
         var untitled = C4DevbookCode.Record(new C4LinkedRecord("notes/decision.md", "Use SQLite", C4RecordKind.Decision, null, null, []));
         Assert.Equal((string.Empty, "Use SQLite"), (untitled.Number, untitled.Title));

@@ -8,7 +8,9 @@
     or all of them — and an arrow per use, laid out by C4LayoutEngine through
     C4CodeLayout so a use reads top to bottom as a relationship does a level up. Beside
     it the type panel: the selected type's files, "Open in editor" where the host can
-    open one, and the decision records linked to the component.
+    open one, the reference it is held to where it has one, the decision records linked
+    to the component, and its technical debt — the records that name the type, else the
+    component's. Over the picture, the − / Fit / + the other levels have.
 
     Its own component rather than a branch of C4ZoomExplorer: the explorer decides when
     the level is open, and this draws it, so either can change without the other.
@@ -43,10 +45,18 @@
 
         @if (Level is { Problem: null, Types.Count: > 0 })
         {
-            <ButtonGroup Radio="true" AriaLabel="Members" CssClass="c4-code__members" TestId="c4-code-members">
-                <ToggleButton Pressed="@(!_allMembers)" PressedChanged="_ => ShowAll(false)" TestId="c4-code-members-public">Public</ToggleButton>
-                <ToggleButton Pressed="@_allMembers" PressedChanged="_ => ShowAll(true)" TestId="c4-code-members-all">All</ToggleButton>
-            </ButtonGroup>
+            <div class="c4-code__tools">
+                <ButtonGroup Radio="true" AriaLabel="Members" CssClass="c4-code__members" TestId="c4-code-members">
+                    <ToggleButton Pressed="@(!_allMembers)" PressedChanged="_ => ShowAll(false)" TestId="c4-code-members-public">Public</ToggleButton>
+                    <ToggleButton Pressed="@_allMembers" PressedChanged="_ => ShowAll(true)" TestId="c4-code-members-all">All</ToggleButton>
+                </ButtonGroup>
+
+                @* The − / Fit / + every other level has, sizing the class boxes. *@
+                <C4ZoomScale @bind-Index="_scale"
+                             FitTitle="Draw the types at their own size"
+                             CssClass="c4-code__scale"
+                             TestId="c4-code-scale" />
+            </div>
         }
     </header>
 
@@ -74,7 +84,9 @@
                  role="group"
                  aria-label="@($"Types of {Level.Component}")"
                  data-testid="c4-code-frame">
-                <div class="c4-code__canvas" style="@Size(Diagram.Width, Diagram.Height)">
+                @* zoom rather than a transform, so the frame scrolls over the sized
+                   picture and not over the space it took before. *@
+                <div class="c4-code__canvas" style="@CanvasStyle" data-scale="@C4ZoomScale.Percent(_scale)">
                     <svg class="c4-code__uses"
                          width="@Number(Diagram.Width)"
                          height="@Number(Diagram.Height)"
@@ -156,6 +168,14 @@
                         }
                     </div>
 
+                    @if (type.Reference is { } reference)
+                    {
+                        <section class="c4-code__records" data-testid="c4-code-reference">
+                            <h4 class="c4-code__records-title">Held to a reference</h4>
+                            <p class="c4-code__note c4-code__note--body"><code class="c4-code__folder">@reference.Source</code>, compared with it in <code class="c4-code__folder">@reference.HeldBy</code>.</p>
+                        </section>
+                    }
+
                     <section class="c4-code__records" data-testid="c4-code-decisions">
                         <h4 class="c4-code__records-title">Decisions it implements · @Level.Decisions.Count</h4>
                         @if (Level.Decisions.Count == 0)
@@ -164,31 +184,26 @@
                         }
                         else
                         {
-                            <ul class="c4-code__record-list">
-                                @foreach (var record in Level.Decisions)
-                                {
-                                    <li>
-                                        @if (OpenRecord is not null)
-                                        {
-                                            <AppButton BaseClass="c4-code__record"
-                                                       Variant="ButtonVariant.None"
-                                                       title="@record.Path"
-                                                       TestId="c4-code-decision"
-                                                       OnClick="() => OpenRecord(record)">
-                                                <span class="c4-code__record-number">@record.Number</span>
-                                                <span class="c4-code__record-title">@record.Title</span>
-                                            </AppButton>
-                                        }
-                                        else
-                                        {
-                                            <span class="c4-code__record" title="@record.Path" data-testid="c4-code-decision">
-                                                <span class="c4-code__record-number">@record.Number</span>
-                                                <span class="c4-code__record-title">@record.Title</span>
-                                            </span>
-                                        }
-                                    </li>
-                                }
-                            </ul>
+                            @Records(Level.Decisions, "c4-code-decision")
+                        }
+                    </section>
+
+                    @* The type's own debt, else the component's: a debt record names a type
+                       by its name, and one that names none is about the component. *@
+                    <section class="c4-code__records" data-testid="c4-code-debt">
+                        <h4 class="c4-code__records-title">Technical debt</h4>
+                        @if (type.Debt.Count > 0)
+                        {
+                            @Records(type.Debt, "c4-code-debt-record")
+                        }
+                        else if (Level.Debt.Count > 0)
+                        {
+                            <p class="c4-code__note" data-testid="c4-code-debt-fallback">No TDR names @type.Name. Its component, @Level.Component, carries @Count(Level.Debt.Count, "TDR", "TDRs"):</p>
+                            @Records(Level.Debt, "c4-code-debt-record")
+                        }
+                        else
+                        {
+                            <p class="c4-code__note">No TDR names @type.Name or @Level.Component.</p>
                         }
                     </section>
                 </aside>
@@ -209,6 +224,8 @@
     private string? _selectedId;
     private bool _opening;
     private string? _openError;
+
+    private int _scale = C4ZoomScale.FitIndex;
 
     private C4CodeDiagram _diagram = C4CodeDiagram.Empty;
     private C4CodeLevel? _diagramLevel;
@@ -313,6 +330,43 @@
 
     private Task OnKeyDownAsync(KeyboardEventArgs args) =>
         string.Equals(args.Key, "Backspace", StringComparison.Ordinal) ? OnZoomOut.InvokeAsync() : Task.CompletedTask;
+
+    /// <summary>A list of records, each opening its chapter where the host can open
+    /// one and plain text where it cannot.</summary>
+    private RenderFragment Records(IReadOnlyList<C4CodeRecord> records, string testId) => @<ul class="c4-code__record-list">
+        @foreach (var record in records)
+        {
+            <li @key="record.Path">
+                @if (OpenRecord is not null)
+                {
+                    <AppButton BaseClass="c4-code__record"
+                               Variant="ButtonVariant.None"
+                               title="@record.Path"
+                               TestId="@testId"
+                               OnClick="() => OpenRecord(record)">
+                        <span class="c4-code__record-number">@record.Number</span>
+                        <span class="c4-code__record-title">@record.Title</span>
+                    </AppButton>
+                }
+                else
+                {
+                    <span class="c4-code__record" title="@record.Path" data-testid="@testId">
+                        <span class="c4-code__record-number">@record.Number</span>
+                        <span class="c4-code__record-title">@record.Title</span>
+                    </span>
+                }
+            </li>
+        }
+    </ul>;
+
+    /// <summary>The canvas at the picture's size, drawn at the step − / Fit / + chose.</summary>
+    private string CanvasStyle =>
+        _scale == C4ZoomScale.FitIndex
+            ? Size(Diagram.Width, Diagram.Height)
+            : $"{Size(Diagram.Width, Diagram.Height)}; zoom: {C4ZoomScale.Factor(_scale)}";
+
+    private static string Count(int count, string one, string many) =>
+        count == 1 ? $"1 {one}" : $"{count.ToString(CultureInfo.InvariantCulture)} {many}";
 
     private static string TypeCount(int count) => count == 1 ? "1 type" : $"{count.ToString(CultureInfo.InvariantCulture)} types";
 
