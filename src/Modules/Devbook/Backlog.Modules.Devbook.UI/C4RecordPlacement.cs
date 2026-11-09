@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -46,7 +47,10 @@ public sealed record C4RecordMap(
 /// <summary>Another decision or debt record in the chain, by its file.</summary>
 /// <param name="Number">The four digits the file name opens with.</param>
 /// <param name="Proposed">Whether its status is <c>proposed</c>, drawn dashed.</param>
-public sealed record C4ChainRecord(string Path, string Number, string Title, bool Proposed);
+/// <param name="Guideline">Whether it is a guideline ADR, under <c>adr/guidelines/</c>.
+/// Guidelines number from 0001 as the local records do, so the number alone does not
+/// say which record a chip is.</param>
+public sealed record C4ChainRecord(string Path, string Number, string Title, bool Proposed, bool Guideline = false);
 
 /// <summary>An arc42 chapter section whose <c>related:</c> names the record.</summary>
 /// <param name="Anchor">The section's slug, or null when the chapter's own top block
@@ -71,6 +75,14 @@ public sealed record C4RecordCitation(string Path, string? Anchor, string Number
 /// record — so this record superseded that one. Prose saying "supersedes" is not read:
 /// it also says "does not supersede".
 /// </para>
+/// <para>
+/// A TDR's chain is the ADRs its <c>related:</c> lists name, local and guideline
+/// alike: the ones its <c>## Origin</c> section (<c>## Why it exists</c> in the
+/// contract's older shape) names are its <see cref="Origin"/>, the rest
+/// <see cref="Related"/>. The field decides which ADRs are in the chain; the
+/// section's prose only says which of those the debt came from, so a record the prose
+/// mentions and <c>related:</c> does not is never drawn.
+/// </para>
 /// </summary>
 public sealed partial record C4RecordPlacement(
     DevbookDocument Record,
@@ -81,7 +93,9 @@ public sealed partial record C4RecordPlacement(
     IReadOnlyList<C4ChainRecord> BuildsOn,
     IReadOnlyList<C4ChainRecord> BuiltOnBy,
     IReadOnlyList<C4RecordCitation> CitedBy,
-    IReadOnlyList<C4ChainRecord> Debt)
+    IReadOnlyList<C4ChainRecord> Debt,
+    IReadOnlyList<C4ChainRecord> Origin,
+    IReadOnlyList<C4ChainRecord> Related)
 {
     /// <summary>A TDR's severity, or null for an ADR.</summary>
     public DevbookDebtSeverity? Severity => Record.Severity;
@@ -108,16 +122,29 @@ public sealed partial record C4RecordPlacement(
         var self = C4ViewEntry.FileOf(record.Path);
         var cited = Citations(catalog, self);
 
+        // Every ADR, local ones first: guidelines build on and are built on as local
+        // records are, and number from 0001 as they do, so each chip says which it is.
+        var adrs = catalog.Documents
+            .Where(document => Arc42DevbookCatalog.IsArchitectureDecision(document.Path))
+            .OrderBy(IsGuideline)
+            .ToList();
+        var mine = RelatedFiles(record);
+
         if (recordKind == C4RecordKind.Debt)
         {
-            return new C4RecordPlacement(record, recordKind, map, [], [], [], [], cited, []);
-        }
+            var named = adrs.Where(other => mine.Contains(C4ViewEntry.FileOf(other.Path))).ToList();
+            var origin = OriginOf(record);
+            var fromOrigin = named.Where(origin.Names).ToList();
 
-        var decisions = catalog.Documents.Where(IsLocalDecision).ToList();
+            return new C4RecordPlacement(record, recordKind, map, [], [], [], [], cited, [],
+                [.. fromOrigin.Select(Chain)],
+                [.. named.Except(fromOrigin).Select(Chain)]);
+        }
 
         // Supersession is a local record's alone. A guideline adopted from elsewhere
         // numbers from 0001 as the local records do, so its number would be matched
         // against History rows that name a local record of the same number.
+        var decisions = adrs.Where(IsLocalDecision).ToList();
         var local = IsLocalDecision(record);
         var number = local ? NumberOf(record.Path) : null;
 
@@ -129,13 +156,12 @@ public sealed partial record C4RecordPlacement(
             ? []
             : [.. decisions.Where(other => !Same(other, self) && Named(other, number)).Select(Chain)];
 
-        var mine = RelatedFiles(record);
-        List<C4ChainRecord> buildsOn = [.. decisions
+        List<C4ChainRecord> buildsOn = [.. adrs
             .Where(other => !Same(other, self) && mine.Contains(C4ViewEntry.FileOf(other.Path)))
             .Select(Chain)
             .Where(entry => !supersedes.Any(earlier => string.Equals(earlier.Path, entry.Path, StringComparison.OrdinalIgnoreCase)))];
 
-        List<C4ChainRecord> builtOnBy = [.. decisions
+        List<C4ChainRecord> builtOnBy = [.. adrs
             .Where(other => !Same(other, self) && RelatedFiles(other).Contains(self))
             .Select(Chain)
             .Where(entry => !supersededBy.Any(later => string.Equals(later.Path, entry.Path, StringComparison.OrdinalIgnoreCase)))];
@@ -144,7 +170,7 @@ public sealed partial record C4RecordPlacement(
             .Where(other => Arc42DevbookCatalog.IsDebtRecord(other.Path) && RelatedFiles(other).Contains(self))
             .Select(Chain)];
 
-        return new C4RecordPlacement(record, recordKind, map, supersedes, supersededBy, buildsOn, builtOnBy, cited, debt);
+        return new C4RecordPlacement(record, recordKind, map, supersedes, supersededBy, buildsOn, builtOnBy, cited, debt, [], []);
     }
 
     // ---- the map ------------------------------------------------------------------
@@ -237,6 +263,101 @@ public sealed partial record C4RecordPlacement(
         return folder >= 0 && !path[(folder + "/adr/".Length)..].Contains('/', StringComparison.Ordinal);
     }
 
+    /// <summary>A guideline ADR: adopted from elsewhere into <c>adr/guidelines/</c>,
+    /// numbered from 0001 as the local records are.</summary>
+    private static bool IsGuideline(DevbookDocument document) =>
+        document.Path.Replace('\\', '/').Contains("/adr/guidelines/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What a TDR's origin section names: the files its heading's
+    /// <c>related:</c> and its links point at, and the ADRs its prose cites by number,
+    /// each a local or a guideline one.</summary>
+    private sealed record OriginNames(
+        HashSet<string> Files,
+        HashSet<string> LinkedNames,
+        HashSet<(bool Guideline, string Number)> Cited)
+    {
+        public static OriginNames None { get; } = new([], [], []);
+
+        public bool Names(DevbookDocument adr) =>
+            Files.Contains(C4ViewEntry.FileOf(adr.Path))
+            || LinkedNames.Contains(Path.GetFileName(adr.Path))
+            || (NumberOf(adr.Path) is { } number && Cited.Contains((IsGuideline(adr), number)));
+    }
+
+    /// <summary>
+    /// Reads the section a TDR says where the debt came from: <c>## Origin</c>, or
+    /// <c>## Why it exists</c> as the debt-record contract names it, up to the next
+    /// heading of its level. An ADR cited as "ADR 0008" or "local ADR 0008" is a
+    /// local one; "guideline ADR" or "inherited ADR", the wording this repository's
+    /// chapters use for <c>adr/guidelines/</c>, a guideline.
+    /// </summary>
+    private static OriginNames OriginOf(DevbookDocument record)
+    {
+        var start = -1;
+        var level = 0;
+        for (var index = 0; index < record.Blocks.Count; index++)
+        {
+            if (record.Blocks[index] is DevbookHeadingBlock { Level: > 1 } heading && IsOriginHeading(heading.Text))
+            {
+                start = index;
+                level = heading.Level;
+                break;
+            }
+        }
+
+        if (start < 0) return OriginNames.None;
+
+        var origin = (DevbookHeadingBlock)record.Blocks[start];
+        var names = new OriginNames(
+            origin.Metadata.Related.Select(C4ViewEntry.FileOf).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            []);
+
+        foreach (var block in record.Blocks.Skip(start + 1))
+        {
+            if (block is DevbookHeadingBlock next && next.Level <= level) break;
+
+            IEnumerable<IReadOnlyList<MdInline>> runs = block switch
+            {
+                DevbookParagraphBlock paragraph => [paragraph.Content],
+                DevbookQuoteBlock quote => [quote.Content],
+                DevbookListBlock list => list.Items,
+                _ => []
+            };
+
+            foreach (var run in runs)
+            {
+                foreach (var link in run.OfType<MdLink>())
+                {
+                    var target = link.Url.Split('#', 2)[0];
+                    if (target.Length > 0) names.LinkedNames.Add(Path.GetFileName(target));
+                }
+
+                foreach (Match cite in CitedRecord().Matches(string.Concat(run.Select(InlineText))))
+                {
+                    var guideline = cite.Groups[1].Success && !cite.Groups[1].Value.Equals("local", StringComparison.OrdinalIgnoreCase);
+                    names.Cited.Add((guideline, cite.Groups[2].Value));
+                }
+            }
+        }
+
+        return names;
+    }
+
+    private static bool IsOriginHeading(string text) =>
+        text.Trim().Equals("Origin", StringComparison.OrdinalIgnoreCase)
+        || text.Trim().Equals("Why it exists", StringComparison.OrdinalIgnoreCase);
+
+    private static string InlineText(MdInline inline) => inline switch
+    {
+        MdText text => text.Text,
+        MdStrong strong => strong.Text,
+        MdEm em => em.Text,
+        MdStrike strike => strike.Text,
+        MdLink link => link.Text,
+        _ => " "
+    };
+
     private static bool Same(DevbookDocument document, string file) =>
         string.Equals(C4ViewEntry.FileOf(document.Path), file, StringComparison.OrdinalIgnoreCase);
 
@@ -259,7 +380,8 @@ public sealed partial record C4RecordPlacement(
         document.Path,
         NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
         TitleOf(document),
-        string.Equals(document.Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase));
+        string.Equals(document.Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase),
+        IsGuideline(document));
 
     /// <summary>The title without its "ADR 0005:" lead, which the number beside it
     /// already says.</summary>
@@ -321,6 +443,9 @@ public sealed partial record C4RecordPlacement(
 
     [GeneratedRegex(@"^\s*(?:local\s+)?ADR\s+(\d{4})\b", RegexOptions.IgnoreCase)]
     private static partial Regex HistoryRecord();
+
+    [GeneratedRegex(@"\b(?:(local|guidelines?|inherited)\s+)?ADR\s+(\d{4})\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CitedRecord();
 
     [GeneratedRegex(@"^(\d{4})\b")]
     private static partial Regex FileNumber();
