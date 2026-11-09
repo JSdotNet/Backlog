@@ -63,6 +63,40 @@ public sealed class DevbookStackLayoutTests
         Assert.Contains("align-items: flex-start;", navRule, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The architecture surface (c4-zoom on): the pane clips at the section's height,
+    /// so the height has to reach the column that scrolls. Reported as "no scrollbar
+    /// for the markdown viewer" when the surface, the explorer and the chapter's layout
+    /// grew to the chapter's length and the pane cut them off. Each of them now takes
+    /// the height it is given, and the chapter's article and its right-hand panel
+    /// scroll on their own.
+    /// </summary>
+    [Fact]
+    public void On_the_architecture_surface_the_open_chapter_scrolls_inside_the_pane()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var surface = RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {");
+        Assert.Contains("flex: 1 1 auto;", surface, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", surface, StringComparison.Ordinal);
+
+        Assert.Contains("flex: 1 1 auto;", RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 > .arc42-surface > .c4-zoom-explorer--surface {"), StringComparison.Ordinal);
+
+        var layout = RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout {\n");
+        Assert.Contains("grid-template-rows: minmax(0, 1fr);", layout, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", layout, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", layout, StringComparison.Ordinal);
+
+        // The article is the scroll box, as it is on the Chapters tab.
+        Assert.Contains("overflow: auto;", RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .devbook-document,"), StringComparison.Ordinal);
+
+        var components = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")));
+        var grid = RuleBody(components, ".c4-zoom-explorer__surface {\n");
+        Assert.Contains("grid-template-rows: minmax(0, 1fr);", grid, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", grid, StringComparison.Ordinal);
+        Assert.Contains("overflow: auto;", RuleBody(components, ".c4-zoom-explorer__main,\n.c4-zoom-explorer__document {"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Domain_and_architecture_outer_panels_clip_instead_of_owning_the_scrollbar()
     {

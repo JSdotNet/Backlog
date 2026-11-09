@@ -3,6 +3,7 @@
 ```meta
 date: 2026-09-26
 related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#devbook-meta-generator"]
+c4: [backlog.desktop.devbook]
 ```
 
 ## Status
@@ -199,3 +200,13 @@ revisit that decision.
   `devbook:update` run, recorded in `components.devbook`, and does not need a
   new decision record. A new decision is needed only if the bump would reverse
   one of the choices above.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-09-26 | The knowledge folders move under `.devbook/` on the devbook convention, and the delivery engine replaces the orch-* gate. | The current devbook checker supports only the `.devbook/` layout. |
+| 2026-08-03 | Root-level dot-folders (`.arc42`, `.domain`, `.tech`, `.design`, `.backlog`) under an installed `knowledge-base` generator. | The layout was the repository's own. |

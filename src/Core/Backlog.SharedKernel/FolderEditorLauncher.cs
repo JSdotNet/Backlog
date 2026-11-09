@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel;
 
 /// <summary>
-/// Opens a folder on this machine in the user's code editor.
+/// Opens a folder, or one file in it, on this machine in the user's code editor.
 /// <para>
 /// The port is in the shared kernel for the same reason
 /// <see cref="IAppFeatureSettings"/> is: more than one context asks the
@@ -16,6 +16,12 @@ namespace Backlog.SharedKernel;
 public interface IFolderEditorLauncher
 {
     Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Opens one file in the same editor — the C4 zoom tab's "Open in editor" on a
+    /// type of the Code level. Fails the way <see cref="OpenFolderAsync"/> does.
+    /// </summary>
+    Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -126,3 +126,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0042 — Repository Management owns pull-request state, and every reader goes through its one contract](adr/0042-repository-management-owns-pull-request-state.md)
 - [ADR 0043 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0043-a-surface-can-open-in-its-own-window.md)
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
+- [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
