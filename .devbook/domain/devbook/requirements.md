@@ -1477,7 +1477,7 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 > [New domain view](context.md#new-domain-view) switch (local ADR 0047). The plan
 > `+devbook-domain-view` builds them page by page; the Context map, a context's
 > page with its neighbours and its Overview, Domain, Features, Requirements, Model, Flow, the
-> Glossary and the Brain and task links are built. The Demo button is not.
+> Glossary and the Brain and task links are built.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1598,6 +1598,7 @@ The system SHALL show each rule on Always true as its heading, marked ✓ when i
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDemoTests.The_Features_page_shows_a_Demo_button_that_shows_its_demo_with_the_places_its_chapters_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Draws_no_row_for_invariants_dependencies_demo_or_underscore_files]
 ```
 
 The system SHALL offer a `*.demo.html` file as a Demo button on the page it belongs to and give it no row of its own.
