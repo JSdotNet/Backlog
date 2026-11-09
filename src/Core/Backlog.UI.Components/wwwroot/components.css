@@ -22854,11 +22854,6 @@ select.field__input {
     overflow-wrap: anywhere;
 }
 
-.goal-card__task-title {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
 .goal-card__columns {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -22874,14 +22869,29 @@ select.field__input {
 
 .goal-card__column-title,
 .goal-card__none,
-.goal-card__plan-count {
+.goal-card__task-word {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
+.goal-card__plan-count {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* A column is about 153px just above the board's breakpoint, so a plan stacks its title, bar
+   and line, and a task its title and word; a long slug wraps rather than widening the row. */
 .goal-card__plan {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.goal-card__plan-head {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-sm);
 }
@@ -22889,18 +22899,37 @@ select.field__input {
 .goal-card__plan-title {
     flex: 1 1 auto;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .goal-card__task {
-    position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--spacing-xs);
 }
 
+/* Centred on the title's first line, however many lines the title takes. */
 .goal-card__task .status-dot {
     width: 0.5rem;
     height: 0.5rem;
+    margin-top: calc((1lh - 0.5rem) / 2);
+}
+
+.goal-card__task-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.goal-card__task-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The word carries the state; the colour only adds to it (color-scheme.md). */
+.goal-card__task[data-status="blocked"] .goal-card__task-word {
+    color: var(--color-error-text);
 }
 
 .goal-card__merged {

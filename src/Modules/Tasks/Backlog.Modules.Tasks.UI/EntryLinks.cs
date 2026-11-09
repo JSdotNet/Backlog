@@ -12,6 +12,12 @@ public sealed record EntryPullRequestLink(string Repository, int Number)
     public string Label => $"#{Number}";
 }
 
+/// <summary>A pull request projection as the entry stores it, unparsed: <c>link_change</c>
+/// keeps a number as given, so <paramref name="ExternalId"/> may read <c>#582</c> and
+/// <paramref name="Repository"/> may not be <c>owner/name</c>. What another module is told an
+/// entry links, where <see cref="EntryPullRequestLink"/> is what can be drawn as a link.</summary>
+public sealed record EntryPullRequestProjection(string Repository, string ExternalId);
+
 /// <summary>An AI session that worked on an entry, recorded by <c>link_session</c>.</summary>
 public sealed record EntrySessionLink(string Repository, string SessionId)
 {
@@ -44,6 +50,19 @@ public static class EntryLinks
                 ? new EntryPullRequestLink(p.RepoId, number)
                 : null)
             .OfType<EntryPullRequestLink>()
+            .Distinct()];
+    }
+
+    /// <summary>The pull request projections as stored, each once, unparsed and untrimmed.
+    /// Read the way <c>ProgressTaskSource</c> publishes them to Progress, the exact target type
+    /// included, so the Goals view's rows read what the goal's bar reads.</summary>
+    public static IReadOnlyList<EntryPullRequestProjection> PullRequestProjections(TaskItemDto entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return [.. entry.Projections
+            .Where(p => p.TargetType == EntryProjectionDto.PullRequestTargetType)
+            .Select(p => new EntryPullRequestProjection(p.RepoId, p.ExternalId))
             .Distinct()];
     }
 

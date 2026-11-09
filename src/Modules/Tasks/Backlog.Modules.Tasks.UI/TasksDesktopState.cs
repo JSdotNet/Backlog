@@ -5835,6 +5835,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         row.CompletedSubItemCount = entry.CompletedSubItems;
         row.IssueLink = TasksIssues.FindLink(entry);
         row.PullRequestLinks = EntryLinks.PullRequests(entry);
+        row.PullRequestProjections = EntryLinks.PullRequestProjections(entry);
         row.SessionLinks = EntryLinks.Sessions(entry);
         row.DevbookReferences = entry.DevbookReferences;
         row.PlannedHours = entry.PlannedHours;
@@ -6659,6 +6660,11 @@ public sealed class EntryRow
     /// <summary>The pull requests work on this entry opened. Persisted as
     /// projections, like <see cref="IssueLink"/>.</summary>
     public IReadOnlyList<EntryPullRequestLink> PullRequestLinks { get; set; } = [];
+
+    /// <summary>The same projections as stored, each once, including those
+    /// <see cref="PullRequestLinks"/> leaves out because it cannot draw them. What the Goals
+    /// view reads a task's links from, so a row agrees with the goal's bar.</summary>
+    public IReadOnlyList<EntryPullRequestProjection> PullRequestProjections { get; set; } = [];
 
     /// <summary>The AI sessions that worked on this entry. Persisted as
     /// projections, like <see cref="IssueLink"/>.</summary>
