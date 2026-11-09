@@ -331,11 +331,16 @@ The working loop:
 Inside the app the same two steps are two buttons under a diagram, and they are
 the only two states offered:
 
-- the index entry matches and the specification exists → nothing to press: the
+- the fence's index entry names the specification on disk → nothing to press: the
   app draws the artifact into its cache and shows it when it lands, and states
   the reason instead if drawing failed;
-- a specification exists and no index entry matches → **Render artifact**, which
-  runs the same `render` command in the configured clone;
+- a specification exists and no index entry for this fence names it → **Render
+  artifact**, which runs the same `render` command in the configured clone. The
+  app finds the specification the way `scan` does — on disk first, never from a
+  displaced entry — and says the artifact is out of date when the fence was
+  edited or moved. It cannot tell a specification renamed to follow its fence
+  from a neighbour's left at the ordinal, so it says that of both; `render`
+  tells them apart;
 - no specification and Archify has a type for this kind → **Author with agent**,
   which opens an agent session with a brief naming the chapter, the fence, the
   target path and the type;

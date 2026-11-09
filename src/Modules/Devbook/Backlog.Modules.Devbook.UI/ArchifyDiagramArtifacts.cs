@@ -183,51 +183,90 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         // index — matching on the ordinal alone reports a diagram stale because a
         // different chapter's diagram N exists, and offers to re-render it against
         // the wrong specification.
-        var displaced = entry is null
-            ? entries.Values.FirstOrDefault(candidate => IsSameDiagram(candidate, diagram))
-            : null;
+        var displaced = entries
+            .FirstOrDefault(candidate => candidate.Key != hash && IsSameDiagram(candidate.Value, diagram))
+            .Value;
 
         var directory = Path.Combine(Path.GetDirectoryName(diagram.ChapterFile)!, ArtifactDirectory);
 
-        // What is actually on disk, not what the default type would have been
-        // called. A flowchart defaults to `workflow`, but one may legitimately be
-        // authored as `architecture`, `lifecycle` or `dataflow` — and computing
-        // the filename from the default made every such specification invisible,
-        // so the render button never appeared for a diagram that was ready to
-        // render. The index still wins where it has an opinion, because it
-        // records what was rendered rather than what is lying about.
-        var named = entry ?? displaced;
-        var discovered = DiscoverSpecification(directory, diagram);
+        // What is on disk, then what this fence's own entry recorded, then the
+        // default for the kind — the order `scan` in the generator resolves in.
+        // Never what a displaced entry recorded: that entry is about whichever
+        // fence held this ordinal before, and naming the specification from it
+        // asked for a file at a type this fence may not have, which hid the one
+        // that is there and swapped the Render offer for Author.
+        var discovered = DiscoverSpecification(directory, diagram, entry);
 
-        var type = named?.Type ?? discovered?.Type ?? ArchifyDiagramTypes.For(source);
+        var type = discovered?.Type ?? entry?.Type ?? ArchifyDiagramTypes.For(source);
         if (type is null) return (new DiagramArtifact(null, null, null, null, false), null);
 
-        var quality = named?.Quality ?? discovered?.Quality ?? ShowcaseQuality;
-        var stem = $"{Path.GetFileNameWithoutExtension(diagram.ChapterFile)}.{diagram.Ordinal}.{type}"
-            + (string.Equals(quality, StandardQuality, StringComparison.Ordinal) ? $".{StandardQuality}" : string.Empty);
-        var specFile = Path.Combine(directory, $"{stem}.json");
-        var specExists = File.Exists(specFile);
+        var quality = discovered?.Quality ?? entry?.Quality ?? ShowcaseQuality;
+        var specFile = discovered is not null ? Path.Combine(directory, discovered.FileName) : null;
 
-        // Drawn only when the hash matched. A specification no entry files under
-        // this fence's hash is either the displaced one or not rendered yet, and
-        // drawing it would be the drift this whole design exists to prevent. The
-        // picture comes from the app's cache and never from an HTML file beside
-        // the specification: renders are not committed (local ADR 0034), and one
-        // lying there is a local preview that may be of an older specification.
-        var request = entry is not null && specExists
-            ? new ArchifyRenderRequest(specFile, type, quality, diagram.RootPath)
+        // Drawn only when this fence's entry names the file on disk. A
+        // specification no entry files under this fence's hash is either the
+        // displaced one or not rendered yet; one whose entry names another file is
+        // a neighbour's left at this ordinal after fences moved, or this fence's
+        // own renamed to follow it — and drawing either would be the drift this
+        // design exists to prevent. `render` tells the two apart and re-keys the
+        // renamed one. The picture comes from the app's cache and never from an
+        // HTML file beside the specification: renders are not committed (local
+        // ADR 0034), and one lying there is a local preview that may be of an
+        // older specification.
+        var current = entry is not null && discovered is not null && Names(entry, discovered, diagram);
+        var request = current
+            ? new ArchifyRenderRequest(specFile!, type, quality, diagram.RootPath)
             : null;
         var cached = request is null ? null : _renderer.TryCached(request);
+
+        // Out of date: a picture exists that is not of this fence as it stands —
+        // the fence was edited, or it moved and the file at its ordinal is not the
+        // one its entry names, or no specification followed it there.
+        var outOfDate = request is null
+            && (displaced is not null || (entry is not null && (discovered is not null || Moved(entry, diagram))));
 
         return (new DiagramArtifact(
             cached?.Html,
             cached?.ArtifactPath,
-            specExists ? specFile : null,
+            specFile,
             type,
-            IsOutOfDate: request is null && displaced is not null,
+            IsOutOfDate: outOfDate,
             Quality: quality,
             IsRenderPending: request is not null && cached is null), request);
     }
+
+    /// <summary>
+    /// Whether this fence's own entry is about the specification on disk.
+    /// <para>
+    /// An entry of this chapter's names its file, and recorded the ordinal the
+    /// fence then held, so after fences moved it names the file at the old ordinal
+    /// — the one the fence's specification was authored as, not the neighbour's now
+    /// sitting at the new one. Any other entry — one written before the
+    /// <c>spec</c> field, one of an identical fence elsewhere in this chapter, or
+    /// one of another chapter's identical fence — names some other fence's file
+    /// and only has to agree on type and quality: one hash has one entry, so
+    /// identical fences share both. These are <c>unrecorded</c> and
+    /// <c>contradicts</c> in the generator's <c>scan</c>.
+    /// </para>
+    /// </summary>
+    private static bool Names(IndexEntry entry, SpecificationName discovered, ChapterDiagram diagram)
+    {
+        if (entry.Spec is { } spec && IsSameChapter(entry, diagram)
+            && (entry.Ordinal == diagram.Ordinal || Moved(entry, diagram)))
+        {
+            return string.Equals(Path.GetFileName(spec), discovered.FileName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return (entry.Type is null || string.Equals(entry.Type, discovered.Type, StringComparison.Ordinal))
+            && string.Equals(entry.Quality ?? ShowcaseQuality, discovered.Quality, StringComparison.Ordinal);
+    }
+
+    /// <summary>Whether this chapter's entry for this fence recorded another
+    /// ordinal, at which no identical fence sits now — the fence moved. An
+    /// identical fence there is the same diagram, and its entry is this one's too
+    /// (<c>recordedElsewhere</c> in the generator).</summary>
+    private static bool Moved(IndexEntry entry, ChapterDiagram diagram) =>
+        IsSameChapter(entry, diagram) && !diagram.Ordinals.Contains(entry.Ordinal);
 
     /// <summary>
     /// The specification on disk for this chapter's diagram N, whatever type or
@@ -236,16 +275,24 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// Listed rather than guessed at, which is the point: the filename carries
     /// the type and the quality, and both are choices an author makes that no
     /// default can predict. The generator surfaces two competing specifications
-    /// as an error; here the alphabetically first wins instead. A Devbook pane
-    /// must not fail to draw a chapter because somebody left a stray file beside
-    /// it, and picking by sort order at least makes the wrong answer the same
-    /// wrong answer every time.
+    /// as an error; here the one this fence's own entry names wins, and otherwise
+    /// the alphabetically first. A Devbook pane must not fail to draw a chapter
+    /// because somebody left a stray file beside it, and picking by sort order at
+    /// least makes the wrong answer the same wrong answer every time.
     /// </para>
     /// </summary>
-    private static SpecificationName? DiscoverSpecification(string directory, ChapterDiagram diagram)
+    private static SpecificationName? DiscoverSpecification(string directory, ChapterDiagram diagram, IndexEntry? entry)
     {
-        if (!Directory.Exists(directory)) return null;
+        var found = DiscoverSpecifications(directory, diagram);
 
+        return (entry is not null ? found.FirstOrDefault(candidate => Names(entry, candidate, diagram)) : null)
+            ?? found.FirstOrDefault();
+    }
+
+    private static List<SpecificationName> DiscoverSpecifications(string directory, ChapterDiagram diagram)
+    {
+        List<SpecificationName> found = [];
+        if (!Directory.Exists(directory)) return found;
         var chapter = Path.GetFileNameWithoutExtension(diagram.ChapterFile);
 
         string[] candidates;
@@ -255,11 +302,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         }
         catch (IOException)
         {
-            return null;
+            return found;
         }
         catch (UnauthorizedAccessException)
         {
-            return null;
+            return found;
         }
 
         Array.Sort(candidates, StringComparer.Ordinal);
@@ -279,14 +326,15 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
             // `standard` is the only quality a filename may name — showcase is
             // what saying nothing means, so a name that spells it out is not a
             // specification this rule recognises, exactly as in the generator.
-            if (!match.Groups[4].Success) return new SpecificationName(type, ShowcaseQuality);
-            if (string.Equals(match.Groups[4].Value, StandardQuality, StringComparison.Ordinal))
+            var name = Path.GetFileName(candidate);
+            if (!match.Groups[4].Success) found.Add(new SpecificationName(name, type, ShowcaseQuality));
+            else if (string.Equals(match.Groups[4].Value, StandardQuality, StringComparison.Ordinal))
             {
-                return new SpecificationName(type, StandardQuality);
+                found.Add(new SpecificationName(name, type, StandardQuality));
             }
         }
 
-        return null;
+        return found;
     }
 
     /// <summary>Runs the pinned generator over the specification beside the
@@ -441,10 +489,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// does not, matching <c>isSameDiagram</c> in the generator. An entry that
     /// names neither is treated as this chapter's, which is the old behaviour and
     /// is correct in every folder holding one chapter.</summary>
-    private static bool IsSameDiagram(IndexEntry entry, ChapterDiagram diagram)
-    {
-        if (entry.Ordinal != diagram.Ordinal) return false;
+    private static bool IsSameDiagram(IndexEntry entry, ChapterDiagram diagram) =>
+        entry.Ordinal == diagram.Ordinal && IsSameChapter(entry, diagram);
 
+    private static bool IsSameChapter(IndexEntry entry, ChapterDiagram diagram)
+    {
         var chapter = Path.GetFileNameWithoutExtension(diagram.ChapterFile);
         var named = entry.Chapter is { } declared
             ? Path.GetFileNameWithoutExtension(declared)
@@ -565,14 +614,19 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             foreach (var chapter in MarkdownFiles(folder))
             {
-                var ordinal = 0;
-                foreach (var fence in MermaidFences(chapter))
+                var hashes = MermaidFences(chapter).Select(DiagramSourceHash.Of).ToList();
+
+                for (var index = 0; index < hashes.Count; index++)
                 {
-                    ordinal++;
+                    var hash = hashes[index];
+                    var ordinals = Enumerable.Range(1, hashes.Count)
+                        .Where(ordinal => hashes[ordinal - 1] == hash)
+                        .ToHashSet();
+
                     // First writer wins: the same chapter reachable through two
                     // scopes is the same diagram, and the first clone resolved
                     // is as good an answer as the second.
-                    found.TryAdd(DiagramSourceHash.Of(fence), new ChapterDiagram(chapter, ordinal, root));
+                    found.TryAdd(hash, new ChapterDiagram(chapter, index + 1, root, ordinals));
                 }
             }
         }
@@ -816,10 +870,14 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
 
     /// <summary>A mermaid fence found in a chapter: which file, which fence, and
     /// which clone it was reached through.</summary>
-    private sealed record ChapterDiagram(string ChapterFile, int Ordinal, string RootPath);
+    /// <param name="Ordinals">Every ordinal in the chapter whose fence is this one's
+    /// text, this one's among them: identical fences are one diagram to the index,
+    /// which keys by hash.</param>
+    private sealed record ChapterDiagram(string ChapterFile, int Ordinal, string RootPath, IReadOnlySet<int> Ordinals);
 
-    /// <summary>The two decisions a specification's filename carries.</summary>
-    private sealed record SpecificationName(string Type, string Quality);
+    /// <summary>A specification on disk, by its filename and the two decisions
+    /// that name carries.</summary>
+    private sealed record SpecificationName(string FileName, string Type, string Quality);
 
     private sealed class ArtifactIndex
     {

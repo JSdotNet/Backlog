@@ -360,13 +360,13 @@ public sealed class ArchifyDiagramArtifactsTests
     }
 
     /// <summary>
-    /// A_specification_authored_at_a_type_that_is_not_the_default is about what is
-    /// on disk; this is about what the index says. An entry naming the type it was
-    /// rendered as outranks whatever specification happens to be lying beside it,
-    /// because the entry records what actually happened.
+    /// What is on disk decides, and when two files claim one diagram the fence's
+    /// own entry only breaks the tie: the one it names is drawn, and a leftover from
+    /// an abandoned re-authoring, sorting ahead of it, does not hide the picture.
+    /// The generator calls the pair an error; a pane must still draw the chapter.
     /// </summary>
     [Fact]
-    public async Task The_index_entrys_type_outranks_a_specification_that_disagrees_with_it()
+    public async Task Of_two_specifications_on_disk_the_one_this_fences_entry_names_is_drawn()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart);
@@ -383,6 +383,98 @@ public sealed class ArchifyDiagramArtifactsTests
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
         Assert.Equal("workflow", Assert.Single(workspace.Generator.Deliveries).Type);
         Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), found.SpecPath);
+    }
+
+    /// <summary>
+    /// A displaced entry is about whichever fence held this ordinal before, so it
+    /// names nothing here. Another diagram used to sit at ordinal 1 and was rendered
+    /// as a sequence; the flowchart now there has its own specification on disk at
+    /// <c>workflow</c>. Taking the type from the displaced entry looked for
+    /// <c>flow.1.sequence.json</c>, found nothing, and swapped the Render artifact
+    /// offer for Author with agent. The file on disk is what the offer is about.
+    /// </summary>
+    [Fact]
+    public void A_displaced_entry_of_another_type_does_not_hide_the_specification_on_disk()
+    {
+        using var workspace = ArchifyWorkspace.Create();
+        workspace.WriteChapter("flow.md", Flowchart);
+        workspace.AddIndexEntry(
+            DiagramSourceHash.Of(DeploymentSequence),
+            ordinal: 1,
+            type: "sequence",
+            chapter: "flow.md",
+            spec: "flow.1.sequence.json",
+            artifact: "flow.1.sequence.html");
+        workspace.WriteSpecification("flow.1.workflow.json");
+
+        using var artifacts = workspace.Artifacts();
+        var found = artifacts.Find(Flowchart, "mermaid");
+
+        Assert.NotNull(found);
+        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), found.SpecPath);
+        Assert.Equal("workflow", found.ArchifyType);
+        Assert.False(found.IsRenderPending);
+        Assert.Null(found.Html);
+
+        // The picture filed at this ordinal is of the diagram that was here before.
+        Assert.True(found.IsOutOfDate);
+    }
+
+    /// <summary>
+    /// Two fences swapped places and their specifications, both <c>workflow</c>, were
+    /// not renamed. Each fence's entry still names the file it was rendered from, at
+    /// its old ordinal — and taking only the type from it built the name at the new
+    /// ordinal, which is the neighbour's file, so each diagram drew the other's
+    /// picture. An entry naming another file than the one on disk is not drawn.
+    /// </summary>
+    [Fact]
+    public async Task Fences_that_swapped_places_without_their_specifications_draw_neither_neighbours_picture()
+    {
+        using var workspace = ArchifyWorkspace.Create();
+
+        // Rendered while Flowchart was diagram 1 and EditedFlowchart diagram 2.
+        workspace.WriteArtifact("flow.md", Flowchart, "workflow", ordinal: 1);
+        workspace.WriteArtifact("flow.md", EditedFlowchart, "workflow", ordinal: 2);
+
+        // Then the two fences swapped; the specifications stayed where they were.
+        workspace.WriteChapterFences("flow.md", EditedFlowchart, Flowchart);
+
+        using var artifacts = workspace.Artifacts();
+
+        foreach (var (source, ordinal) in new[] { (EditedFlowchart, 1), (Flowchart, 2) })
+        {
+            var found = await artifacts.LoadAsync(source, "mermaid", TestContext.Current.CancellationToken);
+
+            Assert.NotNull(found);
+            Assert.Null(found.Html);
+            Assert.False(found.IsRenderPending);
+            Assert.True(found.IsOutOfDate);
+            Assert.Equal(workspace.ArtifactFile($"flow.{ordinal}.workflow.json"), found.SpecPath);
+        }
+
+        Assert.Equal(0, workspace.Generator.Runs);
+    }
+
+    /// <summary>
+    /// The guard against a moved fence must not catch identical fences. One hash
+    /// has one entry, so the fence at ordinal 2 rendered last and its entry names
+    /// <c>flow.2.workflow.json</c> — and the identical fence at ordinal 1 is the
+    /// same diagram, not one that moved away from 2, so it keeps its picture.
+    /// </summary>
+    [Fact]
+    public async Task Identical_fences_in_one_chapter_share_one_entry_and_both_keep_their_picture()
+    {
+        using var workspace = ArchifyWorkspace.Create();
+        workspace.WriteChapterFences("flow.md", Flowchart, Flowchart);
+        workspace.WriteSpecification("flow.1.workflow.json");
+        workspace.WriteArtifact("flow.md", Flowchart, "workflow", ordinal: 2);
+
+        using var artifacts = workspace.Artifacts();
+        var found = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(found);
+        Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
+        Assert.False(found.IsOutOfDate);
     }
 
     /// <summary>
@@ -1030,6 +1122,16 @@ file sealed class ArchifyWorkspace : IDisposable
         File.WriteAllText(file, text.Replace("\n", newline));
 
         if (written is { } stamp) File.SetLastWriteTimeUtc(file, stamp);
+    }
+
+    /// <summary>Writes a chapter with one mermaid fence per source, in order, so
+    /// the first is diagram 1, the second diagram 2.</summary>
+    internal void WriteChapterFences(string name, params string[] sources)
+    {
+        var text = new StringBuilder().Append("# Orders\n\nHow an order moves.\n");
+        foreach (var source in sources) text.Append("\n```mermaid\n").Append(source).Append("\n```\n");
+
+        File.WriteAllText(Path.Combine(ChapterDirectory, name), text.ToString());
     }
 
     internal void DeleteChapter(string name) => File.Delete(Path.Combine(ChapterDirectory, name));
