@@ -154,11 +154,141 @@ public sealed class C4LayoutGroupTests
         var capture = Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources");
         Assert.Equal("backlog", capture.FromAlias);
         Assert.Equal(C4LayoutEngine.GroupAlias("Capture sources"), capture.ToAlias);
-        Assert.Null(capture.Label);
         Assert.Equal("HTTPS", Assert.Single(diagram.Edges, edge => edge.Group == "Operations").Technology);
 
         Assert.DoesNotContain(diagram.Edges, edge => edge.ToAlias is "youtube" or "email" or "websites" or "appInsights" or "pushProvider");
     }
+
+    /// <summary>No one member's wording is right for the rest, so a band's line whose
+    /// relationships say different things says how many it stands for.</summary>
+    [Fact]
+    public void A_band_line_whose_relationships_differ_says_how_many_it_stands_for()
+    {
+        var diagram = Layout("landscape", Bands);
+
+        Assert.Equal("3 relationships", Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources").Label);
+        Assert.Equal("2 relationships", Assert.Single(diagram.Edges, edge => edge.Group == "Operations").Label);
+    }
+
+    /// <summary>When they all say the same thing, the line keeps their own wording.</summary>
+    [Fact]
+    public void A_band_line_whose_relationships_agree_keeps_their_label()
+    {
+        const string source = """
+            workspace "Same" "One wording" {
+                model {
+                    backlog = softwareSystem "Prompt Backlog" ""
+                    group "Capture sources" {
+                        youtube = softwareSystem "YouTube" "" "External"
+                        email = softwareSystem "Email / IMAP" "" "External"
+                    }
+                    backlog -> youtube "Polls" "HTTPS"
+                    backlog -> email "Polls" "IMAP"
+                }
+                views {
+                    systemLandscape "landscape" "Everything" { include * }
+                }
+            }
+            """;
+
+        var workspace = C4DslReader.Read(source);
+        Assert.Empty(workspace.Problems);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!, Bands);
+
+        var line = Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources");
+        Assert.Equal("Polls", line.Label);
+        Assert.Null(line.Technology);
+    }
+
+    // ---- bands beside --------------------------------------------------------------
+
+    internal static readonly C4LayoutOptions Beside = new(GroupBands: true) { BandsBeside = true };
+
+    /// <summary>Without the option the bands stay on the rows their relationships rank
+    /// them onto: on this landscape, not all of them to the right of the system.</summary>
+    [Fact]
+    public void Without_bands_beside_the_bands_keep_their_rows()
+    {
+        var diagram = Layout("landscape", Bands);
+        var backlog = Card(diagram, "backlog");
+
+        Assert.Contains(diagram.Groups, band => band.X < backlog.X + backlog.Width);
+    }
+
+    /// <summary>The design's landscape: the system in the middle, the bands in one column
+    /// to its right, beside it rather than on the row above.</summary>
+    [Theory]
+    [InlineData("landscape")]
+    [InlineData("context-backlog")]
+    public void With_bands_beside_every_band_sits_right_of_the_system_beside_it(string key)
+    {
+        var diagram = Layout(key, Beside);
+        var backlog = Card(diagram, "backlog");
+        var bands = diagram.Groups.ToList();
+
+        Assert.Equal(3, bands.Count);
+        Assert.All(bands, band => Assert.True(band.X >= backlog.X + backlog.Width, $"{band.Name} is not right of the system"));
+
+        // Beside it: the column spans the system's own row.
+        var middle = backlog.Y + backlog.Height / 2;
+        Assert.InRange(middle, bands.Min(band => band.Y), bands.Max(band => band.Y + band.Height));
+    }
+
+    [Fact]
+    public void Bands_beside_stack_in_one_column_in_the_order_they_were_declared()
+    {
+        var diagram = Layout("landscape", Beside);
+        var bands = diagram.Groups.ToList();
+
+        Assert.Equal(["Capture sources", "Work tracking", "Operations"], bands.Select(band => band.Name));
+        Assert.Single(bands.Select(band => band.X).Distinct());
+
+        for (var index = 1; index < bands.Count; index++)
+        {
+            Assert.True(bands[index].Y >= bands[index - 1].Y + bands[index - 1].Height, $"{bands[index].Name} overlaps the band above it");
+        }
+    }
+
+    [Fact]
+    public void Bands_beside_leave_every_member_inside_its_band_and_nothing_else_under_them()
+    {
+        var diagram = Layout("landscape", Beside);
+
+        foreach (var band in diagram.Groups)
+        {
+            Assert.True(band.X + band.Width <= diagram.Width && band.Y + band.Height <= diagram.Height);
+
+            foreach (var node in diagram.Nodes)
+            {
+                var inside = node.X >= band.X && node.Y >= band.Y
+                    && node.X + node.Width <= band.X + band.Width
+                    && node.Y + node.Height <= band.Y + band.Height;
+                var overlaps = node.X < band.X + band.Width && band.X < node.X + node.Width
+                    && node.Y < band.Y + band.Height && band.Y < node.Y + node.Height;
+
+                Assert.Equal(band.MemberAliases.Contains(node.Alias), inside);
+                Assert.Equal(band.MemberAliases.Contains(node.Alias), overlaps);
+            }
+        }
+    }
+
+    /// <summary>The person stays on top, and so does a band that holds one.</summary>
+    [Fact]
+    public void A_band_holding_a_person_keeps_the_top_row_with_bands_beside()
+    {
+        var workspace = C4DslReader.Read(Edges);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!, Beside);
+
+        var people = Band(diagram, "People");
+        var capture = Band(diagram, "Capture sources");
+        var backlog = Card(diagram, "backlog");
+
+        Assert.True(backlog.Y > people.Y + people.Height);
+        Assert.True(capture.X >= backlog.X + backlog.Width);
+    }
+
+    private static C4PlacedNode Card(C4Diagram diagram, string alias) =>
+        Assert.Single(diagram.Nodes, node => node.Alias == alias);
 
     /// <summary>A group with one member, or one relationship to one member, has nothing
     /// to fold: GitHub keeps both its lines, each to its own card.</summary>

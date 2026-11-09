@@ -8,8 +8,8 @@
     renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
     how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
     selectable deployment-node frame and the overlay's record chips, are options only
-    this component sets, as is
-    the layout's group bands (C4LayoutOptions.GroupBands). (The one
+    this component sets, as are
+    the layout's group bands, nested frames and wider gaps (C4LayoutOptions). (The one
     shared change both tabs see is a layout fix: a deployment instance is drawn inside
     the deployment node that runs it, where the node used to be dropped.)
 
@@ -370,10 +370,19 @@
     /// on the bar. Cleared on the attach that honours it.</summary>
     private bool _refocus;
 
-    /// <summary>The layout this tab asks for: outside systems a <c>group</c> block
-    /// gathered are kept together in a labelled band, as the design's landscape draws
-    /// them. The C4 tab asks for none and draws what it always drew.</summary>
-    private static readonly C4LayoutOptions ZoomLayout = new(GroupBands: true);
+    /// <summary>The layout this tab asks for. Outside systems a <c>group</c> block
+    /// gathered are kept together in a labelled band, in one column beside the system,
+    /// as the design's landscape draws them. Every deployment node is framed, however
+    /// deep, so a node that holds only other nodes can be selected too. And the gaps
+    /// are wider, so the labels on a larger view have room. The C4 tab asks for none
+    /// and draws what it always drew.</summary>
+    internal static readonly C4LayoutOptions Layout = new(GroupBands: true)
+    {
+        BandsBeside = true,
+        NestedDeploymentNodes = true,
+        ColumnGap = 80,
+        RowGap = 144
+    };
 
     private C4Diagram? _diagram;
     private C4Workspace? _diagramWorkspace;
@@ -1140,7 +1149,7 @@
             || !ReferenceEquals(_diagramWorkspace, Workspace)
             || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
         {
-            _diagram = C4LayoutEngine.Build(Workspace, view, ZoomLayout);
+            _diagram = C4LayoutEngine.Build(Workspace, view, Layout);
             _diagramWorkspace = Workspace;
             _diagramViewKey = view.Key;
         }
