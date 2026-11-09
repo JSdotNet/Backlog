@@ -38,7 +38,10 @@ internal static class InboxMapper
             attachment.SizeBytes,
             attachment.IsImage,
             attachment.IsDownloaded,
-            attachment.LastError))],
+            attachment.LastError)
+        {
+            LocalPath = attachment.IsDownloaded ? attachment.LocalPath : null,
+        })],
         DuplicateOf = item.DuplicateOf,
         DuplicateOfTask = item.DuplicateOfTask,
     };

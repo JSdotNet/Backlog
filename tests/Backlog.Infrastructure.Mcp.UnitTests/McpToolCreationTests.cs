@@ -59,6 +59,8 @@ public class McpToolCreationTests
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
         UsageTools.ListRunUsage,
+        InboxTools.ListInboxItems,
+        InboxTools.ReadInboxItem,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries
@@ -140,6 +142,7 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                InboxTools.ArchiveInboxItem,
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
@@ -409,6 +412,7 @@ public class McpToolCreationTests
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
+            [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
             [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())
         };
 

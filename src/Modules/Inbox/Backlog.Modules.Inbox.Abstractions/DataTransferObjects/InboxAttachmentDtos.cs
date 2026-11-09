@@ -25,4 +25,8 @@ public sealed record InboxAttachmentDto(
     long SizeBytes,
     bool IsImage,
     bool Downloaded,
-    string? LastError);
+    string? LastError)
+{
+    /// <summary>Where the downloaded file sits on this machine; null until it is downloaded.</summary>
+    public string? LocalPath { get; init; }
+}
