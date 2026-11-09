@@ -1,30 +1,30 @@
-# ADR 0046: C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees
+# ADR 0046: C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees
 
 ```meta
-date: 2026-10-21
-related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/domain/devbook/requirements.md#c4-zoom-navigation", ".devbook/domain/devbook/context.md#c4-zoom", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+date: 2026-11-09
+related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/domain/devbook/requirements.md#c4-zoom-navigation", ".devbook/domain/devbook/context.md#c4-zoom", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/building-blocks/devbook.md"]
 c4: [backlog.desktop.devbook]
 ```
 
-The architecture panel gains a **C4 zoom** tab that walks the C4 model from
-context to code, built beside the **C4** tab behind the `c4-zoom` switch. It
-replaces the **C4** tab only after it has been validated. Which element a record
-names, a TDR's severity and lifecycle, which ADR supersedes which, and which code a
-component maps to are read from devbook metadata fields that the devbook plugin
-provides, never from a file this repository keeps beside the model. A record's
-workflow state is the exception: ADR 0044 keeps it in Backlog's subject store, which
-wins over the record's file. The Code level
-is read from C# syntax trees with `Microsoft.CodeAnalysis.CSharp`, without
-compiling anything.
+While the `c4-zoom` switch is on, the architecture panel is one **architecture
+surface** that walks the C4 model from context to code. With the switch off, the
+panel keeps its **Chapters** and **C4** tabs as they were. The surface replaces the
+**C4** tab for good only after it has been validated. Which element a record names,
+a TDR's severity, which ADR supersedes which, and which code a component maps to
+are read from the chapter files' devbook metadata, never from a file this
+repository keeps beside the model. A record's workflow state is the exception: ADR
+0044 keeps it in Backlog's subject store, which wins over the record's file. The
+Code level is read from C# syntax trees with `Microsoft.CodeAnalysis.CSharp`,
+without compiling anything.
 
 ## Status
 
 ```meta
 ```
 
-Proposed, 2026-10-21. Built, proposed: the plan `+c4-zoom-navigation` built it, on
-`plan/c4-zoom-navigation`. It awaits acceptance at the Personal Validation gate of
-the flow-spec run `run-mvha0qbp-ueo2j6` that drafted it.
+Proposed, 2026-10-21. Built: the plan `+c4-zoom-navigation` reached `main` in PR
+#1451, behind the `c4-zoom` switch, which ships off. Accepting the record is the
+owner's call at a Personal Validation gate, so it stays proposed until then.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -38,22 +38,24 @@ move between levels.
 ```
 
 **The C4 tab lists views; it does not navigate them.** With `c4-diagrams` on, the
-**C4** tab shows the model kept as Structurizr DSL under `.devbook/arc42/_c4/`, one
-view at a time, and links a view to the chapters that document it. A reader who
-wants the containers of a system, then the components of one container, picks each
-view by name. Nothing says that the second is inside the first, and no decision or
-debt record is shown against the element it is about.
+**C4** tab shows the model, kept as Structurizr DSL in
+`.devbook/arc42/workspace.dsl`, one view at a time, and links a view to the
+chapters that document it. Before devbook's contract 33 the model sat under
+`.devbook/arc42/_c4/`. A reader who wants the containers of a system, then the
+components of one container, picks each view by name. Nothing says that the second
+is inside the first, and no decision or debt record is shown against the element it
+is about.
 
-**The links that would make the model navigable are authored nowhere today.**
+**The links that would make the model navigable were authored nowhere.**
 
-- Which chapter documents which view is in `_c4/references.json`, a file this
-  repository authors beside the workspace.
-- Which element an ADR or a TDR is about is in prose only.
+- Which chapter documents which view was in `_c4/references.json`, a file this
+  repository authors beside the model.
+- Which element an ADR or a TDR is about was in prose only.
 - A TDR's severity and its lifecycle (identified, planned, in progress, resolved)
-  are a `## Status` paragraph, not fields.
-- Which ADR supersedes which is a sentence in each record and a note in the
+  were a `## Status` paragraph, not fields.
+- Which ADR supersedes which was a sentence in each record and a note in the
   `adr/` index.
-- No component names the code it is built from.
+- No component named the code it is built from.
 
 **The Code level has no authored source and should not get one.** C4 treats level 4
 as optional and best generated, because a hand-drawn class diagram is stale the day
@@ -66,53 +68,88 @@ after it is drawn.
 
 ```mermaid
 flowchart LR
-    DSL["_c4/*.dsl: the model"] --> Z["C4 zoom tab"]
-    M["Chapter meta fields, from the devbook plugin"] --> DB["Devbook database"]
-    DB --> Z
-    SRC["C# source of the linked project"] --> R["Roslyn syntax trees, on demand"]
-    R --> Z
-    Z -. "validated" .-> C4["Replaces the C4 tab; the c4-zoom switch retires"]
+    DSL["workspace.dsl: the model"] --> S["Architecture surface"]
+    M["Chapter fields: c4, c4-touches, severity, code"] --> S
+    E["Chapter embeds: ![…](c4:key)"] --> S
+    J["_c4/references.json, retiring"] -.-> S
+    SRC["C# source in a building block's code folders"] --> R["Roslyn syntax trees, on demand"]
+    R --> S
+    S -. "validated" .-> C4["Replaces the C4 tab; the c4-zoom switch retires"]
 ```
 
-### 1. A second tab behind its own switch
+### 1. One surface behind its own switch
 
 ```meta
 ```
 
-The zoom navigation is a new **C4 zoom** tab beside the **C4** tab, offered while
-`c4-zoom` and `c4-diagrams` are both on. The **C4** tab is not changed to make room
-for it. While `c4-zoom` is on, the **Chapters** tab also shows where an ADR or a
-TDR lands on the container view, and an arc42 chapter embeds the views it
-documents and flags where its mermaid fence and the model disagree.
+While `c4-zoom` and `c4-diagrams` are both on, the architecture panel is one
+surface in place of its tabs. With `c4-zoom` off, the panel shows the **Chapters**
+and **C4** tabs exactly as before. With `c4-diagrams` off there is no model, and the
+panel shows the **Chapters** tab alone, whatever `c4-zoom` says.
 
-Once the zoom tab has been validated against the requirements of
+The surface has four parts:
+
+- **Zoom bar:** always across the top, with Landscape, Dynamic and Deployment under
+  "Also".
+- **Left navigation:** headed by a find field for elements, chapters, ADRs and TDRs.
+  Below it sit the C4 views as a tree, one line per level, then the chapters that
+  document the open view and the decision and debt records with their counts.
+- **Main area:** the open view, or a chapter, an ADR or a TDR opened in its place. A
+  press on the zoom bar returns to the view.
+- **Right panel:** the selected element's inspector, or the panel that goes with
+  the open document.
+
+The pane's own architecture menu stands down while the surface is on, because the
+surface brings its own left navigation. Chapters and records open inside the
+surface. An ADR opens beside the decision log and a TDR beside the debt list, each
+with a panel showing where it lands on the container view. A chapter opens with its
+embedded views and a panel of the views it documents, the decisions citing it and
+the debt on its elements.
+
+Once the surface has been validated against the requirements of
 [C4 zoom navigation](../../domain/devbook/requirements.md#c4-zoom-navigation), it
 replaces the **C4** tab, and the `c4-zoom` switch is retired in the same change. A
 decision record amends this one at that point.
 
-### 2. Links to the model are devbook metadata
+### 2. Links to the model are devbook metadata in the chapters
 
 ```meta
 ```
 
-Four facts are read from fields in a chapter's `meta` block, fields the devbook
-plugin defines, checks and builds into the devbook database:
+Four facts are read from the chapters' own Markdown, in fields and sections the
+devbook plugin defines and checks:
 
 | Fact | Where it is written |
 | --- | --- |
-| The C4 elements an ADR, a TDR or an arc42 chapter is about | the record's or chapter's own block |
-| A TDR's severity | the TDR's own block |
-| The ADR a record supersedes, or the one superseding it | the record's own block |
-| The code a C4 component is built from | the chapter or record that documents the component |
+| The C4 elements an arc42 or domain chapter, an ADR or a TDR is about | `c4` and `c4-touches` in its own block |
+| A TDR's severity | `severity` in the TDR's own block |
+| The ADR a record supersedes, or the one superseding it | the record's `## History` rows that open by naming another ADR |
+| The code folders a C4 component is built from | `code` in the component's `building-blocks/<slug>.md` |
 
-The app reads them from the devbook database, the way it reads every other field
-(ADR 0004, ADR 0015). The overlays, the inspector and the decision chain are views
-over those fields. This repository adds no file beside the model for any of them:
-not a second `references.json`, and no table under `_c4/`.
+`C4RecordLinks` reads them from the chapter files, not from the devbook database.
+The database keeps the `c4` and `c4-touches` edges but not `severity` or `code`,
+and a branch snapshot has no database at all. The overlays, the inspector and the
+decision chain are views over this one read. This repository adds no file beside
+the model for any of them.
+
+Which chapter documents which view has two sources, one of them retiring:
+
+- **An embed:** a chapter's `![…](c4:<view key>)` documents the section it sits
+  under, and the view is drawn there.
+- **`_c4/references.json`:** the map authored before a chapter could embed a view.
+  `C4DevbookStore` reads it after the embeds and keeps only an entry naming a file
+  no embed of that view names.
+
+The merged map feeds "documented by" under the open view, the inspector's arc42
+chapters, the left navigation's "documents this view" list and a chapter's panel of
+views. A view the map gives a chapter that does not embed it is drawn under the
+section the entry names, and compared with that section's C4 mermaid fence. An
+embedded view is compared with nothing, because the chapter draws no fence of its
+own for it.
 
 *Amended 2026-11-02.* A record's workflow state is not one of these fields. ADR
 0044 moved it out of the chapter into Backlog's subject store. With the
-`devbook-status` switch on, the zoom tab reads it from there, as the file header
+`devbook-status` switch on, the surface reads it from there, as the file header
 does (ADR 0044 §5): a TDR's lifecycle and an ADR's `proposed` mark, in the left
 navigation, on the record panel, in the inspector, in the Debt overlay's counts and
 in the cross-cutting tray. A decision record's state is the one most recently set
@@ -122,52 +159,62 @@ devbook's contract 38 this repository's records state none, so its fallback is t
 resting read: a decision carries no `proposed` mark and a debt record rests at
 `identified`. The fallback stays for a repository still on an older contract.
 `C4RecordStates` lays the store over the records, and the panel reads the store
-again when it changes, so a state picked in the header shows across the tab without
-a reload.
+again when it changes, so a state picked in the header shows across the surface
+without a reload.
 
 ### 3. The Code level is syntax trees only
 
 ```meta
 ```
 
-Level 4 is drawn on demand when a reader opens it. The app parses the C# files of
-the project the component's code link names with
-`Microsoft.CodeAnalysis.CSharp` syntax trees and lists their types and members. It
+Level 4 is drawn on demand when a reader opens it. The app parses the C# files
+under the folders the component's building block names in `code`, with
+`Microsoft.CodeAnalysis.CSharp` syntax trees, and lists their types and members. It
 never creates a compilation, never resolves symbols, and never loads a project file
 or restores packages. What syntax alone cannot answer is left out of the view, such
 as a member's resolved type or a call between types.
 
-Nothing at this level is authored or committed. A component with no code link
-stops at level 3.
+Nothing at this level is authored or committed. A component no building block
+names code for stops at level 3. A repository read from a branch snapshot has the
+devbook folders on disk but no source, so its Code view finds no types.
 
 ## Consequences
 
 ```meta
 ```
 
-- **The C4 tab and the zoom tab coexist for a while.** Two ways to read one model
-  are on screen until validation. The switch keeps the zoom tab away from everyone
-  who has not turned it on.
-- **This repository waits on the devbook plugin.** The fields in §2 must exist in
-  the devbook convention, its check and its database build before the overlays,
-  the inspector's records and the decision chain have anything to show. Until
-  then, the zoom tab navigates the model with empty record lists and no overlay
-  counts. The C# builder follows the reference builder, as `DevbookBuilderParityTests`
-  requires, in the same pull request that adopts each field.
-- **`_c4/references.json` has no successor here.** The chapter-to-view link it
-  holds today is read from the chapters' metadata once the plugin provides it, and
-  the file is then removed in the change that switches the reader over.
-- **The Code view is fast and approximate.** Parsing one project's syntax trees
+- **Two readings of one model, picked by the switch.** With `c4-zoom` on the reader
+  gets the surface; with it off, the tabs. The switch keeps the surface away from
+  everyone who has not turned it on.
+- **The fields come from the devbook plugin.** devbook 1.28.0 made `c4`,
+  `c4-touches` and `code` the only statement of which element a record is about and
+  where a block's code sits. The C# builder follows the reference builder, as
+  `DevbookBuilderParityTests` requires, in the same pull request that adopts each
+  field.
+- **`_c4/references.json` is retiring.** The embeds carry every arc42 entry it
+  lists. Its one remaining reach is the domain context map's link to the container
+  view. The file is removed in the change that stops the code and its tests reading
+  it.
+- **The Code view is fast and approximate.** Parsing one component's syntax trees
   takes no build and no restore, so opening level 4 needs nothing but the source.
   In exchange it shows declarations, not a semantic model: a partial type is
   merged by name, and a member's type is shown as written.
 - **A new package.** `Microsoft.CodeAnalysis.CSharp` joins the desktop's
-  dependencies. The `tech/` graph records it when the implementing change adds it.
+  dependencies, recorded in `.devbook/tech/desktop.md`.
 
 ## Considered options
 
 ```meta
 ```
+
+### Keep the zoom navigation a second tab
+
+```meta
+```
+
+Built first, then replaced in PR #1610. The design draws one surface with one left
+navigation. As a tab beside **Chapters** and **C4**, the zoom navigation opened
+every record in the **Chapters** tab, away from the model it names.
 
 ### Replace the C4 tab in place
 
@@ -189,6 +236,14 @@ checked by nothing the devbook plugin runs. Every other repository that adopts C
 zoom would need its own copy. A field on the record is written once, beside the
 decision, and the devbook check reports it when it stops resolving.
 
+### Read the links from the devbook database
+
+```meta
+```
+
+Rejected in PR #1456. The database keeps the element edges but not a TDR's
+`severity` or a block's `code`, and a branch snapshot has no database to read.
+
 ### Infer the links from prose
 
 ```meta
@@ -204,9 +259,8 @@ element its context paragraph mentions. The design separates "decides" from
 ```
 
 Rejected. A Roslyn compilation needs the project's references restored and would
-tie the view to a buildable checkout of the right SDK. A branch snapshot or a
-repository the app does not build could not show level 4 at all. Syntax trees need
-only the files.
+tie the view to a buildable checkout of the right SDK. A repository the app does
+not build could not show level 4 at all. Syntax trees need only the files.
 
 ### Author the Code level in the DSL
 
@@ -221,10 +275,10 @@ itself recommends generating level 4.
 ```meta
 ```
 
-- The names and shapes of the four fields in §2 are the devbook plugin's to choose.
-  This record fixes what they carry, not how they are spelled.
-- Whether a component's code link names a project, a folder or a namespace is for
-  the plugin's field to settle. The Code view needs a set of C# files either way.
+- `_c4/references.json`'s last entry links the domain context map to the container
+  view. `devbook-arc42.md` lets only chapter 05 or a building block embed a
+  container view, so that entry has no embed to move to. Its owner decides whether
+  the link is dropped or written as a plain link to chapter 05.
 
 ## History
 
@@ -233,6 +287,7 @@ itself recommends generating level 4.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-09 | §1: one architecture surface in place of the tabs while `c4-zoom` is on. §2: the links are read from the chapter files, and a chapter's views come from its embeds and the retiring `references.json`. §3: code folders come from a building block. Status brought up to date. | PR #1610 and PR #1456 changed what this record described, and it still read as the earlier shape. |
 | 2026-11-06 | Status: built, still proposed. | The plan has built what this record decides, and this section still read "not yet built". |
 | 2026-11-05 | Renumbered from 0045 to 0046. | `main` took 0045 for the dictation relay while this record was still on its plan branch. |
 | 2026-11-05 | §2: the file fallback is the resting read in this repository; this record's own `status` and `roadmap` fields are removed. | `main` moved to devbook contract 38, which takes workflow state out of the chapter. |

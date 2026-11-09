@@ -649,61 +649,69 @@ related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 > The `c4-zoom` switch gates these (local ADR 0046). Each has its cases written
 > inline until a journey proves it.
 
-### Requirement: The zoom tab sits beside the C4 tab
+### Requirement: The architecture surface stands in for the tabs while the switch is on
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_both_keys_on_the_pane_is_one_surface_rather_than_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_only_the_zoom_key_on_neither_C4_tab_is_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.The_surface_opens_on_the_model_with_the_header_the_bar_and_the_left_navigation, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.With_c4_zoom_off_the_pane_keeps_its_tabs_and_has_no_surface, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.With_c4_zoom_on_the_architecture_section_has_no_menu_of_the_pane_and_opens_the_chapter_in_the_surface, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.It_opens_on_the_system_context_view_with_the_hint_naming_the_ways_to_move, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_reader_who_dismissed_the_hint_sees_the_view_alone]
 ```
 
-The system SHALL offer a **C4 zoom** tab beside an unchanged **C4** tab in the architecture panel only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
+The system SHALL show the architecture panel as one surface, in place of its **Chapters** and **C4** tabs and with the pane's own architecture menu stood down, only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
 
 #### Scenario: Both switches on
 
 - **Given** `c4-diagrams` and `c4-zoom` are on and the repository has a C4 model
 - **When** the reader opens the architecture panel
-- **Then** the tabs read Chapters, C4 and C4 zoom, and the C4 tab shows what it showed with `c4-zoom` off
+- **Then** it shows the zoom bar, a left navigation headed by a find field, and the diagram, with no tabs and no menu of the pane beside them
+
+#### Scenario: The zoom switch off
+
+- **Given** `c4-diagrams` is on and `c4-zoom` is off
+- **When** the reader opens the architecture panel
+- **Then** the tabs read Chapters and C4, as they did before the surface existed
 
 #### Scenario: Only the zoom switch on
 
 - **Given** `c4-zoom` is on and `c4-diagrams` is off
 - **When** the reader opens the architecture panel
-- **Then** neither the C4 tab nor the C4 zoom tab is offered
+- **Then** no surface and no C4 tab is offered
 
 #### Scenario: First opening
 
-- **Given** the reader has never opened the C4 zoom tab
+- **Given** the reader has never opened the surface
 - **When** they open it
 - **Then** it shows the System context view and a hint naming zoom in, zoom out, jump and sideways
 
 #### Scenario: The hint once dismissed
 
 - **Given** the reader dismissed the hint
-- **When** they open the C4 zoom tab again
+- **When** they open the surface again
 - **Then** the System context view shows with no hint
 
 ### Requirement: The zoom bar names each level's element
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomNavigationTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.The_bar_rings_the_current_step_and_greys_the_steps_waiting_on_a_selection, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.The_also_links_open_the_landscape_dynamic_and_deployment_views]
 ```
 
-The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
+The system SHALL head the surface with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
 
 #### Scenario: On the context view
 
-- **Given** the zoom tab shows the System context view of Prompt Backlog
+- **Given** the surface shows the System context view of Prompt Backlog
 - **When** nothing is selected
 - **Then** the bar reads 1 Context Prompt Backlog, 2 Containers Prompt Backlog, 3 Components greyed "pick a container" and 4 Code greyed "pick a component"
 
 #### Scenario: A container selected
 
-- **Given** the zoom tab shows the Containers view
+- **Given** the surface shows the Containers view
 - **When** the reader selects Desktop App
 - **Then** step 3 reads Components Desktop App and can be picked, and step 4 still reads "pick a component"
 
 #### Scenario: The supplementary views
 
-- **Given** the zoom tab is open on any level
+- **Given** the surface is open on any level
 - **When** the reader looks beside the zoom bar
 - **Then** Landscape, Dynamic and Deployment are offered under "Also" and none of them is a numbered step
 
@@ -711,6 +719,7 @@ The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Con
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_the_system_opens_its_containers, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Selecting_a_container_fills_step_three_which_then_opens_its_components, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Backspace_out_of_the_components_opens_the_containers_with_that_container_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.An_earlier_step_zooms_out_with_the_element_zoomed_out_of_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Step_two_from_the_code_level_opens_the_containers_with_the_container_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_an_element_with_nothing_deeper_selects_it_and_opens_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Only_cards_with_a_deeper_view_carry_a_zoom_in_chip]
 ```
 
 The system SHALL zoom into a drillable element on a double-click, on its "Zoom in" chip, or on Enter while it has focus, and zoom out on an earlier zoom bar step or on Backspace while the diagram has focus, keeping the element zoomed out of selected and taking neither key outside the focused diagram.
@@ -741,7 +750,7 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 
 #### Scenario: Keys outside the diagram
 
-- **Given** the zoom tab is open and the find field has focus
+- **Given** the surface is open and the find field has focus
 - **When** the reader presses Backspace or Enter
 - **Then** the field takes the key and the view does not change
 
@@ -755,9 +764,10 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ElementInspectorTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ElementInspectionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_inspector_lists_the_records_and_opens_one_in_the_surface]
 ```
 
-The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab), and a zoom-in button only when a deeper view of it exists.
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening on the surface in place of the view), and a zoom-in button only when a deeper view of it exists.
 
 #### Scenario: A container with records
 
@@ -781,12 +791,13 @@ The system SHALL show, for the selected element, its kind, description and techn
 
 - **Given** Desktop App is selected and its inspector lists a proposed ADR
 - **When** the reader picks that ADR
-- **Then** the Chapters tab opens on the ADR
+- **Then** the ADR opens on the surface beside the decision log, in place of the view
 
 ### Requirement: An overlay counts the records on each card
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4RecordOverlayTests]
 ```
 
 The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs, or of open TDRs, naming an element on its card, draws a card that open TDRs name on the error surface, counts under the diagram the records that name only elements below the view, and shows the open TDRs that name no element in a cross-cutting tray while Debt is chosen.
@@ -813,13 +824,14 @@ The system SHALL offer an overlay switch of None, Decisions and Debt that puts t
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookCodeTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4CodeViewTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_a_component_with_code_opens_its_code_level, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Opening_the_code_level_again_reads_it_again, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_component_without_code_keeps_step_four_grey, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Only_a_component_with_code_carries_a_zoom_in_chip]
 ```
 
-The system SHALL draw the Code level of a component from the source its code link names when it is opened, showing the types and their members, and never from an authored diagram.
+The system SHALL draw the Code level of a component from the source in the folders its building block names in `code` when it is opened, showing the types and their members, and never from an authored diagram.
 
 #### Scenario: A component with a code link
 
-- **Given** the Devbook component's code link names `Backlog.Infrastructure.Devbook`
+- **Given** `building-blocks/devbook.md` names `src/Infrastructure/Backlog.Infrastructure.Devbook` in `code` for the Devbook component
 - **When** the reader zooms into Devbook
 - **Then** the Code view lists that project's types with their members, read from the source as it is now
 
@@ -839,6 +851,7 @@ The system SHALL draw the Code level of a component from the source its code lin
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4DynamicPlaybackTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomDeploymentTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4GroupBandExplorerTests.The_zoom_tab_draws_the_groups_as_bands]
 ```
 
 The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments behind one tab list with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
@@ -871,21 +884,28 @@ The system SHALL play a dynamic view one numbered step at a time, switch a deplo
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.Decisions_opens_the_decisions_chapter_beside_the_decision_log_and_a_record_shows_where_it_lands, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.A_chapter_opens_inside_the_surface_with_its_list_and_its_links_and_Back_returns_to_the_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.An_embedded_view_opens_in_the_picture_and_says_the_C4_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_on_a_decision_record_marks_what_it_decides_and_touches, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_on_a_decision_record_shows_its_decision_chain, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_off_a_decision_record_shows_no_model_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ChapterViewsTests.A_fence_that_disagrees_with_the_model_lists_what_each_has_alone]
 ```
 
-The system SHALL, while `c4-zoom` is on, show for an ADR or a TDR opened in the Chapters tab where it lands on the container view and its decision chain, and for an arc42 chapter the views it documents with the elements present in the model but not in its mermaid fence, and those in the fence but not in the model, flagged.
+The system SHALL, while `c4-zoom` is on, show beside an ADR or a TDR opened on the surface where it lands on the container view and its decision chain, and for an arc42 chapter draw each view it documents, flagging for a view drawn under a section with its own C4 mermaid fence the elements in the model but not in the fence, and those in the fence but not in the model.
 
 #### Scenario: A decision record
 
 - **Given** `c4-zoom` is on and ADR 0005 names Cloud Service and Cloud Database
-- **When** the reader opens ADR 0005 in the Chapters tab
-- **Then** a container view marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
+- **When** the reader opens ADR 0005 on the surface
+- **Then** a container view beside it marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
+
+#### Scenario: A chapter that embeds its view
+
+- **Given** `c4-zoom` is on and chapter 05 embeds the Containers view as `![…](c4:container-view)`
+- **When** the reader opens chapter 05 on the surface
+- **Then** the Containers view is drawn where the embed sits, and nothing is flagged
 
 #### Scenario: A chapter and the model disagree
 
-- **Given** `c4-zoom` is on and the fence in 05 Building block view draws Attachments, which the model lacks
-- **When** the reader opens chapter 05 in the Chapters tab
-- **Then** the chapter embeds the Containers view it documents and flags Attachments as in the fence but not in the model
+- **Given** `c4-zoom` is on, and a chapter section that `_c4/references.json` maps to the Containers view draws a C4 mermaid fence holding Attachments, which the model lacks
+- **When** the reader opens that chapter on the surface
+- **Then** the Containers view is drawn under that section and flags Attachments as in the fence but not in the model
 
 #### Scenario: The switch off
 
