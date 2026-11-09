@@ -595,12 +595,7 @@ The decision chain draws a proposed ADR dashed, and lists:
 - what it builds on: its `related:` ADRs
 - what builds on it: the ADRs whose `related:` name it
 
-Guideline ADRs, under `adr/guidelines/`, take part as local ones do, except in
-supersession. They number from 0001 too, so each chip marks a guideline as one.
-
-A TDR shows its severity and its rung on the debt ladder. Its chain is the ADRs its
-`related:` names: the ones its `## Origin` section cites are its origin, the rest
-related.
+A TDR shows its severity and its rung on the debt ladder in place of the chain.
 
 An arc42 chapter embeds the views it documents. Where the chapter's own mermaid
 fence and the model disagree, it flags the elements in the model but missing from
