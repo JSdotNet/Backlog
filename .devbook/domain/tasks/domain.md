@@ -16,20 +16,34 @@ aliases: [TaskItem, task_id, BacklogEntry, backlog_entry_id, backlog_item_id]
 
 **Task lifecycle**
 
+Five recorded states. The tick, readiness and the start date sit beside the status;
+they are not states.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Draft : Created
-    Draft --> Ready : Refined and actionable
-    Ready --> InProgress : Work started (TaskProjected, not yet emitted)
-    InProgress --> Done : Work completed (TaskCompleted, not yet emitted)
-    Done --> Archived : Archived
-    Archived --> Draft : Restored
-    Ready --> Draft : Revision needed
-    InProgress --> Ready : Paused
-    Done --> InProgress : Reopened
-    Draft --> Archived : Dropped with its archived repository
-    Ready --> Archived : Dropped with its archived repository
-    InProgress --> Archived : Dropped with its archived repository
+    state "In progress" as InProgress
+    Draft : every new task
+    Ready : actionable
+    InProgress : stamps started_on once
+    Done : work is over
+    Archived : out of default views
+    [*] --> Draft : created
+    Draft --> Ready : refined
+    Ready --> InProgress : started (TaskProjected, not yet emitted)
+    InProgress --> Done : finished (TaskCompleted, not yet emitted)
+    Done --> Archived : archived
+    Archived --> Draft : restored
+    Ready --> Draft : revise
+    InProgress --> Ready : paused
+    Done --> InProgress : reopened
+    Draft --> Archived : drop straight there when their repository is archived
+    Ready --> Archived : drop straight there when their repository is archived
+    InProgress --> Archived : drop straight there when their repository is archived
+    note right of Draft : StatusChanged on every move
+    classDef active stroke-width:2px
+    classDef ended stroke-width:1px
+    class InProgress active
+    class Done,Archived ended
 ```
 
 - The edges from `Draft`, `Ready` and `InProgress` to `Archived` are

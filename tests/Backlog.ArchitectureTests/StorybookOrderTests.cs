@@ -42,7 +42,9 @@ public class StorybookOrderTests
     /// <c>TaskAction</c> is introduced with the date, time and repeat it sits over;
     /// and <c>Icons</c> on Foundations, because a glyph is a foundation the way a
     /// type scale is — one grid and one stroke weight every page under it borrows —
-    /// and `typography-and-layout.md` keeps the two in one chapter.</para></summary>
+    /// and `typography-and-layout.md` keeps the two in one chapter. One Diagrams
+    /// chapter sits in the Devbook group: the Domain view's Context map, whose page
+    /// the plan +devbook-domain-view places beside the context page its cards open.</para></summary>
     private static readonly IReadOnlyDictionary<string, string[]> Chapters = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["Badges"] = ["badges"],
@@ -53,7 +55,7 @@ public class StorybookOrderTests
         ["Compare"] = ["compare"],
         ["Data"] = ["data-table"],
         ["Day"] = ["today", "task-detail", "focus"],
-        ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas"],
+        ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas", "devbook/domain-context-map"],
         ["Feedback"] = ["feedback"],
         ["Goals"] = ["goals"],
         ["Icons"] = ["foundations"],

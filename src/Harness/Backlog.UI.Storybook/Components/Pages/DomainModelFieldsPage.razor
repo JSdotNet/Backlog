@@ -1,0 +1,279 @@
+@page "/diagrams/domain-model-fields"
+
+<PageTitle>Domain model fields — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain model fields"
+           Summary="The Model page's Fields tab: DomainModelFieldsView lists an aggregate root's fields in the model file's purpose groups — each with its meaning and how many invariants it points at — beside what the root owns, and DomainServiceInvocations says how each domain service runs, from its chapter's Invocation semantics."
+           Guidelines="@Rules">
+
+    <Story Name="Fields in purpose groups"
+           Description="The model file's ## Fields chapter: one ### per group, its first paragraph the question it answers, one bullet per field — `name` — what it means — ending in Rules: and links to invariants, counted as the rule badge. Press the badge to open the field's rules in place, each marked as Always true marks it and opening on where it is enforced. A type of the model takes its kind's tone; dates, instants and ids are the legend's neutral badges; a field the diagram draws only as a dashed dependency reads as derived. Fields no group names stand under Other fields. The side column lists what the root owns."
+           Code="@FieldsCode"
+           Source="@Purposes"
+           SourceLabel="model.md"
+           SourceLanguage="markdown">
+        <DomainModelFieldsView Source="@Tasks" Title="Model diagram" Purposes="@PurposeChapters" Rules="@RuleIndex" RuleCatalog="@Catalog" Services="@Services" TestId="story-domain-fields" />
+    </Story>
+
+    <Story Name="No Fields chapter"
+           Description="A model file that writes no purpose groups: the root's fields stand under the kinds their types say — Dates and times, Ids pointing elsewhere, Vocabularies and Other values."
+           Code="@FieldsCode"
+           Source="@Tasks"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelFieldsView Source="@Tasks" Title="Model diagram" TestId="story-domain-fields-kinds" />
+    </Story>
+
+    <Story Name="A fence that cannot be read"
+           Description="A fence the reader cannot read in full says so rather than listing part of it. Diagram still draws it with mermaid."
+           Code="@FieldsCode"
+           Source="@Broken"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelFieldsView Source="@Broken" Title="Model diagram" TestId="story-domain-fields-unread" />
+    </Story>
+
+    <Story Name="Domain services · how they run"
+           Description="Each domain-service chapter's first sentence and its Invocation semantics prose — the paragraph after the label, or the list beneath a label that ends its line. A chapter that says nothing about how it runs is named as such."
+           Code="@ServicesCode">
+        <DomainServiceInvocations Services="@Services" TestId="story-domain-services" />
+    </Story>
+
+    <Story Name="On the Model page"
+           Description="Fields as the Model page lays it out: the fields of each fence, the model file's relationship notes beneath, then how the services run. On Diagram, the Sub-Item part counts the rule the invariants write about it, and the count opens it under the card."
+           Code="@PageCode">
+        <DomainModelView Fences="@Fences" Markdown="@Purposes" Rules="@RuleIndex" RuleCatalog="@Catalog" ChapterReferences="@References" RelationshipNotes="@Notes" Chapters="@Chapters" Title="Tasks" AriaLabel="Model of Tasks" TestId="story-domain-model-fields-view" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Which tone a model element takes beside its glyph and its kind in words."),
+        new("typography-and-layout.md#font-families", "Why names and types are set in the mono face.")
+    ];
+
+    private const string Tasks = """
+        classDiagram
+            class Task {
+                <<aggregate root>>
+                +Id id
+                +String title
+                +TaskStatus status
+                +Timestamp created_at
+                +Date due_on
+                +List~Id~ depends_on
+                +String source_inbox_id
+                +Recurrence recurrence
+                +Integer effort
+            }
+            class SubItem {
+                <<entity>>
+                +Id id
+                +String title
+                +SubItemStatus status
+            }
+            class Recurrence {
+                <<value object>>
+                +Integer interval
+                +List~Weekday~ weekdays
+            }
+            class TaskStatus {
+                <<enumeration>>
+                draft
+                ready
+                in_progress
+                done
+            }
+            class SubItemStatus {
+                <<enumeration>>
+                pending
+                done
+            }
+            class Weekday {
+                <<enumeration>>
+                monday
+                friday
+            }
+            Task "1" *-- "0..*" SubItem : contains
+            Task "1" *-- "0..1" Recurrence : repeats by
+            Task "0..*" ..> "0..*" Task : depends on
+            Task ..> Readiness : derived as
+            class Readiness {
+                <<enumeration>>
+                done
+                ready
+                blocked
+            }
+        """;
+
+    private const string Purposes = """
+        ## Fields
+
+        ### Work state
+
+        Where is the work?
+
+        - `status` — The recorded lifecycle state. Rules: [starts in draft](domain.invariants.md#invariant-a-new-task-starts-in-draft), [follows the lifecycle](domain.invariants.md#invariant-status-changes-follow-the-lifecycle).
+        - `readiness` — Derived from `depends_on` on every read, never stored.
+
+        ### Scheduling
+
+        When is it wanted? All optional, none load-bearing.
+
+        - `due_on` — The day the task is committed to.
+        - `recurrence` — The shape of a repeat. The next date is calculated, never stored.
+        - `effort` — Sizes the work. Rules: [never negative](domain.invariants.md#invariant-effort-is-never-negative).
+
+        ### Links and provenance
+
+        What does it point at, and where did it come from?
+
+        - `depends_on` — Tasks this one waits on. A missing one still blocks.
+        - `source_inbox_id` — The inbox item it was triaged from.
+        """;
+
+    private static readonly IReadOnlyList<DomainFieldChapter> PurposeChapters = DomainFieldPurposes.Read(Purposes);
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> RuleIndex = new Dictionary<string, IReadOnlyList<string>>
+    {
+        ["domain.invariants.md#invariant-a-new-task-starts-in-draft"] = ["A new task starts in draft"],
+        ["domain.invariants.md#invariant-status-changes-follow-the-lifecycle"] = ["Status changes follow the lifecycle"],
+        ["domain.invariants.md#invariant-effort-is-never-negative"] = ["Effort is never negative"]
+    };
+
+    // The context's domain and invariants files, which give each rule its mark
+    // and its row on Always true.
+    private const string TaskDomain = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined, actionable item.
+
+        ### Sub-Item
+
+        ```meta
+        type: entity
+        aliases: [SubItem]
+        ```
+
+        An ordered step.
+        """;
+
+    private const string TaskInvariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        ### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
+        ```
+
+        A task is created in `draft`.
+
+        Enforced at: constructor
+
+        ### Invariant: Status changes follow the lifecycle
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.Status_moves_along_the_lifecycle]
+        ```
+
+        `ChangeStatus()` refuses a move the lifecycle does not draw.
+
+        Enforced at: `ChangeStatus()`
+
+        ### Invariant: Effort is never negative
+
+        ```meta
+        type: invariant
+        ```
+
+        `SetEffort()` refuses a negative number.
+
+        Enforced at: `SetEffort()`
+
+        ### Invariant: Steps change through the task
+
+        ```meta
+        type: invariant
+        ```
+
+        A step changes only through its task.
+
+        Enforced at: `SubItem`
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(
+        [DomainUnits.Parse(TaskDomain, ".devbook/domain/tasks/domain.md")],
+        [DomainUnits.Parse(TaskInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
+
+    private static readonly IReadOnlyDictionary<string, string> References = new Dictionary<string, string>
+    {
+        ["SubItem"] = ".devbook/domain/tasks/domain.md#sub-item"
+    };
+
+    private const string Broken = """
+        classDiagram
+            Task <--> Other
+        """;
+
+    private const string Notes = """
+        - `Task` is the aggregate root and the only consistency boundary.
+        - `repo_ids` is a plain list of repository identifiers, not object references.
+        """;
+
+    private static readonly IReadOnlyList<DomainServiceInvocation> Services =
+    [
+        new("Occurrence Spawning", "#occurrence-spawning", "Creates the next occurrence of a repeating task.",
+            "Called synchronously by the use case that completes the task. It is deliberately not an event-triggered policy."),
+        new("Classification", "#classification", "Proposes where an inbox item belongs.",
+            "- On intake, it is called by the intake and capture commands.\n- Otherwise it is a query the pane asks for whenever the item on screen changes."),
+        new("Projection", "#projection", "Creates and closes downstream artifacts for a multi-repo task.", null)
+    ];
+
+    private static readonly IReadOnlyList<DomainModelFence> Fences = [new DomainModelFence("Model diagram", Tasks)];
+
+    private static readonly DomainChapterReading Chapters = new(Services, []);
+
+    private const string FieldsCode = """
+        <DomainModelFieldsView Source="@classDiagramFenceBody"
+                               Title="Model diagram"
+                               Purposes="@DomainFieldPurposes.Read(modelMarkdown)"
+                               Rules="@DomainFieldBoards.RuleIndex(invariantFiles)"
+                               RuleCatalog="@DomainRuleCatalog.Of(domainFiles, invariantFiles)"
+                               OnOpenRule="OpenAlwaysTrueAsync"
+                               Profiles="@DomainFieldBoards.Profiles(domainFiles)"
+                               Services="@reading.Services" />
+        """;
+
+    private const string ServicesCode = """
+        <DomainServiceInvocations Services="@reading.Services" />
+
+        @code {
+            // Read from the context's domain.md and its splits.
+            private DomainChapterReading reading = DomainChapterContracts.Read(sources);
+        }
+        """;
+
+    private const string PageCode = """
+        <DomainModelView Fences="@fences" Markdown="@modelMarkdown" Rules="@rules" Profiles="@profiles"
+                         RuleCatalog="@catalog" ChapterReferences="@references" OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
+                         RelationshipNotes="@notes" Chapters="@reading" Title="Tasks" AriaLabel="Model of Tasks" />
+        """;
+}

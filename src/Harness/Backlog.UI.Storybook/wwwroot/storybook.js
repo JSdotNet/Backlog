@@ -77,6 +77,25 @@
                 { name: '--color-border-strong', against: '--color-background', threshold: 3 },
                 { name: '--color-border-focus', against: '--color-background', threshold: 3 }
             ]
+        },
+        {
+            // The Domain view's element tones (color-scheme.md#domain-view-element-tones).
+            // Scored on the raised surface, the lightest one a model element sits on.
+            title: 'Domain view',
+            tokens: [
+                // The entity's kind line is text: the 4.5:1 floor.
+                { name: '--color-domain-entity', against: '--color-background-raised', threshold: 4.5 },
+                { name: '--color-domain-value-object', against: '--color-background-raised', threshold: 4.5 },
+                // A line and a card edge, not text: the non-text 3:1 floor.
+                { name: '--color-domain-core-line', against: '--color-background-raised', threshold: 3 },
+                // The word SHALL is text: the 4.5:1 floor.
+                { name: '--color-domain-requirement', against: '--color-background-raised', threshold: 4.5 },
+                // A square's outline in the chapter bar, not text: the non-text 3:1 floor.
+                { name: '--color-domain-service', against: '--color-background-raised', threshold: 3 },
+                // An enumeration's name on Fields and an event's name on Events are text.
+                { name: '--color-domain-enumeration', against: '--color-background-raised', threshold: 4.5 },
+                { name: '--color-domain-event', against: '--color-background-raised', threshold: 4.5 }
+            ]
         }
     ];
 

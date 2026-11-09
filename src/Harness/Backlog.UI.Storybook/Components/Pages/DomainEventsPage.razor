@@ -1,0 +1,116 @@
+@page "/diagrams/domain-events"
+
+<PageTitle>Domain events — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain events"
+           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules. What the context listens to comes from its dependency tables."
+           Guidelines="@Rules">
+
+    <Story Name="Index and one contract"
+           Description="One row per event; the first is picked until another is. Raised by is the aggregate or service the chapter's related field names, or its Published by sentence; When is the summary after Published when. Consumers, Payload and Published language rules are the chapter's own sub-chapters — a payload written as backticked names and meanings reads as rows. Documented and Emitted are information, so both are neutral outlines and the word carries the difference. Event names are the event rose in the mono face."
+           Code="@EventsCode"
+           Source="@Chapter"
+           SourceLabel="domain.md"
+           SourceLanguage="markdown">
+        <DomainEventContracts Events="@Reading.Events" Listens="@Listens" Context="Capture" TestId="story-domain-events" />
+    </Story>
+
+    <Story Name="A section the chapter does not write"
+           Description="A contract with no raiser named and no rules says so in place, rather than leaving the reader to wonder whether the section was dropped."
+           Code="@EventsCode">
+        <DomainEventContracts Events="@Thin" TestId="story-domain-events-thin" />
+    </Story>
+
+    <Story Name="No events"
+           Description="A context whose domain chapters hold no domain-event chapter."
+           Code="@EventsCode">
+        <DomainEventContracts Events="@None" TestId="story-domain-events-empty" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why information badges on the Domain view are neutral outlines, and the event rose."),
+        new("color-scheme.md#badge-and-chip-tones", "Why filled means the product acts on it, and Documented and Emitted are not filled.")
+    ];
+
+    private const string Chapter = """
+        ## Delivery
+
+        ```meta
+        type: domain-service
+        status: draft
+        ```
+
+        Delivers a normalized Capture to the Inbox, and emits the `ItemCaptured` event.
+
+        ## ItemCaptured
+
+        ```meta
+        type: domain-event
+        status: draft
+        related: [.devbook/domain/capture/domain.md#delivery]
+        ```
+
+        Published by `Delivery` when a normalized Capture is handed off to the Inbox.
+
+        ### Payload
+
+        - `capture_id` - originating Capture identifier.
+        - `title` - normalized title.
+        - `captured_at` - time the source was captured.
+
+        ### Consumers
+
+        - The Inbox's incoming queue, which creates the `Inbox Item`.
+
+        ### Published language rules
+
+        - Capture owns the meaning of the fields above; consumers conform to the contract.
+
+        ## StatusChanged
+
+        ```meta
+        type: domain-event
+        status: draft
+        ```
+
+        Published when a `Task` changes `Task Status`. It is not emitted yet.
+
+        ### Payload
+
+        - `task_id` - task identifier.
+        - `new_status` - new `Task Status`.
+
+        ### Consumers
+
+        - Monitoring & Dashboard, which turns work-state changes into progress signals.
+        """;
+
+    private static readonly DomainChapterReading Reading =
+        DomainChapterContracts.Read([new DomainChapterSource(".domain/capture/domain.md", Chapter)]);
+
+    private static readonly IReadOnlyList<DomainEventContract> Thin =
+    [
+        new("FollowUpCaptured", "#followupcaptured", "draft", "Published when a dashboard follow-up should become an inbox item.", [], "- `title` - the follow-up.", null, null, DomainEventDelivery.Documented)
+    ];
+
+    private static readonly IReadOnlyList<DomainEventContract> None = [];
+
+    private static readonly IReadOnlyList<DomainEventSubscription> Listens =
+    [
+        new("Inbox", "ItemTriaged", "Publishes ItemTriaged", "Relies on Tasks creating a draft task from a triaged item."),
+        new("Sync", null, "The desktop's TaskSyncWorker pushes and pulls the task feed through the sync service", "A task reaches the person's other devices as one whole document.")
+    ];
+
+    private const string EventsCode = """
+        <DomainEventContracts Events="@reading.Events" Listens="@reading.Listens" Context="Tasks" Root="Task" />
+
+        @code {
+            // Read from the context's domain.md and its splits.
+            private DomainChapterReading reading = DomainChapterContracts.Read(sources);
+        }
+        """;
+}

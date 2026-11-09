@@ -107,6 +107,31 @@ public sealed class DevbookMenuTreeViewTests
         Assert.Equal("Scenario never run", mark.QuerySelector("[data-testid='devbook-scenario-dot']")!.GetAttribute("aria-label"));
     }
 
+    /// <summary>A kind row in the New domain view shows how many pages it holds
+    /// at its far edge, read as part of its name.</summary>
+    [Fact]
+    public void A_counted_row_shows_its_count_after_its_label()
+    {
+        using var context = new BunitContext();
+        var split = new DevbookMenuNode("financieel/flow.geld-eruit.md", "Geld eruit", "financieel/flow.geld-eruit.md", DevbookMenuNodeKind.File, "domain", [], true);
+        var flows = new DevbookMenuNode("financieel/flow.md", "Flows", "financieel/flow.md", DevbookMenuNodeKind.File, "domain", [split], true) { Count = 1 };
+        var root = new DevbookMenuNode("domain", "Domain", "domain", DevbookMenuNodeKind.Folder, "domain", [flows], true);
+
+        var component = context.Render<DevbookMenuTreeView>(parameters => parameters
+            .Add(view => view.HeadingLabel, "Domain")
+            .Add(view => view.RootFolder, root)
+            .Add(view => view.Nodes, root.Children)
+            .Add(view => view.IsNodeExpanded, _ => true));
+
+        var count = Assert.Single(component.FindAll("[data-testid='devbook-menu-count']"));
+        Assert.Equal("devbook-menu__trail", count.ParentElement!.ClassName);
+        var button = count.ParentElement!.ParentElement!;
+        var accessibleName = string.Concat(button.ChildNodes
+            .Where(node => node is not IElement element || !element.HasAttribute("aria-hidden"))
+            .Select(node => node.TextContent));
+        Assert.Equal("Flows, 1 item", accessibleName.Trim());
+    }
+
     private static DevbookMenuNode BuildDomainTree()
     {
         var domainDoc = new DevbookMenuNode("intake/domain.md", "Domain", "intake/domain.md", DevbookMenuNodeKind.File, "domain", [], true);
