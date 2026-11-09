@@ -10,8 +10,9 @@
 
     Previous is disabled on the first step and Next on the last. Play walks forward
     from the current step and stops on the last; pressed on the last it starts again
-    from the first. With reduced motion asked for, nothing advances on its own: Play
-    moves one step per press, and the panel says so. The current step is announced
+    from the first. With reduced motion asked for, Play still walks every step on
+    its own — reduced motion takes the animation away, never the function — and the
+    panel says the steps change without animation. The current step is announced
     whole — its ends and what it does — not only its number.
 
     Under the steps, "Decisions on this path": the decisions that name an element the
@@ -60,7 +61,7 @@
 
     @if (ReducedMotion)
     {
-        <p class="c4-dynamic-steps__note" data-testid="c4-dynamic-reduced-motion">Reduced motion is on, so Play moves one step per press.</p>
+        <p class="c4-dynamic-steps__note" data-testid="c4-dynamic-reduced-motion">Reduced motion is on, so the steps change without animation.</p>
     }
 
     <ol class="c4-dynamic-steps__list">
@@ -167,10 +168,7 @@
     [Parameter]
     public string? TestId { get; set; } = "c4-dynamic-steps";
 
-    private string PlayLabel =>
-        Playing ? "Pause"
-        : ReducedMotion ? "Play the next step"
-        : "Play all steps";
+    private string PlayLabel => Playing ? "Pause" : "Play all steps";
 
     /// <summary>The description, then the technology, the way the design writes them:
     /// "Creates the issue · HTTPS".</summary>

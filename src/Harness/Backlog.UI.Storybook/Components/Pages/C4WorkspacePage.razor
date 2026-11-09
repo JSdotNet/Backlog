@@ -118,11 +118,17 @@ Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level
     <Story Name="A dynamic view, step by step"
            Description="`C4DynamicSteps`, the panel the zoom tab sets beside a dynamic view: **Step 2 of 3**, Previous / Play / Next, and every step in order — from → to, what it does, and the technology read from the model relationship between the same two elements, since a dynamic step carries none of its own. Open **Dynamic** under *Also* in the zoom tab above to play it: each arrow carries its number in a badge, and the current step's arrow, badge and row are drawn in the primary colour while the rest stay grey.
 
-Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for, it moves one step per press and says so. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes.
+Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for it still walks on its own, the steps changing without animation, and the panel says so — the preference is followed when it changes mid-session. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes.
 
 Under the steps, **Decisions on this path**: the decisions that name an element the flow passes through, from the host's `RecordsFor`, a proposed one marked; each opens its record."
            Code="@DynamicUsage">
-        <C4DynamicSteps Steps="@DynamicSteps" Current="1" Decisions="@PathDecisions" TestId="sb-c4-dynamic-steps" />
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">Step 2 of 3</p>
+            <C4DynamicSteps Steps="@DynamicSteps" Current="1" Decisions="@PathDecisions" TestId="sb-c4-dynamic-steps" />
+
+            <p class="sb-c4-zoom-moments__label">With reduced motion asked for</p>
+            <C4DynamicSteps Steps="@DynamicSteps" Current="0" ReducedMotion="true" TestId="sb-c4-dynamic-steps-reduced" />
+        </div>
     </Story>
 
     <Story Name="The view summary"

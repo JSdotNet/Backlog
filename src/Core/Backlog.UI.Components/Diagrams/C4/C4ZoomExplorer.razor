@@ -1123,10 +1123,10 @@
     /// pressed while playing it pauses, and pressed on the last step it starts again
     /// from the first.
     /// <para>
-    /// A reader who asked for reduced motion gets no timed walk: the picture would
-    /// change under them unasked. Play then moves one step per press, wrapping from the
-    /// last to the first. The preference is read once, when the first steps panel is
-    /// drawn, so a press never waits on script: two quick presses are a play and a
+    /// Reduced motion changes nothing here: it takes the animation away, never the
+    /// function (<c>accessibility.md</c>, "Function preserved"), and the steps change
+    /// in place with no transition either way. The panel says so while the preference
+    /// is on. A press never waits on script, so two quick presses are a play and a
     /// pause, never two walks.
     /// </para>
     /// </summary>
@@ -1140,15 +1140,7 @@
             return;
         }
 
-        var last = _playback.Count - 1;
-
-        if (_reducedMotion)
-        {
-            MoveTo(_stepIndex >= last ? 0 : _stepIndex + 1);
-            return;
-        }
-
-        if (_stepIndex >= last) MoveTo(0);
+        if (_stepIndex >= _playback.Count - 1) MoveTo(0);
 
         if (_disposed) return;
 
@@ -1196,16 +1188,39 @@
         _play = null;
     }
 
-    private async Task<bool> ReducedMotionAsync()
+    /// <summary>Asks the viewer for the reduced-motion preference and to report each
+    /// later change of it through <see cref="ReducedMotionChanged"/>. No viewer reads
+    /// as no preference.</summary>
+    private async Task<bool> WatchReducedMotionAsync()
     {
+        _self ??= DotNetObjectReference.Create(this);
+
         try
         {
-            return await Js.InvokeAsync<bool>("backlogC4Zoom.reducedMotion");
+            var reduced = await Js.InvokeAsync<bool>("backlogC4Zoom.watchReducedMotion", _frameId, _self);
+            _motionWatched = true;
+            return reduced;
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
         {
             return false;
         }
+    }
+
+    /// <summary>Whether the viewer is watching the preference for this explorer, so
+    /// disposing tells it to stop.</summary>
+    private bool _motionWatched;
+
+    /// <summary>The reader turned reduced motion on or off while the explorer is open:
+    /// the viewer's <c>change</c> listener reports it.</summary>
+    [JSInvokable]
+    public Task ReducedMotionChanged(bool reduced)
+    {
+        if (_disposed || _reducedMotion == reduced) return Task.CompletedTask;
+
+        _reducedMotion = reduced;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     // ---- deployment ------------------------------------------------------------
@@ -1528,13 +1543,14 @@
             return;
         }
 
-        // A dynamic view tells the reader up front that Play will not move on its
-        // own, so the preference is read once the first steps panel is on screen —
-        // and only then, so a Play press never has to wait on script.
+        // The steps panel says when reduced motion is on, so the preference is
+        // watched from the first steps panel on screen — once, and only then, so a
+        // Play press never waits on script. A later change arrives through
+        // ReducedMotionChanged.
         if (_playback.Count > 0 && !_reducedMotionRead)
         {
             _reducedMotionRead = true;
-            if (await ReducedMotionAsync())
+            if (await WatchReducedMotionAsync())
             {
                 _reducedMotion = true;
                 StateHasChanged();
@@ -1613,6 +1629,17 @@
         _disposed = true;
         StopPlaying();
         CloseCodeLevel();
+
+        if (_motionWatched)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogC4Zoom.unwatchReducedMotion", _frameId);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+            }
+        }
 
         // Only after a viewer was asked for: a prerender disposes the component
         // without ever reaching OnAfterRender.
