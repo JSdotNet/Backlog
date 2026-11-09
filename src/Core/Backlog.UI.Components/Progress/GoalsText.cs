@@ -66,6 +66,19 @@ public static class GoalsText
         return $"{counts.Done} done, {counts.Doing} in progress, {counts.Blocked} blocked, {counts.ToDo} not started";
     }
 
+    /// <summary>"5/9 · 2 in progress · 1 blocked": an open goal's plan row, each amount left
+    /// out at nought, so a plan with neither reads "51/53".</summary>
+    public static string PlanLine(GoalPlanModel plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+
+        var parts = new List<string> { $"{plan.Done}/{plan.Total}" };
+        if (plan.Doing > 0) parts.Add($"{plan.Doing} in progress");
+        if (plan.Blocked > 0) parts.Add($"{plan.Blocked} blocked");
+
+        return string.Join(Separator, parts);
+    }
+
     /// <summary>One item's effort: "5 pts".</summary>
     public static string Points(int points) => $"{points.ToString(English)} pts";
 

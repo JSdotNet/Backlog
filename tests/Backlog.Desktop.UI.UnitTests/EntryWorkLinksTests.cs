@@ -56,6 +56,48 @@ public sealed class EntryWorkLinksTests
         Assert.Equal("qa-no-su", new EntrySessionLink("JSdotNet/Backlog", "qa-no-such-session").ShortId);
     }
 
+    /// <summary>The stored projections reach another module as stored: what
+    /// <see cref="EntryLinks.PullRequests"/> cannot draw stays in, and only a pull request's
+    /// exact target type counts, as <c>ProgressTaskSource</c> reads it.</summary>
+    [Fact]
+    public void Pull_request_projections_are_read_as_stored_once_each()
+    {
+        var entry = Dto(
+            new EntryProjectionDto("JSdotNet/Backlog", "655", EntryProjectionDto.PullRequestTargetType),
+            new EntryProjectionDto("JSdotNet/Backlog", "#582", EntryProjectionDto.PullRequestTargetType),
+            new EntryProjectionDto("backlog", "7", EntryProjectionDto.PullRequestTargetType),
+            new EntryProjectionDto(" JSdotNet/Backlog ", " 8 ", EntryProjectionDto.PullRequestTargetType),
+            new EntryProjectionDto("JSdotNet/Backlog", "655", EntryProjectionDto.PullRequestTargetType),
+            new EntryProjectionDto("JSdotNet/Backlog", "9", EntryProjectionDto.PullRequestTargetType.ToUpperInvariant()),
+            new EntryProjectionDto("JSdotNet/Backlog", "42", EntryProjectionDto.IssueTargetType));
+
+        Assert.Equal(
+            [
+                new EntryPullRequestProjection("JSdotNet/Backlog", "655"),
+                new EntryPullRequestProjection("JSdotNet/Backlog", "#582"),
+                new EntryPullRequestProjection("backlog", "7"),
+                new EntryPullRequestProjection(" JSdotNet/Backlog ", " 8 ")
+            ],
+            EntryLinks.PullRequestProjections(entry));
+    }
+
+    /// <summary>Linking refreshes the row from the entry the store answered, the one way a row
+    /// takes its links: the new list holds the <c>#582</c> that <see cref="EntryRow.PullRequestLinks"/> drops.</summary>
+    [Fact]
+    public async Task Refreshing_a_row_from_its_entry_fills_the_projections_with_what_the_links_drop()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+
+        Assert.Null(await host.State.LinkWorkAsync(row, "JSdotNet/Backlog", "655", EntryProjectionDto.PullRequestTargetType));
+        Assert.Null(await host.State.LinkWorkAsync(row, "JSdotNet/Backlog", "#582", EntryProjectionDto.PullRequestTargetType));
+
+        Assert.Equal([new EntryPullRequestLink("JSdotNet/Backlog", 655)], row.PullRequestLinks);
+        Assert.Equal(
+            [new EntryPullRequestProjection("JSdotNet/Backlog", "655"), new EntryPullRequestProjection("JSdotNet/Backlog", "#582")],
+            row.PullRequestProjections);
+    }
+
     /// <summary>A session is no issue: the pane's offer to file one survives it.</summary>
     [Fact]
     public void A_session_is_not_the_issue_an_entry_was_pushed_to()

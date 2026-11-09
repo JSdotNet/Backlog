@@ -4,10 +4,10 @@
   "meta": {
     "title": "Backlog Context Map",
     "animation": "trace",
-    "quality_profile": "showcase",
+    "quality_profile": "standard",
     "viewBox": [
-      2960,
-      1798
+      3230,
+      1532
     ]
   },
   "components": [
@@ -16,8 +16,8 @@
       "type": "backend",
       "label": "Tasks",
       "pos": [
-        200,
-        300
+        2795,
+        227
       ],
       "size": [
         200,
@@ -29,8 +29,21 @@
       "type": "backend",
       "label": "Inbox",
       "pos": [
-        760,
-        300
+        235,
+        567
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "devbook",
+      "type": "backend",
+      "label": "Devbook",
+      "pos": [
+        875,
+        227
       ],
       "size": [
         200,
@@ -40,10 +53,10 @@
     {
       "id": "brain",
       "type": "backend",
-      "label": "Devbook",
+      "label": "Brain",
       "pos": [
-        1320,
-        300
+        875,
+        907
       ],
       "size": [
         200,
@@ -55,8 +68,8 @@
       "type": "backend",
       "label": "Roadmap Planning",
       "pos": [
-        1880,
-        300
+        1515,
+        227
       ],
       "size": [
         200,
@@ -68,8 +81,8 @@
       "type": "backend",
       "label": "Repository Management",
       "pos": [
-        2440,
-        300
+        2155,
+        567
       ],
       "size": [
         200,
@@ -81,8 +94,8 @@
       "type": "backend",
       "label": "Environment",
       "pos": [
-        2440,
-        900
+        2155,
+        907
       ],
       "size": [
         200,
@@ -94,8 +107,8 @@
       "type": "backend",
       "label": "Dev PC Management",
       "pos": [
-        2440,
-        1500
+        1515,
+        907
       ],
       "size": [
         200,
@@ -107,8 +120,8 @@
       "type": "backend",
       "label": "Sessions",
       "pos": [
-        1320,
-        1500
+        2155,
+        1247
       ],
       "size": [
         200,
@@ -120,8 +133,8 @@
       "type": "backend",
       "label": "Productivity",
       "pos": [
-        200,
-        1500
+        2795,
+        1247
       ],
       "size": [
         200,
@@ -133,8 +146,8 @@
       "type": "backend",
       "label": "Monitoring & Dashboard",
       "pos": [
-        1210,
-        880
+        860,
+        1247
       ],
       "size": [
         230,
@@ -146,8 +159,8 @@
       "type": "backend",
       "label": "Technology Stack",
       "pos": [
-        1900,
-        880
+        1515,
+        567
       ],
       "size": [
         200,
@@ -159,8 +172,8 @@
       "type": "backend",
       "label": "Capture",
       "pos": [
-        500,
-        620
+        235,
+        907
       ],
       "size": [
         200,
@@ -172,8 +185,8 @@
       "type": "backend",
       "label": "Progress",
       "pos": [
-        1600,
-        540
+        2795,
+        567
       ],
       "size": [
         200,
@@ -185,12 +198,39 @@
       "type": "backend",
       "label": "Sync",
       "pos": [
-        760,
-        1200
+        875,
+        567
       ],
       "size": [
         200,
         58
+      ]
+    },
+    {
+      "id": "notify",
+      "type": "backend",
+      "label": "Notifications",
+      "pos": [
+        235,
+        227
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "shell",
+      "type": "frontend",
+      "label": "Desktop shell",
+      "sublabel": "(composition root, not a context)",
+      "pos": [
+        2750,
+        900
+      ],
+      "size": [
+        290,
+        72
       ]
     }
   ],
@@ -201,47 +241,178 @@
       "label": "OHS + Published Language — ItemCaptured",
       "fromSide": "top",
       "toSide": "bottom",
-      "via": [
-        [
-          600,
-          500
-        ],
-        [
-          860,
-          500
-        ]
+      "via": [],
+      "labelAt": [
+        335,
+        728.7142857142858
       ]
     },
     {
       "from": "inbox",
       "to": "backlog",
-      "label": "OHS + Published Language — ItemTriaged"
+      "label": "OHS + Published Language — ItemTriaged",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          140,
+          596
+        ],
+        [
+          140,
+          120
+        ],
+        [
+          2895,
+          120
+        ]
+      ],
+      "labelAt": [
+        261,
+        123
+      ]
     },
     {
       "from": "inbox",
       "to": "brain",
-      "label": "OHS + Published Language — ItemTriaged",
+      "label": "OHS + Published Language — ItemTriaged: To Brain",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          474,
+          596
+        ],
+        [
+          474,
+          936
+        ]
+      ],
       "labelAt": [
-        1140,
-        296
+        614,
+        939
       ]
     },
     {
       "from": "backlog",
       "to": "brain",
-      "label": "Partnership — cross-link by id",
+      "label": "Partnership — task links by id",
       "variant": "emphasis",
-      "fromSide": "top",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2714,
+          256
+        ],
+        [
+          2714,
+          180
+        ],
+        [
+          1814,
+          180
+        ],
+        [
+          1814,
+          160
+        ],
+        [
+          1174,
+          160
+        ],
+        [
+          1174,
+          1036
+        ],
+        [
+          975,
+          1036
+        ]
+      ],
+      "labelAt": [
+        1914,
+        183
+      ]
+    },
+    {
+      "from": "devbook",
+      "to": "brain",
+      "label": "Customer/Supplier — reader, database builder, viewer, search, remarks — every registered devbook, read-only",
+      "fromSide": "right",
       "toSide": "top",
       "via": [
         [
-          300,
-          240
+          1114,
+          256
         ],
         [
-          1420,
-          240
+          1114,
+          856
+        ],
+        [
+          975,
+          856
         ]
+      ],
+      "labelAt": [
+        846,
+        659
+      ]
+    },
+    {
+      "from": "brain",
+      "to": "devbook",
+      "label": "One-way reference — repo: link to a repository chapter",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1134,
+          936
+        ],
+        [
+          1134,
+          256
+        ]
+      ],
+      "labelAt": [
+        1275,
+        279
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "brain",
+      "label": "Customer/Supplier — repo registry lookup by alias",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2114,
+          596
+        ],
+        [
+          2114,
+          516
+        ],
+        [
+          1154,
+          516
+        ],
+        [
+          1154,
+          1016
+        ],
+        [
+          975,
+          1016
+        ]
+      ],
+      "labelAt": [
+        1334,
+        519
       ]
     },
     {
@@ -249,17 +420,25 @@
       "to": "roadmap",
       "label": "Partnership — optional cross-link by id",
       "variant": "emphasis",
-      "fromSide": "top",
-      "toSide": "top",
+      "fromSide": "bottom",
+      "toSide": "right",
       "via": [
         [
-          300,
-          190
+          2895,
+          316
         ],
         [
-          1980,
-          190
+          1774,
+          316
+        ],
+        [
+          1774,
+          256
         ]
+      ],
+      "labelAt": [
+        1894,
+        319
       ]
     },
     {
@@ -270,19 +449,30 @@
       "toSide": "top",
       "via": [
         [
-          1980,
-          140
+          1615,
+          80
         ],
         [
-          300,
-          140
+          2895,
+          80
         ]
+      ],
+      "labelAt": [
+        1735,
+        83
       ]
     },
     {
-      "from": "brain",
+      "from": "devbook",
       "to": "roadmap",
-      "label": "Customer/Supplier — chapters by tag/ref + registered effort"
+      "label": "Customer/Supplier — chapters by tag/ref + registered effort",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [],
+      "labelAt": [
+        1335,
+        259
+      ]
     },
     {
       "from": "roadmap",
@@ -292,152 +482,369 @@
       "toSide": "top",
       "via": [
         [
-          1980,
-          700
+          1615,
+          316
         ],
         [
-          1325,
-          700
+          1194,
+          316
+        ],
+        [
+          1194,
+          1156
+        ],
+        [
+          975,
+          1156
         ]
+      ],
+      "labelAt": [
+        1334,
+        319
       ]
     },
     {
       "from": "backlog",
       "to": "monitor",
-      "label": "OHS + Published Language — StatusChanged / TaskProjected / TaskCompleted"
+      "label": "OHS + Published Language — StatusChanged / TaskProjected / TaskCompleted",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2754,
+          256
+        ],
+        [
+          2754,
+          100
+        ],
+        [
+          3174,
+          100
+        ],
+        [
+          3174,
+          1396
+        ],
+        [
+          975,
+          1396
+        ]
+      ],
+      "labelAt": [
+        1177,
+        1399
+      ]
     },
     {
       "from": "inbox",
       "to": "monitor",
-      "label": "Customer/Supplier — queue-health feed"
+      "label": "Customer/Supplier — queue-health feed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          180,
+          596
+        ],
+        [
+          180,
+          1276
+        ]
+      ],
+      "labelAt": [
+        280,
+        1279
+      ]
     },
     {
       "from": "repo",
       "to": "monitor",
       "label": "Customer/Supplier — health and scan feed",
-      "fromSide": "bottom",
-      "toSide": "top",
+      "fromSide": "top",
+      "toSide": "right",
       "via": [
         [
-          2540,
-          500
+          2255,
+          536
         ],
         [
-          1325,
-          500
+          1214,
+          536
+        ],
+        [
+          1214,
+          1276
         ]
+      ],
+      "labelAt": [
+        1334,
+        539
       ]
     },
     {
       "from": "devpc",
       "to": "monitor",
       "label": "OHS + Published Language — MachineStatusChanged / ComplianceUpdated",
-      "fromSide": "top",
-      "toSide": "bottom",
+      "fromSide": "left",
+      "toSide": "top",
       "via": [
         [
-          2540,
-          1280
+          1474,
+          936
         ],
         [
-          1325,
-          1280
+          1474,
+          1196
+        ],
+        [
+          975,
+          1196
         ]
+      ],
+      "labelAt": [
+        1474,
+        1039
       ]
     },
     {
       "from": "productivity",
       "to": "monitor",
-      "label": "OHS + Published Language — ProductivityRecorded"
+      "label": "OHS + Published Language — ProductivityRecorded",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2754,
+          1276
+        ],
+        [
+          2754,
+          1436
+        ],
+        [
+          975,
+          1436
+        ]
+      ],
+      "labelAt": [
+        1117,
+        1439
+      ]
     },
     {
       "from": "monitor",
       "to": "environment",
       "label": "Customer/Supplier — health and availability signals",
-      "fromSide": "bottom",
-      "toSide": "bottom",
+      "fromSide": "top",
+      "toSide": "left",
       "via": [
         [
-          1325,
-          1060
+          975,
+          1216
         ],
         [
-          2540,
-          1060
+          1615,
+          1216
+        ],
+        [
+          1615,
+          1196
+        ],
+        [
+          2094,
+          1196
+        ],
+        [
+          2094,
+          936
         ]
+      ],
+      "labelAt": [
+        1355,
+        1219
       ]
     },
     {
       "from": "monitor",
       "to": "inbox",
-      "label": "OHS + Published Language — FollowUpCaptured"
+      "label": "OHS + Published Language — FollowUpCaptured",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          834,
+          1276
+        ],
+        [
+          834,
+          696
+        ],
+        [
+          335,
+          696
+        ]
+      ],
+      "labelAt": [
+        605,
+        699
+      ]
     },
     {
       "from": "tech",
       "to": "repo",
-      "label": "Customer/Supplier — technology baselines"
+      "label": "Customer/Supplier — technology baselines",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [],
+      "labelAt": [
+        1835,
+        599
+      ]
     },
     {
       "from": "tech",
       "to": "devpc",
       "label": "Customer/Supplier — team tools baseline",
-      "fromSide": "bottom",
+      "fromSide": "left",
       "toSide": "left",
       "via": [
         [
-          2000,
-          1529
+          1454,
+          596
+        ],
+        [
+          1454,
+          936
         ]
+      ],
+      "labelAt": [
+        1349,
+        599
       ]
     },
     {
       "from": "repo",
       "to": "tech",
-      "label": "Customer/Supplier — adoption and technology scans"
+      "label": "Customer/Supplier — adoption and technology scans",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          2255,
+          676
+        ],
+        [
+          1615,
+          676
+        ]
+      ],
+      "labelAt": [
+        1755,
+        679
+      ]
     },
     {
       "from": "devpc",
       "to": "tech",
       "label": "Customer/Supplier — tool-version reports",
-      "fromSide": "left",
+      "fromSide": "top",
       "toSide": "bottom",
-      "via": [
-        [
-          2000,
-          1529
-        ],
-        [
-          2000,
-          1000
-        ]
+      "via": [],
+      "labelAt": [
+        1722,
+        648.1428571428571
       ]
     },
     {
       "from": "backlog",
       "to": "productivity",
       "label": "OHS + Published Language — AIWorkLogged",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          2895,
+          316
+        ],
+        [
+          3154,
+          316
+        ],
+        [
+          3154,
+          1356
+        ],
+        [
+          2895,
+          1356
+        ]
+      ],
       "labelAt": [
-        293,
-        372
+        3003,
+        1359
       ]
     },
     {
       "from": "monitor",
       "to": "productivity",
-      "label": "OHS + Published Language — CopilotSession signal"
+      "label": "OHS + Published Language — CopilotSession signal",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1114,
+          1276
+        ],
+        [
+          1114,
+          1376
+        ],
+        [
+          2734,
+          1376
+        ],
+        [
+          2734,
+          1276
+        ]
+      ],
+      "labelAt": [
+        1254,
+        1379
+      ]
     },
     {
       "from": "productivity",
       "to": "backlog",
-      "label": "Customer/Supplier — productivity summaries"
+      "label": "Customer/Supplier — productivity summaries",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          3114,
+          1276
+        ],
+        [
+          3114,
+          256
+        ]
+      ],
+      "labelAt": [
+        3002,
+        999
+      ]
     },
     {
       "from": "repo",
       "to": "environment",
       "label": "Customer/Supplier — repository/environment registry lookup",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [],
       "labelAt": [
-        2540,
-        372
+        2105,
+        708.5714285714286
       ]
     },
     {
@@ -445,65 +852,220 @@
       "to": "backlog",
       "label": "Customer/Supplier — launchable environment links",
       "fromSide": "right",
-      "toSide": "top",
+      "toSide": "bottom",
       "via": [
         [
-          2820,
-          929
+          2674,
+          936
         ],
         [
-          2820,
-          40
+          2674,
+          716
         ],
         [
-          300,
-          40
+          3054,
+          716
+        ],
+        [
+          3054,
+          336
+        ],
+        [
+          2895,
+          336
         ]
+      ],
+      "labelAt": [
+        2525,
+        939
       ]
     },
     {
       "from": "environment",
       "to": "devpc",
       "label": "Customer/Supplier — environment shortcuts",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2114,
+          936
+        ],
+        [
+          2114,
+          876
+        ],
+        [
+          1754,
+          876
+        ],
+        [
+          1754,
+          1016
+        ],
+        [
+          1615,
+          1016
+        ]
+      ],
       "labelAt": [
-        2540,
-        972
+        1874,
+        879
       ]
     },
     {
       "from": "devpc",
       "to": "sessions",
       "label": "Customer/Supplier (not built) — machine identity for an environment",
-      "variant": "dashed"
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          1754,
+          936
+        ],
+        [
+          1754,
+          1156
+        ],
+        [
+          2255,
+          1156
+        ]
+      ],
+      "labelAt": [
+        1754,
+        1059
+      ]
     },
     {
       "from": "sessions",
       "to": "productivity",
       "label": "Customer/Supplier — agent session facts",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          2255,
+          1216
+        ],
+        [
+          2394,
+          1216
+        ],
+        [
+          2394,
+          1196
+        ],
+        [
+          2895,
+          1196
+        ]
+      ],
       "labelAt": [
-        1000,
-        1572
+        2514,
+        1199
       ]
     },
     {
       "from": "sessions",
       "to": "backlog",
       "label": "Customer/Supplier — linked session state",
-      "fromSide": "bottom",
-      "toSide": "left",
+      "fromSide": "right",
+      "toSide": "right",
       "via": [
         [
-          1420,
-          1640
+          2394,
+          1276
         ],
         [
-          100,
-          1640
+          2394,
+          1336
         ],
         [
-          100,
-          329
+          2714,
+          1336
+        ],
+        [
+          2714,
+          736
+        ],
+        [
+          3074,
+          736
+        ],
+        [
+          3074,
+          256
         ]
+      ],
+      "labelAt": [
+        2514,
+        1339
+      ]
+    },
+    {
+      "from": "backlog",
+      "to": "sessions",
+      "label": "Customer/Supplier — file a follow-up after an entry",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          2895,
+          160
+        ],
+        [
+          3134,
+          160
+        ],
+        [
+          3134,
+          1216
+        ],
+        [
+          2414,
+          1216
+        ],
+        [
+          2414,
+          1276
+        ]
+      ],
+      "labelAt": [
+        2554,
+        1219
+      ]
+    },
+    {
+      "from": "sessions",
+      "to": "progress",
+      "label": "Customer/Supplier (not built) — attached session: state, branch",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          2255,
+          1176
+        ],
+        [
+          2694,
+          1176
+        ],
+        [
+          2694,
+          696
+        ],
+        [
+          2895,
+          696
+        ]
+      ],
+      "labelAt": [
+        2422,
+        1179
       ]
     },
     {
@@ -511,73 +1073,460 @@
       "to": "monitor",
       "label": "Customer/Supplier (not built) — stalled-session observation",
       "variant": "dashed",
-      "fromSide": "top",
-      "toSide": "bottom"
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          2255,
+          1336
+        ],
+        [
+          2054,
+          1336
+        ],
+        [
+          2054,
+          1276
+        ]
+      ],
+      "labelAt": [
+        1271,
+        1291
+      ]
     },
     {
       "from": "repo",
       "to": "backlog",
       "label": "Customer/Supplier — repo registry lookup",
       "fromSide": "top",
-      "toSide": "top",
+      "toSide": "bottom",
       "via": [
         [
-          2540,
-          90
+          2255,
+          516
         ],
         [
-          300,
-          90
+          2895,
+          516
         ]
+      ],
+      "labelAt": [
+        2375,
+        519
       ]
     },
     {
       "from": "repo",
       "to": "roadmap",
-      "label": "Customer/Supplier — repo registry lookup by alias"
+      "label": "Customer/Supplier — repo registry lookup by alias",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          2255,
+          336
+        ],
+        [
+          1615,
+          336
+        ]
+      ],
+      "labelAt": [
+        1755,
+        339
+      ]
     },
     {
       "from": "backlog",
       "to": "progress",
       "label": "Customer/Supplier — task by id: status, due date, effort, blocked mark, linked pull requests",
       "fromSide": "bottom",
-      "toSide": "left",
-      "via": [
-        [
-          300,
-          569
-        ]
+      "toSide": "top",
+      "via": [],
+      "labelAt": [
+        2663,
+        348.42857142857144
       ]
     },
     {
       "from": "roadmap",
       "to": "progress",
-      "label": "Customer/Supplier — plan tag vocabulary, plan order, pace"
+      "label": "Customer/Supplier — plan tag vocabulary, plan order, pace",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          1615,
+          476
+        ],
+        [
+          2734,
+          476
+        ],
+        [
+          2734,
+          596
+        ]
+      ],
+      "labelAt": [
+        1778,
+        479
+      ]
     },
     {
       "from": "repo",
       "to": "progress",
-      "label": "Customer/Supplier — repo registry lookup by alias"
+      "label": "Customer/Supplier — repo registry lookup by alias",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [],
+      "labelAt": [
+        2495,
+        587
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "backlog",
+      "label": "Customer/Supplier — pull request status and verdict, ILinkedPullRequestStates",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          2255,
+          536
+        ],
+        [
+          3034,
+          536
+        ],
+        [
+          3034,
+          316
+        ],
+        [
+          3054,
+          316
+        ],
+        [
+          3054,
+          256
+        ]
+      ],
+      "labelAt": [
+        2460,
+        539
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "progress",
+      "label": "Customer/Supplier — pull request status, IGoalPullRequestReader",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          2394,
+          596
+        ],
+        [
+          2394,
+          676
+        ],
+        [
+          2895,
+          676
+        ]
+      ],
+      "labelAt": [
+        2574,
+        679
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "sessions",
+      "label": "Customer/Supplier — verdict on the session card, through the shell",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          2255,
+          696
+        ],
+        [
+          2394,
+          696
+        ],
+        [
+          2394,
+          1156
+        ],
+        [
+          2255,
+          1156
+        ]
+      ],
+      "labelAt": [
+        2086,
+        651.6666666666666
+      ]
+    },
+    {
+      "from": "backlog",
+      "to": "shell",
+      "label": "OHS + Published Language — task by session, task by pull request, ITaskLookup",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          3034,
+          256
+        ],
+        [
+          3034,
+          180
+        ],
+        [
+          3094,
+          180
+        ],
+        [
+          3094,
+          936
+        ]
+      ],
+      "labelAt": [
+        2898,
+        734.6756756756756
+      ]
     },
     {
       "from": "sync",
       "to": "backlog",
-      "label": "OHS + Published Language — task replica feed"
+      "label": "OHS + Published Language — task replica feed",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          975,
+          476
+        ],
+        [
+          814,
+          476
+        ],
+        [
+          814,
+          140
+        ],
+        [
+          2734,
+          140
+        ],
+        [
+          2734,
+          256
+        ]
+      ],
+      "labelAt": [
+        934,
+        143
+      ]
     },
     {
       "from": "sync",
       "to": "sessions",
-      "label": "OHS + Published Language — session record replica"
+      "label": "OHS + Published Language — session record replica",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          975,
+          496
+        ],
+        [
+          160,
+          496
+        ],
+        [
+          160,
+          1336
+        ],
+        [
+          2074,
+          1336
+        ],
+        [
+          2074,
+          1276
+        ]
+      ],
+      "labelAt": [
+        466,
+        499
+      ]
     },
     {
       "from": "sync",
-      "to": "brain",
-      "label": "OHS + Published Language — annotation replica"
+      "to": "devbook",
+      "label": "OHS + Published Language — annotation replica",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [],
+      "labelAt": [
+        975,
+        308.14285714285717
+      ]
     },
     {
       "from": "sync",
       "to": "inbox",
-      "label": "Customer/Supplier — capture-kind documents for IInboxIntake"
+      "label": "Customer/Supplier — capture-kind documents for IInboxIntake",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [],
+      "labelAt": [
+        595,
+        587
+      ]
+    },
+    {
+      "from": "sync",
+      "to": "notify",
+      "label": "Conformist — notification and reply replica",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          975,
+          536
+        ],
+        [
+          160,
+          536
+        ],
+        [
+          160,
+          256
+        ]
+      ],
+      "labelAt": [
+        282,
+        539
+      ]
+    },
+    {
+      "from": "notify",
+      "to": "sessions",
+      "label": "OHS + Published Language — INotifications, answer handler",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          180,
+          256
+        ],
+        [
+          180,
+          180
+        ],
+        [
+          120,
+          180
+        ],
+        [
+          120,
+          1356
+        ],
+        [
+          2255,
+          1356
+        ]
+      ],
+      "labelAt": [
+        281,
+        1359
+      ]
+    },
+    {
+      "from": "notify",
+      "to": "sync",
+      "label": "OHS + Published Language — INotifications, answer handler",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          335,
+          516
+        ],
+        [
+          834,
+          516
+        ],
+        [
+          834,
+          676
+        ],
+        [
+          975,
+          676
+        ]
+      ],
+      "labelAt": [
+        501,
+        519
+      ]
+    },
+    {
+      "from": "notify",
+      "to": "devbook",
+      "label": "OHS + Published Language — INotifications",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          335,
+          160
+        ],
+        [
+          975,
+          160
+        ]
+      ],
+      "labelAt": [
+        455,
+        163
+      ]
+    },
+    {
+      "from": "notify",
+      "to": "backlog",
+      "label": "OHS + Published Language — close by subject",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          834,
+          256
+        ],
+        [
+          834,
+          180
+        ],
+        [
+          1794,
+          180
+        ],
+        [
+          1794,
+          256
+        ]
+      ],
+      "labelAt": [
+        561,
+        259
+      ]
     }
   ]
 }

@@ -100,18 +100,18 @@ different offer under the diagram — or none:
 
 | state | meaning |
 | --- | --- |
-| `rendered` | the hash matches an index entry and the specification it names exists; the app draws the artifact from it |
-| `stale` | an entry names this chapter and ordinal, but for an older hash — the fence was edited |
-| `unrendered` | a specification exists and no index entry for this hash does |
+| `rendered` | the hash matches an index entry that names the specification on disk, or that is held by an identical fence at the same type and quality; the app draws the artifact from it |
+| `stale` | an entry names this chapter and ordinal, but for an older hash — the fence was edited — or the fence moved and the specification authored from it has not followed |
+| `unrendered` | a specification exists, and no index entry for this hash names it — including one renamed to follow its fence |
 | `missing` | no specification, and Archify has a type for this kind |
 | `unsupported` | no Archify type fits — every `classDiagram` in the repository |
-| `error` | two specifications claim the same chapter and ordinal |
+| `error` | two specifications claim the same chapter and ordinal, or identical fences — one hash, one entry — were authored at different types or qualities |
 
 ```powershell
 # What to write for one diagram, and where. Prints the fence; writes no stub.
 node tools/diagrams/archify-artifacts.mjs scaffold .devbook/domain/tasks/flow.md 1
 
-# Render one specification, or every re-authored stale and unrendered one.
+# Render one specification, or every stale and unrendered diagram it can.
 node tools/diagrams/archify-artifacts.mjs render .devbook/domain/tasks/_archify/flow.1.workflow.json
 node tools/diagrams/archify-artifacts.mjs render --all
 
@@ -131,7 +131,29 @@ its ordinal — see **Re-rendering** below. On
 success the command writes the index entry —
 the only thing that will ever connect the artifact back to the fence — and drops
 whatever used to hold that ordinal, so a re-render after an edited fence leaves
-no leftover matching text nobody can see any more.
+no leftover matching text nobody can see any more. It also drops the chapter's
+dead entries: those whose fence is gone from every chapter sharing the index and
+whose ordinal is past the chapter's last fence, is a fence no Archify type fits, or
+is a fence with a current entry of its own. A dead entry stays while its recorded
+text is still in a specification on disk that no current entry claims, because it
+is the guard's only proof of which fence that file was authored from.
+
+`render --all` works on what is on disk, never on what the index last named. It
+checks every `stale` and `unrendered` diagram against the index as it stands, renders
+the ones that pass, then clears dead entries in every chapter that still exists:
+
+| outcome | when | exit code |
+| --- | --- | --- |
+| rendered | the specification at the fence's ordinal passes every check `render` makes | 0 |
+| failed | that specification was not authored from this fence — see **Re-rendering** below — or `deliver` rejected it | 1 |
+| skipped, with the reason | no specification sits at the ordinal, the one there has a type this fence cannot have, or a diagram past the chapter's last fence still has its specification | 0 |
+| cleared | a dead entry was dropped | 0 |
+
+A skip attempts nothing and is not a failure, so `verify` remains the gate: it goes
+on reporting the diagram until somebody renames or authors what the reason names.
+With none of these to report it prints `Nothing to render.` `--json` prints one
+result per outcome: `ok` is true for a render or a clear and false for a failure, a
+skip carries `skipped` and `reason` and no `ok`, and a clear carries `cleared`.
 
 The `.html` it writes beside the specification is a preview for the author.
 `.gitignore` carries `**/_archify/*.html`, so it is never committed, and the app
@@ -200,7 +222,7 @@ specification was authored from the old fence, and rendering it unchanged marks
 the old picture current — `verify` then calls it `rendered`. Re-authoring is the
 fix, and rendering only records it.
 
-So `render` refuses the two cases where the specification provably was not
+So `render` refuses the cases where the specification provably was not
 authored from the fence it is about to be keyed to, and writes nothing:
 
 - **The fence changed and the specification did not.** The index entry at this
@@ -210,6 +232,9 @@ authored from the fence it is about to be keyed to, and writes nothing:
   moved fence's hash is still in the index under its old ordinal, naming the
   specification authored from it, and rendering whichever specification now
   carries the new ordinal would hand it another diagram's picture.
+- **The specification belongs to another fence.** Its exact text is recorded under
+  another hash in this chapter — a fence edited and moved at once, with the file
+  renamed to follow it, leaves no other trace. Re-author it.
 
 Both are judged by the specification's SHA-256, which every entry records as
 `specSha256`. An entry written before that field existed is answered from the
@@ -222,12 +247,15 @@ fence diff before passing it.
 version the specification was authored from — `git log -p` on the chapter, back
 to the commit that last touched the specification — re-author what changed, then
 render it. `render --all` renders every `stale` and `unrendered` specification,
-refusing each one nobody re-authored, so it is safe after re-authoring several.
+refusing each one nobody re-authored and skipping each it cannot resolve, so it is
+safe after re-authoring several.
 
 **Diagrams were inserted or removed.** Rename the specifications to their fences'
-new ordinals with `git mv`, keeping one specification per ordinal, and render
-each renamed one. The guard accepts a
-renamed specification because it is the one recorded for its fence. Then author
+new ordinals with `git mv`, keeping one specification per ordinal, and run `render
+--all`, or render each renamed one by path. The guard accepts a renamed
+specification because it is the one recorded for its fence, and its entry is
+refiled under the new name. Until then `verify` reports the diagram, whether the
+entry names the old file or the file at the ordinal is a neighbour's. Then author
 the new diagrams as usual.
 
 **A specification was edited and its fence was not.** `render --all` will not
@@ -249,13 +277,14 @@ from errors to warnings. It relaxes nothing else: edge-through-node,
 endpoint-side-direction and label-overlap are enforced identically at both, and a
 `standard` render still fails on any error.
 
-Three diagrams here render at `standard`, and not for want of trying:
+Four diagrams here render at `standard`, and not for want of trying:
 
 | diagram | why |
 | --- | --- |
-| `.devbook/domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
-| `.devbook/arc42/05-building-block-view.md` #3 | the desktop app's project map (35 components, 51 connections) contains a K3,3 subdivision: `{Shell, Tasks, Roadmap}` × `{GitHubInfra, Mcp, Sqlite}`. Removing any one of `RoadmapUI → GitHubInfra`, `TasksUI → Tasks` or `RoadmapUI → Roadmap` would make it planar, so one crossing is forced; the artifact has two |
-| `.devbook/tech/technology-graph.md` #1 | two non-planar blocks: the .NET block (23 nodes, 38 edges) needs at least two edges removed to become planar, and the AI/devbook block (25 nodes, 41 edges) at least one — `Skills → Markdown` is the only single edge that works — so three crossings are forced; the artifact has eight |
+| `.devbook/domain/context-map.md` #1 | the relationship graph (17 contexts, 41 related pairs) is non-planar: no four edges removed make it planar, so at least five crossings are forced; the artifact has sixteen |
+| `.devbook/arc42/05-building-block-view.md` #2 | the desktop app's project map (36 components, 54 connections) needs at least two edges removed to become planar, such as `Shell → TasksUI` and `RoadmapUI → GitHubInfra`, so two crossings are forced; the artifact has four |
+| `.devbook/arc42/05-building-block-view.md` #6 | the mobile app's project map (20 components, 31 connections) contains a K3,3 subdivision, `{InboxTab, NoteTab, NotificationsTab}` × `{Outbox, Speech, API}`, and needs at least two edges removed to become planar, so two crossings are forced; the artifact has two |
+| `.devbook/tech/technology-graph.md` #2 | two non-planar blocks: the .NET block (27 nodes, 43 edges) needs at least two edges removed to become planar, and the AI/devbook block (25 nodes, 41 edges) at least one — `Skills → Markdown` is the only single edge that works — so three crossings are forced; the artifact has eight |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing
 between two relationships that share no endpoint. In a non-planar graph at least
@@ -277,37 +306,36 @@ prints it along with the warning count, and records `quality` in the index entry
 Anything other than `standard` in that position is rejected — it is not a second
 way to name a type.
 
-**This is an exception, not a dial.** All three rest on a proof: each graph is
+**This is an exception, not a dial.** All four rest on a proof: each graph is
 **provably non-planar**, so a crossing is forced in every possible drawing and no
 amount of further effort changes that. `networkx.check_planarity` over the
 specification's connections settles planarity itself. What a proof does not cover
-is the margin above the floor. The technology graph has eight crossings against a
-proven floor of three, and `05-building-block-view.md` #3 has two against a floor
-of one: the crossings above the floor are unfound embeddings, not forced ones.
+is the margin above the floor. The context map has sixteen crossings against a
+proven floor of five, the technology graph eight against three, and
+`05-building-block-view.md` #2 four against two: the crossings above the floor may
+be unfound embeddings rather than forced ones.
 
 Before reaching for the opt-out, prove the graph non-planar, and say so. Failing
 to find a clean drawing is not a proof. A ratio of edges to planar capacity (3V−6)
-does *not* answer the question either: `05-building-block-view.md` #3 sits at 0.52
+does *not* answer the question either: `05-building-block-view.md` #2 sits at 0.53
 on that scale, well inside what looks safe, and is non-planar. Only an embedding
 search settles it.
 
-`05-building-block-view.md` #2 shows why the proof comes first. It rendered at
+`05-building-block-view.md` #1 shows why the proof comes first. It rendered at
 `standard` for a while, on a judgement about effort rather than a theorem, and
 its redrawn specification now renders at `showcase` with no crossings. Its graph
 is planar. The obstruction was **clustered** planarity — the six subgraph
 rectangles the fence declares fix a block topology the edges cannot be drawn
-around — so #2 carries group membership as per-node tags plus cards instead of
+around — so #1 carries group membership as per-node tags plus cards instead of
 rectangles. If a dense diagram will not lay out, the rectangles are the first
 constraint to question, not the last.
 
-The context map's artifact carries 26 warnings: 2 crossings (one forced crossing
-counted twice, because the chapter draws `Technology Stack ↔ Dev PC Management`
-in both directions), 23 label-route-clearance, and 1 desktop-readability. That
-last one is worth knowing: keeping 31 long relationship labels off the context
-boxes forces a wide canvas, and node text falls below Archify's own 6px floor
-under roughly 2100px of viewport. It reads well on a large display and is a
-squint on a laptop. Shortening the relationship labels is the lever if that ever
-becomes a problem — not tolerating a crossing, which is the part that reads fine.
+The context map's artifact carries 20 warnings: 16 crossings, 3
+label-route-clearance, and 1 desktop-readability. That last one is worth knowing:
+keeping 52 long relationship labels off the context boxes forces a wide canvas, and
+node text falls below Archify's own 6px floor at every viewport `visual-check`
+tries, 2048×1320 included. Shortening the relationship labels is the lever if that
+ever becomes a problem.
 
 ## Authoring a specification
 
@@ -331,11 +359,16 @@ The working loop:
 Inside the app the same two steps are two buttons under a diagram, and they are
 the only two states offered:
 
-- the index entry matches and the specification exists → nothing to press: the
+- the fence's index entry names the specification on disk → nothing to press: the
   app draws the artifact into its cache and shows it when it lands, and states
   the reason instead if drawing failed;
-- a specification exists and no index entry matches → **Render artifact**, which
-  runs the same `render` command in the configured clone;
+- a specification exists and no index entry for this fence names it → **Render
+  artifact**, which runs the same `render` command in the configured clone. The
+  app finds the specification the way `scan` does — on disk first, never from a
+  displaced entry — and says the artifact is out of date when the fence was
+  edited or moved. It cannot tell a specification renamed to follow its fence
+  from a neighbour's left at the ordinal, so it says that of both; `render`
+  tells them apart;
 - no specification and Archify has a type for this kind → **Author with agent**,
   which opens an agent session with a brief naming the chapter, the fence, the
   target path and the type;

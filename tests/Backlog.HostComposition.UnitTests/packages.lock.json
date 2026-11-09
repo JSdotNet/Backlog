@@ -4,13 +4,13 @@
     "net10.0": {
       "Microsoft.AspNetCore.Mvc.Testing": {
         "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "OtjgnL8RRLQYaiuS3KzbBbyQ6am1ZrX3dvBdiuXghxL+LQinmT2vMumytveYPbnXLknZSk/aEDKENI6uf7NoNg==",
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "l3eFye4Bv4oGT1Ag8pFtZ6WM0LhR9PkNiDH1AYitZW2LAaFWl1FgF4Dj7wY4Fp/BqCZ4LLkBGLw+NE/CA5k6mQ==",
         "dependencies": {
-          "Microsoft.AspNetCore.TestHost": "10.0.12",
-          "Microsoft.Extensions.DependencyModel": "10.0.12",
-          "Microsoft.Extensions.Hosting": "10.0.12"
+          "Microsoft.AspNetCore.TestHost": "10.0.14",
+          "Microsoft.Extensions.DependencyModel": "10.0.14",
+          "Microsoft.Extensions.Hosting": "10.0.14"
         }
       },
       "Microsoft.Extensions.Hosting": {
@@ -45,12 +45,12 @@
       },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
-        "requested": "[18.10.1, )",
-        "resolved": "18.10.1",
-        "contentHash": "SxCFvJE/2ltUQgCgv6+Ixagohw4sZc9hM7Wid2foaNM7paBscktoHLoRDz91fW8wbHG87Rg9Ku59/8PXumqUrA==",
+        "requested": "[18.11.0, )",
+        "resolved": "18.11.0",
+        "contentHash": "xf/bR0LNkhK0SnadDRlZIQmC4sac5Wk0e1WAdiQjRN3MSo6gQ9M2c4c1XRNnVGjfOvckh704W5CJ19AL0/Xsdg==",
         "dependencies": {
-          "Microsoft.CodeCoverage": "18.10.1",
-          "Microsoft.TestPlatform.TestHost": "18.10.1"
+          "Microsoft.CodeCoverage": "18.11.0",
+          "Microsoft.TestPlatform.TestHost": "18.11.0"
         }
       },
       "Microsoft.Playwright": {
@@ -121,47 +121,47 @@
       },
       "Microsoft.AspNetCore.Authorization": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "k4UspALZJWyBlb4rGPjMYO3p1/muEN6cJZTlWPfoRFU/LRP4fx1m19imWI/i/x7Sh9kNnldqlq+DU6w8pPnOtQ==",
+        "resolved": "10.0.14",
+        "contentHash": "0iRuv9FevMH1TFuYBMY7M+Z/Xm1V8iEDM5p3i+oBWLEdlLyPgMA+RkQDN/1a0MMAEisPxHseTOJ5vnb3n9HARg==",
         "dependencies": {
-          "Microsoft.AspNetCore.Metadata": "10.0.12",
-          "Microsoft.Extensions.Diagnostics": "10.0.12",
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
-          "Microsoft.Extensions.Options": "10.0.12"
+          "Microsoft.AspNetCore.Metadata": "10.0.14",
+          "Microsoft.Extensions.Diagnostics": "10.0.14",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.14",
+          "Microsoft.Extensions.Options": "10.0.14"
         }
       },
       "Microsoft.AspNetCore.Components": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "NyGmmcvuo3fYpFDJKpKLHDqVfS0egBgx2E6d+oIeN0bu573INc6m8RWtFwkD+pDd8l34XkJKjO2vAOgEaeZUUg==",
+        "resolved": "10.0.14",
+        "contentHash": "MAuPVtxnAmZcu0lFYVUW+xxuwufIwalz8Gp2b5D3ogLN4OKCBJ8LSO9j1f45LJs3c2LZ+/6Jj7nFtU0itUcJpg==",
         "dependencies": {
-          "Microsoft.AspNetCore.Authorization": "10.0.12",
-          "Microsoft.AspNetCore.Components.Analyzers": "10.0.12"
+          "Microsoft.AspNetCore.Authorization": "10.0.14",
+          "Microsoft.AspNetCore.Components.Analyzers": "10.0.14"
         }
       },
       "Microsoft.AspNetCore.Components.Analyzers": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "XXK/4sZejrRUFmm1uU6iSwcsfzURFpqXRzm3ycALmgmk8zl6HwXFMKjPgrO5azVPlrHeNPYRftMukjbwD4fa1w=="
+        "resolved": "10.0.14",
+        "contentHash": "qWj8T3qD0MzxuradKXMYSX/68czXLIANyts7nlQitMSrdup3aeH6BXSULVXcXiHg4OGD5M82eKtQrY3O4YZd8A=="
       },
       "Microsoft.AspNetCore.Components.Forms": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "11XKiT7Bmj4U87PGYUjX+SsgPClZZ9xsDQktERyxb5QgEyIEHHBbCGSADXHpZ2+b5Xpq7HvHvHdWEwD+XByE0Q==",
+        "resolved": "10.0.14",
+        "contentHash": "fD6xw8fKERmW0OhngY42d3Pzjk6/oaFZzx1RzCJjB2Ory8pzzBTARiZZBVwW7oh/O25H5dtjTVTz2d+yxpYr+A==",
         "dependencies": {
-          "Microsoft.AspNetCore.Components": "10.0.12",
-          "Microsoft.Extensions.Validation": "10.0.12"
+          "Microsoft.AspNetCore.Components": "10.0.14",
+          "Microsoft.Extensions.Validation": "10.0.14"
         }
       },
       "Microsoft.AspNetCore.Metadata": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "KxeBBg1dEf3/Qr3VzghQIG5WDl8v4a+Kzr1pizRVidi5qMm+ymHYSB6vfO9tL20AXv1a5prQtwNQZqTfdeFYCQ=="
+        "resolved": "10.0.14",
+        "contentHash": "RXaeKIj2fJEEXghowZLAqTBOm2D+aGcLmQgCD/BMHkWjkhnBQ9QND0fOctxrisdojsg1lmF+aRWA7L5qa1pE8g=="
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "bTHgbcjSrLxlqSasYRDU9BcJ3hDGoqIjtDY0soLNrndOWi3kxtOyddwUMaNZgtoI2Uf6y7ZQs2EuVj0c20B7mA=="
+        "resolved": "10.0.14",
+        "contentHash": "u4AX1M5Uzmw7V3NCdJJO4ITwH0DDDufyzmVlksE4QguVd23Co8adaREMp2VahlRB5f/rmtaFYVJIA1iIFnchmQ=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -170,8 +170,8 @@
       },
       "Microsoft.CodeCoverage": {
         "type": "Transitive",
-        "resolved": "18.10.1",
-        "contentHash": "tV7tCyp/t+DuwQugLkCeUN7NBFFB4fEGRPr0gkMQ2nQgAvQQjmGlZZi1dsLzbyoe/A0mbnKybmkIh8qhT9p4Zw=="
+        "resolved": "18.11.0",
+        "contentHash": "MhN9wpvL1Es4hfIYslrsVgIsUdDFxuOBTbAl9mGIMvFo8PP5CLf4DrGdNrfwWSyn0lqi6sssm+I/qkkLL3MU+g=="
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
@@ -306,8 +306,8 @@
       },
       "Microsoft.Extensions.DependencyModel": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "rDPQVTxh/zMTDF7wHlRqL/jjZbwjAP6315ydBxj51pZW7qkAwGwjoSiMutxYI91xmOE3ZXjAGHbYRqzyJV7Urw=="
+        "resolved": "10.0.14",
+        "contentHash": "N8OcqM0370wSXMJ3ZxO66rSElHrIgxvpfUn0vV7zRj7NvKo0nfwgEoTmC3Yz3860o60IaQ4KIPyeLIGX9EeNWA=="
       },
       "Microsoft.Extensions.Diagnostics": {
         "type": "Transitive",
@@ -519,11 +519,11 @@
       },
       "Microsoft.Extensions.Validation": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "6aeYPe1BpiwZifwTQ07GzFrauMxRSh2lZC1oleWvaWB7afNR8cE8EvMuE6hP6X9yICVuKeBQC/jXhEGq1Y1QdQ==",
+        "resolved": "10.0.14",
+        "contentHash": "60BCCGjCU/CxDSqmMtRStBYTMy36G+0NJ5iiZWJTPtztcHvUkbpRSum4GIeyky/9yRyt/vQ4Gfe3zjyctyQoDA==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
-          "Microsoft.Extensions.Options": "10.0.12"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.14",
+          "Microsoft.Extensions.Options": "10.0.14"
         }
       },
       "Microsoft.Identity.Client": {
@@ -550,8 +550,8 @@
       },
       "Microsoft.JSInterop": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "bLgqhSs2YS3i2sOe8Mo11JzgdktB+/VADJXx2oSCE1crpg3RbFESn1mEBfiO4MjX9icW+An1zdGBFucIwIYwmA=="
+        "resolved": "10.0.14",
+        "contentHash": "YZZ99v5PYCdyn2r8nqEIg141m1BhlVqwewwL4Z87s1h7FFS6oJG6CPOyGBO8/W6jYV57Ur/EmQEhSVgka2w1NA=="
       },
       "Microsoft.Maui.Essentials": {
         "type": "Transitive",
@@ -598,15 +598,15 @@
       },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
-        "resolved": "18.10.1",
-        "contentHash": "o+PuLDRVp1iwiVAPBADZItXgm9Ck23XtPhE4kZtZVi0uYnMiiz1Dx9Cjh75kJ+ijfqnORL3VOTOaQVKi0f/ixg=="
+        "resolved": "18.11.0",
+        "contentHash": "BXBHYnwSOljKute8UYCMXOLAdB7awxEMppPSpqOF1ZxLD/W/OH+vTBgFaXA7q0aditJTVXSMVenel+wOkEIyNg=="
       },
       "Microsoft.TestPlatform.TestHost": {
         "type": "Transitive",
-        "resolved": "18.10.1",
-        "contentHash": "KYz2omqkoz9E2mWa4fdgT+Ycie1wi5968EmyJlusjlp87RxxtA2FvDm8tcBEYIDzLnkWGnsKjE4d13Z7/rxkQA==",
+        "resolved": "18.11.0",
+        "contentHash": "AKjwKpyRBwoQFQmpcchtoYlfJEBlaY/40uxBRi+qXP4NR7xT8t+XTJtOyEyumfvfJcH5pASs75LwNdXYRr4XNA==",
         "dependencies": {
-          "Microsoft.TestPlatform.ObjectModel": "18.10.1"
+          "Microsoft.TestPlatform.ObjectModel": "18.11.0"
         }
       },
       "Microsoft.Win32.Registry": {
@@ -880,7 +880,7 @@
           "Backlog.Modules.Tasks.UI": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "ModelContextProtocol": "[2.2.0, )"
         }
       },
@@ -1097,7 +1097,7 @@
         "dependencies": {
           "Backlog.Infrastructure.Sync": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "Microsoft.Extensions.Http": "[10.0.14, )",
           "SkiaSharp": "[4.153.1, )"
@@ -1127,7 +1127,7 @@
           "Backlog.Modules.Devbook.UI": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
         }
@@ -1151,7 +1151,7 @@
         "dependencies": {
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
@@ -1175,7 +1175,7 @@
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
@@ -1194,7 +1194,7 @@
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.14, )"
         }
@@ -1208,7 +1208,7 @@
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
@@ -1234,7 +1234,7 @@
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.14, )"
         }
@@ -1259,7 +1259,7 @@
         "dependencies": {
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )"
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )"
         }
       },
       "backlog.modules.progress": {
@@ -1282,7 +1282,7 @@
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
@@ -1322,7 +1322,7 @@
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.14, )"
         }
@@ -1336,7 +1336,7 @@
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
         }
       },
@@ -1354,7 +1354,7 @@
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
         }
@@ -1382,7 +1382,7 @@
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Http": "[10.0.14, )"
         }
@@ -1394,7 +1394,7 @@
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
         }
@@ -1410,15 +1410,15 @@
       },
       "Microsoft.AspNetCore.Components.Web": {
         "type": "CentralTransitive",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "VFmcGnah8P8uxJ+/olJgw0e3IX6THGmxqKH+5E7K/kRKjcLXIYNTKsE4EyiJG8AjtxH65aKNUsobpI4Zqc6hmg==",
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "SVNV6nfDggaBCETwy6v/995JOBH6MKtuEmPQVh3mF6BxipOihl2Sd2d46nenXnadCp+d0QniKmUrahYC5VETPA==",
         "dependencies": {
-          "Microsoft.AspNetCore.Components": "10.0.12",
-          "Microsoft.AspNetCore.Components.Forms": "10.0.12",
-          "Microsoft.Extensions.DependencyInjection": "10.0.12",
-          "Microsoft.Extensions.Primitives": "10.0.12",
-          "Microsoft.JSInterop": "10.0.12"
+          "Microsoft.AspNetCore.Components": "10.0.14",
+          "Microsoft.AspNetCore.Components.Forms": "10.0.14",
+          "Microsoft.Extensions.DependencyInjection": "10.0.14",
+          "Microsoft.Extensions.Primitives": "10.0.14",
+          "Microsoft.JSInterop": "10.0.14"
         }
       },
       "Microsoft.Data.Sqlite": {

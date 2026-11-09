@@ -398,6 +398,44 @@ public sealed class ProgressDocumentsTests
         Assert.False(pull.ReviewRequested);
     }
 
+    /// <summary>A pull request's title stays on the desktop: the context document goes through
+    /// the sync feed and the phone has no use for it. The rest of the answer comes back.</summary>
+    [Fact]
+    public void The_context_document_leaves_a_pull_requests_title_out()
+    {
+        var context = new StandUpContextDto(
+            new DateTimeOffset(2026, 10, 19, 9, 0, 0, TimeSpan.Zero),
+            [new GoalPullRequestDto("JSdotNet/Backlog", "1364", LinkedPullRequestState.Open, null, null, new GoalPullRequestApprovalsDto(0, 2), Title: "Settle by bank transfer")],
+            null,
+            null,
+            null,
+            null);
+
+        var written = ProgressDocuments.WriteContext(context);
+
+        Assert.DoesNotContain("Settle by bank transfer", written, StringComparison.Ordinal);
+        Assert.DoesNotContain("title", written, StringComparison.OrdinalIgnoreCase);
+
+        var pull = Assert.Single(ProgressDocuments.ReadContext(written)!.PullRequests);
+        Assert.Null(pull.Title);
+        Assert.Equal(("1364", LinkedPullRequestState.Open, new GoalPullRequestApprovalsDto(0, 2)), (pull.Number, pull.State, pull.Approvals));
+    }
+
+    /// <summary>A document already on the feed has no key for the title.</summary>
+    [Fact]
+    public void A_context_written_before_the_title_existed_still_reads()
+    {
+        var context = ProgressDocuments.ReadContext("""
+            {"readAt":"2026-10-19T09:00:00+00:00","pullRequests":[
+              {"repository":"JSdotNet/Backlog","number":"1364","state":"Open","reviewRequested":true,
+               "approvals":{"received":0,"required":2}}]}
+            """)!;
+
+        var pull = Assert.Single(context.PullRequests);
+        Assert.Equal(("1364", LinkedPullRequestState.Open, true), (pull.Number, pull.State, pull.ReviewRequested));
+        Assert.Null(pull.Title);
+    }
+
     [Fact]
     public void An_edit_that_names_no_impediment_or_no_state_to_move_to_reads_as_nothing()
     {

@@ -2,37 +2,38 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Mobile Capture and Sync",
+    "title": "Mobile My Day and Task Push",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [960, 680]
+    "viewBox": [1200, 740]
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
-    { "id": "app", "type": "frontend", "label": "Phone App" },
+    { "id": "tasks", "type": "frontend", "label": "Phone Today tab" },
+    { "id": "view", "type": "database", "label": "task_view (SQLite)" },
     { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
-    { "id": "sync", "type": "backend", "label": "Sync Service" }
+    { "id": "sync", "type": "cloud", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 292, "label": "Captured locally" },
-    { "from": 308, "to": 362, "label": "Loop: oldest entry first" },
-    { "from": 378, "to": 476, "label": "Alt: 201 Created, or 200 for an id it already holds; Outbox: DELETE entry" },
-    { "from": 492, "to": 530, "label": "Else: No network, timeout, 5xx or 401; Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush" },
-    { "from": 546, "to": 584, "label": "Else: Any other 4xx; Outbox: set aside as refused; continue with the next entry" }
+    { "from": 150, "to": 336, "label": "Added on the phone" },
+    { "from": 352, "to": 448, "label": "Push the change" },
+    { "from": 464, "to": 662, "label": "Loop: until hasMore is false" }
   ],
   "messages": [
-    { "id": "capture", "from": "me", "to": "app", "y": 182, "label": "Capture (title)", "variant": "default" },
-    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 226, "label": "INSERT outbox (id v7, kind=capture, attempts=0)", "variant": "emphasis" },
-    { "id": "row-shown", "from": "app", "to": "me", "y": 270, "label": "Row shown at once, marked waiting", "variant": "return" },
-    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 340, "label": "POST /api/sync/inbox (same id every attempt)", "variant": "emphasis" },
-    { "id": "capture-returned", "from": "sync", "to": "outbox", "y": 410, "label": "Capture", "variant": "return" },
-    { "id": "refresh-inbox", "from": "app", "to": "sync", "y": 454, "label": "GET /api/sync/inbox (refresh, cache the list)", "variant": "default" }
+    { "id": "add-task", "from": "me", "to": "tasks", "y": 182, "label": "Add \"Buy a charger\"", "variant": "default" },
+    { "id": "insert-outbox", "from": "tasks", "to": "outbox", "y": 226, "label": "INSERT outbox (id v7, kind=task, TaskChange with InMyDayOn=today)", "variant": "emphasis" },
+    { "id": "upsert-row", "from": "tasks", "to": "view", "y": 270, "label": "UPSERT row (server stamp 0)", "variant": "default" },
+    { "id": "in-my-day", "from": "tasks", "to": "me", "y": 314, "label": "In My Day at once, marked waiting", "variant": "return" },
+    { "id": "post-tasks", "from": "outbox", "to": "sync", "y": 384, "label": "POST /api/sync/tasks (same id every attempt)", "variant": "emphasis" },
+    { "id": "accepted", "from": "sync", "to": "outbox", "y": 432, "label": "200 Accepted", "variant": "return", "note": "Outbox then: DELETE entry" },
+    { "id": "get-tasks", "from": "tasks", "to": "sync", "y": 496, "label": "GET /api/sync/tasks?since=cursor", "variant": "emphasis" },
+    { "id": "page", "from": "sync", "to": "tasks", "y": 544, "label": "TaskChangeRecords, next cursor", "variant": "return", "note": "alt: Page" },
+    { "id": "fold-page", "from": "tasks", "to": "view", "y": 588, "label": "Fold page (LWW, tombstones kept, captures skipped) + cursor", "variant": "default" },
+    { "id": "forget-cursor", "from": "tasks", "to": "view", "y": 640, "label": "Forget the cursor, pull again from the beginning", "variant": "default", "note": "else: 400 sync.cursor_malformed / sync.cursor_expired" }
   ],
   "activations": [
-    { "participant": "sync", "from": 334, "to": 416, "type": "backend" }
-  ],
-  "cards": [
-    { "dot": "amber", "title": "Note over Phone App and SQLite Outbox", "items": ["Five failures park the head entry and hold the queue behind it", "Resume, network back or a tap tries again"] }
+    { "participant": "sync", "from": 378, "to": 438, "type": "cloud" },
+    { "participant": "sync", "from": 490, "to": 550, "type": "cloud" }
   ]
 }

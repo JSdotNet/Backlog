@@ -399,14 +399,14 @@
       "id": "SyncWorkers",
       "type": "backend",
       "label": "TaskSyncWorker, SessionSyncWorker,",
-      "sublabel": "AnnotationSyncWorker",
+      "sublabel": "AnnotationSyncWorker, NotificationSyncWorker, DevbookSubjectSyncWorker",
       "tag": "Background workers",
       "pos": [
-        1345,
-        740
+        1320,
+        890
       ],
       "size": [
-        230,
+        260,
         70
       ]
     },
@@ -507,6 +507,21 @@
       ],
       "size": [
         200,
+        70
+      ]
+    },
+    {
+      "id": "RepoMgmt",
+      "type": "backend",
+      "label": "Backlog.Modules.RepositoryManagement",
+      "sublabel": "pull-request contract, one cache",
+      "tag": "Modules",
+      "pos": [
+        1130,
+        1420
+      ],
+      "size": [
+        300,
         70
       ]
     }
@@ -1063,8 +1078,14 @@
       "id": "syncworkers-syncclient",
       "from": "SyncWorkers",
       "to": "SyncClient",
-      "fromSide": "left",
-      "toSide": "right"
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          1450,
+          775
+        ]
+      ]
     },
     {
       "id": "syncclient-inbox",
@@ -1228,6 +1249,88 @@
       "to": "FoundryApi",
       "fromSide": "left",
       "toSide": "right"
+    },
+    {
+      "id": "shell-repomgmt",
+      "from": "Shell",
+      "to": "RepoMgmt",
+      "label": "IPullRequests",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1590,
+          435
+        ],
+        [
+          1590,
+          1455
+        ]
+      ],
+      "labelAt": [
+        1510,
+        1455
+      ]
+    },
+    {
+      "id": "githubinfra-repomgmt",
+      "from": "GitHubInfra",
+      "to": "RepoMgmt",
+      "label": "IPullRequestSource, IRegisteredRepositories",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          1850,
+          605
+        ],
+        [
+          1850,
+          900
+        ],
+        [
+          1900,
+          900
+        ],
+        [
+          1900,
+          1530
+        ],
+        [
+          1280,
+          1530
+        ]
+      ],
+      "labelAt": [
+        1900,
+        1200
+      ]
+    },
+    {
+      "id": "filesystem-repomgmt",
+      "from": "FileSystem",
+      "to": "RepoMgmt",
+      "label": "IPullRequests for Tasks and Progress, ISettledPullRequestStore",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          420,
+          1380
+        ],
+        [
+          1100,
+          1380
+        ],
+        [
+          1100,
+          1455
+        ]
+      ],
+      "labelAt": [
+        680,
+        1380
+      ]
     }
   ],
   "cards": [
@@ -1262,14 +1365,15 @@
         "Backlog.Modules.Inbox",
         "Backlog.Modules.Roadmap",
         "Backlog.Modules.Dashboard",
-        "Backlog.Modules.Capture"
+        "Backlog.Modules.Capture",
+        "Backlog.Modules.RepositoryManagement (pull-request contract, one cache)"
       ]
     },
     {
       "dot": "amber",
       "title": "Background workers",
       "items": [
-        "TaskSyncWorker, SessionSyncWorker, AnnotationSyncWorker",
+        "TaskSyncWorker, SessionSyncWorker, AnnotationSyncWorker, NotificationSyncWorker, DevbookSubjectSyncWorker",
         "BackupWorker",
         "McpServerWorker"
       ]

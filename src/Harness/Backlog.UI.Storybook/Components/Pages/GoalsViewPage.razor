@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="At risk"
-           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows, each ending in a chevron that points down; press anywhere on a row — its title, its bar, its line or the space between — to open that goal, and the open one folds. A press on the open goal's head folds it; nothing in its body does.
+           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them. Its plan draws a bar of its own and the line 5/9 · 2 in progress · 1 blocked, and each task says its status in a word under its title. Type pay to see its matches under their kind labels. The other goals are folded rows, each ending in a chevron that points down; press anywhere on a row — its title, its bar, its line or the space between — to open that goal, and the open one folds. A press on the open goal's head folds it; nothing in its body does.
 
 No goal lists the work in progress no goal holds, each saying how it stands — a task's status dot, a pull request's status line — and each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Each row's grip carries it onto a goal instead. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
@@ -33,7 +33,7 @@ No goal lists the work in progress no goal holds, each saying how it stands — 
     </Story>
 
     <Story Name="On track"
-           Description="An On track goal, folded and open: the chevron at the row's end points down folded and up open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~."
+           Description="An On track goal, folded and open: the chevron at the row's end points down folded and up open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~. Open, its plan has nothing in progress or blocked, so the plan's line reads 5/6 alone, and its one task says not started."
            Code="@OnTrackCode">
         <div class="sb-stack">
             <GoalCard Goal="@Search" TestId="goals-view-on-track" />
@@ -143,7 +143,7 @@ With a host listening on OnQuickAdd, a query that is not blank ends the list wit
     </Story>
 
     <Story Name="Dragging work onto a goal"
-           Description="Each No goal row says how its work stands, drawn as the open goal's columns draw it: a task's status dot, in progress or blocked, with the words after its title for a screen reader; a pull request's status line, its gh pill carrying the number, then the checks and approvals marks and your review. One the read could not answer for draws unknown, with no marks.
+           Description="Each No goal row says how its work stands: a task's status dot, in progress or blocked, with the words after its title for a screen reader; a pull request's status line, drawn as the open goal's Pull requests column draws it, its gh pill carrying the number, then the checks and approvals marks and your review. One the read could not answer for draws unknown, with no marks.
 
 With a host listening on OnAttach and at least one goal, each row leads with a grip. Press it and move: the row is set back, and the goal under the pointer — open or folded, anywhere on its card — is outlined as the drop target. Release over it and the row's work is attached to that goal, the path Attach… takes, and said in the live region, Attached ‹title› to ‹goal›. Release anywhere else, or press Escape, and nothing is attached. Attach… stays the keyboard's way in. The drag is the library's one pointer reorder, because a native drag is aborted in the desktop head's WebView2."
            Code="@DropAttachCode">
@@ -403,7 +403,7 @@ With a host listening on OnAttach and at least one goal, each row leads with a g
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
         new GoalCounts(9, 15, 3, 1, 2, 3),
-        [new GoalPlanModel("Bank integration", 5, 9, GoalSubject.ForPlan("bank-integration"))],
+        [new GoalPlanModel("Bank integration", 5, 9, GoalSubject.ForPlan("bank-integration"), Doing: 2, Blocked: 1)],
         [
             new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, GoalSubject.ForTask(T1)),
             new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done, GoalSubject.ForTask(T2)),
@@ -411,8 +411,8 @@ With a host listening on OnAttach and at least one goal, each row leads with a g
             new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked, GoalSubject.ForTask(T4))
         ],
         [
-            new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2)),
-            new PullRequestStatusModel(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, null)),
+            new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2), Title: "Send a reminder when an invoice passes its payment term"),
+            new PullRequestStatusModel(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, null), Title: "Invoice PDF export"),
             new PullRequestStatusModel(1352, "merged"),
             new PullRequestStatusModel(1355, "merged")
         ],
@@ -544,6 +544,10 @@ With a host listening on OnAttach and at least one goal, each row leads with a g
     private const string OnTrackCode = """
         <GoalCard Goal="@goal" />
         <GoalCard Goal="@goal" Expanded="true" Candidates="@candidates" OnAttach="AttachAsync" />
+
+        @* A plan's bar and line read its own amounts; each is left out of the line at nought. *@
+        new GoalPlanModel("Devbook search", Done: 5, Total: 6)
+        new GoalPlanModel("Bank integration", Done: 5, Total: 9, Doing: 2, Blocked: 1)
         """;
 
     private const string DatelessCode = """

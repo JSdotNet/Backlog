@@ -69,7 +69,8 @@ public enum PullRequestApprovalsVariant
 /// <c>closed</c> or <c>unknown</c>.</param>
 /// <param name="Checks">The checks, or null when they were not read.</param>
 /// <param name="Approvals">The approvals, or null when they were not read.</param>
-/// <param name="Title">The pull request's title, for the pill's tooltip; optional.</param>
+/// <param name="Title">The pull request's title: the pill's tooltip, and the line an open
+/// goal's row draws above its status; optional.</param>
 /// <param name="Url">Where the pill leads; null draws it as plain text.</param>
 /// <param name="ReviewRequested">The pull request asks for the reader's review: the host's
 /// own reading of whether a pending request names the person it is read as.</param>

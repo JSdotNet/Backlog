@@ -190,7 +190,7 @@ decision, not the plan's.
    count, the repositories targeted, the dependency chain, the interview's answers and the
    prompts each went into, which drafted tasks or tests became prompts, every step kept
    manual with its reason, and which sizing answered — the
-   `estimate` skill, or this skill's fallback and the step it anchored on. Stop — do
+   `estimate` skill, or this skill's fallback and the step it anchored on. Keep the report's prose to `../../resources/chat-reports.md`. Stop — do
    not open the Backlog app, run a prompt, or create a pull request.
 
 ## Interview

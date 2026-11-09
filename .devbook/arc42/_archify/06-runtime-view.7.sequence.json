@@ -29,6 +29,6 @@
     { "id": "post-inbox", "from": "capture", "to": "api", "y": 382, "label": "POST /inbox/items", "variant": "emphasis" },
     { "id": "inbox-created", "from": "api", "to": "capture", "y": 450, "label": "201 Created (id)", "variant": "return" },
     { "id": "item-created", "from": "capture", "to": "copilot", "y": 494, "label": "Item created (id, deep_link)", "variant": "return" },
-    { "id": "confirmation", "from": "copilot", "to": "me", "y": 538, "label": "Confirmation + deep-link", "variant": "return", "note": "Local-first path only; no credential forwarding through Cloud Service" }
+    { "id": "confirmation", "from": "copilot", "to": "me", "y": 538, "label": "Confirmation + deep-link", "variant": "return", "note": "Local-first path only, no credential forwarding through Cloud Service" }
   ]
 }
