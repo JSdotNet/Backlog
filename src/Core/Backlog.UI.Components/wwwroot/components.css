@@ -19588,16 +19588,8 @@ select.field__input {
     text-transform: uppercase;
 }
 
-.c4-dynamic-steps__decision-chip {
-    flex: none;
-}
-
-/* A decision still proposed: dashed, as the design draws a choice not yet made. */
-.c4-dynamic-steps__decision-chip.badge--status-proposed {
-    background: transparent;
-    border: var(--border-width) dashed var(--color-border-strong);
-    color: var(--color-text-secondary);
-}
+/* .c4-dynamic-steps__decision-chip is drawn as the inspector's record chip is: its
+   rules sit with .c4-element-inspector__chip's. */
 
 /* The view summary: the right-hand panel while nothing is selected. */
 .c4-view-summary {
@@ -19928,12 +19920,15 @@ select.field__input {
     line-height: 1.4;
 }
 
-.c4-element-inspector__chip {
+/* The record chip, on the inspector's lists and on a dynamic view's steps panel. */
+.c4-element-inspector__chip,
+.c4-dynamic-steps__decision-chip {
     flex: none;
 }
 
 /* A decision still proposed: dashed, as the design draws a choice not yet made. */
-.c4-element-inspector__chip.badge--status-proposed {
+.c4-element-inspector__chip.badge--status-proposed,
+.c4-dynamic-steps__decision-chip.badge--status-proposed {
     background: transparent;
     border: var(--border-width) dashed var(--color-border-strong);
     color: var(--color-text-secondary);

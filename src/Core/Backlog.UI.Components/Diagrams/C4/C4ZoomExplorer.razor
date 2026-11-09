@@ -43,7 +43,17 @@
     hands the reader back to the model through OnNavigate. Without Navigation the
     explorer draws exactly what the C4 zoom tab always drew.
 *@
-<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom">
+@*
+    Escape with an element selected is the explorer's: it clears the selection and
+    ends there. The Devbook takeover closes on Escape (local ADR 0022), and its <main>
+    hears every key pressed inside it, so without this the press that should let go of
+    a card closed the whole surface. Bound to the selection rather than always on: with
+    nothing selected Escape still reaches the takeover and closes it. The selection is
+    rendered before the next key arrives, so this flag is never one key late.
+*@
+<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom"
+     @onkeydown="OnKeyDown"
+     @onkeydown:stopPropagation="@HoldsEscape">
     @if (_view is null)
     {
         <EmptyState Title="No C4 views here yet" role="status">
@@ -199,6 +209,7 @@
            card focused. Every card is made focusable by the viewer. *@
         RenderFragment frame = @<div class="c4-zoom-explorer__frame"
              id="@_frameId"
+             @ref="_frame"
              tabindex="0"
              role="group"
              aria-label="@($"{C4Exploration.Label(Workspace, _view)}. Enter zooms into the focused element, Backspace zooms out.")"
@@ -1413,7 +1424,53 @@
     private async Task DismissHintAsync()
     {
         _hintClosed = true;
+
+        // Got it goes with the hint, and the focus would fall to the page, where the
+        // next Escape closes the Devbook: the picture takes it instead.
+        _focusFrame = true;
         await OnHintDismissed.InvokeAsync();
+    }
+
+    /// <summary>The picture's frame, which takes the keyboard when the control that
+    /// had it goes: Got it on the hint, or the inspector an Escape put away.</summary>
+    private ElementReference _frame;
+
+    /// <summary>Set when the control holding the focus is about to go; the render that
+    /// removes it hands the focus to the frame, and clears it.</summary>
+    private bool _focusFrame;
+
+    /// <summary>Whether Escape is this explorer's to handle: an element is selected
+    /// and clearing it is what the key does.</summary>
+    private bool HoldsEscape => _selectedId is not null && PictureShown;
+
+    /// <summary>Whether the picture is on screen: no Code level open over it, and on
+    /// the surface no host document standing in for it.</summary>
+    private bool PictureShown => _view is not null && _codeFor is null && !(Surface && Document is not null);
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        if (!string.Equals(args.Key, "Escape", StringComparison.Ordinal) || !HoldsEscape) return;
+
+        _selectedId = null;
+
+        // The inspector goes with the selection; the focus on its controls, or on a
+        // card no longer selected, is handed to the frame.
+        _focusFrame = true;
+        Refresh();
+    }
+
+    private async Task FocusFrameAsync()
+    {
+        _focusFrame = false;
+        if (!PictureShown || _frame.Id is null) return;
+
+        try
+        {
+            await _frame.FocusAsync(preventScroll: true);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
     }
 
     // ---- the Code level --------------------------------------------------------
@@ -1538,6 +1595,8 @@
             _focusInspector = false;
             if (_inspected is not null && _inspector is not null) await _inspector.FocusHeadingAsync();
         }
+
+        if (_focusFrame) await FocusFrameAsync();
 
         // The Code level draws no C4 picture, and neither does the surface while a
         // document stands in for it. The viewer is handed the picture again when the

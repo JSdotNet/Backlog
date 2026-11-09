@@ -133,7 +133,9 @@ public sealed partial record C4RecordPlacement(
         if (recordKind == C4RecordKind.Debt)
         {
             var named = adrs.Where(other => mine.Contains(C4ViewEntry.FileOf(other.Path))).ToList();
-            var fromOrigin = named.Where(OriginOf(record).Names).ToList();
+
+            // The one reading of a TDR's origin, shared with the inspector's debt card.
+            var fromOrigin = OriginDecisions(record, adrs);
 
             return new C4RecordPlacement(record, recordKind, map, [], [], [], [], cited, [],
                 [.. fromOrigin.Select(Chain)],

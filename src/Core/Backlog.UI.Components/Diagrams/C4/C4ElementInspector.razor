@@ -446,7 +446,9 @@
                 </p>
             }
 
-            <AppButton BaseClass="c4-element-inspector__open"
+            @* The library's button, as the zoom-in button above is: a BaseClass here
+               would replace btn and leave the variant and size without their rules. *@
+            <AppButton CssClass="c4-element-inspector__open"
                        Variant="ButtonVariant.Secondary"
                        Size="ButtonSize.Small"
                        TestId="c4-inspector-debt-open"

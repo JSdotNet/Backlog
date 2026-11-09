@@ -79,6 +79,34 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal(["0001"], links.Debt.Select(record => record.Number));
     }
 
+    /// <summary>The views map may list another folder's chapter against a view — the
+    /// domain's context map beside the container view — or a record; "arc42 ·
+    /// documents this view" lists the arc42 chapters only, as the inspector's
+    /// "Documented in arc42" does.</summary>
+    [Fact]
+    public async Task The_chapters_documenting_a_view_are_the_arc42_chapters_only()
+    {
+        const string Mixed = """
+            {
+              "views": {
+                "containers-backlog": [
+                  ".arc42/05-building-block-view.md#container-view",
+                  ".devbook/domain/context-map.md",
+                  ".domain/context-map.md",
+                  ".arc42/adr/0005-replica.md"
+                ]
+              }
+            }
+            """;
+
+        var (catalog, c4) = await LoadAsync(Mixed);
+
+        var documenting = Arc42Surface.DocumentsView(catalog, c4.Workspaces[0], "containers-backlog");
+
+        var only = Assert.Single(documenting);
+        Assert.Equal("05", only.Number);
+    }
+
     [Fact]
     public async Task Find_offers_elements_chapters_and_records_by_name_or_number()
     {
@@ -575,9 +603,9 @@ public sealed class Arc42SurfaceTests : IDisposable
         }
         """;
 
-    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync()
+    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync(string references = References)
     {
-        await using var harness = CreateHarness();
+        await using var harness = CreateHarness(references: references);
         var store = harness.Context.Services.GetRequiredService<Arc42DevbookStore>();
         var c4 = harness.Context.Services.GetRequiredService<C4DevbookStore>();
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));

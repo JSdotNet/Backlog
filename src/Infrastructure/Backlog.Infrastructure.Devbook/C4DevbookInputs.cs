@@ -114,7 +114,11 @@ public sealed class C4DevbookInputs(
     }
 
     /// <summary>Recursive and tolerant, the walk the chapter readers take: an
-    /// unreadable folder is skipped, a dot-prefixed one is kept.</summary>
+    /// unreadable folder is skipped, a dot-prefixed one is kept. A copy of
+    /// <c>Backlog.Desktop.UI.Devbook.Arc42DevbookReader.Recursive</c> in
+    /// Backlog.Modules.Devbook.UI, which this project cannot reference (the module
+    /// references it), so the two are named in prose; change them together, or the
+    /// stamp and the read disagree about which files are in the folder.</summary>
     private static readonly EnumerationOptions Recursive = new()
     {
         RecurseSubdirectories = true,
@@ -124,7 +128,9 @@ public sealed class C4DevbookInputs(
     };
 
     /// <summary>Whether any segment of a folder-relative path starts with an
-    /// underscore, the folders the chapter readers skip.</summary>
+    /// underscore, the folders the chapter readers skip. A copy of
+    /// <c>Backlog.Desktop.UI.Devbook.Arc42DevbookReader.IsUnderscored</c>; change
+    /// them together.</summary>
     private static bool IsUnderscored(string relativePath) =>
         relativePath.Split('/', '\\').Any(segment => segment.StartsWith('_'));
 }

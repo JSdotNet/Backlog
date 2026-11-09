@@ -335,6 +335,25 @@ public sealed class C4ElementInspectorTests : IDisposable
         Assert.Equal("Open TDR 0001", inspector.Find("[data-testid='c4-inspector-debt-open']").TextContent.Trim());
     }
 
+    /// <summary>The card's open action is the library's small secondary button, the
+    /// way the inspector's zoom-in button is the library's, not a bare button.</summary>
+    [Fact]
+    public void A_debt_cards_open_action_is_the_librarys_small_secondary_button()
+    {
+        var devbook = Workspace.Element("backlog.desktop.devbook")!;
+        var inspector = RenderInspector(devbook, new C4ElementRecords([], [],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-renders.md", "0001", "Renders vanish on a branch snapshot", C4InspectorRecordKind.Debt)
+            {
+                Detail = new C4InspectorDebtDetail("A summary.", null, [])
+            }
+        ]), _ => { });
+
+        var open = inspector.Find("[data-testid='c4-inspector-debt-open']");
+
+        Assert.Equal(["btn", "btn--secondary", "btn--small", "c4-element-inspector__open"], open.ClassList);
+    }
+
     [Fact]
     public async Task On_the_context_view_the_system_lists_its_relationships()
     {

@@ -175,8 +175,8 @@ public static class Arc42Surface
         ];
     }
 
-    /// <summary>The chapters the views map lists against a view, each reference once,
-    /// in file order.</summary>
+    /// <summary>The arc42 chapters the views map lists against a view, each reference
+    /// once, in file order.</summary>
     public static IReadOnlyList<Arc42SurfaceCitation> DocumentsView(Arc42DevbookCatalog catalog, C4WorkspaceEntry? workspace, string? viewKey)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -188,6 +188,12 @@ public static class Arc42Surface
 
         foreach (var reference in workspace.Documents(viewKey))
         {
+            // The views map may list another folder's chapter against a view (the
+            // domain's context map beside the container view) or a record; the list
+            // says "arc42", so it holds the arc42 chapters only, as the inspector's
+            // "Documented in arc42" does.
+            if (!Arc42DevbookCatalog.IsArc42Path(reference) || Arc42DevbookCatalog.IsDecisionRecord(reference)) continue;
+
             var file = C4ViewEntry.FileOf(reference);
             if (!seen.Add(file)) continue;
 
