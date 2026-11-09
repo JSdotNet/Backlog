@@ -54,6 +54,16 @@
     }
     else if (Surface)
     {
+        @* The surface's top row, as the design's header carries it: the overlay switch,
+           offered while the picture is up — a document or the Code level draws no
+           cards to put records on. *@
+        @if (RecordsFor is not null && Document is null && _codeFor is null)
+        {
+            <div class="c4-zoom-explorer__top" data-testid="c4-zoom-top">
+                @OverlaySwitch
+            </div>
+        }
+
         <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
 
         <div class="c4-zoom-explorer__surface@(Document is null ? string.Empty : " c4-zoom-explorer__surface--document")" data-testid="c4-zoom-surface">
@@ -84,13 +94,13 @@
                     }
                     else if (_playback.Count == 0 || _codeFor is not null)
                     {
-                        <EmptyState Title="Nothing selected"
-                                    role="status"
-                                    TestId="c4-zoom-aside-empty">
-                            <DescriptionContent>
-                                Select an element to see what it is, the chapters that document it, and the decisions and debt on it.
-                            </DescriptionContent>
-                        </EmptyState>
+                        @* Nothing selected: what the open view is, as the design's
+                           Landscape screen says it, rather than "Nothing selected". *@
+                        <C4ViewSummary Workspace="@Workspace"
+                                       View="@(_view!)"
+                                       OnSelect="SelectFromSummary"
+                                       OnOpenView="OpenFromSummary"
+                                       TestId="c4-zoom-view-summary" />
                     }
                 </div>
             }
@@ -192,26 +202,11 @@
             }
 
             @* The overlay switch: which records the cards carry. Offered only by a
-               host with records to count, as the inspector's record sections are. *@
-            @if (RecordsFor is not null)
+               host with records to count, as the inspector's record sections are. On
+               the surface it is the top row's, not the view heading's. *@
+            @if (RecordsFor is not null && !Surface)
             {
-                <div class="c4-zoom-explorer__overlay">
-                    <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
-                    <ButtonGroup Radio="true"
-                                 CssClass="c4-zoom-explorer__overlay-choices"
-                                 aria-labelledby="@($"{_frameId}-overlay")"
-                                 TestId="c4-zoom-overlay">
-                        @foreach (var choice in OverlayChoices)
-                        {
-                            <ToggleButton @key="choice"
-                                          Pressed="@(_overlay == choice)"
-                                          PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
-                                          BaseClass="c4-zoom-explorer__overlay-choice"
-                                          PressedCssClass="c4-zoom-explorer__overlay-choice--active"
-                                          TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
-                        }
-                    </ButtonGroup>
-                </div>
+                @OverlaySwitch
             }
         </header>
 
@@ -333,15 +328,37 @@
         }
     }
 
-    /// <summary>A dynamic view's steps panel.</summary>
+    /// <summary>A dynamic view's steps panel, with the decisions that name an element
+    /// on its path when the host has records to say.</summary>
     private RenderFragment StepsPanel => @<C4DynamicSteps Steps="@_playback"
                                                           Current="@_stepIndex"
                                                           Playing="@_playing"
                                                           ReducedMotion="@_reducedMotion"
+                                                          Decisions="@PathDecisions"
+                                                          OnOpenRecord="OpenRecordAsync"
                                                           OnPrevious="PreviousStep"
                                                           OnNext="NextStep"
                                                           OnPlay="Play"
                                                           OnPick="PickStep" />;
+
+    /// <summary>Which records the cards carry: None, Decisions or Debt.</summary>
+    private RenderFragment OverlaySwitch => @<div class="c4-zoom-explorer__overlay">
+        <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
+        <ButtonGroup Radio="true"
+                     CssClass="c4-zoom-explorer__overlay-choices"
+                     aria-labelledby="@($"{_frameId}-overlay")"
+                     TestId="c4-zoom-overlay">
+            @foreach (var choice in OverlayChoices)
+            {
+                <ToggleButton @key="choice"
+                              Pressed="@(_overlay == choice)"
+                              PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
+                              BaseClass="c4-zoom-explorer__overlay-choice"
+                              PressedCssClass="c4-zoom-explorer__overlay-choice--active"
+                              TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
+            }
+        </ButtonGroup>
+    </div>;
 
     /// <summary>The selected element, as the inspector shows it.</summary>
     private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
@@ -794,6 +811,50 @@
     }
 
     private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
+
+    /// <summary>An element pressed in the view summary: selected, as a click on its
+    /// card selects it; the viewer is told on the next render.</summary>
+    private void SelectFromSummary(string elementId)
+    {
+        _selectedId = elementId;
+        Refresh();
+    }
+
+    /// <summary>A way in pressed in the view summary: the view below that element.</summary>
+    private void OpenFromSummary(string viewKey) => Open(viewKey, null);
+
+    /// <summary>
+    /// The decisions that name an element on the open dynamic view's path, each once,
+    /// in file order — the design's "Decisions on this path". Null — the section left
+    /// out — with no host records to read, as the inspector leaves its sections out.
+    /// </summary>
+    private IReadOnlyList<C4InspectorRecord>? PathDecisions
+    {
+        get
+        {
+            if (RecordsFor is null || _playback.Count == 0) return null;
+
+            var key = (_view?.Key, RecordsFor, Workspace);
+            if (key == _pathDecisionsFor && _pathDecisions is not null) return _pathDecisions;
+
+            _pathDecisionsFor = key;
+            _pathDecisions =
+            [
+                .. _nodes
+                    .Select(node => node.ElementId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .SelectMany(elementId => CardRecords(elementId).Decisions)
+                    .GroupBy(record => record.Path, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First())
+                    .OrderBy(record => record.Number ?? record.Path, StringComparer.OrdinalIgnoreCase)
+            ];
+
+            return _pathDecisions;
+        }
+    }
+
+    private (string? View, Func<string, C4ElementRecords>? Records, C4Workspace? Workspace) _pathDecisionsFor;
+    private IReadOnlyList<C4InspectorRecord>? _pathDecisions;
 
     // ---- the record overlay ----------------------------------------------------
 

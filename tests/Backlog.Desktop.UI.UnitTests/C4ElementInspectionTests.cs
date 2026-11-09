@@ -198,24 +198,33 @@ public sealed class C4ElementInspectionTests
         Assert.Equal(".devbook/arc42/05-building-block-view.md#container-view", chapter.Path);
     }
 
+    /// <summary>A decision's state is the host's (local ADR 0044): proposed, decided or
+    /// declined. A merged record with no state stored stands, so it counts as accepted,
+    /// as "decided" and a file's own "accepted" do.</summary>
     [Fact]
     public void Each_decision_says_whether_it_is_accepted()
     {
         var accepted = Decision(".devbook/arc42/adr/0001-desktop.md", "ADR 0001: Desktop stack", "Accepted");
         var superseded = Decision(".devbook/arc42/adr/0002-old.md", "ADR 0002: Old", "superseded");
+        var unstated = Decision(".devbook/arc42/adr/0003-store.md", "ADR 0003: Store", null);
+        var decided = Decision(".devbook/arc42/adr/0004-index.md", "ADR 0004: Index", "decided");
+        var declined = Decision(".devbook/arc42/adr/0005-replica.md", "ADR 0005: Replica", "declined");
         var proposed = Decision(".devbook/arc42/adr/0030-credentials.md", "ADR 0030: Credentials", "proposed");
 
         var records = C4ElementInspection.For(
             CatalogWith(
                 new C4ElementLink("backlog.desktop", C4LinkKind.About, accepted),
                 new C4ElementLink("backlog.desktop", C4LinkKind.About, proposed),
-                new C4ElementLink("backlog.desktop", C4LinkKind.About, superseded)),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, superseded),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, unstated),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, decided),
+                new C4ElementLink("backlog.desktop", C4LinkKind.About, declined)),
             Entry,
             Chapters,
             "backlog.desktop");
 
-        Assert.Equal([true, false, false], records.Decisions.Select(record => record.Accepted));
-        Assert.Equal([false, false, true], records.Decisions.Select(record => record.Proposed));
+        Assert.Equal([true, false, true, true, false, false], records.Decisions.Select(record => record.Accepted));
+        Assert.Equal([false, false, false, false, false, true], records.Decisions.Select(record => record.Proposed));
     }
 
     /// <summary>The design's Containers screen: Desktop App lists the debt named on its

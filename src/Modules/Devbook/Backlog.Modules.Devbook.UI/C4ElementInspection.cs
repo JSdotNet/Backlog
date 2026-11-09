@@ -156,8 +156,7 @@ public static partial class C4ElementInspection
                         Lifecycle: LifecycleLabel(record.Lifecycle),
                         Touches: touches)
                     {
-                        Accepted = record.Kind == C4RecordKind.Decision
-                            && string.Equals(record.Status?.Trim(), "accepted", StringComparison.OrdinalIgnoreCase)
+                        Accepted = record.Accepted
                     };
                 })
                 .OrderBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)

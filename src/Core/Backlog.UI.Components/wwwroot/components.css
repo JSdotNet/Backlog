@@ -19525,6 +19525,171 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
 }
 
+/* "Decisions on this path": the numbers as compact links, a proposed one marked. */
+.c4-dynamic-steps__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-dynamic-steps__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.c4-dynamic-steps__decisions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-dynamic-steps__decision {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 28px;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-primary);
+    font: inherit;
+    font-family: var(--font-family-mono);
+    cursor: pointer;
+}
+
+.c4-dynamic-steps__decision:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-dynamic-steps__decision:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The view summary: the right-hand panel while nothing is selected. */
+.c4-view-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.c4-view-summary__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-view-summary__kind {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.c4-view-summary__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-view-summary__description {
+    margin: var(--spacing-xs) 0 0;
+    line-height: 1.5;
+}
+
+.c4-view-summary__way {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-view-summary__way:hover {
+    text-decoration: underline;
+}
+
+.c4-view-summary__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-view-summary__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-view-summary__elements {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-view-summary__element {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-view-summary__element:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-view-summary__way:focus-visible,
+.c4-view-summary__element:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-view-summary__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The surface's top row: the overlay switch, at the end, as the design's header
+   carries it. */
+.c4-zoom-explorer__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
 @media (max-width: 60rem) {
     .c4-zoom-explorer--dynamic {
         grid-template-columns: minmax(0, 1fr);

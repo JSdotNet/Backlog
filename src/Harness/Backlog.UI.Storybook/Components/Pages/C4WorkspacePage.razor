@@ -66,7 +66,7 @@ Here the Devbook component has code folders, so it carries a chip on the Desktop
     </Story>
 
     <Story Name="The architecture surface"
-           Description="`C4ZoomExplorer` handed a `Navigation`: the design's every screen, as the Architecture pane draws it while `c4-zoom` is on. The zoom bar across the top, then three columns — the host's **left navigation**, the **picture** with its title, its source, what documents it and the **− / Fit / +** that size it, and the **inspector** of the selected element, which says what selecting does while nothing is.
+           Description="`C4ZoomExplorer` handed a `Navigation`: the design's every screen, as the Architecture pane draws it while `c4-zoom` is on. A top row with the **Overlay** switch, the zoom bar, then three columns — the host's **left navigation**, the **picture** with its title, its source, what documents it and the **− / Fit / +** that size it, and the **inspector** of the selected element. While nothing is selected the right-hand column is the **view summary** (`C4ViewSummary`) instead: the view's kind, what it shows in a line, a way into each element with a deeper view, and the elements to pick from. On a dynamic view the steps panel heads that column, beside the picture.
 
 The navigation is the host's: the explorer knows nothing of chapters. Here it is the C4 views list `C4ViewIndex` builds — the zoom chain indented under the system it opens, each level counting what it opens onto, a Code line under a component that has code, then the dynamic and deployment views. A line opens its view through `OpenView`; `OnLocationChanged` tells the host where the explorer went, which is what marks the open line."
            Code="@SurfaceUsage">
@@ -118,9 +118,23 @@ Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level
     <Story Name="A dynamic view, step by step"
            Description="`C4DynamicSteps`, the panel the zoom tab sets beside a dynamic view: **Step 2 of 3**, Previous / Play / Next, and every step in order — from → to, what it does, and the technology read from the model relationship between the same two elements, since a dynamic step carries none of its own. Open **Dynamic** under *Also* in the zoom tab above to play it: each arrow carries its number in a badge, and the current step's arrow, badge and row are drawn in the primary colour while the rest stay grey.
 
-Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for, it moves one step per press and says so. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes."
+Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for, it moves one step per press and says so. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes.
+
+Under the steps, **Decisions on this path**: the decisions that name an element the flow passes through, from the host's `RecordsFor`, a proposed one marked; each opens its record."
            Code="@DynamicUsage">
-        <C4DynamicSteps Steps="@DynamicSteps" Current="1" TestId="sb-c4-dynamic-steps" />
+        <C4DynamicSteps Steps="@DynamicSteps" Current="1" Decisions="@PathDecisions" TestId="sb-c4-dynamic-steps" />
+    </Story>
+
+    <Story Name="The view summary"
+           Description="`C4ViewSummary`, the architecture surface's right-hand column while nothing is selected — the design's Landscape screen rather than *Nothing selected*. The view's kind; what it shows in a line, *2 systems, 1 owned* on a landscape and the cards counted by kind elsewhere; the view's own description; a way into each element that has a deeper view; and the elements to pick from — the **external systems** on a landscape or a system context, every card elsewhere. Picking one selects it, and the inspector takes the column."
+           Code="@SummaryUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">The landscape</p>
+            <C4ViewSummary Workspace="@Parsed" View="@(Parsed.View("landscape")!)" TestId="sb-c4-view-summary-landscape" />
+
+            <p class="sb-c4-zoom-moments__label">The containers view</p>
+            <C4ViewSummary Workspace="@Parsed" View="@(Parsed.View("containers-backlog")!)" TestId="sb-c4-view-summary-containers" />
+        </div>
     </Story>
 
     <Story Name="The element inspector"
@@ -393,6 +407,21 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                         OnPlay="Play"
                         OnPick="Pick" />
         """;
+
+    private const string SummaryUsage = """
+        <C4ViewSummary Workspace="@workspace"
+                       View="@view"
+                       OnSelect="Select"
+                       OnOpenView="Open" />
+        """;
+
+    /// <summary>The decisions a host might say name an element on the sample's flow.</summary>
+    private static readonly IReadOnlyList<C4InspectorRecord> PathDecisions =
+    [
+        new(".devbook/arc42/adr/0003-sqlite-canonical.md", "0003", "SQLite is the canonical task store", C4InspectorRecordKind.Decision) { Accepted = true },
+        new(".devbook/arc42/adr/0005-azure-replica.md", "0005", "An Azure-hosted task replica carries sync", C4InspectorRecordKind.Decision) { Accepted = true },
+        new(".devbook/arc42/adr/0031-live-events.md", "0031", "Live events reach the desktop over the sync service", C4InspectorRecordKind.Decision, Proposed: true)
+    ];
 
     /// <summary>The sample's dynamic view, as the zoom tab's steps panel lists it.</summary>
     private static IReadOnlyList<C4PlaybackStep> DynamicSteps =>

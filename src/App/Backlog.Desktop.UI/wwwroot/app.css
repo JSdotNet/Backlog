@@ -11763,6 +11763,49 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
+/* The decision log's status filter: All, Accepted, Proposed, one chosen — the same
+   segmented look as the zoom surface's overlay switch. */
+.arc42-surface-nav__filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 0 var(--spacing-sm) var(--spacing-xs);
+    padding: 3px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.arc42-surface-nav__filter-choice {
+    flex: 1 1 auto;
+    min-height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.arc42-surface-nav__filter-choice:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.arc42-surface-nav__filter-choice:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.arc42-surface-nav__filter-choice--active,
+.arc42-surface-nav__filter-choice--active:hover {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
 .arc42-surface-nav__item {
     display: flex;
     align-items: baseline;
