@@ -219,6 +219,98 @@ public sealed class C4DevbookCodeTests : IDisposable
         Assert.Equal("VS Code is not installed.", await code.OpenInEditor("src/Devbook/Builder.cs"));
     }
 
+    // ---- files changed outside the app -------------------------------------------------
+
+    /// <summary>One store, kept across loads the way the app's singleton is, so a
+    /// second load is asked of the catalog the first one cached.</summary>
+    private C4DevbookStore Store(string clone, out string alias)
+    {
+        var (features, _, folders, _, repositoryAlias) = Sources(clone);
+        alias = repositoryAlias;
+        var store = new C4DevbookStore(features, folders);
+        _stores.Add(store);
+        return store;
+    }
+
+    private readonly List<C4DevbookStore> _stores = [];
+
+    private static string BuildingBlockPath(string clone) =>
+        Path.Combine(clone, ".devbook", "arc42", "building-blocks", "devbook.md");
+
+    [Fact]
+    public async Task An_unchanged_folder_is_served_from_the_cached_catalog()
+    {
+        var store = Store(CreateRepository(), out var alias);
+
+        var first = await store.LoadAsync(alias);
+
+        Assert.Same(first, await store.LoadAsync(alias));
+    }
+
+    /// <summary>A building block a <c>git pull</c> or an editor adds is read on the next
+    /// load, with no feature switch toggled, and its <c>code</c> makes the Code level
+    /// reachable.</summary>
+    [Fact]
+    public async Task A_building_block_added_outside_the_app_is_read_on_the_next_load()
+    {
+        var clone = CreateRepository(withBuildingBlock: false);
+        var store = Store(clone, out var alias);
+        Assert.Empty((await store.LoadAsync(alias)).CodeOf(Devbook));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(BuildingBlockPath(clone))!);
+        File.WriteAllText(BuildingBlockPath(clone), BuildingBlock);
+
+        Assert.Equal(["src/Devbook"], (await store.LoadAsync(alias)).CodeOf(Devbook));
+    }
+
+    /// <summary>A building block changed outside the app is read again — over the
+    /// workspace already parsed, since no <c>.dsl</c> moved, so the explorers keep their
+    /// layout.</summary>
+    [Fact]
+    public async Task A_building_block_changed_outside_the_app_is_read_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        var before = await store.LoadAsync(alias);
+        Assert.NotEmpty(before.CodeOf(Devbook));
+
+        File.WriteAllText(BuildingBlockPath(clone), BuildingBlock.Replace("code: [src/Devbook]", "code: [src/Devbook, src/Shared]", StringComparison.Ordinal));
+
+        var after = await store.LoadAsync(alias);
+        Assert.Equal(["src/Devbook", "src/Shared"], after.CodeOf(Devbook));
+        Assert.Same(before.Workspaces[0].Workspace, after.Workspaces[0].Workspace);
+    }
+
+    [Fact]
+    public async Task A_building_block_deleted_outside_the_app_is_gone_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        Assert.NotEmpty((await store.LoadAsync(alias)).CodeOf(Devbook));
+
+        File.Delete(BuildingBlockPath(clone));
+
+        Assert.Empty((await store.LoadAsync(alias)).CodeOf(Devbook));
+    }
+
+    /// <summary>A workspace changed outside the app is parsed again, not relinked over
+    /// the model it replaced.</summary>
+    [Fact]
+    public async Task A_workspace_changed_outside_the_app_is_parsed_again_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        var before = await store.LoadAsync(alias);
+
+        File.WriteAllText(
+            Path.Combine(clone, ".devbook", "arc42", C4DevbookStore.WorkspaceFile),
+            Workspace.Replace("shell = component \"Shell\" \"Holds the panes\"", "shell = component \"Shell\" \"Holds the panes\"\n                        tray = component \"Tray\" \"The tray\"", StringComparison.Ordinal));
+
+        var after = await store.LoadAsync(alias);
+        Assert.NotSame(before.Workspaces[0].Workspace, after.Workspaces[0].Workspace);
+        Assert.NotNull(after.Workspaces[0].Workspace.Element("backlog.desktop.tray"));
+    }
+
     // ---- what the panel shows ---------------------------------------------------------
 
     /// <summary>
@@ -316,6 +408,8 @@ public sealed class C4DevbookCodeTests : IDisposable
 
     public void Dispose()
     {
+        foreach (var store in _stores) store.Dispose();
+
         foreach (var root in _roots)
         {
             try
