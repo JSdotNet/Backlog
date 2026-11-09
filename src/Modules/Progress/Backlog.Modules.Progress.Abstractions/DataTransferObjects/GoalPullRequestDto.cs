@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
@@ -22,7 +24,12 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// the person the repository is read as, named directly — as GitHub last said.
 /// False for one nothing read, one merged or closed, one in an archived repository (never
 /// read again, so the request could never clear), and one written before the flag existed.
-/// Last and defaulted.</param>
+/// Defaulted.</param>
+/// <param name="Title">Its title as the status read answered it, so a goal can name a pull
+/// request the Goals view's candidates do not hold; null for one nothing read. In-process
+/// only: never written to the <c>stand-up-context</c> document, so a title does not reach the
+/// sync feed, and always null on a <see cref="StandUpContextDto"/> read back from one. Last
+/// and defaulted.</param>
 public sealed record GoalPullRequestDto(
     string Repository,
     string Number,
@@ -31,7 +38,8 @@ public sealed record GoalPullRequestDto(
     GoalPullRequestChecksDto? Checks,
     GoalPullRequestApprovalsDto? Approvals,
     bool InArchivedRepository = false,
-    bool ReviewRequested = false)
+    bool ReviewRequested = false,
+    [property: JsonIgnore] string? Title = null)
 {
     /// <summary>A pull request nothing has read: unknown, with no checks and no approvals.</summary>
     public static GoalPullRequestDto Unread(PullRequestRefDto pullRequest)

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Brain — built and kept current",
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "settings", "type": "backend", "label": "IBrainSettings", "sublabel": "BrainFolder", "pos": [40, 340], "size": [200, 80] },
+    { "id": "watch", "type": "backend", "label": "BrainFolderWatch", "sublabel": "Infrastructure.FileSystem", "pos": [330, 220], "size": [220, 80] },
+    { "id": "refresher", "type": "backend", "label": "DevbookDatabaseRefresher", "sublabel": ".WatchBrain", "pos": [710, 220], "size": [220, 80] },
+    { "id": "conventions", "type": "backend", "label": "BrainConventions", "sublabel": "declared areas + top folders holding a note, minus Ignore", "pos": [990, 40], "size": [330, 80] },
+    { "id": "builder", "type": "backend", "label": "Devbook builder", "sublabel": "DevbookCorpusKind.Brain", "pos": [1090, 220], "size": [230, 80] },
+    { "id": "db", "type": "database", "label": "Brain database", "sublabel": "app storage", "pos": [1090, 460], "size": [230, 80] },
+    { "id": "source", "type": "backend", "label": "BrainFolderSource", "sublabel": "IBrainFolderSource, key brain", "pos": [330, 460], "size": [220, 80] },
+    { "id": "pane", "type": "frontend", "label": "Devbook pane", "pos": [710, 460], "size": [220, 80] }
+  ],
+  "connections": [
+    { "id": "settings-watch", "from": "settings", "to": "watch", "label": "Changed", "fromSide": "top", "toSide": "left" },
+    { "id": "watch-refresher", "from": "watch", "to": "refresher", "label": "re-points the watch", "fromSide": "right", "toSide": "left" },
+    { "id": "refresher-builder", "from": "refresher", "to": "builder", "label": "rebuild after a change", "fromSide": "right", "toSide": "left" },
+    { "id": "conventions-builder", "from": "conventions", "to": "builder", "fromSide": "bottom", "toSide": "top" },
+    { "id": "builder-db", "from": "builder", "to": "db", "fromSide": "bottom", "toSide": "top" },
+    { "id": "watch-source", "from": "watch", "to": "source", "label": "raises Changed", "fromSide": "bottom", "toSide": "top", "labelAt": [492, 380] },
+    { "id": "settings-source", "from": "settings", "to": "source", "fromSide": "bottom", "toSide": "left" },
+    { "id": "source-pane", "from": "source", "to": "pane", "fromSide": "right", "toSide": "left" }
+  ]
+}

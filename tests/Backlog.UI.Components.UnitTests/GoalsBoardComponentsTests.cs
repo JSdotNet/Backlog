@@ -27,7 +27,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
         new GoalCounts(9, 15, 3, 1, 2, 3),
-        [new GoalPlanModel("Bank integration", 5, 9)],
+        [new GoalPlanModel("Bank integration", 5, 9, Doing: 2, Blocked: 1)],
         [
             new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done),
             new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing)
@@ -268,19 +268,115 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     {
         var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, Paid).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
 
-        var plans = card.Find("[data-testid='goal-plans']");
-        Assert.Contains("Bank integration", plans.TextContent);
-        Assert.Contains("5/9", plans.TextContent);
+        var plan = Assert.Single(card.FindAll("[data-testid='goal-plans'] .goal-card__plan"));
+        Assert.Equal("Bank integration", plan.QuerySelector(".goal-card__plan-title")!.TextContent);
+        Assert.Equal("5/9 · 2 in progress · 1 blocked", plan.QuerySelector(".goal-card__plan-count")!.TextContent);
+        Assert.Equal("5 done, 2 in progress, 1 blocked, 1 not started", plan.QuerySelector("[data-testid='goal-plan-bar']")!.GetAttribute("aria-label"));
 
         var tasks = card.FindAll("[data-testid='goal-tasks'] .goal-card__task");
         Assert.Equal(2, tasks.Count);
         Assert.Contains("status-dot--done", tasks[0].QuerySelector(".status-dot")!.ClassList);
         Assert.Contains("status-dot--active", tasks[1].QuerySelector(".status-dot")!.ClassList);
+        Assert.Equal(["done", "in progress"], tasks.Select(task => task.QuerySelector(".goal-card__task-word")!.TextContent));
 
         Assert.NotNull(card.Find("[data-testid='goal-pull-request-1341'].pull-request-status"));
         var merged = card.Find("[data-testid='goal-merged']");
         Assert.Equal(["#1352", "#1355"], merged.QuerySelectorAll(".badge--gh-merged").Select(b => b.TextContent));
         Assert.EndsWith("merged", merged.TextContent.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>The word is on screen, so a screen reader hears it there: the title, then the
+    /// status, once, with the dot left out and no separate copy for it.</summary>
+    [Theory]
+    [InlineData(GoalTaskStatus.Done, "done")]
+    [InlineData(GoalTaskStatus.Doing, "in progress")]
+    [InlineData(GoalTaskStatus.Blocked, "blocked")]
+    [InlineData(GoalTaskStatus.ToDo, "not started")]
+    public void A_task_row_says_its_status_in_a_visible_word_read_once(GoalTaskStatus status, string word)
+    {
+        var goal = Paid with { Tasks = [new GoalTaskModel("t", "Recurring invoices", status)] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, goal).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        var row = card.Find("[data-testid='goal-tasks'] .goal-card__task");
+        Assert.Equal(word, row.QuerySelector(".goal-card__task-word")!.TextContent);
+        Assert.Equal($"Recurring invoices {word}", Normalise(row.TextContent));
+        Assert.Empty(row.QuerySelectorAll(".sr-only"));
+        Assert.Equal("true", row.QuerySelector(".status-dot")!.GetAttribute("aria-hidden"));
+    }
+
+    /// <summary>A plan's bar is scaled to its own counts rather than the goal's, and its line
+    /// carries no amount that is nought.</summary>
+    [Fact]
+    public void Each_plan_draws_a_bar_and_a_line_of_its_own()
+    {
+        var goal = Paid with
+        {
+            Plans =
+            [
+                new GoalPlanModel("schuldregeling-financieel", 51, 53),
+                new GoalPlanModel("Bank integration", 5, 9, Doing: 2, Blocked: 1)
+            ]
+        };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, goal).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        var plans = card.FindAll("[data-testid='goal-plans'] .goal-card__plan");
+        Assert.Equal(["51/53", "5/9 · 2 in progress · 1 blocked"], plans.Select(plan => plan.QuerySelector(".goal-card__plan-count")!.TextContent));
+        Assert.Equal(
+            ["51 done, 0 in progress, 0 blocked, 2 not started", "5 done, 2 in progress, 1 blocked, 1 not started"],
+            plans.Select(plan => plan.QuerySelector(".goal-progress-bar")!.GetAttribute("aria-label")));
+        Assert.Equal(
+            "flex: 5 1 0%",
+            plans[1].QuerySelector(".goal-progress-bar__done")!.GetAttribute("style"));
+    }
+
+    /// <summary>The rows sit under an open goal: folded, the goal draws its one bar.</summary>
+    [Fact]
+    public void A_folded_goal_draws_no_plan_bars()
+    {
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, Paid).Add(c => c.TestId, "goal"));
+
+        Assert.Single(card.FindAll(".goal-progress-bar"));
+        Assert.Empty(card.FindAll("[data-testid='goal-plan-bar']"));
+    }
+
+    [Fact]
+    public void An_open_pull_request_with_a_title_draws_it_above_its_status_line()
+    {
+        var titled = Paid with { PullRequests = [new PullRequestStatusModel(1341, "open", Title: "Invoice PDF export")] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, titled).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        var title = card.Find("[data-testid='goal-pull-request-1341-title']");
+        Assert.Equal("Invoice PDF export", title.TextContent);
+        Assert.Equal("goal-pull-request-1341", title.NextElementSibling!.GetAttribute("data-testid"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public void A_pull_request_with_no_title_draws_only_its_status_line(string? known)
+    {
+        var untitled = Paid with { PullRequests = [new PullRequestStatusModel(1341, "open", Title: known)] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, untitled).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        Assert.Empty(card.FindAll("[data-testid='goal-pull-request-1341-title']"));
+        Assert.NotNull(card.Find("[data-testid='goal-pull-request-1341'].pull-request-status"));
+    }
+
+    /// <summary>A merged pull request stays a pill under its number; its title is the
+    /// pill's tooltip, never a line of its own.</summary>
+    [Fact]
+    public void A_merged_pull_requests_title_stays_the_pills_tooltip()
+    {
+        var merged = Paid with { PullRequests = [new PullRequestStatusModel(1352, "merged", Title: "Reminder emails")] };
+
+        var card = _context.Render<GoalCard>(p => p.Add(c => c.Goal, merged).Add(c => c.Expanded, true).Add(c => c.TestId, "goal"));
+
+        Assert.Empty(card.FindAll("[data-testid='goal-pull-request-1352-title']"));
+        Assert.Equal("Reminder emails", card.Find("[data-testid='goal-merged'] .badge--gh-merged").GetAttribute("title"));
     }
 
     [Fact]

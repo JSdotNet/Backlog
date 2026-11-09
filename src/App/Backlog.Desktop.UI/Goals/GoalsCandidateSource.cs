@@ -69,7 +69,9 @@ internal static class GoalsCandidateSource
         Status(row),
         PlanTagMatch.SlugsCarried(row.PreviewTags),
         [.. row.PullRequestLinks.Select(link => new PullRequestRefDto(link.Repository, link.Number.ToString(CultureInfo.InvariantCulture)))],
-        inScope);
+        inScope,
+        row.IsPreviewBlocked,
+        [.. row.PullRequestProjections.Select(link => new PullRequestRefDto(link.Repository, link.ExternalId))]);
 
     /// <summary>Done and archived read as done; in progress as doing, or blocked while a
     /// <c>blocked:</c> mark holds it.</summary>

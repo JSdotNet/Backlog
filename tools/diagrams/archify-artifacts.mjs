@@ -94,9 +94,9 @@ const ALL_TYPES = ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycl
 
 /** The Archify quality profile a specification is rendered at.
  *
- *  `showcase` for everything, with one recorded exception. Three diagrams in this
+ *  `showcase` for everything, with one recorded exception. Four diagrams in this
  *  repository are provably non-planar — `.devbook/domain/context-map.md` #1,
- *  `.devbook/arc42/05-building-block-view.md` #3 and `.devbook/tech/technology-graph.md` #1
+ *  `.devbook/arc42/05-building-block-view.md` #2 and #6, and `.devbook/tech/technology-graph.md` #2
  *  (tools/diagrams/README.md has each proof) — so at least one
  *  edge crossing is forced in every possible drawing of them, and showcase raises
  *  `composition/proper-crossing` as an error. No faithful specification of either
@@ -211,6 +211,13 @@ function defaultTypeFor(kind) {
     return kind !== null && Object.hasOwn(TYPE_MAP, kind) ? TYPE_MAP[kind] : null;
 }
 
+/** The Archify types a fence of this kind may be authored as. */
+function allowedTypesFor(kind) {
+    if (kind === 'flowchart' || kind === 'graph') return FLOWCHART_TYPES;
+    const type = defaultTypeFor(kind);
+    return type === null ? [] : [type];
+}
+
 // ---------------------------------------------------------------------------
 // The index beside a chapter
 // ---------------------------------------------------------------------------
@@ -300,16 +307,111 @@ function isSameDiagram(entry, chapterFile, ordinal) {
 }
 
 function isSameChapter(entry, chapterFile) {
-    const chapter = basename(chapterFile, '.md');
-    const fromSpec = typeof entry.spec === 'string'
-        ? SPEC_NAME.exec(basename(entry.spec))?.[1] ?? null
-        : null;
-    const named = entry.chapter ? basename(entry.chapter, '.md') : fromSpec;
+    const named = namedChapter(entry);
 
     // An entry that names no chapter at all predates both fields. Treating it as
     // this chapter's is the old behaviour, which is right in every folder that
     // holds one chapter and is the best guess available in the ones that do not.
-    return named === null || named === chapter;
+    return named === null || named === basename(chapterFile, '.md');
+}
+
+/** The chapter an entry says it belongs to, or null when it says nothing. */
+function namedChapter(entry) {
+    const fromSpec = typeof entry.spec === 'string'
+        ? SPEC_NAME.exec(basename(entry.spec))?.[1] ?? null
+        : null;
+    return entry.chapter ? basename(entry.chapter, '.md') : fromSpec;
+}
+
+/** Whether a same-chapter entry filed under this fence's hash records it at another
+ *  ordinal, so the fence has moved since it was rendered. A fence still sitting at
+ *  the recorded ordinal has not moved: two identical fences share one hash and so
+ *  one entry, which can only name one of them. */
+function recordedElsewhere(entry, chapterFile, fence, fences) {
+    if (!entry || entry.ordinal === fence.ordinal || !isSameChapter(entry, chapterFile)) return false;
+    const recorded = fences.find(f => f.ordinal === entry.ordinal);
+    return !recorded || diagramSourceHash(recorded.source) !== diagramSourceHash(fence.source);
+}
+
+/** Every fence hash in the chapters sharing this chapter's index. An entry is keyed by
+ *  hash alone, so an identical fence in a neighbouring chapter may be drawn from it. */
+function fenceHashesSharingIndex(chapterFile) {
+    const dir = dirname(chapterFile);
+    const hashes = new Set();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.md')) continue;
+        for (const fence of mermaidFences(join(dir, entry.name))) hashes.add(diagramSourceHash(fence.source));
+    }
+    return hashes;
+}
+
+/** The digest of a file, or null when it cannot be read as one. */
+function fileDigest(file) {
+    try {
+        return specDigest(readFileSync(file, 'utf8'));
+    } catch {
+        return null;
+    }
+}
+
+/** The digests of every specification on disk for this chapter, at any ordinal. */
+function chapterSpecDigests(artifactDir, chapterFile) {
+    if (!existsSync(artifactDir)) return new Set();
+    const chapter = basename(chapterFile, '.md');
+    return new Set(readdirSync(artifactDir)
+        .filter(name => SPEC_NAME.exec(name)?.[1] === chapter)
+        .map(name => fileDigest(join(artifactDir, name)))
+        .filter(digest => digest !== null));
+}
+
+/** The entry that records this specification's text for another fence of the chapter,
+ *  or null. A specification says what one fence says, so its text filed under another
+ *  hash means it was authored from that fence, whatever its filename now claims. */
+function recordedForAnotherFence(index, chapterFile, hash, digest, artifactDir) {
+    if (digest === null) return null;
+    for (const [entryHash, entry] of Object.entries(index.entries)) {
+        if (entryHash === hash || !isSameChapter(entry, chapterFile)) continue;
+        if (renderedSpecDigest(entry, artifactDir) === digest) return entry;
+    }
+    return null;
+}
+
+/** Drops the entries no render can ever reach, and answers with what it dropped.
+ *
+ *  A dead entry's hash is in no fence sharing this index, and its ordinal is past the
+ *  chapter's last fence, a fence no Archify type fits, or a fence with a current entry
+ *  of its own. Any other hash-less entry is what marks its fence `stale`, and clearing
+ *  it would call an old picture's diagram merely `missing`.
+ *
+ *  Two kinds of entry stay even so. One whose recorded text is still on disk, with no
+ *  current entry claiming that text, is the guard's only evidence that the file was
+ *  authored from a fence that has gone: clearing it would let the unchanged file render
+ *  on the next run. And one that names no chapter may be another chapter's. */
+function pruneDeadEntries(index, chapterFile, fences) {
+    const artifactDir = dirname(indexPath(chapterFile));
+    const current = fenceHashesSharingIndex(chapterFile);
+    const candidates = Object.entries(index.entries).filter(([hash, entry]) =>
+        !current.has(hash) && namedChapter(entry) !== null && isSameChapter(entry, chapterFile));
+    if (candidates.length === 0) return [];
+
+    const onDisk = chapterSpecDigests(artifactDir, chapterFile);
+    for (const [hash, entry] of Object.entries(index.entries)) {
+        if (current.has(hash) && isSameChapter(entry, chapterFile)) onDisk.delete(renderedSpecDigest(entry, artifactDir));
+    }
+
+    const cleared = [];
+    for (const [hash, entry] of candidates) {
+        const fence = fences.find(f => f.ordinal === entry.ordinal);
+        const dead = !fence
+            || allowedTypesFor(mermaidKind(fence.source)).length === 0
+            || isSameDiagram(index.entries[diagramSourceHash(fence.source)], chapterFile, fence.ordinal);
+        if (dead && !onDisk.has(renderedSpecDigest(entry, artifactDir))) {
+            delete index.entries[hash];
+            cleared.push(entry);
+        }
+    }
+
+    return cleared;
 }
 
 function parseSpecName(specFile) {
@@ -342,13 +444,19 @@ function parseSpecName(specFile) {
 /** Every knowledge chapter diagram and what state its artifact is in.
  *
  *  Six states, because the button the app draws has to tell them apart:
- *    rendered    hash matches an index entry and the specification it names exists;
- *                the app draws the picture from it (local ADR 0034)
- *    stale       an entry names this chapter and ordinal, but for a different hash
- *    unrendered  a specification exists and no entry for this hash does
+ *    rendered    hash matches an index entry and that entry names the specification
+ *                on disk; the app draws the picture from it (local ADR 0034)
+ *    stale       an entry names this chapter and ordinal, but for a different hash;
+ *                or the entry for this hash is at another ordinal and the
+ *                specification authored from this fence has not followed it here
+ *    unrendered  a specification exists, authored from this fence as far as the index
+ *                can tell, and no entry for this hash names it
  *    missing     no specification, and Archify has a type for this kind
  *    unsupported no Archify type fits — classDiagram and the rest
- *    error       two specifications claim one diagram, so there is no answer to give */
+ *    error       two specifications claim one diagram, or identical fences were
+ *                authored at different types, so there is no answer to give
+ *
+ *  A row `render --all` cannot take carries the reason as `skip`. */
 function scan() {
     const rows = [];
 
@@ -356,42 +464,81 @@ function scan() {
         for (const chapterFile of markdownFiles(join(REPO, folder))) {
             const index = readIndex(indexPath(chapterFile));
             const artifactDir = join(dirname(chapterFile), ARTIFACT_DIR);
+            const fences = mermaidFences(chapterFile);
 
-            for (const fence of mermaidFences(chapterFile)) {
+            for (const fence of fences) {
                 const kind = mermaidKind(fence.source);
                 const hash = diagramSourceHash(fence.source);
                 const entry = index.entries[hash];
                 const displaced = Object.entries(index.entries).find(
                     ([entryHash, value]) => entryHash !== hash && isSameDiagram(value, chapterFile, fence.ordinal));
+                const moved = recordedElsewhere(entry, chapterFile, fence, fences);
 
-                // What the index recorded, then what is actually on disk, then the
-                // default for the kind. The default stays last rather than first
-                // so that a diagram nobody has authored still reports the type it
-                // would be authored as, while one somebody authored at a
-                // non-default type is found where they put it.
-                const named = entry ?? displaced?.[1] ?? null;
+                // What is on disk, then what this fence's own entry recorded, then
+                // the default for the kind. Never what a displaced entry recorded:
+                // that entry is about whichever fence held this ordinal before, and
+                // naming the specification from it asks for a file that was renamed
+                // away, at a type this fence may not even have.
                 const specs = discoverSpecs(artifactDir, chapterFile, fence.ordinal);
+                const found = specs[0] ?? null;
 
-                const type = named?.type ?? specs[0]?.type ?? defaultTypeFor(kind);
-                const quality = named?.quality ?? specs[0]?.quality ?? SHOWCASE;
-                const spec = type ? join(artifactDir, specName(chapterFile, fence.ordinal, type, quality)) : null;
+                const type = found?.type ?? entry?.type ?? defaultTypeFor(kind);
+                const quality = found?.quality ?? entry?.quality ?? SHOWCASE;
+                const spec = type ? join(artifactDir, found?.name ?? specName(chapterFile, fence.ordinal, type, quality)) : null;
                 const artifact = spec ? spec.replace(/\.json$/, '.html') : null;
+
+                // The entry for this fence names another file than the one on disk.
+                // Another chapter's entry, filed under an identical fence, is not this
+                // one's to take over, and neither is the entry of an identical fence
+                // here. Among the rest the digest tells a renamed specification, which
+                // only needs recording, from a neighbour's left at this ordinal.
+                const unrecorded = found !== null && !!entry && typeof entry.spec === 'string'
+                    && entry.spec !== found.name && isSameChapter(entry, chapterFile)
+                    && (entry.ordinal === fence.ordinal || moved);
+                const digest = unrecorded ? fileDigest(spec) : null;
+                const renamed = unrecorded && (moved
+                    ? renderedSpecDigest(entry, artifactDir) === digest
+                    : recordedForAnotherFence(index, chapterFile, hash, digest, artifactDir) === null);
+
+                // One hash has one entry, so identical fences cannot be drawn at two
+                // types: the app would look for a file at the entry's type and find none.
+                const contradicts = found !== null && !!entry && !unrecorded
+                    && ((!!entry.type && entry.type !== found.type) || (!!entry.quality && entry.quality !== found.quality));
 
                 let state;
                 let error = null;
                 if (specs.length > 1) {
                     state = 'error';
-                    error = `two specifications claim this diagram: ${specs.map(found => found.name).join(' and ')}. Exactly one may exist.`;
+                    error = `two specifications claim this diagram: ${specs.map(spec => spec.name).join(' and ')}. Exactly one may exist.`;
+                }
+                else if (contradicts) {
+                    state = 'error';
+                    error = `${found.name} contradicts ${entry.spec}, the entry for an identical fence. One hash has one entry, so identical fences must share a type and a quality.`;
                 }
                 else if (type === null) state = 'unsupported';
+                else if (renamed) state = 'unrendered';
+                else if (unrecorded) state = 'stale';
                 // The HTML is not consulted: it is not committed, and the app
                 // draws it from the specification. What makes a diagram rendered is
                 // that `render` validated this specification and filed it under
                 // this fence's hash.
-                else if (entry && spec && existsSync(spec)) state = 'rendered';
-                else if (displaced) state = 'stale';
-                else if (spec && existsSync(spec)) state = 'unrendered';
+                else if (entry && found) state = 'rendered';
+                else if (displaced || moved) state = 'stale';
+                else if (found) state = 'unrendered';
                 else state = 'missing';
+
+                let skip = null;
+                if (state === 'stale' || state === 'unrendered') {
+                    if (!found) {
+                        skip = moved
+                            ? `this fence was recorded as diagram ${entry.ordinal}, authored as ${entry.spec}, and no specification has followed it to ordinal ${fence.ordinal}. Rename that specification with git mv.`
+                            : `no specification exists for this fence at ordinal ${fence.ordinal}. Rename the one authored from it, or author one: scaffold ${relative(REPO, chapterFile).split(sep).join('/')} ${fence.ordinal}.`;
+                    } else if (allowedTypesFor(kind).length === 0) {
+                        skip = `${found.name} sits at a ${kind}, which no Archify type fits. Delete it, or rename it to its own fence's ordinal.`;
+                    } else if (!allowedTypesFor(kind).includes(found.type)) {
+                        skip = `${found.name} has type ${found.type}, and this fence is a ${kind}, so it was not authored from this fence. Rename it to its own fence's ordinal, and author this one.`;
+                    }
+                }
 
                 rows.push({
                     chapter: relative(REPO, chapterFile).split(sep).join('/'),
@@ -402,6 +549,7 @@ function scan() {
                     quality: type ? quality : null,
                     state,
                     error,
+                    skip,
                     hash,
                     spec: spec ? relative(REPO, spec).split(sep).join('/') : null,
                     artifact: artifact ? relative(REPO, artifact).split(sep).join('/') : null
@@ -457,21 +605,30 @@ function renderedSpecDigest(entry, artifactDir) {
  *    specification did not. Rendering it anyway marks an artifact of the old
  *    diagram current.
  *
+ *  Two more are refused because they cannot both be true: a specification whose exact
+ *  text is recorded for another fence of the chapter — that fence edited and moved at
+ *  once leaves no other trace — and a fence identical to one filed at another type.
+ *
  *  `--confirm-fence` is the author's word that the specification still says what
  *  the fence says — a `%%` comment or whitespace edit that never reaches the
  *  picture. */
-function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
+function assertAuthoredFrom(specFile, chapterFile, ordinal, type, quality, fence, fences, index) {
     const hash = diagramSourceHash(fence.source);
     const artifactDir = dirname(specFile);
     const digest = specDigest(readFileSync(specFile, 'utf8'));
     const where = `${relative(REPO, chapterFile)} diagram ${ordinal}`;
 
     const moved = index.entries[hash];
-    if (moved && moved.ordinal !== ordinal && isSameChapter(moved, chapterFile)) {
+    if (recordedElsewhere(moved, chapterFile, fence, fences)) {
         if (renderedSpecDigest(moved, artifactDir) !== digest) {
             throw new Error(`${where} is the mermaid recorded as diagram ${moved.ordinal}, authored as ${moved.spec}. The fences have moved: rename that specification to ordinal ${ordinal} rather than rendering ${basename(specFile)} against it. If ${basename(specFile)} really was authored from this fence, pass --confirm-fence.`);
         }
         return;
+    }
+
+    const heldElsewhere = moved && (moved.ordinal !== ordinal || !isSameChapter(moved, chapterFile));
+    if (heldElsewhere && ((moved.type && moved.type !== type) || (moved.quality && moved.quality !== quality))) {
+        throw new Error(`${where} is identical to the fence filed as ${moved.spec}, at another type or quality. One hash has one entry, so identical fences must share them.`);
     }
 
     const previous = Object.entries(index.entries)
@@ -481,6 +638,11 @@ function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
         if (rendered === null || rendered === digest) {
             throw new Error(`${where} has changed since ${previous.spec} was rendered from it, and ${basename(specFile)} has not. Compare the fence with the specification and re-author what changed. If the change never reaches the picture — a %% comment, whitespace — pass --confirm-fence.`);
         }
+    }
+
+    const owner = recordedForAnotherFence(index, chapterFile, hash, digest, artifactDir);
+    if (owner) {
+        throw new Error(`${where} is not the fence ${basename(specFile)} was authored from: its text is recorded as ${owner.spec}, diagram ${owner.ordinal}, under another hash. Compare the fence with the specification and re-author what changed. If the change never reaches the picture — a %% comment, whitespace — pass --confirm-fence.`);
     }
 }
 
@@ -496,35 +658,7 @@ function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
  *  (`assertAuthoredFrom`), and what it adds is the index entry, which is the only
  *  thing that will ever connect the artifact back to the fence. */
 function render(specFile, { confirmFence = false } = {}) {
-    const { chapterFile, ordinal, type, quality } = parseSpecName(specFile);
-    const fences = mermaidFences(chapterFile);
-    const fence = fences.find(f => f.ordinal === ordinal);
-    if (!fence) {
-        throw new Error(`${relative(REPO, chapterFile)} has ${fences.length} mermaid fences, so there is no diagram ${ordinal}`);
-    }
-
-    // One diagram, one specification. Rendering either of two competing files
-    // would write an index entry that immediately contradicts the other, so the
-    // author is told which two rather than being given a coin toss.
-    const competing = discoverSpecs(dirname(specFile), chapterFile, ordinal);
-    if (competing.length > 1) {
-        throw new Error(`${relative(REPO, chapterFile)} diagram ${ordinal} has ${competing.length} specifications: ${competing.map(found => found.name).join(' and ')}. Delete the one that is not authoritative.`);
-    }
-
-    const kind = mermaidKind(fence.source);
-    const expected = defaultTypeFor(kind);
-    const allowed = kind === 'flowchart' || kind === 'graph' ? FLOWCHART_TYPES : expected === null ? [] : [expected];
-    if (!allowed.includes(type)) {
-        throw new Error(
-            allowed.length === 0
-                ? `${relative(REPO, chapterFile)} diagram ${ordinal} is a ${kind}, which no Archify type fits`
-                : `${relative(REPO, chapterFile)} diagram ${ordinal} is a ${kind}, so its type must be ${allowed.join(' or ')}, not ${type}`);
-    }
-
-    // Before `deliver`, so a refused render writes nothing at all.
-    const file = indexPath(chapterFile);
-    const index = readIndex(file);
-    if (!confirmFence) assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index);
+    const { chapterFile, ordinal, type, quality, kind, fence, fences, file, index } = checkRender(specFile, { confirmFence });
 
     const artifactFile = specFile.replace(/\.json$/, '.html');
     const result = spawnSync(process.execPath,
@@ -546,16 +680,6 @@ function render(specFile, { confirmFence = false } = {}) {
         throw new Error(`deliver reported ${errors} composition error(s) for ${relative(REPO, specFile)}:\n${JSON.stringify(receipt.validation, null, 2)}`);
     }
 
-    // Drop whatever used to hold this chapter's diagram N. Re-rendering after an
-    // edited fence is exactly the case that produces a second entry for one
-    // diagram, and a leftover would keep the old artifact matching the old text
-    // nobody can see any more. An entry whose fence is still in the chapter is
-    // not a leftover: that diagram moved to another ordinal, and its entry is the
-    // record `assertAuthoredFrom` needs when its renamed specification renders.
-    const current = new Set(fences.map(f => diagramSourceHash(f.source)));
-    for (const [hash, entry] of Object.entries(index.entries)) {
-        if (isSameDiagram(entry, chapterFile, ordinal) && !current.has(hash)) delete index.entries[hash];
-    }
     index.entries[diagramSourceHash(fence.source)] = {
         chapter: basename(chapterFile),
         ordinal,
@@ -568,6 +692,13 @@ function render(specFile, { confirmFence = false } = {}) {
         checksPassed: receipt.validation?.checksPassed ?? null,
         checkCount: receipt.validation?.checkCount ?? null
     };
+
+    // Re-rendering after an edited fence is exactly the case that produces a second
+    // entry for one diagram, and a leftover would keep the old artifact matching the
+    // old text nobody can see any more. An entry whose fence is still in the chapter
+    // is not a leftover: that diagram moved to another ordinal, and its entry is the
+    // record `assertAuthoredFrom` needs when its renamed specification renders.
+    pruneDeadEntries(index, chapterFile, fences);
     writeIndex(file, index);
 
     return {
@@ -580,12 +711,86 @@ function render(specFile, { confirmFence = false } = {}) {
     };
 }
 
+/** Everything `render` checks before it writes anything, and what it read to do so.
+ *  Throws the reason when the specification may not be rendered. */
+function checkRender(specFile, { confirmFence = false } = {}) {
+    const { chapterFile, ordinal, type, quality } = parseSpecName(specFile);
+    const fences = mermaidFences(chapterFile);
+    const fence = fences.find(f => f.ordinal === ordinal);
+    if (!fence) {
+        throw new Error(`${relative(REPO, chapterFile)} has ${fences.length} mermaid fences, so there is no diagram ${ordinal}`);
+    }
+
+    // One diagram, one specification. Rendering either of two competing files
+    // would write an index entry that immediately contradicts the other, so the
+    // author is told which two rather than being given a coin toss.
+    const competing = discoverSpecs(dirname(specFile), chapterFile, ordinal);
+    if (competing.length > 1) {
+        throw new Error(`${relative(REPO, chapterFile)} diagram ${ordinal} has ${competing.length} specifications: ${competing.map(found => found.name).join(' and ')}. Delete the one that is not authoritative.`);
+    }
+
+    const kind = mermaidKind(fence.source);
+    const allowed = allowedTypesFor(kind);
+    if (!allowed.includes(type)) {
+        throw new Error(
+            allowed.length === 0
+                ? `${relative(REPO, chapterFile)} diagram ${ordinal} is a ${kind}, which no Archify type fits`
+                : `${relative(REPO, chapterFile)} diagram ${ordinal} is a ${kind}, so its type must be ${allowed.join(' or ')}, not ${type}`);
+    }
+
+    // Before `deliver`, so a refused render writes nothing at all.
+    const file = indexPath(chapterFile);
+    const index = readIndex(file);
+    if (!confirmFence) assertAuthoredFrom(specFile, chapterFile, ordinal, type, quality, fence, fences, index);
+
+    return { chapterFile, ordinal, type, quality, kind, fence, fences, file, index };
+}
+
 function tryParse(text) {
     try {
         return JSON.parse(text);
     } catch {
         return null;
     }
+}
+
+/** Clears the dead entries of every chapter, and answers with one result per entry,
+ *  plus a skip for each entry past the chapter's last fence that a specification on
+ *  disk keeps alive. A chapter with nothing cleared leaves its index file untouched.
+ *  A deleted chapter is walked by nothing here, so its entries stay. */
+function clearDeadEntries() {
+    const results = [];
+
+    for (const folder of KNOWLEDGE_FOLDERS) {
+        for (const chapterFile of markdownFiles(join(REPO, folder))) {
+            const file = indexPath(chapterFile);
+            if (!existsSync(file)) continue;
+
+            const index = readIndex(file);
+            const fences = mermaidFences(chapterFile);
+            const cleared = pruneDeadEntries(index, chapterFile, fences);
+            const chapter = relative(REPO, chapterFile).split(sep).join('/');
+
+            if (cleared.length > 0) writeIndex(file, index);
+            for (const entry of cleared) {
+                results.push({ ok: true, cleared: true, chapter, ordinal: entry.ordinal, spec: entry.spec ?? null });
+            }
+
+            const current = fenceHashesSharingIndex(chapterFile);
+            for (const [hash, entry] of Object.entries(index.entries)) {
+                if (current.has(hash) || namedChapter(entry) === null || !isSameChapter(entry, chapterFile)) continue;
+                if (fences.some(f => f.ordinal === entry.ordinal)) continue;
+                results.push({
+                    skipped: true,
+                    chapter,
+                    ordinal: entry.ordinal,
+                    reason: `this diagram is no longer in the chapter, and the text of ${entry.spec} is still on disk, so its index entry stays. Delete that specification, or rename it to its own fence's ordinal and re-author it.`
+                });
+            }
+        }
+    }
+
+    return results;
 }
 
 // ---------------------------------------------------------------------------
@@ -635,6 +840,7 @@ function printScan(rows) {
         const type = `${row.type ?? '-'}${row.quality === STANDARD ? ` (${STANDARD})` : ''}`;
         console.log(`${row.state.padEnd(11)} ${type.padEnd(13)} ${row.kind ?? '?'} ${row.chapter}:${row.line} #${row.ordinal}`);
         if (row.error) console.log(`${' '.repeat(11)} ${row.error}`);
+        if (row.skip) console.log(`${' '.repeat(11)} ${row.skip}`);
     }
     console.log('');
     console.log(`${rows.length} knowledge chapter diagrams: ${STATE_ORDER.map(s => `${counts[s]} ${s}`).join(', ')}`);
@@ -655,16 +861,43 @@ function main(argv) {
         }
 
         case 'render': {
-            const specs = rest.includes('--all')
-                ? scan().filter(r => r.state === 'unrendered' || r.state === 'stale').map(r => join(REPO, r.spec))
-                : args.map(a => resolve(REPO, a));
-            if (specs.length === 0) {
-                console.log('Nothing to render.');
-                return 0;
-            }
             const results = [];
-            let failed = 0;
+            const all = rest.includes('--all');
             const confirmFence = rest.includes('--confirm-fence');
+            let specs = args.map(a => resolve(REPO, a));
+            let failed = 0;
+
+            const fail = (spec, error) => {
+                failed++;
+                results.push({ ok: false, spec: relative(REPO, spec).split(sep).join('/'), error: error.message });
+                if (!json) console.error(`FAIL ${relative(REPO, spec)}\n${error.message}`);
+            };
+            const reportSkip = (chapter, ordinal, reason) => {
+                results.push({ skipped: true, chapter, ordinal, reason });
+                if (!json) console.log(`skip ${chapter} #${ordinal}: ${reason}`);
+            };
+
+            // A skip is not a failure: nothing was attempted, and `verify` goes on
+            // reporting the diagram until somebody renames or authors what it needs.
+            if (all) {
+                const rows = scan().filter(r => r.state === 'unrendered' || r.state === 'stale');
+                for (const row of rows.filter(r => r.skip)) reportSkip(row.chapter, row.ordinal, row.skip);
+
+                // Every guard runs against the index as it stands before the first
+                // write. A render drops the entries it supersedes, and one of those
+                // may be the only record that a later specification in this list was
+                // authored from another fence.
+                specs = rows.filter(r => !r.skip).map(r => join(REPO, r.spec)).filter(spec => {
+                    try {
+                        checkRender(spec, { confirmFence });
+                        return true;
+                    } catch (error) {
+                        fail(spec, error);
+                        return false;
+                    }
+                });
+            }
+
             for (const spec of specs) {
                 try {
                     const result = render(spec, { confirmFence });
@@ -675,12 +908,24 @@ function main(argv) {
                     // drawing that quietly got worse.
                     if (!json) console.log(`ok   ${result.artifact} (${result.validation?.checksPassed}/${result.validation?.checkCount} checks, ${result.warnings} warnings, quality ${result.quality}, ${result.bytes} bytes)`);
                 } catch (error) {
-                    failed++;
-                    results.push({ ok: false, spec: relative(REPO, spec).split(sep).join('/'), error: error.message });
-                    if (!json) console.error(`FAIL ${relative(REPO, spec)}\n${error.message}`);
+                    fail(spec, error);
                 }
             }
+
+            // Last, for the same reason: what a guard reads must still be there.
+            if (all) {
+                for (const outcome of clearDeadEntries()) {
+                    if (outcome.skipped) {
+                        reportSkip(outcome.chapter, outcome.ordinal, outcome.reason);
+                        continue;
+                    }
+                    results.push(outcome);
+                    if (!json) console.log(`clear ${outcome.chapter} diagram ${outcome.ordinal} is no longer in the chapter or has been superseded: dropped its entry for ${outcome.spec}`);
+                }
+            }
+
             if (json) console.log(JSON.stringify(results, null, 2));
+            else if (results.length === 0) console.log('Nothing to render.');
             return failed === 0 ? 0 : 1;
         }
 

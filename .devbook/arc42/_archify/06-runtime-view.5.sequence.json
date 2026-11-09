@@ -2,38 +2,25 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Talk Note Upload",
+    "title": "Repeating Task Successor Across Replicas",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [1200, 740]
+    "viewBox": [1200, 620]
   },
   "participants": [
-    { "id": "me", "type": "external", "label": "ME" },
-    { "id": "app", "type": "frontend", "label": "Phone App" },
-    { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
-    { "id": "files", "type": "database", "label": "talk-notes/outbox" },
-    { "id": "sync", "type": "cloud", "label": "Sync Service" }
-  ],
-  "segments": [
-    { "from": 150, "to": 256, "label": "Queued by an earlier build" },
-    { "from": 272, "to": 460, "label": "Loop: each file not yet uploaded" },
-    { "from": 476, "to": 666, "label": "Post the note and clean up" }
+    { "id": "phone", "type": "frontend", "label": "Phone App" },
+    { "id": "sync", "type": "cloud", "label": "Sync Service" },
+    { "id": "desktop-a", "type": "frontend", "label": "Desktop A" },
+    { "id": "desktop-b", "type": "frontend", "label": "Desktop B" }
   ],
   "messages": [
-    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 186, "label": "Entry (id v7, kind=talk-note, capture + uploaded=[])", "variant": "emphasis", "note": "Queued by an earlier build: pictures downscaled, size + sha256 taken" },
-    { "id": "marked-waiting", "from": "app", "to": "me", "y": 234, "label": "Inbox row marked waiting", "variant": "return" },
-    { "id": "put-attachment", "from": "outbox", "to": "sync", "y": 304, "label": "PUT /api/sync/attachments/{id} (X-Attachment-Sha256)", "variant": "emphasis" },
-    { "id": "stored-attachment", "from": "sync", "to": "outbox", "y": 352, "label": "StoredAttachment", "variant": "return", "note": "alt: 201, or 200 for the same bytes; Outbox then checkpoints: uploaded += id, attempts = 0" },
-    { "id": "transient", "from": "sync", "to": "outbox", "y": 400, "label": "Transient — attempts+1, back off, stop the flush", "variant": "return", "note": "else: no network, timeout, 5xx or 401" },
-    { "id": "refused", "from": "sync", "to": "outbox", "y": 448, "label": "Refused — set aside, naming the file", "variant": "return", "note": "else: 409, 413 or 415" },
-    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 508, "label": "POST /api/sync/inbox (same id, attachments: metadata)", "variant": "emphasis" },
-    { "id": "inbox-created", "from": "sync", "to": "outbox", "y": 556, "label": "201 InboxItem", "variant": "return", "note": "Outbox then: DELETE entry" },
-    { "id": "delete-files", "from": "outbox", "to": "files", "y": 600, "label": "Delete the note's files", "variant": "default" },
-    { "id": "synced", "from": "app", "to": "me", "y": 644, "label": "\"synced\"", "variant": "return" }
-  ],
-  "activations": [
-    { "participant": "sync", "from": 298, "to": 454, "type": "cloud" },
-    { "participant": "sync", "from": 502, "to": 562, "type": "cloud" }
+    { "id": "post-ticked", "from": "phone", "to": "sync", "y": 182, "label": "POST /api/sync/tasks (repeating task ticked)", "variant": "emphasis" },
+    { "id": "a-pull", "from": "desktop-a", "to": "sync", "y": 226, "label": "GET /api/sync/tasks?since=cursor", "variant": "emphasis" },
+    { "id": "a-ticked-copy", "from": "sync", "to": "desktop-a", "y": 270, "label": "Ticked copy of a task A held unticked", "variant": "return", "note": "Desktop A then: Replica merge runs Occurrence Spawning" },
+    { "id": "post-successor", "from": "desktop-a", "to": "sync", "y": 314, "label": "POST successor (id from OccurrenceSpawning.SuccessorId)", "variant": "emphasis" },
+    { "id": "b-pull", "from": "desktop-b", "to": "sync", "y": 358, "label": "GET /api/sync/tasks?since=cursor", "variant": "emphasis" },
+    { "id": "b-ticked-and-successor", "from": "sync", "to": "desktop-b", "y": 402, "label": "Ticked copy and successor", "variant": "return", "note": "Desktop B then: Same successor id, or already held: one document" },
+    { "id": "phone-pull", "from": "phone", "to": "sync", "y": 446, "label": "GET /api/sync/tasks (successor arrives in My Day)", "variant": "emphasis" }
   ]
 }

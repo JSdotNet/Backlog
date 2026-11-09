@@ -2,40 +2,41 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "State Sync and Webhook Forwarding",
+    "title": "Talk Note Upload",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [960, 790]
+    "viewBox": [1200, 740]
   },
   "participants": [
-    { "id": "desktop", "type": "frontend", "label": "Desktop App" },
-    { "id": "cloud", "type": "cloud", "label": "Cloud Service" },
-    { "id": "clouddb", "type": "database", "label": "Cloud Database" },
-    { "id": "phone", "type": "frontend", "label": "Phone App" },
-    { "id": "gh", "type": "external", "label": "GitHub" }
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "app", "type": "frontend", "label": "Phone App" },
+    { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
+    { "id": "files", "type": "database", "label": "talk-notes/outbox" },
+    { "id": "sync", "type": "cloud", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 292, "label": "Desktop push" },
-    { "from": 308, "to": 492, "label": "Phone pull" },
-    { "from": 508, "to": 704, "label": "Not built: webhook validate and forward" }
+    { "from": 150, "to": 256, "label": "Queued by an earlier build" },
+    { "from": 272, "to": 460, "label": "Loop: each file not yet uploaded" },
+    { "from": 476, "to": 666, "label": "Post the note and clean up" }
   ],
   "messages": [
-    { "id": "sync-push", "from": "desktop", "to": "cloud", "y": 182, "label": "POST /api/sync/tasks (changed since watermark)", "variant": "emphasis" },
-    { "id": "upsert-documents", "from": "cloud", "to": "clouddb", "y": 226, "label": "Upsert documents (tasks container)", "variant": "default" },
-    { "id": "push-ok", "from": "cloud", "to": "desktop", "y": 270, "label": "200 OK", "variant": "return" },
-    { "id": "sync-pull", "from": "phone", "to": "cloud", "y": 338, "label": "GET /api/sync/tasks?since=cursor", "variant": "emphasis", "note": "Phone comes online" },
-    { "id": "read-change-feed", "from": "cloud", "to": "clouddb", "y": 382, "label": "Read the change feed from the cursor", "variant": "default" },
-    { "id": "changed-documents", "from": "clouddb", "to": "cloud", "y": 426, "label": "Changed documents", "variant": "return" },
-    { "id": "pull-ok", "from": "cloud", "to": "phone", "y": 470, "label": "200 OK (documents, next cursor)", "variant": "return" },
-    { "id": "webhook-post", "from": "gh", "to": "cloud", "y": 538, "label": "POST webhook", "variant": "emphasis", "note": "Not built: GitHub webhook received" },
-    { "id": "store-event", "from": "cloud", "to": "clouddb", "y": 590, "label": "Store WebhookEvent (TTL 24h)", "variant": "default", "note": "Cloud Service validates the HMAC signature first" },
-    { "id": "webhook-accepted", "from": "cloud", "to": "gh", "y": 634, "label": "202 Accepted", "variant": "return" },
-    { "id": "sse-forward", "from": "cloud", "to": "desktop", "y": 678, "label": "SSE - github.event forwarded", "variant": "dashed" }
+    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 186, "label": "Entry (id v7, kind=talk-note, capture + uploaded=[])", "variant": "emphasis", "note": "Queued by an earlier build: pictures downscaled, size + sha256 taken" },
+    { "id": "marked-waiting", "from": "app", "to": "me", "y": 234, "label": "Inbox row marked waiting", "variant": "return" },
+    { "id": "put-attachment", "from": "outbox", "to": "sync", "y": 304, "label": "PUT /api/sync/attachments/{id} (X-Attachment-Sha256)", "variant": "emphasis" },
+    { "id": "stored-attachment", "from": "sync", "to": "outbox", "y": 352, "label": "StoredAttachment", "variant": "return", "note": "alt: 201, or 200 for the same bytes; Outbox then: Checkpoint: uploaded += id, attempts = 0" },
+    { "id": "transient", "from": "sync", "to": "outbox", "y": 400, "label": "Transient — attempts+1, back off, stop the flush", "variant": "return", "note": "else: no network, timeout, 5xx or 401" },
+    { "id": "refused", "from": "sync", "to": "outbox", "y": 448, "label": "Refused — set aside, naming the file", "variant": "return", "note": "else: 409, 413 or 415" },
+    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 508, "label": "POST /api/sync/inbox (same id, attachments: metadata)", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "sync", "to": "outbox", "y": 556, "label": "201 InboxItem", "variant": "return", "note": "Outbox then: DELETE entry" },
+    { "id": "delete-files", "from": "outbox", "to": "files", "y": 600, "label": "Delete the note's files", "variant": "default" },
+    { "id": "synced", "from": "app", "to": "me", "y": 644, "label": "\"synced\"", "variant": "return" }
   ],
   "activations": [
-    { "participant": "cloud", "from": 176, "to": 276, "type": "cloud" },
-    { "participant": "cloud", "from": 332, "to": 476, "type": "cloud" },
-    { "participant": "cloud", "from": 532, "to": 640, "type": "cloud" }
+    { "participant": "sync", "from": 298, "to": 454, "type": "cloud" },
+    { "participant": "sync", "from": 502, "to": 562, "type": "cloud" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Note over Phone App and SQLite Outbox", "items": ["A service newer than the app is sent no upload and no post: the app's own 426 holds the entry as it is"] }
   ]
 }

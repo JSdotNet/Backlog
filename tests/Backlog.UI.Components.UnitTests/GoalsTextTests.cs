@@ -62,6 +62,23 @@ public sealed class GoalsTextTests
     }
 
     [Theory]
+    [InlineData(5, 9, 2, 1, "5/9 · 2 in progress · 1 blocked")]
+    [InlineData(3, 5, 1, 0, "3/5 · 1 in progress")]
+    [InlineData(3, 5, 0, 2, "3/5 · 2 blocked")]
+    [InlineData(51, 53, 0, 0, "51/53")]
+    public void A_plan_line_reads_done_over_total_and_only_the_amounts_that_are_there(int done, int total, int doing, int blocked, string expected) =>
+        Assert.Equal(expected, GoalsText.PlanLine(new GoalPlanModel("Bank integration", done, total, Doing: doing, Blocked: blocked)));
+
+    /// <summary>Not started is what the plan's total leaves, so a plan with none left says
+    /// nought rather than the track's width.</summary>
+    [Theory]
+    [InlineData(5, 9, 2, 1, "5 done, 2 in progress, 1 blocked, 1 not started")]
+    [InlineData(5, 8, 2, 1, "5 done, 2 in progress, 1 blocked, 0 not started")]
+    [InlineData(51, 53, 0, 0, "51 done, 0 in progress, 0 blocked, 2 not started")]
+    public void A_plans_bar_label_says_what_its_total_leaves_as_not_started(int done, int total, int doing, int blocked, string expected) =>
+        Assert.Equal(expected, GoalsText.BarLabel(new GoalPlanModel("Bank integration", done, total, Doing: doing, Blocked: blocked).Counts));
+
+    [Theory]
     [InlineData(21, 18, "21 / 18 pts")]
     [InlineData(5, 4, "5 / 4 pts")]
     [InlineData(21, null, "21 pts")]

@@ -6,7 +6,7 @@
     "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
-      1392,
+      1600,
       3496
     ]
   },
@@ -153,8 +153,8 @@
       "sublabel": "candidate",
       "tag": "Foundations",
       "pos": [
-        288,
-        3248
+        1368,
+        1648
       ],
       "size": [
         160,
@@ -777,6 +777,21 @@
       ]
     },
     {
+      "id": "FirebaseMessaging",
+      "type": "backend",
+      "label": "Xamarin.Firebase.Messaging",
+      "sublabel": "candidate",
+      "tag": "Mobile",
+      "pos": [
+        1344,
+        1808
+      ],
+      "size": [
+        208,
+        64
+      ]
+    },
+    {
       "id": "AndroidTools",
       "type": "backend",
       "label": "Android SDK Build Tools",
@@ -968,6 +983,36 @@
       ],
       "size": [
         128,
+        64
+      ]
+    },
+    {
+      "id": "WebPubSub",
+      "type": "backend",
+      "label": "Azure Web PubSub",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        664,
+        440
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "NotificationHubs",
+      "type": "backend",
+      "label": "Azure Notification Hubs",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        1368,
+        1488
+      ],
+      "size": [
+        160,
         64
       ]
     },
@@ -2407,6 +2452,20 @@
       "via": []
     },
     {
+      "from": "FirebaseMessaging",
+      "to": "Android",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "FirebaseMessaging",
+      "to": "FCM",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
       "from": "AndroidTools",
       "to": "Android",
       "fromSide": "right",
@@ -2662,6 +2721,49 @@
           512
         ]
       ]
+    },
+    {
+      "from": "WebPubSub",
+      "to": "MinimalApis",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          816,
+          472
+        ],
+        [
+          816,
+          560
+        ]
+      ]
+    },
+    {
+      "from": "NotificationHubs",
+      "to": "MinimalApis",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          1448,
+          504
+        ],
+        [
+          832,
+          504
+        ],
+        [
+          832,
+          560
+        ]
+      ]
+    },
+    {
+      "from": "NotificationHubs",
+      "to": "FCM",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
     },
     {
       "from": "XUnit",
