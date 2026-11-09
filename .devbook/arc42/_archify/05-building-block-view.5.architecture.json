@@ -2,27 +2,24 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Brain repo links — the three readers",
+    "title": "Ask AI content — one source per area",
     "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [
-    { "id": "link", "type": "backend", "label": "BrainRepoLink", "sublabel": "alias, path, slug", "pos": [40, 80], "size": [230, 80] },
-    { "id": "resolver", "type": "backend", "label": "BrainRepoLinkResolver", "sublabel": "asks IDevbookFolderSource", "pos": [360, 80], "size": [230, 80] },
-    { "id": "panel", "type": "frontend", "label": "BrainDevbookPanel", "sublabel": "RepoLinkChip", "pos": [680, 80], "size": [230, 80] },
-    { "id": "shell", "type": "frontend", "label": "Shell", "sublabel": "DevbookOpenRequest", "pos": [1080, 80], "size": [230, 80] },
-    { "id": "brainDb", "type": "database", "label": "Brain database", "sublabel": "DevbookDatabase.RepoLinks()", "pos": [40, 300], "size": [230, 80] },
-    { "id": "atlas", "type": "backend", "label": "Brain atlas", "sublabel": "DevbookAtlasService.ReadBrainAsync", "pos": [360, 300], "size": [230, 80] },
-    { "id": "backlinks", "type": "backend", "label": "BrainBacklinkReader", "sublabel": "IBrainBacklinks", "pos": [360, 500], "size": [230, 80] },
-    { "id": "box", "type": "frontend", "label": "BrainBacklinksBox", "pos": [680, 500], "size": [230, 80] }
+    { "id": "budget", "type": "backend", "label": "AiContentBudget", "sublabel": "character budget", "pos": [40, 100], "size": [220, 80] },
+    { "id": "sources", "type": "frontend", "label": "IAiContentSource", "sublabel": "one per area UI", "pos": [350, 100], "size": [230, 80] },
+    { "id": "panel", "type": "frontend", "label": "Shell Ask AI panel", "sublabel": "the area on screen", "pos": [830, 100], "size": [230, 80] },
+    { "id": "client", "type": "backend", "label": "Azure Foundry client", "sublabel": "Infrastructure.AzureFoundry", "pos": [830, 380], "size": [230, 80] },
+    { "id": "model", "type": "cloud", "label": "Azure AI Foundry", "sublabel": "deployment", "pos": [350, 380], "size": [230, 80] }
   ],
   "connections": [
-    { "id": "link-resolver", "from": "link", "to": "resolver", "fromSide": "right", "toSide": "left" },
-    { "id": "resolver-panel", "from": "resolver", "to": "panel", "fromSide": "right", "toSide": "left" },
-    { "id": "panel-shell", "from": "panel", "to": "shell", "label": "OnOpenRepositoryChapter", "fromSide": "right", "toSide": "left" },
-    { "id": "braindb-backlinks", "from": "brainDb", "to": "backlinks", "fromSide": "bottom", "toSide": "left" },
-    { "id": "backlinks-box", "from": "backlinks", "to": "box", "fromSide": "right", "toSide": "left" },
-    { "id": "braindb-atlas", "from": "brainDb", "to": "atlas", "fromSide": "right", "toSide": "left" },
-    { "id": "resolver-atlas", "from": "resolver", "to": "atlas", "fromSide": "bottom", "toSide": "top" }
+    { "id": "budget-sources", "from": "budget", "to": "sources", "fromSide": "right", "toSide": "left" },
+    { "id": "sources-panel", "from": "sources", "to": "panel", "label": "body; first line states the scope", "fromSide": "right", "toSide": "left" },
+    { "id": "panel-client", "from": "panel", "to": "client", "label": "chosen source's body + question", "fromSide": "bottom", "toSide": "top", "labelAt": [1040, 280] },
+    { "id": "client-model", "from": "client", "to": "model", "fromSide": "left", "toSide": "right" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Areas answering IAiContentSource", "items": ["Tasks", "Inbox", "Devbook", "Roadmap", "Dashboard", "Sessions", "Tools"] }
   ]
 }

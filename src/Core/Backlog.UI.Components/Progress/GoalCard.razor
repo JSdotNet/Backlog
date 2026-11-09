@@ -8,8 +8,9 @@
     toggles. Opened, the bar runs under the title and the goal lists what is
     attached to it in three columns — Plan with each plan's own stacked bar and a line
     such as "5/9 · 2 in progress · 1 blocked", Tasks with a status dot and the status in a
-    word under the title each, Pull requests with a status line each, the merged ones
-    gathered on one line as pills and "merged" — and below them the attach search.
+    word under the title each, Pull requests with a status line each under its title when
+    one is known, the merged ones gathered on one line as pills and "merged", the title
+    their tooltip — and below them the attach search.
 
     The attach search is the library's WorkItemSearch, drawn in this card's classes. It
     matches the host's candidates — plans, tasks and pull requests — by
@@ -214,7 +215,13 @@
                     @foreach (var (pull, subject) in Pulls.Where(p => !p.Pull.IsMerged))
                     {
                         <span class="goal-card__pull">
-                            <PullRequestStatus Model="pull" TestId="@Part($"pull-request-{pull.Number}")" />
+                            <span class="goal-card__pull-body">
+                                @if (!string.IsNullOrWhiteSpace(pull.Title))
+                                {
+                                    <span class="goal-card__pull-title" data-testid="@Part($"pull-request-{pull.Number}-title")">@pull.Title</span>
+                                }
+                                <PullRequestStatus Model="pull" TestId="@Part($"pull-request-{pull.Number}")" />
+                            </span>
                             @Detach(subject, $"pull request #{pull.Number}")
                         </span>
                     }

@@ -249,13 +249,14 @@ from errors to warnings. It relaxes nothing else: edge-through-node,
 endpoint-side-direction and label-overlap are enforced identically at both, and a
 `standard` render still fails on any error.
 
-Three diagrams here render at `standard`, and not for want of trying:
+Four diagrams here render at `standard`, and not for want of trying:
 
 | diagram | why |
 | --- | --- |
-| `.devbook/domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
-| `.devbook/arc42/05-building-block-view.md` #3 | the desktop app's project map (35 components, 51 connections) contains a K3,3 subdivision: `{Shell, Tasks, Roadmap}` × `{GitHubInfra, Mcp, Sqlite}`. Removing any one of `RoadmapUI → GitHubInfra`, `TasksUI → Tasks` or `RoadmapUI → Roadmap` would make it planar, so one crossing is forced; the artifact has two |
-| `.devbook/tech/technology-graph.md` #1 | two non-planar blocks: the .NET block (23 nodes, 38 edges) needs at least two edges removed to become planar, and the AI/devbook block (25 nodes, 41 edges) at least one — `Skills → Markdown` is the only single edge that works — so three crossings are forced; the artifact has eight |
+| `.devbook/domain/context-map.md` #1 | the relationship graph (17 contexts, 41 related pairs) is non-planar: no four edges removed make it planar, so at least five crossings are forced; the artifact has sixteen |
+| `.devbook/arc42/05-building-block-view.md` #2 | the desktop app's project map (36 components, 54 connections) needs at least two edges removed to become planar, such as `Shell → TasksUI` and `RoadmapUI → GitHubInfra`, so two crossings are forced; the artifact has four |
+| `.devbook/arc42/05-building-block-view.md` #6 | the mobile app's project map (20 components, 31 connections) contains a K3,3 subdivision, `{InboxTab, NoteTab, NotificationsTab}` × `{Outbox, Speech, API}`, and needs at least two edges removed to become planar, so two crossings are forced; the artifact has two |
+| `.devbook/tech/technology-graph.md` #2 | two non-planar blocks: the .NET block (27 nodes, 43 edges) needs at least two edges removed to become planar, and the AI/devbook block (25 nodes, 41 edges) at least one — `Skills → Markdown` is the only single edge that works — so three crossings are forced; the artifact has eight |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing
 between two relationships that share no endpoint. In a non-planar graph at least
@@ -277,37 +278,36 @@ prints it along with the warning count, and records `quality` in the index entry
 Anything other than `standard` in that position is rejected — it is not a second
 way to name a type.
 
-**This is an exception, not a dial.** All three rest on a proof: each graph is
+**This is an exception, not a dial.** All four rest on a proof: each graph is
 **provably non-planar**, so a crossing is forced in every possible drawing and no
 amount of further effort changes that. `networkx.check_planarity` over the
 specification's connections settles planarity itself. What a proof does not cover
-is the margin above the floor. The technology graph has eight crossings against a
-proven floor of three, and `05-building-block-view.md` #3 has two against a floor
-of one: the crossings above the floor are unfound embeddings, not forced ones.
+is the margin above the floor. The context map has sixteen crossings against a
+proven floor of five, the technology graph eight against three, and
+`05-building-block-view.md` #2 four against two: the crossings above the floor may
+be unfound embeddings rather than forced ones.
 
 Before reaching for the opt-out, prove the graph non-planar, and say so. Failing
 to find a clean drawing is not a proof. A ratio of edges to planar capacity (3V−6)
-does *not* answer the question either: `05-building-block-view.md` #3 sits at 0.52
+does *not* answer the question either: `05-building-block-view.md` #2 sits at 0.53
 on that scale, well inside what looks safe, and is non-planar. Only an embedding
 search settles it.
 
-`05-building-block-view.md` #2 shows why the proof comes first. It rendered at
+`05-building-block-view.md` #1 shows why the proof comes first. It rendered at
 `standard` for a while, on a judgement about effort rather than a theorem, and
 its redrawn specification now renders at `showcase` with no crossings. Its graph
 is planar. The obstruction was **clustered** planarity — the six subgraph
 rectangles the fence declares fix a block topology the edges cannot be drawn
-around — so #2 carries group membership as per-node tags plus cards instead of
+around — so #1 carries group membership as per-node tags plus cards instead of
 rectangles. If a dense diagram will not lay out, the rectangles are the first
 constraint to question, not the last.
 
-The context map's artifact carries 26 warnings: 2 crossings (one forced crossing
-counted twice, because the chapter draws `Technology Stack ↔ Dev PC Management`
-in both directions), 23 label-route-clearance, and 1 desktop-readability. That
-last one is worth knowing: keeping 31 long relationship labels off the context
-boxes forces a wide canvas, and node text falls below Archify's own 6px floor
-under roughly 2100px of viewport. It reads well on a large display and is a
-squint on a laptop. Shortening the relationship labels is the lever if that ever
-becomes a problem — not tolerating a crossing, which is the part that reads fine.
+The context map's artifact carries 20 warnings: 16 crossings, 3
+label-route-clearance, and 1 desktop-readability. That last one is worth knowing:
+keeping 52 long relationship labels off the context boxes forces a wide canvas, and
+node text falls below Archify's own 6px floor at every viewport `visual-check`
+tries, 2048×1320 included. Shortening the relationship labels is the lever if that
+ever becomes a problem.
 
 ## Authoring a specification
 

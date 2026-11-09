@@ -11,7 +11,8 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the stand-up's goals,
 /// counts and forecasts, joined on id with each goal's attachments from
 /// <see cref="Abstractions.Services.IGoals.ListAsync"/>, the pull requests' status from
-/// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, and the shell's candidates
+/// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, with the title of a pull
+/// request no candidate holds, and the shell's candidates
 /// for titles, plan counts, the attach search and No goal. The library takes plain values,
 /// so every Progress word is translated here. Pure.
 /// </summary>
@@ -69,7 +70,7 @@ public static class GoalsMapper
                     Slug(read.State),
                     read.Checks is { } checks ? new PullRequestChecks(checks.Passed, checks.Failed, checks.Pending) : null,
                     read.Approvals is { } approvals ? new PullRequestApprovals(approvals.Received, approvals.Required) : null,
-                    candidate?.Title ?? title,
+                    candidate?.Title ?? title ?? read.Title,
                     candidate?.Url ?? Url(repository, number),
                     read.ReviewRequested)
                 : new PullRequestStatusModel(number, "unknown", Title: candidate?.Title ?? title, Url: candidate?.Url ?? Url(repository, number));
@@ -284,14 +285,16 @@ public static class GoalsMapper
         _ => ImpedimentState.Resolved
     };
 
-    /// <summary>The attach search's matches: every plan, every task not done, every open
-    /// pull request.</summary>
+    /// <summary>What a goal's attach search and an impediment's Link… match: every plan not finished, every task not done,
+    /// every open pull request. A plan is finished when it gathers a task and every task it
+    /// gathers is done, so a plan gathering none stays.</summary>
     private static IReadOnlyList<GoalsItem> Candidates(GoalsCandidates candidates) =>
     [
         .. candidates.Plans
             .Select(GoalSubjects.Bare)
             .Where(tag => tag.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(tag => !IsFinished(tag, candidates.Tasks))
             .Select(tag => new GoalsItem(GoalSubject.ForPlan(tag), tag)),
         .. candidates.Tasks
             .Where(task => task.Status != GoalTaskStatus.Done)
@@ -306,6 +309,13 @@ public static class GoalsMapper
     /// <summary>The shell's tasks filed under an attached plan.</summary>
     private static IEnumerable<GoalsTaskCandidate> RowsOf(GoalItemDto plan, GoalsCandidates candidates) =>
         candidates.Tasks.Where(task => task.PlanTags.Any(tag => GoalSubjects.SamePlan(tag, plan.PlanTag)));
+
+    private static bool IsFinished(string plan, IReadOnlyList<GoalsTaskCandidate> tasks)
+    {
+        var gathered = tasks.Where(task => task.PlanTags.Any(tag => GoalSubjects.SamePlan(tag, plan))).ToList();
+
+        return gathered.Count > 0 && gathered.All(task => task.Status == GoalTaskStatus.Done);
+    }
 
     /// <summary>A goal's own pull requests, then those its attached tasks link, each once.</summary>
     private static IEnumerable<(string Repository, int Number)> PullRequestRefs(
