@@ -126,11 +126,24 @@ Previous is disabled on the first step and Next on the last. Play walks forward 
     <Story Name="The element inspector"
            Description="`C4ElementInspector`, the panel the zoom tab sets beside the picture for the element selected on it — the design's Containers screen: its **kind**, **name**, **technology** and **description**, and *Open its 3 components* when a deeper view exists. Below that, what the knowledge folders say about it, which the host hands in per element through `RecordsFor` because the library has no idea what a chapter is: the arc42 chapters that document a view showing it, the **decisions** that name it with a *proposed* chip on one still proposed, and the **debt** with its severity and rung on the debt ladder. Each opens its record in the Chapters tab.
 
+The decisions' head tallies them — *5 accepted · 2 proposed* — and the first five are listed with **Show all n** for the rest. Debt a container carries through one of its components says so: *On component Devbook*. Debt on the element itself is drawn whole, as the design's Components screen draws it: severity, the debt in a sentence, the **lifecycle** stepper, the **preferred remediation**, the **origin** and a way to open it. On the system context view the system lists its **relationships**, and a system no record names gets one **Records at this level** note in place of two empty sections.
+
 An element nothing names says so in each section; with no host behind it at all the three sections are left out rather than claiming it has none."
            Code="@InspectorUsage">
         <div class="sb-c4-zoom-moments">
             <p class="sb-c4-zoom-moments__label">Desktop App selected</p>
             <C4ElementInspector Element="@DesktopApp" ZoomLabel="Open its 3 components" Records="@DesktopRecords" TestId="sb-c4-element-inspector" />
+
+            <p class="sb-c4-zoom-moments__label">The Devbook component, with debt of its own</p>
+            <C4ElementInspector Element="@DevbookElement" Records="@DevbookRecords" TestId="sb-c4-element-inspector-debt" />
+
+            <p class="sb-c4-zoom-moments__label">The system on its context view</p>
+            <C4ElementInspector Element="@BacklogSystem"
+                                ZoomLabel="Open its 3 containers"
+                                Records="@ContextRecords"
+                                Relationships="@BacklogRelationships"
+                                RecordsAtThisLevel="true"
+                                TestId="sb-c4-element-inspector-context" />
 
             <p class="sb-c4-zoom-moments__label">An element nothing names</p>
             <C4ElementInspector Element="@LocalTaskStore" Records="@C4ElementRecords.None" TestId="sb-c4-element-inspector-none" />
@@ -393,6 +406,8 @@ That behaviour is the whole safeguard. This reader is a second implementation of
 
     private static readonly C4Element DesktopApp = Parsed.Element("backlog.desktop")!;
     private static readonly C4Element LocalTaskStore = Parsed.Element("backlog.store")!;
+    private static readonly C4Element DevbookElement = Parsed.Element(DevbookComponent)!;
+    private static readonly C4Element BacklogSystem = Parsed.Element("backlog")!;
     private static readonly C4Element MsixPackageNode = Parsed.Element("pc.msix")!;
 
     /// <summary>What a host might say about Desktop App: a sample, not this
@@ -403,12 +418,47 @@ That behaviour is the whole safeguard. This reader is a second implementation of
             new C4InspectorChapter(".devbook/arc42/05-building-block-view.md", "05", "Building block view")
         ],
         [
-            new C4InspectorRecord(".devbook/arc42/adr/0001-desktop-channel.md", "0001", "Desktop channel uses .NET MAUI Blazor Hybrid", C4InspectorRecordKind.Decision),
-            new C4InspectorRecord(".devbook/arc42/adr/0030-stored-credentials.md", "0030", "Stored credentials go through the OS envelope", C4InspectorRecordKind.Decision, Proposed: true)
+            new C4InspectorRecord(".devbook/arc42/adr/0001-desktop-channel.md", "0001", "Desktop channel uses .NET MAUI Blazor Hybrid", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0012-mcp-server.md", "0012", "Backlog is an MCP server inside the desktop app", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0015-devbook-database.md", "0015", "The devbook database lives in app storage", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0022-one-main-view.md", "0022", "The shell shows one main view", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0030-stored-credentials.md", "0030", "Stored credentials go through the OS envelope", C4InspectorRecordKind.Decision, Proposed: true),
+            new C4InspectorRecord(".devbook/arc42/adr/0031-live-events.md", "0031", "Live events reach the desktop over the sync service", C4InspectorRecordKind.Decision, Proposed: true),
+            new C4InspectorRecord(".devbook/arc42/adr/0033-pane-layout.md", "0033", "Panes keep their own layout", C4InspectorRecordKind.Decision) { Accepted = true }
         ],
         [
-            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+            BranchSnapshotDebt with { OnComponent = "Devbook" }
         ]);
+
+    /// <summary>The sample's one debt, as its file would read: on the Devbook component.</summary>
+    private static C4InspectorRecord BranchSnapshotDebt =>
+        new(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+        {
+            Detail = new C4InspectorDebtDetail(
+                "A branch-sourced repository never shows a rendered diagram; every diagram falls back to its mermaid fence, and nothing says why.",
+                "Option C — drop the exclusion",
+                [new C4InspectorLink(".devbook/arc42/adr/0008-branch-snapshot.md", "ADR 0008")])
+        };
+
+    /// <summary>What a host might say about the Devbook component: the debt on it.</summary>
+    private static readonly C4ElementRecords DevbookRecords = new(
+        [new C4InspectorChapter(".devbook/arc42/05-building-block-view.md#desktop-app", "05", "Building block view › Desktop App")],
+        [new C4InspectorRecord(".devbook/arc42/adr/0015-devbook-database.md", "0015", "The devbook database lives in app storage", C4InspectorRecordKind.Decision) { Accepted = true }],
+        [BranchSnapshotDebt]);
+
+    /// <summary>What a host might say about the whole system: one chapter, no record.</summary>
+    private static readonly C4ElementRecords ContextRecords = new(
+        [new C4InspectorChapter(".devbook/arc42/03-context-and-scope.md", "03", "Context and scope")],
+        [],
+        []);
+
+    /// <summary>The system's lines on its context view, as the explorer hands them.</summary>
+    private static readonly IReadOnlyList<C4InspectorRelationship> BacklogRelationships =
+    [
+        new("ME", Outgoing: false, "Captures, triages, plans", "desktop, mobile, IDE"),
+        new("GitHub", Outgoing: true, "Syncs issues, gets webhooks", "HTTPS, gh CLI"),
+        new("Application Insights", Outgoing: true, "Reads telemetry", "HTTPS")
+    ];
 
     private const string OverlayUsage = """
         <C4ZoomExplorer Workspace="@workspace"
@@ -423,10 +473,7 @@ That behaviour is the whole safeguard. This reader is a second implementation of
     private static C4ElementRecords SampleRecords(string elementId) => elementId switch
     {
         "backlog.desktop" => DesktopRecords,
-        DevbookComponent => new C4ElementRecords([], [],
-        [
-            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
-        ]),
+        DevbookComponent => new C4ElementRecords([], [], [BranchSnapshotDebt]),
         "backlog.desktop.shell" => new C4ElementRecords([],
         [
             new C4InspectorRecord(".devbook/arc42/adr/0022-one-main-view.md", "0022", "The shell shows one main view", C4InspectorRecordKind.Decision)

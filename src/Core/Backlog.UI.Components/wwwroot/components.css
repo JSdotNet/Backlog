@@ -19254,8 +19254,15 @@ select.field__input {
     grid-column: 1;
 }
 
-.c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+/* The steps panel and the selected element's inspector share the column beside the
+   picture, as the design's Dynamic screen keeps them; the inspector never wraps under
+   the picture. On the surface the right-hand column holds both instead. */
+.c4-zoom-explorer--dynamic > .c4-zoom-explorer__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     grid-column: 2;
+    min-width: 0;
 }
 
 .c4-diagram__edge--step path {
@@ -19523,7 +19530,7 @@ select.field__input {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+    .c4-zoom-explorer--dynamic > .c4-zoom-explorer__side {
         grid-column: 1;
     }
 }
@@ -19743,6 +19750,165 @@ select.field__input {
     background: transparent;
     border: var(--border-width) dashed var(--color-border-strong);
     color: var(--color-text-secondary);
+}
+
+/* The Context screen's "Relationships · n": the other end and what the line says on
+   the left, what it travels over on the right. */
+.c4-element-inspector__relationships {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-element-inspector__relationship {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__relationship-what {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.c4-element-inspector__relationship-end {
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__relationship-says,
+.c4-element-inspector__relationship-tech,
+.c4-element-inspector__on {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* "Show all n" under the first decisions: a quiet link, not a second button row. */
+.c4-element-inspector__more,
+.c4-element-inspector__link {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-element-inspector__more:hover,
+.c4-element-inspector__link:hover {
+    text-decoration: underline;
+}
+
+.c4-element-inspector__more:focus-visible,
+.c4-element-inspector__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The Components screen's debt card: debt on the element itself, drawn whole. */
+.c4-element-inspector__debt-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-error);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-element-inspector__severity {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__severity strong {
+    color: var(--color-error-text);
+}
+
+.c4-element-inspector__debt-title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__debt-summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.c4-element-inspector__ladder {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__rung {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-disabled);
+}
+
+.c4-element-inspector__rung::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border: var(--border-width) solid currentColor;
+    border-radius: 50%;
+}
+
+.c4-element-inspector__rung--done {
+    color: var(--color-text-secondary);
+}
+
+.c4-element-inspector__rung--done::before {
+    background: currentColor;
+}
+
+.c4-element-inspector__rung--current {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__rung--current::before {
+    background: currentColor;
+}
+
+.c4-element-inspector__debt-fact {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.c4-element-inspector__debt-fact--inline {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__debt-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__open {
+    align-self: flex-start;
 }
 
 /* What a deployment node runs, a section of the element inspector. */
@@ -29982,6 +30148,9 @@ button.domain-field-rules[aria-expanded="true"] {
 }
 
 .c4-zoom-explorer__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     align-self: start;
     min-width: 0;
     max-height: 100%;
@@ -30581,10 +30750,6 @@ button.domain-field-rules[aria-expanded="true"] {
     min-width: 0;
     min-height: 0;
     overflow: auto;
-}
-
-.c4-zoom-explorer__main.c4-zoom-explorer--dynamic {
-    display: grid;
 }
 
 .c4-zoom-explorer--surface .c4-zoom-explorer__head {

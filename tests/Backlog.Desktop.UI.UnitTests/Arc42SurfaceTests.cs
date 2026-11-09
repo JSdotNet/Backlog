@@ -457,7 +457,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · planned", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Planned", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
 
@@ -466,7 +468,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · resolved", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Resolved", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 2 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
     }

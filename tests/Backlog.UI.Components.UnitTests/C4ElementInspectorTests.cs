@@ -138,7 +138,7 @@ public sealed class C4ElementInspectorTests : IDisposable
 
         var section = explorer.Find("[data-testid='c4-inspector-decisions']");
         Assert.Contains("Decisions · 2", section.QuerySelector("h4")!.TextContent, StringComparison.Ordinal);
-        Assert.Equal("1 proposed", Text(section, "c4-inspector-proposed-count"));
+        Assert.Equal("1 proposed", Text(section, "c4-inspector-decision-tally"));
 
         var decisions = section.QuerySelectorAll("[data-testid='c4-inspector-decision']");
         Assert.Equal(2, decisions.Length);
@@ -188,7 +188,7 @@ public sealed class C4ElementInspectorTests : IDisposable
         Assert.Equal(3, inspector.QuerySelectorAll("[data-testid='c4-inspector-none']").Length);
         Assert.Contains("Decisions · 0", explorer.Find("[data-testid='c4-inspector-decisions'] h4").TextContent, StringComparison.Ordinal);
         Assert.Contains("Technical debt · 0", explorer.Find("[data-testid='c4-inspector-debt'] h4").TextContent, StringComparison.Ordinal);
-        Assert.Empty(inspector.QuerySelectorAll("[data-testid='c4-inspector-proposed-count']"));
+        Assert.Empty(inspector.QuerySelectorAll("[data-testid='c4-inspector-decision-tally']"));
         Assert.Empty(inspector.QuerySelectorAll("button[data-testid^='c4-inspector-d']"));
     }
 
@@ -214,5 +214,186 @@ public sealed class C4ElementInspectorTests : IDisposable
 
         Assert.Null(explorer.Instance.SelectedElementId);
         Assert.Empty(explorer.FindAll("[data-testid='c4-element-inspector']"));
+    }
+
+    // ---- the design's other screens (Context, Containers, Components, Dynamic) ----
+
+    private IRenderedComponent<C4ElementInspector> RenderInspector(
+        C4Element element,
+        C4ElementRecords records,
+        Action<string>? opened = null,
+        IReadOnlyList<C4InspectorRelationship>? relationships = null,
+        bool atThisLevel = false,
+        string? zoomLabel = null) =>
+        _context.Render<C4ElementInspector>(parameters =>
+        {
+            parameters
+                .Add(c => c.Element, element)
+                .Add(c => c.Records, records)
+                .Add(c => c.Relationships, relationships)
+                .Add(c => c.RecordsAtThisLevel, atThisLevel)
+                .Add(c => c.ZoomLabel, zoomLabel);
+
+            if (opened is not null) parameters.Add(c => c.OnOpenRecord, opened);
+        });
+
+    private static C4Element Desktop => Workspace.Element("backlog.desktop")!;
+
+    private static C4InspectorRecord DecisionNumbered(int number, bool accepted = true, bool proposed = false) =>
+        new($".devbook/arc42/adr/{number:0000}-decision.md", $"{number:0000}", $"Decision {number}", C4InspectorRecordKind.Decision, Proposed: proposed)
+        {
+            Accepted = accepted
+        };
+
+    [Fact]
+    public void The_decisions_head_tallies_the_accepted_and_the_proposed()
+    {
+        var inspector = RenderInspector(Desktop, new C4ElementRecords(
+            [],
+            [DecisionNumbered(1), DecisionNumbered(2), DecisionNumbered(3, accepted: false, proposed: true), DecisionNumbered(4, accepted: false)],
+            []));
+
+        Assert.Equal("2 accepted · 1 proposed", inspector.Find("[data-testid='c4-inspector-decision-tally']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Five_decisions_are_listed_and_show_all_lists_the_rest()
+    {
+        var decisions = Enumerable.Range(1, 8).Select(number => DecisionNumbered(number)).ToList();
+        var inspector = RenderInspector(Desktop, new C4ElementRecords([], decisions, []));
+
+        Assert.Equal(5, inspector.FindAll("[data-testid='c4-inspector-decision']").Count);
+        var more = inspector.Find("[data-testid='c4-inspector-decisions-all']");
+        Assert.Equal("Show all 8", more.TextContent.Trim());
+        Assert.Equal("false", more.GetAttribute("aria-expanded"));
+
+        more.Click();
+
+        Assert.Equal(8, inspector.FindAll("[data-testid='c4-inspector-decision']").Count);
+        Assert.Equal("true", inspector.Find("[data-testid='c4-inspector-decisions-all']").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void Five_decisions_or_fewer_offer_no_show_all()
+    {
+        var inspector = RenderInspector(Desktop, new C4ElementRecords([], [.. Enumerable.Range(1, 5).Select(number => DecisionNumbered(number))], []));
+
+        Assert.Equal(5, inspector.FindAll("[data-testid='c4-inspector-decision']").Count);
+        Assert.Empty(inspector.FindAll("[data-testid='c4-inspector-decisions-all']"));
+    }
+
+    [Fact]
+    public void Debt_on_a_component_of_the_element_says_which_component()
+    {
+        var inspector = RenderInspector(Desktop, new C4ElementRecords([], [],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-renders.md", "0001", "Renders vanish", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+            {
+                OnComponent = "Devbook",
+                Detail = new C4InspectorDebtDetail("The debt.", "Option C", [])
+            }
+        ]));
+
+        var row = inspector.Find("[data-testid='c4-inspector-debt-record']");
+        Assert.Equal("On component Devbook", row.QuerySelector("[data-testid='c4-inspector-debt-on']")!.TextContent.Trim());
+        Assert.Empty(inspector.FindAll("[data-testid='c4-inspector-debt-card']"));
+    }
+
+    [Fact]
+    public void Debt_on_the_element_itself_is_drawn_whole_and_opens_its_record_and_its_origin()
+    {
+        var opened = new List<string>();
+        var devbook = Workspace.Element("backlog.desktop.devbook")!;
+        var inspector = RenderInspector(devbook, new C4ElementRecords([], [],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-renders.md", "0001", "Renders vanish on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "planned")
+            {
+                Detail = new C4InspectorDebtDetail(
+                    "A branch-sourced repository never shows a rendered diagram.",
+                    "Option C — drop the exclusion",
+                    [new C4InspectorLink(".devbook/arc42/adr/0008-branch.md", "ADR 0008")])
+            }
+        ]), opened.Add);
+
+        var card = inspector.Find("[data-testid='c4-inspector-debt-card']");
+        Assert.Equal("TDR 0001", card.GetAttribute("aria-label"));
+        Assert.Equal("Severity Medium", card.QuerySelector("[data-testid='c4-inspector-debt-severity']")!.TextContent.Trim());
+        Assert.Contains("Renders vanish on a branch snapshot", card.TextContent, StringComparison.Ordinal);
+        Assert.Equal("A branch-sourced repository never shows a rendered diagram.", card.QuerySelector("[data-testid='c4-inspector-debt-summary']")!.TextContent.Trim());
+
+        var rungs = card.QuerySelectorAll("[data-testid='c4-inspector-debt-lifecycle'] li");
+        Assert.Equal(["Identified", "Planned", "In progress", "Resolved"], rungs.Select(rung => rung.TextContent.Trim()));
+        Assert.Equal("Planned", Assert.Single(rungs, rung => rung.GetAttribute("aria-current") == "step").TextContent.Trim());
+
+        Assert.Contains("Preferred remediation", card.QuerySelector("[data-testid='c4-inspector-debt-remediation']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Option C — drop the exclusion", card.QuerySelector("[data-testid='c4-inspector-debt-remediation']")!.TextContent, StringComparison.Ordinal);
+
+        card.QuerySelector("[data-testid='c4-inspector-debt-origin-link']")!.Click();
+        inspector.Find("[data-testid='c4-inspector-debt-open']").Click();
+
+        Assert.Equal([".devbook/arc42/adr/0008-branch.md", ".devbook/arc42/tdr/0001-renders.md"], opened);
+        Assert.Equal("Open TDR 0001", inspector.Find("[data-testid='c4-inspector-debt-open']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task On_the_context_view_the_system_lists_its_relationships()
+    {
+        var explorer = Render("context-backlog", _ => C4ElementRecords.None);
+        await SelectAsync(explorer, "backlog", "context-backlog");
+
+        var section = explorer.Find("[data-testid='c4-inspector-relationships']");
+        Assert.Contains("Relationships · 2", section.QuerySelector("h4")!.TextContent, StringComparison.Ordinal);
+
+        var rows = section.QuerySelectorAll("[data-testid='c4-inspector-relationship']").Select(row => row.TextContent.Trim().Replace("\n", " ", StringComparison.Ordinal)).ToList();
+        Assert.Contains(rows, row => row.Contains("ME", StringComparison.Ordinal) && row.Contains("Captures work", StringComparison.Ordinal) && row.Contains("From", StringComparison.Ordinal));
+        Assert.Contains(rows, row => row.Contains("GitHub", StringComparison.Ordinal) && row.Contains("Syncs issues", StringComparison.Ordinal) && row.Contains("HTTPS", StringComparison.Ordinal) && row.Contains("To", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Off_the_context_view_no_relationships_are_listed()
+    {
+        var explorer = Render("containers-backlog", _ => C4ElementRecords.None);
+        await SelectAsync(explorer, "backlog.desktop", "containers-backlog");
+
+        Assert.Empty(explorer.FindAll("[data-testid='c4-inspector-relationships']"));
+    }
+
+    [Fact]
+    public async Task On_the_context_view_a_system_no_record_names_gets_one_note_for_its_records()
+    {
+        var explorer = Render("context-backlog", _ => C4ElementRecords.None);
+        await SelectAsync(explorer, "backlog", "context-backlog");
+
+        Assert.Equal(
+            "No ADR or TDR names the whole system. Turn on an overlay to see where they sit one level down.",
+            explorer.Find("[data-testid='c4-inspector-at-this-level-note']").TextContent.Trim());
+        Assert.Empty(explorer.FindAll("[data-testid='c4-inspector-decisions']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-inspector-debt']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-inspector-documented']"));
+    }
+
+    [Fact]
+    public async Task On_the_context_view_a_system_records_name_lists_them_as_anywhere_else()
+    {
+        var explorer = Render("context-backlog", _ => DesktopRecords);
+        await SelectAsync(explorer, "backlog", "context-backlog");
+
+        Assert.Empty(explorer.FindAll("[data-testid='c4-inspector-at-this-level']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-inspector-decisions']"));
+    }
+
+    /// <summary>The design's Dynamic screen keeps the panel beside the picture: off the
+    /// surface the selected element's inspector shares the column with the steps
+    /// rather than wrapping under the picture.</summary>
+    [Fact]
+    public async Task On_a_dynamic_view_the_inspector_sits_beside_the_picture_with_the_steps()
+    {
+        var explorer = Render("capture-to-issue");
+        await SelectAsync(explorer, "backlog.desktop", "capture-to-issue");
+
+        var side = explorer.Find("[data-testid='c4-zoom-side']");
+        Assert.Single(side.QuerySelectorAll("[data-testid='c4-dynamic-steps']"));
+        Assert.Single(side.QuerySelectorAll("[data-testid='c4-element-inspector']"));
+        Assert.Empty(explorer.Find(".c4-zoom-explorer__body").QuerySelectorAll("[data-testid='c4-element-inspector']"));
     }
 }

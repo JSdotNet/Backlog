@@ -183,4 +183,20 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Equal("P", explorer.Find("[data-testid='c4-zoom-title']").TagName);
         Assert.Equal("context-backlog", explorer.Find("[data-testid='c4-zoom-key']").TextContent);
     }
+
+    /// <summary>The design's Dynamic screen: the steps panel is the right-hand column,
+    /// beside the picture, and a selected element's inspector follows it there rather
+    /// than wrapping under the picture.</summary>
+    [Fact]
+    public async Task On_a_dynamic_view_the_steps_and_the_inspector_are_the_right_hand_column()
+    {
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"));
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(C4MermaidWriter.AliasOf("backlog.desktop"), "capture-to-issue"));
+
+        var aside = explorer.Find("[data-testid='c4-zoom-aside']");
+        Assert.Equal(
+            ["c4-dynamic-steps", "c4-element-inspector"],
+            aside.Children.Select(child => child.GetAttribute("data-testid")));
+        Assert.Empty(explorer.Find(".c4-zoom-explorer__main").QuerySelectorAll("[data-testid='c4-dynamic-steps']"));
+    }
 }

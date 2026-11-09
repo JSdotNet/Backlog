@@ -65,16 +65,24 @@
             }
             else
             {
-                <div class="c4-zoom-explorer__main@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)">
+                <div class="c4-zoom-explorer__main">
                     @{ RenderPicture(__builder); }
                 </div>
 
+                @* On a dynamic view the steps panel heads the right-hand column, beside
+                   the picture as the design's Dynamic screen draws it, and the
+                   inspector of a selected element follows it there. *@
                 <div class="c4-zoom-explorer__aside" data-testid="c4-zoom-aside">
+                    @if (_playback.Count > 0 && _codeFor is null)
+                    {
+                        @StepsPanel
+                    }
+
                     @if (_inspected is not null)
                     {
                         @Inspector
                     }
-                    else
+                    else if (_playback.Count == 0 || _codeFor is not null)
                     {
                         <EmptyState Title="Nothing selected"
                                     role="status"
@@ -262,7 +270,7 @@
         }
         </div>
 
-        @if (_inspected is not null && !Surface)
+        @if (_inspected is not null && !Surface && _playback.Count == 0)
         {
             @Inspector
         }
@@ -276,17 +284,20 @@
         }
 
         @* A dynamic view plays its steps: the panel beside the picture, the current
-           step's arrow drawn in the primary colour by C4SvgWriter's step options. *@
-        @if (_playback.Count > 0)
+           step's arrow drawn in the primary colour by C4SvgWriter's step options.
+           Off the surface the panel and the inspector of a selected element share the
+           column beside the picture, so the inspector never wraps under it; on the
+           surface both are the right-hand column's. *@
+        @if (_playback.Count > 0 && !Surface)
         {
-            <C4DynamicSteps Steps="@_playback"
-                            Current="@_stepIndex"
-                            Playing="@_playing"
-                            ReducedMotion="@_reducedMotion"
-                            OnPrevious="PreviousStep"
-                            OnNext="NextStep"
-                            OnPlay="Play"
-                            OnPick="PickStep" />
+            <div class="c4-zoom-explorer__side" data-testid="c4-zoom-side">
+                @StepsPanel
+
+                @if (_inspected is not null)
+                {
+                    @Inspector
+                }
+            </div>
         }
 
         @* Under the picture while an overlay is on: what of the overlay's kind sits
@@ -322,6 +333,16 @@
         }
     }
 
+    /// <summary>A dynamic view's steps panel.</summary>
+    private RenderFragment StepsPanel => @<C4DynamicSteps Steps="@_playback"
+                                                          Current="@_stepIndex"
+                                                          Playing="@_playing"
+                                                          ReducedMotion="@_reducedMotion"
+                                                          OnPrevious="PreviousStep"
+                                                          OnNext="NextStep"
+                                                          OnPlay="Play"
+                                                          OnPick="PickStep" />;
+
     /// <summary>The selected element, as the inspector shows it.</summary>
     private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
                                                             ZoomLabel="@_zoomLabel"
@@ -329,6 +350,8 @@
                                                             Deployment="@_deploymentNode"
                                                             OnOpenContainer="OpenContainerAsync"
                                                             Records="@_records"
+                                                            Relationships="@_relationships"
+                                                            RecordsAtThisLevel="@(_view?.Kind == C4ViewKind.SystemContext)"
                                                             OnOpenRecord="OpenRecordAsync" />;
 }
 
@@ -622,6 +645,7 @@
             _zoomTarget = null;
             _zoomLabel = null;
             _records = null;
+            _relationships = null;
             return;
         }
 
@@ -667,6 +691,45 @@
         _zoomTarget = _inspected is null ? null : C4ZoomNavigation.ZoomInView(Workspace, _view, _inspected.Id);
         _zoomLabel = _zoomTarget is null || _inspected is null ? null : ZoomLabelFor(_inspected, Workspace.View(_zoomTarget));
         _records = RecordsOf(_inspected);
+        _relationships = RelationshipsOf(_inspected);
+    }
+
+    /// <summary>The lines into and out of the inspected element on the open view, for
+    /// the inspector's "Relationships · n"; null where the design lists none — every
+    /// view but the system context, whose lines are the system's whole outside.</summary>
+    private IReadOnlyList<C4InspectorRelationship>? _relationships;
+
+    private (string? View, string? Element, C4Workspace? Workspace) _relationshipsFor;
+
+    /// <summary>Worked out again only when the view, the element or the workspace
+    /// changed: a refresh runs on every parent render.</summary>
+    private IReadOnlyList<C4InspectorRelationship>? RelationshipsOf(C4Element? element)
+    {
+        if (element is null || _view is not { Kind: C4ViewKind.SystemContext } view)
+        {
+            _relationshipsFor = default;
+            return null;
+        }
+
+        var key = (view.Key, element.Id, Workspace);
+        if (key == _relationshipsFor && _relationships is not null) return _relationships;
+
+        _relationshipsFor = key;
+        return
+        [
+            .. C4MermaidWriter.VisibleRelationships(Workspace, view)
+                .Select(edge => (edge, outgoing: string.Equals(edge.FromId, element.Id, StringComparison.OrdinalIgnoreCase)))
+                .Where(pair => pair.outgoing || string.Equals(pair.edge.ToId, element.Id, StringComparison.OrdinalIgnoreCase))
+                .Select(pair =>
+                {
+                    var other = pair.outgoing ? pair.edge.ToId : pair.edge.FromId;
+                    return new C4InspectorRelationship(
+                        Workspace.Element(other)?.Name ?? other,
+                        pair.outgoing,
+                        pair.edge.Description,
+                        pair.edge.Technology);
+                })
+        ];
     }
 
     private Func<string, C4ElementRecords>? _recordsAskedOf;
