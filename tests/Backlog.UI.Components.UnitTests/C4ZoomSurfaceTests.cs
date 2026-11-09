@@ -158,6 +158,28 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         explorer.WaitForAssertion(() => Assert.Equal("Devbook", locations[^1].CodeComponent));
     }
 
+    /// <summary>The Code level keeps what every other level has on the surface: the
+    /// host's navigation, headed by its find field, beside it, and − / Fit / + over its
+    /// picture — its own, sizing the class boxes.</summary>
+    [Fact]
+    public void The_code_level_keeps_the_navigation_beside_it_and_its_own_scale_over_it()
+    {
+        const string Devbook = "backlog.desktop.devbook";
+        var code = new C4ZoomCode(
+            elementId => string.Equals(elementId, Devbook, StringComparison.OrdinalIgnoreCase),
+            (_, _) => Task.FromResult(C4CodeViewTests.Level));
+
+        var explorer = Render(open: new C4ZoomOpen("components-desktop", Devbook, OpenCode: true), code: code);
+        explorer.WaitForAssertion(() => Assert.Equal(3, explorer.FindAll("[data-testid='c4-code-type']").Count));
+
+        var surface = explorer.Find("[data-testid='c4-zoom-surface']");
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__nav [data-testid='host-nav']"));
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__main [data-testid='c4-zoom-code']"));
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__main [data-testid='c4-code-panel']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-code-scale']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-scale']"));
+    }
+
     /// <summary>The explorer asks for edge ends, so its viewer can light the selected
     /// card's relationships; the classic C4 tab never does (C4SvgWriterTests).</summary>
     [Fact]

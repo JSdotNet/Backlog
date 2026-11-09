@@ -20043,6 +20043,36 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     line-height: 1.4;
 }
 
+/* The members toggle and the − / Fit / + side by side over the picture. */
+.c4-code__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* A section's own sentence — "Held to a reference" — read as body text rather than
+   as the muted note a section with nothing in it shows. */
+.c4-code__note--body {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+/* On the architecture surface the Code level's type panel is the right-hand column:
+   the picture's inspector stands down while the level is open, so the selected type
+   is not shown beside a component inspector, and on a wide surface the level takes
+   both columns. A narrow surface already stacks into one. */
+.c4-zoom-explorer__surface:has(> .c4-zoom-explorer__main .c4-code) > .c4-zoom-explorer__aside {
+    display: none;
+}
+
+@container c4-zoom-surface (width > 60rem) {
+    .c4-zoom-explorer__surface:has(> .c4-zoom-explorer__main .c4-code) {
+        grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    }
+}
+
 /* Narrow: the type panel goes under the picture rather than squeezing it. */
 @media (max-width: 60rem) {
     .c4-code__body {

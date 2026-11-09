@@ -104,7 +104,9 @@ The navigation is the host's: the explorer knows nothing of chapters. Here it is
     <Story Name="The Code level"
            Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0046 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
 
-Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. Pick a box and the panel beside it names the files it is declared in, offers **Open in editor** where the host can open one, and lists the decision records linked to the component — each opens its chapter. Backspace on the picture zooms back out to the components view."
+Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. **− / Fit / +** size the boxes, as they size the picture on every other level, and Fit draws them at their own size again.
+
+Pick a box and the panel beside it names the files it is declared in and offers **Open in editor** where the host can open one. Under that: **Held to a reference** where the type is compared with a reference implementation — pick *DevbookDatabaseBuilder* — the **decisions it implements**, the records linked to the component, and its **technical debt**: the debt records whose title names the type, else the component's, said to be the component's. Each record opens its chapter. Backspace on the picture zooms back out to the components view."
            Code="@CodeUsage">
         <div class="sb-c4-stage sb-c4-stage--zoom">
             <C4CodeView Level="@SampleCodeLevel"
@@ -112,6 +114,31 @@ Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level
                         OpenRecord="OpenRecordAsync"
                         TestId="sb-c4-code" />
             <p class="sb-state" data-testid="sb-c4-code-state">@(_codeAction ?? "nothing opened yet")</p>
+        </div>
+    </Story>
+
+    <Story Name="The Code level on the surface"
+           Description="The design's Code screen: the surface opened on the Devbook component's Code level. The host's **left navigation** stays beside it, as on every level — on the Architecture pane headed by the find field, and with the component's code line marked — and the level's own type panel is the right-hand column, so the inspector of the component stands down while the level is open."
+           Code="@CodeSurfaceUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed"
+                            Problems="@Parsed.Problems"
+                            Code="@SampleCode"
+                            HintDismissed="true"
+                            OpenView="@_codeSurfaceOpen"
+                            Navigation="@(Navigation(_codeSurfaceLocation, open => _codeSurfaceOpen = open))"
+                            ViewCaption="@SurfaceCaption"
+                            OnLocationChanged="location => _codeSurfaceLocation = location"
+                            TestId="sb-c4-zoom-code-surface" />
+        </div>
+    </Story>
+
+    <Story Name="Sizing a picture"
+           Description="`C4ZoomScale`, the **− / Fit / +** over every level's picture: one step per press from 50% to 200%, Fit back to the picture's own size. It holds no state — the host binds `Index` and draws its own canvas at `Percent(Index)`, an SVG scaled to its frame on a view, the class boxes on the Code level. − is disabled at the smallest step and + at the largest."
+           Code="@ScaleUsage">
+        <div class="sb-row">
+            <C4ZoomScale @bind-Index="_scaleIndex" TestId="sb-c4-zoom-scale" />
+            <p class="sb-state" data-testid="sb-c4-zoom-scale-state">@C4ZoomScale.Percent(_scaleIndex)%</p>
         </div>
     </Story>
 
@@ -324,20 +351,44 @@ That behaviour is the whole safeguard. This reader is a second implementation of
 
     private static readonly IReadOnlyList<C4ViewIndexEntry> SurfaceViews = C4ViewIndex.For(Parsed, HasCode);
 
-    /// <summary>A host's left navigation, as small as it can be: the C4 views list.</summary>
-    private RenderFragment SurfaceNavigation => @<nav class="sb-c4-surface-nav" aria-label="C4 views">
+    /// <summary>The Code level on the surface: opened on the Devbook component's code.</summary>
+    private C4ZoomOpen? _codeSurfaceOpen = new("components-desktop", DevbookComponent, OpenCode: true);
+    private C4ZoomLocation? _codeSurfaceLocation;
+
+    private int _scaleIndex = C4ZoomScale.FitIndex;
+
+    private RenderFragment SurfaceNavigation => Navigation(_surfaceLocation, open => _surfaceOpen = open);
+
+    /// <summary>A host's left navigation, as small as it can be: the C4 views list, the
+    /// line of <paramref name="location"/> marked, a press handed to
+    /// <paramref name="open"/>.</summary>
+    private RenderFragment Navigation(C4ZoomLocation? location, Action<C4ZoomOpen> open) => @<nav class="sb-c4-surface-nav" aria-label="C4 views">
         @foreach (var entry in SurfaceViews)
         {
-            var open = entry.IsOpen(_surfaceLocation?.ViewKey, _surfaceLocation?.CodeComponentId);
-            <AppButton Variant="@(open ? ButtonVariant.Secondary : ButtonVariant.Ghost)"
+            var current = entry.IsOpen(location?.ViewKey, location?.CodeComponentId);
+            <AppButton Variant="@(current ? ButtonVariant.Secondary : ButtonVariant.Ghost)"
                        Size="ButtonSize.Small"
-                       aria-current="@(open ? "page" : null)"
+                       aria-current="@(current ? "page" : null)"
                        CssClass="@($"sb-c4-surface-nav__line sb-c4-surface-nav__line--depth-{Math.Min(entry.Depth, 3)}")"
-                       OnClick="() => _surfaceOpen = new C4ZoomOpen(entry.ViewKey, entry.CodeComponentId, entry.CodeComponentId is not null)">
+                       OnClick="() => open(new C4ZoomOpen(entry.ViewKey, entry.CodeComponentId, entry.CodeComponentId is not null))">
                 @entry.Label @(entry.Detail is null ? null : $" · {entry.Detail}")
             </AppButton>
         }
     </nav>;
+
+    private const string CodeSurfaceUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        Code="@code"
+                        OpenView="@(new C4ZoomOpen("components-desktop", "backlog.desktop.devbook", OpenCode: true))"
+                        Navigation="@LeftNavigation"
+                        OnLocationChanged="location => _location = location" />
+        """;
+
+    private const string ScaleUsage = """
+        <C4ZoomScale @bind-Index="_scale" />
+
+        <div class="canvas" style="@($"zoom: {C4ZoomScale.Factor(_scale)}")">…</div>
+        """;
 
     private static readonly RenderFragment<C4View> SurfaceCaption = view => @<span> · documented by 03, 05</span>;
 
@@ -528,6 +579,10 @@ That behaviour is the whole safeguard. This reader is a second implementation of
         };
         """;
 
+    /// <summary>A sample debt record whose title names DevbookDatabaseRefresher.</summary>
+    private static readonly C4CodeRecord RefresherDebt =
+        new("0005", "DevbookDatabaseRefresher polls instead of watching", ".devbook/arc42/tdr/0005-devbook-database-refresher-polls.md");
+
     /// <summary>The design's Code screen: the build path of the Devbook component.</summary>
     private static readonly C4CodeLevel SampleCodeLevel = new(
         "Devbook",
@@ -536,7 +591,10 @@ That behaviour is the whole safeguard. This reader is a second implementation of
             new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "DevbookDatabaseRefresher", "sealed class", "«sealed class» : IDisposable",
                 ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseRefresher.cs"],
                 ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>"],
-                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>", "- _pending : ConcurrentDictionary<string, byte>", "- _gate : SemaphoreSlim", "- Debounce : TimeSpan"]),
+                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>", "- _pending : ConcurrentDictionary<string, byte>", "- _gate : SemaphoreSlim", "- Debounce : TimeSpan"])
+            {
+                Debt = [RefresherDebt]
+            },
             new("Backlog.Infrastructure.Devbook.DevbookDatabaseLocation", "DevbookDatabaseLocation", "static class", "«static class»",
                 ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseLocation.cs"],
                 ["+ Configure(string cacheDirectory, bool requested) : void", "+ ForRepositoryRoot(string root) : string?", "+ KindFor(string root) : DevbookCorpusKind", "+ PathFor(string databases, string root) : string?"],
@@ -544,7 +602,10 @@ That behaviour is the whole safeguard. This reader is a second implementation of
             new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "DevbookDatabaseBuilder", "static class", "«static class»",
                 ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseBuilder.cs"],
                 ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool"],
-                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool", "- Stamp(string root) : string"]),
+                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool", "- Stamp(string root) : string"])
+            {
+                Reference = new C4CodeReference("tools/devbook/build-database.mjs", "DevbookBuilderParityTests")
+            },
             new("Backlog.Infrastructure.Devbook.DevbookDatabase", "DevbookDatabase", "sealed partial class", "«sealed partial class» : IDisposable",
                 ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.cs", "src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.Retrieval.cs"],
                 ["+ Open(string path) : DevbookDatabase?", "+ Dispose() : void"],
@@ -569,7 +630,16 @@ That behaviour is the whole safeguard. This reader is a second implementation of
             new("0004", "Knowledge index is a generated database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-database.md"),
             new("0015", "The devbook database lives in app storage", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage.md"),
             new("0016", "Knowledge folders adopt the devbook convention", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md")
-        ]);
+        ])
+    {
+        // The component's debt: one record about it, and one whose title names the
+        // refresher, which is that type's own.
+        Debt =
+        [
+            new("0001", "Archify artifacts are invisible on a branch snapshot", ".devbook/arc42/tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md"),
+            RefresherDebt
+        ]
+    };
 
     private const string LevelsCode = """
         // Which view opens an element, or null when there is nothing deeper.
