@@ -22,7 +22,7 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
                        TestId="devbook-c4-embed-open"
-                       OnClick="() => OnOpen.InvokeAsync(View)">Open in C4 tab</AppButton>
+                       OnClick="() => OnOpen.InvokeAsync(View)">@OpenLabel</AppButton>
         }
     </span>
 </span>
@@ -52,6 +52,11 @@
     /// across.</summary>
     [Parameter]
     public EventCallback<C4View> OnOpen { get; set; }
+
+    /// <summary>What the way across says: the C4 tab on the tabs, the C4 model on the
+    /// architecture surface, where there is no C4 tab to name.</summary>
+    [Parameter]
+    public string OpenLabel { get; set; } = C4ViewImages.TabLabel;
 
     /// <summary>Laid out again only when the workspace or the view changed; the
     /// diagram view writes the SVG again only when the layout did, as it does for the

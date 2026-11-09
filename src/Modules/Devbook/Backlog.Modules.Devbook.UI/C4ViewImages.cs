@@ -38,6 +38,16 @@ public sealed class C4ViewImages : IDevbookImageSource
     /// across.</summary>
     public EventCallback<C4View> OnOpen { get; set; }
 
+    /// <summary>The way across as the tabs name it.</summary>
+    public const string TabLabel = "Open in C4 tab";
+
+    /// <summary>The way across as the architecture surface names it: it has no C4 tab,
+    /// and the view opens in its picture.</summary>
+    public const string SurfaceLabel = "Open in the C4 model";
+
+    /// <summary>What the way across says; the host sets it to where the view opens.</summary>
+    public string OpenLabel { get; set; } = TabLabel;
+
     public RenderFragment? Image(string target, string caption, string? documentPath) =>
         Resolve(target) is { } resolved
             ? Draw(resolved.Workspace, resolved.View, string.IsNullOrWhiteSpace(caption) ? resolved.Entry.Title : caption)
@@ -75,6 +85,7 @@ public sealed class C4ViewImages : IDevbookImageSource
         builder.AddComponentParameter(2, nameof(C4EmbeddedView.View), view);
         builder.AddComponentParameter(3, nameof(C4EmbeddedView.Caption), caption);
         builder.AddComponentParameter(4, nameof(C4EmbeddedView.OnOpen), OnOpen);
+        builder.AddComponentParameter(5, nameof(C4EmbeddedView.OpenLabel), OpenLabel);
         builder.CloseComponent();
     };
 }

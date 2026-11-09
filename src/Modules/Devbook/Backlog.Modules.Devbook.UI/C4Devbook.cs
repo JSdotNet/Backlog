@@ -87,6 +87,11 @@ public sealed class C4DevbookStore : IDisposable
     /// none of which C4 has a vocabulary for.</summary>
     public const string FolderKey = ".arc42";
 
+    /// <summary>The domain folder, read only for the <c>c4</c> and <c>c4-touches</c>
+    /// fields its chapters may carry: devbook lets a domain chapter name the elements
+    /// that realise it, and those are records of the element as much as an ADR is.</summary>
+    public const string DomainFolderKey = ".domain";
+
     /// <summary>What the derived workspace is filed under in place of a file name.
     /// Deliberately not a <c>.dsl</c>: <see cref="C4Catalog.Find"/> resolves only
     /// references naming one, so nothing a chapter writes can be mistaken for a
@@ -102,6 +107,11 @@ public sealed class C4DevbookStore : IDisposable
 
     private string? _cachedFor;
     private C4Catalog? _cached;
+
+    /// <summary>The catalog a chapter save left with only its links in doubt, and the
+    /// scope it was read for. See <see cref="ChapterSaved"/>.</summary>
+    private C4Catalog? _relinkFrom;
+    private string? _relinkFromKey;
 
     /// <summary>Bumped whenever the cache is dropped, so a read that began before the
     /// drop does not put what it found back afterwards. Two quick saves start two reads
@@ -124,6 +134,11 @@ public sealed class C4DevbookStore : IDisposable
     /// a panel with the feature off is the panel it was before this existed.</summary>
     public bool Enabled => _features.IsEnabled(DevbookFeatures.C4Diagrams);
 
+    /// <summary>Whether the C4 zoom tab is offered beside the C4 tab. Both switches,
+    /// never the zoom one alone: the zoom tab reads the same model the C4 tab does,
+    /// and with <see cref="Enabled"/> off there is no model to read.</summary>
+    public bool ZoomEnabled => Enabled && _features.IsEnabled(DevbookFeatures.C4Zoom);
+
     /// <summary>
     /// The workspaces beside the architecture chapters of this scope, with every
     /// view already written as mermaid.
@@ -140,6 +155,7 @@ public sealed class C4DevbookStore : IDisposable
 
         var key = repositoryAlias ?? string.Empty;
         int generation;
+        C4Catalog? relink;
 
         lock (_gate)
         {
@@ -149,21 +165,42 @@ public sealed class C4DevbookStore : IDisposable
             }
 
             generation = _generation;
+            relink = _relinkFrom is not null && string.Equals(_relinkFromKey, key, StringComparison.Ordinal) ? _relinkFrom : null;
         }
 
-        // The whole folder, chapters included: an authored workspace is tied to its
-        // chapters by the embeds they carry, and with no workspace the model is
-        // drawn from the chapters' own fences. The arc42 store fetches the same
-        // folder, and a file already current is not fetched twice. The Domain
-        // panel loads this store as well, so opening it fetches the arc42 chapters
-        // too — accepted, since the views that panel links to are only placed by
-        // reading them.
-        var location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
+        // The workspace, what it includes and the reference map first, by name:
+        // they sit in folders the chapter listing skips.
+        var location = await _folders
+            .PrepareContentAsync(FolderKey, repositoryAlias, [WorkspaceFile, IncludeDirectory + "/", ReferenceDirectory + "/"])
+            .ConfigureAwait(false);
+
+        // Then the whole folder, chapters included, which the model needs either way:
+        // with no workspace it is drawn from their own fences, and with one the embeds
+        // they carry tie each view to its chapter, and their `c4`, `c4-touches` and
+        // `code` fields link a record to an element. The arc42 store fetches the same
+        // folder, and a file already current is not fetched twice. The Domain panel
+        // loads this store as well, so opening it on a branch fetches the arc42
+        // chapters too — accepted, since the views and records that panel links to
+        // are only placed by reading them.
+        location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
+
+        // A domain chapter links to the model by the same two fields, so with a
+        // workspace to link to the domain chapters are read as well. On a branch
+        // snapshot that is the domain folder fetched by the architecture panel too;
+        // it is fetched once and kept while the branch does not move.
+        var domain = HasAuthoredWorkspace(location)
+            ? await _folders.PrepareContentAsync(DomainFolderKey, repositoryAlias).ConfigureAwait(false)
+            : null;
+
+        // A chapter save left the model as it was and only the chapters in doubt: the
+        // embeds and the links are read again over the same parsed workspace, so the
+        // explorers — which compare the workspace by reference — keep their layout.
+        var reuse = relink?.LinkSource?.Workspace;
 
         // On the pool, because deriving reads every chapter in the folder and the
         // caller's continuation is the UI thread in the desktop host.
         var prepared = location;
-        var catalog = await Task.Run(() => Read(prepared)).ConfigureAwait(false);
+        var catalog = await Task.Run(() => Read(prepared, domain, reuse)).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -177,7 +214,7 @@ public sealed class C4DevbookStore : IDisposable
         return catalog;
     }
 
-    private static C4Catalog Read(DevbookFolderLocation location)
+    private static C4Catalog Read(DevbookFolderLocation location, DevbookFolderLocation? domain = null, C4Workspace? reuse = null)
     {
         if (!location.Available || location.FullPath is null) return C4Catalog.Off;
 
@@ -191,7 +228,8 @@ public sealed class C4DevbookStore : IDisposable
         try
         {
             var workspacePath = Path.GetFullPath(Path.Combine(directory, WorkspaceFile));
-            workspace = C4DslReader.Read(ExpandIncludes(File.ReadAllText(workspacePath), workspacePath, Path.Combine(directory, IncludeDirectory), [workspacePath]));
+            workspace = reuse
+                ?? C4DslReader.Read(ExpandIncludes(File.ReadAllText(workspacePath), workspacePath, Path.Combine(directory, IncludeDirectory), [workspacePath]));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -222,7 +260,85 @@ public sealed class C4DevbookStore : IDisposable
                 Documents(references, view.Key)))
             .ToList();
 
-        return new C4Catalog(true, directory, views, problems, [entry]);
+        List<C4RecordLinks.Folder> linking = [new(directory, location.RootPath, IsDomain: false)];
+        if (domain is { Available: true, FullPath: { } domainPath }) linking.Add(new(domainPath, domain.RootPath, IsDomain: true));
+
+        var unlinked = new C4Catalog(true, directory, views, problems, [entry])
+        {
+            LinkSource = new C4LinkSource(workspace, linking, [.. problems]),
+            RepositoryRoot = RepositoryRootOf(directory, location.RootPath)
+        };
+
+        return Relink(unlinked);
+    }
+
+    /// <summary>The repository the folder sits in, which a building block's <c>code</c>
+    /// folders are spelled from — or null for a folder configured off any clone, whose
+    /// code folders name nothing that can be found.</summary>
+    private static string? RepositoryRootOf(string directory, string? rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath)) return null;
+
+        var root = Arc42DevbookReader.ResolveRoot(directory, rootPath);
+        return string.Equals(
+            Path.TrimEndingDirectorySeparator(root),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath)),
+            StringComparison.OrdinalIgnoreCase)
+            ? root
+            : null;
+    }
+
+    /// <summary>The catalog with its record links read afresh from the chapters, over
+    /// the workspace it already holds. A catalog with no authored workspace has none
+    /// to link to and is handed back as it is.</summary>
+    private static C4Catalog Relink(C4Catalog catalog)
+    {
+        if (catalog.LinkSource is not { } source) return catalog;
+
+        var links = C4RecordLinks.Read(source.Workspace, WorkspaceFile, ChaptersIn(source.Folders));
+        return catalog with
+        {
+            Problems = [.. source.WorkspaceProblems, .. links.Problems],
+            Links = links.Links,
+            Code = links.Code
+        };
+    }
+
+    /// <summary>
+    /// Every chapter of the folders, read, for the record links. Found by the rule the
+    /// chapter catalogs use — recursive, skipping any underscored segment — and spelled
+    /// the way they spell it, so a record's path is the path the chapter list holds.
+    /// A file that will not read is handed on with its reason, to be reported.
+    /// </summary>
+    private static IEnumerable<C4RecordLinks.Chapter> ChaptersIn(IEnumerable<C4RecordLinks.Folder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            if (!Directory.Exists(folder.FullPath)) continue;
+
+            var root = Arc42DevbookReader.ResolveRoot(folder.FullPath, folder.RootPath);
+            var files = Directory.EnumerateFiles(folder.FullPath, "*.md", Arc42DevbookReader.Recursive)
+                .Where(file => !Arc42DevbookReader.IsUnderscored(Path.GetRelativePath(folder.FullPath, file)))
+                .OrderBy(file => file, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var file in files)
+            {
+                var path = Path.GetRelativePath(root, file).Replace('\\', '/');
+
+                string? text = null;
+                string? error = null;
+                try
+                {
+                    text = File.ReadAllText(file);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    error = exception.Message;
+                }
+
+                yield return new C4RecordLinks.Chapter(path, text, folder.IsDomain, error);
+            }
+        }
     }
 
     /// <summary>Whether somebody wrote a workspace: an authored model is the model, and
@@ -350,7 +466,7 @@ public sealed class C4DevbookStore : IDisposable
     /// sample diagram is not part of the model.
     /// </para>
     /// </summary>
-    private static IEnumerable<C4MermaidSource> C4Fences(string chapter, string text)
+    internal static IEnumerable<C4MermaidSource> C4Fences(string chapter, string text)
     {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
@@ -531,14 +647,24 @@ public sealed class C4DevbookStore : IDisposable
     /// The cached catalog is dropped quietly rather than through <see cref="Changed"/>:
     /// the caller is the panel that saved, and it re-reads straight afterwards —
     /// raising the event as well would re-read every chapter twice on each debounced
-    /// keystroke-save. An authored workspace is dropped too: no chapter save changes a
-    /// <c>.dsl</c>, but one can add, move or remove an embed.
+    /// keystroke-save. A catalog read from an authored workspace keeps its parsed model,
+    /// because no chapter save changes a <c>.dsl</c>, but everything the chapters say
+    /// about it is read again on the next load: a save can add, move or remove an embed,
+    /// or change the <c>c4</c>, <c>c4-touches</c> or <c>code</c> fields that link a record
+    /// to it. A catalog with no workspace at all is dropped: the save may have added the
+    /// first C4 fence.
     /// </para>
     /// </summary>
     public void ChapterSaved()
     {
         lock (_gate)
         {
+            if (_cached is { LinkSource: not null })
+            {
+                _relinkFrom = _cached;
+                _relinkFromKey = _cachedFor;
+            }
+
             _cached = null;
             _cachedFor = null;
             _generation++;
@@ -551,6 +677,8 @@ public sealed class C4DevbookStore : IDisposable
         {
             _cached = null;
             _cachedFor = null;
+            _relinkFrom = null;
+            _relinkFromKey = null;
             _generation++;
         }
 
@@ -616,6 +744,14 @@ public sealed record C4ViewEntry(
     }
 }
 
+/// <summary>The parsed workspace a catalog's links resolve against, the folders whose
+/// chapters write them, and the problems the workspace itself had before any link was
+/// read.</summary>
+internal sealed record C4LinkSource(
+    C4Workspace Workspace,
+    IReadOnlyList<C4RecordLinks.Folder> Folders,
+    IReadOnlyList<C4WorkspaceProblem> WorkspaceProblems);
+
 /// <summary>A problem, and which workspace it came out of.</summary>
 public sealed record C4WorkspaceProblem(string WorkspaceFile, C4Problem Problem);
 
@@ -660,6 +796,55 @@ public sealed record C4Catalog(
     public static C4Catalog Off { get; } = new(false, null, [], [], []);
 
     public bool HasViews => Views.Count > 0;
+
+    /// <summary>
+    /// Every link a chapter writes to an element of the authored workspace — its
+    /// <c>c4</c> and <c>c4-touches</c> fields, resolved. Empty for a model drawn from
+    /// the chapters' fences: the fields name <c>workspace.dsl</c>'s elements, and
+    /// there is none to name. A link naming no element is in <see cref="Problems"/>
+    /// instead.
+    /// </summary>
+    public IReadOnlyList<C4ElementLink> Links { get; init; } = [];
+
+    /// <summary>Per element, the code folders its building block names in
+    /// <c>code</c>, keyed by the workspace's identifier.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Code { get; init; } =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>What the links were read from, kept so a chapter save can read them
+    /// again without parsing the workspace a second time. Null for a model with no
+    /// authored workspace.</summary>
+    internal C4LinkSource? LinkSource { get; init; }
+
+    /// <summary>The records linked to one element, in the order the chapters were
+    /// read — those about it, those that touch it, or with no kind given both.</summary>
+    public IReadOnlyList<C4ElementLink> RecordsOf(string? elementId, C4LinkKind? kind = null) =>
+        string.IsNullOrWhiteSpace(elementId)
+            ? []
+            : [.. Links.Where(link => string.Equals(link.ElementId, elementId, StringComparison.OrdinalIgnoreCase)
+                && (kind is null || link.Kind == kind))];
+
+    /// <summary>The elements one record links to, matched on the file whichever layout
+    /// spelled it and whatever heading it names, the way
+    /// <see cref="C4ViewEntry.Documented"/> matches.</summary>
+    public IReadOnlyList<C4ElementLink> ElementsOf(string? recordPath)
+    {
+        if (string.IsNullOrWhiteSpace(recordPath)) return [];
+
+        var wanted = C4ViewEntry.FileOf(recordPath);
+        return [.. Links.Where(link => string.Equals(C4ViewEntry.FileOf(link.Record.Path), wanted, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    /// <summary>The folders one element's code sits in, or none. Only a building
+    /// block's file names them, so an element no block is written for has none and its
+    /// zoom stops at the component level.</summary>
+    public IReadOnlyList<string> CodeOf(string? elementId) =>
+        elementId is not null && Code.TryGetValue(elementId, out var folders) ? folders : [];
+
+    /// <summary>The repository root the <see cref="Code"/> folders are spelled from:
+    /// the clone, or a branch snapshot, which holds the devbook and not the source.
+    /// Null when the folder sits on no repository.</summary>
+    public string? RepositoryRoot { get; init; }
 
     /// <summary>The workspace a view belongs to, or null. What the explorer is opened
     /// on when a chapter reference names a view.</summary>

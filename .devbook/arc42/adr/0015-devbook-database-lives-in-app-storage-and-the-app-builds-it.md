@@ -3,6 +3,8 @@
 ```meta
 date: 2026-09-25
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/tech/tooling.md#devbook-database-writer", ".devbook/domain/devbook/features.md#a-devbook-that-stays-current"]
+c4: [backlog.desktop.devbook]
+c4-touches: [backlog.mobile, backlog.ide]
 ```
 
 ## Status
@@ -208,3 +210,13 @@ Neutral:
   except the one function that says where it is.
 - Semantic retrieval stays wired and empty. Which embedding model, and whether
   chapter text belongs in the database, remain ADR 0004's open questions.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-09-25 | The devbook database lives in the app's storage, one per repository path, and the app builds it in C#. | A build output inside a repository stays inside it, and nothing built the database where the app needed it. |
+| 2026-08-27 | ADR 0004: the database sits beside the folders in `_meta/`, ignored by git, and the Node generator is its only writer. | One writer kept a second implementation of the parse from existing. |

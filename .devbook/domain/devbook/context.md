@@ -73,6 +73,26 @@ The catalog also reads three former keys: `repository-knowledge`,
 catalog in `AppFeatures.cs`, and the choice is kept in `features.json` beside the
 app's other per-device choices.
 
+## C4 zoom
+
+```meta
+type: feature-flag
+key: c4-zoom
+default: off
+related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
+```
+
+Turning it on adds a **C4 zoom** tab beside the **C4** tab in the architecture
+panel. An ADR, a TDR or an arc42 chapter in the **Chapters** tab then shows where
+it lands in the C4 model. It needs `c4-diagrams` on as well, because the model it
+walks is the one that switch shows. With `c4-diagrams` off the panel offers no zoom
+tab, whatever this switch says. The **C4** tab is the same with this switch on or
+off.
+
+The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and the
+switch is retired once the zoom tab has been validated and replaces the **C4** tab
+(local ADR 0046).
+
 ## Devbook editing
 
 ```meta

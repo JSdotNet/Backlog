@@ -1,0 +1,56 @@
+@*
+    The cross-cutting tray the zoom tab shows under the picture while its Debt overlay
+    is on: the open debt records that name no element of the model. Such a record has
+    no card to put a chip on, so without the tray the overlay would lose it — and debt
+    that touches everything is the debt least likely to be lost on purpose.
+
+    It draws what it is handed: the host decides which records name no element, as it
+    decides every record the inspector lists. Each row opens its record the way the
+    inspector's rows do. Nothing to list draws nothing.
+*@
+
+@if (Records.Count > 0)
+{
+    <section class="c4-cross-cutting" aria-labelledby="@_headingId" data-testid="@TestId">
+        <div class="c4-cross-cutting__head">
+            <h3 class="c4-cross-cutting__heading" id="@_headingId">Cross-cutting debt — names no element · @Records.Count</h3>
+            <span class="c4-cross-cutting__note">Shown on every view while the Debt overlay is on</span>
+        </div>
+        <ul class="c4-cross-cutting__list">
+            @foreach (var record in Records)
+            {
+                <li @key="record.Path">
+                    <AppButton BaseClass="c4-cross-cutting__record"
+                               TestId="c4-cross-cutting-record"
+                               data-path="@record.Path"
+                               OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+                        @if (record.Number is not null)
+                        {
+                            <span class="c4-cross-cutting__number">TDR @record.Number</span>
+                        }
+                        <span class="c4-cross-cutting__title">@record.Title</span>
+                        @if (record.Severity is not null)
+                        {
+                            <span class="c4-cross-cutting__severity">@record.Severity</span>
+                        }
+                    </AppButton>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    private readonly string _headingId = "c4-cross-cutting-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The open debt records that name no element, in the order to list them.</summary>
+    [Parameter]
+    public IReadOnlyList<C4InspectorRecord> Records { get; set; } = [];
+
+    /// <summary>A record was picked, by the path it was handed with. The host opens it.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRecord { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-zoom-cross-cutting";
+}
