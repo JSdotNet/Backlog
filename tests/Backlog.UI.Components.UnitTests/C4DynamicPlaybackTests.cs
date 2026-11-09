@@ -390,7 +390,7 @@ public sealed class C4DynamicPlaybackTests : IDisposable
     /// motion on or off while the view is open is followed, the explorer told by the
     /// viewer's <c>change</c> listener.</summary>
     [Fact]
-    public void A_reduced_motion_change_made_mid_session_is_followed()
+    public async Task A_reduced_motion_change_made_mid_session_is_followed()
     {
         var watch = _context.JSInterop.Setup<bool>(WatchReducedMotion, _ => true);
         watch.SetResult(false);
@@ -403,10 +403,10 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         var invocation = Assert.Single(_context.JSInterop.Invocations[WatchReducedMotion]);
         Assert.IsType<Microsoft.JSInterop.DotNetObjectReference<C4ZoomExplorer>>(invocation.Arguments[1]);
 
-        explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(true)).GetAwaiter().GetResult();
+        await explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(true));
         explorer.WaitForElement("[data-testid='c4-dynamic-reduced-motion']");
 
-        explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(false)).GetAwaiter().GetResult();
+        await explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(false));
         explorer.WaitForAssertion(() => Assert.Empty(explorer.FindAll("[data-testid='c4-dynamic-reduced-motion']")));
 
         // Watched once per explorer, however many renders follow.

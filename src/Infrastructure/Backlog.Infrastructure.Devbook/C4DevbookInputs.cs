@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
 /// The files a C4 catalog was read from, each by its size and write time — so a
@@ -21,13 +21,17 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </summary>
 /// <remarks>A class, not a record: a record's equality would compare the two lists by
 /// reference, and <see cref="Same"/> is the comparison meant.</remarks>
-internal sealed class C4DevbookInputs(
+public sealed class C4DevbookInputs(
     string? folder,
     string? domainFolder,
+    C4DevbookModelFiles files,
     IReadOnlyList<string> model,
     IReadOnlyList<string> chapters)
 {
     public string? Folder { get; } = folder;
+
+    /// <summary>Where the model's files sit in the folder, as the catalog names them.</summary>
+    public C4DevbookModelFiles Files { get; } = files;
 
     public string? DomainFolder { get; } = domainFolder;
 
@@ -38,16 +42,16 @@ internal sealed class C4DevbookInputs(
     /// <summary>The inputs as they are on disk now, for the architecture folder and
     /// the domain folder when the catalog reads it. A folder that is null or absent
     /// contributes nothing, so its appearing later is a change too.</summary>
-    public static C4DevbookInputs Take(string? folder, string? domainFolder)
+    public static C4DevbookInputs Take(string? folder, string? domainFolder, C4DevbookModelFiles files)
     {
         List<string> model = [];
         List<string> chapters = [];
 
         if (folder is not null && Directory.Exists(folder))
         {
-            Add(model, folder, Path.Combine(folder, C4DevbookStore.WorkspaceFile));
-            Add(model, folder, Path.Combine(folder, C4DevbookStore.ReferenceDirectory, C4DevbookStore.ReferenceFile));
-            AddAll(model, folder, Path.Combine(folder, C4DevbookStore.IncludeDirectory), "*");
+            Add(model, folder, Path.Combine(folder, files.Workspace));
+            Add(model, folder, Path.Combine(folder, files.ReferenceDirectory, files.ReferenceFile));
+            AddAll(model, folder, Path.Combine(folder, files.IncludeDirectory), "*");
             AddAll(chapters, folder, folder, "*.md");
         }
 
@@ -56,11 +60,11 @@ internal sealed class C4DevbookInputs(
             AddAll(chapters, domainFolder, domainFolder, "*.md");
         }
 
-        return new C4DevbookInputs(folder, domainFolder, model, chapters);
+        return new C4DevbookInputs(folder, domainFolder, files, model, chapters);
     }
 
     /// <summary>The same inputs, read again now.</summary>
-    public C4DevbookInputs Again() => Take(Folder, DomainFolder);
+    public C4DevbookInputs Again() => Take(Folder, DomainFolder, Files);
 
     /// <summary>Whether the workspace and what it is read with are as they were.</summary>
     public bool SameModel(C4DevbookInputs other) => Model.SequenceEqual(other.Model, StringComparer.Ordinal);
@@ -79,8 +83,8 @@ internal sealed class C4DevbookInputs(
         IEnumerable<string> files;
         try
         {
-            files = [.. Directory.EnumerateFiles(directory, pattern, Arc42DevbookReader.Recursive)
-                .Where(file => !Arc42DevbookReader.IsUnderscored(Path.GetRelativePath(root, file)))
+            files = [.. Directory.EnumerateFiles(directory, pattern, Recursive)
+                .Where(file => !IsUnderscored(Path.GetRelativePath(root, file)))
                 .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -108,4 +112,28 @@ internal sealed class C4DevbookInputs(
             into.Add($"{Path.GetRelativePath(root, file)}|unreadable");
         }
     }
+
+    /// <summary>Recursive and tolerant, the walk the chapter readers take: an
+    /// unreadable folder is skipped, a dot-prefixed one is kept.</summary>
+    private static readonly EnumerationOptions Recursive = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = 0,
+        MatchType = MatchType.Win32,
+    };
+
+    /// <summary>Whether any segment of a folder-relative path starts with an
+    /// underscore, the folders the chapter readers skip.</summary>
+    private static bool IsUnderscored(string relativePath) =>
+        relativePath.Split('/', '\\').Any(segment => segment.StartsWith('_'));
 }
+
+/// <summary>The names of a C4 model's files inside the architecture folder: the
+/// workspace, the reference map and its folder, and the folder the workspace
+/// includes from.</summary>
+public sealed record C4DevbookModelFiles(
+    string Workspace,
+    string ReferenceDirectory,
+    string ReferenceFile,
+    string IncludeDirectory);

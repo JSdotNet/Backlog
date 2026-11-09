@@ -4,6 +4,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
+using Backlog.Infrastructure.Devbook;
 
 using DevbookC4Graph = Backlog.Infrastructure.Devbook.Building.DevbookC4Graph;
 using DevbookMarkdown = Backlog.Infrastructure.Devbook.Building.DevbookMarkdown;
@@ -80,6 +81,10 @@ public sealed class C4DevbookStore : IDisposable
     /// </para>
     /// </summary>
     public const string ReferenceFile = "references.json";
+
+    /// <summary>The model's file names, as the input stamp takes them.</summary>
+    internal static readonly C4DevbookModelFiles ModelFiles =
+        new(WorkspaceFile, ReferenceDirectory, ReferenceFile, IncludeDirectory);
 
     /// <summary>The devbook folder this feature is scoped to. Architecture only,
     /// deliberately: C4 describes systems, containers and components, and the other
@@ -207,7 +212,8 @@ public sealed class C4DevbookStore : IDisposable
         {
             var stamped = C4DevbookInputs.Take(
                 prepared is { Available: true } ? prepared.FullPath : null,
-                domain is { Available: true } ? domain.FullPath : null);
+                domain is { Available: true } ? domain.FullPath : null,
+                ModelFiles);
             return (Read(prepared, domain, reuse), stamped);
         }).ConfigureAwait(false);
 
