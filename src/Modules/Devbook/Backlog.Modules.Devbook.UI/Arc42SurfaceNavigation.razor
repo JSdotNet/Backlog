@@ -125,8 +125,6 @@
                         <ToggleButton @key="choice"
                                       Pressed="@(_status == choice)"
                                       PressedChanged="@(pressed => ChooseStatus(choice, pressed))"
-                                      BaseClass="arc42-surface-nav__filter-choice"
-                                      PressedCssClass="arc42-surface-nav__filter-choice--active"
                                       TestId="@($"arc42-surface-decision-filter-{choice.ToString().ToLowerInvariant()}")">@choice @Decisions.Count(record => !record.Guideline && Keeps(choice, record))</ToggleButton>
                     }
                 </ButtonGroup>

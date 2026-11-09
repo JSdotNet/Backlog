@@ -147,7 +147,7 @@ Pick a box and the panel beside it names the files it is declared in and offers 
 
 Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for it still walks on its own, the steps changing without animation, and the panel says so — the preference is followed when it changes mid-session. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes.
 
-Under the steps, **Decisions on this path**: the decisions that name an element the flow passes through, from the host's `RecordsFor`, a proposed one marked; each opens its record."
+Under the steps, **Decisions on this path**: the decisions that name an element the flow passes through, from the host's `RecordsFor`, a proposed one marked, the local records first and a guideline after them marked **guideline** (it numbers from 0001 as they do); each opens its record."
            Code="@DynamicUsage">
         <div class="sb-c4-zoom-moments">
             <p class="sb-c4-zoom-moments__label">Step 2 of 3</p>
@@ -477,7 +477,10 @@ That behaviour is the whole safeguard. This reader is a second implementation of
     [
         new(".devbook/arc42/adr/0003-sqlite-canonical.md", "0003", "SQLite is the canonical task store", C4InspectorRecordKind.Decision) { Accepted = true },
         new(".devbook/arc42/adr/0005-azure-replica.md", "0005", "An Azure-hosted task replica carries sync", C4InspectorRecordKind.Decision) { Accepted = true },
-        new(".devbook/arc42/adr/0031-live-events.md", "0031", "Live events reach the desktop over the sync service", C4InspectorRecordKind.Decision, Proposed: true)
+        new(".devbook/arc42/adr/0031-live-events.md", "0031", "Live events reach the desktop over the sync service", C4InspectorRecordKind.Decision, Proposed: true),
+        // A guideline numbers from 0001 as the local records do: listed after them,
+        // and marked so its number is never read as the local ADR's.
+        new(".devbook/arc42/adr/guidelines/0004-result-objects.md", "0004", "Results are objects, not exceptions", C4InspectorRecordKind.Decision) { Accepted = true, Guideline = true }
     ];
 
     /// <summary>The sample's dynamic view, as the zoom tab's steps panel lists it.</summary>

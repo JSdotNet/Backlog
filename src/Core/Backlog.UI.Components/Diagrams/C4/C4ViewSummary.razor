@@ -101,6 +101,9 @@
             .. _nodes
                 .Select(node => (node, target: C4ZoomNavigation.ZoomInView(Workspace, View, node.ElementId)))
                 .Where(pair => pair.target is not null)
+                // Two cards can zoom into the same view — an element drawn twice, or a
+                // view scoped above both — and a way in is one per view it opens.
+                .DistinctBy(pair => pair.target!, StringComparer.OrdinalIgnoreCase)
                 .Select(pair => (pair.target!, $"{pair.node.Name} — {WayLabel(Workspace.View(pair.target))}"))
         ];
     }

@@ -325,6 +325,46 @@ public sealed class C4ElementInspectionTests
         Assert.Equal("ADR 0008", origin.Label);
     }
 
+    /// <summary>The debt card reads the origin the way the record placement does: an
+    /// "Inherited ADR 0005" is the guideline of that number, never the local record
+    /// that shares it, and a number <c>related:</c> does not list is not linked.</summary>
+    [Fact]
+    public void Debt_origin_naming_an_inherited_ADR_links_the_guideline()
+    {
+        const string path = ".devbook/arc42/tdr/0003-results.md";
+        const string guideline = ".devbook/arc42/adr/guidelines/0005-result-objects.md";
+        var debt = Debt(path, "TDR 0003: Results", DevbookDebtSeverity.Low, DevbookDebtLifecycle.Identified);
+
+        IReadOnlyList<DevbookDocument> chapters =
+        [
+            .. Chapters,
+            DevbookMarkdownParser.Parse(path, $$"""
+                # TDR 0003: Results
+
+                ```meta
+                related: ["{{guideline}}"]
+                ```
+
+                ## Origin
+
+                Inherited ADR 0005 asks for result objects; local ADR 0009 later bent it.
+                """),
+            DevbookMarkdownParser.Parse(guideline, "# ADR 0005: Result objects\n\nText.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/adr/0005-local-five.md", "# ADR 0005: Local five\n\nText.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/adr/0009-local-nine.md", "# ADR 0009: Local nine\n\nText.\n"),
+        ];
+
+        var records = C4ElementInspection.For(
+            CatalogWith(new C4ElementLink("backlog.desktop", C4LinkKind.About, debt)),
+            Entry,
+            chapters,
+            "backlog.desktop");
+
+        var origin = Assert.Single(Assert.Single(records.Debt).Detail!.Origin);
+        Assert.Equal(guideline, origin.Path);
+        Assert.Equal("Guideline ADR 0005", origin.Label);
+    }
+
     [Fact]
     public void A_single_option_marked_preferred_is_the_remediation()
     {

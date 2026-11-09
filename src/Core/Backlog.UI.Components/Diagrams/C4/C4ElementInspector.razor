@@ -26,7 +26,7 @@
 <aside class="c4-element-inspector" aria-label="Selected element" data-testid="@TestId">
     <div class="c4-element-inspector__head">
         <p class="c4-element-inspector__kind" data-testid="c4-inspector-kind">@C4LayoutEngine.KindLabel(Element.Kind)</p>
-        <h3 class="c4-element-inspector__name" data-testid="c4-inspector-name">@Element.Name</h3>
+        <h3 class="c4-element-inspector__name" tabindex="-1" @ref="_heading" data-testid="c4-inspector-name">@Element.Name</h3>
 
         @if (!string.IsNullOrWhiteSpace(Element.Technology))
         {
@@ -268,6 +268,23 @@
 
 @code {
     private readonly string _id = "c4-inspector-" + Guid.NewGuid().ToString("N");
+
+    private ElementReference _heading;
+
+    /// <summary>Moves the keyboard to the element's name: a host that selected the
+    /// element from somewhere else on the page — the view summary — hands the reader
+    /// to what that selection shows. Out of the Tab order, so focusing it adds no stop.
+    /// No script to focus with leaves the focus where it was.</summary>
+    public async Task FocusHeadingAsync()
+    {
+        try
+        {
+            await _heading.FocusAsync();
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
 
     /// <summary>The element selected.</summary>
     [Parameter, EditorRequired]

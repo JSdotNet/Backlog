@@ -126,15 +126,14 @@ public sealed partial record C4RecordPlacement(
         // records are, and number from 0001 as they do, so each chip says which it is.
         var adrs = catalog.Documents
             .Where(document => Arc42DevbookCatalog.IsArchitectureDecision(document.Path))
-            .OrderBy(IsGuideline)
+            .OrderBy(document => Arc42DevbookCatalog.IsGuideline(document.Path))
             .ToList();
         var mine = RelatedFiles(record);
 
         if (recordKind == C4RecordKind.Debt)
         {
             var named = adrs.Where(other => mine.Contains(C4ViewEntry.FileOf(other.Path))).ToList();
-            var origin = OriginOf(record);
-            var fromOrigin = named.Where(origin.Names).ToList();
+            var fromOrigin = named.Where(OriginOf(record).Names).ToList();
 
             return new C4RecordPlacement(record, recordKind, map, [], [], [], [], cited, [],
                 [.. fromOrigin.Select(Chain)],
@@ -144,8 +143,8 @@ public sealed partial record C4RecordPlacement(
         // Supersession is a local record's alone. A guideline adopted from elsewhere
         // numbers from 0001 as the local records do, so its number would be matched
         // against History rows that name a local record of the same number.
-        var decisions = adrs.Where(IsLocalDecision).ToList();
-        var local = IsLocalDecision(record);
+        var decisions = adrs.Where(document => Arc42DevbookCatalog.IsLocalDecision(document.Path)).ToList();
+        var local = Arc42DevbookCatalog.IsLocalDecision(record.Path);
         var number = local ? NumberOf(record.Path) : null;
 
         List<C4ChainRecord> supersedes = !local ? [] : [.. decisions
@@ -171,6 +170,34 @@ public sealed partial record C4RecordPlacement(
             .Select(Chain)];
 
         return new C4RecordPlacement(record, recordKind, map, supersedes, supersededBy, buildsOn, builtOnBy, cited, debt, [], []);
+    }
+
+    /// <summary>
+    /// The ADRs a TDR's origin section says the debt came from, local ones first: of
+    /// <paramref name="documents"/>, those the record's <c>related:</c> lists name and
+    /// its <c>## Origin</c> (or <c>## Why it exists</c>) names — the one reading the
+    /// placement panel's chain and the inspector's debt card share. None for a record
+    /// that is no TDR.
+    /// </summary>
+    public static IReadOnlyList<DevbookDocument> OriginDecisions(DevbookDocument record, IEnumerable<DevbookDocument> documents)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(documents);
+
+        if (!Arc42DevbookCatalog.IsDebtRecord(record.Path)) return [];
+
+        var mine = RelatedFiles(record);
+        var origin = OriginOf(record);
+
+        return
+        [
+            .. documents
+                .Where(document => Arc42DevbookCatalog.IsArchitectureDecision(document.Path)
+                    && mine.Contains(C4ViewEntry.FileOf(document.Path))
+                    && origin.Names(document))
+                .DistinctBy(document => C4ViewEntry.FileOf(document.Path), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(document => Arc42DevbookCatalog.IsGuideline(document.Path))
+        ];
     }
 
     // ---- the map ------------------------------------------------------------------
@@ -252,22 +279,6 @@ public sealed partial record C4RecordPlacement(
 
     // ---- the chain ----------------------------------------------------------------
 
-    /// <summary>A decision record of this repository: directly in <c>adr/</c>, so
-    /// neither the index nor a guideline the repository adopted from elsewhere.</summary>
-    private static bool IsLocalDecision(DevbookDocument document)
-    {
-        if (!Arc42DevbookCatalog.IsArchitectureDecision(document.Path)) return false;
-
-        var path = document.Path.Replace('\\', '/');
-        var folder = path.LastIndexOf("/adr/", StringComparison.OrdinalIgnoreCase);
-        return folder >= 0 && !path[(folder + "/adr/".Length)..].Contains('/', StringComparison.Ordinal);
-    }
-
-    /// <summary>A guideline ADR: adopted from elsewhere into <c>adr/guidelines/</c>,
-    /// numbered from 0001 as the local records are.</summary>
-    private static bool IsGuideline(DevbookDocument document) =>
-        document.Path.Replace('\\', '/').Contains("/adr/guidelines/", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>What a TDR's origin section names: the files its heading's
     /// <c>related:</c> and its links point at, and the ADRs its prose cites by number,
     /// each a local or a guideline one.</summary>
@@ -281,7 +292,7 @@ public sealed partial record C4RecordPlacement(
         public bool Names(DevbookDocument adr) =>
             Files.Contains(C4ViewEntry.FileOf(adr.Path))
             || LinkedNames.Contains(Path.GetFileName(adr.Path))
-            || (NumberOf(adr.Path) is { } number && Cited.Contains((IsGuideline(adr), number)));
+            || (NumberOf(adr.Path) is { } number && Cited.Contains((Arc42DevbookCatalog.IsGuideline(adr.Path), number)));
     }
 
     /// <summary>
@@ -381,7 +392,7 @@ public sealed partial record C4RecordPlacement(
         NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
         TitleOf(document),
         string.Equals(document.Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase),
-        IsGuideline(document));
+        Arc42DevbookCatalog.IsGuideline(document.Path));
 
     /// <summary>The title without its "ADR 0005:" lead, which the number beside it
     /// already says.</summary>

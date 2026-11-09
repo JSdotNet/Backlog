@@ -340,6 +340,19 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
             && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Whether the path is a guideline ADR, adopted from elsewhere into
+    /// <c>adr/guidelines/</c>. Guidelines number from 0001 as the local records do, so
+    /// the number alone never says which record "ADR 0004" is.</summary>
+    public static bool IsGuideline(string path) =>
+        IsArchitectureDecision(path)
+        && Within(path)[".arc42/adr/".Length..].StartsWith("guidelines/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the path is a decision record of this repository: directly in
+    /// <c>adr/</c>, so neither the index nor a guideline.</summary>
+    public static bool IsLocalDecision(string path) =>
+        IsArchitectureDecision(path)
+        && !Within(path)[".arc42/adr/".Length..].Contains('/', StringComparison.Ordinal);
+
     /// <summary>Whether the path is a TDR, in either layout. The index beside the
     /// records is not one.</summary>
     public static bool IsDebtRecord(string path)

@@ -66,7 +66,7 @@
 
         <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
 
-        <div class="c4-zoom-explorer__surface@(Document is null ? string.Empty : " c4-zoom-explorer__surface--document")" data-testid="c4-zoom-surface">
+        <div class="@SurfaceClass" data-testid="c4-zoom-surface">
             <div class="c4-zoom-explorer__nav">@Navigation</div>
 
             @if (Document is not null)
@@ -81,9 +81,13 @@
 
                 @* On a dynamic view the steps panel heads the right-hand column, beside
                    the picture as the design's Dynamic screen draws it, and the
-                   inspector of a selected element follows it there. *@
+                   inspector of a selected element follows it there. The Code level has
+                   no such column: its type panel is its own, and the level takes both
+                   columns, so no component inspector stands beside the selected type. *@
+                @if (_codeFor is null)
+                {
                 <div class="c4-zoom-explorer__aside" data-testid="c4-zoom-aside">
-                    @if (_playback.Count > 0 && _codeFor is null)
+                    @if (_playback.Count > 0)
                     {
                         @StepsPanel
                     }
@@ -92,7 +96,7 @@
                     {
                         @Inspector
                     }
-                    else if (_playback.Count == 0 || _codeFor is not null)
+                    else if (_playback.Count == 0)
                     {
                         @* Nothing selected: what the open view is, as the design's
                            Landscape screen says it, rather than "Nothing selected". *@
@@ -103,6 +107,7 @@
                                        TestId="c4-zoom-view-summary" />
                     }
                 </div>
+                }
             }
         </div>
     }
@@ -173,27 +178,7 @@
                     </p>
                 </div>
 
-                <ButtonGroup CssClass="c4-zoom-explorer__scale" AriaLabel="Zoom" TestId="c4-zoom-scale">
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               aria-label="Zoom out"
-                               title="Zoom out"
-                               Disabled="@(_scaleIndex == 0)"
-                               TestId="c4-zoom-scale-out"
-                               OnClick="() => Scale(-1)">−</AppButton>
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               title="Fit the picture to its frame"
-                               TestId="c4-zoom-scale-fit"
-                               OnClick="Fit">Fit</AppButton>
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               aria-label="Zoom in"
-                               title="Zoom in"
-                               Disabled="@(_scaleIndex == Scales.Length - 1)"
-                               TestId="c4-zoom-scale-in"
-                               OnClick="() => Scale(1)">+</AppButton>
-                </ButtonGroup>
+                <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
             }
             else
             {
@@ -361,7 +346,8 @@
     </div>;
 
     /// <summary>The selected element, as the inspector shows it.</summary>
-    private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
+    private RenderFragment Inspector => @<C4ElementInspector @ref="_inspector"
+                                                            Element="@_inspected"
                                                             ZoomLabel="@_zoomLabel"
                                                             OnZoomIn="ZoomIntoSelectedAsync"
                                                             Deployment="@_deploymentNode"
@@ -548,6 +534,12 @@
 
     private bool Surface => Navigation is not null;
 
+    private string SurfaceClass =>
+        "c4-zoom-explorer__surface"
+        + (Document is not null ? " c4-zoom-explorer__surface--document"
+            : _codeFor is not null ? " c4-zoom-explorer__surface--code"
+            : string.Empty);
+
     private string ExplorerClass =>
         "c4-zoom-explorer"
         + (Surface ? " c4-zoom-explorer--surface" : _playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty);
@@ -576,23 +568,17 @@
         }
     }
 
-    /// <summary>The sizes − and + step through, as a share of the frame.</summary>
-    private static readonly double[] Scales = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-    private const int FitIndex = 2;
-    private int _scaleIndex = FitIndex;
+    /// <summary>The step of <see cref="C4ZoomScale.Steps"/> the picture is drawn at,
+    /// kept here because a new view resets it.</summary>
+    private int _scaleIndex = C4ZoomScale.FitIndex;
 
     /// <summary>How large the picture is drawn now, as a percentage of its frame. For
     /// the host and for tests.</summary>
-    public int ScalePercent => (int)Math.Round(Scales[_scaleIndex] * 100);
+    public int ScalePercent => C4ZoomScale.Percent(_scaleIndex);
 
-    private string? CanvasStyle => _scaleIndex == FitIndex
+    private string? CanvasStyle => _scaleIndex == C4ZoomScale.FitIndex
         ? null
         : FormattableString.Invariant($"width: {ScalePercent}%; height: {ScalePercent}%;");
-
-    private void Scale(int step) => _scaleIndex = Math.Clamp(_scaleIndex + step, 0, Scales.Length - 1);
-
-    private void Fit() => _scaleIndex = FitIndex;
 
     private C4ZoomLocation? _reported;
 
@@ -822,12 +808,21 @@
     private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
 
     /// <summary>An element pressed in the view summary: selected, as a click on its
-    /// card selects it; the viewer is told on the next render.</summary>
+    /// card selects it; the viewer is told on the next render. The summary goes with
+    /// the press — the inspector stands in its place — so the keyboard is handed to
+    /// the inspector's heading rather than dropped to the page.</summary>
     private void SelectFromSummary(string elementId)
     {
         _selectedId = elementId;
+        _focusInspector = true;
         Refresh();
     }
+
+    private C4ElementInspector? _inspector;
+
+    /// <summary>Set by a selection from the view summary; the render that draws the
+    /// inspector moves the focus to it, and clears it.</summary>
+    private bool _focusInspector;
 
     /// <summary>A way in pressed in the view summary: the view below that element.</summary>
     private void OpenFromSummary(string viewKey) => Open(viewKey, null);
@@ -855,7 +850,8 @@
                     .SelectMany(elementId => CardRecords(elementId).Decisions)
                     .GroupBy(record => record.Path, StringComparer.OrdinalIgnoreCase)
                     .Select(group => group.First())
-                    .OrderBy(record => record.Number ?? record.Path, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(record => record.Guideline)
+                    .ThenBy(record => record.Number ?? record.Path, StringComparer.OrdinalIgnoreCase)
             ];
 
             return _pathDecisions;
@@ -1304,7 +1300,7 @@
         if (Workspace.View(viewKey) is not { } next) return;
 
         CloseCodeLevel();
-        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = FitIndex;
+        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = C4ZoomScale.FitIndex;
         _view = next;
         _selectedId = selectId;
         Refresh();
@@ -1536,6 +1532,12 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await ReportLocationAsync();
+
+        if (_focusInspector)
+        {
+            _focusInspector = false;
+            if (_inspected is not null && _inspector is not null) await _inspector.FocusHeadingAsync();
+        }
 
         // The Code level draws no C4 picture, and neither does the surface while a
         // document stands in for it. The viewer is handed the picture again when the

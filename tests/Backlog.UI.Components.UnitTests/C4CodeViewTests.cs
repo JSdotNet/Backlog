@@ -293,6 +293,24 @@ public sealed class C4CodeViewTests : IDisposable
         Assert.Equal("100", Scale());
     }
 
+    /// <summary>Another component's level opens at its own size, as a new view does;
+    /// the same component read again keeps the size the reader chose.</summary>
+    [Fact]
+    public void Another_components_level_opens_at_its_own_size()
+    {
+        var view = Render(Level);
+        string Scale() => view.Find(".c4-code__canvas").GetAttribute("data-scale")!;
+
+        view.Find("[data-testid='c4-code-scale-in']").Click();
+        Assert.Equal("125", Scale());
+
+        view.Render(parameters => parameters.Add(c => c.Level, Level with { }));
+        Assert.Equal("125", Scale());
+
+        view.Render(parameters => parameters.Add(c => c.Level, Level with { Component = "Tasks" }));
+        Assert.Equal("100", Scale());
+    }
+
     [Fact]
     public void Backspace_on_the_picture_asks_to_zoom_out()
     {

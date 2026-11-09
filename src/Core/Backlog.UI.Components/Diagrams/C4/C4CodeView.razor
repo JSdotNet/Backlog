@@ -227,6 +227,18 @@
 
     private int _scale = C4ZoomScale.FitIndex;
 
+    /// <summary>The component <see cref="_scale"/> was set on: another component's
+    /// level opens at its own size, as every view the explorer opens does.</summary>
+    private string? _scaleFor;
+
+    protected override void OnParametersSet()
+    {
+        if (Level is null || string.Equals(_scaleFor, Level.Component, StringComparison.Ordinal)) return;
+
+        _scaleFor = Level.Component;
+        _scale = C4ZoomScale.FitIndex;
+    }
+
     private C4CodeDiagram _diagram = C4CodeDiagram.Empty;
     private C4CodeLevel? _diagramLevel;
     private bool _diagramAll;

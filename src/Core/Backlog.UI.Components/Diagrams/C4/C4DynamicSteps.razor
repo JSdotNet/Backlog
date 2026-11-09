@@ -106,14 +106,19 @@
                             <AppButton BaseClass="c4-dynamic-steps__decision"
                                        Variant="ButtonVariant.None"
                                        title="@record.Title"
-                                       aria-label="@($"ADR {record.Number} {record.Title}{(record.Proposed ? ", proposed" : string.Empty)}")"
+                                       aria-label="@($"{(record.Guideline ? "Guideline ADR" : "ADR")} {record.Number} {record.Title}{(record.Proposed ? ", proposed" : string.Empty)}")"
                                        data-path="@record.Path"
+                                       data-scope="@(record.Guideline ? "guideline" : "local")"
                                        TestId="c4-dynamic-decision"
                                        OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+                                @if (record.Guideline)
+                                {
+                                    <span class="c4-dynamic-steps__decision-scope" data-testid="c4-dynamic-decision-guideline">guideline</span>
+                                }
                                 <span class="c4-dynamic-steps__decision-number">@(record.Number ?? record.Title)</span>
                                 @if (record.Proposed)
                                 {
-                                    <Badge Kind="status" Slug="proposed" CssClass="c4-element-inspector__chip" TestId="c4-dynamic-decision-proposed">proposed</Badge>
+                                    <Badge Kind="status" Slug="proposed" CssClass="c4-dynamic-steps__decision-chip" TestId="c4-dynamic-decision-proposed">proposed</Badge>
                                 }
                             </AppButton>
                         </li>

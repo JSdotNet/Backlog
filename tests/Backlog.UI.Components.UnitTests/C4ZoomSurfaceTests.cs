@@ -182,6 +182,13 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__main [data-testid='c4-code-panel']"));
         Assert.Single(explorer.FindAll("[data-testid='c4-code-scale']"));
         Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-scale']"));
+
+        // The type panel is the level's own right-hand column: no aside, so no view
+        // summary or component inspector beside the selected type, and the level
+        // takes both columns.
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-aside']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-view-summary']"));
+        Assert.Contains("c4-zoom-explorer__surface--code", surface.ClassList);
     }
 
     /// <summary>The explorer asks for edge ends, so its viewer can light the selected
@@ -317,6 +324,49 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-view-summary']"));
     }
 
+    /// <summary>The summary goes with the press, so the keyboard is handed to the
+    /// inspector's heading that stands in its place rather than dropped to the page.</summary>
+    [Fact]
+    public void An_element_picked_in_the_summary_takes_the_focus_to_the_inspectors_heading()
+    {
+        var explorer = Render(open: new C4ZoomOpen("context-backlog"));
+
+        explorer.FindAll("[data-testid='c4-view-summary-element']").Single(element => element.GetAttribute("data-element") == "github").Click();
+
+        explorer.WaitForAssertion(() => Assert.Single(_context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]));
+        Assert.Equal("-1", explorer.Find("[data-testid='c4-inspector-name']").GetAttribute("tabindex"));
+    }
+
+    /// <summary>Two cards that zoom into views of the same key — a workspace that
+    /// reuses one — offer one way in to it, never two buttons under one render key.</summary>
+    [Fact]
+    public void The_summary_offers_one_way_in_per_view()
+    {
+        // The reader renames a repeated key ("context-2"); a workspace handed over
+        // otherwise — derived from the chapters' fences, say — may still repeat one.
+        var read = C4DslReader.Read("""
+            workspace "Twice" {
+                model {
+                    a = softwareSystem "Alpha" "First"
+                    b = softwareSystem "Beta" "Second"
+                }
+                views {
+                    systemLandscape "landscape" "Everything" { include * }
+                    systemContext a "context" "Alpha context" { include * }
+                    systemContext b "context" "Beta context" { include * }
+                }
+            }
+            """);
+        var workspace = read with { Views = [.. read.Views.Select(view => view.Key == "context-2" ? view with { Key = "context" } : view)] };
+
+        var summary = _context.Render<C4ViewSummary>(parameters => parameters
+            .Add(c => c.Workspace, workspace)
+            .Add(c => c.View, workspace.View("landscape")!));
+
+        var ways = summary.FindAll("[data-testid='c4-view-summary-way']").Select(way => way.GetAttribute("data-view")).ToList();
+        Assert.Equal(["context"], ways);
+    }
+
     [Fact]
     public void Off_the_landscape_the_summary_counts_and_lists_every_card()
     {
@@ -344,6 +394,29 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         decisions[1].Click();
 
         Assert.Equal([".devbook/arc42/adr/0020-github.md"], opened);
+    }
+
+    /// <summary>A guideline numbers from 0001 as the local records do: the path lists
+    /// the local decisions first, and says which chip is a guideline, aloud and drawn.</summary>
+    [Fact]
+    public void A_guideline_on_the_path_comes_after_the_local_decisions_and_says_so()
+    {
+        static C4ElementRecords WithGuideline(string elementId) => elementId == "backlog.desktop"
+            ? new C4ElementRecords([],
+            [
+                new C4InspectorRecord(".devbook/arc42/adr/guidelines/0001-results.md", "0001", "Result objects", C4InspectorRecordKind.Decision) { Guideline = true },
+                new C4InspectorRecord(".devbook/arc42/adr/0031-events.md", "0031", "Live events", C4InspectorRecordKind.Decision),
+            ], [])
+            : C4ElementRecords.None;
+
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"), recordsFor: WithGuideline);
+
+        var decisions = explorer.FindAll("[data-testid='c4-dynamic-decision']");
+        Assert.Equal(["local", "guideline"], decisions.Select(decision => decision.GetAttribute("data-scope")));
+        Assert.StartsWith("Guideline ADR 0001", decisions[1].GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.StartsWith("ADR 0031", decisions[0].GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.Single(decisions[1].QuerySelectorAll("[data-testid='c4-dynamic-decision-guideline']"));
+        Assert.Empty(decisions[0].QuerySelectorAll("[data-testid='c4-dynamic-decision-guideline']"));
     }
 
     [Fact]

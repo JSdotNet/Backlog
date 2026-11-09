@@ -52,6 +52,11 @@ public sealed record C4InspectorRecord(
     /// "n accepted" tally counts. Always false for debt.</summary>
     public bool Accepted { get; init; }
 
+    /// <summary>A guideline ADR, adopted from elsewhere into <c>adr/guidelines/</c>.
+    /// Guidelines number from 0001 as the local records do, so a list says which a
+    /// number is. Always false for debt.</summary>
+    public bool Guideline { get; init; }
+
     /// <summary>The name of the component inside the inspected element that the record
     /// names, when the record is listed on a container for a component of it — "On
     /// component Devbook". Null for a record that names the element itself.</summary>

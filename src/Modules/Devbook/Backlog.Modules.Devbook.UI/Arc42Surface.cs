@@ -150,7 +150,7 @@ public static class Arc42Surface
                         C4ElementInspection.NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
                         C4ElementInspection.WithoutNumber(document.Title),
                         proposed,
-                        IsGuideline(document.Path),
+                        Arc42DevbookCatalog.IsGuideline(document.Path),
                         proposed ? "proposed" : null)
                     {
                         Accepted = C4LinkedRecord.IsAcceptedStatus(document.Status)
@@ -325,9 +325,6 @@ public static class Arc42Surface
         DevbookDebtLifecycle.Resolved => "resolved",
         _ => null
     };
-
-    private static bool IsGuideline(string path) =>
-        path.Replace('\\', '/').Contains("/adr/guidelines/", StringComparison.OrdinalIgnoreCase);
 
     private static bool SameFile(DevbookDocument document, string path) =>
         string.Equals(C4ViewEntry.FileOf(document.Path), C4ViewEntry.FileOf(path), StringComparison.OrdinalIgnoreCase);

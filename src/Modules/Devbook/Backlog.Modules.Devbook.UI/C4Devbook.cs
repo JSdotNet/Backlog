@@ -166,7 +166,7 @@ public sealed class C4DevbookStore : IDisposable
         int generation;
         C4Catalog? relink;
 
-        if (CachedFor(key) is { } cached) return cached;
+        if (await CachedForAsync(key).ConfigureAwait(false) is { } cached) return cached;
 
         lock (_gate)
         {
@@ -242,8 +242,12 @@ public sealed class C4DevbookStore : IDisposable
     /// read again over the workspace already parsed. A change to the workspace, what it
     /// includes or the reference map drops the catalog whole.
     /// </para>
+    /// <para>
+    /// The stat walk runs on the pool: it lists every chapter in the folder, and the
+    /// caller is the UI thread in the desktop host, which every panel render reaches.
+    /// </para>
     /// </summary>
-    private C4Catalog? CachedFor(string key)
+    private async Task<C4Catalog?> CachedForAsync(string key)
     {
         C4Catalog cached;
         C4DevbookInputs? inputs;
@@ -260,7 +264,7 @@ public sealed class C4DevbookStore : IDisposable
 
         if (inputs is null) return cached;
 
-        var now = inputs.Again();
+        var now = await Task.Run(inputs.Again).ConfigureAwait(false);
         if (inputs.Same(now)) return cached;
 
         lock (_gate)

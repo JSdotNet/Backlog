@@ -19577,6 +19577,28 @@ select.field__input {
     outline-offset: 2px;
 }
 
+/* A guideline ADR on the path: numbered from 0001 as the local records are, so the
+   chip says which it is before its number. */
+.c4-dynamic-steps__decision-scope {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.c4-dynamic-steps__decision-chip {
+    flex: none;
+}
+
+/* A decision still proposed: dashed, as the design draws a choice not yet made. */
+.c4-dynamic-steps__decision-chip.badge--status-proposed {
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
 /* The view summary: the right-hand panel while nothing is selected. */
 .c4-view-summary {
     display: flex;
@@ -20388,20 +20410,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
     line-height: 1.5;
-}
-
-/* On the architecture surface the Code level's type panel is the right-hand column:
-   the picture's inspector stands down while the level is open, so the selected type
-   is not shown beside a component inspector, and on a wide surface the level takes
-   both columns. A narrow surface already stacks into one. */
-.c4-zoom-explorer__surface:has(> .c4-zoom-explorer__main .c4-code) > .c4-zoom-explorer__aside {
-    display: none;
-}
-
-@container c4-zoom-surface (width > 60rem) {
-    .c4-zoom-explorer__surface:has(> .c4-zoom-explorer__main .c4-code) {
-        grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
-    }
 }
 
 /* Narrow: the type panel goes under the picture rather than squeezing it. */
@@ -30331,7 +30339,10 @@ button.domain-field-rules[aria-expanded="true"] {
     min-height: 0;
 }
 
-.c4-zoom-explorer__surface--document {
+/* A document, or the Code level, takes both columns beside the navigation: the Code
+   level's type panel is its own right-hand column, so the explorer draws no aside. */
+.c4-zoom-explorer__surface--document,
+.c4-zoom-explorer__surface--code {
     grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
 }
 
@@ -30931,7 +30942,8 @@ button.domain-field-rules[aria-expanded="true"] {
     background: var(--color-background-alt);
 }
 
-.c4-zoom-explorer__aside > .c4-element-inspector {
+.c4-zoom-explorer__aside > .c4-element-inspector,
+.c4-zoom-explorer__aside > .c4-dynamic-steps {
     padding: 0;
     border: 0;
     background: none;
@@ -30986,7 +30998,8 @@ button.domain-field-rules[aria-expanded="true"] {
 
 @container c4-zoom-surface (max-width: 60rem) {
     .c4-zoom-explorer__surface,
-    .c4-zoom-explorer__surface--document {
+    .c4-zoom-explorer__surface--document,
+    .c4-zoom-explorer__surface--code {
         grid-template-columns: minmax(0, 1fr);
     }
 

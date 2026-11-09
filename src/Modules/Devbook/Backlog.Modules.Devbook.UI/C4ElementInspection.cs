@@ -156,7 +156,8 @@ public static partial class C4ElementInspection
                         Lifecycle: LifecycleLabel(record.Lifecycle),
                         Touches: touches)
                     {
-                        Accepted = record.Accepted
+                        Accepted = record.Accepted,
+                        Guideline = Arc42DevbookCatalog.IsGuideline(record.Path)
                     };
                 })
                 .OrderBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
@@ -215,7 +216,7 @@ public static partial class C4ElementInspection
     /// repository's debt records carry: the first paragraph under <c>## The debt</c>;
     /// the option under <c>## Remediation options</c> whose heading marks it preferred
     /// now (the last such, since a record that changed its mind marks the earlier one
-    /// "preferred before ..."); and the decisions <c>## Origin</c> names. A record the
+    /// "preferred before ..."); and the decisions its origin names. A record the
     /// folder does not hold has nothing to read: null.
     /// </summary>
     private static C4InspectorDebtDetail? DebtDetail(string path, IReadOnlyList<DevbookDocument> chapters)
@@ -228,7 +229,6 @@ public static partial class C4ElementInspection
         string? section = null;
         string? summary = null;
         string? remediation = null;
-        var origin = new List<string>();
 
         foreach (var block in document.Blocks)
         {
@@ -246,21 +246,13 @@ public static partial class C4ElementInspection
                 case DevbookParagraphBlock paragraph when Is(section, "The debt") && summary is null:
                     summary = MarkdownRender.PlainText(paragraph.Content).Trim();
                     break;
-
-                case DevbookParagraphBlock paragraph when Is(section, "Origin"):
-                    origin.Add(MarkdownRender.PlainText(paragraph.Content));
-                    break;
-
-                case DevbookListBlock list when Is(section, "Origin"):
-                    origin.AddRange(list.Items.Select(MarkdownRender.PlainText));
-                    break;
             }
         }
 
         return new C4InspectorDebtDetail(
             string.IsNullOrWhiteSpace(summary) ? null : summary,
             remediation,
-            OriginDecisions(document, chapters, string.Join(" ", origin)));
+            OriginDecisions(document, chapters));
     }
 
     private static bool Is(string? section, string heading) =>
@@ -281,33 +273,16 @@ public static partial class C4ElementInspection
     private static string OptionName(string heading) =>
         OptionMark().Replace(heading, string.Empty).Replace("`", string.Empty, StringComparison.Ordinal).Trim();
 
-    /// <summary>The decisions an origin text names ("local ADR 0008"), each once, as
-    /// the record's <c>related</c> field or the folder spells its file. A number that
-    /// matches no local decision record is left out rather than linked to nothing.</summary>
-    private static List<C4InspectorLink> OriginDecisions(DevbookDocument document, IReadOnlyList<DevbookDocument> chapters, string text)
-    {
-        var links = new List<C4InspectorLink>();
-
-        foreach (var number in AdrMention().Matches(text).Select(match => match.Groups[1].Value).Distinct(StringComparer.Ordinal))
-        {
-            var path = document.Metadata.Related
-                .Select(related => related.Split('#')[0])
-                .FirstOrDefault(related => IsLocalDecision(related) && NumberOf(related) == number)
-                ?? chapters
-                    .Select(chapter => chapter.Path)
-                    .FirstOrDefault(candidate => IsLocalDecision(candidate) && NumberOf(candidate) == number);
-
-            if (path is not null) links.Add(new C4InspectorLink(path, $"ADR {number}"));
-        }
-
-        return links;
-    }
-
-    /// <summary>A local decision record: the guidelines number from 0001 as well, and
-    /// an origin's "ADR 0008" is the repository's own.</summary>
-    private static bool IsLocalDecision(string path) =>
-        Arc42DevbookCatalog.IsArchitectureDecision(path)
-        && !path.Replace('\\', '/').Contains("/guidelines/", StringComparison.OrdinalIgnoreCase);
+    /// <summary>The decisions the record's origin names, read the one way the
+    /// placement panel reads them (<see cref="C4RecordPlacement.OriginDecisions"/>):
+    /// bounded by its <c>related:</c> list, a guideline told apart from the local
+    /// record of the same number.</summary>
+    private static List<C4InspectorLink> OriginDecisions(DevbookDocument document, IReadOnlyList<DevbookDocument> chapters) =>
+    [
+        .. C4RecordPlacement.OriginDecisions(document, chapters).Select(adr => new C4InspectorLink(
+            adr.Path,
+            Arc42DevbookCatalog.IsGuideline(adr.Path) ? $"Guideline ADR {NumberOf(adr.Path)}" : $"ADR {NumberOf(adr.Path)}"))
+    ];
 
     /// <summary>A rung of the debt ladder the way a reader says it.</summary>
     private static string? LifecycleLabel(DevbookDebtLifecycle? lifecycle) => lifecycle switch
@@ -352,9 +327,6 @@ public static partial class C4ElementInspection
 
     [GeneratedRegex(@"\s*\(([^()]*)\)\s*$")]
     private static partial Regex OptionMark();
-
-    [GeneratedRegex(@"(?<!guideline\s)\bADR\s+(\d{4})\b", RegexOptions.IgnoreCase)]
-    private static partial Regex AdrMention();
 
     [GeneratedRegex(@"^\d+[-_.\s]+")]
     private static partial Regex FileNumber();
