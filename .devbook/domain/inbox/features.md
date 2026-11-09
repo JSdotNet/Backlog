@@ -86,13 +86,13 @@ timestamp. Every row leads with its `Content Kind` and its `Source`, so the
 reader sees what a thing is and who sent it before deciding on it. The selected
 item opens in a detail view shaped by its kind.
 
-The rows are grouped by how long ago they were captured: **Today**, **This
-week** and **Older than a week**, each heading with its count. An empty group
-is not shown. On the desktop the Inbox takes the whole screen in place of
+The rows are grouped by the day they were captured: **Today**, **Yesterday**,
+then the date ("Thu 10 Sep", with the year when it is not this one), each
+heading with its count. A day with no rows has no heading. On the desktop the Inbox takes the whole screen in place of
 the main view. It has three columns: the side menu, the rows, and the detail of
 the chosen item.
 
-**Deferred** is the one [slice](domain.md#slice) without age
+**Deferred** is the one [slice](domain.md#slice) without day
 headings. Its rows run in the order they come back, soonest review date first.
 
 A row is a tile with:

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
@@ -313,11 +314,12 @@ public sealed class InboxDesktopState : IDisposable
     };
 
     /// <summary>
-    /// The rows on screen in the groups the list draws them under: Today (since
-    /// local midnight), This week (the seven days before now) and Older than a
-    /// week, each in the rows' own order and none that would be empty. The
-    /// Deferred slice is one group: its rows run in the order they come back,
-    /// and splitting them by capture would scramble that.
+    /// The rows on screen in the groups the list draws them under: one per
+    /// local calendar day they were captured on — Today, Yesterday, then the
+    /// date ("Thu 10 Sep", with the year when it is not this one). Days follow
+    /// the rows' own order and a day with no rows has no group. The Deferred
+    /// slice is one group: its rows run in the order they come back, and
+    /// splitting them by capture would scramble that.
     /// </summary>
     public IReadOnlyList<InboxAgeGroup> VisibleGroups
     {
@@ -327,29 +329,44 @@ public sealed class InboxDesktopState : IDisposable
             if (rows.Count == 0) return [];
             if (DeferredSelected) return [new InboxAgeGroup(AllGroupKey, "Deferred", rows)];
 
-            // Midnight at the offset in force at midnight, not now: on the day the
-            // clocks change the two differ by an hour.
-            var local = _clock.GetLocalNow();
-            var midnight = new DateTimeOffset(local.Date, _clock.LocalTimeZone.GetUtcOffset(local.Date));
-            var weekAgo = local.AddDays(-7);
+            // The day in the reader's own zone, at the offset in force then, so a
+            // capture just after local midnight is that day's, not the UTC one's.
+            var zone = _clock.LocalTimeZone;
+            var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
 
-            var groups = new List<InboxAgeGroup>(3);
-            Add(TodayGroupKey, "Today", rows.Where(item => item.CapturedAt >= midnight));
-            Add(WeekGroupKey, "This week", rows.Where(item => item.CapturedAt < midnight && item.CapturedAt >= weekAgo));
-            Add(OlderGroupKey, "Older than a week", rows.Where(item => item.CapturedAt < weekAgo));
-            return groups;
-
-            void Add(string key, string label, IEnumerable<InboxItemDto> items)
+            var groups = new List<InboxAgeGroup>();
+            var byDay = new Dictionary<DateOnly, List<InboxItemDto>>();
+            foreach (var item in rows)
             {
-                var list = items.ToList();
-                if (list.Count > 0) groups.Add(new InboxAgeGroup(key, label, list));
+                var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(item.CapturedAt, zone).DateTime);
+                if (!byDay.TryGetValue(day, out var list))
+                {
+                    list = [];
+                    byDay.Add(day, list);
+                    groups.Add(new InboxAgeGroup(DayGroupKey(day, today), DayLabel(day, today), list));
+                }
+                list.Add(item);
             }
+            return groups;
         }
     }
 
+    /// <summary>The group's key, which the list's test ids carry: "today",
+    /// "yesterday", else the ISO date.</summary>
+    internal static string DayGroupKey(DateOnly day, DateOnly today) =>
+        day == today ? TodayGroupKey
+        : day == today.AddDays(-1) ? YesterdayGroupKey
+        : day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>The heading for a day: "Today", "Yesterday", else "Thu 10 Sep",
+    /// with the year added when it is not the current one.</summary>
+    internal static string DayLabel(DateOnly day, DateOnly today) =>
+        day == today ? "Today"
+        : day == today.AddDays(-1) ? "Yesterday"
+        : day.ToString(day.Year == today.Year ? "ddd d MMM" : "ddd d MMM yyyy", CultureInfo.InvariantCulture);
+
     internal const string TodayGroupKey = "today";
-    internal const string WeekGroupKey = "week";
-    internal const string OlderGroupKey = "older";
+    internal const string YesterdayGroupKey = "yesterday";
     internal const string AllGroupKey = "all";
 
     /// <summary>Whether the group's lists are showing.</summary>
@@ -3514,8 +3531,8 @@ public sealed record InboxQueueHealth(int Unprocessed, DateTimeOffset? OldestCap
     public int Aging { get; init; }
 }
 
-/// <summary>One heading of the list and the rows under it: Today, This week or
-/// Older than a week.</summary>
+/// <summary>One heading of the list and the rows under it: a capture day —
+/// Today, Yesterday or its date.</summary>
 public sealed record InboxAgeGroup(string Key, string Label, IReadOnlyList<InboxItemDto> Items);
 
 /// <summary>One number on the inbox-zero screen: how many decisions of a kind
