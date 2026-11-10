@@ -891,8 +891,12 @@ linked to the contexts its sentence says answer it. Tiles count the domain and
 feature chapters; two cards say how many requirements and invariants name a
 test; where the chapters still state a rating or a status, one bar shows how
 settled they are; the switches table links the
-features each switch gates. The page's own words are its section headings, the
-two card labels, the line under Switches, the note under How settled, and the question beside each page it
+features each switch gates. Events is offered as a page of its own when the
+context raises a domain event. The switches table shows no `DEV` mark: whether a
+switch is still being built is the feature catalog's release state, not something
+a chapter states, and the view reads no workflow state from a chapter. The page's
+own words are its section headings, the two card labels, the line under Switches,
+the note under How settled, and the question beside each page it
 offers; every other word is a chapter's. A diagram in the boundary's prose — a
 process no chapter owns — is drawn in the lifecycle's style, as a unit's flows are.
 
@@ -1033,13 +1037,17 @@ confused** gives one card to each group of terms that name each other in
 **Features stand by what they build on.** The Features page sets a context's
 features in columns by how many of its features each builds on through
 `depends-on`. The page opens on its title, *What* the context *lets a person
-do*, a lead counting its features, and a legend. A card shows the feature's
-title, its sub-feature count, its flag or setting, *n req · m tested* when it
+do*, a lead counting its features, and a legend that tells a flag, decided at
+release, from a setting, chosen by a person. A card shows the feature's
+title, its sub-feature count, its flag or setting, each led by its kind's glyph,
+*n req · m tested* when it
 has requirements and, past the first column, what it comes after. A proposed
 feature is dashed, and the deprecated ones are gathered, struck through, in one
 box at the end of the last column. Picking a card shows what it builds on, the
-flag it is gated by or the setting it is configured by, the model chapters its
-`related` names and its sub-features, and beside them what it promises: its
+flag it is gated by or the setting it is configured by, with that chapter's scope
+and default where its `context.md` states them, the model chapters its
+`related` names and its sub-features, and the decision records its `related`
+names, each by its number, and beside them what it promises: its
 requirement count, how many a test proves as a bar, a link to Requirements, and
 what is always true of what it uses — the rules its requirements lean on.
 
@@ -1052,15 +1060,17 @@ name the aggregate, a chapter inside it, or a concept its rules are about —
 instead of a sentence explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature. The page opens on a card saying what a requirement is, with
-how many are tested; each requirement is a card with a *Test linked* or dashed
+how many are tested, and, where the features lean on rules, a card counting them;
+each requirement is a card with a *Test linked* or dashed
 *No test linked* mark and its scenarios on its foot, and a feature with more
 than three requirements opens the first two and lists the rest as rows that
-open in place.
+open in place. A feature's heading shows the flag or setting its feature chapter
+hangs on.
 
 **The Brain and the tasks show where they link.** Under each unit, feature and
 glossary term, the [From your Brain](../brain/features.md#repo-links-and-backlinks) box lists the
-owner's Brain notes linking to that chapter or to one inside it, and a model
-part and a glossary term carry a **◆ n note** badge counting them. A note
+owner's Brain notes linking to that chapter or to one inside it, and a feature's
+card, a model part and a glossary term carry a **◆ n note** badge counting them. A note
 linking to the whole file names no unit, and shows only in the box under the
 page, which still lists every note linking anywhere in the file. A feature's
 detail and each requirement show the tasks whose Devbook references name the

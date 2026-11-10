@@ -85,15 +85,27 @@
     </Story>
 
     <Story Name="Answered"
-           Description="A settled card draws no controls. Answered says which answer won and the device it came from, in the words the host formats."
+           Description="A settled card draws no control that answers. When the host says which set answers were chosen, the card lists them read-only: the chosen one carries a tick and Chosen on the answered tone, so the mark is a glyph and a word before it is a colour, and the rest step back. The outcome line under them says the device it came from and when."
            Code="@AnsweredCode">
         <NotificationCard Model="@AnsweredQuestion" TestId="notification-card-answered" />
     </Story>
 
+    <Story Name="Answered in words"
+           Description="An answer the person wrote, and the note they left beside it, sit in the answer block above the outcome line: a block of its own with a label saying what it holds, so the answer is set apart by place and a word, not by weight or colour alone."
+           Code="@AnsweredInWordsCode">
+        <NotificationCard Model="@AnsweredInWords" TestId="notification-card-answered-words" />
+    </Story>
+
     <Story Name="Closed"
-           Description="Closed says why: the publisher closed it, or the thing it was about ended."
+           Description="Closed says why: the publisher closed it, or the thing it was about ended. The reason sits in the same answer block, as it came."
            Code="@ClosedCode">
         <NotificationCard Model="@ClosedQuestion" TestId="notification-card-closed" />
+    </Story>
+
+    <Story Name="Closed with an answer"
+           Description="A source that closes a question because it was answered there hands the answer in the reason, as spec-manager does. The card draws every reason the same way and parses none, so this one reads as the answer it is."
+           Code="@ClosedWithAnswerCode">
+        <NotificationCard Model="@ClosedWithAnswer" TestId="notification-card-closed-answer" />
     </Story>
 
     @if (_last is not null)
@@ -108,6 +120,7 @@
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#badge-and-chip-tones", "The tones the kind, severity and state badges are drawn on."),
+        new("accessibility.md#target-sizes-and-text", "Why a settled card marks the chosen answer with a tick and a word, and sets the answer apart in a block, not by colour alone."),
         new("interaction-guidelines.md#busy-actions", "Why an answer in flight keeps its button focusable rather than disabled."),
         new("interaction-guidelines.md#error-states", "Where a refused answer's reason goes, and that the controls stay."),
         new("component-libraries.md#diagram-and-graph-strategy", "Why a diagram in the body is a Mermaid fence drawn by DiagramView.")
@@ -289,7 +302,27 @@
         Summary = string.Empty,
         BodyMarkdown = string.Empty,
         State = NotificationCardState.Answered,
-        Outcome = new NotificationCardOutcome(Answer: "Yes, run it", Device: "phone", When: "just now")
+        Outcome = new NotificationCardOutcome(Answer: "Yes, run it", Device: "phone", When: "just now", ChosenIds: ["yes"])
+    };
+
+    private static readonly NotificationCardModel AnsweredInWords = OpenAnswer with
+    {
+        Id = "release-note-answered",
+        State = NotificationCardState.Answered,
+        Outcome = new NotificationCardOutcome(
+            Answer: "“Notifications now say where they came from.”, note: “Keep it to one line”",
+            Device: "this desktop",
+            When: "2 min ago",
+            ChosenIds: [],
+            Text: "Notifications now say where they came from.",
+            Note: "Keep it to one line")
+    };
+
+    private static readonly NotificationCardModel ClosedWithAnswer = EightWithNote with
+    {
+        Id = "rounding-closed",
+        State = NotificationCardState.Closed,
+        Outcome = new NotificationCardOutcome(Reason: "Answered in spec-manager by Ada: Round half even", When: "1 h ago")
     };
 
     private static readonly NotificationCardModel ClosedQuestion = SingleChoice with
@@ -408,7 +441,28 @@
         <NotificationCard Model="@(question with
         {
             State = NotificationCardState.Answered,
-            Outcome = new NotificationCardOutcome(Answer: "Yes, run it", Device: "phone", When: "just now")
+            Outcome = new NotificationCardOutcome(Answer: "Yes, run it", Device: "phone", When: "just now", ChosenIds: ["yes"])
+        })" />
+        """;
+
+    private const string AnsweredInWordsCode = """
+        <NotificationCard Model="@(question with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(
+                Device: "this desktop",
+                When: "2 min ago",
+                ChosenIds: [],
+                Text: "Notifications now say where they came from.",
+                Note: "Keep it to one line")
+        })" />
+        """;
+
+    private const string ClosedWithAnswerCode = """
+        <NotificationCard Model="@(question with
+        {
+            State = NotificationCardState.Closed,
+            Outcome = new NotificationCardOutcome(Reason: "Answered in spec-manager by Ada: Round half even")
         })" />
         """;
 

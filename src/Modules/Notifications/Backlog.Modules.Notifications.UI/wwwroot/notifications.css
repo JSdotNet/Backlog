@@ -198,6 +198,17 @@
     color: var(--color-text-secondary);
 }
 
+/* A settled row's answer, or why it closed: a line of its own under the byline, so it is
+   set apart by place before weight or colour — the primary text, semibold, one line. */
+.notification-list__answer {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
 /* A repository's heading, grouped by repository, wears the shared repo-mark's inset
    bar; the text steps clear of it. */
 .notification-list__subject.repo-mark {

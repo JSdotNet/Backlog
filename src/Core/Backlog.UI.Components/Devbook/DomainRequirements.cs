@@ -72,6 +72,12 @@ public sealed record DomainRequirementGroup(
 {
     /// <summary>How many requirements it holds, and how many are proved.</summary>
     public DomainProofTally Tally => new(Requirements.Count, Requirements.Count(requirement => requirement.Proved));
+
+    /// <summary>The flag or setting the feature it names hangs on, read as the
+    /// Features page reads it (<see cref="DomainFeatures.Gate"/>), or
+    /// <see langword="null"/>: no feature named, a feature the files read do not
+    /// hold, or one that names no gate.</summary>
+    public DomainFeatureGate? Gate { get; init; }
 }
 
 /// <summary>
@@ -177,7 +183,12 @@ public static partial class DomainRequirements
                 alwaysTrue.Count > 0 ? WithoutInvariantExplanations(intro) : intro,
                 feature is null ? null : index.Name(feature),
                 requirements,
-                alwaysTrue));
+                alwaysTrue)
+            {
+                Gate = feature is not null && index.Chapter(feature) is { } named
+                    ? DomainFeatures.Gate(named, DomainUnits.PathOf(feature), index)
+                    : null
+            });
         }
         return groups;
     }

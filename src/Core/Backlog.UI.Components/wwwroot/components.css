@@ -25011,7 +25011,29 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-features__card-item {
+    position: relative;
     display: grid;
+}
+
+/* A card's Brain notes badge sits inside its top-right corner, beside the
+   card's button rather than in it, since a button holds no other; the card's
+   title leaves it room, so it never covers a word or a neighbouring card. Its
+   list opens leftwards from the badge's right edge and no wider than a column,
+   so it stays inside the board. */
+.domain-features__card-notes {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+}
+
+.domain-features__card-item--notes .domain-feature-card__name {
+    padding-inline-end: calc(2.5 * var(--spacing-xl));
+}
+
+.domain-features__card-notes .brain-notes-badge__list {
+    right: 0;
+    left: auto;
+    max-width: 13rem;
 }
 
 /* A card is compact: its title, one line of facts and, past the first column,
@@ -25088,7 +25110,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .badge--tone.domain-feature-card__mark,
-.badge--tone.domain-feature-card__gate {
+.badge--tone.domain-gate-chip {
     background: transparent;
     border-color: var(--color-border-strong);
     color: var(--color-text-secondary);
@@ -25096,6 +25118,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 .badge--tone.domain-feature-card__mark.domain-features__legend-proposed {
     border-style: dashed;
+}
+
+/* A gate chip leads with its kind's glyph: a flag, or a cog for a setting. */
+.domain-gate-chip__glyph {
+    flex: none;
+    margin-right: var(--spacing-2xs);
 }
 
 /* The deprecated features, gathered at the end of the last column on the
@@ -30621,6 +30649,79 @@ button.domain-field-rules[aria-expanded="true"] {
     margin-bottom: var(--spacing-xs);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+}
+
+/* A settled card's set answers, read-only: the chosen ones carry a tick and "Chosen" on
+   the answered badge's tone, so the mark is a word and a glyph before it is a colour; the
+   rest step back to the secondary text, which still clears AA on the card. */
+.notification-card__settled-choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notification-card__settled-choice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__settled-choice--chosen {
+    border-color: var(--color-success-text);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.notification-card__settled-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The answer, or the reason it closed, set apart from the outcome line under it: its own
+   block with a label naming what it holds, an edge, and the primary text. */
+.notification-card__answer-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-left: var(--border-width-2) solid var(--color-success-text);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.notification-card--closed .notification-card__answer-block {
+    border-left-color: var(--color-border-strong);
+}
+
+.notification-card__answer-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.notification-card__answer-text {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__answer-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .notification-card__outcome {

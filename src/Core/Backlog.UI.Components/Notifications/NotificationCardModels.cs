@@ -145,12 +145,29 @@ public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int 
 /// <summary>
 /// How a notification was settled: the answer that won and the device it came from, or why it was
 /// closed. Every part is already in words.
+/// <para>
+/// The answer comes whole in <see cref="Answer"/> and in its parts beside it. With
+/// <see cref="ChosenIds"/> set, the card draws the question's set answers read-only and marks the
+/// chosen ones, and sets <see cref="Text"/> and <see cref="Note"/> in its answer block; without
+/// them it sets <see cref="Answer"/> there.
+/// </para>
 /// </summary>
 /// <param name="Answer">The winning answer as a person reads it — the chosen labels, or the text.</param>
 /// <param name="Device">The device the answer came from — "this desktop", "phone".</param>
 /// <param name="Reason">Why it was closed.</param>
 /// <param name="When">When it settled, already formatted.</param>
-public sealed record NotificationCardOutcome(string? Answer = null, string? Device = null, string? Reason = null, string? When = null);
+/// <param name="ChosenIds">The ids of the set answers the winning answer chose, or null when the
+/// host hands only <see cref="Answer"/>.</param>
+/// <param name="Text">The words the winning answer carried — the open answer, or a choice's own — or null.</param>
+/// <param name="Note">The note written beside the winning answer, or null.</param>
+public sealed record NotificationCardOutcome(
+    string? Answer = null,
+    string? Device = null,
+    string? Reason = null,
+    string? When = null,
+    IReadOnlyList<string>? ChosenIds = null,
+    string? Text = null,
+    string? Note = null);
 
 /// <summary>What a person answered in the card: the picked choice ids, the typed text, or both
 /// where the question takes both, and the note written beside the answer, or null.</summary>

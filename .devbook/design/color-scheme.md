@@ -663,8 +663,8 @@ information about the chapter, so they stay neutral outlines like the badges
 below: *instant* on the raised surface inside its edge, *id* and the status
 dashed.
 
-**Information badges are neutral outlines.** On the Domain view's pages, the
-`DEV` mark, a chapter's date, a chapter's feature switch, a feature's flag or
+**Information badges are neutral outlines.** On the Domain view's pages, a
+chapter's date, a chapter's feature switch, a feature's flag or
 setting chip on Features, a feature's
 *Proposed* or *Deprecated* mark on Features, a term's *proposed* or
 *deprecated* mark on the Glossary, a requirement's *Test linked* or

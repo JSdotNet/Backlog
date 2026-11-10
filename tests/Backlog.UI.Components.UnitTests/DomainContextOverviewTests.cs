@@ -607,6 +607,71 @@ public sealed class DomainContextOverviewTests
         Assert.All(overview.Lenses, lens => Assert.EndsWith("?", lens.Question, StringComparison.Ordinal));
     }
 
+    private const string Model = """
+        # Model: Tasks
+
+        ```meta
+        type: model
+        ```
+
+        ## Model diagram
+
+        The parts.
+        """;
+
+    private const string Events = """
+        # Domain: Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined item.
+
+        ### TaskCompleted
+
+        ```meta
+        type: domain-event
+        ```
+
+        Raised when a task is done.
+        """;
+
+    [Fact]
+    public void A_context_raising_events_offers_Events_after_Model()
+    {
+        var overview = DomainContextOverview.Read(Boundary, Root,
+        [
+            new(".devbook/domain/tasks/domain.md", Events),
+            new(".devbook/domain/tasks/model.md", Model),
+            new(".devbook/domain/tasks/features.md", Features),
+            new(".devbook/domain/tasks/requirements.md", Requirements)
+        ]);
+
+        Assert.Equal(["Features", "Model", "Events", "Requirements"], overview.Lenses.Select(lens => lens.Title));
+        var events = overview.Lenses[2];
+        Assert.Equal(".devbook/domain/tasks/model.md#events", events.Reference);
+        Assert.Equal("What does it tell other contexts, and what does it listen to?", events.Question);
+
+        // Events takes Model's second clause away with it.
+        Assert.Equal("What is it made of?", overview.Lenses[1].Question);
+    }
+
+    [Fact]
+    public void A_context_raising_no_event_offers_no_Events()
+    {
+        var overview = DomainContextOverview.Read(Boundary, Root, [.. Files, new(".devbook/domain/tasks/model.md", Model)]);
+
+        Assert.Equal(["Features", "Model", "Requirements", "Glossary"], overview.Lenses.Select(lens => lens.Title));
+        Assert.Equal("What is it made of, and what does it tell other contexts?", overview.Lenses[1].Question);
+
+        // Events reads as a tab of Model, so with no model.md it is not offered either.
+        var noModel = DomainContextOverview.Read(Boundary, Root, [new(".devbook/domain/tasks/domain.md", Events)]);
+        Assert.DoesNotContain(noModel.Lenses, lens => lens.Title == "Events");
+    }
+
     [Fact]
     public void The_brain_box_covers_context_md_and_its_chapters()
     {
