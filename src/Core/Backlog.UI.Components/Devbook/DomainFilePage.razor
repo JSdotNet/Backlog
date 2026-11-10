@@ -1,0 +1,151 @@
+@*
+    A Domain view page for a file the view has no page of its own for (domain/devbook
+    requirement "Any other file opens as written"): actors.md, skills.md, a page a context adds for something no listed
+    file holds — Fincent's import.md — and a legacy index.md. It is the file as
+    written, in the view's page style: the kind and status as a kicker, the
+    title, the words before the first chapter as the lead, the file's `related`
+    as links to follow, and each chapter beneath with its heading, its markdown
+    and its own `related` where it states one. A typed sub-chapter is a section
+    of its own under its parent; an untyped one is part of its parent's prose.
+    The owner's Brain notes on the file or any chapter in it show under the title.
+
+    Pure: the host hands over the file it read, so the storybook draws the same
+    page from a sample string.
+*@
+
+<article class="domain-about domain-about--summary domain-file" data-testid="@TestId" aria-label="@AriaLabel">
+    <section class="domain-about__intro" data-testid="domain-file-hero" aria-labelledby="@($"{_id}-title")">
+        <span class="domain-about__kicker" data-testid="domain-file-kicker">@_kicker</span>
+        <h2 class="domain-about__title" id="@($"{_id}-title")" data-testid="domain-file-title">@_title</h2>
+        @if (File.Lead.Length > 0)
+        {
+            <div class="domain-about__lead domain-file__lead" data-testid="domain-file-lead">
+                @Markdown(File.Lead)
+            </div>
+        }
+        @RelatedRow(File.Related, $"Related to {_title}", "domain-file-related")
+        <DomainChapterNotes References="@_covered" />
+    </section>
+
+    @if (File.Chapters.Count == 0 && File.Lead.Length == 0)
+    {
+        <EmptyState Title="Nothing written yet"
+                    Description="This file holds no words under its title."
+                    TestId="domain-file-empty"
+                    role="status" />
+    }
+
+    @foreach (var chapter in File.Chapters)
+    {
+        @Section(chapter)
+    }
+</article>
+
+@code {
+    /// <summary>The file the menu row opened.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapterFile File { get; set; } = default!;
+
+    /// <summary>A related link, or a link in the prose, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Page";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-file";
+
+    private readonly string _id = $"domain-file-{Guid.NewGuid():N}";
+    private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
+    private DomainChapterFile? _read;
+    private string _title = string.Empty;
+    private string _kicker = string.Empty;
+    private IReadOnlyList<string> _covered = [];
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_read, File)) return;
+        _read = File;
+        _markdown.Clear();
+
+        var stem = FileStem(File.Path);
+        _title = File.Title.Length > 0 ? File.Title : stem;
+        _kicker = Kicker(File, stem);
+        _covered = [File.Path, .. File.AllChapters().Select(File.ReferenceTo)];
+    }
+
+    /// <summary>The file's kind and status, as a unit page's kicker reads: its
+    /// <c>type</c>, else its file name, then its <c>rating</c> or <c>status</c>
+    /// when it states one — "actors · review".</summary>
+    internal static string Kicker(DomainChapterFile file, string stem)
+    {
+        var kind = file.Meta.GetValueOrDefault("type") is { Length: > 0 } type ? type : stem;
+        var status = DomainUnits.StatusOf(file.Meta);
+        return status is null ? kind : $"{kind} · {status}";
+    }
+
+    private static string FileStem(string path)
+    {
+        var name = path.Replace('\\', '/').Split('/')[^1];
+        return name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? name[..^3] : name;
+    }
+
+    private RenderFragment Section(DomainChapter chapter) => __builder =>
+    {
+        <section class="@(chapter.Level <= 2 ? "domain-file__section" : "domain-file__section domain-file__section--nested")"
+                 data-testid="domain-file-chapter"
+                 data-chapter="@chapter.Anchor"
+                 aria-label="@chapter.Title">
+            @if (chapter.Level <= 2)
+            {
+                <h3 class="domain-file__heading" data-testid="domain-file-chapter-title">@chapter.Title</h3>
+            }
+            else
+            {
+                <h4 class="domain-file__heading domain-file__heading--nested" data-testid="domain-file-chapter-title">@chapter.Title</h4>
+            }
+            @RelatedRow(chapter.Related, $"Related to {chapter.Title}", "domain-file-chapter-related")
+            @if (chapter.Prose.Length > 0)
+            {
+                <div class="domain-file__body" data-testid="domain-file-chapter-body">@Markdown(chapter.Prose)</div>
+            }
+            @foreach (var child in chapter.Children.Where(child => child.Type is not null))
+            {
+                @Section(child)
+            }
+        </section>
+    };
+
+    /// <summary>A <c>related</c> field as links to follow, each entry one
+    /// DevbookReferenceLink; nothing when the field is empty.</summary>
+    private RenderFragment RelatedRow(IReadOnlyList<string> related, string label, string testId) => __builder =>
+    {
+        var references = related.Select(DevbookReference.Parse).OfType<DevbookReference>().ToList();
+        if (references.Count == 0) return;
+
+        <nav class="domain-file__related" aria-label="@label" data-testid="@testId">
+            <span class="domain-file__related-label">Related</span>
+            @foreach (var reference in references)
+            {
+                <DevbookReferenceLink Reference="@reference"
+                                      OnNavigate="OnNavigate"
+                                      ShowFullPath="false"
+                                      TestId="domain-file-related-link" />
+            }
+        </nav>
+    };
+
+    private RenderFragment Markdown(string source) =>
+        @<MarkdownView Blocks="@BlocksOf(source)"
+                       Source="@source"
+                       DevbookDocumentPath="@File.Path"
+                       DevbookFolder="DevbookFolder.Domain"
+                       OnDevbookNavigate="OnNavigate" />;
+
+    private IReadOnlyList<MdBlock> BlocksOf(string source)
+    {
+        if (!_markdown.TryGetValue(source, out var blocks)) _markdown[source] = blocks = MarkdownPreview.ParseDocument(source);
+        return blocks;
+    }
+}
