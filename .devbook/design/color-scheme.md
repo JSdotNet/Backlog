@@ -590,7 +590,8 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
-name, a relation between two core contexts on the Context map, the requirement
+name, a relation between two core contexts on the Context map, a context's
+hand-in-hand neighbours on its Neighbours board, the requirement
 kind on the Requirements page, a domain service in the Domain page's chapter
 bar, an enumeration's name on Model's Fields tab, and a domain event's name on
 Model's Events tab. These are the seven values this file adds outside the
@@ -602,7 +603,7 @@ kind across a diagram.
 | --- | --- | --- | --- |
 | `color-domain-entity` | `#E5A15F` | Entity: its kind line and its card's top edge | 8.55:1 / 7.42:1 / 5.58:1 |
 | `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
-| `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, a core context's card edge, and the words that say core on its card and over List's Core group | 8.91:1 / 7.74:1 / 5.82:1 |
+| `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, a core context's card edge, and the words that say core on its card and over List's Core group; on Neighbours, the Partnership neighbours' drop, bar and risers, their heading, a partner card's edge and the legend's word *Amber* | 8.91:1 / 7.74:1 / 5.82:1 |
 | `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar; on Features, a card's requirement tally and the tested part of the detail's promises bar | 8.87:1 / 7.70:1 / 5.79:1 |
 | `color-domain-enumeration` | `#B39DDB` | An enumeration where a field takes one on Fields, and the Enums card's label | 7.81:1 / 6.78:1 / 5.10:1 |
 | `color-domain-event` | `#EC8E97` | A domain event's name on Events: the index's Event column, the open contract's heading, the dashed *event* step and the picked row's edge | 7.91:1 / 6.87:1 / 5.17:1 |
@@ -618,11 +619,20 @@ neutral `color-border-strong` edge.
 
 The Context map's lines between two core contexts take `#F0A33A`, an amber of
 their own. `color-primary` is the gold that says a thing is followable, and a
-line is not a control; every other line takes `color-border-strong`. The card
-says core in words, in the same amber, and so does the heading over List's Core
-group; the legend names both colours, so the amber is never the only thing that
-says which contexts are core. The card a pick would open says *zoom in* in
-`color-primary`, because that is followable.
+line is not a control; every other line on the map takes
+`color-border-strong`. The card says core in words, in the same amber, and so
+does the heading over List's Core group; the legend names both colours, so the
+amber is never the only thing that says which contexts are core. The card a pick
+would open says *zoom in* in `color-primary`, because that is followable.
+
+A context's Neighbours board spends the same amber on the neighbours it works
+hand in hand with: those whose `dependencies.md` row names a DDD pattern that
+starts with *Partnership*. Their drop, bar and risers, the heading over them, a
+partner card's edge and the legend's word take it; every listening line takes
+`color-border-strong`. The legend says the colour in words, *Amber: the two work
+hand in hand and keep only each other's ids*, so the amber is never the only cue.
+The Context map and a context's Neighbours never show at once, so amber's two
+meanings never meet on one screen. It is one token, not a second row.
 
 The Requirements page marks the requirement kind in `#8FB4F0`, a soft blue of
 its own: the top edge of the card that says what a requirement is, the word
@@ -675,6 +685,8 @@ Rules:
   type marker stays monochrome everywhere else.
 - **A new tone is argued here.** A kind that needs a tone gains a row in the
   table above, with its contrast, and never borrows a band or a semantic token.
+  It may share a row's value only where the two never show at once, and then
+  widens that row, as Neighbours' partners widen `color-domain-core-line`.
 
 
 ## Role Tokens

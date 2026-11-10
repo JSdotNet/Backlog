@@ -910,7 +910,10 @@ the relationship notes. Composition (`*--`) draws a part inside its root's
 boundary, a dashed line (`..>`) a type held by id outside it. A class no
 aggregate holds, such as a shared value object or another context's type, is a
 card outside every boundary. Only a diagram that does not parse, or names no
-aggregate root, is drawn with mermaid.
+aggregate root, is drawn with mermaid. Diagram draws no proposed state: no
+`classDiagram` and no service reading states one, and past devbook contract 38
+no chapter does, so a dashed line there means a reference by id and nothing
+else.
 
 **Fields reads the model file's own groups.** Fields heads the aggregate root
 with its kind, its chapter's status and aliases, its name and its chapter's first
