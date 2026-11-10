@@ -75,6 +75,7 @@ between inherited ADRs 0005 and 0009.
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
 - **[0048 — Meeting audio is recorded as AAC in an ADTS stream](0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md)** *(proposed, not yet built; beside 0014 and 0045)*
+- **[0049 — The desktop transcribes a meeting recording through Foundry, appends the transcript to the note, then removes the audio](0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md)** *(proposed, not yet built; amends 0023 and 0014, beside 0045)*
 
 ## Inherited decisions
 
