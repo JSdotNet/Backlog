@@ -1,32 +1,47 @@
 @*
     The events a unit raises, one row each: what happened, in the chapter's
-    first sentence, and who hears it. The event's name is an identifier and its
-    payload is a contract, so both are Model's (local ADR 0047 §6) — the link
-    beside the heading opens it.
+    first sentence, and who hears it, under "What the rest of <domain> hears" —
+    the domain being the context map's heading. The event's name is an identifier
+    and its payload is a contract, so both are Model's (local ADR 0047 §6) — the
+    link beside the heading opens it. An event the chapters say is not emitted
+    reads "Not sent yet.", by the rule Model's Events reads its state by: once
+    under the list when none is sent, else on each row that is not.
 *@
 
 @if (Events.Count > 0)
 {
+    var noneSent = Events.All(domainEvent => !domainEvent.Sent);
     <section class="domain-about__section" data-testid="domain-unit-events" aria-labelledby="@HeadingId">
         <div class="domain-about__section-head">
-            <h3 class="domain-about__section-title" id="@HeadingId">What the rest of the domain hears</h3>
+            <h3 class="domain-about__section-title" id="@HeadingId" data-testid="domain-unit-events-title">What the rest of @Domain hears</h3>
             @if (Model is { } model)
             {
-                <button type="button" class="domain-about__link" data-testid="@model.TestId" @onclick="model.Follow">@model.Text →</button>
+                <AppButton Variant="ButtonVariant.None"
+                           BaseClass="domain-about__link"
+                           TestId="@model.TestId"
+                           OnClick="model.Follow">@model.Text →</AppButton>
             }
         </div>
         <ul class="domain-about__events">
             @foreach (var domainEvent in Events)
             {
-                <li class="domain-about__event" data-testid="domain-unit-event" data-event="@domainEvent.Name">
+                <li class="domain-about__event" data-testid="domain-unit-event" data-event="@domainEvent.Name" data-sent="@(domainEvent.Sent ? "true" : "false")">
                     <span class="domain-about__event-summary">@domainEvent.Summary</span>
                     @if (domainEvent.Consumers.Count > 0)
                     {
                         <span class="domain-about__event-consumers" data-testid="domain-unit-event-consumers">Heard by @string.Join(", ", domainEvent.Consumers)</span>
                     }
+                    @if (!noneSent && !domainEvent.Sent)
+                    {
+                        <span class="domain-about__event-unsent" data-testid="domain-unit-event-unsent">Not sent yet.</span>
+                    }
                 </li>
             }
         </ul>
+        @if (noneSent)
+        {
+            <p class="domain-about__events-foot" data-testid="domain-unit-events-unsent">Not sent yet.</p>
+        }
     </section>
 }
 
@@ -38,6 +53,13 @@
     /// contracts are. None leaves the heading alone.</summary>
     [Parameter]
     public DomainPageLink? Model { get; set; }
+
+    /// <summary>The domain's name as its context map heads it — "Backlog". Unset
+    /// reads "the domain".</summary>
+    [Parameter]
+    public string? DomainName { get; set; }
+
+    private string Domain => DomainName is { Length: > 0 } name ? name : "the domain";
 
     /// <summary>Unique per list, so two on one page label their own sections.</summary>
     private readonly string HeadingId = $"domain-events-{Guid.NewGuid():N}";

@@ -1,8 +1,7 @@
 ---
 name: dispatch-sessions
-description: Run this machine's Manager session — the dispatcher of local ADR 0038 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt, and hands each answer the app accepted for a waiting session back to that session (local ADR 0041). Waits on the app's long poll through a Monitor, delivers answers first, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room, and reports each start and delivery back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow.
+description: Run this machine's Manager session — the dispatcher of local ADR 0038 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt, and hands each answer the app accepted for a waiting session back to that session (local ADR 0041). Waits on the app's long poll through a Monitor, delivers answers first, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room, and reports each start and delivery back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow. Invoke it only when the person's own /loop of it calls for it, never on your own initiative: /loop runs it through the Skill tool, so it stays model-invocable.
 argument-hint: "[sessions=3] [usage=80] [cpu=80] [memory=4]"
-disable-model-invocation: true
 ---
 
 # Dispatch session requests
@@ -17,7 +16,8 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 
 1. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. Keep one Monitor on
    `node assets/wait-requests.mjs` at its longest timeout, re-armed on expiry or `stopped`; never loop on tools.
-2. **Restart.** First turn only: `list_session_requests` and `list_deliveries` `state: claimed`;
+2. **Restart.** First turn only: mark this session per `../../resources/standing-session.md`;
+   `list_session_requests` and `list_deliveries` `state: claimed`;
    release each your `dispatcher` holds (`mark_session_request`, `mark_delivery`).
 3. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
    `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:

@@ -27,6 +27,39 @@ tools with its questions in the dialog's shape, and the Sessions
 [Question Relay](../sessions/domain.md#question-relay) decides when those reach
 the person.
 
+## Answering on the owner desktop
+
+```meta
+type: feature
+related: [.devbook/domain/notifications/requirements.md#answering-on-the-owner-desktop, .devbook/domain/notifications/context.md#owner-screens, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#focus-and-selection]
+```
+
+```mermaid
+stateDiagram-v2
+    state "Listed" as Listed
+    state "Kept in view" as Kept
+    state "Settled, hidden" as Hidden
+    state "Settled, listed" as Shown
+    [*] --> Listed : published
+    Listed --> Kept : answered or acknowledged here
+    Listed --> Hidden : answered, acknowledged or closed elsewhere
+    Kept --> Hidden : another is picked
+    Hidden --> Shown : Show settled, or a jump to it
+    Shown --> Hidden : Show settled off
+```
+
+The person works through what waits on the desktop that owns it, in the
+notification centre. The centre lists what is still open, so the list is the
+work left to do. What is settled stays a press away, for the answer it got.
+
+The diagram follows one notification while **Show settled** is off. With it on, a
+settled notification stays listed. A jump comes from **Open in Backlog** on a
+Windows notification, and lasts for that visit.
+
+The centre narrows its list by the header's repository scope and by three filters:
+From, Asked by and Kind. It groups the list by **Group by**. The screens themselves
+are described under [Owner screens](context.md#owner-screens).
+
 ## Answering from another device
 
 ```meta

@@ -33,11 +33,16 @@ internal static partial class DevbookMarkdown
     [GeneratedRegex("\\r?\\n")]
     private static partial Regex LineBreak();
 
-    [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+(.*)$")]
+    /// <summary>JavaScript's <c>.</c> stops at every line terminator and .NET's
+    /// only at <c>\n</c>, so the text is spelled out: a line holding a CR, U+2028
+    /// or U+2029 is no heading to the generator.</summary>
+    [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+([^\\n\\r\\u2028\\u2029]*)\\z")]
     private static partial Regex Heading();
 
+    /// <summary>The generator's fence marker: any indentation, and a closing
+    /// marker may carry text after it.</summary>
     [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
-    private static partial Regex FenceMarker();
+    internal static partial Regex FenceMarker();
 
     [GeneratedRegex("^```meta[" + JsWhitespaceClass + "]*$")]
     private static partial Regex MetaFence();

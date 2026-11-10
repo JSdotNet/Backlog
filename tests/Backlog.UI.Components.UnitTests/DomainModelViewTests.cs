@@ -166,6 +166,83 @@ public sealed class DomainModelViewTests
         Assert.Contains("Not named", shipped.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
     }
 
+    private static DomainChapterReading Fired => new(
+        [],
+        [
+            new DomainEventContract("TaskProjected", ".devbook/domain/tasks/domain.md#taskprojected", "draft", "Published when a task starts.", ["Task"], null, null, "- Read the target type only.", DomainEventDelivery.Documented),
+            new DomainEventContract("TaskCompleted", ".devbook/domain/tasks/domain.md#taskcompleted", "draft", "Published when a task is done.", ["Task"], null, null, null, DomainEventDelivery.Emitted),
+            new DomainEventContract("StatusChanged", ".devbook/domain/tasks/domain.md#statuschanged", "draft", "Published on every move.", ["Task"], null, null, null, DomainEventDelivery.Documented)
+        ])
+    {
+        Moves = new Dictionary<string, IReadOnlyList<DomainEventMove>>
+        {
+            ["TaskProjected"] = [new DomainEventMove("Ready", "In progress")],
+            ["TaskCompleted"] = [new DomainEventMove("In progress", "Done")]
+        }
+    };
+
+    [Fact]
+    public void Events_says_which_move_an_event_would_fire_on()
+    {
+        using var context = Context();
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, Fired));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+
+        // After the published-language rules, the move a lifecycle raises it on.
+        var parts = view.FindAll("[data-testid='domain-event'] .domain-event__part").Select(part => part.GetAttribute("data-testid")).ToList();
+        Assert.Equal(["domain-event-payload", "domain-event-rules", "domain-event-fires"], parts);
+        var fires = view.Find("[data-testid='domain-event-fires']");
+        Assert.Equal("Would fire on", fires.QuerySelector(".domain-event__label")!.TextContent.Trim());
+        Assert.Equal(["Ready → In progress"], fires.QuerySelectorAll("[data-testid='domain-event-move']").Select(move => move.TextContent.Trim()));
+
+        // An emitted event fires on its move.
+        view.FindAll("[data-testid='domain-event-pick']")[1].Click();
+        Assert.Equal("Fires on", view.Find("[data-testid='domain-event-fires'] .domain-event__label").TextContent.Trim());
+        Assert.Equal("In progress → Done", view.Find("[data-testid='domain-event-move']").TextContent.Trim());
+
+        // An event no lifecycle raises says nothing of a move.
+        view.FindAll("[data-testid='domain-event-pick']")[2].Click();
+        Assert.Empty(view.FindAll("[data-testid='domain-event-fires']"));
+    }
+
+    [Fact]
+    public void An_asked_event_opens_Events_on_its_contract()
+    {
+        const string fields = "# Model\n\n## Fields\n\n### Links\n\n- `x` - y.\n";
+        Assert.Equal(new DomainModelOpening("events", "taskcompleted"), DomainModelTabs.For("taskcompleted", Fired.Events, null));
+        Assert.Equal(new DomainModelOpening("events", null), DomainModelTabs.For("events", Fired.Events, null));
+        Assert.Equal(new DomainModelOpening("fields", null), DomainModelTabs.For("fields", Fired.Events, fields));
+        Assert.Equal(new DomainModelOpening("diagram", null), DomainModelTabs.For("fields", Fired.Events, "# Model\n\n## Diagram\n"));
+        Assert.Equal(new DomainModelOpening("diagram", null), DomainModelTabs.For("task", Fired.Events, fields));
+        Assert.Equal(new DomainModelOpening("diagram", null), DomainModelTabs.For(null, Fired.Events, fields));
+
+        using var context = Context();
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, Fired)
+            .Add(v => v.OpenAnchor, "taskcompleted"));
+
+        Assert.Equal("true", view.Find("[data-testid='domain-model-tab-events']").GetAttribute("aria-selected"));
+        Assert.Equal("TaskCompleted", view.Find("[data-testid='domain-event']").GetAttribute("data-name"));
+
+        // The reader's own pick sticks across the host's re-renders.
+        view.FindAll("[data-testid='domain-event-pick']")[0].Click();
+        view.Find("[data-testid='domain-model-tab-diagram']").Click();
+        view.Render(p => p.Add(v => v.OpenAnchor, "taskcompleted"));
+        Assert.Equal("true", view.Find("[data-testid='domain-model-tab-diagram']").GetAttribute("aria-selected"));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+        Assert.Equal("TaskProjected", view.Find("[data-testid='domain-event']").GetAttribute("data-name"));
+
+        // Asked for the Events tab alone, it opens on the first event.
+        var events = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, Fired)
+            .Add(v => v.OpenAnchor, "events"));
+        Assert.Equal("TaskProjected", events.Find("[data-testid='domain-event']").GetAttribute("data-name"));
+    }
+
     [Fact]
     public void A_fence_the_reader_cannot_read_says_so_on_Fields()
     {

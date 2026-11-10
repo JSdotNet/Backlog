@@ -272,7 +272,9 @@
                                    carries both halves — see TagFilterOption. The
                                    per-kind class is the same distinction the row chips
                                    draw, so a person, a plan and a general tag read
-                                   apart on the bar the way they do on the row. *@
+                                   apart on the bar the way they do on the row. A plan
+                                   chip also draws how far along the plan is — see
+                                   TagFilterProgressPercent. *@
                                 @if (State.SelectedPlan is { } plan && string.Equals(tag.Value, plan, StringComparison.OrdinalIgnoreCase))
                                 {
                                     @* The plan in view, one press from the clipboard — a
@@ -300,7 +302,8 @@
                                        the chips along the strip. *@
                                     <span @key="tag.Value" class="filter-bar__plan-pair" data-testid="tag-filter-plan-pair">
                                         <ToggleButton BaseClass="chip chip--filter"
-                                                      CssClass="@TagFilterKindClass(tag)"
+                                                      CssClass="@TagFilterClass(tag)"
+                                                      style="@TagFilterProgressStyle(tag)"
                                                       PressedCssClass="chip--active"
                                                       Pressed="@State.IsTagSelected(tag.Value)"
                                                       id="@TagFilterChipId(tag.Value)"
@@ -334,7 +337,8 @@
                                 {
                                     <ToggleButton @key="tag.Value"
                                                   BaseClass="chip chip--filter"
-                                                  CssClass="@TagFilterKindClass(tag)"
+                                                  CssClass="@TagFilterClass(tag)"
+                                                  style="@TagFilterProgressStyle(tag)"
                                                   PressedCssClass="chip--active"
                                                   Pressed="@State.IsTagSelected(tag.Value)"
                                                   id="@TagFilterChipId(tag.Value)"
@@ -5567,6 +5571,32 @@
         TagKind.Plan => "chip--tag-plan",
         _ => "chip--tag-general"
     };
+
+    /// <summary>The kind, and on a plan chip the hook its progress line hangs on, so
+    /// the line is drawn only where <see cref="TagFilterProgressStyle"/> says how far.</summary>
+    private static string TagFilterClass(TagFilterOption tag) => TagFilterProgressPercent(tag) is null
+        ? TagFilterKindClass(tag)
+        : TagFilterKindClass(tag) + " chip--progress";
+
+    /// <summary>How far along a plan is, by the entries the chip and its tooltip
+    /// count: finished over all, as a whole percentage rounded down so a plan reads
+    /// 100 only when it is finished, and 0 for a plan held on the bar with nothing
+    /// under it. Null for every chip that names no plan — "No plan" wears the plan's
+    /// kind but has nothing to finish.</summary>
+    private static int? TagFilterProgressPercent(TagFilterOption tag)
+    {
+        if (tag.Value == TasksDesktopState.NoPlanTag || TagText.Kind(tag.Value) is not TagKind.Plan) return null;
+
+        var total = tag.OpenCount + tag.CompletedCount;
+
+        return total <= 0 ? 0 : tag.CompletedCount * 100 / total;
+    }
+
+    /// <summary>The progress as the custom property app.css fills the line to.
+    /// Invariant, because a comma decimal is not CSS; null leaves the attribute off.</summary>
+    private static string? TagFilterProgressStyle(TagFilterOption tag) => TagFilterProgressPercent(tag) is { } percent
+        ? $"--chip-progress: {percent.ToString(CultureInfo.InvariantCulture)}%"
+        : null;
 
     /// <summary>What pressing the chip does, then what is behind the number on it:
     /// "Filter by #sync — 2 open, 1 completed". The completed clause is left off

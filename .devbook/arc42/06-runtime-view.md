@@ -544,3 +544,31 @@ sequenceDiagram
 - **A missed nudge costs only time.** Desktop A runs a full exchange on every nudge and one to catch up when its socket opens. While a question is open and the socket is down, it polls for replies every two minutes.
 - **The answer survives a restart.** Desktop A stores the accepted answer in SQLite before calling the source's handler and replays it to a handler that was not running. The handler must therefore accept the same answer twice.
 - **A late reply is rejected with its reason.** A reply to a question already answered or closed is rejected, and the phone shows which answer won.
+
+## Main Window Close, Hide and Quit
+
+```meta
+related: [".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#5-each-window-has-its-own-view-state-closing-the-main-window-hides-it-to-the-tray", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce"]
+```
+
+Closing the desktop app's main window hides it to a notification-area icon, so the process
+and its MCP listener keep running. Local ADR 0043 §5 records the decision. It is not built yet.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Shown: App starts, MCP listener binds
+    [*] --> Hidden: Start at sign-in
+    Shown --> Hidden: Close with the tray setting on
+    Shown --> Exiting: Close with the tray setting off, or Quit
+    Hidden --> Shown: Open Backlog, double-click, second launch, link, toast, Show in main window
+    Hidden --> Exiting: Quit, sign-out, shutdown, MSIX update
+    Shown --> Exiting: Sign-out, shutdown, MSIX update
+    Exiting --> [*]: Flush, close every window, remove the icon
+```
+
+- **A hide flushes as a close does.** The navigation and window-bounds stores are written before the window hides, so a hidden app that is later ended loses nothing.
+- **Hidden is not idle.** The MCP listener answers and `open_window` opens pop-outs. Popped-out windows stay open, and a jump to the main window re-shows it.
+- **A second launch finds the running app.** A plain launch is redirected to the running instance, as a `backlog://` link already is, so two apps never compete for the MCP port.
+- **The first hide says where the app went.** A one-time toast says Backlog is still running in the tray.
+- **Start at sign-in enters Hidden directly.** The MSIX `StartupTask` starts the app with no window, so the tools are up before the first session. The setting is off by default and works only in the installed app.
+- **Exiting is the only way out.** Quit, sign-out, shutdown and an MSIX update all flush, close every window and remove the icon. With the tray setting off, a close goes there too.

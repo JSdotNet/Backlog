@@ -314,6 +314,19 @@ Read first: `<path>[#anchor]`[, `<path>[#anchor]`…][, <url>…].
   it into the task's Devbook references and out of the text, so this line is what a copied
   entry still carries.
 
+## Ticket line
+
+Optional, and only when the source states a ticket; a plan never makes one up. One body line of
+its own, after any read-first line, on the `plan` entry for the whole plan or on a step to
+override it:
+
+```
+Ticket: <value>
+```
+
+It is prose, not a token: Backlog stores it as text and knows no tracker. `execute-plan` fills
+`{ticket}` with it, per **Repository conventions** in `../../execute-plan/assets/landing-modes.md`.
+
 ## Entry marker
 
 The line the Backlog app itself puts ahead of every entry its copy button hands over —

@@ -47,7 +47,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
 /// otherwise hidden. Every key is additive and left out while at its default — the tools
 /// pane's two until it has been on a tab or a filter here, the notification centre's Group by
-/// and filters until chosen — so a file
+/// and filters until chosen and its Show settled switch while off — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
 /// </summary>
@@ -185,6 +185,7 @@ public sealed class ShellNavigationStore
         NotificationsAskedBy = Blank(dto?.NotificationsAskedBy);
         NotificationsKind = Blank(dto?.NotificationsKind);
         NotificationsFrom = Blank(dto?.NotificationsFrom);
+        NotificationsShowSettled = dto?.NotificationsShowSettled ?? false;
         AtlasReturnSurface = AtlasReturnId(dto?.AtlasReturnSurface);
         AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
@@ -288,6 +289,11 @@ public sealed class ShellNavigationStore
 
     /// <summary>The centre's From filter, a system's name; null for anywhere.</summary>
     public string? NotificationsFrom { get; private set; }
+
+    /// <summary>Whether the centre lists the notifications already settled — answered,
+    /// acknowledged or closed — beside the open ones: off until the reader turns its Show
+    /// settled switch on on this device, and off for a file written before the switch.</summary>
+    public bool NotificationsShowSettled { get; private set; }
 
     /// <summary>The takeover the Lobes atlas was opened over, which its way back
     /// returns to, by its surface id; null for the workspace, and until the atlas was
@@ -512,17 +518,19 @@ public sealed class ShellNavigationStore
         Save();
     }
 
-    /// <summary>Replaces the notification centre's Group by and its three filters in one save;
-    /// a blank one is its default.</summary>
-    public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from)
+    /// <summary>Replaces the notification centre's Group by, its three filters and its Show
+    /// settled switch in one save; a blank one is its default.</summary>
+    public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from, bool showSettled)
     {
         (groupBy, askedBy, kind, from) = (Blank(groupBy), Blank(askedBy), Blank(kind), Blank(from));
-        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom) return;
+        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom
+            && showSettled == NotificationsShowSettled) return;
 
         NotificationsGroupBy = groupBy;
         NotificationsAskedBy = askedBy;
         NotificationsKind = kind;
         NotificationsFrom = from;
+        NotificationsShowSettled = showSettled;
         Save();
     }
 
@@ -639,6 +647,9 @@ public sealed class ShellNavigationStore
                 NotificationsAskedBy = NotificationsAskedBy,
                 NotificationsKind = NotificationsKind,
                 NotificationsFrom = NotificationsFrom,
+                // Left out while off, the default. A stored name: never rename it without
+                // reading the old one.
+                NotificationsShowSettled = NotificationsShowSettled ? true : null,
                 // Left out until the atlas has been opened here. Both keys are stored
                 // names: never rename them without reading the old ones.
                 AtlasReturnSurface = AtlasReturnSurface,
@@ -735,6 +746,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>notificationsFrom</c>, a system's name.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? NotificationsFrom { get; init; }
+
+        /// <summary>Written as <c>notificationsShowSettled</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? NotificationsShowSettled { get; init; }
 
         /// <summary>Written as <c>atlasReturnSurface</c>, a takeover's surface id.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

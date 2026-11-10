@@ -1179,17 +1179,112 @@ public sealed class ShellNavigationStoreTests
             }
 
             var store = new ShellNavigationStore(path);
-            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by", "ai-agent", "open", "Claude Code"));
+            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"));
             store.Flush();
 
             Assert.Equal(
-                new NotificationCentreChoices("asked-by", "ai-agent", "open", "Claude Code"),
+                new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"),
                 new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
 
             new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by"));
             using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("notificationsFrom", out _));
             Assert.Equal("asked-by", cleared.RootElement.GetProperty("notificationsGroupBy").GetString());
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Whether the centre lists settled notifications survives a restart. A file with no
+    /// <c>notificationsShowSettled</c> — every file written before the switch — reads as
+    /// hidden, and the key is written only while settled ones are shown.
+    /// </summary>
+    [Fact]
+    public void The_notification_centre_show_settled_survives_a_restart_and_writes_no_key_while_off()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{ "lastSurface": "notifications", "notificationsKind": "alerts" }""");
+            var store = new ShellNavigationStore(path);
+            Assert.False(store.NotificationsShowSettled);
+
+            store.SetNotificationsView(null, null, "alerts", null, showSettled: true);
+            using (var shown = JsonDocument.Parse(Written(path)))
+            {
+                Assert.True(shown.RootElement.GetProperty("notificationsShowSettled").GetBoolean());
+            }
+
+            Assert.True(new ShellNavigationStore(path).NotificationsShowSettled);
+
+            store.SetNotificationsView(null, null, "alerts", null, showSettled: false);
+            using var hidden = JsonDocument.Parse(Written(path));
+            Assert.False(hidden.RootElement.TryGetProperty("notificationsShowSettled", out _));
+            Assert.False(new ShellNavigationStore(path).NotificationsShowSettled);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>Setting the centre's view to what it already is, show settled included,
+    /// neither saves nor announces a change.</summary>
+    [Fact]
+    public void Setting_the_notification_centre_view_to_its_current_value_is_a_no_op()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            var changes = 0;
+            store.Changed += () => changes++;
+
+            store.SetNotificationsView(null, null, null, null, showSettled: false);
+            Assert.Equal(0, changes);
+            Assert.False(File.Exists(path));
+
+            store.SetNotificationsView(null, null, null, null, showSettled: true);
+            Assert.Equal(1, changes);
+
+            store.SetNotificationsView(null, null, null, null, showSettled: true);
+            Assert.Equal(1, changes);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The centre's port carries show settled both ways: shown is remembered as
+    /// shown, and hidden — the default — reads back as no choice at all.</summary>
+    [Fact]
+    public void The_notification_centre_preferences_carry_show_settled_both_ways()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: true));
+            store.Flush();
+
+            Assert.Equal(
+                new NotificationCentreChoices(Kind: "questions", ShowSettled: true),
+                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
+
+            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: false));
+            store.Flush();
+
+            Assert.Equal(
+                new NotificationCentreChoices(Kind: "questions"),
+                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
         }
         finally
         {

@@ -61,6 +61,19 @@
         <DomainChapterFlows Unit="@InChapter.Chapters[0]" DocumentPath="@InChapter.Path" TestId="story-domain-flows-in-chapter" />
     </Story>
 
+    <Story Name="Focused by How it moves"
+           Description="An enum row's or the About card's How it moves asks for one diagram by its place, and that section takes focus, which scrolls it into view; it is reported back as answered, so the same link asked again focuses it again. An event chip opens the Model file the host resolved for the page — a split's own `model.<name>.md`, else `model.md` — at the event's anchor, which Model reads as its Events tab on that event."
+           Code="@FocusCode"
+           Source="@InChapterFile">
+        <DomainChapterFlows Unit="@InChapter.Chapters[0]"
+                            DocumentPath="@InChapter.Path"
+                            ModelPath=".devbook/domain/tasks/model.recurring.md"
+                            OnNavigate="@(reference => _followed = reference.Raw)"
+                            @bind-FocusFlow="_focusFlow"
+                            TestId="story-domain-flows-focused" />
+        <p data-testid="story-domain-flows-followed">@(_followed is null ? "Follow an event chip to see where it goes." : $"The chip opens {_followed}.")</p>
+    </Story>
+
     <Story Name="Flow page"
            Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does. Where the invariants name a chapter, its rules show in place: How a task moves under the lifecycle's row, and Readiness's behind its card's rule count."
            Code="@PageCode"
@@ -400,6 +413,17 @@
         ```
 
         Whether a task can be worked on now, derived on every read.
+        """;
+
+    private int? _focusFlow = 0;
+    private string? _followed;
+
+    private const string FocusCode = """
+        <DomainChapterFlows Unit="@unit.Chapter"
+                            DocumentPath="@file.Path"
+                            ModelPath="@modelPath"
+                            OnNavigate="OpenAsync"
+                            @bind-FocusFlow="focusFlow" />
         """;
 
     private const string InChapterCode = """

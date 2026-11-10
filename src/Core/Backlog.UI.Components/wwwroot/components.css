@@ -23373,8 +23373,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 /* Always true's own title, under the About / Always true tabs. */
 .domain-unit__title--page {
     margin-bottom: var(--spacing-sm);
-    font-size: 2rem;
-    line-height: 2.5rem;
+    font-size: var(--font-size-3xl);
+    line-height: var(--line-height-tight);
     font-weight: var(--font-weight-semibold);
 }
 
@@ -23708,6 +23708,24 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-weight: var(--font-weight-semibold);
 }
 
+/* The words the chapter puts before the values lead the row, small and in
+   secondary ink, above the enum's heading. */
+.domain-about__enum-head {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-about__enum-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-about__enum-note-text + .domain-about__link {
+    margin-left: var(--spacing-xs);
+}
+
 .domain-about__enum-values,
 .domain-about__term-summary {
     margin: 0;
@@ -23764,6 +23782,20 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-about__event-consumers {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* "Not sent yet." is a state the chapters state, so it is secondary ink and no
+   tone of its own (color-scheme.md#domain-view-element-tones). */
+.domain-about__event-unsent {
+    grid-column: 1 / -1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__events-foot {
+    margin: var(--spacing-xs) 0 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -24164,8 +24196,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
    says what it is in words, so its type marker is not drawn here. */
 .domain-unit--ubiquitous-language > .domain-unit__title {
     font-family: var(--font-family-heading);
-    font-size: 2rem;
-    line-height: 2.5rem;
+    font-size: var(--font-size-3xl);
+    line-height: var(--line-height-tight);
     font-weight: var(--font-weight-semibold);
 }
 
@@ -24446,7 +24478,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-glossary__across-heading {
     margin: 0;
     color: var(--color-text-secondary);
-    font-size: 0.8125rem;
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-normal);
 }
 
@@ -24498,6 +24530,13 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-width: 0;
 }
 
+/* Focused by a "How it moves" link, which scrolls it into view; the ring shows
+   where the browser shows a focus ring. */
+.domain-flows__section:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 .domain-flows__title {
     margin: 0;
     font-family: var(--font-family-heading);
@@ -24506,9 +24545,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     line-height: var(--line-height-tight);
 }
 
-/* The board's page title: larger than the scale's 2xl. */
+/* The board's page title: the scale's H3, as every Domain view page title. */
 .domain-flows__title--page {
-    font-size: 2rem;
+    font-size: var(--font-size-3xl);
 }
 
 /* A unit's own flows on its Domain page, below its About card: the
@@ -24972,7 +25011,29 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-features__card-item {
+    position: relative;
     display: grid;
+}
+
+/* A card's Brain notes badge sits inside its top-right corner, beside the
+   card's button rather than in it, since a button holds no other; the card's
+   title leaves it room, so it never covers a word or a neighbouring card. Its
+   list opens leftwards from the badge's right edge and no wider than a column,
+   so it stays inside the board. */
+.domain-features__card-notes {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+}
+
+.domain-features__card-item--notes .domain-feature-card__name {
+    padding-inline-end: calc(2.5 * var(--spacing-xl));
+}
+
+.domain-features__card-notes .brain-notes-badge__list {
+    right: 0;
+    left: auto;
+    max-width: 13rem;
 }
 
 /* A card is compact: its title, one line of facts and, past the first column,
@@ -25049,7 +25110,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .badge--tone.domain-feature-card__mark,
-.badge--tone.domain-feature-card__gate {
+.badge--tone.domain-gate-chip {
     background: transparent;
     border-color: var(--color-border-strong);
     color: var(--color-text-secondary);
@@ -25057,6 +25118,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 .badge--tone.domain-feature-card__mark.domain-features__legend-proposed {
     border-style: dashed;
+}
+
+/* A gate chip leads with its kind's glyph: a flag, or a cog for a setting. */
+.domain-gate-chip__glyph {
+    flex: none;
+    margin-right: var(--spacing-2xs);
 }
 
 /* The deprecated features, gathered at the end of the last column on the
@@ -25291,9 +25358,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-requirements__page-title {
     margin: 0;
     font-family: var(--font-family-heading);
-    font-size: 2rem;
+    font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-semibold);
-    line-height: 2.5rem;
+    line-height: var(--line-height-tight);
 }
 
 .domain-requirements__summary {
@@ -30351,6 +30418,22 @@ button.domain-field-rules[aria-expanded="true"] {
     flex: 1 1 14rem;
 }
 
+.domain-event__part--fires {
+    flex: 1 1 14rem;
+}
+
+.domain-event__moves {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-event__move {
+    color: var(--color-text-primary);
+}
+
 .domain-event__payload {
     width: 100%;
     border: var(--border-width) solid var(--color-border);
@@ -30657,6 +30740,79 @@ button.domain-field-rules[aria-expanded="true"] {
     margin-bottom: var(--spacing-xs);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+}
+
+/* A settled card's set answers, read-only: the chosen ones carry a tick and "Chosen" on
+   the answered badge's tone, so the mark is a word and a glyph before it is a colour; the
+   rest step back to the secondary text, which still clears AA on the card. */
+.notification-card__settled-choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notification-card__settled-choice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__settled-choice--chosen {
+    border-color: var(--color-success-text);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.notification-card__settled-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The answer, or the reason it closed, set apart from the outcome line under it: its own
+   block with a label naming what it holds, an edge, and the primary text. */
+.notification-card__answer-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-left: var(--border-width-2) solid var(--color-success-text);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.notification-card--closed .notification-card__answer-block {
+    border-left-color: var(--color-border-strong);
+}
+
+.notification-card__answer-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.notification-card__answer-text {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__answer-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .notification-card__outcome {
