@@ -68,6 +68,7 @@ devbook before it reads well.
 | `<kind>.<name>.md` | A child of its kind's row, titled by its heading | Its kind's page |
 | `*.demo.html` | No row | A **Demo** button on its page |
 | Any other file — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` | Its heading | The file as written: title, lead, chapters, related |
+| `assets/` | Hidden | Its images, where the chapters embed them |
 | A file or folder named `_*` | Hidden | Nothing |
 
 1. **The menu follows the reading order.** It lists a context's files in the
@@ -83,7 +84,8 @@ devbook before it reads well.
    below it. A context's page has no tabs, so every way into a context — the
    Context map, a related link, a `dependencies.md` link, the menu — shows it the
    same way. A file of a known kind follows its kind, any other file opens as
-   written, and a file whose name starts with `_` stays hidden.
+   written, and a file whose name starts with `_` stays hidden, as does the
+   `assets/` folder, whose images show where the chapters embed them.
 4. **An unsplit domain picks in the page.** A context whose domain is the one
    `domain.md` offers its aggregates, domain services and Glossary as a chapter
    bar inside the Domain page, rather than as rows.
@@ -105,6 +107,8 @@ devbook before it reads well.
    `status` out of every domain chapter. The view reads a block's `rating`,
    else its `status`, as the devbook reader does, so a devbook past 38 shows
    no status badge and no **How settled** bar, and a legacy one still does.
+   Model's **Diagram** draws no proposed state either: no `classDiagram` and no
+   service reading states one, so a dashed line there is a reference by id.
 
 ## Consequences
 
@@ -165,7 +169,7 @@ Look for tests that show these behaviours:
 4. **No row.** An invariants file, a demo and `dependencies.md` have no row, and
    show as Always true, a Demo button and the neighbours atop the context's page.
    A context's page has no tabs, however the reader reached it.
-5. **Hidden.** A `_` file or folder is never listed.
+5. **Hidden.** A `_` file or folder, and the `assets/` folder, are never listed.
 6. **Unsplit domain.** One `domain.md` offers its aggregates, domain services and
    Glossary in a chapter bar.
 7. **Wording.** Titles are headings as written, and summaries are first sentences.
@@ -182,6 +186,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-10 | The file table and §3: `assets/` is hidden, its images shown where the chapters embed them. §8: Model's Diagram draws no proposed state, and a dashed line there is a reference by id. | The table named no row for the `assets` folder the view already hid (PR #1453), and PR #1440 left open whether Diagram draws proposed parts dashed. |
 | 2026-11-09 | §3 and the file table: any other file opens as written instead of a placeholder. | A file of no known kind, such as Fincent's `actors.md` or `import.md`, had a row and opened nothing. |
 | 2026-11-09 | Built the Demo button: one per demo above the page, hidden until pressed. | The last page element the plan had left unbuilt. |
 | 2026-11-06 | Renumbered from 0045 to 0047. Amended by §7 and §8: a lifecycle or process draws on its unit's Domain page, below About or a service's summary, and the Flow row and page stay for a legacy `flow.md`; the view reads `rating ?? status` and shows no How settled bar where no chapter states one. | The plan merged `main` at devbook 1.35.0, whose contract 37 folds every `flow.md` into the chapters it draws and whose contract 38 takes workflow state out of the Markdown; `main` took 0045 and the open `plan/c4-zoom-navigation` claims 0046. |
