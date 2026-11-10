@@ -336,6 +336,270 @@ public sealed class DomainUnitPageTests
         Assert.Equal(1, flows.QuerySelectorAll("[data-testid='domain-flowchart']").Length);
     }
 
+    private const string TasksPath = ".devbook/domain/tasks/domain.md";
+
+    private const string Tasks = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        **Task lifecycle**
+
+        ```mermaid
+        stateDiagram-v2
+            state "In progress" as InProgress
+            [*] --> Draft
+            Draft --> Ready : refined
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+            InProgress --> Done : finished
+        ```
+
+        A refined, actionable item.
+
+        ### Task Status
+
+        ```meta
+        type: enum
+        ```
+
+        Lifecycle state: `draft`, `ready`, `in_progress`, `done`.
+
+        ### Priority
+
+        ```meta
+        type: enum
+        ```
+
+        Ranking of the task: `low`, `high`. A high one is shown first.
+
+        ### Weekday
+
+        ```meta
+        type: enum
+        ```
+
+        A day of the week, `monday` through `sunday`.
+
+        ### Readiness
+
+        ```meta
+        type: enum
+        ```
+
+        Where a task stands: `ready`, `blocked`.
+
+        ## Projection
+
+        ```meta
+        type: domain-service
+        related: [.devbook/domain/tasks/requirements.md#projection, .devbook/domain/tasks/requirements.md#ordering]
+        ```
+
+        Creates and closes downstream artifacts. This context publishes no domain events yet.
+
+        ## TaskProjected
+
+        ```meta
+        type: domain-event
+        related: [domain.md#task, domain.md#projection]
+        ```
+
+        Published when work on a task starts.
+
+        ## TaskCompleted
+
+        ```meta
+        type: domain-event
+        related: [domain.md#task]
+        ```
+
+        Published when a task is done.
+
+        ## Ubiquitous Language
+
+        ```meta
+        type: ubiquitous-language
+        ```
+
+        ### Area
+
+        ```meta
+        type: term
+        ```
+
+        A grouping of tasks.
+        """;
+
+    private const string TasksRequirements = """
+        # Tasks requirements
+
+        ## Projection
+
+        ```meta
+        type: requirements
+        ```
+
+        ### Requirement: Starting work opens one artifact per target repository
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL open one artifact per target repository.
+
+        ### Requirement: Completing a task closes its artifacts
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL close each artifact.
+
+        ## Ordering
+
+        ```meta
+        type: requirements
+        ```
+
+        ### Requirement: Unranked tasks fall back to recency
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL order unranked tasks by recency.
+        """;
+
+    private const string TasksInvariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        ### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        ```
+
+        Every task is created in draft.
+        """;
+
+    private static IRenderedComponent<DomainUnitPage> RenderTasks(BunitContext context, string markdown = Tasks, Action<ComponentParameterCollectionBuilder<DomainUnitPage>>? more = null)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        return context.Render<DomainUnitPage>(parameters =>
+        {
+            parameters.Add(p => p.File, DomainUnits.Parse(markdown, TasksPath));
+            parameters.Add(p => p.RequirementFiles, [DomainUnits.Parse(TasksRequirements, ".devbook/domain/tasks/requirements.md")]);
+            parameters.Add(p => p.InvariantFiles, [DomainUnits.Parse(TasksInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
+            more?.Invoke(parameters);
+        });
+    }
+
+    // The FocusAsync calls the page made: the only element it focuses here is a
+    // flow section.
+    private static IReadOnlyList<JSRuntimeInvocation> Focused(BunitContext context) =>
+        [.. context.JSInterop.Invocations.Where(invocation => invocation.Identifier.EndsWith("focus", StringComparison.Ordinal))];
+
+    [Fact]
+    public void An_enum_row_leads_with_its_label_and_links_the_lifecycle_that_draws_it()
+    {
+        using var context = new BunitContext();
+        var page = RenderTasks(context);
+
+        var rows = page.FindAll("[data-testid='domain-unit-enum']");
+        Assert.Equal(["Task Status", "Priority", "Weekday", "Readiness"], rows.Select(row => row.GetAttribute("data-enum")));
+        Assert.Equal(
+            ["Lifecycle state", "Ranking of the task", null, "Where a task stands"],
+            rows.Select(row => row.QuerySelector("[data-testid='domain-unit-enum-label']")?.TextContent));
+        Assert.Equal("Task Status", rows[0].QuerySelector(".domain-about__enum-title")!.TextContent);
+
+        // Only the enum whose values are the lifecycle's states links to it; a
+        // note stays beside its values.
+        Assert.Equal(
+            [true, false, false, false],
+            rows.Select(row => row.QuerySelector("[data-testid='domain-unit-enum-moves']") is not null));
+        Assert.Equal("A high one is shown first.", rows[1].QuerySelector("[data-testid='domain-unit-enum-note']")!.TextContent);
+        Assert.Equal("How it moves →", rows[0].QuerySelector("[data-testid='domain-unit-enum-moves']")!.TextContent.Trim());
+
+        // Following it focuses the lifecycle's section on the same page, once
+        // per ask: asked again, it focuses again.
+        Assert.Empty(Focused(context));
+        page.Find("[data-testid='domain-unit-enum-moves']").Click();
+        Assert.Equal("-1", page.Find("[data-testid='domain-flow-section']").GetAttribute("tabindex"));
+        page.WaitForAssertion(() => Assert.Single(Focused(context)));
+        page.Render();
+        Assert.Single(Focused(context));
+        page.Find("[data-testid='domain-unit-enum-moves']").Click();
+        page.WaitForAssertion(() => Assert.Equal(2, Focused(context).Count));
+    }
+
+    [Fact]
+    public void About_links_to_how_the_aggregate_moves_and_how_it_is_built()
+    {
+        using var context = new BunitContext();
+        DevbookReference? followed = null;
+        var page = RenderTasks(context, more: parameters =>
+        {
+            parameters.Add(p => p.ModelPath, ".devbook/domain/tasks/model.md");
+            parameters.Add(p => p.OnNavigate, (DevbookReference reference) => followed = reference);
+        });
+
+        Assert.Equal(
+            ["What is always true · 1 →", "How it moves →", "How it is built →", "Glossary →"],
+            page.FindAll("[data-testid='domain-unit-links'] button").Select(link => link.TextContent));
+
+        // With no flow file, how it moves is the lifecycle on this page.
+        page.Find("[data-testid='domain-unit-link-flow']").Click();
+        Assert.Null(followed);
+        page.WaitForAssertion(() => Assert.IsType<ElementReference>(Assert.Single(Focused(context)).Arguments[0]));
+
+        // How it is built opens Model on Diagram; the contracts open it on Events.
+        page.Find("[data-testid='domain-unit-link-model-built']").Click();
+        Assert.Equal(".devbook/domain/tasks/model.md", followed!.Raw);
+        page.Find("[data-testid='domain-unit-link-model-events']").Click();
+        Assert.Equal(".devbook/domain/tasks/model.md#events", followed.Raw);
+
+        // With no Model file, there is no link to it.
+        using var bare = new BunitContext();
+        Assert.Empty(RenderTasks(bare).FindAll("[data-testid='domain-unit-link-model-built']"));
+    }
+
+    [Fact]
+    public void A_units_events_say_what_the_rest_of_the_domain_hears_and_when_none_is_sent_yet()
+    {
+        using var context = new BunitContext();
+        var page = RenderTasks(context, more: parameters => parameters.Add(p => p.DomainName, "Backlog"));
+
+        var events = page.Find("[data-testid='domain-unit-events']");
+        Assert.Equal("What the rest of Backlog hears", events.QuerySelector("[data-testid='domain-unit-events-title']")!.TextContent);
+        Assert.Equal("Not sent yet.", events.QuerySelector("[data-testid='domain-unit-events-unsent']")!.TextContent);
+        Assert.Empty(events.QuerySelectorAll("[data-testid='domain-unit-event-unsent']"));
+
+        // With no domain name the heading reads the domain; a mixed list marks
+        // only the rows not sent, and no footer.
+        using var mixed = new BunitContext();
+        var sent = RenderTasks(mixed, Tasks
+            .Replace(" This context publishes no domain events yet.", string.Empty)
+            .Replace("(TaskProjected, not yet emitted)", "(TaskProjected)")
+            .Replace("A refined, actionable item.", "A refined, actionable item. It emits `TaskCompleted` once done."));
+        var list = sent.Find("[data-testid='domain-unit-events']");
+        Assert.Equal("What the rest of the domain hears", list.QuerySelector("[data-testid='domain-unit-events-title']")!.TextContent);
+        Assert.Empty(list.QuerySelectorAll("[data-testid='domain-unit-events-unsent']"));
+        Assert.Equal(
+            [("TaskProjected", true), ("TaskCompleted", false)],
+            list.QuerySelectorAll("[data-testid='domain-unit-event']").Select(row => (row.GetAttribute("data-event"), row.QuerySelector("[data-testid='domain-unit-event-unsent']") is not null)));
+    }
+
     /// <summary>A unit whose chapter draws nothing shows no flow section.</summary>
     [Fact]
     public void A_unit_that_draws_nothing_has_no_flow_section()

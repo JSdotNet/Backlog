@@ -47,6 +47,63 @@ public static partial class DomainUnits
         return note.Length == 0 || IsTechnical(note) ? string.Empty : Plain(note);
     }
 
+    /// <summary>
+    /// The words an enum's chapter puts before its values — "Lifecycle state:
+    /// `draft`, …" reads "Lifecycle state" — which its row leads with. Empty when
+    /// the sentence naming the values has no colon (a range such as "`monday`
+    /// through `sunday`"), when the words before it hold a code span or a link,
+    /// run past six words or end in "one of", or when they only repeat
+    /// <paramref name="heading"/>. The
+    /// chapter's words, never a question the view would write (§5).
+    /// </summary>
+    public static string EnumLabel(string? markdown, string? heading = null)
+    {
+        var sentence = SentenceOf(FirstParagraph(markdown));
+        var colon = sentence.IndexOf(':', StringComparison.Ordinal);
+        if (colon <= 0) return string.Empty;
+
+        var before = sentence[..colon];
+        if (before.Contains('`', StringComparison.Ordinal) || before.Contains('[', StringComparison.Ordinal)) return string.Empty;
+
+        var label = Plain(before);
+        if (label.Length == 0 || Whitespace().Split(label).Length > MaxLabelWords) return string.Empty;
+
+        // "Classifies the destination as one of:" introduces the values; it names nothing.
+        if (label.EndsWith(" one of", StringComparison.OrdinalIgnoreCase)) return string.Empty;
+        return heading is not null && string.Equals(label, heading.Trim(), StringComparison.OrdinalIgnoreCase) ? string.Empty : label;
+    }
+
+    private const int MaxLabelWords = 6;
+
+    /// <summary>
+    /// The lifecycle an enum's values are the states of: the index, among
+    /// <paramref name="flows"/>, of the first <c>stateDiagram-v2</c> holding a
+    /// state for every value — <c>in_progress</c> matching <c>InProgress</c> or
+    /// "In progress", compared as lower-case letters and digits — or
+    /// <see langword="null"/>. An enum of fewer than two values names no lifecycle.
+    /// </summary>
+    public static int? LifecycleOf(DomainEnum item, IReadOnlyList<DomainChapterFlow> flows)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(flows);
+        if (item.Values.Count < 2) return null;
+
+        for (var i = 0; i < flows.Count; i++)
+        {
+            if (flows[i].Figure is not DomainFlowDiagram diagram) continue;
+            var states = diagram.States
+                .Where(state => state.Kind == DomainFlowStateKind.State)
+                .SelectMany(state => new[] { Compact(state.Id), Compact(state.Label) })
+                .ToHashSet(StringComparer.Ordinal);
+            if (item.Values.All(value => states.Contains(Compact(value)))) return i;
+        }
+        return null;
+    }
+
+    /// <summary>A name as lower-case letters and digits only, so <c>in_progress</c>,
+    /// <c>InProgress</c> and "In progress" read alike.</summary>
+    private static string Compact(string value) => Diagrams.DomainChapterContracts.Compact(value).ToLowerInvariant();
+
     /// <summary>A value as the reader says it: <c>in_progress</c> reads "In
     /// progress", <c>draft</c> "Draft".</summary>
     public static string Humanize(string value)

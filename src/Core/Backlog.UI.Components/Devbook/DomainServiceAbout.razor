@@ -60,7 +60,7 @@
         @HeroFooter
     </section>
 
-    <DomainEventList Events="@Events" Model="@Model" />
+    <DomainEventList Events="@Events" Model="@Model" DomainName="@DomainName" />
 </div>
 
 @code {
@@ -83,6 +83,11 @@
     /// <summary>The link beside the events' heading that opens Model.</summary>
     [Parameter]
     public DomainPageLink? Model { get; set; }
+
+    /// <summary>The domain's name as its context map heads it, which the events'
+    /// heading says. Unset reads "the domain".</summary>
+    [Parameter]
+    public string? DomainName { get; set; }
 
     /// <summary>What closes the article: the reader's Brain notes on the unit.</summary>
     [Parameter]

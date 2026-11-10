@@ -15,6 +15,15 @@
         <DomainModelView Fences="@TaskFences" Identities="@Identities" Chapters="@Chapters" AriaLabel="Model of Tasks" TestId="story-domain-model-view" />
     </Story>
 
+    <Story Name="Opened on an event"
+           Description="The page an event chip opens: the link's anchor is the slug of the event's title — model.md#taskprojected — so Model opens on Events with that event picked and its moves under Would fire on. #events opens Events on its first event, #fields opens Fields where the model file has a Fields chapter, and any other anchor opens Diagram. The reader's own pick wins after."
+           Code="@OpenedCode"
+           Source="@Tasks"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelView Fences="@TaskFences" Identities="@Identities" Chapters="@WithEvents" OpenAnchor="taskprojected" Context="Tasks" AriaLabel="Model of Tasks" TestId="story-domain-model-opened" />
+    </Story>
+
     <Story Name="One aggregate"
            Description="The root card sits in the band with its key fields, the parts composed into it drawn above and below it, each with its kind, multiplicity and fields. What the root names by id sits outside the band, one card per type: depends_on folds into the dashed depends on line, repo_ids reads as the Repository chapter that has it as an alias, source_inbox_id as the Inbox Item heading. Enumerations have no place on the picture and are named under it, for Fields."
            Code="@DiagramCode"
@@ -156,6 +165,27 @@
             new DomainServiceInvocation("Occurrence Spawning", "#occurrence-spawning", "Creates the next task, which points back through recurrence_source_id.", null)
         ],
         []);
+
+    // What a chip opens: the events of the Tasks chapters, and the moves of the
+    // lifecycle that raise them.
+    private static readonly DomainChapterReading WithEvents = Chapters with
+    {
+        Events =
+        [
+            new DomainEventContract("StatusChanged", ".devbook/domain/tasks/domain.md#statuschanged", "draft", "Published when a `Task` changes `Task Status`.", ["Task"], "- `task_id` - task identifier.", "- Monitoring & Dashboard.", null, DomainEventDelivery.Documented),
+            new DomainEventContract("TaskProjected", ".devbook/domain/tasks/domain.md#taskprojected", "draft", "Published when a `Task` begins external execution.", ["Projection"], "- `task_id` - task identifier.", "- GitHub, which opens the issue.", "- Consumers read the target type only.", DomainEventDelivery.Documented)
+        ],
+        Moves = new Dictionary<string, IReadOnlyList<DomainEventMove>> { ["TaskProjected"] = [new DomainEventMove("Ready", "In progress")] }
+    };
+
+    private const string OpenedCode = """
+        <DomainModelView Fences="@fences" Chapters="@chapters" OpenAnchor="@askedAnchor" />
+
+        @code {
+            // The anchor of the link that opened the page: model.md#taskprojected.
+            private string? askedAnchor = "taskprojected";
+        }
+        """;
 
     private static readonly IReadOnlyList<DomainModelFence> TaskFences = [new DomainModelFence("Model diagram", Tasks)];
 

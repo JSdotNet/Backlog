@@ -28,6 +28,7 @@
                      Profiles="@_profiles"
                      Title="@_title"
                      Context="@_context"
+                     OpenAnchor="@OpenAnchor"
                      AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
@@ -48,6 +49,12 @@ else if (_problem is not null)
     /// <summary>The model file, relative to the Domain folder: <c>tasks/model.md</c>.</summary>
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>The anchor of the link that opened the page: an event's slug opens
+    /// Events on its contract, <c>events</c> Events, <c>fields</c> Fields
+    /// (<see cref="DomainModelTabs.For"/>). Unset is Diagram.</summary>
+    [Parameter]
+    public string? OpenAnchor { get; set; }
 
     /// <summary>A rule shown on Fields or Diagram, followed to its row on its
     /// unit's Always true tab.</summary>
@@ -190,7 +197,17 @@ else if (_problem is not null)
         var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
             ? TryReadText(view, table.Path)
             : null;
-        var chapters = DomainChapterContracts.Read(sources) with { Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug) };
+        // The moves an event fires on: the lifecycles the domain files draw, and a
+        // legacy flow file's beside them.
+        var flows = context.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Flow)
+            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
+            .OfType<DomainChapterFile>();
+        var chapters = DomainChapterContracts.Read(sources) with
+        {
+            Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug),
+            Moves = DomainEventIndex.Moves(own.Concat(flows))
+        };
         var references = DomainUnits.ModelReferences(own);
 
         // What an id attribute points at may be another context's aggregate —

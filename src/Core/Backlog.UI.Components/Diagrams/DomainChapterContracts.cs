@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.UI.Components.Diagrams;
@@ -51,6 +52,10 @@ public sealed record DomainChapterReading(IReadOnlyList<DomainServiceInvocation>
     /// tables (<see cref="DomainEventIndex.Listens"/>).</summary>
     public IReadOnlyList<DomainEventSubscription> Listens { get; init; } = [];
 
+    /// <summary>The moves each event would fire on, by the event's name, out of
+    /// the lifecycles the context draws (<see cref="DomainEventIndex.Moves"/>).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> Moves { get; init; } = DomainEventIndex.NoMoves;
+
     public static DomainChapterReading Empty { get; } = new([], []);
 }
 
@@ -77,7 +82,7 @@ public static partial class DomainChapterContracts
             .ToList();
 
         // A context that says it publishes no events yet has said it of every event.
-        var noneEmitted = chapters.Any(c => PublishesNone().IsMatch(c.Text));
+        var noneEmitted = chapters.Any(c => DomainEventSending.PublishesNone(c.Text));
 
         var events = chapters
             .Where(c => c.Type == "domain-event")
@@ -173,15 +178,10 @@ public static partial class DomainChapterContracts
     }
 
     /// <summary>Emitted only when a chapter says so — the raiser emits or publishes
-    /// it by name — and no chapter says it is not raised yet.</summary>
-    private static DomainEventDelivery Delivery(Chapter @event, IReadOnlyList<Chapter> raisers)
-    {
-        if (NotEmitted().IsMatch(@event.Text) || raisers.Any(r => NotEmitted().IsMatch(r.Text))) return DomainEventDelivery.Documented;
-
-        var name = Regex.Escape(@event.Title);
-        var emits = new Regex($@"\b(emits|emitting|publishes|publishing|raises|raising)\b[^.]*?\b{name}\b", RegexOptions.IgnoreCase);
-        return raisers.Any(r => emits.IsMatch(r.Text)) ? DomainEventDelivery.Emitted : DomainEventDelivery.Documented;
-    }
+    /// it by name — and no chapter says it is not raised yet; the rule a unit's
+    /// events read too (<see cref="DomainEventSending"/>).</summary>
+    private static DomainEventDelivery Delivery(Chapter @event, IReadOnlyList<Chapter> raisers) =>
+        DomainEventSending.IsSent(@event.Title, @event.Text, raisers.Select(r => r.Text)) ? DomainEventDelivery.Emitted : DomainEventDelivery.Documented;
 
     private static string? Subchapter(Chapter chapter, string title) =>
         chapter.Subchapters.TryGetValue(title, out var body) ? body : null;
@@ -300,7 +300,7 @@ public static partial class DomainChapterContracts
         return Regex.Replace(kept, @"\s", "-");
     }
 
-    private static string Compact(string value) => new([.. value.Where(char.IsLetterOrDigit)]);
+    internal static string Compact(string value) => new([.. value.Where(char.IsLetterOrDigit)]);
 
     [GeneratedRegex(@"^(#{1,6})[ \t]+\S")]
     private static partial Regex HeadingLine();
@@ -313,12 +313,6 @@ public static partial class DomainChapterContracts
 
     [GeneratedRegex(@"^.*?[.!?](?=\s|$)")]
     private static partial Regex Sentence();
-
-    [GeneratedRegex(@"publishes no (domain )?events", RegexOptions.IgnoreCase)]
-    private static partial Regex PublishesNone();
-
-    [GeneratedRegex(@"documented rather than emitted|\bnot (yet )?(emitted|published|raised)\b|\b(emitted|published|raised) yet\b", RegexOptions.IgnoreCase)]
-    private static partial Regex NotEmitted();
 
     [GeneratedRegex(@"Published (by|when an?)\s+`(?<name>[^`]+)`", RegexOptions.IgnoreCase)]
     private static partial Regex PublishedBy();

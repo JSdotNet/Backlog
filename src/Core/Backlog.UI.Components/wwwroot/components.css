@@ -23708,6 +23708,24 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-weight: var(--font-weight-semibold);
 }
 
+/* The words the chapter puts before the values lead the row, small and in
+   secondary ink, above the enum's heading. */
+.domain-about__enum-head {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-about__enum-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-about__enum-note-text + .domain-about__link {
+    margin-left: var(--spacing-xs);
+}
+
 .domain-about__enum-values,
 .domain-about__term-summary {
     margin: 0;
@@ -23764,6 +23782,20 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-about__event-consumers {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* "Not sent yet." is a state the chapters state, so it is secondary ink and no
+   tone of its own (color-scheme.md#domain-view-element-tones). */
+.domain-about__event-unsent {
+    grid-column: 1 / -1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__events-foot {
+    margin: var(--spacing-xs) 0 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -24496,6 +24528,13 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     display: grid;
     gap: var(--spacing-md);
     min-width: 0;
+}
+
+/* Focused by a "How it moves" link, which scrolls it into view; the ring shows
+   where the browser shows a focus ring. */
+.domain-flows__section:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .domain-flows__title {
@@ -30258,6 +30297,22 @@ button.domain-field-rules[aria-expanded="true"] {
 
 .domain-event__part--rules {
     flex: 1 1 14rem;
+}
+
+.domain-event__part--fires {
+    flex: 1 1 14rem;
+}
+
+.domain-event__moves {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-event__move {
+    color: var(--color-text-primary);
 }
 
 .domain-event__payload {

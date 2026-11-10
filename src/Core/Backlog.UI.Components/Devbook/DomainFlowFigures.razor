@@ -33,6 +33,7 @@
         case DomainFlowDiagram row:
             <DomainFlowRow Diagram="@row"
                            DocumentPath="@DocumentPath"
+                           ModelPath="@ModelPath"
                            OnNavigate="OnNavigate"
                            AriaLabel="@($"{Title}, drawn as one row of states")" />
             break;
@@ -57,6 +58,12 @@
     /// <summary>The file the figures sit in, which a state row's links resolve against.</summary>
     [Parameter, EditorRequired]
     public string DocumentPath { get; set; } = string.Empty;
+
+    /// <summary>The Model file an event chip opens, as the host resolves it for the
+    /// opened file — a split's own <c>model.&lt;name&gt;.md</c>, else <c>model.md</c>.
+    /// Unset is the <c>model.md</c> beside <see cref="DocumentPath"/>.</summary>
+    [Parameter]
+    public string? ModelPath { get; set; }
 
     /// <summary>An event chip on a state row, followed.</summary>
     [Parameter]

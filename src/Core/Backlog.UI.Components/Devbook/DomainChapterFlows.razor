@@ -6,7 +6,9 @@
     titled by the bold line above its fence or else by its chapter, with the
     markdown between the two as its lead; a diagram of a chapter inside the unit
     — an entity's lifecycle, a value object's derivation — names that chapter
-    beside its title. Nothing shows when the unit draws none.
+    beside its title. Nothing shows when the unit draws none. A section the page
+    asks for (FocusFlow) — an enum's or the hero's "How it moves" — takes focus,
+    and so scrolls into view.
 
     Pure: the host hands over the unit's chapter.
 *@
@@ -17,8 +19,11 @@
         @for (var i = 0; i < _flows.Count; i++)
         {
             var flow = _flows[i];
+            var index = i;
             @* Keyed by place: two diagrams may share a title. *@
             <section @key="i"
+                     @ref="_sections[index]"
+                     tabindex="-1"
                      class="domain-flows__section"
                      data-testid="domain-flow-section"
                      data-flow="@flow.Chapter.Anchor"
@@ -40,7 +45,7 @@
                                       OnDevbookNavigate="OnNavigate" />
                     </div>
                 }
-                <DomainFlowFigures Diagrams="@([flow.Figure])" Title="@flow.Title" DocumentPath="@DocumentPath" OnNavigate="OnNavigate" />
+                <DomainFlowFigures Diagrams="@([flow.Figure])" Title="@flow.Title" DocumentPath="@DocumentPath" ModelPath="@ModelPath" OnNavigate="OnNavigate" />
             </section>
         }
     </section>
@@ -55,6 +60,12 @@
     [Parameter, EditorRequired]
     public string DocumentPath { get; set; } = string.Empty;
 
+    /// <summary>The Model file an event chip opens, as the host resolves it for the
+    /// opened file — a split's own <c>model.&lt;name&gt;.md</c>, else <c>model.md</c>.
+    /// Unset is the <c>model.md</c> beside <see cref="DocumentPath"/>.</summary>
+    [Parameter]
+    public string? ModelPath { get; set; }
+
     /// <summary>A link in a lead, or an event chip, followed.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
@@ -62,16 +73,46 @@
     [Parameter]
     public string? TestId { get; set; } = "domain-unit-flows";
 
+    /// <summary>The section to focus, by its place among the diagrams the unit
+    /// draws (<see cref="DomainFlows.InChapter"/>): the one a "How it moves" link
+    /// asked for. Reported back as <see langword="null"/> once focused, so the same
+    /// link asked again focuses it again.</summary>
+    [Parameter]
+    public int? FocusFlow { get; set; }
+
+    [Parameter]
+    public EventCallback<int?> FocusFlowChanged { get; set; }
+
     private IReadOnlyList<DomainChapterFlow> _flows = [];
     private DomainChapter? _read;
     private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, ElementReference> _sections = [];
+    private int? _focused;
 
     protected override void OnParametersSet()
     {
+        // Focused once per ask: a re-render must not pull the reader back.
+        if (FocusFlow != _focused) _focused = null;
         if (ReferenceEquals(_read, Unit)) return;
         _read = Unit;
         _markdown.Clear();
+        _sections.Clear();
         _flows = DomainFlows.InChapter(Unit);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (FocusFlow is not { } asked || _focused == asked || !_sections.TryGetValue(asked, out var section)) return;
+        _focused = asked;
+        try
+        {
+            await section.FocusAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        {
+            // Prerendered or torn down: the section stays where it is.
+        }
+        await FocusFlowChanged.InvokeAsync(null);
     }
 
     private IReadOnlyList<MdBlock> BlocksOf(string source)

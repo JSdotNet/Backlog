@@ -32,6 +32,51 @@ public sealed class DomainUnitSummaryTests
         Assert.Equal(note, DomainUnits.EnumNote(prose));
 
     [Theory]
+    [InlineData("Lifecycle state: `draft`, `ready`, `in_progress`.", "Task Status", "Lifecycle state")]
+    [InlineData("Ranking of the task: `low`, `medium`, `high`, `critical`.", "Priority", "Ranking of the task")]
+    [InlineData("Classification of the task: `prompt`, `task`. A follow-up is a `Dependency`.", "Task Type", "Classification of the task")]
+    [InlineData("A day of the week, `monday` through `sunday`. Used for weekly repeats.", "Weekday", "")]
+    [InlineData("**Readiness derivation**", "Readiness", "")]
+    [InlineData("Where a `Task` stands: `done`, `ready`.", "Readiness", "")]
+    [InlineData("What a task is made of when it is read back from the store: `a`, `b`.", "Shape", "")]
+    [InlineData("Priority: `low`, `high`.", "Priority", "")]
+    [InlineData("Classifies the destination as one of: `issue`, `cli-task`.", "Projection Target", "")]
+    [InlineData("The [lane](features.md#lanes) a task sits in: `now`, `next`.", "Lane", "")]
+    [InlineData("How far a task is from done, in short: `a`, `b`.", "Progress", "")]
+    public void An_enums_label_is_the_words_before_its_values(string prose, string heading, string label) =>
+        Assert.Equal(label, DomainUnits.EnumLabel(prose, heading));
+
+    [Fact]
+    public void An_enum_with_no_values_has_no_label()
+    {
+        var file = DomainUnits.Parse("""
+            # X
+
+            ## Task
+
+            ```meta
+            type: aggregate
+            ```
+
+            Work.
+
+            ### Mood
+
+            ```meta
+            type: enum
+            ```
+
+            How it feels: happy or sad.
+            """, ".devbook/domain/x/domain.md");
+
+        var mood = Assert.Single(DomainUnits.Enums(DomainUnits.Of(file)[0].Chapter));
+
+        Assert.Empty(mood.Values);
+        Assert.Equal(string.Empty, mood.Label);
+        Assert.Equal("How it feels", DomainUnits.EnumLabel("How it feels: happy or sad."));
+    }
+
+    [Theory]
     [InlineData("in_progress", "In progress")]
     [InlineData("draft", "Draft")]
     [InlineData("sub-item", "Sub item")]
