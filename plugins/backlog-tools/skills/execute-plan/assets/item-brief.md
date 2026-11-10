@@ -6,11 +6,12 @@
 `This session runs one entry of the Backlog plan <tag>; execute-plan orchestrates the plan from another session and answers its gates.`,
 and `prompt` the brief below, its `<…>` filled in per `landing-modes.md`: `<attendance>` is
 `attended` or `unattended`; `<slug>` is as `landing-modes.md` defines it; `<cut-from>` is the
-Landing table's *cut from* ref there; `<switch>` is `git switch -c <slug>/<id> <cut-from>` for
-a new entry branch, or `git switch <slug>/<id>` when **Names** there finds earlier work;
+Landing table's *cut from* ref there; `<entry-branch>` is the name resolved there; `<switch>` is `git switch -c <entry-branch> <cut-from>` for
+a new entry branch, or `git switch <entry-branch>` when **Names** there finds earlier work;
 `<target>` is the branch the pull request targets; `<draft>` is `--draft` in branch and
 stacked mode and in any unattended run, else empty; `<stacked-on>` is the two lines **Record
-the cut** in `landing-modes.md` names, for a stacked entry, else empty. The plan-progress band
+the cut** in `landing-modes.md` names, for a stacked entry, else empty; `<pr-title>` is `prTitle`
+there with its `{ticket}` filled in and `{title}` left for the session. The plan-progress band
 knows each session's entry by the brief's first line, so that line keeps its shape.
 
 **Talking to an entry session.** Every message to one — a gate's answer, a fix pass, a resume —
@@ -27,7 +28,7 @@ title as its description, the prompt unchanged. The engine runs no flow as a sub
 a sub-agent cannot hold Personal Validation; unattended, no one holds it anyway, so the entry
 parks at its first gate as the engine's own sub-agent rule says and lands the draft. Its final
 message is its return, its completion wakes the orchestrator, and its worktree is the
-`git worktree list --porcelain` row on `<slug>/<id>`. It is no session: `list_sessions` and
+`git worktree list --porcelain` row on `<entry-branch>`. It is no session: `list_sessions` and
 `list_events` never show it, its flow's usage is counted in the orchestrator's session, and
 the host has no row to open or archive.
 
@@ -76,7 +77,9 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
      land the change as the draft that stands in for every gate. Finish the flow's run as
      `parked`.
 4. **Pull request.** Commit with a conventional subject, push, and
-   `gh pr create <draft> --base <target>`. The body, in order: `<stacked-on>`; what changed;
+   `gh pr create <draft> --base <target> --title "<title>"`. `<title>` is `<pr-title>` with
+   `{title}` that subject. A title rule in the repository's own instructions for this kind of
+   change, such as a prefix for a documentation-only pull request, wins; never make up a ticket. The body, in order: `<stacked-on>`; what changed;
    the acceptance criteria and how each was verified; Build & Test with its counts; review
    findings left open; **What could not be proved** — the section the person validates;
    **Assumptions**; and, unattended, a line saying an unattended `execute-plan` run opened it.

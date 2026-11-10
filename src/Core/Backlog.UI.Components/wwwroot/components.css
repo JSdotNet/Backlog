@@ -23373,8 +23373,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 /* Always true's own title, under the About / Always true tabs. */
 .domain-unit__title--page {
     margin-bottom: var(--spacing-sm);
-    font-size: 2rem;
-    line-height: 2.5rem;
+    font-size: var(--font-size-3xl);
+    line-height: var(--line-height-tight);
     font-weight: var(--font-weight-semibold);
 }
 
@@ -24196,8 +24196,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
    says what it is in words, so its type marker is not drawn here. */
 .domain-unit--ubiquitous-language > .domain-unit__title {
     font-family: var(--font-family-heading);
-    font-size: 2rem;
-    line-height: 2.5rem;
+    font-size: var(--font-size-3xl);
+    line-height: var(--line-height-tight);
     font-weight: var(--font-weight-semibold);
 }
 
@@ -24478,7 +24478,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-glossary__across-heading {
     margin: 0;
     color: var(--color-text-secondary);
-    font-size: 0.8125rem;
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-normal);
 }
 
@@ -24545,9 +24545,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     line-height: var(--line-height-tight);
 }
 
-/* The board's page title: larger than the scale's 2xl. */
+/* The board's page title: the scale's H3, as every Domain view page title. */
 .domain-flows__title--page {
-    font-size: 2rem;
+    font-size: var(--font-size-3xl);
 }
 
 /* A unit's own flows on its Domain page, below its About card: the
@@ -25358,9 +25358,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-requirements__page-title {
     margin: 0;
     font-family: var(--font-family-heading);
-    font-size: 2rem;
+    font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-semibold);
-    line-height: 2.5rem;
+    line-height: var(--line-height-tight);
 }
 
 .domain-requirements__summary {

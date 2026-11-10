@@ -146,7 +146,7 @@ the way an inbox is seeded without a phone.
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#capture-attachments, .devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_plans_task_entries_carry_the_items_attachment_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_plans_task_entries_carry_the_items_attachment_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Clicking_a_picture_previews_it_in_the_app_and_open_in_external_app_hands_it_over, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
 ```
 
 A thought captured on the phone often comes with a photo, a screenshot or a
@@ -159,8 +159,9 @@ capture named, and the desktop then downloads each file into the item's
 downloaded does not hold up the capture or the rest of the sync. The item still
 lands, and the file shows why it did not arrive. Its **Retry** tries it again.
 
-In the detail view, pictures show as thumbnails above the body, and each one
-opens the file. Every other file shows as a row with its size and an **Open**
+In the detail view, pictures show as thumbnails above the body. Clicking one
+previews the picture inside the app, and the preview's **Open in external
+app** hands it to the system viewer. Every other file shows as a row with its size and an **Open**
 action. A file still on its way reads *Waiting to download*. An item whose
 only content is pictures reads as an `image` in the queue, and an item with any
 other file reads as a `document`.

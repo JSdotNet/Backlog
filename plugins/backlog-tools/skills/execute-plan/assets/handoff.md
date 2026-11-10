@@ -54,6 +54,8 @@ which runs this skill for the same plan.
   entries; another repository's are its own session's.
 - **`after:` in another repository** reads its Backlog status, or without the server its pull
   request through `gh pr list --repo <owner>/<repo>`.
-- **Branch mode.** `plan/<slug>` and its closing pull request are per repository.
+- **Branch mode.** `<integration>` and its closing pull request are per repository, and so is
+  **Repository conventions** in `landing-modes.md`: each session reads its own. Pass
+  `ticket:<value>` on in a handoff's prompt when the request gave one.
 - **Stacked.** A stack parent is in the entry's own repository. An entry whose latest unmerged
   `after:` lives elsewhere waits until that one merges, cut from `origin/<base>`.

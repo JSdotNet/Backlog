@@ -1,6 +1,6 @@
 ---
 name: execute-plan
-description: Execute a whole Backlog import plan by running each prompt entry in its own nested session — each entry run through run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once it lands. Reads the plan from the Backlog MCP server by its +tag, or from a plan file import-plan wrote. Lands per item, on one plan/<slug> integration branch, or as stacked pull requests; attended, with each gate relayed to the person, or unattended with every entry a draft pull request and Personal Validation moved onto it. Stops at task and test entries, which only the person does, with the application started for them to validate against. Names its session for the plan and each entry session for its entry, and hands ready entries in another repository to a new session in that repository's checkout.
+description: Execute a whole Backlog import plan by running each prompt entry in its own nested session — each entry run through run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once it lands. Reads the plan from the Backlog MCP server by its +tag, or from a plan file import-plan wrote. Lands per item, on one integration branch, or as stacked pull requests; attended, with each gate relayed to the person, or unattended with every entry a draft pull request and Personal Validation moved onto it. Stops at task and test entries, which only the person does, with the application started for them to validate against. Names its session for the plan and each entry session for its entry, and hands ready entries in another repository to a new session in that repository's checkout.
 disable-model-invocation: true
 ---
 
@@ -24,16 +24,19 @@ session and its entry sessions and hands an entry in another repository to a ses
 - **Landing**: *per item*, *branch* or *stacked*. **Attendance**: *attended* or *unattended*.
   Taken from the request (`/backlog-tools:execute-plan +tag unattended stacked`); otherwise
   asked in one question. Unattended per item is refused with the reason.
+- **Ticket** (optional): `ticket:<value>`, for a repository whose conventions need one, when the
+  plan states none. Per **Repository conventions** in `assets/landing-modes.md`.
 - **Parallelism.** At most 3 entry sessions working at once — started or messaged by this run,
-  or an earlier one's `list_sessions` row on a `<slug>/<id>` branch of this plan, and not yet returned a line since — unless the person names another number.
+  or an earlier one's `list_sessions` row on a `<entry-branch>` branch of this plan, and not yet returned a line since — unless the person names another number.
 
 ## Workflow
 
 1. **Graph.** Title this session per **Names** in `assets/handoff.md`. Skip the `plan`
-   entry. Keep `prompt`, `task`, `test` steps with their type, status, `after:` edges, `repo:` and title. Refuse a cycle. Read each entry's pull request
-   (`gh pr list --head <slug>/<id> --state all --json number,state,isDraft,baseRefName,body`).
+   entry. Keep `prompt`, `task`, `test` steps with their type, status, `after:` edges, `repo:` and title. Refuse a cycle. Read **Repository conventions** in `assets/landing-modes.md`, resolve every
+   branch name by it, and refuse there a missing ticket or a bad pattern. Read each entry's pull request
+   (`gh pr list --head <entry-branch> --state all --json number,state,isDraft,baseRefName,headRefName,body`).
    An entry is *done* when its status is Done/Archived or its pull request merged — into
-   `plan/<slug>` counts in branch mode; *ready* when it is a `prompt` in this checkout's
+   `<integration>` counts in branch mode; *ready* when it is a `prompt` in this checkout's
    repository, not done, not running, not blocked, and the landing mode lets its `after:` edges start it.
    **Sources.** `git fetch origin`, then check that every entry not done can reach what it
    is told to read: each `Read first:` reference (grammar's `## Read-first line`) and each
@@ -44,14 +47,14 @@ session and its entry sessions and hands an entry in another repository to a ses
    `repo:` — `gh api repos/<owner/name>/contents/<path>`; a claude.ai artifact — the host's
    artifact tool; any other URL — a fetch. A path missing while the entry still has a
    not-done `after:` ancestor is *pending*: that work may write it. Show the graph, the
-   modes, the first frontier and, per entry, every reference that failed and why. When any
+   modes, the branch names, any build warning, the first frontier and, per entry, every reference that failed and why. When any
    failed, ask once — attended or not, since nobody answers later — whether to go, hold the
    entries that name it, or stop to fix the plan. Hold is `set_blocked` plus a `comment`
    `source not reachable: <reference>`; without the server, skip those entries this run
    and say so. On a later invocation re-check every entry held this way and unblock the
    ones whose sources now resolve. Then go: from here an unattended run asks nothing.
 2. **Resume.** Before dispatching, act on what an earlier run left: an entry merged into
-   `plan/<slug>` or `<base>`, or a closing pull request merged into `<base>`, since →
+   `<integration>` or `<base>`, or a closing pull request merged into `<base>`, since →
    `transition` its entries to Done — the sign-off too, once every repository's closing pull
    request has merged; then restack, merge what is settled, re-check blocked entries, resume an
    entry's earlier session, and tear down a manual entry's app once it is Done — all per `assets/landing-modes.md`.
@@ -66,7 +69,7 @@ session and its entry sessions and hands an entry in another repository to a ses
    are listed in plan order and each is decided on its own — take the person's first answer,
    from chat or from the run, per `assets/gates.md`, and send it back, quoting the person's
    words, per **Talking to an entry session** in `assets/item-brief.md`, which every message to one follows. *Unattended*: no gate here; the session ends with `pr <url>`, a draft.
-5. **Land.** Branch: merge each settled entry into `plan/<slug>`; once merged, `transition` it
+5. **Land.** Branch: merge each settled entry into `<integration>`; once merged, `transition` it
    to Done. Stacked: a dependent may start on its parent's open pull request. On any merge into
    `<base>`, `transition` the entry to Done and restack its children. A landed entry's session
    and worktree are the host's and stay. Re-read the graph (`get_plan_items`) so an entry filed
@@ -100,6 +103,6 @@ session and its entry sessions and hands an entry in another repository to a ses
 - Edit or commit in this checkout or another repository's; run a `task` or `test` — starting the app for one is
   setup, not running it; tick a manual entry's checks or mark it Done — except the sign-off,
   once the person has merged its closing pull requests; mark an entry Done
-  before it reaches `<base>` — or `plan/<slug>` in branch mode; merge into `<base>` directly; force a branch other than a restacked entry's own;
+  before it reaches `<base>` — or `<integration>` in branch mode; merge into `<base>` directly; force a branch other than a restacked entry's own;
   approve a gate for the person, or take a pull request out of draft before its review is
   settled.

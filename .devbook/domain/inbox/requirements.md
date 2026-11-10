@@ -978,14 +978,20 @@ type: requirement
 ```
 
 The Inbox detail view SHALL show a picture on this machine of 8 MB or less as a
-thumbnail that opens the file, and every other file as a row with its size and
-Open.
+thumbnail that previews the picture in the app with Open in external app, and
+every other file as a row with its size and Open.
 
 #### Scenario: A picture and a document
 
 - **Given** an item whose capture brought a photo and a PDF, both downloaded
 - **When** the person opens the item
 - **Then** the photo shows as a thumbnail above the body and the PDF as a row with its size and Open
+
+#### Scenario: Clicking a picture previews it
+
+- **Given** an item showing a downloaded photo as a thumbnail
+- **When** the person clicks the thumbnail
+- **Then** the photo opens in a preview inside the app, not in another app, and the preview offers Open in external app
 
 #### Scenario: A picture not on this machine
 

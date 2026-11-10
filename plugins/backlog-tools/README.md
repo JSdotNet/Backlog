@@ -54,7 +54,7 @@ running plan.
   current repository says work is done. When a `backlog` MCP server is in the session's
   tool list it reads the entry's status from it (`read_item`) and reports Ready → In
   progress → Done back (`transition`) — In progress while the pull request is open, Done once
-  it has merged into the default branch or a `plan/<slug>` branch — every call carrying the `repository` read off the
+  it has merged into the default branch or a plan integration branch — every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
 - **`execute-plan`** — runs a whole plan, after the pattern of Matt Pocock's
@@ -73,13 +73,13 @@ running plan.
   nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
   references and linked Devbook chapters, and warns about each one it cannot reach, asking
   once whether to go, hold the entries that name it, or stop to fix the plan.
-  An entry is done when its pull request merges — into `plan/<slug>` in
+  An entry is done when its pull request merges — into `<integration>` in
   branch mode, into the base branch otherwise; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
   listing what they hold up, starts the application in its own worktree for the first one
   that validates landed work, and resumes from the plan's state when invoked again. Three
   landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
-  pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
+  pull request to the base branch; *branch*, each into one integration branch, by default `plan/<tag without its +>`, that the
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
   anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
@@ -94,11 +94,15 @@ running plan.
   it. It titles its own session `<tag>:execute-plan` and each entry session
   `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
   in that repository's checkout running the same plan, per
-  `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
+  `skills/execute-plan/assets/handoff.md`. Branch names and pull request titles follow the
+  repository's `.devbook/backlog-tools.json`, with an optional ticket the plan supplies and no
+  tracker dependency (**Repository conventions** in `landing-modes.md`). The app itself moves an
+  entry to Done on a merge only into the default branch or `plan/*` (`PullRequestLanding`); under
+  another integration pattern `execute-plan` and `close-merged` do it. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`final-check`** — the one check at the end of a plan, run in the session that wrote it
   with `import-plan`, since that session still holds the specification. It brings the checkout
-  up to the plan's landed tip — the base branch, or `origin/plan/<slug>` while its closing
+  up to the plan's landed tip — the base branch, or `origin/<integration>` while its closing
   pull request is open, or the top of a stack not yet merged — by fast-forward, or in a detached scratch worktree when the
   checkout has work of its own. Then it reviews each `prompt` entry against its instructions,
   checks and `Read first:` sections at that tip, with `file:line` for every verdict
@@ -108,7 +112,7 @@ running plan.
   through the gate as their own change. User-invoked only; it edits, commits and transitions
   nothing.
 - **`close-merged`** — moves to Done every entry whose pull request has merged into the
-  default branch or a `plan/<slug>` branch: the merges `run-plan-item` and `execute-plan` did
+  default branch or a plan integration branch: the merges `run-plan-item` and `execute-plan` did
   not see, made on GitHub's own page or after the session ended. It lists the repository's
   `in_progress` and `ready` entries (`list_entries`) and the pull requests merged into either
   since the oldest of them started (`gh pr list`), resolves each pull request to its entry by
