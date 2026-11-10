@@ -44,6 +44,10 @@ decision, not the plan's.
 
 ## Workflow
 
+The run ends only on step 8's report, which carries the review view's link (or its
+fallback path); the interview's question rounds are the only places it waits for the user.
+Nothing else — an interview answer, a sizing table, the plan text — ends a turn.
+
 1. Read the source material in full, following any `depends-on`/prerequisite references it
    names, so ordering is grounded in what is agreed rather than guessed. Note each open
    question as you read: an unresolved decision, an alternative left open, a `TBD`, an
@@ -226,7 +230,10 @@ written — a point only means something beside the others.
 - **An `estimate` skill, when the session has one.** It is the repository's own sizing
   procedure (devbook seeds it), held to reference work that already landed, so
   a point means the same in every plan. Invoke it with each step's title, kind and
-  instructions and write the points it returns unchanged.
+  instructions and write the points it returns unchanged. Its table is this run's input,
+  never its reply: run it in a sub-agent when the host has one, so the table comes back to
+  this run; loaded inline, write the points into the entries and go straight on to step 4
+  in the same turn.
 - **Otherwise, this fallback**, which is relative within this plan only. Anchor on the most
   typical step and give it `3`; size every other step against it on the 1/2/3/5/8/13/21
   scale — a fraction of its work is `1` or `2`, about twice is `5`, about three times is
@@ -266,6 +273,8 @@ under the same tag. Steps 5–8 apply unchanged.
   dependencies and prompts that wait on a task, and never names the other level.
 - The last two entries are the plan review, waiting on every leaf of that order, and the
   sign-off task waiting on the review.
+- The run ends on step 8's report and nowhere earlier but the interview's waits; a turn
+  that ends without the review view published is an unfinished run.
 - A review view built from `assets/plan-review.html` is published as an artifact every run,
   before the plan text is shown, its link is in the report (its fallback path only when the
   host has no artifact tool), and none of its checks fail.
