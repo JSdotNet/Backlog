@@ -519,15 +519,40 @@ flowchart LR
 ```
 
 Walk the architecture one C4 level at a time, and see beside every element the
-chapters, decisions and debt about it. The **C4** tab lists views one by one; this
-tab is one model a reader zooms through.
+chapters, decisions and debt about it. The **C4** tab lists views one by one; the
+architecture surface is one model a reader zooms through.
 
-**Where it sits.** The **C4 zoom** tab is offered beside the **C4** tab while the
-`c4-zoom` and `c4-diagrams` switches are both on, and the **C4** tab stays as it
-is. The tab opens on the System context view. The first time it opens it shows a
-hint, which the reader can dismiss, naming the ways to move.
+**Where it sits.** While the `c4-zoom` and `c4-diagrams` switches are both on, the
+architecture panel is one surface in place of its **Chapters** and **C4** tabs, and
+the pane's own architecture menu stands down. With `c4-zoom` off, the tabs are as
+they were. The surface opens on the System context view. The first time it opens it
+shows a hint, which the reader can dismiss, naming the ways to move.
 
-**The zoom bar.** A bar heads the tab with four steps: 1 Context › 2 Containers ›
+**The surface.** It has four parts:
+
+- the zoom bar across the top, always there, under a top row holding the overlay
+  switch
+- a left navigation, headed by a find field for elements, chapters, ADRs and TDRs,
+  then the C4 views as a tree, the chapters that document the open view, and the
+  decision and debt records with their counts
+- the open view, or a chapter or record opened in its place
+- a right panel: the inspector, a summary of the open view while nothing is
+  selected, or the panel that goes with the open chapter or record
+
+A press on the zoom bar while a chapter or record is open returns to the view. The
+top row is hidden while a chapter, a record or the Code level is open, because none
+of them draws cards to put records on.
+
+**With nothing selected**, the right panel sums up the open view:
+
+- its kind, and what it draws: "7 systems, 1 owned" on the landscape, the cards
+  counted by kind elsewhere
+- the view's own description
+- a way into each element that has a deeper view
+- the elements a reader can select from there: the external systems on the
+  landscape and a system context, every card on another view
+
+**The zoom bar.** A bar heads the surface with four steps: 1 Context › 2 Containers ›
 3 Components › 4 Code. Each step shows the element its level is about: the system
 for Context and Containers, a container for Components, a component for Code. The
 current step is ringed. A step behind the reader always works. A deeper step stays
@@ -541,8 +566,8 @@ fills it is selected. Landscape, Dynamic and Deployment sit beside the bar under
   on the focused element. Only an element with a deeper view shows the chip.
 - **Zoom out:** pick an earlier step in the zoom bar, or press Backspace. The
   element the reader zoomed out of stays selected.
-- **Jump:** any zoom bar step whose element is known, or a view in the tree beside
-  the diagram.
+- **Jump:** any zoom bar step whose element is known, a view in the left
+  navigation's tree, or an element the find field turns up.
 - **Sideways:** Landscape sits above level 1; Dynamic and Deployment sit beside
   level 2; records open from an element's inspector.
 
@@ -552,16 +577,29 @@ app is never taken as a move.
 **The inspector.** Selecting an element opens it beside the diagram, with:
 
 - its kind, description and technology
-- the arc42 chapters that document a view showing it
-- the decisions (ADRs) and the debt (TDRs) that name it
+- on a system context view, the lines into and out of it there, under
+  "Relationships · n"
+- under "Documented in arc42", the arc42 chapters that document a view showing
+  it, and no chapter of another devbook folder
+- the decisions (ADRs) that name it, tallied "n accepted · n proposed", five
+  listed and **Show all n** for the rest
+- the debt (TDRs) that names it, and on a container the debt on its components,
+  each marked "On component <name>"
 - a zoom-in button when a deeper view exists
 
-A decision still proposed carries a "proposed" chip; a debt shows its severity and
-its rung on the debt ladder. Each chapter and record opens in the **Chapters** tab.
-A section with nothing to list says so. A deployment node opens the same inspector,
-with the container instances it runs.
+A decision still proposed carries a "proposed" chip. Debt on the element itself is
+drawn as a card: its severity and title, the debt in a sentence, a stepper of the
+debt ladder, the preferred remediation, and the decisions its `## Origin` section
+cites. The card leaves out what the record's file does not state. Other debt shows
+its severity and its rung on the debt ladder. Each chapter and record opens on the
+surface in place of the view.
 
-**Overlays.** A switch in the tab's head reads None, Decisions or Debt, and the
+A section with nothing to list says so. On a system context view, an element no
+record names shows one "Records at this level" note in place of the two empty
+record sections. A deployment node opens the same inspector, with the container
+instances it runs.
+
+**Overlays.** The switch on the top row reads None, Decisions or Debt, and the
 choice holds as the reader zooms. Decisions puts an "n ADR" chip on each card the
 decisions name. Debt puts an "n TDR" chip on each card that open debt names (debt
 not yet resolved), and draws that card on the error surface. A card counts the
@@ -572,22 +610,44 @@ a cross-cutting tray under the diagram shows open debt that names no element, wh
 has no place on a card.
 
 **Code is generated, never authored.** Level 4 is drawn from the source on demand:
-a component linked to its code opens its types with their members. A component
-with no code link stops at level 3. Nothing at this level is written by hand, so
+a component whose building block names code folders opens their types with their
+members. A component with no code folders stops at level 3. A branch snapshot
+holds no source, so in a repository read from one the Code view finds no types. Nothing at this level is written by hand, so
 it cannot drift from the source it shows.
 
-**The supplementary views.** A dynamic view plays its numbered steps one by one,
-the current step drawn apart from the others. A deployment view puts its
-environments behind one tab list, and draws another environment as a dashed door
-into its own view. A selected deployment node shows what it is, and the container
-instances it runs, each a way into the containers view.
-The landscape draws the groups the DSL declares as bands.
+The type panel beside the picture lists the selected type's files, the decisions
+its component implements, and its technical debt. That debt is the TDRs whose title
+names the type, or else its component's TDRs. A − / Fit / + control sizes the
+class boxes, as on the other levels.
 
-**From the chapters.** While `c4-zoom` is on, an ADR or a TDR opened in the
-**Chapters** tab has a panel beside it. A compact container view rings the
+**The supplementary views.** A dynamic view plays its numbered steps one by one,
+the current step drawn apart from the others. Its steps panel heads the right panel
+beside the picture, with the inspector of a selected element under it. Under the
+steps, "Decisions on this path" lists the ADRs that name an element on the view.
+
+Play walks every step on its own. With reduced motion asked for it still does, and
+the steps change without animation. A change of that preference while the surface is
+open takes effect at once.
+
+A deployment view puts its environments behind one tab list, and draws another
+environment as a dashed door into its own view. Every deployment node is framed and
+selectable however deep it nests, so a machine that holds only packages has a frame
+too. A selected deployment node shows what it is, and the container instances it
+runs, each a way into the containers view.
+
+The groups the DSL declares are drawn as bands. A band holding no person stacks in
+one column to the right of the element most related to it. Several relationships
+between one element and a band share one line. That line carries their wording when
+they all say the same thing, and reads "n relationships" when they differ. The
+surface also leaves wider gaps between cards than the C4 tab, which draws as it did.
+
+**From the chapters.** An ADR opens on the surface beside the decision log, and a
+TDR beside the debt list, each with a panel. An All / Accepted / Proposed filter
+heads the decision log, each choice with its count. Accepted keeps the decisions in
+force, a record that states no status included. A compact container view rings the
 containers the record decides (`c4`), marks those it touches (`c4-touches`, a
-component landing on its container), dims the rest, and opens in the zoom tab with
-the decided element selected. The panel also lists the arc42 sections whose
+component landing on its container), and dims the rest. **Open in the C4 model**
+returns to the picture on that view with the decided element selected. The panel also lists the arc42 sections whose
 `related:` cite the record and, for an ADR, the TDRs that name it.
 
 The decision chain draws a proposed ADR dashed, and lists:
@@ -597,20 +657,33 @@ The decision chain draws a proposed ADR dashed, and lists:
 - what it builds on: its `related:` ADRs
 - what builds on it: the ADRs whose `related:` name it
 
-A TDR shows its severity and its rung on the debt ladder in place of the chain.
+Guideline ADRs, under `adr/guidelines/`, take part as local ones do, except in
+supersession. They number from 0001 too, so each chip marks a guideline as one.
 
-An arc42 chapter embeds the views it documents. Where the chapter's own mermaid
-fence and the model disagree, it flags the elements in the model but missing from
-the fence, and the reverse. The chapter stays the text that is read; the model is
-what is drawn.
+A TDR's panel shows its severity and its rung on the debt ladder. Its chain is the
+ADRs its `related:` names: those its `## Origin` section cites are listed as
+Origin, the rest as Related.
 
-The app reads these from the chapters' own devbook metadata, never from a file kept
-beside the model (local ADR 0046):
+An arc42 chapter opens on the surface beside the chapter list, with a panel of the
+views it documents, the decisions citing it and the debt on its elements. A view
+the chapter embeds as `![…](c4:<view key>)` is drawn where the embed sits. A view
+only `_c4/references.json` gives the chapter is drawn under the section it names.
+Where that section's own C4 mermaid fence and the model disagree, the chapter flags
+the elements in the model but missing from the fence, and the reverse. The chapter
+stays the text that is read; the model is what is drawn.
+
+The app reads these from the chapter files' own devbook metadata, never from the
+devbook database or a file kept beside the model (local ADR 0046):
 
 - which element a record names
 - a TDR's severity
 - which ADR supersedes which
 - which code a component maps to
+
+Nothing tells the app that a file changed outside it. Each load checks the files the
+model was read from, so a building block, an ADR, a domain chapter or `workspace.dsl`
+that a pull or an editor changed is read again on the next load. A change to the
+chapters alone keeps the parsed workspace and its layout.
 
 A TDR's rung and an ADR's
 proposed mark are the record's state in Backlog's subject store, as the file header
