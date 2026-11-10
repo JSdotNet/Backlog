@@ -585,6 +585,11 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/design/content-editing.md", "# Content Editing\n"),
         (".devbook/design/color-scheme.md", "# Color Scheme\n"),
         (".devbook/design/design-principles.md", "# Design Principles\n"),
+        // Line terminators to JavaScript's `.` and not to .NET's: a heading
+        // holding U+2028 or U+2029 starts no chapter, and neither does any
+        // heading in a file whose lines end in a lone CR.
+        (".devbook/design/line-separators.md", "# Line Separators\n\n## Kept\n\n#### Scenario: A\u2028B\n\n## Para\u2029graph\n"),
+        (".devbook/design/lone-cr.md", "# Lone CR\r\r## Not a chapter\r"),
         (".devbook/ai/concepts.md", "# Concepts\n"),
         (".devbook/ai/02-code.md", "# Code\n"),
         (".devbook/ai/adoption-map.md", "# Adoption Map\n"),
