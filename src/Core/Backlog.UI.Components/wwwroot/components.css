@@ -25446,6 +25446,97 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-xs);
 }
 
+/* RecordingBar: a meeting being recorded into the note. The band sits on a soft
+   semantic surface — error while live, warning while paused — with the text on it
+   in text-primary, as the palette's surfaces ask; the one foreground colour is the
+   sanctioned error-text, on the dot and the level while capturing. No new colour. */
+.recording-bar {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+    color: var(--color-text-primary);
+}
+
+.recording-bar--paused {
+    background: var(--color-warning);
+}
+
+.recording-bar__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The active tone's ring goes on the live and stopping dots, which are red here.
+   Only on those: the paused dot is StatusDot's pending ring, drawn by that very
+   box-shadow, and the failed dot is its blocked square. */
+.recording-bar--stopping .recording-bar__dot {
+    background: var(--color-error-text);
+    box-shadow: none;
+}
+
+.recording-bar--recording .recording-bar__dot {
+    background: var(--color-error-text);
+    box-shadow: none;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.recording-bar__label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.recording-bar__timer {
+    margin-left: auto;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xl);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--line-height-tight);
+}
+
+.recording-bar__meter {
+    overflow: hidden;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+/* Scaled rather than sized, so the meter moves on transform alone. */
+.recording-bar__level {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--color-error-text);
+    transform-origin: left center;
+    transition: transform var(--transition-fast);
+}
+
+.recording-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.recording-bar__error {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recording-bar--recording .recording-bar__dot {
+        animation: none;
+    }
+
+    .recording-bar__level {
+        transition: none;
+    }
+}
+
 /* --- Settings frame ------------------------------------------------------ */
 
 /* The settings screen's panel: the Dashboard's (.dashboard-panel in the app's

@@ -1,4 +1,5 @@
 using Backlog.Mobile.UI.Components;
+using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.Services;
 using Backlog.Mobile.WebHarness;
 using Backlog.Mobile.WebHarness.Components;
@@ -61,6 +62,12 @@ builder.Services.AddHttpClient<CloudTranscriptionClient>(client =>
 builder.Services.AddScoped<IAudioRecorder, WebAudioRecorder>();
 builder.Services.AddDictation<WebSpeechTranscriber>();
 
+// The browser half of meeting recording (local ADR 0048): MediaRecorder in
+// audio/mp4, streamed into notes/recordings/. Scoped, because it needs the
+// circuit's IJSRuntime, and before AddMobileShell, whose unsupported recorder is
+// only a default; the MAUI head registers the Android recorder as a singleton.
+builder.Services.AddScoped<IMeetingRecorder, WebMeetingRecorder>();
+
 // The browser half of IAttachmentPicker: hidden <InputFile> elements on the
 // Note page, which Playwright can hand a fixture to. The MAUI head registers the
 // Android camera and pickers against the same abstraction.
@@ -86,6 +93,19 @@ builder.Services.AddDeviceOutbox(string.IsNullOrWhiteSpace(deviceStorePath)
 builder.Services.AddMobileShell();
 
 var app = builder.Build();
+
+// A recording a closed tab or a stopped harness left in notes/recordings/ is
+// attached to its note as "Recording (interrupted)" (scope Q9): once, at start,
+// before any circuit can be recording. Logged, never thrown — a harness that
+// cannot recover a file still starts.
+try
+{
+    await app.Services.GetRequiredService<RecordingRecovery>().RecoverAsync();
+}
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    app.Logger.LogWarning(ex, "Recovering interrupted recordings failed.");
+}
 
 // A stand-up to look at without a desktop that has goals on: goals, impediments, a
 // stand-up context and the tasks they count, written into this device's views before

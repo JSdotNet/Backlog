@@ -1,0 +1,70 @@
+@using Backlog.Mobile.UI.Recordings
+@inject NoteRecordingSession Recording
+@implements IDisposable
+
+@*
+    The meeting recording of one note, drawn as the library's RecordingBar: live
+    while the session records into it, failed when its last recording ended on a
+    failure — wherever the person was when it did — and nothing otherwise.
+
+    A component of its own so that it alone re-renders on the session's ticks: the
+    timer and the level change several times a second for the length of a meeting,
+    and the Note page around it, with its editor and its attachment strips, has no
+    reason to be drawn again for each one.
+*@
+
+@if (Recording.IsRecording(NoteId))
+{
+    <RecordingBar State="@BarState" Elapsed="@Recording.Elapsed" Level="@Recording.Level"
+                  OnPause="PauseAsync" OnResume="ResumeAsync" OnStop="StopAsync" TestId="@TestId" />
+}
+else if (Recording.LastFailure is { } failure && failure.NoteId == NoteId)
+{
+    <RecordingBar State="RecordingBarState.Failed" Elapsed="@failure.Elapsed" Error="@failure.Error"
+                  OnDismiss="() => Recording.DismissFailure(NoteId)" TestId="@TestId" />
+}
+
+@code {
+    /// <summary>The note whose recording this draws.</summary>
+    [Parameter, EditorRequired]
+    public Guid NoteId { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool _disposed;
+
+    private RecordingBarState BarState => Recording.State switch
+    {
+        MeetingRecorderState.Paused => RecordingBarState.Paused,
+        MeetingRecorderState.Stopping => RecordingBarState.Stopping,
+        _ => RecordingBarState.Recording,
+    };
+
+    protected override void OnInitialized() => Recording.Changed += OnRecordingChanged;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Recording.Changed -= OnRecordingChanged;
+    }
+
+    private Task PauseAsync() => Recording.PauseAsync().AsTask();
+
+    private Task ResumeAsync() => Recording.ResumeAsync().AsTask();
+
+    /// <summary>Busy on the bar while the file is attached; the tile arrives through the
+    /// note's own change.</summary>
+    private Task StopAsync() => Recording.StopAsync();
+
+    /// <summary>Raised off the render thread too, so marshalled.</summary>
+    private void OnRecordingChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
+    }
+}

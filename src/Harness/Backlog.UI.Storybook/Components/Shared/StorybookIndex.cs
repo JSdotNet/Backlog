@@ -585,7 +585,13 @@ internal static class StorybookIndex
             // EmptyState, SaveIndicator, ToggleButton, AppButton and
             // AttachmentStrip pages above introduce — which is why it is here and
             // not beside Today, above Feedback.
-            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
+            // A recorded bend: RecordingBar carries conventions of its own — its
+            // state said three ways, a timer that is no live region, a level in
+            // words — which would earn it a page. It stays here because it has
+            // one host, the note being written, and its four states read against
+            // the NoteEditor stories above them; a page of its own would draw that
+            // editor a second time or show the bar out of the place it lives.
+            new("notes", "Notes", "NoteRow, NoteEditor and RecordingBar: a list of notes newest first that a search narrows, one note being written that saves on its own, and a meeting recorded into it."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
 

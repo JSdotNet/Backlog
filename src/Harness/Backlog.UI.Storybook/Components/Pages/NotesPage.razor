@@ -110,6 +110,52 @@
         </div>
     </Story>
 
+    <Story Name="Recording a meeting"
+           Description="Record in the note's tools starts a recording into the note, and the bar above the files says so: a pulsing dot, the time recorded so far, the input level, and Pause and Stop. The band sits on the soft error surface while it is live. Press Pause and Stop: here the host only pretends to record and to attach.
+
+Leaving the note does not stop the recording; the bar is back when the note is opened again."
+           Code="@RecordingCode">
+        <div class="sb-phone">
+            <RecordingBar State="_recordState" Elapsed="_recordElapsed" Level="@(_recordState is RecordingBarState.Recording ? 0.42 : 0)"
+                          OnPause="() => _recordState = RecordingBarState.Paused"
+                          OnResume="() => _recordState = RecordingBarState.Recording"
+                          OnStop="StopPretendAsync" TestId="story-recording" />
+        </div>
+    </Story>
+
+    <Story Name="Recording paused"
+           Description="Paused holds the recording open in the same file and captures nothing: the dot becomes a hollow ring, the word says Paused, the band turns to the warning surface, the meter empties and Pause becomes Resume. The timer stands still — it counts the audio, not the meeting."
+           Code="@PausedCode">
+        <div class="sb-phone">
+            <RecordingBar State="RecordingBarState.Paused" Elapsed="TimeSpan.FromSeconds(754)" TestId="story-recording-paused" />
+        </div>
+    </Story>
+
+    <Story Name="Saving the recording"
+           Description="Stop is busy while the host closes the file and attaches it to the note, so a second press is dropped and the focus stays on the button. Pause is disabled. The file then shows among the note's attachments as “Recording · 12:34”."
+           Code="@StoppingCode">
+        <div class="sb-phone">
+            <RecordingBar State="RecordingBarState.Stopping" Elapsed="TimeSpan.FromSeconds(754)" TestId="story-recording-stopping" />
+        </div>
+    </Story>
+
+    <Story Name="Recording failed"
+           Description="A recording that ended on a failure — the phone ran out of space, the microphone was taken away — says so in words, in the band, as an alert. What reached the disk is still attached; Dismiss takes the bar away. A microphone refused at the start never shows a bar: the host says it in an Alert beside the tools."
+           Code="@FailedCode">
+        <div class="sb-phone">
+            @if (_failedShown)
+            {
+                <RecordingBar State="RecordingBarState.Failed" Elapsed="TimeSpan.FromSeconds(3723)"
+                              Error="The recording stopped: the phone may be out of space. What was recorded is attached."
+                              OnDismiss="() => _failedShown = false" TestId="story-recording-failed" />
+            }
+            else
+            {
+                <AppButton Size="ButtonSize.Small" OnClick="() => _failedShown = true" TestId="story-recording-failed-again">Show it again</AppButton>
+            }
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -118,7 +164,9 @@
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the editor has no save button and when a pending save is flushed."),
         new("interaction-guidelines.md#save-state-indicator-vocabulary", "The words the save line may say, and why it is a polite live region."),
         new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty list and a search with no match say, and what they offer next."),
-        new("accessibility.md#target-sizes-and-text", "Why a row is one link with a 44 px minimum, and why the fields are named though unlabelled on screen.")
+        new("accessibility.md#target-sizes-and-text", "Why a row is one link with a 44 px minimum, and why the fields are named though unlabelled on screen."),
+        new("interaction-guidelines.md#busy-actions", "Why Stop turns busy while the recording is attached, rather than disabled."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "Why the recording dot stops pulsing and the level stops moving under reduced motion.")
     ];
 
     private sealed record Sample(string Title, string When, string? Snippet);
@@ -148,6 +196,11 @@
     private string _editTitle = "Conflict cases from the call";
     private string _editBody = "Agreed with Anna on how two devices settle an edit:\n\n- Last write wins for the title.\n- Sub-items merge by id, never by position.";
     private bool _listening;
+
+    private RecordingBarState _recordState = RecordingBarState.Recording;
+    private TimeSpan _recordElapsed = TimeSpan.FromSeconds(83);
+    private readonly CancellationTokenSource _leaving = new();
+    private bool _failedShown = true;
 
     private IReadOnlyList<Sample> Matches
     {
@@ -188,10 +241,31 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>What a host does on Stop, without the file: busy for a second while it
+    /// pretends to attach, then a fresh recording so the story can be pressed again.</summary>
+    private async Task StopPretendAsync()
+    {
+        _recordState = RecordingBarState.Stopping;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), _leaving.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _recordElapsed = TimeSpan.Zero;
+        _recordState = RecordingBarState.Recording;
+    }
+
     public void Dispose()
     {
         _pretend?.Cancel();
         _pretend?.Dispose();
+        _leaving.Cancel();
+        _leaving.Dispose();
     }
 
     private const string RowCode = """
@@ -244,6 +318,30 @@
                 <AttachmentStrip Tiles="attached" AriaLabel="Attached to this note" />
             </ChildContent>
         </NoteEditor>
+        """;
+
+    private const string RecordingCode = """
+        <RecordingBar State="state" Elapsed="elapsed" Level="@(state is RecordingBarState.Recording ? 0.42 : 0)"
+                      OnPause="() => state = RecordingBarState.Paused"
+                      OnResume="() => state = RecordingBarState.Recording"
+                      OnStop="StopPretendAsync" />
+        """;
+
+    private const string PausedCode = """
+        <RecordingBar State="RecordingBarState.Paused" Elapsed="TimeSpan.FromSeconds(754)" />
+        """;
+
+    private const string StoppingCode = """
+        <RecordingBar State="RecordingBarState.Stopping" Elapsed="TimeSpan.FromSeconds(754)" />
+        """;
+
+    private const string FailedCode = """
+        @if (shown)
+        {
+            <RecordingBar State="RecordingBarState.Failed" Elapsed="TimeSpan.FromSeconds(3723)"
+                          Error="The recording stopped: the phone may be out of space. What was recorded is attached."
+                          OnDismiss="() => shown = false" />
+        }
         """;
 
     private const string WaitingCode = """
