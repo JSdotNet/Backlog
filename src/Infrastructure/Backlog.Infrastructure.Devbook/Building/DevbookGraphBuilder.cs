@@ -141,6 +141,14 @@ internal static partial class DevbookGraphBuilder
             }
         }
 
+        // The `tests` entries a journey's spec derives, once every chapter
+        // exists and before a cited heading becomes a node, as graph.mjs
+        // merges them: authored first, then derived, without repeats.
+        foreach (var (requirement, entries) in DevbookScenarioTestEntries.Derive(repositoryRoot, layout, documents))
+        {
+            if (byId.TryGetValue(requirement, out var node)) AppendTests(node, entries);
+        }
+
         // Resolved after every node exists, so a reference may point forward.
         // Iterates by index because a cited heading or an external target is
         // appended as it is found, exactly as the generator's Map iteration does.
@@ -221,11 +229,9 @@ internal static partial class DevbookGraphBuilder
         // `feature-flag` and `roadmap` only when non-empty (the generator's
         // asList), `aliases` and `alternatives` whenever stated, then `tests`
         // only when non-empty — the test identifiers a requirement or invariant
-        // is proved by, which the Domain view reads (local ADR 0047). Only the
-        // authored entries: the generator also appends an `e2e:playwright` entry
-        // for each `Proved by:` pointer whose scenario page a spec implements,
-        // and that derivation is not ported — this corpus has no such spec yet,
-        // and DevbookBuilderParityTests goes red the day one lands.
+        // is proved by, which the Domain view reads (local ADR 0047). These are
+        // the authored entries; the `e2e:playwright` entries a `Proved by:`
+        // pointer derives are appended by AppendTests once the corpus is read.
         if (node.References.TryGetValue("feature-flag", out var flags)) node.Attributes.Add(("feature-flag", flags));
 
         var roadmap = DevbookMarkdown.AsList(meta.GetValueOrDefault("roadmap"));
@@ -245,6 +251,27 @@ internal static partial class DevbookGraphBuilder
             var entries = DevbookMarkdown.AsList(meta.GetValueOrDefault(field));
             if (entries.Count > 0) node.C4Fields[field] = entries;
         }
+    }
+
+    /// <summary>
+    /// Merges derived <c>tests</c> entries into a node's, as the generator's
+    /// <c>new Set([...authored, ...derived])</c> does: authored first, then
+    /// derived, each value once; <paramref name="derived"/> already holds none
+    /// twice. A node with no authored entries gets the row
+    /// where <see cref="ApplyMeta"/> would have put it, after the other list
+    /// attributes and before any a corpus profile adds.
+    /// </summary>
+    private static void AppendTests(DevbookGraphNode node, IReadOnlyList<string> derived)
+    {
+        var at = node.Attributes.FindIndex(attribute => attribute.Name == "tests");
+        if (at >= 0)
+        {
+            node.Attributes[at] = ("tests", [.. node.Attributes[at].Values.Concat(derived).Distinct(StringComparer.Ordinal)]);
+            return;
+        }
+
+        var after = node.Attributes.FindLastIndex(attribute => attribute.Name is "feature-flag" or "roadmap" or "aliases" or "alternatives");
+        node.Attributes.Insert(after + 1, ("tests", derived));
     }
 
     /// <summary>

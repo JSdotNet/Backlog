@@ -59,7 +59,9 @@ public class DevbookBuilderParityTests : IDisposable
     /// repeated slug and a heading inside a fence — and devbook contract 38's
     /// metadata: a <c>tech/</c> and an <c>ai/</c> <c>rating</c>, which the
     /// <c>status</c> columns hold, no status anywhere else, no <c>sync</c>, and no
-    /// <c>annotation</c> fence, so every open-note count is zero. The Node writer
+    /// <c>annotation</c> fence, so every open-note count is zero; and journeys
+    /// whose parts a requirement's <c>Proved by:</c> cases point at, which derive
+    /// its <c>e2e</c> <c>tests</c> entries where a spec implements them. The Node writer
     /// builds it with this repository's installed generator.
     /// </summary>
     [Fact]
@@ -139,6 +141,33 @@ public class DevbookBuilderParityTests : IDisposable
         Assert.Equal(4, links.Count);
         Assert.Contains(links, row => row.Contains("address=TEXT:walkthrough/pay-declined/2?flags=retry,wallet", StringComparison.Ordinal));
         Assert.Contains(links, row => row.Contains("demo_path=TEXT:.devbook/domain/alpha/gone.demo.html", StringComparison.Ordinal));
+
+        // A requirement's `tests`: the authored entry, then one per part with a
+        // spec, once however many cases point at it; the part with none derives
+        // nothing, and an entry already authored is not repeated. A pointer into
+        // another context resolves through `../`, a CRLF spec's header counts,
+        // and a requirement with none authored gets the derived ones alone.
+        Assert.Equal(
+            [
+                "integration:dotnet:Alpha.Tests.Pay",
+                "e2e:playwright:tests/e2e/checkout.spec.ts#Pay by card",
+                "e2e:playwright:tests/e2e/checkout.spec.ts#See the receipt",
+                "e2e:playwright:tests/e2e/delivery.spec.ts#Track the parcel"
+            ],
+            Tests(app, ".devbook/domain/alpha/requirements.md#pay-for-an-order"));
+        Assert.Equal(
+            ["e2e:playwright:tests/e2e/checkout.spec.ts#Pay by card", "unit:dotnet:Alpha.Tests.Refund"],
+            Tests(app, ".devbook/domain/alpha/requirements.md#refund-an-order"));
+        Assert.Equal(
+            ["e2e:playwright:tests/e2e/delivery.spec.ts#Track the parcel"],
+            Tests(app, ".devbook/domain/beta/requirements.md#track-a-parcel"));
+
+        // A header past the tenth line, and specs in a dot-folder or under
+        // node_modules, name no journey.
+        var tests = Rows(app, "node_attribute WHERE name = 'tests'", "rowid");
+        Assert.DoesNotContain(tests, row => row.Contains("returns.spec.ts", StringComparison.Ordinal));
+        Assert.DoesNotContain(tests, row => row.Contains("refund.spec.ts", StringComparison.Ordinal));
+        Assert.DoesNotContain(tests, row => row.Contains("#Send it back", StringComparison.Ordinal) || row.Contains("#Ask for a refund", StringComparison.Ordinal));
 
         Assert.DoesNotContain(Rows(app, "outline_entry", "id"), row => row.Contains(".html", StringComparison.Ordinal));
         Assert.Single(Rows(app, "problem", "rowid"), row => row.Contains("orphan.demo.html", StringComparison.Ordinal));
@@ -391,6 +420,163 @@ public class DevbookBuilderParityTests : IDisposable
             ```
             """),
         (".devbook/domain/alpha/actors.md", "# Alpha\n"),
+        // Journeys, and the `tests` entries their `Proved by:` pointers derive:
+        // one a spec implements — named by two specs, the first in path order
+        // winning — one only specs under node_modules and a dot-folder name,
+        // which the walk skips, and one a spec names on its eleventh line, past
+        // the ten read; neither of those last two derives anything.
+        (".devbook/domain/alpha/scenarios.md", """
+            # Alpha scenarios
+
+            ```meta
+            type: scenarios
+            ```
+
+            ## Checkout
+
+            ```meta
+            type: scenario
+            ```
+
+            ### Pay by card
+
+            - **Given** a basket with one item
+            - **When** the shopper pays by card
+            - **Then** the order is placed
+
+            ### See the receipt
+
+            - **Then** the receipt shows the order
+
+            ## Refund
+
+            ```meta
+            type: scenario
+            ```
+
+            ### Ask for a refund
+
+            - **Given** a placed order
+            - **When** the shopper asks for a refund
+            - **Then** the refund is pending
+
+            ## Returns
+
+            ```meta
+            type: scenario
+            ```
+
+            ### Send it back
+
+            - **When** the shopper sends the order back
+            - **Then** the return is logged
+            """),
+        // A context of its own, whose journey a requirement here and one in alpha
+        // prove — one each, so the journey sits where most of them are — and
+        // whose spec is written with CRLF line ends.
+        (".devbook/domain/beta/scenarios.md", """
+            # Beta scenarios
+
+            ```meta
+            type: scenarios
+            ```
+
+            ## Delivery
+
+            ```meta
+            type: scenario
+            ```
+
+            ### Track the parcel
+
+            - **Given** a shipped order
+            - **Then** the parcel's position shows
+            """),
+        (".devbook/domain/beta/requirements.md", """
+            # Beta requirements
+
+            ```meta
+            type: requirements
+            ```
+
+            ## Shipping
+
+            ### Track a parcel
+
+            ```meta
+            type: requirement
+            ```
+
+            #### Scenario: Tracking
+
+            Proved by: scenarios.md#track-the-parcel
+            """),
+        // Cases pointing at the journeys: at one part twice, by a path from the
+        // requirement's folder and by a repository path, at another from inside a
+        // fence, which is no pointer, at beta's through `../`, and at the part
+        // whose spec names it too late — and a requirement whose authored entries
+        // already hold what its case derives.
+        (".devbook/domain/alpha/requirements.md", """
+            # Alpha requirements
+
+            ```meta
+            type: requirements
+            ```
+
+            ## Payments
+
+            ### Pay for an order
+
+            ```meta
+            type: requirement
+            tests: integration:dotnet:Alpha.Tests.Pay
+            ```
+
+            #### Scenario: Card payment
+
+            Proved by: scenarios.md#pay-by-card
+
+            #### Scenario: Card payment from the root
+
+            Proved by: .devbook/domain/alpha/scenarios.md#pay-by-card
+
+            #### Scenario: The receipt
+
+            Proved by: scenarios.md#see-the-receipt
+
+            ```text
+            Proved by: scenarios.md#ask-for-a-refund
+            ```
+
+            #### Scenario: Delivered
+
+            Proved by: ../beta/scenarios.md#track-the-parcel
+
+            #### Scenario: Sent back
+
+            Proved by: scenarios.md#send-it-back
+
+            ### Refund an order
+
+            ```meta
+            type: requirement
+            tests: [e2e:playwright:tests/e2e/checkout.spec.ts#Pay by card, unit:dotnet:Alpha.Tests.Refund]
+            ```
+
+            #### Scenario: Refund request
+
+            Proved by: scenarios.md#ask-for-a-refund
+
+            #### Scenario: Paid first
+
+            Proved by: scenarios.md#pay-by-card
+            """),
+        ("tests/e2e/checkout.spec.ts", "// scenario: .devbook/domain/alpha/scenarios.md#checkout\nimport { test } from \"@playwright/test\";\n"),
+        ("tests/e2e/later.spec.ts", "import { test } from \"@playwright/test\";\n\n// scenario: .devbook/domain/alpha/scenarios.md#checkout\n"),
+        ("node_modules/refund/refund.spec.ts", "// scenario: .devbook/domain/alpha/scenarios.md#refund\n"),
+        (".hidden/refund.spec.ts", "// scenario: .devbook/domain/alpha/scenarios.md#refund\n"),
+        ("tests/e2e/returns.spec.ts", string.Concat(Enumerable.Repeat("// setup\n", 10)) + "// scenario: .devbook/domain/alpha/scenarios.md#returns\n"),
+        ("tests/e2e/delivery.spec.ts", "import { test } from \"@playwright/test\";\r\n// scenario: .devbook/domain/beta/scenarios.md#delivery\r\n\r\ntest(\"delivery\", () => {});\r\n"),
         (".devbook/tech/tooling.md", "# Tooling\n"),
         (".devbook/tech/cloud.md", "# Cloud\n"),
         (".devbook/tech/technology-graph.md", "# Technology Graph\n"),
@@ -607,6 +793,19 @@ public class DevbookBuilderParityTests : IDisposable
         }
 
         return rows;
+    }
+
+    /// <summary>A node's <c>tests</c> rows, in the order they were written.</summary>
+    private static List<string> Tests(SqliteConnection connection, string nodeId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM node_attribute WHERE node_id = $node AND name = 'tests' ORDER BY rowid";
+        command.Parameters.AddWithValue("$node", nodeId);
+
+        var values = new List<string>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read()) values.Add(reader.GetString(0));
+        return values;
     }
 
     private static List<string> Fts(SqliteConnection connection, string term)

@@ -36,8 +36,10 @@ internal static partial class DevbookMarkdown
     [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+(.*)$")]
     private static partial Regex Heading();
 
+    /// <summary>The generator's fence marker: any indentation, and a closing
+    /// marker may carry text after it.</summary>
     [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
-    private static partial Regex FenceMarker();
+    internal static partial Regex FenceMarker();
 
     [GeneratedRegex("^```meta[" + JsWhitespaceClass + "]*$")]
     private static partial Regex MetaFence();
