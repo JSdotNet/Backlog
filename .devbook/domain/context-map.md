@@ -26,6 +26,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
 | Sessions | Supporting | It records what the AI coding agents do on each environment, and owns nothing those sessions touch. |
 | Notifications | Supporting | It lets any context tell the person something or ask a question, and hands the answer back. |
+| Events | Supporting | It keeps the knowledge events a person attends to learn something, from spotting one to its harvest. |
 | Sync | Supporting | It keeps one person's data the same across their devices by carrying other contexts' documents. |
 
 - **Roadmap Planning:** The plan says what is intended, when, and in what order. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns.
@@ -35,6 +36,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
+- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). Nothing is built yet.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
@@ -57,6 +59,7 @@ flowchart LR
     Progress[Progress]
     Sync[Sync]
     Notify[Notifications]
+    Events[Events]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -144,6 +147,17 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sync
     Notify -->|OHS + Published Language<br/>INotifications| Devbook
     Notify -->|OHS + Published Language<br/>Close by subject| Tasks
+
+    %% Events. Local ADR 0050. Not built.
+    %% The Calendar is a layout of the Tasks pane (ADR 0022), so the events layer
+    %% lands on Tasks. The two Tasks edges run through different parts. See
+    %% .devbook/domain/events/context.md.
+    Inbox -.->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
+    Capture -.->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
+    Tasks -.->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
+    Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
+    Events -.->|"Customer/Supplier<br/>The events layer on the Calendar view, through a Tasks-owned port and an adapter"| Tasks
+    Sync -.->|"Conformist<br/>Knowledge event replica"| Events
 ```
 
 ## Published languages and contracts
@@ -167,6 +181,7 @@ flowchart LR
 | Repository Management | The pull request contract (`.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
+| Events | A read contract in `Backlog.Modules.Events.Abstractions` that answers the decided events and their key dates, under `.devbook/domain/events/domain.md#knowledge-event` (local ADR 0050; not built) | Tasks, through an adapter, for the Calendar's events layer |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
@@ -303,3 +318,17 @@ flowchart LR
   what the follow-up is born with. Both use infrastructure adapters, and
   neither module references the other. The follow-up is a task, never a session
   request (local ADR 0038 §1).
+- `Events` keeps knowledge events only, attended to learn something
+  (`.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md`). Nothing is
+  built yet. It names what it links by these identities:
+  - a task by its id;
+  - a Brain note by its path from the Brain's root;
+  - a Talk note by its Inbox note id.
+
+  The links run one way. `Tasks` and `Brain` know no event, and no task or note
+  field, tag or link names one. Its documents ride `Sync` as Notifications' do,
+  on a replica container of their own that Sync never reads. The Calendar is
+  Tasks' view (local ADR 0022), so `Tasks` draws the events layer through its own
+  port, over Events' read contract. Events and Tasks supply each other through
+  different parts, so the two edges make no cycle of modules. Events publishes no
+  domain event.
