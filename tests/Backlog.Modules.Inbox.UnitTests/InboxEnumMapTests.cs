@@ -98,6 +98,15 @@ public sealed class InboxEnumMapTests
     public void An_unknown_kind_is_read_as_text(string? token) =>
         Assert.Equal(ContentKind.Text, InboxEnumMap.ParseKind(token));
 
+    /// <summary>The capture sources' slugs are channels the Inbox knows, so a
+    /// client's spelling of one is read as the domain's — the event page's too.</summary>
+    [Theory]
+    [InlineData("event_page")]
+    [InlineData(" Event_Page ")]
+    [InlineData("WEBSITE")]
+    public void A_capture_sources_slug_is_a_known_channel_in_any_spelling(string token) =>
+        Assert.Equal(token.Trim().ToLowerInvariant(), InboxEnumMap.NormalizeChannel(token));
+
     [Fact]
     public void An_unknown_status_or_routing_domain_throws()
     {

@@ -363,6 +363,103 @@ public sealed class RunCaptureCommandHandlerTests
         Assert.Equal(CaptureIds.For(CaptureSourceKind.Import, "a"), item.Id);
     }
 
+    /// <summary>An event page's dates, place and watched page ride on the
+    /// entry's facts and reach the delivery as they were read — the Inbox side
+    /// is the one that knows what to keep of them.</summary>
+    [Fact]
+    public async Task An_entrys_event_facts_reach_the_delivery_unchanged()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.EventPage, true);
+        var facts = new CaptureFacts(ContentKind: null, Tags: [], Person: null, List: null)
+        {
+            Event = new CaptureEventFacts(
+                new CaptureEventDate(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), TimeSpan.FromHours(1)),
+                new CaptureEventDate(new DateOnly(2026, 11, 27)),
+                "Nieuwegein",
+                "https://dotnetfriday.nl/",
+                "DotnetFriday")
+        };
+        var adapter = new RecordingAdapter(CaptureSourceKind.EventPage, Entry("eventbrite:2003121143262") with { Facts = facts });
+        var delivery = new FakeDelivery();
+
+        await Handler(settings, OfferingEverything, delivery, new FakeLog(), adapter).Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(delivery.Delivered);
+        Assert.Same(facts, item.Facts);
+        Assert.Equal(
+            new CaptureEventFacts(
+                new CaptureEventDate(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), TimeSpan.FromHours(1)),
+                new CaptureEventDate(new DateOnly(2026, 11, 27)),
+                "Nieuwegein",
+                "https://dotnetfriday.nl/",
+                "DotnetFriday"),
+            item.Facts!.Event);
+    }
+
+    /// <summary>The <c>events</c> flag off withdraws the event page source: the
+    /// Capture button's run does not read it, and the choice stored for it is
+    /// left exactly as it was for the day the area comes back.</summary>
+    [Fact]
+    public async Task A_source_that_is_not_offered_is_not_run_and_its_stored_choice_is_kept()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        settings.SetEnabled(CaptureSourceKind.EventPage, true);
+        settings.SetTargets(CaptureSourceKind.EventPage, ["https://dotnetfriday.nl/"]);
+        var eventPage = new RecordingAdapter(CaptureSourceKind.EventPage, Entry("e"));
+        var website = new RecordingAdapter(CaptureSourceKind.Website, Entry("w"));
+        var availability = new FakeAvailability(withdrawn: CaptureSourceKind.EventPage);
+
+        var result = await Handler(settings, availability, new FakeDelivery(), new FakeLog(), eventPage, website)
+            .Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Null(eventPage.Received);
+        Assert.NotNull(website.Received);
+        Assert.Equal(CaptureSourceKind.Website, Assert.Single(result.Value.Sources).Kind);
+
+        var stored = settings.Current.For(CaptureSourceKind.EventPage);
+        Assert.True(stored.Enabled);
+        Assert.Equal(["https://dotnetfriday.nl/"], stored.Targets);
+    }
+
+    /// <summary>Offered again, the same stored source is read on the next press.</summary>
+    [Fact]
+    public async Task A_source_offered_again_is_run_from_the_choice_that_was_kept()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.EventPage, true);
+        var eventPage = new RecordingAdapter(CaptureSourceKind.EventPage, Entry("e"));
+        var availability = new FakeAvailability(withdrawn: CaptureSourceKind.EventPage);
+        var handler = Handler(settings, availability, new FakeDelivery(), new FakeLog(), eventPage);
+
+        await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        Assert.Null(eventPage.Received);
+
+        availability.Withdrawn.Clear();
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.NotNull(eventPage.Received);
+        Assert.Equal(CaptureSourceKind.EventPage, Assert.Single(result.Value.Sources).Kind);
+    }
+
+    /// <summary>A run given one source is run as asked: what is offered is the
+    /// Capture button's question about the stored sources, not a filter on an
+    /// import somebody started with a file.</summary>
+    [Fact]
+    public async Task A_run_given_one_source_is_not_filtered_by_what_is_offered()
+    {
+        var import = new RecordingAdapter(CaptureSourceKind.Import, Entry("a"));
+        var only = new MonitoredSource(CaptureSourceKind.Import, Enabled: true, Targets: ["todo.md"]);
+        var availability = new FakeAvailability(withdrawn: CaptureSourceKind.Import);
+
+        var result = await Handler(new FakeSettings(), availability, new FakeDelivery(), new FakeLog(), import)
+            .Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+
+        Assert.Same(only, import.Received);
+        Assert.Equal(CaptureSourceKind.Import, Assert.Single(result.Value.Sources).Kind);
+    }
+
     /// <summary>A feed is not news on the day it is added: a site whose feed
     /// lists every page it has would fill the Inbox in one press. The first
     /// look at a target hands over its newest few and passes over the rest for
@@ -464,14 +561,41 @@ public sealed class RunCaptureCommandHandlerTests
 
     private static Task<Backlog.SharedKernel.Results.Result<CaptureRunResultDto>> Run(
         MonitoredSource source, ICaptureDelivery delivery, ICaptureTargetLedger ledger, params ICaptureSourceAdapter[] adapters) =>
-        new RunCaptureCommandHandler(new FakeSettings(), adapters, delivery, new FakeLog(), ledger, new FakeTimeProvider(Now))
+        new RunCaptureCommandHandler(new FakeSettings(), OfferingEverything, adapters, delivery, new FakeLog(), ledger, new FakeTimeProvider(Now))
             .Handle(new RunCaptureCommand(source), TestContext.Current.CancellationToken);
 
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, params ICaptureSourceAdapter[] adapters) =>
         Handler(settings, delivery, new FakeLog(), adapters);
 
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, ICaptureRunLog log, params ICaptureSourceAdapter[] adapters) =>
-        new(settings, adapters, delivery, log, new FakeLedger(), new FakeTimeProvider(Now));
+        Handler(settings, OfferingEverything, delivery, log, adapters);
+
+    private static RunCaptureCommandHandler Handler(
+        ICaptureSourceSettings settings,
+        ICaptureSourceAvailability availability,
+        ICaptureDelivery delivery,
+        ICaptureRunLog log,
+        params ICaptureSourceAdapter[] adapters) =>
+        new(settings, availability, adapters, delivery, log, new FakeLedger(), new FakeTimeProvider(Now));
+
+    /// <summary>Every kind offered: the run's rules without the area gate in
+    /// front of them, which the tests that are about the gate swap in.</summary>
+    private static FakeAvailability OfferingEverything => new();
+
+    /// <summary>Which kinds are withdrawn, held in a set a test can change
+    /// between two presses.</summary>
+    private sealed class FakeAvailability(params CaptureSourceKind[] withdrawn) : ICaptureSourceAvailability
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public HashSet<CaptureSourceKind> Withdrawn { get; } = [.. withdrawn];
+
+        public bool IsOffered(CaptureSourceKind kind) => !Withdrawn.Contains(kind);
+    }
 
     /// <summary>The ledger as a dictionary. Keeping it across a restart is the
     /// store's business and is tested with the store.</summary>

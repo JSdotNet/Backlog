@@ -10,6 +10,10 @@
       Website/      ICaptureSourceAdapter for a page: reads it as a feed, or
                     finds the feed the page advertises, links to, or keeps at
                     a well-known path
+      EventPages/   ICaptureSourceAdapter for an event page: the edition's
+                    dates and place from schema.org, one registration hop, or
+                    a date in the page text, by fixed rules
+      Events/       ICaptureSourceAvailability over the Events area's flag
       Inbox/        ICaptureDelivery over the Inbox's published intake
       Extensions/   AddCaptureAdapters() composition for hosts
     Every fetch goes through IHttpClientFactory's named client with a timeout on
@@ -37,6 +41,11 @@
     <!-- IInboxIntake and the capture DTO the delivery hands it. The published
          surface only. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- The events key, and nothing else of Events: the event page source is
+         offered only while that area is on, Capture may not see Events, so the
+         one place that reads the flag for it is here. The published surface
+         only. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

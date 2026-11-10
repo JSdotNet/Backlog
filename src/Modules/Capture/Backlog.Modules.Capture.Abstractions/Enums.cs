@@ -4,10 +4,15 @@ namespace Backlog.Modules.Capture.Abstractions;
 /// Where a capture came from — the <c>Capture Source</c> enum of
 /// <c>.devbook/domain/capture/domain.md#capture-source</c>, in full.
 /// <para>
-/// All eight are here even though only three can be monitored, because the
+/// All nine are here even though only four can be monitored, because the
 /// vocabulary is the domain's and a subset would be a second vocabulary. Which
 /// ones a person can point at something and wait on is
 /// <see cref="CaptureSourceKinds.Monitorable"/>'s answer, not this type's.
+/// </para>
+/// <para>
+/// The order is not the domain's list: a kind is appended, never slotted in.
+/// Everything that is kept writes the slug, but a member's number is the one
+/// thing an append cannot move under anyone who wrote it anyway.
 /// </para>
 /// </summary>
 public enum CaptureSourceKind
@@ -36,7 +41,12 @@ public enum CaptureSourceKind
     /// <summary>Brought in from another tool through an import manifest
     /// (local ADR 0017). Run on demand with a file, never polled, so it is not
     /// <see cref="CaptureSourceKinds.Monitorable"/>.</summary>
-    Import
+    Import,
+
+    /// <summary>A new edition read off an event page the reader watches. Offered
+    /// only while the Events area is on — whether it is, is
+    /// <c>ICaptureSourceAvailability</c>'s answer.</summary>
+    EventPage
 }
 
 /// <summary>
@@ -54,9 +64,11 @@ public static class CaptureSourceKinds
 {
     /// <summary>The sources that poll: something the reader points at and
     /// waits on. The rest arrive on their own — a share sheet, a clipper, an
-    /// IDE — and have nothing to watch.</summary>
+    /// IDE — and have nothing to watch. The event page sits beside the website
+    /// it is a kind of. Whether one of these is offered on this device right
+    /// now is a separate question, <c>ICaptureSourceAvailability</c>'s.</summary>
     public static IReadOnlyList<CaptureSourceKind> Monitorable { get; } =
-        [CaptureSourceKind.YouTube, CaptureSourceKind.Website, CaptureSourceKind.Email];
+        [CaptureSourceKind.YouTube, CaptureSourceKind.Website, CaptureSourceKind.EventPage, CaptureSourceKind.Email];
 
     /// <summary>The kind in the domain's own lower-case spelling — what the
     /// settings file and the Inbox badge both carry.</summary>
@@ -70,6 +82,7 @@ public static class CaptureSourceKinds
         CaptureSourceKind.Ide => "ide",
         CaptureSourceKind.Manual => "manual",
         CaptureSourceKind.Import => "import",
+        CaptureSourceKind.EventPage => "event_page",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a capture source.")
     };
 
@@ -85,6 +98,7 @@ public static class CaptureSourceKinds
         CaptureSourceKind.Ide => "IDE",
         CaptureSourceKind.Manual => "Manual",
         CaptureSourceKind.Import => "Import",
+        CaptureSourceKind.EventPage => "Event page",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a capture source.")
     };
 

@@ -293,7 +293,9 @@ gives a date:
    registration link points at an Eventbrite host, or its text says *register*,
    *registreer* or *tickets*.
 3. A date pattern in the page text, with English or Dutch month names, such as
-   `26 - 28 OCT 2026`.
+   `26 - 28 OCT 2026`. A date with a year is read day first or month first, as in
+   `November 27, 2026`. The page text includes what its images say in their `alt`
+   and `title`, because Techorama shows its dates only there.
 4. No date found: the item arrives with only the page link.
 
 The dates and place it found ride with the capture as its
@@ -312,6 +314,11 @@ The monitor runs only when the person presses [Run capture now](#run-capture-now
   noticed. A run only asks whether an external id is already known.
 - **Known limit:** a page whose layout changes can hide its dates. The item then
   arrives with only the page link, which is the visible symptom.
+- **Known limit:** a page that still carries last edition's schema.org event, or a
+  link to its listing, stops at that step. The run says the edition has passed,
+  even when the page text already names the next one.
+- **Known limit:** two editions on one page in the same year and place, with no
+  listing id, share an external id. Only the first is delivered.
 
 ### News email ingestion
 

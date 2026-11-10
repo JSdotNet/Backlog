@@ -49,9 +49,16 @@ public sealed record RunCaptureCommand(MonitoredSource? Only = null);
 /// target however many it suddenly lists. An import has no target and is
 /// taken whole: it was asked for.
 /// </para>
+/// <para>
+/// The Capture button's run looks at the enabled sources that are also
+/// offered (<see cref="ICaptureSourceAvailability"/>): the event page source
+/// switched on while the Events area is off stays switched on in the settings
+/// and is simply not read. A run given one source is run as asked.
+/// </para>
 /// </summary>
 public sealed class RunCaptureCommandHandler(
     ICaptureSourceSettings settings,
+    ICaptureSourceAvailability availability,
     IEnumerable<ICaptureSourceAdapter> adapters,
     ICaptureDelivery delivery,
     ICaptureRunLog log,
@@ -73,7 +80,9 @@ public sealed class RunCaptureCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
 
         var results = new List<CaptureRunSourceResult>();
-        IReadOnlyList<MonitoredSource> sources = command.Only is { } only ? [only] : settings.Current.Enabled;
+        IReadOnlyList<MonitoredSource> sources = command.Only is { } only
+            ? [only]
+            : [.. settings.Current.Enabled.Where(source => availability.IsOffered(source.Kind))];
 
         foreach (var source in sources)
         {

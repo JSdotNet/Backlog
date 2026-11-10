@@ -25,6 +25,12 @@ namespace Backlog.Modules.Capture.Extensions;
 /// adapter without a delivery fails provider validation rather than running
 /// captures into nothing.
 /// </para>
+/// <para>
+/// One port is registered here, and only as a fallback:
+/// <see cref="ICaptureSourceAvailability"/>, answered fail-closed until the
+/// adapter that reads the Events area's flag replaces it — so a host that
+/// composes Capture alone still gets a panel and a run.
+/// </para>
 /// </summary>
 public static class CaptureModuleRegistration
 {
@@ -38,6 +44,11 @@ public static class CaptureModuleRegistration
         // The run stamps when it happened. TryAdd, so a host that already fixed
         // the clock — a test, or the dashboard's fake — keeps its own.
         services.TryAddSingleton(TimeProvider.System);
+
+        // Which sources are offered: every kind but the event page, until an
+        // adapter that can read the Events area's flag answers instead. TryAdd,
+        // so a host that answered first keeps its answer.
+        services.TryAddSingleton<ICaptureSourceAvailability, DefaultCaptureSourceAvailability>();
 
         return services;
     }

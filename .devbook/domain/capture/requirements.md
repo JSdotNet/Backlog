@@ -238,13 +238,14 @@ related: [.devbook/domain/capture/features.md#event-page-monitor, .devbook/domai
 ```
 
 > What the event page source promises. The feature chapter says why it reads pages
-> in this order and records its known limits. Nothing is built yet. The examples are
-> the first pages it watches: dotNET Friday and Techorama.
+> in this order and records its known limits. The examples are the first pages it
+> watches: dotNET Friday and Techorama.
 
 ### Requirement: The monitor takes the first step that gives a date
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_eventbrite_listing_watched_directly_is_read_from_its_own_structured_data, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Dotnet_friday_is_read_one_hop_away_on_its_eventbrite_listing, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_is_read_from_the_dates_in_its_image_text]
 ```
 
 The event page monitor SHALL take an edition's dates and place from the first of these steps that gives a date: a schema.org event on the watched page, a schema.org event one registration link away, a date pattern in the page text.
@@ -271,6 +272,7 @@ The event page monitor SHALL take an edition's dates and place from the first of
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_dutch_page_is_read_like_an_english_one, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.PageDatesTests.A_date_in_the_text_is_read, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.PageDatesTests.A_month_is_known_by_its_first_three_letters_in_either_language]
 ```
 
 The event page monitor SHALL read a date pattern whose month is written in English or in Dutch, in full or abbreviated.
@@ -285,6 +287,7 @@ The event page monitor SHALL read a date pattern whose month is written in Engli
 
 ```meta
 type: requirement
+tests: unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_page_with_no_date_arrives_with_its_link_only
 ```
 
 The event page monitor SHALL deliver an item with the page's title and link and no dates when no step gives a date.
@@ -299,6 +302,7 @@ The event page monitor SHALL deliver an item with the page's title and link and 
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_be_still_showing_last_springs_edition_gives_no_entry, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_after_its_edition_gives_no_entry_and_says_why]
 ```
 
 The event page monitor SHALL deliver no item for an edition whose end date is before today.
@@ -313,6 +317,7 @@ The event page monitor SHALL deliver no item for an edition whose end date is be
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_edition_keeps_its_id_across_runs_and_next_years_gets_its_own, unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests.Entries_the_receiving_side_already_holds_are_not_counted_as_new]
 ```
 
 The event page monitor SHALL deliver each edition once, knowing it by its listing id when the registration page has one and otherwise by the page URL, the year and the place.
@@ -367,6 +372,7 @@ The event page monitor SHALL read every page by its fixed rules and send no page
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests.A_source_that_is_not_offered_is_not_run_and_its_stored_choice_is_kept, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventsAreaSourceAvailabilityTests.The_event_page_is_offered_only_while_the_events_flag_is_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.CaptureSourcesPanelTests.The_event_page_source_is_not_listed_while_it_is_not_offered]
 ```
 
 The system SHALL neither list nor run the event page source while the `events` flag is off.

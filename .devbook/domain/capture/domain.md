@@ -160,7 +160,7 @@ Each source has a concrete adapter behind this service:
 | Mobile app, through the sync service | `mobile` | yes |
 | YouTube monitor | `youtube` | yes |
 | Website monitor | `website` | yes |
-| Event page monitor | `event_page` | planned |
+| Event page monitor | `event_page` | yes |
 | Import manifest | `import` | yes |
 | Email ingestion | `email` | planned |
 | Web clipper | `web_clipper` | planned |
