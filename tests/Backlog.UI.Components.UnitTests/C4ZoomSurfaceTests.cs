@@ -30,7 +30,9 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Action? navigated = null,
         List<C4ZoomLocation>? locations = null,
         C4ZoomOpen? open = null,
-        C4ZoomCode? code = null) =>
+        C4ZoomCode? code = null,
+        Func<string, C4ElementRecords>? recordsFor = null,
+        Action<string>? opened = null) =>
         _context.Render<C4ZoomExplorer>(parameters =>
         {
             parameters
@@ -40,9 +42,11 @@ public sealed class C4ZoomSurfaceTests : IDisposable
                 .Add(c => c.Document, document)
                 .Add(c => c.OpenView, open)
                 .Add(c => c.Code, code)
+                .Add(c => c.RecordsFor, recordsFor)
                 .Add(c => c.ViewCaption, view => builder => builder.AddContent(0, $" · documented by {view.Key}"));
 
             if (navigated is not null) parameters.Add(c => c.OnNavigate, EventCallback.Factory.Create(this, navigated));
+            if (opened is not null) parameters.Add(c => c.OnOpenRecord, opened);
             if (locations is not null) parameters.Add(c => c.OnLocationChanged, EventCallback.Factory.Create<C4ZoomLocation>(this, locations.Add));
         });
 
@@ -59,8 +63,8 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Single(surface.QuerySelectorAll("[data-testid='host-nav']"));
         Assert.Single(explorer.FindAll("[data-testid='c4-zoom-bar']"));
 
-        // Nothing selected: the right-hand column says what selecting does.
-        Assert.Single(explorer.FindAll("[data-testid='c4-zoom-aside-empty']"));
+        // Nothing selected: the right-hand column says what the open view is.
+        Assert.Single(explorer.Find("[data-testid='c4-zoom-aside']").QuerySelectorAll("[data-testid='c4-zoom-view-summary']"));
     }
 
     [Fact]
@@ -158,6 +162,35 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         explorer.WaitForAssertion(() => Assert.Equal("Devbook", locations[^1].CodeComponent));
     }
 
+    /// <summary>The Code level keeps what every other level has on the surface: the
+    /// host's navigation, headed by its find field, beside it, and − / Fit / + over its
+    /// picture — its own, sizing the class boxes.</summary>
+    [Fact]
+    public void The_code_level_keeps_the_navigation_beside_it_and_its_own_scale_over_it()
+    {
+        const string Devbook = "backlog.desktop.devbook";
+        var code = new C4ZoomCode(
+            elementId => string.Equals(elementId, Devbook, StringComparison.OrdinalIgnoreCase),
+            (_, _) => Task.FromResult(C4CodeViewTests.Level));
+
+        var explorer = Render(open: new C4ZoomOpen("components-desktop", Devbook, OpenCode: true), code: code);
+        explorer.WaitForAssertion(() => Assert.Equal(3, explorer.FindAll("[data-testid='c4-code-type']").Count));
+
+        var surface = explorer.Find("[data-testid='c4-zoom-surface']");
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__nav [data-testid='host-nav']"));
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__main [data-testid='c4-zoom-code']"));
+        Assert.Single(surface.QuerySelectorAll(".c4-zoom-explorer__main [data-testid='c4-code-panel']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-code-scale']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-scale']"));
+
+        // The type panel is the level's own right-hand column: no aside, so no view
+        // summary or component inspector beside the selected type, and the level
+        // takes both columns.
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-aside']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-view-summary']"));
+        Assert.Contains("c4-zoom-explorer__surface--code", surface.ClassList);
+    }
+
     /// <summary>The explorer asks for edge ends, so its viewer can light the selected
     /// card's relationships; the classic C4 tab never does (C4SvgWriterTests).</summary>
     [Fact]
@@ -182,5 +215,216 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-scale']"));
         Assert.Equal("P", explorer.Find("[data-testid='c4-zoom-title']").TagName);
         Assert.Equal("context-backlog", explorer.Find("[data-testid='c4-zoom-key']").TextContent);
+    }
+
+    /// <summary>The design's Dynamic screen: the steps panel is the right-hand column,
+    /// beside the picture, and a selected element's inspector follows it there rather
+    /// than wrapping under the picture.</summary>
+    [Fact]
+    public async Task On_a_dynamic_view_the_steps_and_the_inspector_are_the_right_hand_column()
+    {
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"));
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(C4MermaidWriter.AliasOf("backlog.desktop"), "capture-to-issue"));
+
+        var aside = explorer.Find("[data-testid='c4-zoom-aside']");
+        Assert.Equal(
+            ["c4-dynamic-steps", "c4-element-inspector"],
+            aside.Children.Select(child => child.GetAttribute("data-testid")));
+        Assert.Empty(explorer.Find(".c4-zoom-explorer__main").QuerySelectorAll("[data-testid='c4-dynamic-steps']"));
+    }
+
+    // ---- the surface's polish: overlay row, view summary, path decisions ----------
+
+    private static C4ElementRecords Records(string elementId) => elementId switch
+    {
+        "backlog.desktop" => new C4ElementRecords([],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0003-store.md", "0003", "SQLite is the canonical store", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0031-events.md", "0031", "Live events", C4InspectorRecordKind.Decision, Proposed: true),
+        ], []),
+        "github" => new C4ElementRecords([],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0003-store.md", "0003", "SQLite is the canonical store", C4InspectorRecordKind.Decision) { Accepted = true },
+            new C4InspectorRecord(".devbook/arc42/adr/0020-github.md", "0020", "GitHub issues", C4InspectorRecordKind.Decision) { Accepted = true },
+        ], []),
+        "backlog.cloud" => new C4ElementRecords([],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0005-replica.md", "0005", "Replica", C4InspectorRecordKind.Decision) { Accepted = true },
+        ], []),
+        _ => C4ElementRecords.None
+    };
+
+    /// <summary>The design's header carries the overlay switch, not the view heading.</summary>
+    [Fact]
+    public void On_the_surface_the_overlay_switch_is_the_top_rows_not_the_view_headings()
+    {
+        var explorer = Render(recordsFor: Records);
+
+        var top = explorer.Find("[data-testid='c4-zoom-top']");
+        Assert.Single(top.QuerySelectorAll("[data-testid='c4-zoom-overlay']"));
+        Assert.Empty(explorer.Find(".c4-zoom-explorer__head").QuerySelectorAll("[data-testid='c4-zoom-overlay']"));
+
+        // The top row comes before the bar.
+        var surface = explorer.Find("[data-testid='c4-zoom-explorer']");
+        var order = surface.Children.Select(child => child.GetAttribute("data-testid")).ToList();
+        Assert.True(order.IndexOf("c4-zoom-top") < order.IndexOf("c4-zoom-bar"));
+
+        explorer.Find("[data-testid='c4-zoom-overlay-decisions']").Click();
+        Assert.Equal(C4RecordOverlay.Decisions, explorer.Instance.Overlay);
+    }
+
+    [Fact]
+    public void With_a_document_open_the_overlay_switch_stands_down()
+    {
+        var explorer = Render(document: Doc, recordsFor: Records);
+
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-top']"));
+    }
+
+    /// <summary>The design's Landscape screen: with nothing selected the right-hand
+    /// panel says what the view is, the way in, and the external systems.</summary>
+    [Fact]
+    public void Nothing_selected_on_the_landscape_shows_its_summary()
+    {
+        var explorer = Render(open: new C4ZoomOpen("landscape"));
+
+        var summary = explorer.Find("[data-testid='c4-zoom-view-summary']");
+        Assert.Equal("Landscape", summary.QuerySelector("[data-testid='c4-view-summary-kind']")!.TextContent.Trim());
+        Assert.Equal("2 systems, 1 owned", summary.QuerySelector("[data-testid='c4-view-summary-title']")!.TextContent.Trim());
+        Assert.Equal("Everything", summary.QuerySelector("[data-testid='c4-view-summary-description']")!.TextContent.Trim());
+
+        var list = summary.QuerySelector("[data-testid='c4-view-summary-list']")!;
+        Assert.Contains("External systems · 1", list.QuerySelector("h4")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("GitHub", list.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Issues and webhooks", list.TextContent, StringComparison.Ordinal);
+
+        var way = summary.QuerySelector("[data-testid='c4-view-summary-way']")!;
+        Assert.Contains("Prompt Backlog — system context", way.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_summarys_way_in_opens_the_view_below()
+    {
+        var explorer = Render(open: new C4ZoomOpen("landscape"));
+
+        explorer.Find("[data-testid='c4-view-summary-way']").Click();
+
+        Assert.Equal("context-backlog", explorer.Instance.ViewKey);
+    }
+
+    [Fact]
+    public void An_element_picked_in_the_summary_is_selected_and_inspected()
+    {
+        var explorer = Render(open: new C4ZoomOpen("context-backlog"));
+
+        explorer.FindAll("[data-testid='c4-view-summary-element']").Single(element => element.GetAttribute("data-element") == "github").Click();
+
+        Assert.Equal("github", explorer.Instance.SelectedElementId);
+        Assert.Equal("GitHub", explorer.Find("[data-testid='c4-inspector-name']").TextContent.Trim());
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-view-summary']"));
+    }
+
+    /// <summary>The summary goes with the press, so the keyboard is handed to the
+    /// inspector's heading that stands in its place rather than dropped to the page.</summary>
+    [Fact]
+    public void An_element_picked_in_the_summary_takes_the_focus_to_the_inspectors_heading()
+    {
+        var explorer = Render(open: new C4ZoomOpen("context-backlog"));
+
+        explorer.FindAll("[data-testid='c4-view-summary-element']").Single(element => element.GetAttribute("data-element") == "github").Click();
+
+        explorer.WaitForAssertion(() => Assert.Single(_context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]));
+        Assert.Equal("-1", explorer.Find("[data-testid='c4-inspector-name']").GetAttribute("tabindex"));
+    }
+
+    /// <summary>Two cards that zoom into views of the same key — a workspace that
+    /// reuses one — offer one way in to it, never two buttons under one render key.</summary>
+    [Fact]
+    public void The_summary_offers_one_way_in_per_view()
+    {
+        // The reader renames a repeated key ("context-2"); a workspace handed over
+        // otherwise — derived from the chapters' fences, say — may still repeat one.
+        var read = C4DslReader.Read("""
+            workspace "Twice" {
+                model {
+                    a = softwareSystem "Alpha" "First"
+                    b = softwareSystem "Beta" "Second"
+                }
+                views {
+                    systemLandscape "landscape" "Everything" { include * }
+                    systemContext a "context" "Alpha context" { include * }
+                    systemContext b "context" "Beta context" { include * }
+                }
+            }
+            """);
+        var workspace = read with { Views = [.. read.Views.Select(view => view.Key == "context-2" ? view with { Key = "context" } : view)] };
+
+        var summary = _context.Render<C4ViewSummary>(parameters => parameters
+            .Add(c => c.Workspace, workspace)
+            .Add(c => c.View, workspace.View("landscape")!));
+
+        var ways = summary.FindAll("[data-testid='c4-view-summary-way']").Select(way => way.GetAttribute("data-view")).ToList();
+        Assert.Equal(["context"], ways);
+    }
+
+    [Fact]
+    public void Off_the_landscape_the_summary_counts_and_lists_every_card()
+    {
+        var explorer = Render(open: new C4ZoomOpen("containers-backlog"));
+
+        var summary = explorer.Find("[data-testid='c4-zoom-view-summary']");
+        Assert.Equal("Container", summary.QuerySelector("[data-testid='c4-view-summary-kind']")!.TextContent.Trim());
+        Assert.Equal("1 person, 1 software system, 2 containers", summary.QuerySelector("[data-testid='c4-view-summary-title']")!.TextContent.Trim());
+        Assert.Contains("On this view · 4", summary.QuerySelector("[data-testid='c4-view-summary-list'] h4")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Desktop App — components", summary.QuerySelector("[data-testid='c4-view-summary-way']")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The design's Dynamic screen: the decisions that name an element on the
+    /// flow's path, each once, a proposed one marked, each opening its record.</summary>
+    [Fact]
+    public void A_dynamic_view_lists_the_decisions_on_its_path()
+    {
+        var opened = new List<string>();
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"), recordsFor: Records, opened: opened.Add);
+
+        var decisions = explorer.FindAll("[data-testid='c4-dynamic-decision']");
+        Assert.Equal(["0003", "0020", "0031"], decisions.Select(decision => decision.QuerySelector(".c4-dynamic-steps__decision-number")!.TextContent.Trim()));
+        Assert.Single(decisions[2].QuerySelectorAll("[data-testid='c4-dynamic-decision-proposed']"));
+
+        decisions[1].Click();
+
+        Assert.Equal([".devbook/arc42/adr/0020-github.md"], opened);
+    }
+
+    /// <summary>A guideline numbers from 0001 as the local records do: the path lists
+    /// the local decisions first, and says which chip is a guideline, aloud and drawn.</summary>
+    [Fact]
+    public void A_guideline_on_the_path_comes_after_the_local_decisions_and_says_so()
+    {
+        static C4ElementRecords WithGuideline(string elementId) => elementId == "backlog.desktop"
+            ? new C4ElementRecords([],
+            [
+                new C4InspectorRecord(".devbook/arc42/adr/guidelines/0001-results.md", "0001", "Result objects", C4InspectorRecordKind.Decision) { Guideline = true },
+                new C4InspectorRecord(".devbook/arc42/adr/0031-events.md", "0031", "Live events", C4InspectorRecordKind.Decision),
+            ], [])
+            : C4ElementRecords.None;
+
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"), recordsFor: WithGuideline);
+
+        var decisions = explorer.FindAll("[data-testid='c4-dynamic-decision']");
+        Assert.Equal(["local", "guideline"], decisions.Select(decision => decision.GetAttribute("data-scope")));
+        Assert.StartsWith("Guideline ADR 0001", decisions[1].GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.StartsWith("ADR 0031", decisions[0].GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.Single(decisions[1].QuerySelectorAll("[data-testid='c4-dynamic-decision-guideline']"));
+        Assert.Empty(decisions[0].QuerySelectorAll("[data-testid='c4-dynamic-decision-guideline']"));
+    }
+
+    [Fact]
+    public void Without_host_records_the_path_decisions_are_left_out()
+    {
+        var explorer = Render(open: new C4ZoomOpen("capture-to-issue"));
+
+        Assert.Single(explorer.FindAll("[data-testid='c4-dynamic-steps']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-dynamic-decisions']"));
     }
 }

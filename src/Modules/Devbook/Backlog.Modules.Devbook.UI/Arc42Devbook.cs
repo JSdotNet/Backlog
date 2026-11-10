@@ -290,7 +290,10 @@ public static class Arc42DevbookReader
     /// difference here is meant to be recursion and tolerance and nothing else. A
     /// dot-prefixed file counts as hidden on Unix, and these folders are named
     /// <c>.arc42</c>, so leaving the default in place would drop chapters on one
-    /// platform and keep them on another.</para></summary>
+    /// platform and keep them on another.</para>
+    ///
+    /// <para><see cref="C4DevbookInputs"/> stamps the C4 model's inputs with a copy
+    /// of this walk; change the two together.</para></summary>
     internal static readonly EnumerationOptions Recursive = new()
     {
         RecurseSubdirectories = true,
@@ -301,7 +304,9 @@ public static class Arc42DevbookReader
 
     /// <summary>Whether any segment of a folder-relative path is one the menu hides.
     /// Checked against the folder rather than the repository, so a clone that itself
-    /// sits under an underscored directory does not hide every chapter in it.</summary>
+    /// sits under an underscored directory does not hide every chapter in it.
+    /// <see cref="C4DevbookInputs"/> keeps a copy for its stamp; change the two
+    /// together.</summary>
     internal static bool IsUnderscored(string relativePath) =>
         relativePath.Split('/', '\\').Any(segment => segment.StartsWith('_'));
 }
@@ -340,6 +345,19 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
             && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Whether the path is a guideline ADR, adopted from elsewhere into
+    /// <c>adr/guidelines/</c>. Guidelines number from 0001 as the local records do, so
+    /// the number alone never says which record "ADR 0004" is.</summary>
+    public static bool IsGuideline(string path) =>
+        IsArchitectureDecision(path)
+        && Within(path)[".arc42/adr/".Length..].StartsWith("guidelines/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the path is a decision record of this repository: directly in
+    /// <c>adr/</c>, so neither the index nor a guideline.</summary>
+    public static bool IsLocalDecision(string path) =>
+        IsArchitectureDecision(path)
+        && !Within(path)[".arc42/adr/".Length..].Contains('/', StringComparison.Ordinal);
+
     /// <summary>Whether the path is a TDR, in either layout. The index beside the
     /// records is not one.</summary>
     public static bool IsDebtRecord(string path)
@@ -361,6 +379,11 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
             && !within[folder.Length..].Contains('/', StringComparison.Ordinal)
             && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>Whether the path sits in the arc42 folder, in either layout — not in
+    /// another devbook folder such as <c>domain/</c>.</summary>
+    public static bool IsArc42Path(string path) =>
+        Within(path).StartsWith(".arc42/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A path folded to the legacy spelling, <c>.arc42/…</c>, whichever
     /// layout wrote it.</summary>

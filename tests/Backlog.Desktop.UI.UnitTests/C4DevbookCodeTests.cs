@@ -62,6 +62,31 @@ public sealed class C4DevbookCodeTests : IDisposable
         Prose.
         """;
 
+    /// <summary>A debt record whose title names the Refresher type: the type's own
+    /// debt.</summary>
+    private const string RefresherDebt = """
+        # TDR 0001: Refresher polls the folder instead of watching it
+
+        ```meta
+        c4: [backlog.desktop.devbook]
+        severity: medium
+        ```
+
+        Prose.
+        """;
+
+    /// <summary>A debt record on the component that names none of its types.</summary>
+    private const string PanelDebt = """
+        # TDR 0002: The panels share one cache
+
+        ```meta
+        c4-touches: [backlog.desktop.devbook]
+        severity: low
+        ```
+
+        Prose.
+        """;
+
     private const string Refresher = """
         namespace Shop.Devbook;
 
@@ -96,6 +121,8 @@ public sealed class C4DevbookCodeTests : IDisposable
         var arc42 = Path.Combine(root, ".devbook", "arc42");
         Write(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
         Write(Path.Combine(arc42, "adr", "0004-knowledge-index.md"), Decision);
+        Write(Path.Combine(arc42, "tdr", "0001-refresher-polls.md"), RefresherDebt);
+        Write(Path.Combine(arc42, "tdr", "0002-one-cache.md"), PanelDebt);
         if (withBuildingBlock) Write(Path.Combine(arc42, "building-blocks", "devbook.md"), BuildingBlock);
         Directory.CreateDirectory(Path.Combine(root, ".devbook", "domain"));
 
@@ -188,6 +215,45 @@ public sealed class C4DevbookCodeTests : IDisposable
         Assert.EndsWith("adr/0004-knowledge-index.md", decision.Path, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The type panel's Technical debt: the component's debt records, and per type the
+    /// ones whose title names it — a chapter and its code are paired through naming,
+    /// never a path (devbook-chapter-metadata.md).
+    /// </summary>
+    [Fact]
+    public async Task The_components_debt_is_on_the_level_and_a_type_carries_the_debt_that_names_it()
+    {
+        var catalog = await LoadAsync(CreateRepository());
+        var code = new C4DevbookCode(new CSharpCodeReader(), new RecordingLauncher()).For(catalog);
+
+        var level = await code.Load(Devbook, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["0001", "0002"], level.Debt.Select(record => record.Number).Order(StringComparer.Ordinal));
+        Assert.Contains(level.Debt, record => record.Title == "Refresher polls the folder instead of watching it");
+
+        var refresher = level.Types.Single(type => type.Name == "Refresher");
+        var debt = Assert.Single(refresher.Debt);
+        Assert.Equal("0001", debt.Number);
+        Assert.EndsWith("tdr/0001-refresher-polls.md", debt.Path, StringComparison.Ordinal);
+
+        Assert.Empty(level.Types.Single(type => type.Name == "Builder").Debt);
+
+        // A debt record is no decision.
+        Assert.Equal(["0004"], level.Decisions.Select(record => record.Number));
+    }
+
+    /// <summary>A type is named as a word, its type parameters aside: "Builder" is not
+    /// named by "Builders" or "DevbookBuilder", and "Cache&lt;T&gt;" is by "Cache".</summary>
+    [Fact]
+    public void A_record_names_a_type_by_its_name_as_a_whole_word()
+    {
+        Assert.True(C4DevbookCode.Names("Refresher polls the folder", "Refresher"));
+        Assert.True(C4DevbookCode.Names("The Cache leaks", "Cache<T>"));
+        Assert.False(C4DevbookCode.Names("Builders are slow", "Builder"));
+        Assert.False(C4DevbookCode.Names("DevbookBuilder is slow", "Builder"));
+        Assert.False(C4DevbookCode.Names("anything", ""));
+    }
+
     /// <summary>Scenario "The source changed": a type added since the last opening is
     /// in the next one.</summary>
     [Fact]
@@ -217,6 +283,98 @@ public sealed class C4DevbookCodeTests : IDisposable
 
         launcher.Failure = "VS Code is not installed.";
         Assert.Equal("VS Code is not installed.", await code.OpenInEditor("src/Devbook/Builder.cs"));
+    }
+
+    // ---- files changed outside the app -------------------------------------------------
+
+    /// <summary>One store, kept across loads the way the app's singleton is, so a
+    /// second load is asked of the catalog the first one cached.</summary>
+    private C4DevbookStore Store(string clone, out string alias)
+    {
+        var (features, _, folders, _, repositoryAlias) = Sources(clone);
+        alias = repositoryAlias;
+        var store = new C4DevbookStore(features, folders);
+        _stores.Add(store);
+        return store;
+    }
+
+    private readonly List<C4DevbookStore> _stores = [];
+
+    private static string BuildingBlockPath(string clone) =>
+        Path.Combine(clone, ".devbook", "arc42", "building-blocks", "devbook.md");
+
+    [Fact]
+    public async Task An_unchanged_folder_is_served_from_the_cached_catalog()
+    {
+        var store = Store(CreateRepository(), out var alias);
+
+        var first = await store.LoadAsync(alias);
+
+        Assert.Same(first, await store.LoadAsync(alias));
+    }
+
+    /// <summary>A building block a <c>git pull</c> or an editor adds is read on the next
+    /// load, with no feature switch toggled, and its <c>code</c> makes the Code level
+    /// reachable.</summary>
+    [Fact]
+    public async Task A_building_block_added_outside_the_app_is_read_on_the_next_load()
+    {
+        var clone = CreateRepository(withBuildingBlock: false);
+        var store = Store(clone, out var alias);
+        Assert.Empty((await store.LoadAsync(alias)).CodeOf(Devbook));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(BuildingBlockPath(clone))!);
+        File.WriteAllText(BuildingBlockPath(clone), BuildingBlock);
+
+        Assert.Equal(["src/Devbook"], (await store.LoadAsync(alias)).CodeOf(Devbook));
+    }
+
+    /// <summary>A building block changed outside the app is read again — over the
+    /// workspace already parsed, since no <c>.dsl</c> moved, so the explorers keep their
+    /// layout.</summary>
+    [Fact]
+    public async Task A_building_block_changed_outside_the_app_is_read_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        var before = await store.LoadAsync(alias);
+        Assert.NotEmpty(before.CodeOf(Devbook));
+
+        File.WriteAllText(BuildingBlockPath(clone), BuildingBlock.Replace("code: [src/Devbook]", "code: [src/Devbook, src/Shared]", StringComparison.Ordinal));
+
+        var after = await store.LoadAsync(alias);
+        Assert.Equal(["src/Devbook", "src/Shared"], after.CodeOf(Devbook));
+        Assert.Same(before.Workspaces[0].Workspace, after.Workspaces[0].Workspace);
+    }
+
+    [Fact]
+    public async Task A_building_block_deleted_outside_the_app_is_gone_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        Assert.NotEmpty((await store.LoadAsync(alias)).CodeOf(Devbook));
+
+        File.Delete(BuildingBlockPath(clone));
+
+        Assert.Empty((await store.LoadAsync(alias)).CodeOf(Devbook));
+    }
+
+    /// <summary>A workspace changed outside the app is parsed again, not relinked over
+    /// the model it replaced.</summary>
+    [Fact]
+    public async Task A_workspace_changed_outside_the_app_is_parsed_again_on_the_next_load()
+    {
+        var clone = CreateRepository();
+        var store = Store(clone, out var alias);
+        var before = await store.LoadAsync(alias);
+
+        File.WriteAllText(
+            Path.Combine(clone, ".devbook", "arc42", C4DevbookStore.WorkspaceFile),
+            Workspace.Replace("shell = component \"Shell\" \"Holds the panes\"", "shell = component \"Shell\" \"Holds the panes\"\n                        tray = component \"Tray\" \"The tray\"", StringComparison.Ordinal));
+
+        var after = await store.LoadAsync(alias);
+        Assert.NotSame(before.Workspaces[0].Workspace, after.Workspaces[0].Workspace);
+        Assert.NotNull(after.Workspaces[0].Workspace.Element("backlog.desktop.tray"));
     }
 
     // ---- what the panel shows ---------------------------------------------------------
@@ -293,6 +451,9 @@ public sealed class C4DevbookCodeTests : IDisposable
         var record = C4DevbookCode.Record(new C4LinkedRecord(".devbook/arc42/adr/0015-store.md", "ADR 0015: The devbook database lives in app storage", C4RecordKind.Decision, null, null, []));
         Assert.Equal(("0015", "The devbook database lives in app storage"), (record.Number, record.Title));
 
+        var debt = C4DevbookCode.Record(new C4LinkedRecord(".devbook/arc42/tdr/0001-polls.md", "TDR 0001: Refresher polls", C4RecordKind.Debt, null, null, []));
+        Assert.Equal(("0001", "Refresher polls"), (debt.Number, debt.Title));
+
         var untitled = C4DevbookCode.Record(new C4LinkedRecord("notes/decision.md", "Use SQLite", C4RecordKind.Decision, null, null, []));
         Assert.Equal((string.Empty, "Use SQLite"), (untitled.Number, untitled.Title));
     }
@@ -316,6 +477,8 @@ public sealed class C4DevbookCodeTests : IDisposable
 
     public void Dispose()
     {
+        foreach (var store in _stores) store.Dispose();
+
         foreach (var root in _roots)
         {
             try
