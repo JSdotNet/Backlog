@@ -56,7 +56,7 @@ public static class SettingsPages
             CardTitles: ["GitHub accounts", "Signed in with the GitHub CLI", "Add an account by login"]),
         new(McpServer, "MCP server", 4, typeof(McpServerSettingsPage),
             Group: SettingsGroup.Workspace,
-            CardTitles: [McpServerSettingsPage.EndpointCardTitle, McpServerSettingsPage.TokenCardTitle]),
+            CardTitles: [McpServerSettingsPage.EndpointCardTitle, McpServerSettingsPage.TokenCardTitle, McpServerSettingsPage.BackgroundCardTitle]),
         new(Ai, "AI providers", 0, typeof(AiSettingsPage),
             Group: SettingsGroup.Ai,
             CardTitles: AiCardTitles(usageMetrics: true, aiAssistant: true)),

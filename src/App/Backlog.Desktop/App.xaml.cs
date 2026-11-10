@@ -14,7 +14,8 @@ public partial class App : Application
     /// <summary>
     /// The main window. <see cref="ShellWindows"/> makes it, as it makes every
     /// popped-out window beside it (local ADR 0043 §4), so the store flush on close
-    /// and the rule that closing the main window quits the app are one class's.
+    /// and what closing the main window does — hide it to the tray, or quit — are one
+    /// class's. A start by the sign-in startup task creates it hidden (local ADR 0043 §5).
     /// </summary>
     protected override Window CreateWindow(IActivationState? activationState)
     {
@@ -22,16 +23,18 @@ public partial class App : Application
             ?? throw new InvalidOperationException("The app has no services to open its main window with.");
 
         var windows = services.GetRequiredService<ShellWindows>();
-        var window = windows.CreateMainWindow();
+        var hidden = BacklogLinkInstance.StartedAtSignIn;
+        var window = windows.CreateMainWindow(hidden);
 
         // The windows the person remembered reopen once the main window is up, beside it
         // (local ADR 0043 §5): queued like the launch link, so the main window finishes
-        // opening first, and a failure there never holds the main window up.
+        // opening first, and a failure there never holds the main window up. A start to
+        // the tray opens them the first time the main window is shown instead.
         window.Created += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
         {
             try
             {
-                windows.ReopenRemembered();
+                windows.ReopenRememberedWhenShown(hidden);
             }
             catch (Exception)
             {
