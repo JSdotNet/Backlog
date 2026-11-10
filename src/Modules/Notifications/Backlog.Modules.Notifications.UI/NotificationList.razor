@@ -3,8 +3,10 @@
     chose — its repository, system, asker kind or subject — the group with an open
     question first, and each row the notification's kind or how it settled, its
     title, the asker's marker (AI agent, Person, Backlog), and one line — who
-    raised it and when, the answer that won and the device it came from, or why it
-    closed.
+    raised it and when, the device an answer came from, or that it closed. A
+    settled row sets the answer that won, or why it closed, apart on a line of its
+    own under that one: the primary text, one line, cut short with an ellipsis and
+    whole in its tooltip and on the card.
 
     A row is a library AppButton wearing this list's own class: pressing it
     selects the notification, and the detail beside the list draws it. The
@@ -44,9 +46,15 @@
                                 <span class="notification-list__byline">
                                     <NotificationAskerBadge Asker="@AskerOf(notification)" TestId="notification-row-asker" />
                                     <span class="notification-list__meta" data-testid="notification-row-line">
-                                        @NotificationPresentation.RowLine(notification, Now, ThisDeviceId)
+                                        @NotificationPresentation.RowLead(notification, Now, ThisDeviceId)
                                     </span>
                                 </span>
+                                @if (NotificationPresentation.RowAnswer(notification) is { } answer)
+                                {
+                                    <span class="notification-list__answer"
+                                          data-testid="notification-row-answer"
+                                          title="@answer">@answer</span>
+                                }
                             </AppButton>
                         </li>
                     }

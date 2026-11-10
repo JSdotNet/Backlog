@@ -102,7 +102,9 @@ public sealed class NotificationCentreScreenTests : IDisposable
 
         var row = list.Find($"[data-testid='notification-row-{id:N}']");
         Assert.Equal("Answered", row.QuerySelector("[data-testid='notification-row-badge']")!.TextContent);
-        Assert.Equal("Answered from this desktop · Yes, run it", row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
+        Assert.Equal("Answered from this desktop", row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
+        // The answer on a line of its own, not run into the lead.
+        Assert.Equal("Yes, run it", row.QuerySelector("[data-testid='notification-row-answer']")!.TextContent);
     }
 
     [Fact]
@@ -121,8 +123,8 @@ public sealed class NotificationCentreScreenTests : IDisposable
 
         var row = list.Find($"[data-testid='notification-row-{id:N}']");
         Assert.Equal(
-            "Answered from this desktop · Yes, run it, note: “After the backup”",
-            row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
+            "Yes, run it, note: “After the backup”",
+            row.QuerySelector("[data-testid='notification-row-answer']")!.TextContent);
     }
 
     [Fact]
@@ -136,7 +138,8 @@ public sealed class NotificationCentreScreenTests : IDisposable
             .Add(c => c.Now, _time.GetUtcNow())
             .Add(c => c.ThisDeviceId, Owner));
 
-        Assert.Equal("Closed · Session archived", list.Find("[data-testid='notification-row-line']").TextContent.Trim());
+        Assert.Equal("Closed", list.Find("[data-testid='notification-row-line']").TextContent.Trim());
+        Assert.Equal("Session archived", list.Find("[data-testid='notification-row-answer']").TextContent);
     }
 
     [Fact]
@@ -175,9 +178,12 @@ public sealed class NotificationCentreScreenTests : IDisposable
 
         pane.Find("[data-testid='notification-card-choice-yes']").Click();
 
+        // Settled now, and settled ones are hidden, but it stays in view so its answer reads.
         pane.WaitForAssertion(() => Assert.Equal(
-            "Answered from this desktop · Yes, run it · just now",
+            "Answered from this desktop · just now",
             pane.Find("[data-testid='notification-card-outcome']").TextContent));
+        Assert.Equal("true", pane.Find("[data-testid='notification-card-settled-choice-yes']").GetAttribute("data-chosen"));
+        Assert.Equal("true", pane.Find(Row(id)).GetAttribute("aria-current"));
         Assert.Equal(NotificationState.Answered, (await _inner.GetAsync(id, Ct))!.State);
     }
 
@@ -200,8 +206,9 @@ public sealed class NotificationCentreScreenTests : IDisposable
         pane.Find("[data-testid='notification-card-choice-send']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal(
-            "Answered from this desktop · Revise, “The toast overlaps the header” · just now",
-            pane.Find("[data-testid='notification-card-outcome']").TextContent));
+            "The toast overlaps the header",
+            pane.Find("[data-testid='notification-card-answer-text']").TextContent));
+        Assert.Equal("true", pane.Find("[data-testid='notification-card-settled-choice-revise']").GetAttribute("data-chosen"));
         var answer = (await _inner.GetAsync(id, Ct))!.Answer!;
         Assert.Equal(["revise"], answer.ChoiceIds);
         Assert.Equal("The toast overlaps the header", answer.Text);
@@ -732,6 +739,224 @@ public sealed class NotificationCentreScreenTests : IDisposable
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
         Assert.Equal("repository", pane.Find("[data-testid='notification-centre-grouping'] select").GetAttribute("value"));
         Assert.Empty(pane.FindAll("[data-testid='notification-centre-clear-filters']"));
+    }
+
+    [Fact]
+    public async Task A_remembered_kind_open_reads_as_all_with_settled_ones_hidden()
+    {
+        var question = await PublishAsync(Question());
+        var alert = await PublishAsync(Alert());
+        var answered = await PublishAsync(Question(subject: Task123));
+        await _centre.AnswerAsync(answered, ["yes"], null, cancellationToken: Ct);
+        _context.Services.AddSingleton<INotificationCentrePreferences>(
+            new RememberedChoices(new NotificationCentreChoices(Kind: "open")));
+
+        var pane = RenderScoped();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(alert))));
+        Assert.NotNull(pane.Find(Row(question)));
+        Assert.Empty(pane.FindAll(Row(answered)));
+        Assert.Equal("true", pane.Find("[data-testid='notification-centre-kind-all']").GetAttribute("aria-checked"));
+        Assert.Equal("false", pane.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+        Assert.Empty(pane.FindAll("[data-testid='notification-centre-clear-filters']"));
+    }
+
+    // --- Show settled ----------------------------------------------------------------------
+
+    /// <summary>Two open — a question and an alert — and three settled: one answered, one
+    /// acknowledged, one closed.</summary>
+    private async Task<(Guid Question, Guid Alert, Guid Answered, Guid Acknowledged, Guid Closed)> PublishOpenAndSettledAsync()
+    {
+        var question = await PublishAsync(Question());
+        var alert = await PublishAsync(Alert());
+        var answered = await PublishAsync(Question(subject: Task123));
+        var acknowledged = await PublishAsync(Alert(subject: Task123));
+        var closed = await PublishAsync(Question(subject: new NotificationSubject("mcp", "ask", "k")));
+        await _centre.AnswerAsync(answered, ["yes"], null, cancellationToken: Ct);
+        await _centre.AcknowledgeAsync(acknowledged, Ct);
+        await _owner.CloseAsync(closed, "Answered in spec-manager by Ada: Not now", Ct);
+        return (question, alert, answered, acknowledged, closed);
+    }
+
+    private static string[] Badges(IRenderedComponent<NotificationCentrePane> pane) =>
+        [.. pane.FindAll("[data-testid='notification-row-badge']").Select(badge => badge.TextContent)];
+
+    private static string[] Tallies(IRenderedComponent<NotificationCentrePane> pane, string group) =>
+        [.. pane.FindAll($"[data-testid='notification-centre-{group}'] [data-testid='notification-centre-tally']").Select(tally => tally.TextContent)];
+
+    [Fact]
+    public async Task By_default_the_centre_lists_only_what_is_open()
+    {
+        var (question, alert, _, _, _) = await PublishOpenAndSettledAsync();
+
+        var pane = RenderScoped();
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='notification-group'] li").Count));
+        Assert.NotNull(pane.Find(Row(question)));
+        Assert.NotNull(pane.Find(Row(alert)));
+        Assert.DoesNotContain("Answered", Badges(pane));
+        Assert.DoesNotContain("Acknowledged", Badges(pane));
+        Assert.DoesNotContain("Closed", Badges(pane));
+        Assert.Equal("false", pane.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public async Task Show_settled_lists_the_settled_ones_after_the_open_and_pressed_again_hides_them()
+    {
+        var (question, _, answered, acknowledged, closed) = await PublishOpenAndSettledAsync();
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
+        // It says how many it would add before it is pressed.
+        Assert.Equal("3", pane.Find("[data-testid='notification-centre-settled-tally']").TextContent);
+
+        pane.Find("[data-testid='notification-centre-show-settled']").Click();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(answered))));
+        Assert.NotNull(pane.Find(Row(acknowledged)));
+        Assert.NotNull(pane.Find(Row(closed)));
+        Assert.Equal("true", pane.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+        // An open question still leads the list.
+        Assert.Equal("Question", Badges(pane)[0]);
+
+        pane.Find("[data-testid='notification-centre-show-settled']").Click();
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll(Row(answered))));
+        Assert.Empty(pane.FindAll(Row(closed)));
+        Assert.NotNull(pane.Find(Row(question)));
+    }
+
+    [Fact]
+    public async Task The_settled_tally_counts_under_the_filters()
+    {
+        var (question, _, _, _, _) = await PublishOpenAndSettledAsync();
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
+
+        pane.Find("[data-testid='notification-centre-kind-questions']").Click();
+
+        // Of the three settled, two are questions: the answered and the closed one.
+        pane.WaitForAssertion(() => Assert.Equal("2", pane.Find("[data-testid='notification-centre-settled-tally']").TextContent));
+    }
+
+    [Fact]
+    public async Task Every_tally_counts_only_what_would_be_listed_and_kind_all_counts_the_rows()
+    {
+        var (question, _, _, _, _) = await PublishOpenAndSettledAsync();
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
+
+        // All, Questions, Alerts over the two open ones; the settled three are not counted.
+        Assert.Equal(["2", "1", "1"], Tallies(pane, "kind"));
+        Assert.Equal("2", Tallies(pane, "asked-by")[0]);
+        Assert.Equal("From anywhere (2)", pane.FindAll("[data-testid='notification-centre-from'] option")[0].TextContent.Trim());
+        Assert.Equal(2, pane.FindAll("[data-testid='notification-group'] li").Count);
+
+        pane.Find("[data-testid='notification-centre-show-settled']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(["5", "3", "2"], Tallies(pane, "kind")));
+        Assert.Equal(5, pane.FindAll("[data-testid='notification-group'] li").Count);
+    }
+
+    [Fact]
+    public async Task Hiding_settled_ones_hides_no_open_question_so_the_subtitle_counts_none_as_filtered()
+    {
+        await PublishOpenAndSettledAsync();
+
+        var pane = RenderScoped();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "1 waiting for an answer",
+            pane.Find("[data-testid='notification-centre-subtitle']").TextContent));
+    }
+
+    [Fact]
+    public async Task Show_settled_is_remembered_on_this_device_and_the_centre_reopens_with_it()
+    {
+        var (question, _, answered, _, _) = await PublishOpenAndSettledAsync();
+        var remembered = new RememberedChoices(new NotificationCentreChoices());
+        _context.Services.AddSingleton<INotificationCentrePreferences>(remembered);
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
+
+        pane.Find("[data-testid='notification-centre-show-settled']").Click();
+
+        Assert.Equal(new NotificationCentreChoices(ShowSettled: true), remembered.Choices);
+
+        var reopened = RenderScoped();
+        reopened.WaitForAssertion(() => Assert.NotNull(reopened.Find(Row(answered))));
+        Assert.Equal("true", reopened.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+
+        reopened.Find("[data-testid='notification-centre-show-settled']").Click();
+        Assert.Equal(new NotificationCentreChoices(), remembered.Choices);
+    }
+
+    [Fact]
+    public async Task Clear_filters_leaves_show_settled_as_it_was()
+    {
+        var (question, _, answered, _, _) = await PublishOpenAndSettledAsync();
+        var remembered = new RememberedChoices(new NotificationCentreChoices(Kind: "questions", ShowSettled: true));
+        _context.Services.AddSingleton<INotificationCentrePreferences>(remembered);
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(answered))));
+
+        pane.Find("[data-testid='notification-centre-clear-filters']").Click();
+
+        Assert.Equal(new NotificationCentreChoices(ShowSettled: true), remembered.Choices);
+        Assert.Equal("true", pane.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+        Assert.NotNull(pane.Find(Row(question)));
+    }
+
+    [Fact]
+    public async Task One_answered_here_stays_listed_and_picked_until_another_is_picked()
+    {
+        var first = await PublishAsync(Question());
+        var second = await PublishAsync(Question(subject: Task123));
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.Equal("true", pane.Find(Row(second)).GetAttribute("aria-current")));
+
+        pane.Find("[data-testid='notification-card-choice-no']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("Answered", pane.Find($"{Row(second)} [data-testid='notification-row-badge']").TextContent));
+        Assert.Equal("true", pane.Find(Row(second)).GetAttribute("aria-current"));
+        Assert.Equal("Not now", pane.Find($"{Row(second)} [data-testid='notification-row-answer']").TextContent);
+
+        pane.Find(Row(first)).Click();
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll(Row(second))));
+        Assert.Equal("true", pane.Find(Row(first)).GetAttribute("aria-current"));
+    }
+
+    [Fact]
+    public async Task A_focus_on_a_settled_notification_lists_the_settled_ones_without_remembering_it()
+    {
+        var (question, _, _, _, closed) = await PublishOpenAndSettledAsync();
+        var remembered = new RememberedChoices(new NotificationCentreChoices());
+        _context.Services.AddSingleton<INotificationCentrePreferences>(remembered);
+        var pane = RenderScoped();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find(Row(question))));
+
+        pane.Render(p => p.Add(c => c.FocusNotificationId, closed));
+
+        pane.WaitForAssertion(() => Assert.Equal("true", pane.Find(Row(closed)).GetAttribute("aria-current")));
+        Assert.Equal("true", pane.Find("[data-testid='notification-centre-show-settled']").GetAttribute("aria-pressed"));
+        Assert.Equal(
+            "Answered in spec-manager by Ada: Not now",
+            pane.Find("[data-testid='notification-card-answer-text']").TextContent);
+        Assert.Equal(new NotificationCentreChoices(), remembered.Choices);
+    }
+
+    [Fact]
+    public async Task With_everything_settled_and_hidden_the_list_says_nothing_waits_and_the_detail_asks_for_no_pick()
+    {
+        var question = await PublishAsync(Question());
+        await _centre.AnswerAsync(question, ["yes"], null, cancellationToken: Ct);
+
+        var pane = RenderScoped();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='notification-list-none']")));
+        Assert.Empty(pane.FindAll("[data-testid='notification-centre-nothing-picked']"));
+        // The switch stays, so the settled one is a press away.
+        Assert.Equal("1", pane.Find("[data-testid='notification-centre-settled-tally']").TextContent);
     }
 
     // --- The shell's count ---------------------------------------------------------------
