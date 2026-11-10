@@ -81,14 +81,14 @@ and the person needs the event most at the venue.
 type: feature-flag
 key: events
 default: off
-related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/features.md#prep-tasks, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/events/features.md#events-on-the-phone, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
+related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/features.md#prep-tasks, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/events/features.md#events-on-the-phone, .devbook/domain/inbox/features.md#route-to-event, .devbook/domain/capture/features.md#event-page-monitor, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
 ```
 
 Turning it on opens the Events area on five surfaces:
 
 - the [Events pane](features.md#events-pane) on the desktop;
-- the Inbox's [To Event route](features.md#to-event-route) in triage;
-- the event page capture source in Capture;
+- the Inbox's [To Event route](../inbox/features.md#route-to-event) in triage;
+- the [event page capture source](../capture/features.md#event-page-monitor) in Capture;
 - the [events layer](features.md#events-on-the-calendar) on the Calendar;
 - the [Events screen](features.md#events-on-the-phone) on the phone.
 
@@ -125,8 +125,8 @@ form no cycle of modules.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Inbox](../inbox/context.md) | OHS + Published Language (Events = conformist) | The To Event route hands the triaged item to Events' intake, through an adapter | [ItemTriaged](../inbox/domain.md#itemtriaged), with a To Event route it does not yet carry | An Inbox item becomes a Spotted knowledge event. |
-| [Capture](../capture/context.md) | OHS + Published Language, through the Inbox | None direct: the facts ride on the Inbox item | [ItemCaptured](../capture/domain.md#itemcaptured), with event facts it does not yet carry | The dates, place and their source reach the event. |
+| [Inbox](../inbox/context.md) | OHS + Published Language (Events = conformist) | The To Event route hands the triaged item to Events' intake, through an adapter | [ItemTriaged](../inbox/domain.md#itemtriaged), route `events` | An Inbox item becomes a Spotted knowledge event. |
+| [Capture](../capture/context.md) | OHS + Published Language, through the Inbox | None direct: the facts ride on the Inbox item | [ItemCaptured](../capture/domain.md#itemcaptured), its `event` field | The dates, place and their source reach the event. |
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | A port in Events' abstractions, answered by an adapter over Tasks' published task contract | `Backlog.Modules.Tasks.Abstractions` | Files a prep or harvest task under the Brain scope, and completes one by id. |
 | [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
 | [Inbox](../inbox/domain.md#note), notes | One-way reference | An Inbox note id, held on the event | [Note](../inbox/domain.md#note) | A Talk note is attached to its event. |

@@ -151,20 +151,6 @@ The system SHALL create the event without dates when the capture found none.
 - **When** the person routes it To Event
 - **Then** a Spotted event with no dates and no date source exists
 
-### Requirement: No To Event route while the area is off
-
-```meta
-type: requirement
-```
-
-The system SHALL offer no To Event route in triage while the `events` flag is off.
-
-#### Scenario: Route withdrawn
-
-- **Given** the `events` flag is off
-- **When** the person triages an Inbox item
-- **Then** To Event is not offered
-
 ## Prep tasks
 
 ```meta

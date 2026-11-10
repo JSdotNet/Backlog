@@ -71,7 +71,7 @@ writes the verdict.
 ```meta
 type: feature
 feature-flag: .devbook/domain/events/context.md#events-area
-related: [.devbook/domain/events/requirements.md#to-event-route, .devbook/domain/inbox/features.md#routing, .devbook/domain/inbox/features.md#route-to-brain]
+related: [.devbook/domain/events/requirements.md#to-event-route, .devbook/domain/inbox/features.md#route-to-event, .devbook/domain/capture/features.md#event-page-monitor]
 ```
 
 Discovery runs through the Inbox. A capture source in Capture reads the event
@@ -82,10 +82,9 @@ The event takes the item's title and link. When the capture found dates and a
 place, they come along with the date source Event page. An item with no dates still
 arrives, and the person fills them in on the event.
 
-The route sits beside Route to Tasks and
-[Route to Brain](../inbox/features.md#route-to-brain), and ends the item's triage the
-same way. The route is the Inbox's, and the watched pages are Capture's. Both are
-still to be written into those contexts.
+The route is the Inbox's [Route to Event](../inbox/features.md#route-to-event),
+which also picks the event's Series. The watched pages are Capture's
+[event page monitor](../capture/features.md#event-page-monitor).
 
 ## Prep tasks
 
