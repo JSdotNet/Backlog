@@ -60,7 +60,8 @@ public static class InboxEnumMap
         {
             [RoutingDomain.Tasks] = "tasks",
             [RoutingDomain.Devbook] = "devbook",
-            [RoutingDomain.Archive] = "archive"
+            [RoutingDomain.Archive] = "archive",
+            [RoutingDomain.Events] = "events"
         },
         // The wire token the member carried before the context was renamed; nothing
         // routed there, but a row that did would still be readable rather than thrown on.

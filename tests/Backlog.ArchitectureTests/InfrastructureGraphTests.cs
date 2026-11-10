@@ -29,7 +29,7 @@ public class InfrastructureGraphTests
     /// </summary>
     internal static readonly (string Project, int ModuleReferences, string Reason)[] WideAdapters =
     [
-        ("Backlog.Infrastructure.FileSystem", 10,
+        ("Backlog.Infrastructure.FileSystem", 11,
             "The workspace folder's stores — feature settings, device identity, transcript caches, devbook "
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
@@ -39,7 +39,9 @@ public class InfrastructureGraphTests
             + "Management's published surface, for the settled-fact store under Workspace/ that remembers "
             + "its merged pull requests across a restart, the Progress adapter under Progress/ that reads "
             + "goal pull requests through its contract, and the Tasks adapter under Tasks/ that answers the "
-            + "task row's pull-request port through the same contract (local ADR 0042)."),
+            + "task row's pull-request port through the same contract (local ADR 0042). The eleventh is "
+            + "Events' published surface, for the Inbox's To Event route under Inbox/, which makes a Spotted "
+            + "knowledge event through IKnowledgeEvents beside the Inbox's other routes (local ADR 0050)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "

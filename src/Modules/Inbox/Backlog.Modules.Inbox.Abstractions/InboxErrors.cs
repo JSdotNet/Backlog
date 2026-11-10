@@ -44,6 +44,24 @@ public static class InboxErrors
     /// <summary>What To Brain says in a host composed without a Brain.</summary>
     public const string NoBrainHere = "There is no Brain here to keep notes in.";
 
+    /// <summary>The code of a To Event refused because the route is not offered:
+    /// the Events area is off, or the host composed no Events.</summary>
+    public const string EventsUnavailableCode = "inbox.events.unavailable";
+
+    /// <summary>To Event while it is not offered. The item is left as it was.</summary>
+    public static readonly Error EventsUnavailable = Error.Validation(
+        EventsUnavailableCode,
+        "To Event is offered only while the Events area is on.");
+
+    /// <summary>The code of a To Event whose event Events did not make.</summary>
+    public const string EventNotMadeCode = "inbox.events.not_made";
+
+    /// <summary>Events refused or failed to make the event. Carries Events' own
+    /// words; the item stays open.</summary>
+    public static Error EventNotMade(string detail) => Error.Validation(
+        EventNotMadeCode,
+        string.IsNullOrWhiteSpace(detail) ? "The event was not made." : $"The event was not made: {detail}");
+
     public static readonly Error AttachmentNotFound = Error.NotFound(
         "inbox.attachment.not_found",
         "That file is not on this item.");

@@ -194,5 +194,6 @@ public sealed class BatchTests
             mergeIntoTask: null!,
             adviseTriage: null!,
             proposeTriagePass: null!,
-            editNote: null!);
+            editNote: null!,
+            routeToEvent: null!);
 }
