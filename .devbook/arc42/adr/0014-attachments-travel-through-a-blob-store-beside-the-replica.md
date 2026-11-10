@@ -199,6 +199,11 @@ then on; the blob is a courier, not a home.
   catches the uploads whose capture never arrived and the deletes that failed,
   with no reaper to run and nothing in the service to trust — the argument local
   ADR 0005 makes for Cosmos TTL, made again for Storage.
+- **A note edit that drops a file releases it**, proposed 2026-11-10 by
+  `.devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md`:
+  the service compares the pushed note's files with the copy it already holds and
+  deletes the blob of each file the edit dropped, by the same own-copy rule. Not
+  built yet.
 
 ## Consequences
 
