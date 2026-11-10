@@ -1,0 +1,129 @@
+@page "/devbook/domain-files"
+
+<PageTitle>Domain files — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain files"
+           Summary="A subpage of Devbook: a file the Domain view has no page of its own for — `actors.md`, `skills.md`, a page a context adds such as an `import.md`, a legacy `index.md` — opened as written (the domain/devbook requirement Any other file opens as written). The unit pages' hero heads it: the file's kind and status as a kicker, its title, the words before its first chapter as the lead, its `related` as links to follow. Each chapter follows under its heading with its markdown and its own `related` where it states one; a typed sub-chapter is a section of its own under its parent."
+           Guidelines="@Rules">
+
+    <Story Name="Actors"
+           Description="An `actors.md` shaped as a real one: a quoted lead with an annotation under it, which the page leaves out, then one chapter per actor. The Klant chapter names a related chapter of its own and holds an untyped sub-chapter, which reads as part of its prose; Rechten holds a table and a typed sub-chapter, drawn as a section nested under it. Following a link names the reference the host would open."
+           Code="@PageCode"
+           Source="@ActorsFile">
+        <DomainFilePage File="@Actors" OnNavigate="Follow" AriaLabel="Actoren" TestId="story-domain-file-actors" />
+        @if (_followed is { } followed)
+        {
+            <p data-testid="story-domain-file-followed">Followed: <code>@followed</code></p>
+        }
+    </Story>
+
+    <Story Name="A page the convention does not name"
+           Description="An `import.md`: its `type` is the file's own word for itself, so the kicker reads it; its chapters state no type and are read in file order."
+           Code="@PageCode"
+           Source="@ImportFile">
+        <DomainFilePage File="@Import" AriaLabel="Import" TestId="story-domain-file-import" />
+    </Story>
+
+    <Story Name="No title"
+           Description="A file with no title is named by its file name, and so is its kind; what it says is all lead."
+           Code="@PageCode"
+           Source="@LooseFile">
+        <DomainFilePage File="@Loose" AriaLabel="index" TestId="story-domain-file-loose" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the page wears the unit pages' neutral hero and gold links, and no tone of its own.")
+    ];
+
+    private string? _followed;
+
+    private void Follow(DevbookReference reference) => _followed = reference.Raw;
+
+    private const string ActorsFile = """
+        # Actoren
+
+        ```meta
+        type: actors
+        status: review
+        related: [.devbook/domain/financieel/context.md, .devbook/domain/financieel/dependencies.md]
+        ```
+
+        > Wie er met Financieel werkt. Een actor is een **rol** of een **partij**. Een
+        > rol is een medewerker of klant die in Fincent handelt; een partij is een
+        > persoon of organisatie waar het geld vandaan komt of naartoe gaat.
+
+        ```annotation
+        kind: question
+        body: Is de beoordelaar een eigen actor?
+        ```
+
+        ## Klant
+
+        ```meta
+        type: user
+        related: [.devbook/domain/cross-cutting/actors.md#klant]
+        ```
+
+        De klant van het dossier waarvoor budgetbeheer wordt uitgevoerd. Wie de klant
+        is en waar hij werkt, staat in het gedeelde hoofdstuk
+        [Klant](../cross-cutting/actors.md#klant).
+
+        ### Wat hij ziet
+
+        Zijn overzicht en zijn afschriften.
+
+        ## Rechten
+
+        | Recht | Wie |
+        |---|---|
+        | Te beoordelen | Financieel medewerker |
+        | Inzien | Klant |
+
+        ### Beheerder
+
+        ```meta
+        type: user
+        ```
+
+        Wie de rechten toekent.
+        """;
+
+    private const string ImportFile = """
+        # Import
+
+        ```meta
+        type: import
+        related: [.devbook/domain/financieel/domain.rekeningen.md#rekeningtransactie, .devbook/domain/financieel/flow.lopende-maand.md]
+        ```
+
+        > Alles wat Financieel over de **import** van bestaande dossiers uit het oude
+        > systeem vastlegt staat op deze pagina.
+
+        ## Wat import is
+
+        Bij de import neemt de consulent een dossier over uit het oude systeem naar
+        Fincent zonder de volledige historie mee te slepen.
+
+        ## Uitgangspunten
+
+        - Historische mutaties worden niet geïmporteerd.
+        - Per dossier wordt op cutover een beginsaldo vastgelegd.
+        """;
+
+    private const string LooseFile = """
+        The domain folder's old index: the contexts, in no particular order.
+        """;
+
+    private static readonly DomainChapterFile Actors = DomainUnits.Parse(ActorsFile, ".devbook/domain/financieel/actors.md");
+    private static readonly DomainChapterFile Import = DomainUnits.Parse(ImportFile, ".devbook/domain/financieel/import.md");
+    private static readonly DomainChapterFile Loose = DomainUnits.Parse(LooseFile, ".devbook/domain/index.md");
+
+    private const string PageCode = """
+        <DomainFilePage File="@DomainUnits.Parse(markdown, ".devbook/domain/financieel/actors.md")"
+                        OnNavigate="OpenAsync"
+                        AriaLabel="Actoren" />
+        """;
+}

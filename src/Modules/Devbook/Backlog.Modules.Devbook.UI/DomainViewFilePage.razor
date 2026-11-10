@@ -1,0 +1,138 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's page for a file it has no page of its own for — actors.md,
+    skills.md, a page a context adds such as Fincent's import.md, a legacy
+    index.md (domain/devbook requirement "Any other file opens as written"). It reads the file through the domain store and
+    hands it to the library's DomainFilePage, which draws it as written: title,
+    lead, chapters and the links its `related` names.
+*@
+
+@if (_page is { } opened)
+{
+    <DomainFilePage File="@opened"
+                    OnNavigate="NavigateAsync"
+                    AriaLabel="@(opened.Title.Length > 0 ? opened.Title : "Page")" />
+}
+else if (_problem is not null)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="@DomainViewUnit.Title(DomainViewPage.File)"
+                Description="@_problem"
+                TestId="domain-view-file-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The file, relative to the Domain folder: <c>tasks/actors.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A related link, or a link in the file's prose, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private DomainDevbookStore? _store;
+    private DomainChapterFile? _page;
+    private string? _problem;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        await LoadAsync(clear: true);
+    }
+
+    /// <param name="clear">Whether the page on screen goes while the read runs: yes
+    /// for another file, no for the same file read again after a folder change.</param>
+    private async Task LoadAsync(bool clear)
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            (_page, _problem) = (null, "This host has no domain folder to read the file from.");
+            return;
+        }
+
+        if (clear) (_page, _problem) = (null, null);
+
+        (DomainChapterFile? Page, string? Problem) read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = (null, $"The file could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        (_page, _problem) = read;
+    }
+
+    /// <summary>The file the menu path names, read into chapters, or why there
+    /// is nothing to show. A context's file and one at the Domain folder's root —
+    /// a legacy <c>index.md</c> — read alike.</summary>
+    internal static (DomainChapterFile? Page, string? Problem) Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return (null, error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+
+        // The menu only hands paths inside the folder; a step out of it, or a drive
+        // or stream name, is no file. The store refuses the same at the read.
+        if (relative.Length == 0 || relative.Split('/').Any(segment => segment is ".." or "." || segment.Contains(':')))
+        {
+            return (null, $"No file at {relative}.");
+        }
+
+        var documentPath = ".domain/" + relative;
+        return DomainDevbookStore.ReadText(view, documentPath) is { } text
+            ? (DomainUnits.Parse(text, documentPath), null)
+            : (null, $"No file at {relative}.");
+    }
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync(clear: false);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

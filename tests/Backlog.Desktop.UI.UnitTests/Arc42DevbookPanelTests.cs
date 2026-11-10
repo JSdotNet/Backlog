@@ -714,7 +714,8 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Equal(["0004"], Numbers(component, "supersedes"));
         Assert.Empty(component.FindAll("[data-testid='arc42-record-superseded-by']"));
         Assert.Equal(["0003"], Numbers(component, "builds-on"));
-        Assert.Equal(["0006", "0007"], Numbers(component, "built-on-by"));
+        Assert.Equal(["0006", "0007", "0004"], Numbers(component, "built-on-by"));
+        Assert.Equal(["local", "local", "guideline"], Scopes(component, "built-on-by"));
 
         var builtOnBy = component.FindAll("[data-testid='arc42-record-built-on-by'] [data-testid='arc42-record-chip']");
         Assert.Equal("true", builtOnBy[0].GetAttribute("data-proposed"));
@@ -741,6 +742,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         Assert.Empty(guideline.FindAll("[data-testid='arc42-record-superseded-by']"));
         Assert.Equal(["0005"], Numbers(guideline, "builds-on"));
+        Assert.Equal(["local"], Scopes(guideline, "builds-on"));
 
         await guideline.Find("[data-testid='arc42-record-builds-on'] [data-testid='arc42-record-chip']").ClickAsync(new());
 
@@ -791,8 +793,89 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// Guideline ADRs number from 0001 as the local ones do, so a guideline in the
+    /// chain says so, on the chip and in its accessible name, and the local ADR of the
+    /// same number reads apart from it.
+    /// </summary>
+    [Fact]
+    public async Task A_guideline_in_the_chain_is_told_apart_from_the_local_record_of_its_number()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
+
+        var chips = component.FindAll("[data-testid='arc42-record-chip']");
+        var guideline = chips.Single(chip => chip.GetAttribute("data-scope") == "guideline");
+        Assert.Equal("Guideline ADR 0004 A guideline adopted from elsewhere", guideline.GetAttribute("aria-label"));
+        Assert.Equal("guideline", guideline.QuerySelector(".devbook-record-model__scope")!.TextContent);
+
+        var local = chips.Single(chip => chip.GetAttribute("data-scope") == "local" && chip.TextContent.Contains("0004", StringComparison.Ordinal));
+        Assert.Equal("ADR 0004 An older sync choice", local.GetAttribute("aria-label"));
+        Assert.Null(local.QuerySelector(".devbook-record-model__scope"));
+    }
+
+    /// <summary>
+    /// A TDR's chain is the decisions it names in <c>related:</c>: the one its
+    /// <c>## Origin</c> section says the debt came from as its origin, the rest as
+    /// related, a guideline among them marked as one. A decision the prose names but
+    /// <c>related:</c> does not is no part of it.
+    /// </summary>
+    [Fact]
+    public async Task With_c4_zoom_on_a_debt_record_shows_its_originating_and_related_decisions()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        var asked = new List<DevbookChapterLink>();
+
+        var component = harness.Render(".arc42/tdr/0001-debt.md", asked);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
+
+        Assert.Equal(["0005"], Numbers(component, "origin"));
+        Assert.Equal(["local"], Scopes(component, "origin"));
+        Assert.Equal(["0003", "0004"], Numbers(component, "related"));
+        Assert.Equal(["local", "guideline"], Scopes(component, "related"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-supersedes']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-debt-caused']"));
+
+        await component.Find("[data-testid='arc42-record-origin'] [data-testid='arc42-record-chip']").ClickAsync(new());
+
+        var link = Assert.Single(asked);
+        Assert.EndsWith("adr/0005-replica.md", link.Path, StringComparison.Ordinal);
+    }
+
+    /// <summary>An Origin naming a guideline ADR picks the guideline, not the local
+    /// record of the same number, which the TDR also names.</summary>
+    [Fact]
+    public async Task A_debt_record_whose_origin_names_a_guideline_takes_the_guideline_and_not_its_local_namesake()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(".arc42/tdr/0002-guided.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
+
+        Assert.Equal(["0004"], Numbers(component, "origin"));
+        Assert.Equal(["guideline"], Scopes(component, "origin"));
+        Assert.Equal(["0004"], Numbers(component, "related"));
+        Assert.Equal(["local"], Scopes(component, "related"));
+    }
+
+    /// <summary>A TDR whose <c>related:</c> names no decision says so, even when its
+    /// prose mentions one.</summary>
+    [Fact]
+    public async Task A_debt_record_that_names_no_decision_says_its_chain_is_empty()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(".arc42/tdr/0003-alone.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
+
+        Assert.Single(component.FindAll("[data-testid='arc42-record-chain-empty']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-chip']"));
+    }
+
     /// <summary>A TDR shows the same map, with its severity and where it stands on the
-    /// debt ladder, and no decision chain.</summary>
+    /// debt ladder.</summary>
     [Fact]
     public async Task With_c4_zoom_on_a_debt_record_shows_the_map_with_its_severity_and_lifecycle()
     {
@@ -807,13 +890,15 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         var mobile = component.FindAll("[data-testid='arc42-record-tile']")
             .Single(tile => tile.GetAttribute("data-element") == "backlog.mobile");
         Assert.Equal("decides", mobile.GetAttribute("data-role"));
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-record-chain']"));
     }
 
     private static List<string> Numbers(IRenderedComponent<Arc42DevbookPanel> component, string key) =>
         [.. component.FindAll($"[data-testid='arc42-record-{key}'] [data-testid='arc42-record-chip'] .devbook-record-model__number")
             .Select(chip => chip.TextContent)];
+
+    private static List<string?> Scopes(IRenderedComponent<Arc42DevbookPanel> component, string key) =>
+        [.. component.FindAll($"[data-testid='arc42-record-{key}'] [data-testid='arc42-record-chip']")
+            .Select(chip => chip.GetAttribute("data-scope"))];
 
     private const string ModelDecisionPath = ".arc42/adr/0005-replica.md";
 
@@ -889,7 +974,15 @@ public sealed class Arc42DevbookPanelTests : IDisposable
             "# ADR 0007: A later decision\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe later decision.\n");
         Write("tdr/0001-debt.md",
             "# TDR 0001: The mobile app has no offline queue\n\n```meta\nstatus: planned\nseverity: high\n" +
-            "related: [\".arc42/adr/0005-replica.md\"]\nc4: [backlog.mobile]\n```\n\nThe debt.\n");
+            "related: [\".arc42/adr/0005-replica.md\", \".arc42/adr/0003-store.md\", \".arc42/adr/guidelines/0004-guide.md\", \".arc42/05-building-block-view.md\"]\n" +
+            "c4: [backlog.mobile]\n```\n\nThe debt.\n\n## Origin\n\nLocal ADR 0005 put sync on the replica and left the mobile app without a queue.\n\n" +
+            "## Links\n\n- Local ADR 0003 and guideline ADR 0004.\n");
+        Write("tdr/0002-guided.md",
+            "# TDR 0002: A guideline is not followed yet\n\n```meta\nseverity: low\n" +
+            "related: [\".arc42/adr/0004-older.md\", \".arc42/adr/guidelines/0004-guide.md\"]\n```\n\nThe debt.\n\n" +
+            "## Origin\n\nInherited ADR 0004 asks for something the older sync never did.\n");
+        Write("tdr/0003-alone.md",
+            "# TDR 0003: A debt no decision made\n\n```meta\nseverity: low\n```\n\nThe debt.\n\n## Origin\n\nA shortcut, ADR 0005 aside.\n");
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));

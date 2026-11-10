@@ -227,6 +227,160 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         Assert.DoesNotContain("c4-diagram__boundary--selectable", C4SvgWriter.Write(diagram, "zoom"), StringComparison.Ordinal);
     }
 
+    // ---- nested frames -------------------------------------------------------------
+
+    private static readonly C4LayoutOptions Nested = new() { NestedDeploymentNodes = true };
+
+    private static C4PlacedBoundary Frame(C4Diagram diagram, string label) =>
+        Assert.Single(diagram.Boundaries, boundary => boundary.Label == label);
+
+    private static bool Within(C4PlacedBoundary inner, C4PlacedBoundary outer) =>
+        inner.X > outer.X && inner.Y > outer.Y
+        && inner.X + inner.Width < outer.X + outer.Width
+        && inner.Y + inner.Height < outer.Y + outer.Height;
+
+    private static bool Within(C4PlacedNode card, C4PlacedBoundary frame) =>
+        card.X >= frame.X && card.Y >= frame.Y
+        && card.X + card.Width <= frame.X + frame.Width
+        && card.Y + card.Height <= frame.Y + frame.Height;
+
+    /// <summary>The C4 tab's layout draws only the frame a card sits in directly, so a
+    /// node that holds only other nodes is not drawn. That picture is kept.</summary>
+    [Fact]
+    public void Without_nested_frames_a_node_holding_only_nodes_is_not_drawn()
+    {
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"));
+
+        Assert.DoesNotContain(diagram.Boundaries, boundary => boundary.Label == "Windows PC");
+        Assert.DoesNotContain(C4LayoutEngine.Build(Workspace, View("deployment-azure")).Boundaries, boundary => boundary.Label == "Azure");
+    }
+
+    [Fact]
+    public void With_nested_frames_a_node_holding_only_nodes_is_drawn_round_them()
+    {
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested);
+
+        var pc = Frame(diagram, "Windows PC");
+        Assert.Equal("Deployment Node", pc.Kind);
+        Assert.True(Within(Frame(diagram, "MSIX package"), pc));
+        Assert.True(Within(Frame(diagram, "User-owned root"), pc));
+    }
+
+    /// <summary>Outer first, so an inner frame is painted over the one round it and a
+    /// press inside it reaches the inner node.</summary>
+    [Fact]
+    public void An_outer_frame_is_drawn_before_the_frames_inside_it()
+    {
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-azure"), Nested);
+        var order = diagram.Boundaries.Select(boundary => boundary.Label).ToList();
+
+        Assert.Contains("Azure", order);
+        Assert.True(order.IndexOf("Azure") < order.IndexOf("App Service"));
+        Assert.True(order.IndexOf("Azure") < order.IndexOf("Managed data"));
+    }
+
+    [Fact]
+    public void Each_card_sits_in_its_own_frame_and_sibling_frames_are_apart()
+    {
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested);
+        var msix = Frame(diagram, "MSIX package");
+        var root = Frame(diagram, "User-owned root");
+
+        var desktop = Assert.Single(diagram.Nodes, node => node.Node.Name == "Desktop App");
+        var store = Assert.Single(diagram.Nodes, node => node.Node.Name == "Local Task Store");
+        var clones = Assert.Single(diagram.Nodes, node => node.Node.Name == "Repository working copies");
+
+        Assert.True(Within(desktop, msix) && !Within(desktop, root));
+        Assert.True(Within(store, root) && Within(clones, root) && !Within(store, msix));
+
+        var apart = msix.X + msix.Width <= root.X || root.X + root.Width <= msix.X
+            || msix.Y + msix.Height <= root.Y || root.Y + root.Height <= msix.Y;
+        Assert.True(apart);
+
+        foreach (var boundary in diagram.Boundaries)
+        {
+            Assert.True(boundary.X + boundary.Width <= diagram.Width && boundary.Y + boundary.Height <= diagram.Height);
+        }
+    }
+
+    private const string Deep = """
+        workspace "Deep" "Three levels of node" {
+            !identifiers hierarchical
+            model {
+                backlog = softwareSystem "Prompt Backlog" "" {
+                    cloudDb = container "Cloud Database" "" "Cosmos DB" "Database"
+                    attachments = container "Attachments" "" "Blob"
+                }
+                deploymentEnvironment "Azure" {
+                    azure = deploymentNode "Azure" "" "Azure subscription" {
+                        data = deploymentNode "Managed data" "" "PaaS" {
+                            cosmos = deploymentNode "Azure Cosmos DB" "" "Serverless" {
+                                containerInstance backlog.cloudDb
+                            }
+                            storage = deploymentNode "Azure Storage" "" "Standard LRS" {
+                                containerInstance backlog.attachments
+                            }
+                            keyVault = infrastructureNode "Azure Key Vault" "" "Key Vault"
+                        }
+                    }
+                }
+            }
+            views {
+                deployment backlog "Azure" "deployment-azure" "Cloud" { include * }
+            }
+        }
+        """;
+
+    /// <summary>Every level, however deep: the subscription round the data services,
+    /// the data services round each store, each store round what it runs.</summary>
+    [Fact]
+    public void Every_ancestor_level_is_framed_nested()
+    {
+        var workspace = C4DslReader.Read(Deep);
+        Assert.Empty(workspace.Problems);
+
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!, Nested);
+
+        var azure = Frame(diagram, "Azure");
+        var data = Frame(diagram, "Managed data");
+        var cosmos = Frame(diagram, "Azure Cosmos DB");
+        var storage = Frame(diagram, "Azure Storage");
+        var keyVault = Assert.Single(diagram.Nodes, node => node.Node.Name == "Azure Key Vault");
+
+        Assert.True(Within(data, azure));
+        Assert.True(Within(cosmos, data) && Within(storage, data));
+        Assert.True(Within(Assert.Single(diagram.Nodes, node => node.Node.Name == "Cloud Database"), cosmos));
+        Assert.True(Within(keyVault, data) && !Within(keyVault, cosmos) && !Within(keyVault, storage));
+    }
+
+    /// <summary>A frame of frames is several cards wide already, so it holds two to a
+    /// row rather than the four a frame of cards does, and stays the shape of a pane.</summary>
+    [Fact]
+    public void A_frame_holding_frames_wraps_two_to_a_row()
+    {
+        var workspace = C4DslReader.Read(Deep);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!, Nested);
+
+        var cosmos = Frame(diagram, "Azure Cosmos DB");
+        var storage = Frame(diagram, "Azure Storage");
+        var keyVault = Assert.Single(diagram.Nodes, node => node.Node.Name == "Azure Key Vault");
+
+        Assert.Equal(cosmos.Y, storage.Y);
+        Assert.True(storage.X > cosmos.X + cosmos.Width);
+        Assert.True(keyVault.Y > cosmos.Y + cosmos.Height);
+    }
+
+    [Fact]
+    public void With_nested_frames_the_outer_nodes_are_selectable_too()
+    {
+        var local = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested));
+        var azure = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-azure"), Nested));
+
+        Assert.Contains(Alias("pc"), local);
+        Assert.Contains(Alias("pc.msix"), local);
+        Assert.Contains(Alias("azure"), azure);
+    }
+
     // ---- the tab -------------------------------------------------------------------
 
     private IRenderedComponent<C4ZoomExplorer> RenderOnDeployment()
@@ -359,11 +513,44 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         var explorer = RenderOnDeployment();
 
         var svg = explorer.Find("[data-testid='c4-zoom-diagram'] svg");
-        var frame = explorer.Find("g.c4-diagram__boundary--selectable");
+        var frames = explorer.FindAll("g.c4-diagram__boundary--selectable");
 
-        // The card id contract the viewer reads the alias back out of.
-        Assert.Equal($"{svg.Id}-{Alias("pc.msix")}", frame.Id);
-        Assert.Contains("node", frame.ClassList);
+        // The card id contract the viewer reads the alias back out of - for the node
+        // round the instances and for the machine round those nodes, outer first.
+        Assert.Equal(
+            [$"{svg.Id}-{Alias("pc")}", $"{svg.Id}-{Alias("pc.msix")}", $"{svg.Id}-{Alias("pc.root")}"],
+            frames.Select(frame => frame.Id));
+        Assert.All(frames, frame => Assert.Contains("node", frame.ClassList));
+    }
+
+    /// <summary>A node that holds only other nodes is drawn on the zoom tab, and so can
+    /// be selected: it opens the inspector with everything that runs beneath it.</summary>
+    [Fact]
+    public async Task Selecting_an_outer_node_opens_its_inspector()
+    {
+        var explorer = RenderOnDeployment();
+
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(Alias("pc"), "deployment-local"));
+
+        var inspector = explorer.Find("[data-testid='c4-element-inspector']");
+        Assert.Equal("Windows PC", inspector.QuerySelector("[data-testid='c4-inspector-name']")!.TextContent);
+        Assert.Equal(2, inspector.QuerySelectorAll("[data-testid='c4-deployment-instance']").Length);
+    }
+
+    /// <summary>The C4 tab lays the same view out with no options: still one level of
+    /// frame, the machine round them not drawn.</summary>
+    [Fact]
+    public void The_C4_tab_draws_no_outer_node()
+    {
+        var explorer = _context.Render<C4Explorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.ViewKey, "deployment-local"));
+
+        var names = explorer.FindAll("svg.c4-diagram g.c4-diagram__boundary .c4-diagram__boundary-name")
+            .Select(name => name.TextContent)
+            .ToList();
+
+        Assert.Equal(["MSIX package", "User-owned root"], names);
     }
 
     [Fact]

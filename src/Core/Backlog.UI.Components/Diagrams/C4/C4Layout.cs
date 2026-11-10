@@ -92,6 +92,27 @@ public sealed record C4LayoutOptions(bool GroupBands = false)
     /// size; the Code level asks for one tall enough for the longest member list it
     /// shows.</summary>
     public double? CardHeight { get; init; }
+
+    /// <summary>Whether every deployment node a card sits in is framed, each frame nested
+    /// in the one round it, rather than only the node the card sits in directly. A node
+    /// that holds only other nodes - a machine holding packages, a subscription holding
+    /// services - is otherwise never drawn, so nothing on the picture stands for it.
+    /// Frames of anything else stay one level deep: a system opened up round a container
+    /// opened up would put the whole component view on one row.</summary>
+    public bool NestedDeploymentNodes { get; init; }
+
+    /// <summary>Whether the group bands, with <see cref="GroupBands"/>, sit in one column
+    /// to the right of the rest of the picture, beside what they relate to, as the
+    /// design's landscape draws them - rather than on the rows their relationships rank
+    /// them onto. A band holding a person keeps its place on the top row.</summary>
+    public bool BandsBeside { get; init; }
+
+    /// <summary>The space between two cells in a row, and between two cards in a frame.
+    /// Null keeps the layout's own.</summary>
+    public double? ColumnGap { get; init; }
+
+    /// <summary>The space between two rows. Null keeps the layout's own.</summary>
+    public double? RowGap { get; init; }
 }
 
 /// <summary>Everything needed to draw one view, in one coordinate space.</summary>
@@ -139,8 +160,8 @@ public static class C4LayoutEngine
 {
     private const double DefaultCardWidth = 196;
     private const double DefaultCardHeight = 84;
-    private const double ColumnGap = 44;
-    private const double RowGap = 92;
+    private const double DefaultColumnGap = 44;
+    private const double DefaultRowGap = 92;
     private const double BoundaryPadding = 28;
     private const double BoundaryHeader = 26;
     private const double Margin = 28;
@@ -150,6 +171,11 @@ public static class C4LayoutEngine
     /// is the shape that fits a pane.</summary>
     private const int BoundaryColumns = 4;
 
+    /// <summary>How many children sit in a row inside a frame that holds frames. A frame
+    /// is already several cards wide, so four of them in a row made a subscription a
+    /// strip far wider than any pane; two keeps it the shape the design draws.</summary>
+    private const int NestedColumns = 2;
+
     /// <summary>The space between a group band's edge and the cards it holds, the room
     /// its name takes above them, and the gap between two cards stacked in it. Tighter
     /// than a boundary's: a band is a heading over a short list, not a frame around a
@@ -157,6 +183,12 @@ public static class C4LayoutEngine
     private const double GroupPadding = 14;
     private const double GroupHeader = 22;
     private const double GroupGap = 12;
+
+    /// <summary>The space between two bands stacked beside the picture, and how far the
+    /// column of them stands off what it sits beside, in column gaps: room for the lines
+    /// that run from the system out to each band, as the design's landscape leaves.</summary>
+    private const double BesideBandGap = 24;
+    private const double BesideOffset = 2;
 
     public static C4Diagram Build(C4Workspace workspace, C4View view, C4LayoutOptions? options = null)
     {
@@ -173,11 +205,21 @@ public static class C4LayoutEngine
         // A cell is either one card or one boundary full of cards. Layering happens
         // over cells, so a system that was opened up moves as a whole.
         var card = new CardSize(options.CardWidth ?? DefaultCardWidth, options.CardHeight ?? DefaultCardHeight);
-        var cells = BuildCells(workspace, nodes, elements, options.GroupBands, card);
+        var gaps = new Gaps(options.ColumnGap ?? DefaultColumnGap, options.RowGap ?? DefaultRowGap);
+        var cells = BuildCells(workspace, nodes, elements, options, card, gaps);
         var edges = C4MermaidWriter.VisibleRelationships(workspace, view);
 
-        AssignRanks(cells, edges);
-        Place(cells);
+        // Bands set beside the picture take no row: ranking them would put whatever
+        // they relate to on the rows round them, which is how the system came to sit
+        // under its own capture sources.
+        var beside = options.GroupBands && options.BandsBeside
+            ? cells.Where(cell => cell.Group is not null && !cell.Members.Any(member => member.Node.Kind == C4ElementKind.Person)).ToList()
+            : [];
+        var ranked = beside.Count == 0 ? cells : cells.Except(beside).ToList();
+
+        AssignRanks(ranked, edges);
+        Place(ranked, gaps);
+        PlaceBeside(beside, ranked, edges, gaps);
 
         var placedNodes = new List<C4PlacedNode>();
         var placedBoundaries = new List<C4PlacedBoundary>();
@@ -208,6 +250,20 @@ public static class C4LayoutEngine
                     cell.Y,
                     cell.Width,
                     cell.Height));
+            }
+
+            // The frames nested inside it, outer before inner, so each is painted over
+            // the one round it.
+            foreach (var frame in cell.Frames)
+            {
+                placedBoundaries.Add(new C4PlacedBoundary(
+                    frame.Boundary.Id,
+                    frame.Boundary.Name,
+                    KindLabel(frame.Boundary.Kind),
+                    cell.X + frame.X,
+                    cell.Y + frame.Y,
+                    frame.Width,
+                    frame.Height));
             }
 
             foreach (var member in cell.Members)
@@ -254,6 +310,13 @@ public static class C4LayoutEngine
     /// <summary>The size every card of one layout is placed at.</summary>
     private readonly record struct CardSize(double Width, double Height);
 
+    /// <summary>The space one layout leaves between two cells in a row and between two
+    /// rows.</summary>
+    private readonly record struct Gaps(double Column, double Row);
+
+    /// <summary>A frame nested inside a cell's own, placed relative to the cell.</summary>
+    private sealed record Frame(C4Element Boundary, double X, double Y, double Width, double Height);
+
     private sealed class Member
     {
         public required C4Node Node { get; init; }
@@ -279,6 +342,17 @@ public static class C4LayoutEngine
         public double Y { get; set; }
         public int Rank { get; set; }
         public HashSet<string> Ids { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>With nested deployment nodes, what a frame holds before it is
+        /// flattened: a cell per card and a cell per frame inside it, in the order the
+        /// model declared them, each at <see cref="LocalX"/>, <see cref="LocalY"/>
+        /// inside this one.</summary>
+        public List<Cell> Children { get; } = [];
+        public double LocalX { get; set; }
+        public double LocalY { get; set; }
+
+        /// <summary>The frames nested inside this cell's own, outer first.</summary>
+        public List<Frame> Frames { get; } = [];
     }
 
     /// <summary>
@@ -295,9 +369,11 @@ public static class C4LayoutEngine
         C4Workspace workspace,
         IReadOnlyList<C4Node> nodes,
         Dictionary<string, C4Element> elements,
-        bool groupBands,
-        CardSize card)
+        C4LayoutOptions options,
+        CardSize card,
+        Gaps gaps)
     {
+        var groupBands = options.GroupBands;
         var boundaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var element in elements.Values)
@@ -325,6 +401,14 @@ public static class C4LayoutEngine
 
             var element = drawn.GetValueOrDefault(node.Alias) ?? elements.GetValueOrDefault(node.ElementId);
             var parent = element?.ParentId;
+
+            if (parent is not null && boundaries.Contains(parent) && Nests(parent))
+            {
+                var leaf = new Cell();
+                leaf.Members.Add(new Member { Node = node });
+                FrameFor(parent).Children.Add(leaf);
+                continue;
+            }
 
             if (parent is not null && boundaries.Contains(parent))
             {
@@ -362,14 +446,116 @@ public static class C4LayoutEngine
             cells.Add(own);
         }
 
-        foreach (var cell in cells) Size(cell, card);
+        foreach (var cell in cells)
+        {
+            if (cell.Children.Count == 0)
+            {
+                Size(cell, card, gaps);
+                continue;
+            }
+
+            SizeNested(cell, card, gaps);
+            Flatten(cell, cell, 0, 0);
+        }
+
         return cells;
+
+        // A frame is nested only where it and what it sits in are both deployment
+        // nodes; every other frame is drawn the one level deep it always was.
+        bool Nests(string boundaryId) =>
+            options.NestedDeploymentNodes
+            && elements.GetValueOrDefault(boundaryId)?.Kind == C4ElementKind.DeploymentNode;
+
+        // The cell of a nested frame, made the first time a card inside it is met and
+        // put inside the frame round it - or among the top-level cells, where nothing
+        // round it is drawn - so every level keeps the order the model declared.
+        Cell FrameFor(string boundaryId)
+        {
+            if (byBoundary.TryGetValue(boundaryId, out var existing)) return existing;
+
+            var frame = new Cell { Boundary = workspace.Element(boundaryId) };
+            byBoundary[boundaryId] = frame;
+
+            var outer = elements.GetValueOrDefault(boundaryId)?.ParentId;
+            if (outer is not null && boundaries.Contains(outer) && Nests(outer)) FrameFor(outer).Children.Add(frame);
+            else cells.Add(frame);
+
+            return frame;
+        }
+    }
+
+    /// <summary>
+    /// Sizes a frame that holds frames as well as cards, inside out: each child is
+    /// sized first, then the children are wrapped into rows the way a boundary's cards
+    /// are - two to a row where any of them is a frame - each row as tall as its
+    /// tallest child. With cards alone it comes to the same grid <see cref="Size"/>
+    /// lays out.
+    /// </summary>
+    private static void SizeNested(Cell cell, CardSize card, Gaps gaps)
+    {
+        foreach (var child in cell.Children)
+        {
+            if (child.Children.Count > 0)
+            {
+                SizeNested(child, card, gaps);
+            }
+            else
+            {
+                child.Width = card.Width;
+                child.Height = card.Height;
+            }
+        }
+
+        var holdsFrames = cell.Children.Any(child => child.Children.Count > 0);
+        var columns = Math.Min(holdsFrames ? NestedColumns : BoundaryColumns, cell.Children.Count);
+        var y = BoundaryPadding + BoundaryHeader;
+        var widest = 0d;
+
+        foreach (var row in cell.Children.Chunk(columns))
+        {
+            var x = BoundaryPadding;
+
+            foreach (var child in row)
+            {
+                child.LocalX = x;
+                child.LocalY = y;
+                x += child.Width + gaps.Column;
+            }
+
+            widest = Math.Max(widest, x - gaps.Column - BoundaryPadding);
+            y += row.Max(child => child.Height) + gaps.Row / 2;
+        }
+
+        cell.Width = BoundaryPadding * 2 + widest;
+        cell.Height = y - gaps.Row / 2 + BoundaryPadding;
+    }
+
+    /// <summary>Moves a nested frame's cards and frames onto the top-level cell, placed
+    /// relative to it, so the rest of the layout handles it as one cell like any other.</summary>
+    private static void Flatten(Cell top, Cell cell, double x, double y)
+    {
+        foreach (var child in cell.Children)
+        {
+            var childX = x + child.LocalX;
+            var childY = y + child.LocalY;
+
+            if (child.Children.Count > 0)
+            {
+                if (child.Boundary is not null) top.Frames.Add(new Frame(child.Boundary, childX, childY, child.Width, child.Height));
+                Flatten(top, child, childX, childY);
+                continue;
+            }
+
+            var member = child.Members[0];
+            top.Members.Add(new Member { Node = member.Node, OffsetX = childX, OffsetY = childY });
+            top.Ids.Add(member.Node.ElementId);
+        }
     }
 
     /// <summary>Sizes a cell and places its members inside it: a bare card is its own
     /// size, a boundary wraps its cards into a grid with room for its label, and a
     /// group band stacks its cards in one column under its name.</summary>
-    private static void Size(Cell cell, CardSize card)
+    private static void Size(Cell cell, CardSize card, Gaps gaps)
     {
         var (width, height) = (card.Width, card.Height);
 
@@ -406,12 +592,12 @@ public static class C4LayoutEngine
             var column = index % columns;
             var row = index / columns;
 
-            cell.Members[index].OffsetX = BoundaryPadding + column * (width + ColumnGap);
-            cell.Members[index].OffsetY = BoundaryPadding + BoundaryHeader + row * (height + RowGap / 2);
+            cell.Members[index].OffsetX = BoundaryPadding + column * (width + gaps.Column);
+            cell.Members[index].OffsetY = BoundaryPadding + BoundaryHeader + row * (height + gaps.Row / 2);
         }
 
-        cell.Width = BoundaryPadding * 2 + columns * width + (columns - 1) * ColumnGap;
-        cell.Height = BoundaryPadding * 2 + BoundaryHeader + rows * height + (rows - 1) * (RowGap / 2);
+        cell.Width = BoundaryPadding * 2 + columns * width + (columns - 1) * gaps.Column;
+        cell.Height = BoundaryPadding * 2 + BoundaryHeader + rows * height + (rows - 1) * (gaps.Row / 2);
     }
 
     // ---- ranking ---------------------------------------------------------------
@@ -514,7 +700,7 @@ public static class C4LayoutEngine
     /// <summary>Places each row left to right in declaration order, and centres the
     /// rows on each other so the picture reads down a spine rather than off to one
     /// side.</summary>
-    private static void Place(List<Cell> cells)
+    private static void Place(List<Cell> cells, Gaps gaps)
     {
         var rows = cells
             .GroupBy(cell => cell.Rank)
@@ -522,7 +708,7 @@ public static class C4LayoutEngine
             .ToList();
 
         var widths = rows
-            .Select(row => row.Sum(cell => cell.Width) + Math.Max(0, row.Count() - 1) * ColumnGap)
+            .Select(row => row.Sum(cell => cell.Width) + Math.Max(0, row.Count() - 1) * gaps.Column)
             .ToList();
 
         var widest = widths.Count == 0 ? 0 : widths.Max();
@@ -541,10 +727,60 @@ public static class C4LayoutEngine
                 // Cards in a row sit on a shared centre line, so a boundary beside a
                 // single card does not drag that card to the top of the row.
                 cell.Y = y + (tallest - cell.Height) / 2;
-                x += cell.Width + ColumnGap;
+                x += cell.Width + gaps.Column;
             }
 
-            y += tallest + RowGap;
+            y += tallest + gaps.Row;
+        }
+    }
+
+    /// <summary>
+    /// Stacks the bands in one column to the right of the picture, as the design's
+    /// landscape draws them: centred on the cell with the most relationships into them -
+    /// the system the picture is about - and clear of every cell whose rows the column
+    /// spans.
+    /// </summary>
+    private static void PlaceBeside(
+        List<Cell> bands,
+        List<Cell> placed,
+        IReadOnlyList<C4VisibleRelationship> edges,
+        Gaps gaps)
+    {
+        if (bands.Count == 0) return;
+
+        var height = bands.Sum(band => band.Height) + (bands.Count - 1) * BesideBandGap;
+
+        var inBands = new HashSet<string>(bands.SelectMany(band => band.Ids), StringComparer.OrdinalIgnoreCase);
+        var anchor = placed
+            .Select(cell => (Cell: cell, Count: edges.Count(edge =>
+                (cell.Ids.Contains(edge.FromId) && inBands.Contains(edge.ToId))
+                || (cell.Ids.Contains(edge.ToId) && inBands.Contains(edge.FromId)))))
+            .Where(candidate => candidate.Count > 0)
+            .OrderByDescending(candidate => candidate.Count)
+            .Select(candidate => candidate.Cell)
+            .FirstOrDefault();
+
+        var middle = anchor is not null ? anchor.Y + anchor.Height / 2
+            : placed.Count > 0 ? (placed.Min(cell => cell.Y) + placed.Max(cell => cell.Y + cell.Height)) / 2
+            : Margin + height / 2;
+
+        var top = Math.Max(Margin, middle - height / 2);
+        var bottom = top + height;
+
+        var reach = placed
+            .Where(cell => ReferenceEquals(cell, anchor) || (cell.Y < bottom && cell.Y + cell.Height > top))
+            .Select(cell => cell.X + cell.Width)
+            .DefaultIfEmpty(double.NaN)
+            .Max();
+
+        var x = double.IsNaN(reach) ? Margin : reach + gaps.Column * BesideOffset;
+        var y = top;
+
+        foreach (var band in bands)
+        {
+            band.X = x;
+            band.Y = y;
+            y += band.Height + BesideBandGap;
         }
     }
 
@@ -688,9 +924,9 @@ public static class C4LayoutEngine
     /// as a single line to the band.
     /// <para>
     /// <paramref name="Inward"/> when the line runs from the element into the band. Its
-    /// label is the relationships' own when they all say the same thing, and none when
-    /// they differ: a band's line stands for the set, and any one member's wording would
-    /// be wrong for the rest.
+    /// label is the relationships' own when they all say the same thing, and their count
+    /// when they differ: a band's line stands for the set, and any one member's wording
+    /// would be wrong for the rest.
     /// </para>
     /// </summary>
     private sealed record EdgeBundle(Band Band, bool Inward, string? Description, string? Technology);
@@ -739,10 +975,12 @@ public static class C4LayoutEngine
             var descriptions = set.Select(candidate => candidate.Edge.Description).Distinct(StringComparer.Ordinal).ToList();
             var technologies = set.Select(candidate => candidate.Edge.Technology).Distinct(StringComparer.Ordinal).ToList();
 
+            // When the relationships say different things no one wording is right for
+            // the rest, so the line says how many it stands for.
             var bundle = new EdgeBundle(
                 set.Key.Band,
                 set.Key.Inward,
-                descriptions.Count == 1 ? descriptions[0] : null,
+                descriptions.Count == 1 ? descriptions[0] : string.Create(CultureInfo.InvariantCulture, $"{set.Count()} relationships"),
                 technologies.Count == 1 ? technologies[0] : null);
 
             foreach (var candidate in set) bundled[candidate.Edge] = bundle;

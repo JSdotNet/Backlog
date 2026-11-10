@@ -19254,8 +19254,15 @@ select.field__input {
     grid-column: 1;
 }
 
-.c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+/* The steps panel and the selected element's inspector share the column beside the
+   picture, as the design's Dynamic screen keeps them; the inspector never wraps under
+   the picture. On the surface the right-hand column holds both instead. */
+.c4-zoom-explorer--dynamic > .c4-zoom-explorer__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     grid-column: 2;
+    min-width: 0;
 }
 
 .c4-diagram__edge--step path {
@@ -19518,12 +19525,191 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
 }
 
+/* "Decisions on this path": the numbers as compact links, a proposed one marked. */
+.c4-dynamic-steps__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-dynamic-steps__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.c4-dynamic-steps__decisions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-dynamic-steps__decision {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 28px;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-primary);
+    font: inherit;
+    font-family: var(--font-family-mono);
+    cursor: pointer;
+}
+
+.c4-dynamic-steps__decision:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-dynamic-steps__decision:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* A guideline ADR on the path: numbered from 0001 as the local records are, so the
+   chip says which it is before its number. */
+.c4-dynamic-steps__decision-scope {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* .c4-dynamic-steps__decision-chip is drawn as the inspector's record chip is: its
+   rules sit with .c4-element-inspector__chip's. */
+
+/* The view summary: the right-hand panel while nothing is selected. */
+.c4-view-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.c4-view-summary__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-view-summary__kind {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.c4-view-summary__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-view-summary__description {
+    margin: var(--spacing-xs) 0 0;
+    line-height: 1.5;
+}
+
+.c4-view-summary__way {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-view-summary__way:hover {
+    text-decoration: underline;
+}
+
+.c4-view-summary__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-view-summary__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-view-summary__elements {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-view-summary__element {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-view-summary__element:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-view-summary__way:focus-visible,
+.c4-view-summary__element:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-view-summary__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The surface's top row: the overlay switch, at the end, as the design's header
+   carries it. */
+.c4-zoom-explorer__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
 @media (max-width: 60rem) {
     .c4-zoom-explorer--dynamic {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+    .c4-zoom-explorer--dynamic > .c4-zoom-explorer__side {
         grid-column: 1;
     }
 }
@@ -19734,15 +19920,177 @@ select.field__input {
     line-height: 1.4;
 }
 
-.c4-element-inspector__chip {
+/* The record chip, on the inspector's lists and on a dynamic view's steps panel. */
+.c4-element-inspector__chip,
+.c4-dynamic-steps__decision-chip {
     flex: none;
 }
 
 /* A decision still proposed: dashed, as the design draws a choice not yet made. */
-.c4-element-inspector__chip.badge--status-proposed {
+.c4-element-inspector__chip.badge--status-proposed,
+.c4-dynamic-steps__decision-chip.badge--status-proposed {
     background: transparent;
     border: var(--border-width) dashed var(--color-border-strong);
     color: var(--color-text-secondary);
+}
+
+/* The Context screen's "Relationships · n": the other end and what the line says on
+   the left, what it travels over on the right. */
+.c4-element-inspector__relationships {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-element-inspector__relationship {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__relationship-what {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.c4-element-inspector__relationship-end {
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__relationship-says,
+.c4-element-inspector__relationship-tech,
+.c4-element-inspector__on {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* "Show all n" under the first decisions: a quiet link, not a second button row. */
+.c4-element-inspector__more,
+.c4-element-inspector__link {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-element-inspector__more:hover,
+.c4-element-inspector__link:hover {
+    text-decoration: underline;
+}
+
+.c4-element-inspector__more:focus-visible,
+.c4-element-inspector__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The Components screen's debt card: debt on the element itself, drawn whole. */
+.c4-element-inspector__debt-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-error);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-element-inspector__severity {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__severity strong {
+    color: var(--color-error-text);
+}
+
+.c4-element-inspector__debt-title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__debt-summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.c4-element-inspector__ladder {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__rung {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-disabled);
+}
+
+.c4-element-inspector__rung::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border: var(--border-width) solid currentColor;
+    border-radius: 50%;
+}
+
+.c4-element-inspector__rung--done {
+    color: var(--color-text-secondary);
+}
+
+.c4-element-inspector__rung--done::before {
+    background: currentColor;
+}
+
+.c4-element-inspector__rung--current {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__rung--current::before {
+    background: currentColor;
+}
+
+.c4-element-inspector__debt-fact {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.c4-element-inspector__debt-fact--inline {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__debt-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__open {
+    align-self: flex-start;
 }
 
 /* What a deployment node runs, a section of the element inspector. */
@@ -20041,6 +20389,22 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .c4-code__record-title {
     flex: 1;
     line-height: 1.4;
+}
+
+/* The members toggle and the − / Fit / + side by side over the picture. */
+.c4-code__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* A section's own sentence — "Held to a reference" — read as body text rather than
+   as the muted note a section with nothing in it shows. */
+.c4-code__note--body {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
 }
 
 /* Narrow: the type panel goes under the picture rather than squeezing it. */
@@ -23143,6 +23507,56 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-about__link:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* A file the Domain view has no page of its own for, as written (DomainFilePage):
+   the unit pages' hero, then each chapter as a section under its heading. */
+.domain-file__lead > :first-child {
+    margin-top: 0;
+}
+
+.domain-file__lead > :last-child {
+    margin-bottom: 0;
+}
+
+.domain-file__related {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+.domain-file__related-label {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-file__section {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-file__section--nested {
+    padding-left: var(--spacing-md);
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.domain-file__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-file__heading--nested {
+    font-size: var(--font-size-lg);
+}
+
+.domain-file__body {
+    min-width: 0;
 }
 
 .domain-about__section {
@@ -30061,7 +30475,10 @@ button.domain-field-rules[aria-expanded="true"] {
     min-height: 0;
 }
 
-.c4-zoom-explorer__surface--document {
+/* A document, or the Code level, takes both columns beside the navigation: the Code
+   level's type panel is its own right-hand column, so the explorer draws no aside. */
+.c4-zoom-explorer__surface--document,
+.c4-zoom-explorer__surface--code {
     grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
 }
 
@@ -30073,6 +30490,9 @@ button.domain-field-rules[aria-expanded="true"] {
 }
 
 .c4-zoom-explorer__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     align-self: start;
     min-width: 0;
     max-height: 100%;
@@ -30658,7 +31078,8 @@ button.domain-field-rules[aria-expanded="true"] {
     background: var(--color-background-alt);
 }
 
-.c4-zoom-explorer__aside > .c4-element-inspector {
+.c4-zoom-explorer__aside > .c4-element-inspector,
+.c4-zoom-explorer__aside > .c4-dynamic-steps {
     padding: 0;
     border: 0;
     background: none;
@@ -30672,10 +31093,6 @@ button.domain-field-rules[aria-expanded="true"] {
     min-width: 0;
     min-height: 0;
     overflow: auto;
-}
-
-.c4-zoom-explorer__main.c4-zoom-explorer--dynamic {
-    display: grid;
 }
 
 .c4-zoom-explorer--surface .c4-zoom-explorer__head {
@@ -30717,7 +31134,8 @@ button.domain-field-rules[aria-expanded="true"] {
 
 @container c4-zoom-surface (max-width: 60rem) {
     .c4-zoom-explorer__surface,
-    .c4-zoom-explorer__surface--document {
+    .c4-zoom-explorer__surface--document,
+    .c4-zoom-explorer__surface--code {
         grid-template-columns: minmax(0, 1fr);
     }
 
