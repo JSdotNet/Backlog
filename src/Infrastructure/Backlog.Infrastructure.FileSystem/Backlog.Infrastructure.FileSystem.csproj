@@ -44,6 +44,10 @@
          request shape. The published surface only: the adapter answers the Inbox's
          port and asks Tasks through ITaskItems, and needs neither aggregate. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- The cross-context join under Events/ - an event's prep task is filed and its
+         task chips read through Tasks' ITaskItems, to answer Events' IEventTaskTarget.
+         The published surface only (local ADR 0050 §3). -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
          published surfaces and no implementation: the adapter is the only thing in

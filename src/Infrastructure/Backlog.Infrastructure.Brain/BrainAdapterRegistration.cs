@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -20,8 +21,8 @@ public static class BrainAdapterRegistration
     /// <summary>
     /// Registers the Brain's adapters: its settings file, its folder source under
     /// the Brain's port and Devbook's personal-source port, the note writer, the
-    /// backlink and task-link readers, the folder watch, Show hidden, and the
-    /// Inbox's To Brain target. Call after the
+    /// backlink and task-link readers, the folder watch, Show hidden, the
+    /// Inbox's To Brain target, and Events' note-link read. Call after the
     /// <see cref="DevbookDatabaseRefresher"/> is registered, which the watch
     /// resolves; each head starts the watch after <c>Build()</c>.
     /// </summary>
@@ -82,6 +83,11 @@ public static class BrainAdapterRegistration
         // without a Brain, and whichever of the two runs first, this one wins.
         services.Replace(ServiceDescriptor.Scoped<IInboxBrainTarget>(sp =>
             new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>())));
+
+        // Events' note links, read over the Brain's folder and database. Replace, for the
+        // reason above: the Events registration leaves an every-note-missing stand-in.
+        services.Replace(ServiceDescriptor.Singleton<IEventBrainNotes>(sp =>
+            new EventsBrainNotes(sp.GetRequiredService<IBrainFolderSource>())));
 
         return services;
     }

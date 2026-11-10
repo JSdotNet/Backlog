@@ -20,6 +20,7 @@ public static class EventsModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddScoped<Abstractions.IEventsPane, Services.EventsPane>();
 
         return services;
     }

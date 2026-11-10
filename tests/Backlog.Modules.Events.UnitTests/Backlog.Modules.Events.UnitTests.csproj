@@ -4,11 +4,23 @@
     <ProjectReference Include="..\..\src\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
     <ProjectReference Include="..\..\src\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The Events pane's screens, rendered with bUnit over the real pane service. -->
+    <ProjectReference Include="..\..\src\Modules\Events\Backlog.Modules.Events.UI\Backlog.Modules.Events.UI.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- AddEventsModule() is resolved through a real container. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <!-- FakeTimeProvider: "upcoming first" is read off the clock. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="bunit" />
+  </ItemGroup>
+
+  <!-- bUnit's default wait for this process, set before any test runs; the file
+       says why. Linked per project because only the bUnit projects reference bUnit. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
   </ItemGroup>
 
 </Project>

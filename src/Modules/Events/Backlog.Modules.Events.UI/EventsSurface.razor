@@ -1,0 +1,401 @@
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject IEventsPane Pane
+@inject IJSRuntime Js
+
+@*
+    The Events pane as a shell surface (local ADR 0043 §1, §6; .devbook/domain/events/features.md#events-pane):
+    a takeover, in the main window in place of the main view or in a window of its own, offered
+    only while the `events` area is on (local ADR 0050 §6). `event=<id>` opens it on that event.
+
+    The notification centre's shape: a header with Add event, the events grouped by state
+    beside the one picked, which opens in the editor. Adding needs a title alone, so a light
+    entry such as a dotNET Friday is one line; its series is picked from the ones there are,
+    or a new name starts one.
+
+    The list is read on open and after every change the pane makes. A task or the Brain
+    changing underneath reads the open event again, so its chips follow.
+
+    The editor is keyed by the event it shows, so nothing typed into one event's fields or
+    sections is carried to the next; leaving writes what was still waiting. Every write of
+    the pane goes through one queue (EventWriteQueue), so two never overlap.
+
+    Opening the add row puts the focus in its title; closing it puts it back on Add event.
+*@
+
+<section class="events-pane" data-testid="events-pane" aria-labelledby="events-pane-title">
+    <SectionHeader BaseClass="events-pane__header"
+                   TextCssClass="events-pane__heading"
+                   TitleCssClass="events-pane__title"
+                   DescriptionCssClass="events-pane__subtitle"
+                   DescriptionTestId="events-pane-subtitle"
+                   ActionsCssClass="events-pane__header-actions"
+                   TitleId="events-pane-title"
+                   Title="Events"
+                   Description="@Subtitle">
+        <Actions>
+            @if (!_adding)
+            {
+                <AppButton Variant="ButtonVariant.Primary"
+                           TestId="events-add-open"
+                           id="@_addOpenId"
+                           OnClick="OpenAdd">Add event</AppButton>
+            }
+            @if (OnClose.HasDelegate)
+            {
+                <IconButton AriaLabel="Close events"
+                            CssClass="btn--ghost"
+                            TestId="events-pane-close"
+                            OnClick="() => OnClose.InvokeAsync()"><XIcon /></IconButton>
+            }
+        </Actions>
+    </SectionHeader>
+
+    @if (_adding)
+    {
+        <div class="events-pane__add" data-testid="events-add">
+            <TextField Label="Title"
+                       Id="@_addTitleId"
+                       Placeholder="dotNET Friday, 27 November"
+                       @bind-Value="_newTitle"
+                       ErrorMessage="@_addError"
+                       TestId="events-add-title"
+                       @onkeydown="AddKeyAsync" />
+            <Combobox Label="Series"
+                      Placeholder="Optional: pick one, or type a new name"
+                      Options="SeriesOptions"
+                      @bind-Value="_newSeries"
+                      TestId="events-add-series" />
+            <AppButton Variant="ButtonVariant.Primary"
+                       Busy="_saving"
+                       BusyLabel="Adding"
+                       TestId="events-add-confirm"
+                       OnClick="AddAsync">Add</AppButton>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       TestId="events-add-cancel"
+                       OnClick="CancelAdd">Cancel</AppButton>
+        </div>
+    }
+
+    @if (_loadError is not null)
+    {
+        <Alert Message="@_loadError" ActionLabel="Retry" OnAction="LoadAsync" TestId="events-pane-error" />
+    }
+
+    <div class="events-pane__body">
+        @if (!_loaded)
+        {
+            <div class="events-pane__skeleton" aria-hidden="true">
+                <Skeleton Shape="SkeletonShape.Text" Width="60%" />
+                <Skeleton Shape="SkeletonShape.Text" Width="80%" />
+                <Skeleton Shape="SkeletonShape.Text" Width="70%" />
+            </div>
+        }
+        else if (_groups.Count == 0)
+        {
+            <EmptyState Title="No events yet"
+                        Description="Add a conference, a meetup or a training you might go to. A title is enough to start."
+                        TestId="events-pane-none">
+                <Icon><CalendarIcon /></Icon>
+                <Action>
+                    @if (!_adding)
+                    {
+                        <AppButton Variant="ButtonVariant.Primary" TestId="events-pane-none-add" OnClick="OpenAdd">Add an event</AppButton>
+                    }
+                </Action>
+            </EmptyState>
+        }
+        else
+        {
+            <SplitPane CssClass="events-pane__split"
+                       Anchor="SplitPaneAnchor.Start"
+                       FixedWidthRem="24"
+                       MinRem="16"
+                       AriaLabel="Events list width"
+                       TestId="events-pane-split"
+                       SeparatorTestId="events-pane-split-handle">
+                <Start>
+                    <div class="events-pane__list">
+                        <EventList Groups="_groups" SelectedId="_selectedId" OnSelect="SelectAsync" />
+                    </div>
+                </Start>
+                <End>
+                    <div class="events-pane__detail" data-testid="events-pane-detail">
+                        @if (_selected is { } selected)
+                        {
+                            <EventEditor @key="selected.Id"
+                                         Event="selected"
+                                         Writes="_writes"
+                                         OnSaved="SavedAsync"
+                                         OnOpenEvent="SelectAsync"
+                                         Revision="_revision" />
+                        }
+                        else
+                        {
+                            <EmptyState Title="Pick an event"
+                                        Description="Its dates, its decision, its notes and its tasks show here."
+                                        TestId="events-pane-nothing-picked" />
+                        }
+                    </div>
+                </End>
+            </SplitPane>
+        }
+    </div>
+</section>
+
+@code {
+    private readonly EventWriteQueue _writes = new();
+    private readonly string _addOpenId = "events-add-open-" + Guid.NewGuid().ToString("N");
+    private readonly string _addTitleId = "events-add-title-" + Guid.NewGuid().ToString("N");
+    private string? _focusAfterRender;
+    private IReadOnlyList<KnowledgeEventGroupDto> _groups = [];
+    private IReadOnlyList<EventSeriesDto> _series = [];
+    private KnowledgeEventDto? _selected;
+    private Guid? _selectedId;
+    private bool _loaded;
+    private string? _loadError;
+    private int _revision;
+
+    private bool _adding;
+    private bool _saving;
+    private string _newTitle = string.Empty;
+    private string _newSeries = string.Empty;
+    private string? _addError;
+
+    /// <summary>The query last handed in, so a newer jump is noticed.</summary>
+    private IReadOnlyDictionary<string, string>? _query;
+    private Guid? _focusApplied;
+
+    /// <summary>The query the surface was shown with: <c>event</c>, or nothing.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private Guid? FocusEventId =>
+        Query is not null
+        && Query.TryGetValue(EventsSurfaceRegistration.EventKey, out var text)
+        && Guid.TryParse(text, out var id)
+            ? id
+            : null;
+
+    private int Count => _groups.Sum(group => group.Events.Count);
+
+    private string Subtitle => !_loaded
+        ? "Loading…"
+        : Count switch
+        {
+            0 => "Events you might go to, to learn something",
+            1 => "1 event",
+            var count => $"{count} events"
+        };
+
+    private IReadOnlyList<SelectorOption> SeriesOptions =>
+        [.. _series.Select(series => new SelectorOption(series.Name, series.Name, series.Organiser))];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pane.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ReferenceEquals(Query, _query)) return;
+
+        _query = Query;
+        if (_loaded) await ApplyFocusAsync();
+    }
+
+    public void Dispose() => Pane.Changed -= OnChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusAfterRender is not { } id) return;
+
+        _focusAfterRender = null;
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", id, false);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    // A task or the Brain changed underneath: the open event's chips are read again.
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        _revision++;
+        await ReloadSelectedAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _groups = await Pane.ListAsync();
+            _series = await Pane.ListSeriesAsync();
+            _loadError = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _loadError = "The events could not be read: " + exception.Message;
+        }
+
+        _loaded = true;
+        await ApplyFocusAsync();
+    }
+
+    /// <summary>Opens on the event a jump asked for, once per jump.</summary>
+    private async Task ApplyFocusAsync()
+    {
+        if (FocusEventId is not { } focus || focus == _focusApplied) return;
+
+        _focusApplied = focus;
+        await SelectAsync(focus);
+    }
+
+    private async Task SelectAsync(Guid id)
+    {
+        _selectedId = id;
+        await ReloadSelectedAsync();
+    }
+
+    private async Task ReloadSelectedAsync()
+    {
+        if (_selectedId is not { } id) return;
+
+        try
+        {
+            var read = await Pane.GetAsync(id);
+            if (read.IsSuccess)
+            {
+                _selected = read.Value;
+                return;
+            }
+
+            // Gone: deleted on another desktop, or a jump to an id this backlog does not hold.
+            _selected = null;
+            _selectedId = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _loadError = "The event could not be read: " + exception.Message;
+        }
+    }
+
+    /// <summary>A change the editor saved: the event as it now stands, and the list again,
+    /// since its title, dates or state may move it.</summary>
+    private async Task SavedAsync(KnowledgeEventDto saved)
+    {
+        if (saved.Id == _selectedId) _selected = saved;
+
+        try
+        {
+            _groups = await Pane.ListAsync();
+            _series = await Pane.ListSeriesAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _loadError = "The events could not be read: " + exception.Message;
+        }
+    }
+
+    private void OpenAdd()
+    {
+        _adding = true;
+        _addError = null;
+        _focusAfterRender = _addTitleId;
+    }
+
+    private void CancelAdd()
+    {
+        CloseAdd();
+        _newTitle = string.Empty;
+        _newSeries = string.Empty;
+        _addError = null;
+    }
+
+    /// <summary>The row goes with the focus in it, so the focus goes back to Add event.</summary>
+    private void CloseAdd()
+    {
+        _adding = false;
+        _focusAfterRender = _addOpenId;
+    }
+
+    private Task AddKeyAsync(KeyboardEventArgs args) => args.Key == "Enter" ? AddAsync() : Task.CompletedTask;
+
+    /// <summary>Adds a Spotted event. A series name that matches none there is starts a new
+    /// series with that name, after the title is known to be good.</summary>
+    private async Task AddAsync()
+    {
+        if (_saving) return;
+
+        _saving = true;
+        _addError = null;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_newTitle))
+            {
+                // The module's refusal, so the words are the same as anywhere else.
+                var refused = await Pane.AddAsync(_newTitle);
+                _addError = refused.IsFailure ? refused.Error.Message : null;
+                if (refused.IsSuccess) await AddedAsync(refused.Value);
+                return;
+            }
+
+            Guid? seriesId = null;
+            var name = _newSeries.Trim();
+            if (name.Length > 0)
+            {
+                var existing = _series.FirstOrDefault(series => string.Equals(series.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (existing is not null)
+                {
+                    seriesId = existing.Id;
+                }
+                else
+                {
+                    var started = await Pane.StartSeriesAsync(name);
+                    if (started.IsFailure)
+                    {
+                        _addError = started.Error.Message;
+                        return;
+                    }
+
+                    seriesId = started.Value.Id;
+                }
+            }
+
+            var added = await Pane.AddAsync(_newTitle, seriesId);
+            if (added.IsFailure)
+            {
+                _addError = added.Error.Message;
+                return;
+            }
+
+            await AddedAsync(added.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _addError = "The event could not be added: " + exception.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task AddedAsync(KnowledgeEventDto added)
+    {
+        _newTitle = string.Empty;
+        _newSeries = string.Empty;
+        CloseAdd();
+        _selectedId = added.Id;
+        _selected = added;
+        await SavedAsync(added);
+    }
+}
