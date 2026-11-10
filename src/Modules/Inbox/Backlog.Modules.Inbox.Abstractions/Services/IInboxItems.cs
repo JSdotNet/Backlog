@@ -185,6 +185,14 @@ public interface IInboxItems
     /// that say what to do, and the item stays open.</summary>
     Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>To Event: makes the item a Spotted knowledge event in Events, from
+    /// its title, link and found dates and place, and records that it went there.
+    /// Refused with <c>inbox.events.unavailable</c> while the Events area is off;
+    /// a failure on Events' side answers <c>inbox.events.not_made</c> and the item
+    /// stays open.</summary>
+    Task<Result<InboxEventRoutedDto>> RouteToEventAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<InboxEventRoutedDto>>(InboxErrors.EventsUnavailable);
+
     /// <summary>Routes several items as one batch — one plan import whose
     /// entries share a new plan tag. It overloads the single route by name, but
     /// unlike the selection acts above it does not run the single-item command
@@ -313,6 +321,11 @@ public interface IInboxItems
     /// null while the Brain can take a note. Read by the pane on render so To Brain
     /// is shown disabled with its reason rather than refused once pressed.</summary>
     string? BrainUnavailableReason => null;
+
+    /// <summary>Whether To Event is offered: while the Events area is on. Read by
+    /// the pane on render; while false, To Event is not shown at all and its key
+    /// does nothing, because the whole area is withdrawn.</summary>
+    bool ToEventOffered => false;
 
     /// <summary>Whether a triage advisor is registered and can run. Unlike
     /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it

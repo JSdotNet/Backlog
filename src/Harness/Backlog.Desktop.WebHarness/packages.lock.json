@@ -382,6 +382,7 @@
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",

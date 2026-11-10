@@ -454,6 +454,15 @@
                            Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
                            OnClick="State.RouteToBrainAsync"
                            TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
+                @* Only while the Events area is on: off, the whole area is
+                   withdrawn, so the route is not shown at all. *@
+                @if (State.ToEventOffered)
+                {
+                    <AppButton Disabled="@Busy"
+                               Title="@InboxDesktopState.ToEventTitle"
+                               OnClick="State.RouteToEventAsync"
+                               TestId="inbox-to-event"><span class="inbox-pane__decision-label">@InboxDesktopState.ToEventLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">E</kbd></AppButton>
+                }
             }
             <AppButton Disabled="@Busy"
                        Title="File it in one of your lists (l)"
@@ -722,6 +731,8 @@
         { Status: InboxStatus.Deferred } => "Deferred with no review date.",
         { Routing: { Domain: RoutingDomain.Devbook } routing } =>
             $"Kept in your Brain on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
+        { Routing: { Domain: RoutingDomain.Events } routing } =>
+            $"Spotted as an event on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         { Routing: { } routing } =>
             $"Routed to {InboxDesktopState.Counted(routing.TaskIds.Count, "task", "tasks")} on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         _ => InboxLabels.Status(item.Status) + "."

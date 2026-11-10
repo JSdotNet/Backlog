@@ -5,8 +5,8 @@ type: features
 ```
 
 > What Events lets the person do, in the context's own language. What each feature
-> guarantees is in [`requirements.md`](requirements.md). Nothing is built yet, and
-> every feature sits behind the [Events area](context.md#events-area) flag.
+> guarantees is in [`requirements.md`](requirements.md). Only the To Event route is
+> built, and every feature sits behind the [Events area](context.md#events-area) flag.
 
 ## Events pane
 
@@ -72,6 +72,7 @@ writes the verdict.
 type: feature
 feature-flag: .devbook/domain/events/context.md#events-area
 related: [.devbook/domain/events/requirements.md#to-event-route, .devbook/domain/inbox/features.md#route-to-event, .devbook/domain/capture/features.md#event-page-monitor]
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests, unit:dotnet:Backlog.Modules.Events.UnitTests.EventsModuleRegistrationTests.The_published_contract_resolves_over_the_hosts_repositories]
 ```
 
 Discovery runs through the Inbox. A capture source in Capture reads the event
@@ -80,7 +81,12 @@ the person routes it **To Event**, and Events makes it a Spotted knowledge event
 
 The event takes the item's title and link. When the capture found dates and a
 place, they come along with the date source Event page. An item with no dates still
-arrives, and the person fills them in on the event.
+arrives, and the person fills them in on the event. A found date a rule would refuse
+never refuses the route: an end before the start is dropped, and a time with no offset
+keeps its day.
+
+Events takes the route through `IKnowledgeEvents`, its published contract in
+`Backlog.Modules.Events.Abstractions`.
 
 The route is the Inbox's [Route to Event](../inbox/features.md#route-to-event),
 which also picks the event's Series. The watched pages are Capture's

@@ -38,6 +38,7 @@ using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBrain;
+using Backlog.Modules.Inbox.Features.RouteToEvent;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -93,6 +94,10 @@ public static class InboxModuleRegistration
         // To Brain. Its target is an optional constructor parameter, like the
         // drafter: a host without a Brain answers inbox.brain.unavailable.
         services.AddScoped<ICommandHandler<RouteToBrainCommand, Result<InboxBrainRoutedDto>>, RouteToBrainCommandHandler>();
+
+        // To Event, the same way: a host without Events, or with the Events area
+        // off, answers inbox.events.unavailable.
+        services.AddScoped<ICommandHandler<RouteToEventCommand, Result<InboxEventRoutedDto>>, RouteToEventCommandHandler>();
         services.AddScoped<ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>, CreatePlanCommandHandler>();
         services.AddScoped<ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>>, RouteBatchToBacklogCommandHandler>();
 
