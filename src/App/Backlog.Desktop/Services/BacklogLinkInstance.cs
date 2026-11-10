@@ -15,9 +15,14 @@ namespace Backlog.Desktop.Services;
 /// redirected to it and this process ends; when none is, this instance is the one later
 /// links are redirected to, and its own link waits for the main window.
 /// <list type="bullet">
-/// <item>Only a launch that carries a link is redirected. A plain launch starts as it
-/// always did, so nothing about starting the app changes for anyone who never opens a
-/// link.</item>
+/// <item>A plain launch is redirected too (local ADR 0043 §5): closing the main window
+/// keeps the app running in the tray, so a launch from Start brings that hidden window
+/// back rather than starting a second app that competes for the MCP port.</item>
+/// <item>A start by the sign-in startup task opens with the main window hidden
+/// (<see cref="StartedAtSignIn"/>), and one that finds the app already running ends
+/// quietly.</item>
+/// <item>Any other activation — a notification press that starts the process — is
+/// left as it was.</item>
 /// <item>An unpackaged (Debug) build registers no protocol, but reads a
 /// <c>backlog://window/…</c> argument on its command line the same way, so a worktree's
 /// build can be tried without installing a package. Its instance key carries the
@@ -34,12 +39,16 @@ internal static class BacklogLinkInstance
     private static readonly object Gate = new();
     private static readonly List<string> Waiting = [];
     private static BacklogLinkActivation? _activation;
+    private static Action? _showMain;
+
+    /// <summary>True when Windows started this process through the sign-in startup
+    /// task, so the main window is created hidden and the app opens to the tray.</summary>
+    public static bool StartedAtSignIn { get; private set; }
 
     /// <summary>
-    /// Claims this launch: true when its link was handed to the instance already
-    /// running, and this process is to end without starting the app; false when this
-    /// process is to start, its own link — if it has one — waiting for
-    /// <see cref="Attach"/>.
+    /// Claims this launch: true when it was handed to the instance already running,
+    /// and this process is to end without starting the app; false when this process is
+    /// to start, its own link — if it has one — waiting for <see cref="Attach"/>.
     /// </summary>
     public static bool RedirectToRunningInstance()
     {
@@ -48,18 +57,23 @@ internal static class BacklogLinkInstance
             var current = AppInstance.GetCurrent();
             var arguments = current.GetActivatedEventArgs();
             var link = LinkOf(arguments, ownLaunch: true);
+            StartedAtSignIn = arguments.Kind == ExtendedActivationKind.StartupTask;
 
-            // Listening before the key is claimed: a link redirected here the moment it
-            // is would otherwise find no one to hear it.
+            // Listening before the key is claimed: a launch redirected here the moment
+            // it is would otherwise find no one to hear it.
             current.Activated += (_, redirected) =>
             {
                 if (LinkOf(redirected, ownLaunch: false) is { } later) Hand(later);
+                else if (redirected.Kind == ExtendedActivationKind.Launch) ShowMain();
             };
 
             var main = AppInstance.FindOrRegisterForKey(InstanceKey());
             if (!main.IsCurrent)
             {
-                if (link is null) return false;
+                // Already running: a start at sign-in has nothing to add.
+                if (StartedAtSignIn) return true;
+
+                if (link is null && arguments.Kind != ExtendedActivationKind.Launch) return false;
 
                 // The running instance may bring its new window to the front: Windows
                 // grants the foreground only to a process the foreground one names.
@@ -84,18 +98,34 @@ internal static class BacklogLinkInstance
     }
 
     /// <summary>Hands every link that arrived so far, and every later one, to
-    /// <paramref name="activation"/>.</summary>
-    public static void Attach(BacklogLinkActivation activation)
+    /// <paramref name="activation"/>, and every later plain launch to
+    /// <paramref name="showMain"/>.</summary>
+    public static void Attach(BacklogLinkActivation activation, Action showMain)
     {
         string[] waiting;
         lock (Gate)
         {
             _activation = activation;
+            _showMain = showMain;
             waiting = [.. Waiting];
             Waiting.Clear();
         }
 
         foreach (var link in waiting) activation.Activate(link);
+    }
+
+    /// <summary>A plain launch redirected here: the main window comes back. One that
+    /// arrives before <see cref="Attach"/> needs nothing, since the window this
+    /// instance is about to open is shown anyway.</summary>
+    private static void ShowMain()
+    {
+        Action? showMain;
+        lock (Gate)
+        {
+            showMain = _showMain;
+        }
+
+        showMain?.Invoke();
     }
 
     private static void Hand(string link)
