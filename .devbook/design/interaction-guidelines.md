@@ -775,7 +775,7 @@ question. Below it the workspace shows exactly one **main view**, unless a
 | Region | Answers | Holds |
 |---|---|---|
 | Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
-| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about; then the **Settings** gear. |
 
@@ -796,6 +796,7 @@ as its kind:
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
+| Events toggle | `Events`, after the Devbook, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
 | Goals group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight; it always renders. |
 | Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag, rendered while one of them is offered. |
 
@@ -816,11 +817,13 @@ as its kind:
 - **Remaining takeovers:** **Atlas** is under `atlas-lobes` ([Lobes
   atlas](../domain/brain/features.md#lobes-atlas)). **Notifications** opens the
   notification centre and wears the count of questions waiting, in the
-  question's gold, and no count while none wait.
+  question's gold, and no count while none wait. Each takeover a module
+  registers that the header does not place itself draws after the Devbook, in
+  its registered order. Today that is Events.
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, view switch and Devbook toggle MUST sit at the tighter `spacing-xs` gap. |
+| The workspace cluster sits close | The Inbox toggle, view switch, Devbook toggle and Events toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
 | Every way back works | A takeover MUST close on Escape, its close button and a second press of its option. |
 | The atlas returns where it was opened | The **Atlas** takeover's Escape, close button and second press MUST return to the surface it opened over. |
@@ -839,7 +842,8 @@ as its kind:
 | Views and work lead with a glyph | Each view-switch option and Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
-  navigation gap, so the Inbox and the Devbook read as belonging to the views.
+  navigation gap, so the Inbox, the Devbook and Events read as belonging to the
+  views.
 - **A takeover hides, it does not close:** closing it shows the view as it was.
   The Devbook is a takeover.
 - **Every way back works:** pressing a view option during a takeover MUST close

@@ -127,14 +127,25 @@ Enforced at: `LinkHarvestTask()`, `LinkTask()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.Linking_a_note_twice_leaves_one_link, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.Linking_a_task_twice_leaves_one_link_whatever_its_purpose, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.A_task_already_linked_for_another_purpose_becomes_the_harvest_task, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.Two_note_links_naming_the_same_note_are_equal_whatever_their_titles, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_brain_note_and_a_talk_note_with_the_same_reference_are_different_notes, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.Two_task_links_naming_the_same_task_are_equal_whatever_their_purposes]
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.Linking_a_note_twice_leaves_one_link, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.Linking_a_task_twice_leaves_one_link_whatever_its_purpose, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.A_task_already_linked_for_another_purpose_becomes_the_harvest_task, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.Two_note_links_naming_the_same_note_are_equal_whatever_their_titles, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_brain_note_and_a_talk_note_with_the_same_reference_are_different_notes, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.Two_task_links_naming_the_same_task_are_equal_whatever_their_purposes, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventRelinkTests.Replacing_with_a_note_already_linked_keeps_it_once]
 ```
 
 An event holds each Note Link and each Event Task Link once, so linking one it already holds changes nothing: a note by its kind and reference whatever its title, a task by its id whatever its purpose.
 The one change is a task held for Prep or Linked: linked again as the harvest task while the event holds none, it becomes the harvest task.
 This is what makes applying an attachment request twice harmless.
 
-Enforced at: `LinkNote()`, `LinkTask()`
+Enforced at: `LinkNote()`, `LinkTask()`, `ReplaceNoteLink()`
+
+### Invariant: Only a linked note is replaced
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventRelinkTests.Replacing_a_note_the_event_does_not_link_is_refused_and_changes_nothing, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventRelinkTests.A_missing_link_is_replaced_in_its_place]
+```
+
+A Note Link is replaced only when the event holds it, and a refused replacement leaves the links as they were (`note_link.not_linked`).
+
+Enforced at: `ReplaceNoteLink()`
 
 ### Invariant: A time carries its UTC offset
 

@@ -36,7 +36,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
-- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). Nothing is built yet.
+- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates and the Events pane, with prep tasks, are built; the To Event route, the harvest task, the Calendar layer and sync are not.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
@@ -148,7 +148,10 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>INotifications| Devbook
     Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 
-    %% Events. Local ADR 0050. Not built.
+    %% Events. Local ADR 0050. Tasks -> Events is built for filing and reading
+    %% tasks by id (IEventTaskTarget, answered by EventsTaskTarget over
+    %% ITaskItems), and stays dashed until completing the harvest task is built.
+    %% The other edges are named and not built.
     %% The Calendar is a layout of the Tasks pane (ADR 0022), so the events layer
     %% lands on Tasks. The two Tasks edges run through different parts. See
     %% .devbook/domain/events/context.md.
@@ -319,8 +322,8 @@ flowchart LR
   neither module references the other. The follow-up is a task, never a session
   request (local ADR 0038 §1).
 - `Events` keeps knowledge events only, attended to learn something
-  (`.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md`). Nothing is
-  built yet. It names what it links by these identities:
+  (`.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md`). It names
+  what it links by these identities:
   - a task by its id;
   - a Brain note by its path from the Brain's root;
   - a Talk note by its Inbox note id.
