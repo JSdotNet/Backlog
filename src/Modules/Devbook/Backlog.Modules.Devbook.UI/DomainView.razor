@@ -7,7 +7,8 @@
     switch. It names the page the selected menu row opens and draws it: Context
     map, Domain, Context, Features, Requirements, Model and Flow; any other file
     — actors.md, skills.md, a page a context adds — as written; and a
-    placeholder when no row is selected. With the switch off the pane renders
+    placeholder when no row is selected. Above the page, the Demo strip for
+    whatever demos it owns. With the switch off the pane renders
     DomainDevbookPanel and never this.
 
     Every page reads the same Brain and task links, cascaded as DomainChapterLinks:
@@ -20,6 +21,9 @@
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
+@* Above every page, once: a page's demo is the same Demo button wherever it is
+   drawn, and it draws nothing on a page that owns none. *@
+<DomainViewDemos RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
 <CascadingValue Value="@Links" IsFixed="false">
     @if (Page == DomainViewPage.ContextMap)
     {
