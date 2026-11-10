@@ -171,6 +171,9 @@
             _writing = false;
         }
 
+        // The goal the module answered with shows now, with the picker closed, while the
+        // goals are read again.
+        StateHasChanged();
         await ReadAsync();
     }
 
