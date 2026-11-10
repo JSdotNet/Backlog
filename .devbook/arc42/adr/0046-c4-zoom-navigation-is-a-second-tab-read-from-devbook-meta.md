@@ -39,7 +39,7 @@ move between levels.
 
 **The C4 tab lists views; it does not navigate them.** With `c4-diagrams` on, the
 **C4** tab shows the model, kept as Structurizr DSL in
-`.devbook/arc42/workspace.dsl`, one view at a time, and links a view to the
+`workspace.dsl` under `.devbook/arc42/`, one view at a time, and links a view to the
 chapters that document it. Before devbook's contract 33 the model sat under
 `.devbook/arc42/_c4/`. A reader who wants the containers of a system, then the
 components of one container, picks each view by name. Nothing says that the second
@@ -70,7 +70,7 @@ after it is drawn.
 flowchart LR
     DSL["workspace.dsl: the model"] --> S["Architecture surface"]
     M["Chapter fields: c4, c4-touches, severity, code"] --> S
-    E["Chapter embeds: ![…](c4:key)"] --> S
+    E["Chapter embeds: ![…](c4:<key>)"] --> S
     J["_c4/references.json, retiring"] -.-> S
     SRC["C# source in a building block's code folders"] --> R["Roslyn syntax trees, on demand"]
     R --> S
