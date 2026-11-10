@@ -15,10 +15,22 @@ there with its `{ticket}` filled in and `{title}` left for the session. The plan
 knows each session's entry by the brief's first line, so that line keeps its shape.
 
 **Talking to an entry session.** Every message to one — a gate's answer, a fix pass, a resume —
-goes by `SendMessage` to its `local_…` id with `notify_when_idle: true` in the same call; after
-`start_session`, send one with that and no message. `wake_when_done` wakes the orchestrator
-only once every sibling still working has ended its turn too, so without it a session's return
-waits on the slowest.
+goes by `SendMessage` to its `local_…` id, or a fallback's agent id. `notify_when_idle` is
+refused for these sessions, so `wake_when_done` is what wakes the orchestrator: only once every
+sibling still working has ended its turn too, so a session's return waits on the slowest.
+
+**Fallback.** The host refuses `start_session` on a turn the person neither typed nor chained
+to by finished sessions — a wake-up, a task notification, any turn of a session another
+started. *Attended*, propose the entry as a session card the person starts, `transition` it back to the
+status Dispatch moved it from, and list it at Stop as waiting on the person's click. *Unattended*, start
+the same brief as a background sub-agent: `general-purpose`, in its own worktree, the session
+title as its description, the prompt unchanged. The engine runs no flow as a sub-agent because
+a sub-agent cannot hold Personal Validation; unattended, no one holds it anyway, so the entry
+parks at its first gate as the engine's own sub-agent rule says and lands the draft. Its final
+message is its return, its completion wakes the orchestrator, and its worktree is the
+`git worktree list --porcelain` row on `<entry-branch>`. It is no session: `list_sessions` and
+`list_events` never show it, its flow's usage is counted in the orchestrator's session, and
+the host has no row to open or archive.
 
 ---
 

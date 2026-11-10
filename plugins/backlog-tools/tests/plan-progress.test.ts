@@ -424,6 +424,53 @@ test('a send_message to a stopped session sets it running again', { plugins: [PE
   expect((await workerOf($))?.state).toBe('running')
 })
 
+// The fallback for a start the host refused: the same brief, run as a background sub-agent.
+test('a sub-agent with a brief is a worker keyed by its agent id, and its return sets its state', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
+  let spawned = 0
+  on('agent.spawn', () => ({ model: 'x', agentId: `agent-${++spawned}` }))
+  on('turn.complete', () => ({ text: '' }) as never)
+
+  await $.agent.spawn({ prompt: 'Look into the flaky test.' } as never)
+  expect(await workersOf($)).toEqual([])
+
+  await $.agent.spawn({ prompt: BRIEF, description: '+demo:2 - Second prompt' } as never)
+  let w = await workerOf($)
+  expect([w?.sessionId, w?.entryId, w?.n, w?.state]).toEqual(['agent-2', 'b2', 2, 'running'])
+
+  await $.turn.complete({ agentId: 'agent-1', answer: 'gate' } as never)
+  expect((await workerOf($))?.state).toBe('running')
+  await $.turn.complete({ agentId: 'agent-2', answer: 'gate\nReview at http://localhost:5173.' } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+
+  // The answer at its gate goes back by SendMessage to the agent, which sets it working again.
+  await $.tool.call({ tool: 'SendMessage', to: 'agent-2', message: 'approved' } as never)
+  expect((await workerOf($))?.state).toBe('running')
+
+  await $.turn.complete({ agentId: 'agent-2', answer: 'pr https://github.com/o/r/pull/9' } as never)
+  w = await workerOf($)
+  expect([w?.state, w?.note]).toEqual(['pr', 'https://github.com/o/r/pull/9'])
+  await $.turn.complete({ agentId: 'agent-2', isAborted: true, answer: '' } as never)
+  expect((await workerOf($))?.state).toBe('stopped')
+})
+
+test('a sub-agent worker’s own call names its worktree, so that worktree’s runs fill its stages', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
+  on('agent.spawn', () => ({ model: 'x', agentId: 'agent-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  // Another agent's call, or one naming no worktree, sets nothing.
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'agent-9', worktree: 'D:/elsewhere' } as never)
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'agent-1' } as never)
+  expect((await workerOf($))?.worktree).toBe('')
+
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'agent-1', worktree: WORKTREE, skillId: 'flow-code' } as never)
+  expect((await workerOf($))?.worktree).toBe(WORKTREE)
+
+  await $.tool.call({ tool: 'mcp__backlog__list_runs', worktree: WORKTREE } as never)
+  expect((await workerOf($))?.stages).toEqual(['Scope', 'Implement', 'Build & Test', 'Personal Validation'])
+})
+
 // The session's state outlives a reload of the plugin's code: after /reload-plugins the module
 // meets the workers an older release stored, keyed on `agentId`, with no session or worktree.
 // This plugin turns the first worker written into one of those.
