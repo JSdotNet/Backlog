@@ -181,7 +181,7 @@ flowchart LR
 | Repository Management | The pull request contract (`.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
-| Events | A read contract in `Backlog.Modules.Events.Abstractions` that answers the decided events and their key dates, under `.devbook/domain/events/domain.md#knowledge-event` (local ADR 0050; not built) | Tasks, through an adapter, for the Calendar's events layer |
+| Events | The events read contract: the port in `Backlog.Modules.Events.Abstractions` that answers the decided events and their key dates, under `.devbook/domain/events/domain.md#knowledge-event` (local ADR 0050; not built) | Tasks, through an adapter, for the Calendar's events layer |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
