@@ -36,11 +36,12 @@ public sealed record CapturedEntry(
 }
 
 /// <summary>
-/// The capture facts an import manifest carries beside an item's text (local
-/// ADR 0017): what it is, how it was labelled, who shared it, and where it is
-/// to be filed. Carried through the run untouched — the run decides none of
-/// them, and the receiving side is the one that knows what a content kind or a
-/// list is.
+/// The capture facts a source states beside an item's text. An import
+/// manifest (local ADR 0017) says what it is, how it was labelled, who shared
+/// it, and where it is to be filed; an event page says when and where its
+/// edition is, on <see cref="Event"/>. Carried through the run untouched — the
+/// run decides none of them, and the receiving side is the one that knows
+/// what a content kind, a list or an edition is.
 /// </summary>
 /// <param name="ContentKind">The content kind the source stated, as its slug.
 /// Null to let the receiving side read the kind off the capture itself.</param>
@@ -53,4 +54,11 @@ public sealed record CaptureFacts(
     string? ContentKind,
     IReadOnlyList<string> Tags,
     string? Person,
-    string? List);
+    string? List)
+{
+    /// <summary>What an event page read about the edition — its dates, its
+    /// place, the page it came from. Null for every other source. An init
+    /// property rather than a fifth parameter, so the import's facts are
+    /// written exactly as before.</summary>
+    public CaptureEventFacts? Event { get; init; }
+}

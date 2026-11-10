@@ -2,6 +2,7 @@
 @inject ICaptureSourceSettings Settings
 @inject ICaptureRunLog Log
 @inject ICaptureRunner Runner
+@inject ICaptureSourceAvailability Availability
 
 @*
     The sources panel: which sources the Inbox's Capture button looks at, what
@@ -27,6 +28,11 @@
     Import. There is no switch, because an import is run with a file rather
     than watched.
 
+    Only the offered sources are laid out and counted. The event page source
+    belongs to the Events area and is withdrawn while its flag is off; what is
+    stored for it is kept, not shown, and it comes back as it was left when the
+    area is switched on — the panel redraws on that too.
+
     The Inbox pane never sees this component. It offers a slot and the shell
     fills it, so the Inbox stays free of Capture's types the way the module
     boundary tests require.
@@ -40,7 +46,7 @@
     </p>
 
     <div class="capture-sources__grid">
-        @foreach (var kind in CaptureSourceKinds.Monitorable)
+        @foreach (var kind in OfferedKinds)
         {
             var slug = CaptureSourceKinds.Slug(kind);
             var source = Settings.Current.For(kind);
@@ -140,16 +146,24 @@
         SyncDrafts();
         Settings.Changed += HandleChanged;
         Log.Changed += HandleChanged;
+        Availability.Changed += HandleChanged;
     }
 
+    /// <summary>The monitorable sources offered on this device now, in the
+    /// vocabulary's order.</summary>
+    private List<CaptureSourceKind> OfferedKinds => [.. CaptureSourceKinds.Monitorable.Where(Availability.IsOffered)];
+
     /// <summary>"2 of 3 sources on" at the top, so the panel says at a glance
-    /// whether Capture will do anything.</summary>
+    /// whether Capture will do anything. Both counts are of the offered
+    /// sources: a withdrawn source switched on is not one Capture will look
+    /// at, so counting it would answer the question wrongly.</summary>
     private string EnabledSummary
     {
         get
         {
-            var on = Settings.Current.Enabled.Count;
-            var all = CaptureSourceKinds.Monitorable.Count;
+            var offered = OfferedKinds;
+            var on = Settings.Current.Enabled.Count(source => offered.Contains(source.Kind));
+            var all = offered.Count;
 
             return on == 0 ? $"None of {all} sources on" : $"{on} of {all} sources on";
         }
@@ -320,6 +334,7 @@
     {
         CaptureSourceKind.YouTube => "New videos on the channels listed below.",
         CaptureSourceKind.Website => "Changes to the pages listed below.",
+        CaptureSourceKind.EventPage => "New editions announced on the event pages listed below.",
         CaptureSourceKind.Email => "Newsletters and summaries from the senders listed below.",
         _ => string.Empty
     };
@@ -328,6 +343,7 @@
     {
         CaptureSourceKind.YouTube => "Channels - one URL per line",
         CaptureSourceKind.Website => "Pages - one URL per line",
+        CaptureSourceKind.EventPage => "Event pages - one URL per line",
         CaptureSourceKind.Email => "Senders - one address per line",
         _ => "Targets - one per line"
     };
@@ -336,6 +352,7 @@
     {
         CaptureSourceKind.YouTube => "https://www.youtube.com/@channel",
         CaptureSourceKind.Website => "https://example.com/blog",
+        CaptureSourceKind.EventPage => "https://dotnetfriday.nl/",
         CaptureSourceKind.Email => "newsletter@example.com",
         _ => string.Empty
     };
@@ -344,17 +361,20 @@
     {
         CaptureSourceKind.YouTube => "channel",
         CaptureSourceKind.Website => "page",
+        CaptureSourceKind.EventPage => "event page",
         CaptureSourceKind.Email => "sender",
         _ => "target"
     };
 
-    /// <summary>Both stores raise from whichever thread wrote them — the run
-    /// log from the run's — and the render is marshalled onto the renderer's.</summary>
+    /// <summary>The stores and the area's flag raise from whichever thread
+    /// wrote them — the run log from the run's — and the render is marshalled
+    /// onto the renderer's.</summary>
     private void HandleChanged() => _ = InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         Settings.Changed -= HandleChanged;
         Log.Changed -= HandleChanged;
+        Availability.Changed -= HandleChanged;
     }
 }

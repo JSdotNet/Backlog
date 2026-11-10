@@ -19,6 +19,7 @@ public static class InboxLabels
         "mobile" => "Mobile",
         "youtube" => "YouTube",
         "website" => "Website",
+        "event_page" => "Event page",
         "email" => "Email",
         "web_clipper" => "Web clipper",
         "ide" => "IDE",

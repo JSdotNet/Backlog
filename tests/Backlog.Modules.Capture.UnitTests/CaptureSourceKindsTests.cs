@@ -22,6 +22,7 @@ public sealed class CaptureSourceKindsTests
     [InlineData(CaptureSourceKind.Ide, "ide")]
     [InlineData(CaptureSourceKind.Manual, "manual")]
     [InlineData(CaptureSourceKind.Import, "import")]
+    [InlineData(CaptureSourceKind.EventPage, "event_page")]
     public void Slugs_match_the_domain_spelling(CaptureSourceKind kind, string slug)
     {
         Assert.Equal(slug, CaptureSourceKinds.Slug(kind));
@@ -40,15 +41,25 @@ public sealed class CaptureSourceKindsTests
         Assert.False(CaptureSourceKinds.TryParse(string.Empty, out _));
     }
 
-    /// <summary>The three a person can point at something and wait on. The
-    /// rest arrive on their own — a share sheet, a clipper, an IDE — and have
-    /// nothing to poll.</summary>
+    /// <summary>The four a person can point at something and wait on, the
+    /// event page beside the website it is a kind of. The rest arrive on their
+    /// own — a share sheet, a clipper, an IDE — and have nothing to poll.</summary>
     [Fact]
-    public void The_monitorable_sources_are_the_three_that_poll()
+    public void The_monitorable_sources_are_the_four_that_poll()
     {
         Assert.Equal(
-            [CaptureSourceKind.YouTube, CaptureSourceKind.Website, CaptureSourceKind.Email],
+            [CaptureSourceKind.YouTube, CaptureSourceKind.Website, CaptureSourceKind.EventPage, CaptureSourceKind.Email],
             CaptureSourceKinds.Monitorable);
+    }
+
+    /// <summary>The kind is stored by its slug, but it was appended rather than
+    /// slotted in beside Website all the same, so a number anything wrote for
+    /// an earlier kind still names that kind.</summary>
+    [Fact]
+    public void The_event_page_kind_was_appended_so_earlier_kinds_keep_their_numbers()
+    {
+        Assert.Equal(7, (int)CaptureSourceKind.Import);
+        Assert.Equal(8, (int)CaptureSourceKind.EventPage);
     }
 
     [Fact]
@@ -59,5 +70,6 @@ public sealed class CaptureSourceKindsTests
         Assert.Equal("Email", CaptureSourceKinds.Label(CaptureSourceKind.Email));
         Assert.Equal("Web clipper", CaptureSourceKinds.Label(CaptureSourceKind.WebClipper));
         Assert.Equal("IDE", CaptureSourceKinds.Label(CaptureSourceKind.Ide));
+        Assert.Equal("Event page", CaptureSourceKinds.Label(CaptureSourceKind.EventPage));
     }
 }
