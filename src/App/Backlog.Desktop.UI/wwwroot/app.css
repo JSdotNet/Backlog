@@ -6559,6 +6559,22 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-background);
 }
 
+/* The Domain view's Demo strip (local ADR 0047), above the page: its buttons in a
+   row, wearing the default control tone
+   (.devbook/design/color-scheme.md#domain-view-element-tones), and each demo
+   shown below them. */
+.domain-view__demos {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.domain-view__demo-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
 .devbook-concerns,
 .devbook-items,
 .devbook-subitems,

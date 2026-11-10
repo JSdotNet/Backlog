@@ -189,7 +189,9 @@ the page it belongs to. It pairs with a page in two ways. By name, `demo.html`
 belongs to the context's boundary document and `<page>.demo.html` to the page
 beside it. By field, a chapter's `demo` metadata names a demo and the places in it
 that show the chapter. The context view shows the context's own demo, and every other
-page shows the demos paired with it.
+page shows the demos paired with it. In the new Domain view each demo is a **Demo**
+button above the page that shows it below when pressed; a page with several names
+each by its file, *Demo · features*.
 
 Each demo runs in a frame of its own, isolated from the app, and can go full
 screen. It keeps its own look, so the pane never forces its dark theme onto it.

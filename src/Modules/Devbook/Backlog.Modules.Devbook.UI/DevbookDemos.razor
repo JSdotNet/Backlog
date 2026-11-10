@@ -48,11 +48,19 @@
         // changed while a demo was still coming off disk must not show the page it
         // left.
         var read = ++_read;
-        var demos = await LoadAsync(Gather(Document, RootPath), Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk);
+        var demos = await ReadAsync(Document, RootPath, Services);
         if (read != _read) return;
 
         _demos = demos;
     }
+
+    /// <summary>
+    /// The page's demos, gathered and read off disk — what this panel and the
+    /// Domain view's Demo strip (local ADR 0047) both show, so the two never
+    /// disagree about which demos a page has.
+    /// </summary>
+    internal static Task<IReadOnlyList<LoadedDemo>> ReadAsync(DomainDevbookDocument document, string? rootPath, IServiceProvider services) =>
+        LoadAsync(Gather(document, rootPath), services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk);
 
     /// <summary>
     /// The page's demos in the order a reader meets them — by name first, then
@@ -113,5 +121,5 @@
 
     internal sealed record GatheredDemo(string Path, string FullPath, List<string> Addresses);
 
-    private sealed record LoadedDemo(string Path, string FullPath, string Html, IReadOnlyList<string> Addresses);
+    internal sealed record LoadedDemo(string Path, string FullPath, string Html, IReadOnlyList<string> Addresses);
 }
