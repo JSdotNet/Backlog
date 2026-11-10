@@ -14,7 +14,7 @@ Every feature here is always on. Why goals and impediments are the model is loca
 ```meta
 type: feature
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalAttachTests]
 ```
 
 ```mermaid
@@ -48,6 +48,8 @@ Beside them sits the [stand-up](#the-stand-up), read over the same windows. The 
 - on Refresh;
 - after each change made in it;
 - whenever goals, impediments or the iteration setting change elsewhere.
+
+After an attach, a move or a detach made in it, a goal shows what it now holds at once, and its counts and pull request statuses follow when the view is read again.
 
 ## Setting a goal
 
