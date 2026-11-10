@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Technology Layer Dependencies",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [1180, 560]
+  },
+  "components": [
+    { "id": "Tooling", "type": "backend", "label": "tooling.md", "pos": [60, 60], "size": [160, 60] },
+    { "id": "Testing", "type": "backend", "label": "testing.md", "pos": [490, 60], "size": [160, 60] },
+    { "id": "Mobile", "type": "frontend", "label": "mobile.md", "pos": [920, 60], "size": [160, 60] },
+    { "id": "AiDev", "type": "backend", "label": "ai-development.md", "pos": [60, 230], "size": [160, 60] },
+    { "id": "Desktop", "type": "frontend", "label": "desktop.md", "pos": [490, 230], "size": [160, 60] },
+    { "id": "Ide", "type": "frontend", "label": "ide.md", "pos": [720, 230], "size": [160, 60] },
+    { "id": "Cloud", "type": "cloud", "label": "cloud.md", "pos": [920, 230], "size": [160, 60] },
+    { "id": "Shared", "type": "database", "label": "shared.md", "pos": [60, 400], "size": [1020, 60] }
+  ],
+  "connections": [
+    { "id": "tooling-aidev", "from": "Tooling", "to": "AiDev", "fromSide": "bottom", "toSide": "top" },
+    { "id": "tooling-shared", "from": "Tooling", "to": "Shared", "label": "depends on", "fromSide": "right", "toSide": "top" },
+    { "id": "aidev-shared", "from": "AiDev", "to": "Shared", "fromSide": "bottom", "toSide": "top" },
+    { "id": "testing-desktop", "from": "Testing", "to": "Desktop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "testing-shared", "from": "Testing", "to": "Shared", "fromSide": "right", "toSide": "top" },
+    { "id": "desktop-shared", "from": "Desktop", "to": "Shared", "fromSide": "bottom", "toSide": "top" },
+    { "id": "shared-desktop", "from": "Shared", "to": "Desktop", "fromSide": "top", "toSide": "bottom" },
+    { "id": "ide-shared", "from": "Ide", "to": "Shared", "fromSide": "bottom", "toSide": "top" },
+    { "id": "cloud-shared", "from": "Cloud", "to": "Shared", "fromSide": "bottom", "toSide": "top" },
+    { "id": "mobile-cloud", "from": "Mobile", "to": "Cloud", "fromSide": "bottom", "toSide": "top" },
+    { "id": "mobile-shared", "from": "Mobile", "to": "Shared", "fromSide": "left", "toSide": "top" },
+    { "id": "shared-mobile", "from": "Shared", "to": "Mobile", "fromSide": "right", "toSide": "right" }
+  ]
+}

@@ -1,15 +1,27 @@
 {
   "schemaVersion": 1,
   "entries": {
-    "606366b0f3498f77d2e028b6db3701d7bcd0e0e66569dc6d6e5cf69a7841485f": {
+    "72785ef2e06cffc2cef9c9b614edd9cc264ae95161a157f4074a58668702335a": {
       "chapter": "technology-graph.md",
-      "ordinal": 1,
+      "ordinal": 2,
       "type": "architecture",
       "quality": "standard",
       "kind": "flowchart",
-      "spec": "technology-graph.1.architecture.standard.json",
-      "specSha256": "7744717af1ea73841d8b1b586b81e21ffc0c79a7cfbeaf131d907485df0b916b",
-      "artifact": "technology-graph.1.architecture.standard.html",
+      "spec": "technology-graph.2.architecture.standard.json",
+      "specSha256": "1870debe507417c804c3fea2607889b0bdc8b0b5ecb67ffc7c4b3479f669063a",
+      "artifact": "technology-graph.2.architecture.standard.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "b01953a33844664b24d44891c647ddebf8ddc817b8b6c5200c88f0486555898f": {
+      "chapter": "technology-graph.md",
+      "ordinal": 1,
+      "type": "architecture",
+      "quality": "showcase",
+      "kind": "flowchart",
+      "spec": "technology-graph.1.architecture.json",
+      "specSha256": "b72e4e58fd1af556b0753ae107d9ad890031855f8382c5aa773db1ebd421e93a",
+      "artifact": "technology-graph.1.architecture.html",
       "checksPassed": 9,
       "checkCount": 9
     }

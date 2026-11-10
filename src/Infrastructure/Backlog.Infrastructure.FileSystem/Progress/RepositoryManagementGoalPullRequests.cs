@@ -90,7 +90,8 @@ public sealed class RepositoryManagementGoalPullRequests(
     /// approvals the base branch requires, null where no rule requires one. A pull request
     /// whose status was not read — remembered merged across a restart, or answered over
     /// REST — has neither checks nor approvals: nothing read says them. The viewer's review
-    /// is requested only on a read status of an open or draft pull request.
+    /// is requested only on a read status of an open or draft pull request. Its title comes
+    /// with every answer.
     /// </summary>
     public static GoalPullRequestDto Map(PullRequestStatus pull)
     {
@@ -105,7 +106,8 @@ public sealed class RepositoryManagementGoalPullRequests(
                 ? new GoalPullRequestChecksDto(checks.Passed, checks.Failed, checks.Pending, pull.FailingCheckNames)
                 : null,
             pull.StatusRead ? new GoalPullRequestApprovalsDto(pull.Approvals.Approvals, pull.Approvals.Required) : null,
-            ReviewRequested: pull.StatusRead && pull.IsOpen && pull.ViewerReviewRequested);
+            ReviewRequested: pull.StatusRead && pull.IsOpen && pull.ViewerReviewRequested,
+            Title: pull.Title);
     }
 
     private IPullRequests? Contract() => pullRequests();

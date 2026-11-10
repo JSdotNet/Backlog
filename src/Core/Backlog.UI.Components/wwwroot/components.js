@@ -7695,6 +7695,227 @@
         }
     };
 
+    /*
+        The C4 zoom tab's viewer.
+
+        Separate from the C4 tab's viewer above on purpose: the two tabs stand side by
+        side until the zoom tab is validated (local ADR 0046), and nothing the zoom tab
+        needs may change how the C4 tab behaves. The C4 tab drills on one press; here
+        one press selects and the zoom is a double-click, the card's Zoom in chip, or
+        Enter.
+
+        Every listener sits on the diagram's own frame, never on the document. Enter
+        and Backspace are moves only while focus is inside the picture, so a reader
+        typing in a field anywhere else in the app is never zoomed anywhere. Backspace
+        is cancelled here rather than from Blazor because a state-bound
+        preventDefault is always one key late.
+
+        The selection ring is a class this viewer puts on the card, the same way the
+        C4 tab's search ring is: the SVG is one string of markup and Blazor leaves it
+        alone while it is unchanged.
+    */
+
+    const zooms = new Map();
+
+    // The reduced-motion listener of each explorer, by its frame id: the function
+    // that removes it.
+    const motionWatches = new Map();
+
+    function zoomNodes(svg) {
+        return Array.from(svg.querySelectorAll('g.node'));
+    }
+
+    function markSelected(svg, alias) {
+        zoomNodes(svg).forEach(group => {
+            const selected = !!alias && nodeAlias(svg, group) === alias;
+            group.classList.toggle('c4-selected', selected);
+            group.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+
+        markRelated(svg, alias);
+    }
+
+    // The relationships into and out of the selected card, lit in the primary
+    // colour with their own arrowhead, and the rest dimmed while a card is
+    // selected. Only a picture written with C4SvgOptions.EdgeEnds names the ends
+    // of its lines, so any other picture is left exactly as drawn.
+    function markRelated(svg, alias) {
+        const ends = svg.querySelectorAll('[data-c4-from]');
+        if (ends.length === 0) return;
+
+        const plain = `url(#${svg.id}-arrow)`;
+        const lit = `url(#${svg.id}-arrow-related)`;
+        ends.forEach(element => {
+            const related = !!alias
+                && (element.getAttribute('data-c4-from') === alias || element.getAttribute('data-c4-to') === alias);
+            element.classList.toggle('c4-diagram__edge--related', related);
+            element.querySelector(':scope > path[marker-end]')?.setAttribute('marker-end', related ? lit : plain);
+        });
+
+        svg.classList.toggle('c4-diagram--focused', !!alias);
+    }
+
+    window.backlogC4Zoom = {
+        /**
+         * Takes over the picture drawn in the frame with this id. Called again on
+         * every new view; the frame stays, its listeners are replaced. `refocus` is
+         * .NET's word that this view was reached by a move made on the picture, so
+         * the keyboard goes back into it; `names` maps each card to its full name,
+         * which the card itself draws cut to fit.
+         */
+        attach(id, reference, viewKey, selectedAlias, refocus, names) {
+            this.dispose(id);
+
+            const frame = document.getElementById(id);
+            const svg = frame?.querySelector('svg');
+            if (!frame || !svg) return false;
+
+            // Every card is a stop on the Tab order, so Enter has something to act
+            // on and a keyboard reader can select without a pointer.
+            zoomNodes(svg).forEach(group => {
+                group.setAttribute('tabindex', '0');
+                group.setAttribute('role', 'button');
+                const alias = nodeAlias(svg, group);
+                const name = names?.[alias] ?? group.querySelector('.c4-diagram__name')?.textContent ?? alias;
+                group.setAttribute('aria-label', name);
+            });
+
+            // The root svg says role="img", which would hide the cards from a
+            // screen reader; the frame names the picture instead.
+            svg.removeAttribute('role');
+
+            markSelected(svg, selectedAlias);
+
+            const state = { frame, svg };
+
+            // The card the first press of a double-click landed on. A double-click
+            // zooms only when both presses were on that card: the first press of a
+            // pair on the Zoom in chip already zoomed, and the second must not land on
+            // whatever card of the next view now sits under the pointer.
+            let pressed = null;
+
+            const send = (method, ...args) => reference?.invokeMethodAsync(method, ...args, viewKey ?? null);
+
+            const cardOf = (target) => target?.closest?.('g.node') ?? null;
+
+            const onClick = (event) => {
+                const group = cardOf(event.target);
+                if (event.detail <= 1) pressed = group;
+                if (!group) return;
+
+                if (event.target.closest('[data-c4-zoom-in]')) {
+                    // Only the first press of a double-click on the chip zooms.
+                    if (event.detail > 1) return;
+                    send('ZoomIn', nodeAlias(svg, group));
+                    return;
+                }
+
+                // Focusing selects, through onFocusIn, so a click and a Tab are one path.
+                group.focus({ preventScroll: true });
+            };
+
+            const onDoubleClick = (event) => {
+                const group = cardOf(event.target);
+                if (!group || group !== pressed || event.target.closest('[data-c4-zoom-in]')) return;
+                send('ZoomIn', nodeAlias(svg, group));
+            };
+
+            const onFocusIn = (event) => {
+                const group = cardOf(event.target);
+                if (!group) return;
+                const alias = nodeAlias(svg, group);
+                markSelected(svg, alias);
+                send('NodeSelected', alias);
+            };
+
+            const onKeyDown = (event) => {
+                if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+                if (event.key === 'Enter') {
+                    const group = cardOf(event.target);
+                    if (!group) return;
+                    event.preventDefault();
+
+                    // A held key is one move, not one per repeat.
+                    if (!event.repeat) send('ZoomIn', nodeAlias(svg, group));
+                    return;
+                }
+
+                if (event.key === 'Backspace') {
+                    event.preventDefault();
+                    if (!event.repeat) send('ZoomOut');
+                }
+            };
+
+            frame.addEventListener('click', onClick);
+            frame.addEventListener('dblclick', onDoubleClick);
+            frame.addEventListener('focusin', onFocusIn);
+            frame.addEventListener('keydown', onKeyDown);
+
+            state.detach = () => {
+                frame.removeEventListener('click', onClick);
+                frame.removeEventListener('dblclick', onDoubleClick);
+                frame.removeEventListener('focusin', onFocusIn);
+                frame.removeEventListener('keydown', onKeyDown);
+            };
+
+            zooms.set(id, state);
+
+            // A move made from the picture keeps the keyboard in it: the new view's
+            // selected card, or the frame when nothing is selected. Without this
+            // Backspace twice would only work once, the focus having gone with the
+            // old picture.
+            if (refocus) {
+                const prefix = svg.id ? svg.id + '-' : '';
+                const target = selectedAlias
+                    ? svg.querySelector(`g.node[id="${CSS.escape(prefix + selectedAlias)}"]`)
+                    : null;
+                (target ?? frame).focus({ preventScroll: true });
+            }
+
+            return true;
+        },
+
+        /**
+         * Whether the reader asks for reduced motion now, and from then on a
+         * `change` listener that tells the explorer when the setting is turned on or
+         * off mid-session. Play walks the steps either way: reduced motion takes the
+         * animation away, never the function (accessibility.md, "Function
+         * preserved"). One listener per explorer; watching again replaces it.
+         */
+        watchReducedMotion(id, dotnet) {
+            const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+            if (!query) return false;
+
+            motionWatches.get(id)?.();
+            const changed = event => {
+                dotnet.invokeMethodAsync('ReducedMotionChanged', !!event.matches).catch(() => { });
+            };
+            query.addEventListener('change', changed);
+            motionWatches.set(id, () => query.removeEventListener('change', changed));
+            return !!query.matches;
+        },
+
+        /** Removes an explorer's reduced-motion listener, when it goes. */
+        unwatchReducedMotion(id) {
+            motionWatches.get(id)?.();
+            motionWatches.delete(id);
+        },
+
+        /** Moves the selection ring without a new picture. */
+        select(id, alias) {
+            const state = zooms.get(id);
+            if (!state) return;
+            markSelected(state.svg, alias);
+        },
+
+        dispose(id) {
+            const state = zooms.get(id);
+            state?.detach?.();
+            zooms.delete(id);
+        }
+    };
+
     // ----- Moving a task between days on the month calendar ---------------
     //
     // The same pointer gesture `taskListDrag` above is, for the same reason: the

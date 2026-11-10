@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "entries": {
-    "190872166c9ae84bbad177b592a503ab3335656ce31b3282ef514c2a8bbc5b16": {
+    "b1c5671b6738a0ee9031e8e07b4f0ecb80c575127cfecce56f1238b930f045cc": {
       "chapter": "context-map.md",
       "ordinal": 1,
       "type": "architecture",
       "quality": "standard",
       "kind": "flowchart",
       "spec": "context-map.1.architecture.standard.json",
-      "specSha256": "a8df503b00c6d82e88ed39d7e793f8d0bee65283abff0f0ea7aab62e64c8e2a1",
+      "specSha256": "c73c23b2f9670078cea659a32f31c3e0c8bf16e84f2006776d4619deedc7b655",
       "artifact": "context-map.1.architecture.standard.html",
       "checksPassed": 9,
       "checkCount": 9

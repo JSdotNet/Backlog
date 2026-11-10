@@ -649,6 +649,8 @@
 
     protected override void OnParametersSet()
     {
+        if (_preview is { } preview && preview.Item != State.SelectedItem?.Id) _preview = null;
+
         if (State.SelectedItem is not { } item) return;
 
         var current = (item.Id, item.DeferredUntil);
@@ -758,9 +760,11 @@
     // which thumbnails have been read, and which row a Retry is running for.
 
     /// <summary>The pictures the capture arrived with, above the body. Each one
-    /// is a button that opens the file, so the picture is the way to the full
-    /// size rather than a dead image. A picture not read yet leaves its tile out
-    /// rather than drawing a broken one; the next render brings it.</summary>
+    /// is a button that opens a preview of the whole picture in the app, so the
+    /// picture is the way to the full size rather than a dead image; the preview
+    /// carries the way out to the machine's own application. A picture not read
+    /// yet leaves its tile out rather than drawing a broken one; the next render
+    /// brings it.</summary>
     private RenderFragment Thumbnails(InboxItemDto item) => @<text>
         @{ var pictures = item.Attachments.Where(InboxDesktopState.ShowsAsThumbnail).ToList(); }
         @if (pictures.Count > 0)
@@ -771,8 +775,8 @@
                     <li class="inbox-pane__thumbnail-item" data-testid="inbox-detail-thumbnail-item">
                         <AppButton Variant="ButtonVariant.None"
                                    BaseClass="inbox-pane__thumbnail-button"
-                                   Title="@($"Open {picture.Name}")"
-                                   OnClick="() => State.OpenAttachmentAsync(picture.Id)"
+                                   Title="@($"Preview {picture.Name}")"
+                                   OnClick="() => _preview = (item.Id, picture.Id)"
                                    TestId="@($"inbox-attachment-thumbnail-{picture.Id:N}")">
                             @if (State.Thumbnail(picture.Id) is { } source)
                             {
@@ -786,8 +790,55 @@
                     </li>
                 }
             </ul>
+
+            @* Keyed by the picture's id and looked up in this item, so choosing
+               another item closes the preview rather than showing a stranger's
+               picture. *@
+            var previewed = _preview is { } open && open.Item == item.Id ? pictures.FirstOrDefault(picture => picture.Id == open.Attachment) : null;
+            <Modal Open="@(previewed is not null)"
+                   OnClosed="ClosePreview"
+                   Title="@previewed?.Name"
+                   CssClass="inbox-pane__preview"
+                   BodyCssClass="inbox-pane__preview-body"
+                   TestId="inbox-attachment-preview">
+                <ChildContent>
+                    @if (previewed is not null && State.Thumbnail(previewed.Id) is { } full)
+                    {
+                        <img class="inbox-pane__preview-image" src="@full" alt="@previewed.Name" data-testid="inbox-attachment-preview-image" />
+                    }
+                    else
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="The picture is still loading."
+                               TestId="inbox-attachment-preview-pending" />
+                    }
+                </ChildContent>
+                <Footer>
+                    @if (previewed is not null)
+                    {
+                        <AppButton OnClick="() => OpenPreviewedExternallyAsync(previewed.Id)"
+                                   TestId="inbox-attachment-preview-open">Open in external app</AppButton>
+                    }
+                </Footer>
+            </Modal>
         }
     </text>;
+
+    /// <summary>The picture whose preview is open, with the item it belongs to,
+    /// or null. Choosing another item drops it (<see cref="OnParametersSet"/>),
+    /// so coming back to the item does not reopen a preview left behind.</summary>
+    private (Guid Item, Guid Attachment)? _preview;
+
+    private void ClosePreview() => _preview = null;
+
+    /// <summary>Hands the previewed picture to the machine's own application and
+    /// closes the preview, which has nothing left to show once that app is up.</summary>
+    private async Task OpenPreviewedExternallyAsync(Guid attachmentId)
+    {
+        _preview = null;
+        await State.OpenAttachmentAsync(attachmentId);
+    }
 
     /// <summary>One row per file that is not drawn as a thumbnail: its name and
     /// size, Open when it is on this machine, and Retry with the reason when its

@@ -142,7 +142,237 @@ public sealed class GoalsMapperTests
     {
         var plan = Assert.Single(Map().Goals[0].Plans);
 
-        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2, GoalSubject.ForPlan("bank-integration")), plan);
+        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2, GoalSubject.ForPlan("bank-integration"), Doing: 1), plan);
+    }
+
+    /// <summary>A task in progress and marked <c>blocked:</c> reaches the mapper as Blocked,
+    /// and a plan counts it as that alone, so a row is never both blocked and in progress. A
+    /// mark on a task that has not started arrives apart, as
+    /// <see cref="GoalsTaskCandidate.MarkedBlocked"/>; see <see cref="A_task_stands_on_its_goal_as_the_bar_reads_it"/>.</summary>
+    [Fact]
+    public void An_attached_plan_counts_its_blocked_rows_apart_from_those_in_progress()
+    {
+        var candidates = Candidates with
+        {
+            Tasks =
+            [
+                .. Candidates.Tasks,
+                new(Guid.NewGuid(), "Bank sample files", GoalTaskStatus.Blocked, ["bank-integration"], [], true),
+                new(Guid.NewGuid(), "Statement parser", GoalTaskStatus.ToDo, ["bank-integration"], [], true)
+            ]
+        };
+
+        var plan = Assert.Single(GoalsMapper.Map(StandUp, Summaries, Pulls, candidates).Goals[0].Plans);
+
+        Assert.Equal(new GoalPlanModel("bank-integration", 1, 4, GoalSubject.ForPlan("bank-integration"), Doing: 1, Blocked: 1), plan);
+    }
+
+    /// <summary>The goal's bar reads a task by <c>GoalItems</c>: done by status, then done
+    /// when every linked pull request is answered merged, then blocked by its mark, then its
+    /// status. The rows read it the same way, on a plan's counts and on an attached task. One
+    /// row, attached and filed under the plan, so each case proves both.</summary>
+    [Theory]
+    [InlineData(GoalTaskStatus.ToDo, false, "", "", "", GoalTaskStatus.ToDo)]
+    [InlineData(GoalTaskStatus.Doing, false, "", "", "", GoalTaskStatus.Doing)]
+    [InlineData(GoalTaskStatus.Blocked, true, "", "", "", GoalTaskStatus.Blocked)]
+    [InlineData(GoalTaskStatus.Done, false, "", "", "", GoalTaskStatus.Done)]
+    [InlineData(GoalTaskStatus.ToDo, true, "", "", "", GoalTaskStatus.Blocked)] // marked, not started
+    [InlineData(GoalTaskStatus.Done, true, "", "", "", GoalTaskStatus.Done)] // done outranks the mark
+    [InlineData(GoalTaskStatus.Doing, false, "1,2", "1,2", "", GoalTaskStatus.Done)] // in progress, all merged
+    [InlineData(GoalTaskStatus.ToDo, false, "1", "1", "", GoalTaskStatus.Done)] // not started, all merged
+    [InlineData(GoalTaskStatus.ToDo, true, "1", "1", "", GoalTaskStatus.Done)] // merged outranks the mark
+    [InlineData(GoalTaskStatus.Blocked, true, "1", "1", "", GoalTaskStatus.Done)] // merged outranks the mark
+    [InlineData(GoalTaskStatus.Doing, false, "1,2", "1", "2", GoalTaskStatus.Doing)] // partly merged
+    [InlineData(GoalTaskStatus.ToDo, true, "1,2", "1", "2", GoalTaskStatus.Blocked)] // partly merged, marked
+    [InlineData(GoalTaskStatus.Doing, false, "1,2", "1", "", GoalTaskStatus.Doing)] // merged, one unanswered
+    [InlineData(GoalTaskStatus.ToDo, false, "1", "", "", GoalTaskStatus.ToDo)] // none answered
+    public void A_task_stands_on_its_goal_as_the_bar_reads_it(
+        GoalTaskStatus status, bool marked, string linked, string merged, string open, GoalTaskStatus expected)
+    {
+        var row = new GoalsTaskCandidate(Guid.NewGuid(), "A task", status, ["bank-integration"], [.. Numbers(linked).Select(Linked)], true, marked);
+        var goal = new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [Attached(GoalItemDto.ForPlan("bank-integration")), Attached(GoalItemDto.ForTask(row.Id))]);
+        IReadOnlyList<GoalPullRequestDto> answers =
+        [
+            .. Numbers(merged).Select(number => Answer(number, LinkedPullRequestState.Merged)),
+            .. Numbers(open).Select(number => Answer(number, LinkedPullRequestState.Open))
+        ];
+
+        var card = GoalsMapper.Map(StandUp, [new GoalSummaryDto(goal, new GoalProgressDto(0, 1, 0, 0, 1, 0))], answers, new GoalsCandidates([row], [], [])).Goals[0];
+
+        var plan = Assert.Single(card.Plans);
+        Assert.Equal(
+            (expected == GoalTaskStatus.Done ? 1 : 0, 1, expected == GoalTaskStatus.Doing ? 1 : 0, expected == GoalTaskStatus.Blocked ? 1 : 0),
+            (plan.Done, plan.Total, plan.Doing, plan.Blocked));
+        Assert.Equal(expected, Assert.Single(card.Tasks).Status);
+    }
+
+    /// <summary>The bar tells pull requests apart by <c>GoalItems.Key</c>, regardless of case
+    /// and of a leading <c>#</c>, on the link and on the answer; so do the rows.</summary>
+    [Theory]
+    [InlineData("JSdotNet/Backlog", "1400", "jsdotnet/backlog", "1400")]
+    [InlineData("JSdotNet/Backlog", "#1400", "JSdotNet/Backlog", "1400")]
+    [InlineData("JSdotNet/Backlog", "1400", "JSdotNet/Backlog", "#1400")]
+    public void A_merged_answer_reaches_its_link_however_either_is_spelled(string linkRepository, string linkNumber, string answerRepository, string answerNumber)
+    {
+        var row = new GoalsTaskCandidate(Guid.NewGuid(), "A task", GoalTaskStatus.Doing, ["bank-integration"], [new PullRequestRefDto(linkRepository, linkNumber)], true);
+        IReadOnlyList<GoalPullRequestDto> answers = [new(answerRepository, answerNumber, LinkedPullRequestState.Merged, Oct(14), null, null)];
+
+        var plan = Assert.Single(GoalsMapper.Map(StandUp, Summaries, answers, new GoalsCandidates([row], [], [])).Goals[0].Plans);
+
+        Assert.Equal((1, 0), (plan.Done, plan.Doing));
+    }
+
+    /// <summary>The fix's point: over one set of facts, a plan's row and the bar of a goal
+    /// holding that plan and nothing else say the same thing, each read by its own code.</summary>
+    [Fact]
+    public void A_plans_row_counts_what_the_bar_of_a_goal_holding_it_counts()
+    {
+        (ProgressTaskStatus Status, bool Marked, string[] Linked)[] facts =
+        [
+            (ProgressTaskStatus.Done, false, []),
+            (ProgressTaskStatus.Done, true, []),
+            (ProgressTaskStatus.InProgress, false, []),
+            (ProgressTaskStatus.InProgress, true, []),
+            (ProgressTaskStatus.Ready, false, []),
+            (ProgressTaskStatus.Draft, false, []),
+            (ProgressTaskStatus.Ready, true, []),
+            (ProgressTaskStatus.InProgress, false, ["1", "2"]),
+            (ProgressTaskStatus.Ready, false, ["1"]),
+            (ProgressTaskStatus.Ready, true, ["2"]),
+            (ProgressTaskStatus.InProgress, true, ["1"]),
+            (ProgressTaskStatus.InProgress, false, ["1", "3"]),
+            (ProgressTaskStatus.Ready, true, ["1", "3"]),
+            (ProgressTaskStatus.InProgress, false, ["1", "4"]),
+            (ProgressTaskStatus.Ready, false, ["4"]),
+            (ProgressTaskStatus.InProgress, false, ["#5"]),
+            (ProgressTaskStatus.InProgress, false, ["#582"]),
+            (ProgressTaskStatus.InProgress, false, ["1", "backlog:7"])
+        ];
+        var goal = new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [Attached(GoalItemDto.ForPlan("bank-integration"))]);
+        var ids = facts.Select(_ => Guid.NewGuid()).ToList();
+
+        IReadOnlyList<GoalsTaskCandidate> rows =
+        [
+            .. facts.Select((fact, index) => new GoalsTaskCandidate(
+                ids[index],
+                "A task",
+                RowStatus(fact.Status, fact.Marked),
+                ["bank-integration"],
+                [.. fact.Linked.Select(Stored).Where(Drawable)],
+                true,
+                fact.Marked,
+                [.. fact.Linked.Select(Stored)]))
+        ];
+        IReadOnlyList<ProgressTaskDto> tasks =
+        [
+            .. facts.Select((fact, index) => new ProgressTaskDto(ids[index], "A task", fact.Status, fact.Marked, ["bank-integration"], [], [], null, null, [.. fact.Linked.Select(Stored)]))
+        ];
+        // 1, 2, 5 and 582 merged, 3 open, 4 and backlog's 7 with no answer; 2 and 5 answered in
+        // another spelling than they link.
+        IReadOnlyList<GoalPullRequestDto> answers =
+        [
+            Answer("1", LinkedPullRequestState.Merged),
+            new("jsdotnet/backlog", "2", LinkedPullRequestState.Merged, Oct(14), null, null),
+            Answer("3", LinkedPullRequestState.Open),
+            Answer("5", LinkedPullRequestState.Merged),
+            Answer("582", LinkedPullRequestState.Merged)
+        ];
+
+        var plan = Assert.Single(GoalsMapper.Map(StandUp, [new GoalSummaryDto(goal, new GoalProgressDto(0, 0, 0, 0, 0, 0))], answers, new GoalsCandidates(rows, [], [])).Goals[0].Plans);
+        var bar = GoalItems.Count(GoalItems.Items(goal, [goal], tasks, [.. answers.Select(LinkedPullRequestDto.Of)]));
+
+        Assert.Equal((bar.Done, bar.Total, bar.Doing, bar.Blocked, bar.ToDo), (plan.Counts.Done, plan.Counts.Total, plan.Counts.Doing, plan.Counts.Blocked, plan.Counts.ToDo));
+        // Pinned too, so two readers agreeing on the wrong thing still fails.
+        Assert.Equal((8, 18, 4, 3, 3), (plan.Done, plan.Total, plan.Doing, plan.Blocked, plan.Counts.ToDo));
+    }
+
+    /// <summary>Stored as <c>#582</c>, the link is one the bar reads and the column cannot draw:
+    /// the task stands done on its plan and as attached, the column gains nothing, and the
+    /// one pull request is asked for once, though the task reaches the read twice.</summary>
+    [Fact]
+    public void A_merged_link_spelled_with_a_hash_makes_its_task_done_and_stays_out_of_the_column()
+    {
+        var row = new GoalsTaskCandidate(Guid.NewGuid(), "A task", GoalTaskStatus.Doing, ["bank-integration"], [], true, StoredPullRequests: [Linked("#582")]);
+        var goal = new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [Attached(GoalItemDto.ForPlan("bank-integration")), Attached(GoalItemDto.ForTask(row.Id))]);
+        IReadOnlyList<GoalSummaryDto> summaries = [new GoalSummaryDto(goal, new GoalProgressDto(0, 1, 0, 0, 1, 0))];
+        var candidates = new GoalsCandidates([row], [], []);
+
+        var card = GoalsMapper.Map(StandUp, summaries, [Answer("582", LinkedPullRequestState.Merged)], candidates).Goals[0];
+
+        Assert.Equal((1, 0), (Assert.Single(card.Plans).Done, Assert.Single(card.Plans).Doing));
+        Assert.Equal(GoalTaskStatus.Done, Assert.Single(card.Tasks).Status);
+        Assert.Empty(card.PullRequests);
+        Assert.Equal(["1357", "582"], GoalsMapper.PullRequestsToRead(StandUp, summaries, candidates).Select(pull => pull.Number));
+    }
+
+    /// <summary>A link under a repository that is not <c>owner/name</c> is never answered merged,
+    /// so it holds its task open beside a merged one, as on the bar, though the row cannot draw it.</summary>
+    [Fact]
+    public void A_link_outside_any_owner_and_name_with_no_answer_keeps_its_task_not_done()
+    {
+        var row = new GoalsTaskCandidate(
+            Guid.NewGuid(), "A task", GoalTaskStatus.Doing, ["bank-integration"], [Linked("1")], true,
+            StoredPullRequests: [Linked("1"), new PullRequestRefDto("backlog", "7")]);
+        var goal = new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [Attached(GoalItemDto.ForPlan("bank-integration")), Attached(GoalItemDto.ForTask(row.Id))]);
+
+        var card = GoalsMapper.Map(
+            StandUp,
+            [new GoalSummaryDto(goal, new GoalProgressDto(0, 1, 0, 0, 1, 0))],
+            [Answer("1", LinkedPullRequestState.Merged)],
+            new GoalsCandidates([row], [], [])).Goals[0];
+
+        Assert.Equal((0, 1), (Assert.Single(card.Plans).Done, Assert.Single(card.Plans).Doing));
+        Assert.Equal(GoalTaskStatus.Doing, Assert.Single(card.Tasks).Status);
+    }
+
+    /// <summary>A fact's link as a task stores it: <c>repository:number</c>, else a number in
+    /// JSdotNet/Backlog, spelled as given.</summary>
+    private static PullRequestRefDto Stored(string link) =>
+        link.Split(':') is [var repository, var number] ? new PullRequestRefDto(repository, number) : Linked(link);
+
+    /// <summary>What <c>EntryLinks.PullRequests</c> keeps of a stored link.</summary>
+    private static bool Drawable(PullRequestRefDto link) =>
+        link.Repository.Contains('/', StringComparison.Ordinal) && int.TryParse(link.Number, out _);
+
+    /// <summary>What <c>GoalsCandidateSource</c> gives a row's status: blocked only in progress.</summary>
+    private static GoalTaskStatus RowStatus(ProgressTaskStatus status, bool marked) => status switch
+    {
+        ProgressTaskStatus.Done => GoalTaskStatus.Done,
+        ProgressTaskStatus.InProgress => marked ? GoalTaskStatus.Blocked : GoalTaskStatus.Doing,
+        _ => GoalTaskStatus.ToDo
+    };
+
+    private static IEnumerable<string> Numbers(string list) => list.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+    private static PullRequestRefDto Linked(string number) => new("JSdotNet/Backlog", number);
+
+    private static GoalPullRequestDto Answer(string number, LinkedPullRequestState state) =>
+        new("JSdotNet/Backlog", number, state, state == LinkedPullRequestState.Merged ? Oct(14) : null, null, null);
+
+    /// <summary>No goal lists work in progress: a marked task that has not started is not,
+    /// and stays out however the mark reads on a goal; a marked one in progress still is.</summary>
+    [Fact]
+    public void No_goal_reads_a_tasks_status_and_not_its_mark()
+    {
+        var notStarted = new GoalsTaskCandidate(Guid.NewGuid(), "Marked, not started", GoalTaskStatus.ToDo, [], [], true, MarkedBlocked: true);
+        var inProgress = new GoalsTaskCandidate(Guid.NewGuid(), "Marked, in progress", GoalTaskStatus.Blocked, [], [], true, MarkedBlocked: true);
+
+        var row = Assert.Single(GoalsMapper.Map(StandUp, Summaries, Pulls, new GoalsCandidates([notStarted, inProgress], [], [])).NoGoal);
+
+        Assert.Equal(("Marked, in progress", GoalTaskStatus.Blocked), (row.Title, row.Status));
+    }
+
+    /// <summary>A task whose pull requests all merged stands done on a goal, and its status is
+    /// still open: the attach search goes on offering it, and No goal goes on listing it.</summary>
+    [Fact]
+    public void The_attach_search_and_no_goal_read_a_tasks_status_and_not_its_standing()
+    {
+        var merged = new GoalsTaskCandidate(Guid.NewGuid(), "All merged", GoalTaskStatus.Doing, [], [Linked("1352")], true);
+
+        var board = GoalsMapper.Map(StandUp, Summaries, Pulls, new GoalsCandidates([merged], [], []));
+
+        Assert.Contains(board.Candidates, item => item.Title == "All merged");
+        Assert.Equal(GoalTaskStatus.Doing, Assert.Single(board.NoGoal, item => item.Kind == GoalSubjectKind.Task).Status);
     }
 
     [Fact]
@@ -198,6 +428,58 @@ public sealed class GoalsMapperTests
         Assert.False(pulls[0].ShowsYourReview);
     }
 
+    /// <summary>1352 is the goal's own and no candidate holds it, the way a pull request
+    /// awaiting your review is not among the view's candidates: the read names it.</summary>
+    [Fact]
+    public void A_goals_pull_request_no_candidate_holds_takes_the_title_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1352", LinkedPullRequestState.Open, null, null, null, Title: "Settle by bank transfer")
+        ];
+
+        var pull = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).Goals[0].PullRequests[0];
+
+        Assert.Equal((1352, "Settle by bank transfer"), (pull.Number, pull.Title));
+    }
+
+    [Fact]
+    public void A_candidates_title_stands_over_the_one_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1341", LinkedPullRequestState.Open, null, null, null, Title: "Older words from the read")
+        ];
+
+        var pull = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).Goals[0].PullRequests[1];
+
+        Assert.Equal((1341, "Invoice PDF export"), (pull.Number, pull.Title));
+    }
+
+    /// <summary>1357 is a planned stand-up row no candidate holds: the row keeps the title
+    /// it came with, whatever the read answered.</summary>
+    [Fact]
+    public void A_rows_own_title_stands_over_the_one_the_read_answered()
+    {
+        IReadOnlyList<GoalPullRequestDto> pulls =
+        [
+            new("JSdotNet/Backlog", "1357", LinkedPullRequestState.Draft, null, null, null, Title: "Words from the read")
+        ];
+
+        var row = GoalsMapper.Map(StandUp, Summaries, pulls, Candidates).StandUp.Planned[0].Items[1];
+
+        Assert.Equal((1357, "Payment status webhook"), (row.PullRequest!.Number, row.PullRequest.Title));
+    }
+
+    [Fact]
+    public void A_goals_pull_request_nothing_read_and_no_candidate_holds_has_no_title()
+    {
+        var pull = GoalsMapper.Map(StandUp, Summaries, [], Candidates).Goals[0].PullRequests[0];
+
+        Assert.Equal(1352, pull.Number);
+        Assert.Null(pull.Title);
+    }
+
     [Fact]
     public void A_pull_request_whose_status_was_not_read_draws_unknown()
     {
@@ -238,7 +520,7 @@ public sealed class GoalsMapperTests
     }
 
     [Fact]
-    public void The_attach_search_matches_every_plan_every_open_task_and_every_open_pull_request()
+    public void The_attach_search_matches_every_unfinished_plan_every_open_task_and_every_open_pull_request()
     {
         var candidates = Map().Candidates;
 
@@ -250,6 +532,48 @@ public sealed class GoalsMapperTests
             candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Title));
         var pull = Assert.Single(candidates, item => item.Kind == GoalSubjectKind.PullRequest);
         Assert.Equal((GoalSubject.ForPullRequest("JSdotNet/Backlog", 1341), 1341), (pull.Subject, pull.Number));
+    }
+
+    /// <summary>A finished plan has nothing left to attach to a goal, whichever way its
+    /// entries spell the tag.</summary>
+    [Theory]
+    [InlineData("search-rollout")]
+    [InlineData("+search-rollout")]
+    public void The_attach_search_leaves_out_a_plan_whose_entries_are_all_done(string tag)
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, tag), Entry(GoalTaskStatus.Done, tag));
+
+        Assert.Empty(offered);
+    }
+
+    [Fact]
+    public void The_attach_search_keeps_a_plan_with_an_open_entry()
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, "search-rollout"), Entry(GoalTaskStatus.Doing, "+search-rollout"));
+
+        Assert.Equal([GoalSubject.ForPlan("search-rollout")], offered);
+    }
+
+    [Fact]
+    public void The_attach_search_keeps_a_plan_with_no_entries()
+    {
+        var offered = PlansOffered(Entry(GoalTaskStatus.Done, "another-plan"));
+
+        Assert.Equal([GoalSubject.ForPlan("search-rollout")], offered);
+    }
+
+    private static GoalsTaskCandidate Entry(GoalTaskStatus status, string planTag) =>
+        new(Guid.NewGuid(), "An entry", status, [planTag], [], true);
+
+    /// <summary>The plans the attach search offers when the shell lists one plan and these
+    /// entries.</summary>
+    private static List<GoalSubject> PlansOffered(params GoalsTaskCandidate[] entries)
+    {
+        var candidates = Candidates with { Tasks = entries, Plans = ["search-rollout"] };
+
+        return [.. GoalsMapper.Map(StandUp, Summaries, Pulls, candidates).Candidates
+            .Where(item => item.Kind == GoalSubjectKind.Plan)
+            .Select(item => item.Subject)];
     }
 
     [Fact]
@@ -344,6 +668,44 @@ public sealed class GoalsMapperTests
         Assert.Equal(
             ["1352", "1341", "1357", "1362"],
             refs.Select(pull => pull.Number));
+    }
+
+    /// <summary>A plan's rows are counted by their pull requests, so those are read too:
+    /// after the rest, which keep their order, and each once, however a link spells it.</summary>
+    [Fact]
+    public void The_pull_requests_a_plans_rows_link_are_read_last()
+    {
+        var candidates = Candidates with
+        {
+            Tasks =
+            [
+                .. Candidates.Tasks,
+                new(Guid.NewGuid(), "Bank sample files", GoalTaskStatus.Doing, ["bank-integration"], [Linked("1400"), Linked("1341"), Linked("1401")], true),
+                new(Guid.NewGuid(), "Statement parser", GoalTaskStatus.ToDo, ["+bank-integration"], [Linked("1401"), Linked("#1402"), new PullRequestRefDto("jsdotnet/backlog", "1400")], true),
+                new(Guid.NewGuid(), "Filed elsewhere", GoalTaskStatus.ToDo, ["devbook-search"], [Linked("1499")], true)
+            ]
+        };
+
+        var refs = GoalsMapper.PullRequestsToRead(StandUp, Summaries, candidates);
+
+        Assert.Equal(["1352", "1341", "1357", "1400", "1401", "1402"], refs.Select(pull => pull.Number));
+    }
+
+    /// <summary>Read to count them, not to show them: the Pull requests column stays its
+    /// own and those of its attached tasks.</summary>
+    [Fact]
+    public void The_pull_requests_a_plans_rows_link_do_not_join_the_cards_column()
+    {
+        var candidates = Candidates with
+        {
+            Tasks = [.. Candidates.Tasks, new(Guid.NewGuid(), "Bank sample files", GoalTaskStatus.Doing, ["bank-integration"], [Linked("1400")], true)]
+        };
+        IReadOnlyList<GoalPullRequestDto> pulls = [.. Pulls, Answer("1400", LinkedPullRequestState.Merged)];
+
+        var card = GoalsMapper.Map(StandUp, Summaries, pulls, candidates).Goals[0];
+
+        Assert.Equal([1352, 1341], card.PullRequests.Select(pull => pull.Number));
+        Assert.Equal([GoalSubject.ForPullRequest("JSdotNet/Backlog", 1352), null], card.PullRequestSubjects);
     }
 
     [Theory]

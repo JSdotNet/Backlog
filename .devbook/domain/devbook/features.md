@@ -189,7 +189,9 @@ the page it belongs to. It pairs with a page in two ways. By name, `demo.html`
 belongs to the context's boundary document and `<page>.demo.html` to the page
 beside it. By field, a chapter's `demo` metadata names a demo and the places in it
 that show the chapter. The context view shows the context's own demo, and every other
-page shows the demos paired with it.
+page shows the demos paired with it. In the new Domain view each demo is a **Demo**
+button above the page that shows it below when pressed; a page with several names
+each by its file, *Demo · features*.
 
 Each demo runs in a frame of its own, isolated from the app, and can go full
 screen. It keeps its own look, so the pane never forces its dark theme onto it.
@@ -494,6 +496,201 @@ so. The review is read from GitHub and held only for the session: nothing is clo
 written to disk or prepared, so it leaves no trace in the repository or the app's
 storage.
 
+## C4 zoom navigation
+
+```meta
+type: feature
+feature-flag: .devbook/domain/devbook/context.md#c4-zoom
+depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
+related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+```
+
+```mermaid
+flowchart LR
+    L[Landscape: every system] --> C1[1 Context: one system]
+    C1 -->|zoom in| C2[2 Containers: one system]
+    C2 -->|zoom in| C3[3 Components: one container]
+    C3 -->|zoom in| C4[4 Code: one component]
+    C4 -. zoom out .-> C3
+    C3 -. zoom out .-> C2
+    C2 -. zoom out .-> C1
+    C2 --- D[Dynamic: a numbered flow]
+    C2 --- P[Deployment: one environment]
+```
+
+Walk the architecture one C4 level at a time, and see beside every element the
+chapters, decisions and debt about it. The **C4** tab lists views one by one; the
+architecture surface is one model a reader zooms through.
+
+**Where it sits.** While the `c4-zoom` and `c4-diagrams` switches are both on, the
+architecture panel is one surface in place of its **Chapters** and **C4** tabs, and
+the pane's own architecture menu stands down. With `c4-zoom` off, the tabs are as
+they were. The surface opens on the System context view. The first time it opens it
+shows a hint, which the reader can dismiss, naming the ways to move.
+
+**The surface.** It has four parts:
+
+- the zoom bar across the top, always there, under a top row holding the overlay
+  switch
+- a left navigation, headed by a find field for elements, chapters, ADRs and TDRs,
+  then the C4 views as a tree, the chapters that document the open view, and the
+  decision and debt records with their counts
+- the open view, or a chapter or record opened in its place
+- a right panel: the inspector, a summary of the open view while nothing is
+  selected, or the panel that goes with the open chapter or record
+
+A press on the zoom bar while a chapter or record is open returns to the view. The
+top row is hidden while a chapter, a record or the Code level is open, because none
+of them draws cards to put records on.
+
+**With nothing selected**, the right panel sums up the open view:
+
+- its kind, and what it draws: "7 systems, 1 owned" on the landscape, the cards
+  counted by kind elsewhere
+- the view's own description
+- a way into each element that has a deeper view
+- the elements a reader can select from there: the external systems on the
+  landscape and a system context, every card on another view
+
+**The zoom bar.** A bar heads the surface with four steps: 1 Context › 2 Containers ›
+3 Components › 4 Code. Each step shows the element its level is about: the system
+for Context and Containers, a container for Components, a component for Code. The
+current step is ringed. A step behind the reader always works. A deeper step stays
+greyed, reading "pick a container" or "pick a component", until an element that
+fills it is selected. Landscape, Dynamic and Deployment sit beside the bar under
+**Also**, because they are not levels of the chain.
+
+**Ways to move.**
+
+- **Zoom in:** double-click an element, use its **Zoom in** chip, or press Enter
+  on the focused element. Only an element with a deeper view shows the chip.
+- **Zoom out:** pick an earlier step in the zoom bar, or press Backspace. The
+  element the reader zoomed out of stays selected.
+- **Jump:** any zoom bar step whose element is known, a view in the left
+  navigation's tree, or an element the find field turns up.
+- **Sideways:** Landscape sits above level 1; Dynamic and Deployment sit beside
+  level 2; records open from an element's inspector.
+
+Enter and Backspace act only while the diagram has focus. Typing elsewhere in the
+app is never taken as a move.
+
+**The inspector.** Selecting an element opens it beside the diagram, with:
+
+- its kind, description and technology
+- on a system context view, the lines into and out of it there, under
+  "Relationships · n"
+- under "Documented in arc42", the arc42 chapters that document a view showing
+  it, and no chapter of another devbook folder
+- the decisions (ADRs) that name it, tallied "n accepted · n proposed", five
+  listed and **Show all n** for the rest
+- the debt (TDRs) that names it, and on a container the debt on its components,
+  each marked "On component <name>"
+- a zoom-in button when a deeper view exists
+
+A decision still proposed carries a "proposed" chip. Debt on the element itself is
+drawn as a card: its severity and title, the debt in a sentence, a stepper of the
+debt ladder, the preferred remediation, and the decisions its `## Origin` section
+cites. The card leaves out what the record's file does not state. Other debt shows
+its severity and its rung on the debt ladder. Each chapter and record opens on the
+surface in place of the view.
+
+A section with nothing to list says so. On a system context view, an element no
+record names shows one "Records at this level" note in place of the two empty
+record sections. A deployment node opens the same inspector, with the container
+instances it runs.
+
+**Overlays.** The switch on the top row reads None, Decisions or Debt, and the
+choice holds as the reader zooms. Decisions puts an "n ADR" chip on each card the
+decisions name. Debt puts an "n TDR" chip on each card that open debt names (debt
+not yet resolved), and draws that card on the error surface. A card counts the
+records the inspector lists for it, those that touch it included. Under the
+diagram a line counts the records that name no element on the view but one
+nested below a card on it. A reader finds those by zooming in. While Debt is chosen,
+a cross-cutting tray under the diagram shows open debt that names no element, which
+has no place on a card.
+
+**Code is generated, never authored.** Level 4 is drawn from the source on demand:
+a component whose building block names code folders opens their types with their
+members. A component with no code folders stops at level 3. A branch snapshot
+holds no source, so in a repository read from one the Code view finds no types. Nothing at this level is written by hand, so
+it cannot drift from the source it shows.
+
+The type panel beside the picture lists the selected type's files, the decisions
+its component implements, and its technical debt. That debt is the TDRs whose title
+names the type, or else its component's TDRs. A − / Fit / + control sizes the
+class boxes, as on the other levels.
+
+**The supplementary views.** A dynamic view plays its numbered steps one by one,
+the current step drawn apart from the others. Its steps panel heads the right panel
+beside the picture, with the inspector of a selected element under it. Under the
+steps, "Decisions on this path" lists the ADRs that name an element on the view.
+
+Play walks every step on its own. With reduced motion asked for it still does, and
+the steps change without animation. A change of that preference while the surface is
+open takes effect at once.
+
+A deployment view puts its environments behind one tab list, and draws another
+environment as a dashed door into its own view. Every deployment node is framed and
+selectable however deep it nests, so a machine that holds only packages has a frame
+too. A selected deployment node shows what it is, and the container instances it
+runs, each a way into the containers view.
+
+The groups the DSL declares are drawn as bands. A band holding no person stacks in
+one column to the right of the element most related to it. Several relationships
+between one element and a band share one line. That line carries their wording when
+they all say the same thing, and reads "n relationships" when they differ. The
+surface also leaves wider gaps between cards than the C4 tab, which draws as it did.
+
+**From the chapters.** An ADR opens on the surface beside the decision log, and a
+TDR beside the debt list, each with a panel. An All / Accepted / Proposed filter
+heads the decision log, each choice with its count. Accepted keeps the decisions in
+force, a record that states no status included. A compact container view rings the
+containers the record decides (`c4`), marks those it touches (`c4-touches`, a
+component landing on its container), and dims the rest. **Open in the C4 model**
+returns to the picture on that view with the decided element selected. The panel also lists the arc42 sections whose
+`related:` cite the record and, for an ADR, the TDRs that name it.
+
+The decision chain draws a proposed ADR dashed, and lists:
+
+- what the record supersedes and what supersedes it, read from the `## History` rows
+  below the standing choice that open by naming another ADR
+- what it builds on: its `related:` ADRs
+- what builds on it: the ADRs whose `related:` name it
+
+Guideline ADRs, under `adr/guidelines/`, take part as local ones do, except in
+supersession. They number from 0001 too, so each chip marks a guideline as one.
+
+A TDR's panel shows its severity and its rung on the debt ladder. Its chain is the
+ADRs its `related:` names: those its `## Origin` section cites are listed as
+Origin, the rest as Related.
+
+An arc42 chapter opens on the surface beside the chapter list, with a panel of the
+views it documents, the decisions citing it and the debt on its elements. A view
+the chapter embeds as `![…](c4:<view key>)` is drawn where the embed sits. A view
+only `_c4/references.json` gives the chapter is drawn under the section it names.
+Where that section's own C4 mermaid fence and the model disagree, the chapter flags
+the elements in the model but missing from the fence, and the reverse. The chapter
+stays the text that is read; the model is what is drawn.
+
+The app reads these from the chapter files' own devbook metadata, never from the
+devbook database or a file kept beside the model (local ADR 0046):
+
+- which element a record names
+- a TDR's severity
+- which ADR supersedes which
+- which code a component maps to
+
+Nothing tells the app that a file changed outside it. Each load checks the files the
+model was read from, so a building block, an ADR, a domain chapter or `workspace.dsl`
+that a pull or an editor changed is read again on the next load. A change to the
+chapters alone keeps the parsed workspace and its layout.
+
+A TDR's rung and an ADR's
+proposed mark are the record's state in Backlog's subject store, as the file header
+shows it, and the record's own `status` only where nothing is stored (local ADR
+0044). A record that states none, as devbook's contract 38 has it, rests: no proposed
+mark, the `identified` rung.
+
 ## Technology view
 
 ```meta
@@ -635,6 +832,228 @@ and leaves `.tech` chapters out.
 Every view a pointer operates has an on-screen list or table companion that
 operates the same selection, so a reader without a mouse or with a screen reader
 loses nothing but the picture.
+
+## Domain view by unit
+
+```meta
+type: feature
+feature-flag: .devbook/domain/devbook/context.md#new-domain-view
+depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
+related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
+```
+
+Read a repository's domain one unit at a time: the context map, then each bounded
+context, then each file inside it. Every row in the Domain area's menu is a unit,
+and the page it opens is drawn for the kind of file the unit is. A reader who
+wants to know what a context does reads its functional pages. A reader who wants
+field types reads Model.
+
+| Menu row | The file | The page |
+| --- | --- | --- |
+| Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
+| A context | `context.md` | One page with no tabs: its neighbours, from `dependencies.md`, then its **Overview** — the context's boundary, what it holds, how well it is proved and settled, its switches and its pages |
+| Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
+| Features | `features.md` | The features and their sub-features |
+| Requirements | `requirements.md` | Each requirement and its scenarios |
+| Model | `model.md` | **Diagram**, **Fields** and **Events** |
+| Flow | A legacy `flow.md` | Its lifecycles, for a devbook from before devbook contract 37 |
+| Its heading | Any other file — `actors.md`, `skills.md`, a page a context adds | The file as written: title, lead, chapters, related |
+
+The menu lists files in the devbook reading order, and a split file nests under
+its kind's row. A rules file, a click demo and `dependencies.md` get no row of
+their own. Each one shows on the page it belongs to: the rules as the **Always
+true** tab, the demo as a **Demo** button, the dependencies as the neighbours at
+the top of the context's page. A
+file whose name starts with `_` stays hidden, and so does the `assets` folder,
+whose images the chapters show. How each file maps to a row is
+local [ADR 0047](../../arc42/adr/0047-the-domain-view-reads-by-unit.md).
+
+A kind's row is titled by its base file's heading, so Fincent's `actors.md`
+reads *Actoren* and its `flow.md` *Flows*, and it counts the rows under it at
+its far edge. A heading that only repeats the context's name keeps the kind's
+own name, as every row does before the devbook database is built.
+
+**Wording comes from the chapters.** A page shows the headings as written, and a
+row's summary is its chapter's first sentence. A relation among the neighbours reads
+the "Why" column of the dependency tables. No chapter gains a field for the view,
+so a devbook reads the same in the app and in a Markdown viewer.
+
+**A context reads one way however it is reached.** The Context map, a related
+link, a link to its `dependencies.md` and its menu row all open the same page. It
+opens on the neighbours diagram and the Overview follows below it, so no tab
+decides what the reader sees first.
+
+**A context's Overview reads its `context.md` as the board draws it.** The
+name and the boundary's lead come first, under its subdomain, deployment and
+status. The *Inside the boundary:* paragraph becomes the Inside card. The
+*Outside it:* paragraph becomes the Outside card, one question per clause, each
+linked to the contexts its sentence says answer it. Tiles count the domain and
+feature chapters; two cards say how many requirements and invariants name a
+test; where the chapters still state a rating or a status, one bar shows how
+settled they are; the switches table links the
+features each switch gates. The page's own words are its section headings, the
+two card labels, the line under Switches, the note under How settled, and the question beside each page it
+offers; every other word is a chapter's. A diagram in the boundary's prose — a
+process no chapter owns — is drawn in the lifecycle's style, as a unit's flows are.
+
+**Technical detail lives on Model.** Field types, how a domain service is invoked
+and what an event carries are shown on Model only. The functional pages, from the
+context's Overview to its Glossary, say what the domain does in its own
+language.
+
+**Diagram reads the model file's stereotypes.** Each class of a `classDiagram`
+carries the building block its `domain.md` chapter names, as one of five
+stereotypes: `<<aggregate root>>`, `<<entity>>`, `<<value object>>`,
+`<<enumeration>>` and `<<domain service>>`. A type another context owns carries
+none. A stereotype is never a list of names: a type's variants are written in
+the relationship notes. Composition (`*--`) draws a part inside its root's
+boundary, a dashed line (`..>`) a type held by id outside it. A class no
+aggregate holds, such as a shared value object or another context's type, is a
+card outside every boundary. Only a diagram that does not parse, or names no
+aggregate root, is drawn with mermaid.
+
+**Fields reads the model file's own groups.** Fields heads the aggregate root
+with its kind, its chapter's status and aliases, its name and its chapter's first
+sentence. It then lists the root's fields in the purpose groups the model file's
+`## Fields` chapter writes: one `###` per group, its first paragraph the question
+the group answers, and one bullet per field naming it in backticks with what it
+means. A bullet that ends in `Rules:` and links to invariants shows how many it
+points at, and the count opens them under the row. A field no group names stands under *Other fields*. A model file with
+no `## Fields` chapter is grouped by what the types say. Beside the groups,
+*Owned by the …* lists the root's entities, value objects, enums with their
+values, and domain services.
+
+**Events is an index with one contract open.** Events heads the page *What
+‹context› tells other contexts*. It lists every event with who raises it, when,
+who consumes it and whether it is emitted, and shows the picked event's contract
+beneath. *What ‹context› listens to* reads the dependency tables' rows in which
+another context supplies a published language.
+
+**The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
+aggregates, domain services and Glossary in a chapter bar inside the page, under
+a caption naming the file: a segmented bar, the open unit filled, each aggregate
+led by a filled square and each domain service by an outlined one; a split
+`domain.<name>.md` opens on its one aggregate. An aggregate's **About** is a
+summary of its chapter, not its prose. A card at the top holds the kind and
+status, the heading, the chapter's first sentence, a tile per group of its rules,
+and links to **Always true** and the Glossary. Below it
+sit a card per entity or value object it owns, with its first sentence and how
+many rules are about it, a count that opens them on the card, its enums as rows
+of values read as words, and the
+events it raises with who hears them. A summary that closes on a list of fields
+reads as far as the colon, so no field shows. Below them About draws each
+lifecycle and process the aggregate's chapter opens with, and those of the
+typed chapters inside it, as [Flows draw in their chapter](#domain-view-by-unit)
+says.
+**Always true** sits beside it, read from the invariants file beside the page
+(`domain.invariants.md`, or `domain.<name>.invariants.md` beside a split). Each
+rule reads as its heading, marked ✓ when its chapter names a test, ○ when it
+names none, and ? when its `Enforced at:` line is `open`; the tab's title counts
+the rules and the bar counts each mark. The rules sit in a card per group. A
+group is one the chapter writes itself, a `type: invariants` heading inside the
+aggregate's chapter with its rules beneath it, headed by its words with what its
+`related` names linked beside them. A rule outside every such group sits under
+the entity, value object or enum its `Enforced at:` line names, else under the
+aggregate, and that card's heading opens the concept on About. A rule's first
+sentence and where it is enforced name fields and code, so they show only once
+**Show where each is enforced** is pressed. A
+shared value object's or enum's rules show on the base page, as a **Shared Value
+Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its kind and status, its
+heading and first sentence, the requirements it is held to under **You can count
+on**, each opening on Requirements, what is always true of the units its
+`related` names, links to its promises, the aggregate it names
+and how it runs on Model, the events it raises, and the processes its chapter
+opens with. The rest of its prose says how
+it is invoked, which is Model's. A unit's events are the domain-event
+chapters whose `related` names it, and a service's requirements are those whose
+`related` names it or that its own `related` names.
+
+**A unit's rules show wherever they apply.** Always true is the full list; every
+other page that draws a thing the invariants constrain shows the rules about it
+in place, in one list. A rule is about a thing when a group of the invariants
+names it in `related`, when its `Enforced at:` line names its type, or when the
+thing is the unit itself. Features shows them under a feature's promises,
+Requirements under a feature's heading, Model behind a field's rule count on
+Fields and a part's on Diagram, About behind a member card's count, a domain
+service's page for the units it names, the Glossary behind a row's count, and
+Flow under a lifecycle and behind a card's count. Each rule reads as Always true
+draws it, its claim behind its ✓, ○ or ? mark; pressing it shows its first
+sentence and where it is enforced, and a link to its row on its unit's Always
+true tab, which opens with the row marked and focused. A list shows three rules
+and the rest behind *n more*, or all four when there are four.
+
+**Flows draw in their chapter.** Since devbook contract 37 a context has no flow
+page: each lifecycle and process opens the chapter it draws, under its `meta`
+block and a bold line naming it. The Domain page draws every such diagram of a
+unit below its About card or its service summary, titled by that line, with the
+words before the fence as its lead and the chapter inside the unit named beside
+it. A `stateDiagram-v2` is drawn as one row of states. The forward transitions
+run above the row, the ways back run below it, and the way from the last state
+back to the first loops round the outside. A flowchart and a sequence are drawn
+in the same cards, lines and type, so no diagram of a domain file is left to
+Mermaid. A devbook that still has a `flow.md` keeps its **Flow** row, which
+draws the file chapter by chapter the same way, the chapter's prose after its
+drawing; there a Mermaid diagram none of the three can read, such as a class
+diagram or a state diagram with composite states, renders as it does elsewhere.
+
+**No workflow state is read from a chapter.** Contract 38 took `status` out of
+every domain chapter, so the view reads a block's `rating`, else its `status`,
+as the devbook reader does. Past 38 no kicker, card or Glossary row shows a
+status, and the Overview draws no How settled bar.
+
+**The Glossary is the context's words, A to Z.** The chapter bar's Glossary
+lists every term under `## Ubiquitous Language` and every model chapter of the
+context's domain files in one card, under a lead that says so. Each row shows
+its kind, a `proposed` or `deprecated` badge, its aliases as code chips and its
+first sentence, and a `deprecated` chapter is struck through. A find box matches
+a heading or an alias. Beside it, one-choice pills with counts show All, Model,
+Terms or Borrowed, the last only when a term is borrowed. A term is **borrowed**
+when its `related` names its own heading in another context; its row links
+there. With All picked and nothing typed, a list of more than twenty rows shows
+its first fifteen and the rest behind *n more*. Beside the list, **Easily
+confused** gives one card to each group of terms that name each other in
+`related`, and **Across contexts** lists the borrowed words.
+
+**Features stand by what they build on.** The Features page sets a context's
+features in columns by how many of its features each builds on through
+`depends-on`. The page opens on its title, *What* the context *lets a person
+do*, a lead counting its features, and a legend. A card shows the feature's
+title, its sub-feature count, its flag or setting, *n req · m tested* when it
+has requirements and, past the first column, what it comes after. A proposed
+feature is dashed, and the deprecated ones are gathered, struck through, in one
+box at the end of the last column. Picking a card shows what it builds on, the
+flag it is gated by or the setting it is configured by, the model chapters its
+`related` names and its sub-features, and beside them what it promises: its
+requirement count, how many a test proves as a bar, a link to Requirements, and
+what is always true of what it uses — the rules its requirements lean on.
+
+**Requirements read per feature.** The Requirements page shows each requirement
+with its SHALL sentence set apart and whether it is proved, and each scenario as
+Given, When and Then rows, a row that joins clauses with ", and" read as one
+bullet each. Where a feature's requirements rest on an aggregate's rules — they
+name the aggregate, a chapter inside it, or a concept its rules are about —
+**What is always true** lists those rules under the feature's heading, counted,
+instead of a sentence explaining them.
+A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
+its one feature. The page opens on a card saying what a requirement is, with
+how many are tested; each requirement is a card with a *Test linked* or dashed
+*No test linked* mark and its scenarios on its foot, and a feature with more
+than three requirements opens the first two and lists the rest as rows that
+open in place.
+
+**The Brain and the tasks show where they link.** Under each unit, feature and
+glossary term, the [From your Brain](../brain/features.md#repo-links-and-backlinks) box lists the
+owner's Brain notes linking to that chapter or to one inside it, and a model
+part and a glossary term carry a **◆ n note** badge counting them. A note
+linking to the whole file names no unit, and shows only in the box under the
+page, which still lists every note linking anywhere in the file. A feature's
+detail and each requirement show the tasks whose Devbook references name the
+chapter as task chips: gold when this backlog holds the task, which pressing
+opens, and dashed, reading *not in this backlog*, when it does not. The box and
+the badge are the only teal on the view.
+
+The view is built behind the [New domain view](context.md#new-domain-view)
+switch. Until the switch is on, the Domain area reads as it always has.
 
 ## Instruction optimization
 

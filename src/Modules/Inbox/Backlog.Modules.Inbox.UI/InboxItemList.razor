@@ -1,7 +1,7 @@
 @*
     The middle column: the kind pills, and the rows of the open slice newest
-    first under three headings — Today, This week, Older than a week — each
-    with its count. Nothing is typed here — a thought typed at the desk goes in
+    first under one heading per day they arrived on — Today, Yesterday, then
+    the date — each with its count. Nothing is typed here — a thought typed at the desk goes in
     through the header's capture field, which is the pane's, so the column only
     ever reads what the state holds.
 
@@ -192,7 +192,7 @@
             @* One list with the group headings inside it, so the rows stay one
                run a reader steps through with j and k, and one landmark named
                after the slice. The Deferred slice runs in the order its items
-               come back, so it has no age headings. *@
+               come back, so it has no day headings. *@
             <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list" aria-busy="@(State.Reopening ? "true" : null)" @onkeydown="OnShortcutKeyAsync">
                 @foreach (var group in groups)
                 {

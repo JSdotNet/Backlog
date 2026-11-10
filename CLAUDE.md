@@ -70,7 +70,8 @@ each note in the app's store — a default-branch note by a reply through `devbo
 `devbook_resolve_note`, any other in the session report and closed with `resolve_annotation` —
 writes no `annotation` fence and commits nothing: a chapter fix an answer needs goes through the
 gate.
-`dispatch-sessions` is user-invoked and changes no file: started once as
+`dispatch-sessions` is started by the person alone (model-invocable only so `/loop` can run it)
+and changes no file: started once as
 `/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session, it turns each
 session request the app queues into a new session whose whole prompt is the app's fixed
 `run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry (local
@@ -197,7 +198,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   pull request merged into the default branch or a `plan/` branch to Done.
 - `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
   dispatches the app's session requests (local ADR 0038) and delivers the answers the app
-  accepted to the sessions waiting on them (local ADR 0041); user-invoked only, no flow.
+  accepted to the sessions waiting on them (local ADR 0041); started by the person under `/loop`, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
 - `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs

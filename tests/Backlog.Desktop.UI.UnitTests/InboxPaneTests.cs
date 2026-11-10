@@ -225,35 +225,39 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-pane-item-repository']"));
     }
 
-    /// <summary>The rows sit under Today (since local midnight), This week (the
-    /// seven days before now) and Older than a week, each heading with its
-    /// count; a heading with no rows is not drawn.</summary>
+    /// <summary>The rows sit under one heading per day they arrived on —
+    /// Today, Yesterday, then the date — each heading with its count; a day
+    /// with no rows has no heading.</summary>
     [Fact]
-    public async Task Rows_are_grouped_by_age_with_a_count_per_heading()
+    public async Task Rows_are_grouped_by_day_with_a_count_per_heading()
     {
+        // A Monday.
         var now = new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero);
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
         clock.SetLocalTimeZone(TimeZoneInfo.Utc);
         using var harness = Harness.Create(clock);
         harness.Inbox.Seed("This morning", capturedAt: now.AddHours(-3));
         harness.Inbox.Seed("Just now", capturedAt: now.AddMinutes(-5));
+        harness.Inbox.Seed("Yesterday", capturedAt: now.AddDays(-1));
         harness.Inbox.Seed("Four days ago", capturedAt: now.AddDays(-4));
+        harness.Inbox.Seed("Four days ago, earlier", capturedAt: now.AddDays(-4).AddHours(-2));
         harness.Inbox.Seed("Nine days ago", capturedAt: now.AddDays(-9));
 
         var pane = await harness.RenderAsync();
 
         Assert.Equal(
-            ["Today · 2", "This week · 1", "Older than a week · 1"],
+            ["Today · 2", "Yesterday · 1", "Thu 10 Sep · 2", "Sat 5 Sep · 1"],
             pane.FindAll(".inbox-pane__group-title").Select(heading => System.Text.RegularExpressions.Regex.Replace(heading.TextContent.Trim(), @"\s+", " ")));
         Assert.Equal("2", pane.Find("[data-testid='inbox-group-today-count']").TextContent.Trim().TrimStart('·').Trim());
+        Assert.Equal("2", pane.Find("[data-testid='inbox-group-2026-09-10-count']").TextContent.Trim().TrimStart('·').Trim());
         // Still one run of rows, newest first.
-        Assert.Equal(["Just now", "This morning", "Four days ago", "Nine days ago"], Titles(pane));
+        Assert.Equal(["Just now", "This morning", "Yesterday", "Four days ago", "Four days ago, earlier", "Nine days ago"], Titles(pane));
     }
 
     /// <summary>Yesterday evening is not today: the line is midnight, not
-    /// twenty-four hours — and a heading with no rows is not drawn.</summary>
+    /// twenty-four hours — and a day with no rows has no heading.</summary>
     [Fact]
-    public async Task Today_starts_at_midnight_and_an_empty_heading_is_not_shown()
+    public async Task Today_starts_at_midnight_and_an_empty_day_is_not_shown()
     {
         var now = new DateTimeOffset(2026, 9, 14, 1, 0, 0, TimeSpan.Zero);
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
@@ -264,8 +268,8 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync();
 
         Assert.Empty(pane.FindAll("[data-testid='inbox-group-today']"));
-        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-group-week']"));
-        Assert.Empty(pane.FindAll("[data-testid='inbox-group-older']"));
+        Assert.Single(pane.FindAll(".inbox-pane__group"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-group-yesterday']"));
     }
 
     /// <summary>Midnight is the reader's own: at 00:30 in a +02:00 zone an item
@@ -285,25 +289,26 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync();
 
         Assert.Equal("1", pane.Find("[data-testid='inbox-group-today-count']").TextContent.Trim().TrimStart('·').Trim());
-        Assert.Equal("1", pane.Find("[data-testid='inbox-group-week-count']").TextContent.Trim().TrimStart('·').Trim());
+        Assert.Equal("1", pane.Find("[data-testid='inbox-group-yesterday-count']").TextContent.Trim().TrimStart('·').Trim());
     }
 
-    /// <summary>This week is the seven days before now: exactly seven days ago
-    /// is still this week, a minute more is older.</summary>
+    /// <summary>A day from another year carries its year, so last December
+    /// does not read as this one.</summary>
     [Fact]
-    public async Task This_week_reaches_back_exactly_seven_days()
+    public async Task A_day_from_another_year_carries_its_year()
     {
-        var now = new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero);
+        var now = new DateTimeOffset(2026, 1, 5, 15, 0, 0, TimeSpan.Zero);
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
         clock.SetLocalTimeZone(TimeZoneInfo.Utc);
         using var harness = Harness.Create(clock);
-        harness.Inbox.Seed("Seven days", capturedAt: now.AddDays(-7));
-        harness.Inbox.Seed("Seven days and a minute", capturedAt: now.AddDays(-7).AddMinutes(-1));
+        harness.Inbox.Seed("This year", capturedAt: new DateTimeOffset(2026, 1, 2, 9, 0, 0, TimeSpan.Zero));
+        harness.Inbox.Seed("Last year", capturedAt: new DateTimeOffset(2025, 12, 30, 9, 0, 0, TimeSpan.Zero));
 
         var pane = await harness.RenderAsync();
 
-        Assert.Equal("1", pane.Find("[data-testid='inbox-group-week-count']").TextContent.Trim().TrimStart('·').Trim());
-        Assert.Equal("1", pane.Find("[data-testid='inbox-group-older-count']").TextContent.Trim().TrimStart('·').Trim());
+        Assert.Equal(
+            ["Fri 2 Jan · 1", "Tue 30 Dec 2025 · 1"],
+            pane.FindAll(".inbox-pane__group-title").Select(heading => System.Text.RegularExpressions.Regex.Replace(heading.TextContent.Trim(), @"\s+", " ")));
     }
 
     /// <summary>The marker promises something the detail lets the reader take,
@@ -599,9 +604,82 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-row-{jpeg.Id:N}']"));
 
         await pane.Find($"[data-testid='inbox-attachment-open-{pdf.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([pdf.Id], harness.Inbox.Opened);
+    }
+
+    [Fact]
+    public async Task Clicking_a_picture_previews_it_in_the_app_and_open_in_external_app_hands_it_over()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']"));
+
+        // The click previews rather than leaving the app.
         await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
 
-        Assert.Equal([pdf.Id, jpeg.Id], harness.Inbox.Opened);
+        var preview = pane.WaitForElement("[data-testid='inbox-attachment-preview']");
+        Assert.Contains("whiteboard.jpg", preview.TextContent);
+        var image = pane.Find("[data-testid='inbox-attachment-preview-image']");
+        Assert.Equal("data:image/jpeg;base64,/9j/4AECAw==", image.GetAttribute("src"));
+        Assert.Equal("whiteboard.jpg", image.GetAttribute("alt"));
+        Assert.Empty(harness.Inbox.Opened);
+
+        // The way out to the machine's own application, which closes the preview.
+        await pane.Find("[data-testid='inbox-attachment-preview-open']").ClickAsync(new());
+
+        Assert.Equal([jpeg.Id], harness.Inbox.Opened);
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']")));
+    }
+
+    [Fact]
+    public async Task Escape_closes_a_picture_preview_without_opening_the_file()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
+
+        await pane.WaitForElement("[data-testid='inbox-attachment-preview']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']")));
+        Assert.Empty(harness.Inbox.Opened);
+    }
+
+    [Fact]
+    public async Task A_preview_left_open_does_not_come_back_with_its_item()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile");
+        var other = harness.Inbox.Seed("Something else", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, jpeg);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
+        pane.WaitForElement("[data-testid='inbox-attachment-preview']");
+
+        await harness.SelectAsync(pane, other.Id);
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-attachment-preview']"));
     }
 
     [Fact]

@@ -73,6 +73,26 @@ The catalog also reads three former keys: `repository-knowledge`,
 catalog in `AppFeatures.cs`, and the choice is kept in `features.json` beside the
 app's other per-device choices.
 
+## C4 zoom
+
+```meta
+type: feature-flag
+key: c4-zoom
+default: off
+related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
+```
+
+Turning it on makes the architecture panel one **architecture surface** in place
+of its **Chapters** and **C4** tabs, and the pane's own architecture menu stands
+down. An ADR, a TDR or an arc42 chapter opened on the surface shows where it lands
+in the C4 model. It needs `c4-diagrams` on as well, because the model it walks is
+the one that switch shows. With `c4-diagrams` off the panel keeps its **Chapters**
+tab, whatever this switch says. With this switch off, the tabs are as they were.
+
+The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and the
+switch is retired once the surface has been validated and replaces the **C4** tab
+(local ADR 0046).
+
 ## Devbook editing
 
 ```meta
@@ -148,3 +168,56 @@ same name. It is not in the
 feature catalog yet: no code checks the key, so there is no default and nothing to
 switch. The chapter exists so the feature has its gate before it is built. When the review ships, the key lands in `DevbookFeatures` and in the
 catalog, and this chapter gains its `default`.
+
+## New domain view
+
+```meta
+type: feature-flag
+key: devbook-domain-view
+default: off
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/domain/devbook/requirements.md#requirement-the-flag-off-keeps-todays-domain-view"]
+```
+
+Turning it on replaces the Domain area of the Devbook with the
+[Domain view by unit](features.md#domain-view-by-unit). The menu then lists a
+bounded context's files as units, and each row opens a page drawn for the kind of
+file it is (local ADR 0047). Turned off, the Domain area is today's view,
+unchanged.
+
+It ships off and marked `DEV` until the new view is accepted. Only the Domain area reads it. The other areas of the Devbook, and the
+[Devbook pane](#devbook-pane) switch that offers the pane at all, do not. The
+settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
+person's choice is kept in `features.json` beside the app's other per-device
+choices.
+
+The plan has built every page: the Context map, a context's page with its
+neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
+notes and tasks that link to each, the **Demo** button for a click demo,
+and any other file as written.
+
+Model opens on **Diagram**, headed by the root's name, which draws each
+`classDiagram` of the model file as the aggregate's consistency boundary: the
+root card with its key fields and a link to Fields in the middle of the band,
+its composed parts as a tree joined to it above and below, and outside the band
+one card per type the root names by id — the class a dashed line reaches, or
+the aggregate or entity chapter whose alias or heading the id attribute spells.
+The context's domain-service chapters sit below it, and a class no
+aggregate holds is a card outside every boundary. A diagram that does not parse
+or has no aggregate root is drawn with mermaid as before. **Fields** lists each
+class's attributes grouped by kind, with the model's relationship notes beneath and how each domain service runs, read from
+its chapter's invocation semantics. **Events** reads each `domain-event` chapter
+as a contract: what raises it, who consumes it, its payload and its
+published-language rules, and whether the chapters say it is emitted or only
+documented.
+
+On Domain, an unsplit `domain.md` offers its units in a chapter bar, a split
+file opens on its one aggregate, and an aggregate reads as **About** beside
+**Always true**, its rules read from the invariants file beside the page; see
+[Domain view by unit](features.md#domain-view-by-unit).
+
+The Domain page draws each lifecycle and process a unit's chapter opens with in
+the lifecycle's own style, a legacy `flow.md` keeps its Flow row, and the Domain
+page's Glossary lists the context's terms and model chapters A to Z.
+
+The flag is retired when the old Domain view is removed, which a later plan does.
+The new view then always shows.

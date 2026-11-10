@@ -45,6 +45,18 @@ public static class DevbookFeatures
     /// </para></summary>
     public const string C4Diagrams = "c4-diagrams";
 
+    /// <summary>Offer a second C4 tab, <c>C4 zoom</c>, that walks the model one level at
+    /// a time — System context, Containers, Components, Code — beside the C4 tab, which
+    /// stays as it is.
+    /// <para>
+    /// Effective only while <see cref="C4Diagrams"/> is on: the zoom tab is another
+    /// reading of the same model, and with the model off there is nothing to zoom
+    /// through. Its own key rather than a change to the C4 tab, so the new navigation
+    /// can be used beside the current one and replace it only once it is validated
+    /// (local ADR 0046).
+    /// </para></summary>
+    public const string C4Zoom = "c4-zoom";
+
     /// <summary>Search the knowledge areas by the words their chapters use.
     /// <para>
     /// A devbook key by the same rule as its neighbours: what it switches on is
@@ -92,6 +104,17 @@ public static class DevbookFeatures
     /// fields a block states — related, sync — are not status and stay drawn.
     /// </para></summary>
     public const string Status = "devbook-status";
+
+    /// <summary>Read the Domain area one unit at a time — the context map, each
+    /// bounded context, each file inside it — on a page drawn for the kind of file
+    /// the unit is (local ADR 0047), instead of the Domain area as it reads today.
+    /// <para>
+    /// A devbook key by the same rule as its neighbours. Only the Domain area reads
+    /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
+    /// at all, do not. It ships off while the plan <c>+devbook-domain-view</c> builds
+    /// the view, and is retired when the old Domain view is removed.
+    /// </para></summary>
+    public const string DomainView = "devbook-domain-view";
 
     /// <summary>Map the Brain and every registered devbook as brains in one
     /// full-window atlas (<c>.devbook/domain/brain/context.md#lobes-atlas</c>).

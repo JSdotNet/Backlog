@@ -1,0 +1,23 @@
+@*
+    A unit page's row of links out — "What is always true · 29 →", "How it moves
+    →", "How it runs, on Model →" — each a button, since following one turns a
+    tab or opens another page of the Domain view rather than loading a URL.
+*@
+
+@if (Links.Count > 0)
+{
+    <nav class="domain-about__links" aria-label="@AriaLabel" data-testid="domain-unit-links">
+        @foreach (var link in Links)
+        {
+            <button @key="link.TestId" type="button" class="domain-about__link" data-testid="@link.TestId" @onclick="link.Follow">@link.Text →</button>
+        }
+    </nav>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<DomainPageLink> Links { get; set; } = [];
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Read on";
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Desktop Release and Update Delivery",
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "pipeline", "label": "Release pipeline" },
+    { "id": "target", "label": "Install target" }
+  ],
+  "mainPath": ["tag", "workflow", "release", "machine"],
+  "nodes": [
+    { "id": "tag", "lane": "pipeline", "col": 0, "type": "external", "label": "v* tag, dispatch, nightly", "sublabel": "or Deploy All", "width": 230 },
+    { "id": "workflow", "lane": "pipeline", "col": 1, "type": "backend", "label": "Release All workflow", "width": 200 },
+    { "id": "release", "lane": "pipeline", "col": 2, "type": "cloud", "label": "GitHub Release vX.Y.Z", "width": 210 },
+    { "id": "machine", "lane": "target", "col": 4, "type": "frontend", "label": "Windows machine", "width": 170 }
+  ],
+  "edges": [
+    { "id": "tag-to-workflow", "from": "tag", "to": "workflow" },
+    { "id": "workflow-to-release", "from": "workflow", "to": "release", "label": "signed MSIX + .appinstaller + .cer", "variant": "emphasis", "route": "straight" },
+    { "id": "first-install", "from": "release", "to": "machine", "label": "first install (sideload)", "role": "main", "fromSide": "right", "toSide": "top" },
+    { "id": "update-check", "from": "release", "to": "machine", "label": "OnLaunch / background / Settings check", "role": "branch", "fromSide": "bottom", "toSide": "left" }
+  ]
+}

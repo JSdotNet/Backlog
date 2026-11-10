@@ -86,13 +86,13 @@ timestamp. Every row leads with its `Content Kind` and its `Source`, so the
 reader sees what a thing is and who sent it before deciding on it. The selected
 item opens in a detail view shaped by its kind.
 
-The rows are grouped by how long ago they were captured: **Today**, **This
-week** and **Older than a week**, each heading with its count. An empty group
-is not shown. On the desktop the Inbox takes the whole screen in place of
+The rows are grouped by the day they were captured: **Today**, **Yesterday**,
+then the date ("Thu 10 Sep", with the year when it is not this one), each
+heading with its count. A day with no rows has no heading. On the desktop the Inbox takes the whole screen in place of
 the main view. It has three columns: the side menu, the rows, and the detail of
 the chosen item.
 
-**Deferred** is the one [slice](domain.md#slice) without age
+**Deferred** is the one [slice](domain.md#slice) without day
 headings. Its rows run in the order they come back, soonest review date first.
 
 A row is a tile with:
@@ -941,6 +941,28 @@ archiving sends, so the phone stops offering the capture. That acknowledgement i
 all that outlives the item, and only until the outbox has pushed it. The item's
 downloaded files go with it, unless it was routed, because routing handed that
 folder to the task.
+
+### Work the queue over MCP
+
+```meta
+type: sub-feature
+depends-on: [.devbook/domain/inbox/features.md#archive]
+related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests]
+```
+
+Let an assistant file captures elsewhere, such as conference notes into the Brain,
+without opening the pane or the database. The app's MCP server carries three tools,
+behind the Inbox pane's switch:
+
+| Tool | Does |
+| --- | --- |
+| `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview and an attachment count. |
+| `read_inbox_item` | Answers one capture whole: body, source URL, tags, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
+| `archive_inbox_item` | Archives a capture once it is filed, through the same act as [Archive](#archive). The phone stops offering it, and it stays restorable. |
+
+No tool deletes. An unknown id, an unknown status and a reversed range are each
+refused with a code.
 
 ## Queue health
 

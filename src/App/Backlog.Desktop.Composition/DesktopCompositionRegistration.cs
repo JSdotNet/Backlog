@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.PullRequests;
@@ -396,6 +397,11 @@ public static class DesktopCompositionRegistration
             typeof(IDevbookTaskTitles),
             sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
+        // The Devbook references the Domain view shows on its features and requirements.
+        services.Add(new ServiceDescriptor(
+            typeof(IDevbookTaskReferences),
+            sp => new ShellDevbookTaskReferences(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
         // The window's repository scope, for a Devbook opened with no scope of its own (§6).
         services.Add(new ServiceDescriptor(
             typeof(IDevbookWindowScope),
@@ -491,6 +497,10 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // The Devbook pane's view choices that outlive it — the C4 zoom tab's dismissed
+        // hint — kept in the same per-device navigation file.
+        services.AddSingleton<Backlog.Modules.Devbook.Abstractions.IDevbookViewPreferences>(sp =>
+            new DevbookViewPreferences(sp.GetService<ShellNavigationStore>()));
         // The iteration the Goals view and the stand-up read in (local ADR 0036, §3): one
         // store behind the screens' port and the replication port the sync client takes
         // as an optional parameter of the merge, the session and the loop.

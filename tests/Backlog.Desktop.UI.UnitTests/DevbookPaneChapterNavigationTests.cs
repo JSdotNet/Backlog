@@ -70,6 +70,36 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         Assert.Contains("Context And Scope", component.Find(".devbook-menu__item--active").TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// With <c>c4-zoom</c> on the Architecture section is the architecture surface,
+    /// whose design has one left navigation: the pane's chapter menu stands down for
+    /// that section, and a reference into it opens the chapter inside the surface.
+    /// </summary>
+    [Fact]
+    public async Task With_c4_zoom_on_the_architecture_section_has_no_menu_of_the_pane_and_opens_the_chapter_in_the_surface()
+    {
+        await using var harness = CreateHarness(c4Zoom: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        Assert.Single(component.FindAll(".devbook-stack__menu-column"));
+
+        Reference(component, ".arc42/03-context-and-scope.md").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected"));
+            Assert.Single(component.FindAll("[data-testid='arc42-surface']"));
+            Assert.Contains("The system in its surroundings", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal);
+        });
+        Assert.Empty(component.FindAll(".devbook-stack__menu-column"));
+        Assert.Single(component.FindAll(".devbook-stack__body--without-menu"));
+
+        // Back on Domain the menu is the pane's again.
+        component.Find("#tab-domain").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".devbook-stack__menu-column")));
+    }
+
     [Fact]
     public async Task A_reference_to_a_chapter_the_menu_does_not_have_changes_nothing()
     {
@@ -524,7 +554,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.FindAll("button.devbook-ref--action")
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
-    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false, bool withFork = false)
+    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false, bool withFork = false, bool c4Zoom = false)
     {
         var root = NewRoot(contextMap);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n\n## Quality goals\n\nFast to open.\n");
@@ -544,6 +574,11 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        if (c4Zoom)
+        {
+            _ = features.SetEnabled(DevbookFeatures.C4Diagrams, true);
+            _ = features.SetEnabled(DevbookFeatures.C4Zoom, true);
+        }
 
         var (repositories, errors) = GitHubSettings.ParseText(withFork ? "JSdotNet/Backlog\nfork = someone/Backlog" : "JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -580,6 +615,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
+        if (c4Zoom) context.Services.AddSingleton<C4DevbookStore>();
 
         // Nothing here has ever been committed, which is the honest answer for a
         // temp folder and keeps the compare control out of the way.

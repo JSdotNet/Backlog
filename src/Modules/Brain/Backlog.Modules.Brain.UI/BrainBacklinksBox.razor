@@ -11,9 +11,13 @@
     repository, so nothing personal reaches shared history and two readers of one
     chapter each see their own notes, or none. Drawn only when there is a note to
     list: a chapter nothing in the Brain links to carries no empty box.
+
+    A host that already read the notes hands them over as Links, and the box
+    draws those without reading: the Domain view reads every link into the
+    repository once and gives each unit, feature and term its own.
 *@
 
-@if (_links.Count > 0)
+@if (Shown.Count > 0)
 {
     <section class="brain-backlinks" data-testid="brain-backlinks" aria-labelledby="@HeadingId">
         <div class="brain-backlinks__head">
@@ -21,7 +25,7 @@
             <span class="brain-backlinks__private" data-testid="brain-backlinks-private">Only you see this</span>
         </div>
         <ul class="brain-backlinks__list">
-            @foreach (var link in _links)
+            @foreach (var link in Shown)
             {
                 <li class="brain-backlinks__item" data-testid="brain-backlink" data-note="@link.NotePath" title="@link.NotePath">
                     @* A link to the note, as the Scope: backlog board draws it:
@@ -68,6 +72,14 @@
     [Parameter]
     public EventCallback<string> OnOpenNote { get; set; }
 
+    /// <summary>The notes to list, read by the host. Set, the box reads nothing
+    /// itself and the host keeps them current; unset, it reads the notes linking
+    /// to <see cref="ChapterPath"/>.</summary>
+    [Parameter]
+    public IReadOnlyList<BrainBacklink>? Links { get; set; }
+
+    private IReadOnlyList<BrainBacklink> Shown => Links ?? _links;
+
     private IBrainBacklinks? _backlinks;
     private IBrainFolderSource? _brain;
     private IReadOnlyList<BrainBacklink> _links = [];
@@ -85,12 +97,15 @@
 
         // A rebuilt Brain database is announced on the Brain's own source, so a
         // note linked or unlinked in another window shows here without a restart.
-        _brain = Services.GetService<IBrainFolderSource>();
+        // A box handed its notes is kept current by its host, and hears nothing.
+        _brain = Links is null ? Services.GetService<IBrainFolderSource>() : null;
         if (_brain is not null) _brain.Changed += OnBrainChanged;
     }
 
     protected override async Task OnParametersSetAsync()
     {
+        if (Links is not null) return;
+
         var key = $"{RepositoryAlias}|{ChapterPath}";
         if (string.Equals(key, _loadedKey, StringComparison.Ordinal)) return;
 
@@ -134,7 +149,7 @@
 
     private async void OnBrainChanged()
     {
-        if (_disposed) return;
+        if (_disposed || Links is not null) return;
 
         try
         {

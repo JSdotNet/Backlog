@@ -1,0 +1,25 @@
+@*
+    Under a unit, a feature or a glossary term of the Domain view, the owner's
+    Brain notes that link to it: the host's From your Brain box
+    (.devbook/design/color-scheme.md#the-brains-accent), drawn through
+    DomainChapterLinks.NotesBox and only where one of the chapters it covers has a
+    note, so a page of terms with none carries no empty box and reads nothing.
+*@
+
+@if (Links.NotesBox is { } box && Links.NotesOn(References).Count > 0)
+{
+    <div class="domain-chapter-notes" data-testid="domain-chapter-notes">
+        @box(References)
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public DomainChapterLinks? Cascaded { get; set; }
+
+    /// <summary>The chapters the box covers, by reference.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> References { get; set; } = [];
+
+    private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
+}

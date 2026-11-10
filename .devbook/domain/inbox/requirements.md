@@ -75,26 +75,26 @@ The system SHALL close the notes editor when the reader presses Escape in it, ke
 - **When** the reader presses Escape
 - **Then** the notes editor closes, the title is still in the field, and no item is filed
 
-### Requirement: Rows are grouped by age
+### Requirement: Rows are grouped by day
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Rows_are_grouped_by_age_with_a_count_per_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_starts_at_midnight_and_an_empty_heading_is_not_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_is_counted_from_local_midnight, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.This_week_reaches_back_exactly_seven_days]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Rows_are_grouped_by_day_with_a_count_per_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_starts_at_midnight_and_an_empty_day_is_not_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_is_counted_from_local_midnight, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_day_from_another_year_carries_its_year]
 ```
 
-The system SHALL group the rows under the headings Today, This week and Older than a week by capture time, each with its count, and SHALL not show a heading with no rows.
+The system SHALL group the rows under one heading per local calendar day of capture — Today, Yesterday, then the date — each with its count, and SHALL not show a heading for a day with no rows.
 
 #### Scenario: A mixed slice
 
-- **Given** a slice with two items captured today, one four days ago and one nine days ago
+- **Given** on Monday 14 September a slice with two items captured today, one yesterday, two on Thursday 10 September and one on Saturday 5 September
 - **When** the pane shows it
-- **Then** the rows read "Today · 2", "This week · 1" and "Older than a week · 1"
+- **Then** the rows read "Today · 2", "Yesterday · 1", "Thu 10 Sep · 2" and "Sat 5 Sep · 1"
 
-#### Scenario: Nothing older than a week
+#### Scenario: A day from another year
 
-- **Given** every item in the slice was captured this week
+- **Given** on 5 January an item captured on 30 December of the year before
 - **When** the pane shows it
-- **Then** no "Older than a week" heading is shown
+- **Then** its heading reads "Tue 30 Dec 2025 · 1"
 
 ### Requirement: Kind pills are led by All
 
