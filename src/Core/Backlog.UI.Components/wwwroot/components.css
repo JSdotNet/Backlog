@@ -25011,7 +25011,29 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-features__card-item {
+    position: relative;
     display: grid;
+}
+
+/* A card's Brain notes badge sits inside its top-right corner, beside the
+   card's button rather than in it, since a button holds no other; the card's
+   title leaves it room, so it never covers a word or a neighbouring card. Its
+   list opens leftwards from the badge's right edge and no wider than a column,
+   so it stays inside the board. */
+.domain-features__card-notes {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+}
+
+.domain-features__card-item--notes .domain-feature-card__name {
+    padding-inline-end: calc(2.5 * var(--spacing-xl));
+}
+
+.domain-features__card-notes .brain-notes-badge__list {
+    right: 0;
+    left: auto;
+    max-width: 13rem;
 }
 
 /* A card is compact: its title, one line of facts and, past the first column,
@@ -25088,7 +25110,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .badge--tone.domain-feature-card__mark,
-.badge--tone.domain-feature-card__gate {
+.badge--tone.domain-gate-chip {
     background: transparent;
     border-color: var(--color-border-strong);
     color: var(--color-text-secondary);
@@ -25096,6 +25118,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 .badge--tone.domain-feature-card__mark.domain-features__legend-proposed {
     border-style: dashed;
+}
+
+/* A gate chip leads with its kind's glyph: a flag, or a cog for a setting. */
+.domain-gate-chip__glyph {
+    flex: none;
+    margin-right: var(--spacing-2xs);
 }
 
 /* The deprecated features, gathered at the end of the last column on the

@@ -1,0 +1,73 @@
+@*
+    The chip the Domain view draws for the flag or setting a feature hangs on
+    (local ADR 0047): a neutral outline
+    (.devbook/design/color-scheme.md#domain-view-element-tones) led by its kind's
+    glyph — FlagIcon for a flag, SettingsIcon for a setting — then the gate's
+    name. The glyph is never the only carrier: a listener hears the kind in
+    words, an sr-only "Flag: " in front of the name, and the tooltip adds what the
+    gate's chapter states, "Flag: New domain view · default off".
+
+    Given OnNavigate, the chip is a button that follows to the gate's chapter, and
+    its name says what the gate does: "Gated by flag New domain view". The
+    Features card leaves it inert, because the card is a button already; the
+    Requirements header lets it follow.
+
+    With no Gate the chip names a kind alone — the glyph and "flag" or
+    "setting" — which is what the Features legend draws.
+*@
+
+@if (Gate is { } gate)
+{
+    @if (_followed is { } reference)
+    {
+        <Badge Kind="tone"
+               CssClass="domain-gate-chip"
+               TestId="@TestId"
+               Title="@gate.Description"
+               OnClick="@(() => OnNavigate.InvokeAsync(reference))"
+               data-kind="@gate.KindWord"
+               aria-label="@gate.Spoken">@Glyph(gate.Kind)<span class="domain-gate-chip__name">@gate.Chapter.Title</span></Badge>
+    }
+    else
+    {
+        <Badge Kind="tone"
+               CssClass="domain-gate-chip"
+               TestId="@TestId"
+               Title="@gate.Description"
+               data-kind="@gate.KindWord">@Glyph(gate.Kind)<span class="sr-only">@(gate.Word): </span><span class="domain-gate-chip__name">@gate.Chapter.Title</span></Badge>
+    }
+}
+else
+{
+    <Badge Kind="tone" CssClass="domain-gate-chip" TestId="@TestId" data-kind="@KindWord">@Glyph(Kind)@KindWord</Badge>
+}
+
+@code {
+    /// <summary>The gate to draw. Unset, the chip names <see cref="Kind"/> alone.</summary>
+    [Parameter]
+    public DomainFeatureGate? Gate { get; set; }
+
+    /// <summary>The kind a chip with no <see cref="Gate"/> names, as a legend does.</summary>
+    [Parameter]
+    public DomainFeatureGateKind Kind { get; set; }
+
+    /// <summary>Raised with the gate chapter's reference when the chip is
+    /// followed. Unset, the chip is inert.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private DevbookReference? _followed;
+
+    protected override void OnParametersSet() =>
+        _followed = OnNavigate.HasDelegate && Gate is { } gate ? DevbookReference.Parse(gate.Chapter.Reference) : null;
+
+    private string KindWord => Kind == DomainFeatureGateKind.Setting ? "setting" : "flag";
+
+    private static RenderFragment Glyph(DomainFeatureGateKind kind) =>
+        kind == DomainFeatureGateKind.Setting
+            ? @<SettingsIcon Size="12" CssClass="domain-gate-chip__glyph" />
+            : @<FlagIcon Size="12" CssClass="domain-gate-chip__glyph" />;
+}

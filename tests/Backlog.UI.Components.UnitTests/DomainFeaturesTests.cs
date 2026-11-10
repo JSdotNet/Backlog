@@ -88,9 +88,20 @@ public sealed class DomainFeaturesTests
 
         ```meta
         type: feature-flag
+        default: off
         ```
 
         Turns checkout on.
+
+        ## Quote validity
+
+        ```meta
+        type: setting
+        scope: user
+        default: 14 days
+        ```
+
+        How long a quote holds.
         """;
 
     internal const string Domain = """
@@ -301,6 +312,87 @@ public sealed class DomainFeaturesTests
         var column = Assert.Single(DomainFeatures.Columns(split, [.. Files, split]));
         Assert.Equal(2, column.Depth);
         Assert.Equal("Gift cards", Assert.Single(column.Features).Title);
+    }
+
+    [Fact]
+    public void A_feature_names_the_decision_records_its_related_names_by_number()
+    {
+        var file = DomainUnits.Parse("""
+            # Features
+
+            ## Checkout
+
+            ```meta
+            type: feature
+            related: [.devbook/domain/ordering/domain.md#order, .devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md#5-what-a-page-reads, .devbook/arc42/adr/guidelines/0012-one-step-checkout.md, .devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md, .devbook/arc42/05-building-block-view.md#devbook]
+            ```
+
+            Pay in one step.
+            """, FeaturesPath);
+
+        var checkout = Assert.Single(DomainFeatures.Read(file, [file]));
+
+        Assert.Equal(
+            [
+                new DomainDecision("ADR 0047", "The domain view reads by unit", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md#5-what-a-page-reads"),
+                new DomainDecision("Guideline ADR 0012", "One step checkout", ".devbook/arc42/adr/guidelines/0012-one-step-checkout.md")
+            ],
+            checkout.Decisions);
+        Assert.Equal("ADR 0047 — The domain view reads by unit", checkout.Decisions[0].Name);
+        Assert.Equal(["ADR 0001"], Feature("ordering").Decisions.Select(decision => decision.Label));
+        Assert.Empty(Feature("quotes").Decisions);
+    }
+
+    [Fact]
+    public void A_gate_reads_its_chapters_scope_and_default_from_context_md()
+    {
+        var flag = Feature("checkout").Gate!;
+        Assert.Null(flag.Scope);
+        Assert.Equal("off", flag.Default);
+        Assert.Equal(["default off"], flag.Facts);
+
+        var setting = Feature("quotes").Gate!;
+        Assert.Equal("user", setting.Scope);
+        Assert.Equal("14 days", setting.Default);
+        Assert.Equal(["user", "default 14 days"], setting.Facts);
+    }
+
+    [Fact]
+    public void A_gate_in_another_context_names_only_its_kind()
+    {
+        var file = DomainUnits.Parse("""
+            # Features
+
+            ## Planning
+
+            ```meta
+            type: feature
+            feature-flag: .devbook/domain/tasks/context.md#ai-assistant
+            ```
+
+            Plan with help.
+
+            ## Pricing
+
+            ```meta
+            type: feature
+            setting: .devbook/domain/ordering/context.md#price-list
+            ```
+
+            Read a price.
+            """, ".devbook/domain/ordering/features.md");
+
+        var features = DomainFeatures.Read(file, Files);
+
+        var elsewhere = features[0].Gate!;
+        Assert.Equal(DomainFeatureGateKind.Flag, elsewhere.Kind);
+        Assert.Equal("Ai assistant", elsewhere.Chapter.Title);
+        Assert.False(elsewhere.Chapter.Known);
+        Assert.Null(elsewhere.Default);
+        Assert.Empty(elsewhere.Facts);
+
+        // A chapter the context does not hold states nothing either.
+        Assert.Empty(features[1].Gate!.Facts);
     }
 
     [Fact]

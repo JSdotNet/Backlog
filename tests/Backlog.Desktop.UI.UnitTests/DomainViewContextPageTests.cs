@@ -105,6 +105,53 @@ public sealed class DomainViewContextPageTests : IDisposable
         The system SHALL give every task a status.
         """;
 
+    private const string Domain = """
+        # Domain: Tasks
+
+        ```meta
+        type: domain
+        status: draft
+        ```
+
+        What the tasks context is.
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        status: draft
+        ```
+
+        A refined, actionable item.
+
+        ### TaskCompleted
+
+        ```meta
+        type: domain-event
+        status: draft
+        ```
+
+        Raised when a task is done.
+        """;
+
+    private const string Model = """
+        # Model: Tasks
+
+        ```meta
+        type: model
+        status: draft
+        ```
+
+        ## Model diagram
+
+        ```mermaid
+        classDiagram
+            class Task {
+                <<aggregate root>>
+            }
+        ```
+        """;
+
     private const string SyncContext = """
         # Sync
 
@@ -173,6 +220,32 @@ public sealed class DomainViewContextPageTests : IDisposable
         Assert.DoesNotContain("OHS", view.Find("[data-testid='domain-neighbours']").TextContent);
     }
 
+    [Fact]
+    public async Task The_Events_lens_opens_Model_on_Events()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")), Patience);
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context-page']")), Patience);
+
+        var lenses = component.FindAll("[data-testid='domain-context-page-lens']");
+        var model = lenses.Single(lens => lens.GetAttribute("data-reference")!.EndsWith("tasks/model.md", StringComparison.Ordinal));
+        var events = lenses.Single(lens => lens.GetAttribute("data-reference")!.EndsWith("tasks/model.md#events", StringComparison.Ordinal));
+        Assert.Equal(lenses.ToList().IndexOf(model) + 1, lenses.ToList().IndexOf(events));
+        Assert.Contains("Events", events.TextContent, StringComparison.Ordinal);
+        Assert.Contains("What is it made of?", model.TextContent, StringComparison.Ordinal);
+
+        // The anchor travels with it, and the Model page opens on its Events tab
+        // (DomainModelTabs.For).
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-context-page-lens'][data-reference$='model.md#events']").Click());
+
+        component.WaitForAssertion(() => Assert.Equal("model", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='domain-model-tab-events']").GetAttribute("aria-selected")), Patience);
+        Assert.Equal("false", component.Find("[data-testid='domain-model-tab-diagram']").GetAttribute("aria-selected"));
+    }
+
     [Theory]
     [InlineData("core", "draft", "Core · draft")]
     [InlineData("supporting", "none", "Supporting")]
@@ -234,6 +307,8 @@ public sealed class DomainViewContextPageTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), Context);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "dependencies.md"), Dependencies);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "requirements.md"), Requirements);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.md"), Model);
         Directory.CreateDirectory(Path.Combine(root, ".domain", "sync"));
         File.WriteAllText(Path.Combine(root, ".domain", "sync", "context.md"), SyncContext);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
