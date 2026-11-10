@@ -1032,6 +1032,35 @@ h1, h2, h3 {
     color: var(--color-primary-light);
 }
 
+/*
+   A plan chip's progress: a hairline along its bottom edge, filled from the start
+   to the finished share of the plan's entries, which the chip carries as
+   --chip-progress. A background layer rather than an element or a border, so the
+   chip is exactly as tall and as wide as the chips beside it and the one-row strip
+   clips it the same, and so it stays in the narrow column that hides the count.
+   Longhands only: .chip and .chip--active set the fill through the shorthand, and
+   this rule, one class deep and written after both, must add the layer without
+   resetting the colour under it. Decorative — the title already says the counts.
+   Counted by entries, like the number on the chip, not by the points the
+   open-work report's plan rows fill to, so the two can differ for one plan.
+*/
+.chip--progress {
+    background-image: linear-gradient(to right,
+        var(--color-success-text) var(--chip-progress, 0%),
+        var(--color-border) var(--chip-progress, 0%));
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% var(--border-width-2);
+}
+
+/* Pressed, the chip is the primary fill, so the line takes the pressed text's
+   colour and its track a faint wash of the same. */
+.chip--progress.chip--active {
+    background-image: linear-gradient(to right,
+        var(--color-text-inverse) var(--chip-progress, 0%),
+        color-mix(in srgb, var(--color-text-inverse) 30%, transparent) var(--chip-progress, 0%));
+}
+
 /* --- Icon link (header) --------------------------------------------------- */
 
 /*
