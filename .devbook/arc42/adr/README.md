@@ -74,6 +74,7 @@ between inherited ADRs 0005 and 0009.
 - **[0045 — The sync service relays a phone dictation to Foundry for transcription and keeps none of it](0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)** *(amends the thin-cloud constraint, beside 0023)*
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
+- **[0050 — Events is its own bounded context](0050-events-is-its-own-bounded-context.md)** *(proposed, specification only)*
 
 ## Inherited decisions
 
