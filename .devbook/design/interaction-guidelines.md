@@ -47,7 +47,7 @@ the product has no save affordance.
 | Rule | Requirement |
 |---|---|
 | Text debounce | Continuous text edits MUST auto-save **500 ms–1000 ms** after the last keystroke (recommended default 750 ms). |
-| Idle/blur flush | A pending save MUST be flushed immediately on field/editor **blur**, on navigation away, and on app background/close. |
+| Idle/blur flush | A pending save MUST be flushed immediately on field/editor **blur**, on navigation away, on app background or close, and when the main window hides to the tray, which flushes the same way a close does. |
 | Discrete actions | Discrete changes (reorder, toggle, checkbox, metadata edit, drop) MUST save **immediately** (no debounce). |
 | Max in-flight latency | If a save has no acknowledgement within ~5 s, the indicator MUST move from `Saving` toward `Offline`/retry. |
 | Local-first ordering | Update UI (optimistic) → write local canonical Markdown → background sync; editing MUST NOT wait on sync. |

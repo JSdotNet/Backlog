@@ -1,8 +1,8 @@
 # ADR 0043: A surface can open in its own window, and modules register the surfaces the shell shows
 
 ```meta
-date: 2026-11-04
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
+date: 2026-11-10
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
 ```
 
 Each module puts its screen in the desktop shell by registering a **`ShellSurface`** from
@@ -25,6 +25,9 @@ decisions were settled with the repository owner before the plan was imported, a
 this record writes them down. Built: §1 to §7, step by step, as the History records.
 Amended 2026-11-04: §5 lets a person remember a popped-out window, one window at a
 time. The repository owner decided it, and it is built, as the History records.
+Amended 2026-11-10: §5 closes the main window to the notification area, so the app and
+its MCP listener outlive it. The repository owner decided it under plan
+`tray-keep-alive`, and it is not built yet.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It keeps ADR 0022's rule of one main view per window and replaces ADR
@@ -157,7 +160,7 @@ no window key, such as a web harness tab or a loopback page, draws it nowhere. T
 look and placement are the design chapter's
 ([shell header](../../design/interaction-guidelines.md#shell-header)).
 
-### 5. Each window has its own view state; the main window owns the app's life
+### 5. Each window has its own view state; closing the main window hides it to the tray
 
 ```meta
 ```
@@ -166,8 +169,30 @@ Each window has its own view state. `WindowStateLifetime` becomes `Scoped` in th
 head, the same as the web harness. Data and change signals stay process-wide singletons,
 so a task saved in one window reloads in the others.
 
-Closing the main window quits the app and closes every popped-out window. By default
-nothing reopens on the next start. A person opts in one window at a time: the
+Closing the main window with ✕ or Alt+F4 flushes the navigation and window-bounds stores
+and hides the window to a notification-area icon. The process and the MCP listener keep
+running, and popped-out windows stay open. The
+[runtime view](../06-runtime-view.md#main-window-close-hide-and-quit) draws the states.
+
+- **The tray icon's menu** has **Open Backlog** and **Quit**. Double-clicking the icon
+  restores the main window.
+- **Quit** flushes the stores, closes every window and ends the app. Sign-out, shutdown
+  and an MSIX update end it too.
+- **A hidden main window comes back** on a plain second launch, a `backlog://` link, a
+  toast press, or **Show in main window**.
+- **The first hide** shows a one-time toast saying Backlog is still running.
+
+Two per-machine settings sit on the MCP server settings page:
+
+- **Keep running in the tray when closed** is on by default. Turned off, closing the main
+  window quits the app again.
+- **Start Backlog when I sign in** is off by default. It uses an MSIX `StartupTask`, and a
+  start at sign-in opens straight to the tray with no window. An unpackaged build (Debug
+  and Aspire) disables the switch with the note "Available in the installed app". When
+  Windows reports the task disabled by the person or by policy, the switch is disabled
+  and says to change it in Task Manager's Startup apps.
+
+By default nothing reopens on the next start. A person opts in one window at a time: the
 **Remember this window** toggle in a popped-out window's header (§4) marks that window
 **remembered**.
 
@@ -175,8 +200,8 @@ A remembered window reopens on the next start, after the main window. It shows t
 surface and query it showed when the app quit, after any jump or scope change. It opens
 at its own last bounds, maximised if it was, moved onto a connected monitor.
 
-- **Quitting the app keeps it remembered.** Closing the main window is not a choice
-  about the other windows.
+- **Quitting the app keeps it remembered.** Quit is not a choice about the other
+  windows.
 - **Closing that window forgets it.** So does **Show in main window**, and so does
   pressing **Remember this window** again.
 - **A surface the catalog no longer offers is skipped,** and its remembered window is
@@ -262,6 +287,9 @@ Negative:
 - **Places that assume one window must change**: the single notification-centre
   listener, and the `FirstOrDefault()` window lookups behind app notifications and the
   Brain folder picker.
+- **The app outlives its main window.** A session keeps the `backlog` tools after the
+  window closes, and the head owns a tray icon, a second-launch redirect and a startup
+  task that the plan builds and has to test by hand.
 - **A remembered window needs an identity that outlasts the run.** It keeps its window
   key across starts, and it reports every jump and scope change to the store, so it
   reopens on what it showed.
@@ -308,6 +336,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-10 | Amended §5, renamed from "the main window owns the app's life": closing the main window (✕ or Alt+F4) flushes the navigation and window-bounds stores and hides it to a notification-area icon. The process and the MCP listener keep running, and popped-out windows stay open. The tray menu has **Open Backlog** and **Quit**, and a double-click restores the window. Quit keeps the flush, closes every window and quits. A plain second launch, a `backlog://` link, a toast press and **Show in main window** re-show a hidden main window, and the first hide shows a one-time toast. Two per-machine switches join the MCP server settings page: **Keep running in the tray when closed**, on by default, and **Start Backlog when I sign in**, off by default, an MSIX `StartupTask` that starts to the tray. That switch is disabled in an unpackaged build and when Windows reports the task disabled by the person or by policy. The runtime view gains the scenario "Main window close, hide and quit". Not built yet. | Plan `tray-keep-alive`: closing the window stopped the MCP listener, so every session lost the `backlog` tools until Backlog was opened again. |
 | 2026-11-04 | Both §4 toggles kept side by side after `main` landed **Keep on top**: the header reads title, scope chips, **Keep on top**, **Remember this window**, **Show in main window**. **Keep on top** keeps the pin; **Remember this window** wears Lucide's `bookmark` (`BookmarkIcon`). Both sit in `surface-window__actions`, so below 40rem they stay on the title's row. `IShellWindows` answers `CanKeepOnTop` and `CanRemember` apart, and `shell-windows.json` keeps `onTop` and `remembered` as sections of their own beside `surfaces`. | Two toggles on one glyph would read as one control, and the pin already meant on top. |
 | 2026-11-04 | §5's remembered windows built. `ShellWindowStore` keeps a `remembered` list (key, surface, query, bounds) beside `surfaces`, written only while one is remembered. A query value stored as null is left out on read. `ShellWindowReopenPlan` sorts the remembered windows into those to open and those whose surface `ISurfaceCatalog` no longer offers, which are forgotten. `ShellWindows.ReopenRemembered` runs from `App` once the main window is created. It reopens each window under its old key at its own bounds, clamped to a connected monitor, and one that throws is forgotten without stopping the rest. `SurfaceWindow` draws the **Remember this window** toggle through `IShellWindows.CanRemember`, which only the head's `ShellWindows` answers true. Each jump and chip press is reported through `ReportShowing`. `BookmarkIcon` joins the component library. Quitting, closing the window, and bounds after a restart have no unit test, because they live in the head; they are checked by hand. | The amendment's own row, below, built in the same pull request. |
 | 2026-11-04 | Amended §5: a person can remember a popped-out window, one window at a time. §4's header gains an icon-only toggle, **Remember this window**, in the desktop head, and none where a window has no key. A remembered window reopens on the next start, after the main window, on the surface and query it showed at quit, at its own last bounds, moved onto a connected monitor. Quitting keeps it; closing it, **Show in main window** or pressing the toggle again forgets it. `shell-windows.json` gains a section for remembered windows beside `surfaces`, which is unchanged. The default stays off. Rejected keeps the automatic layout restore out, now beside the opt-in that replaces it, and adds a remembered window that outlives its own close. The Consequences follow. Not built yet. | The repository owner wants chosen windows back after a restart without the app guessing a whole layout. |
