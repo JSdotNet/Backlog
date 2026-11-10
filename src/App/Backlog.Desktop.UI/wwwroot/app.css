@@ -12054,6 +12054,7 @@ a.pull-request-detail-checks__name:hover {
         max-height: none;
         overflow: visible;
     }
+}
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
