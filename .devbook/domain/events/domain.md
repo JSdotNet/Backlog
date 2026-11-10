@@ -65,6 +65,7 @@ it holds are `### Invariant:` chapters in
 
 ```meta
 type: value-object
+aliases: [EventDate]
 ```
 
 A calendar date, plus a time of day and its UTC offset when they are known. A
@@ -96,7 +97,8 @@ time. Equality is by value.
 type: value-object
 ```
 
-What going costs, as one amount with its currency. Nothing totals or reports it.
+What going costs, as one amount with its currency code, kept trimmed and upper-cased, such as
+`EUR`. No list of currencies is checked. Nothing totals or reports it.
 Equality is by value.
 
 ### Ticket State
@@ -167,17 +169,17 @@ once the event is Attended or Harvested. Equality is by value.
 
 ```meta
 type: value-object
-aliases: [NoteLink]
+aliases: [NoteLink, NoteLinkKind]
 related: [.devbook/domain/brain/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#note, .devbook/domain/capture/features.md#talk-note]
 ```
 
-A note the event points at, in one of two forms:
+A note the event points at, of one of two kinds:
 
-- **A Brain note**, a [Knowledge Note](../brain/domain.md#knowledge-note), named by
+- **Brain**: a [Knowledge Note](../brain/domain.md#knowledge-note), named by
   its path from the Brain's root, as `ItemTriaged.note_path` names it.
-- **A Talk note**, an Inbox [note](../inbox/domain.md#note), named by its id.
+- **Talk**: an Inbox [note](../inbox/domain.md#note), named by its id.
 
-The link also keeps the note's title as it read when linked. The phone shows a
+The link also keeps the note's title as it read when linked, or none when it had none. The phone shows a
 Brain note by that title only, because it cannot see the Brain. A Brain note moved
 or renamed leaves a broken link, which the pane shows as missing. Two links are
 equal when they name the same note.

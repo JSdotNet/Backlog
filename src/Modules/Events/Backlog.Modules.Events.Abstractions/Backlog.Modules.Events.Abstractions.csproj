@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Events module's public surface (.devbook/domain/events, local ADR 0050) —
+    everything another context or a host is allowed to see:
+      EventsFeatures  the events key that withdraws the whole area
+      EventsErrors    every code a knowledge event or an event series refuses with
+      Enums           the vocabulary the pane renders: state, ticket, date source,
+                      task purpose and note-link kind
+    The aggregates, their repository ports and the registration stay in the
+    implementation project. Nothing here may reference it, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Events.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

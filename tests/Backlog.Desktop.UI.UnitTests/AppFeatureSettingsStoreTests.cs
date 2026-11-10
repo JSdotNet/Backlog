@@ -130,6 +130,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,
                 Backlog.Modules.Notifications.Abstractions.NotificationsFeatures.Notifications,
+                Backlog.Modules.Events.Abstractions.EventsFeatures.Events,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,
@@ -192,6 +193,21 @@ public sealed class AppFeatureSettingsStoreTests
 
         Assert.Equal(persisted, key);
         Assert.Equal(AppFeatureStatus.Released, feature.Status);
+        Assert.False(feature.EnabledByDefault);
+        Assert.Equal(AppFeatureGroup.Domain, feature.Group);
+    }
+
+    /// <summary>Events is a product area still being built (local ADR 0050): marked Dev and
+    /// off until a person asks for it, so nothing of it shows by default. The key is a
+    /// persisted value and is pinned as a literal.</summary>
+    [Fact]
+    public void Events_is_a_dev_product_area_that_starts_off()
+    {
+        var feature = Assert.Single(AppFeatures.All, feature => feature.Key == Backlog.Modules.Events.Abstractions.EventsFeatures.Events);
+
+        Assert.Equal("events", feature.Key);
+        Assert.Equal("Events", feature.Name);
+        Assert.Equal(AppFeatureStatus.Dev, feature.Status);
         Assert.False(feature.EnabledByDefault);
         Assert.Equal(AppFeatureGroup.Domain, feature.Group);
     }

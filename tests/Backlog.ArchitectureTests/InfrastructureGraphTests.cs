@@ -40,9 +40,9 @@ public class InfrastructureGraphTests
             + "its merged pull requests across a restart, the Progress adapter under Progress/ that reads "
             + "goal pull requests through its contract, and the Tasks adapter under Tasks/ that answers the "
             + "task row's pull-request port through the same contract (local ADR 0042)."),
-        ("Backlog.Infrastructure.Sqlite", 6,
+        ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
-            + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "
+            + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "
             + "port. The tables share a file, not a schema (inherited ADR 0014). The task store also closes the "
             + "notifications about a task that ends, through Notifications' published port it already sees."),
         ("Backlog.Infrastructure.GitHub", 6,

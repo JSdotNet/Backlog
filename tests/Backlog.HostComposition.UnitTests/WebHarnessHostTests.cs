@@ -425,6 +425,41 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Events is composed but shows nothing (local ADR 0050): the shared composition adds the
+    /// module and <c>AddSqlite</c> answers its two store ports with the rooted SQLite adapters,
+    /// while no shell surface, settings section or Ask AI source of it is registered — there is
+    /// no pane yet — and with the default feature file the <c>events</c> switch reads as off.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_events_store_and_shows_nothing_of_it()
+    {
+        const string module = "Backlog.Modules.Events";
+
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        Assert.IsType<Backlog.Infrastructure.Sqlite.Events.RootedSqliteKnowledgeEventRepository>(
+            harness.Services.GetRequiredService<Backlog.Modules.Events.IKnowledgeEventRepository>());
+        Assert.IsType<Backlog.Infrastructure.Sqlite.Events.RootedSqliteEventSeriesRepository>(
+            harness.Services.GetRequiredService<Backlog.Modules.Events.IEventSeriesRepository>());
+
+        using var scope = harness.Services.CreateScope();
+
+        static bool OfEvents(Type type) => type.Assembly.GetName().Name!.StartsWith(module, StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.ShellSurface>(),
+            surface => surface.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(surface.Component));
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>(),
+            section => section.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(section.Component));
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>(),
+            source => source.AreaKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(source.GetType()));
+        Assert.False(harness.Services.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>()
+            .IsEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events));
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.
