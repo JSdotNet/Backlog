@@ -847,8 +847,8 @@ With the task open beside it, the board scrolls sideways rather than squeezing i
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it]
+related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality, .devbook/domain/events/features.md#events-on-the-calendar]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it, unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.On_a_device_that_never_chose_the_events_are_off_until_ticked_and_the_tick_is_kept]
 ```
 
 The same filtered tasks laid out on a month or on a week by their
@@ -869,7 +869,7 @@ date wait beside the calendar. Dragging one onto a day gives it that due date,
 and dragging a task to another day moves it. Only the due date places a task here.
 
 The week shows its seven days, Monday first, as tall columns. Each day lists
-every task, with nothing folded and no day dimmed. The reader picked the week, so a day of the neighbouring month is part of it. The plans, the
+every task, with nothing folded and no day dimmed. The reader picked the week, so a day of the neighbouring month is part of it. The plans, the events, the
 [planned hours](#planned-hours) and the drags work as on the month.
 Previous and next step a week at a time. The heading names the week's
 days, such as "5 – 11 October 2026".
@@ -892,7 +892,22 @@ the month's name turns them on; it is off by default, and remembered on this dev
   of the total.
 - A bar wears its repository's colour while repository colours are showing, as on
   the roadmap. It wears a neutral grey while they are not.
-- A milestone is a diamond on its date.
+- A milestone is a filled diamond on its date.
+
+The decided [knowledge events](../events/domain.md#knowledge-event) can be drawn too
+([Events on the Calendar](../events/features.md#events-on-the-calendar)). A **Show events**
+choice after Show plans turns them on. It is offered only while the
+[Events area](../events/context.md#events-area) is on, is off by default, and is remembered on
+this device apart from Show plans.
+
+- A Considering, Going, Attended or Harvested event is a bar across its days, cut at every
+  week as a plan's is. Events take rows of their own above the plans.
+- A bar says the event's title, state and place. It is filled while Going, Attended or
+  Harvested, and has a dashed outline while Considering.
+- An event with a start and no end takes its start day. An event with no start has no bar.
+- Each [key date](../events/domain.md#key-date) of a decided event is a hollow diamond on its
+  date, named by its label, whether or not the event has a bar.
+- A bar takes no drag.
 
 Beside the tasks with no due date, **Plans without a window** lists the plans
 waiting on the roadmap's
@@ -902,7 +917,7 @@ works out where it ends from its points and the pace, as it places any plan.
 
 The drop is a pointer gesture. The keyboard ways are on the
 roadmap: its shelf's **Plan it** places the plan from today, and its item editor
-moves the window to any day. The Calendar reads the plans and starts a shelf plan, and changes nothing else.
+moves the window to any day. The Calendar reads the plans and the events, starts a shelf plan, and changes nothing else.
 
 ### Planned hours
 

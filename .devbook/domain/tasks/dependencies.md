@@ -2,7 +2,7 @@
 
 ```meta
 type: dependencies
-related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
 ```
 
 > Dependencies this bounded context has on other bounded contexts or
@@ -24,6 +24,7 @@ Tasks is the customer in every Customer/Supplier row.
 | [Sessions](../sessions/domain.md#session-state) | Customer/Supplier | Port `ILinkedSessionStates`, answered by an adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. |
 | [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier | Port `ILinkedPullRequestStates`, answered by an adapter over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row reads and acts on a linked pull request's state and verdict. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag, so a task can be filed against planned work. |
+| [Events](../events/domain.md#knowledge-event) | Customer/Supplier | Port `ICalendarEvents`, answered by `EventsCalendarEvents` over Events' read contract | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions`; local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md) §7 | The Calendar draws the decided events and their key dates under Show events. |
 | [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls the task feed; `TaskReplicaMerge` applies pulled documents | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. |
 
 - **Brain:** Queries can span both contexts.
@@ -51,6 +52,9 @@ Tasks is the customer in every Customer/Supplier row.
     draws as it did before.
 - **Roadmap Planning:** A task is filed under the plan's own slug. Tasks conforms to
   that vocabulary and holds no roadmap state.
+- **Events:** The [Calendar](features.md#calendar-view) reads the events and never
+  writes one. No Tasks type holds an event id. `EventsCalendarEvents` lives under
+  `Infrastructure.FileSystem/Events/` and answers nothing while the `events` flag is off.
 - **Sync:** The feed moves through the sync service, and `TaskReplicaMerge` lives in
   `Backlog.Infrastructure.Sync`. Sync stores the document without reading it. What a
   task is, and how a pulled copy merges into the local store, stay with Tasks
