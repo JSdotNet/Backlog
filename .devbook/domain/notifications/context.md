@@ -132,14 +132,24 @@ On the owner desktop the person reads and answers through `INotificationCentre`:
 
 - **The notification centre**, a takeover the shell's **Notifications** option
   opens, wearing the count of open questions. The centre lists the open
-  notifications and those settled in the last seven days. The one picked is
-  drawn whole beside the list as the library's `NotificationCard`, its Markdown body
+  notifications. **Show settled**, a toggle of its own and off by default, adds
+  those answered, acknowledged or closed in the last seven days. A settled row
+  puts its answer, or a closed one's reason, on its own line under the row's lead
+  line. The one picked is drawn whole beside the list as the library's `NotificationCard`, its Markdown body
   through `MarkdownView` and Mermaid through `DiagramView`.
 
   A single-choice question shows buttons, a multiple-choice one checkboxes, an open one
   a plain-text box, and an alert Acknowledge. A choice that takes text asks for its text in a plain-text box
-  before it sends. An answered card names the winning answer and the device it
-  came from. A closed card names its reason.
+  before it sends. A notification answered or acknowledged in the centre stays
+  listed and picked until another is picked, so the person can read the answer it got.
+
+  A settled card offers no control that answers. An answered card whose answer
+  names set answers lists every set answer read-only. The chosen ones carry a tick
+  and "Chosen", not colour alone, and the rest stay quiet. The answer's text and
+  note sit in an answer block, which holds the whole answer instead when there is
+  no list to mark. A closed card puts its reason, verbatim, in the same block.
+  Under it an outcome line says how and when, such as "Answered from phone · 1 min
+  ago", so the card still names the device.
 - **Windows app notifications**, raised through the Windows App SDK for every
   notification the desktop publishes, and taken down once it settles. Set answers
   become action buttons, at most three, and an open answer an inline text box
@@ -171,8 +181,7 @@ from what its producer left on it (`NotificationRepositories`):
 Pairing, the settings test and an MCP call from no session name none and are the
 Brain's. One the host could not work out, because its source
 could not be read, is listed under every scope. A failing source therefore never
-hides a question. Opening the centre on a notification the scope hides shows
-every repository until the scope is pressed again.
+hides a question.
 
 The owner desktop publishes that answer with each notification it pushes, worked
 out by the same rule when it pushes. The answer is the repository's alias, the name its header
@@ -183,13 +192,15 @@ no aliases of its own, so this is what its Repository filter reads
 ([Answering from another device](features.md#answering-from-another-device);
 local ADR 0039).
 
-Three filters sit over the list, each option counting what it would keep under
-the other two:
+Three filters sit over the list. Each option counts what it would keep under the
+other two filters and **Show settled**. The tally on **Show settled** counts the
+settled notifications the scope and the filters keep.
 
 - **From:** the system, per [Origin](domain.md#origin).
 - **Asked by:** *AI agent* or *Person*, the asker kind of
   [Origin](domain.md#origin).
-- **Kind:** *All*, *Questions*, *Alerts*, or *Open*, whatever still waits.
+- **Kind:** *All*, *Questions*, *Alerts*. A machine that remembered the former
+  *Open* reads it as *All*, with settled ones hidden.
 
 **Group by** offers:
 
@@ -201,10 +212,16 @@ the other two:
 
 Unchosen, it groups by repository, or by system while one repository or the Brain
 alone is pressed. A group holding an open question comes first, then by its newest notification;
-inside a group an open question leads, then newest first. Group by and the
-filters are remembered on this machine; **Clear filters** resets every filter and keeps Group by. The **Notifications** option's count stays global, so
+inside a group an open question leads, then newest first. Group by, the filters
+and **Show settled** are remembered on this machine. **Clear filters** resets every
+filter and keeps Group by and **Show settled**. The **Notifications** option's count stays global, so
 the subtitle says how many waiting questions lie outside the scope and how many
 the filters hide. It reads *Loading…* until the first load returns.
+
+The centre can open on one notification, as **Open in Backlog** does. When that
+one is settled while settled ones are hidden, the centre lists settled ones for
+that visit. It then clears whatever filter or scope still hides it. None of that
+is remembered.
 
 The person tries the system out on **Settings › Notifications**
 (`settings/notifications`, offered behind the `notifications` switch). **Send test
