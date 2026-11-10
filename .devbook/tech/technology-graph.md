@@ -163,6 +163,7 @@ flowchart LR
         subgraph Mobile["Mobile - Android capture and review"]
             OfflineStore["Local Offline Store"]:::adopted
             SkiaSharp["SkiaSharp"]:::adopted
+            MediaRecorder["Android MediaRecorder"]:::adopted
             FirebaseMessaging["Xamarin.Firebase.Messaging"]:::candidate
             AndroidTools["Android SDK Build Tools"]:::adopted
             APK["APK Packaging"]:::adopted
@@ -290,6 +291,7 @@ flowchart LR
     OfflineStore --> DataSqlite
     OfflineStore --> JSON
     SkiaSharp --> DotNet
+    MediaRecorder --> Android
     FirebaseMessaging --> Android
     FirebaseMessaging --> FCM
     AndroidTools --> Android

@@ -8,8 +8,8 @@
     renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
     how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
     selectable deployment-node frame and the overlay's record chips, are options only
-    this component sets, as is
-    the layout's group bands (C4LayoutOptions.GroupBands). (The one
+    this component sets, as are
+    the layout's group bands, nested frames and wider gaps (C4LayoutOptions). (The one
     shared change both tabs see is a layout fix: a deployment instance is drawn inside
     the deployment node that runs it, where the node used to be dropped.)
 
@@ -43,7 +43,17 @@
     hands the reader back to the model through OnNavigate. Without Navigation the
     explorer draws exactly what the C4 zoom tab always drew.
 *@
-<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom">
+@*
+    Escape with an element selected is the explorer's: it clears the selection and
+    ends there. The Devbook takeover closes on Escape (local ADR 0022), and its <main>
+    hears every key pressed inside it, so without this the press that should let go of
+    a card closed the whole surface. Bound to the selection rather than always on: with
+    nothing selected Escape still reaches the takeover and closes it. The selection is
+    rendered before the next key arrives, so this flag is never one key late.
+*@
+<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom"
+     @onkeydown="OnKeyDown"
+     @onkeydown:stopPropagation="@HoldsEscape">
     @if (_view is null)
     {
         <EmptyState Title="No C4 views here yet" role="status">
@@ -54,9 +64,19 @@
     }
     else if (Surface)
     {
+        @* The surface's top row, as the design's header carries it: the overlay switch,
+           offered while the picture is up — a document or the Code level draws no
+           cards to put records on. *@
+        @if (RecordsFor is not null && Document is null && _codeFor is null)
+        {
+            <div class="c4-zoom-explorer__top" data-testid="c4-zoom-top">
+                @OverlaySwitch
+            </div>
+        }
+
         <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
 
-        <div class="c4-zoom-explorer__surface@(Document is null ? string.Empty : " c4-zoom-explorer__surface--document")" data-testid="c4-zoom-surface">
+        <div class="@SurfaceClass" data-testid="c4-zoom-surface">
             <div class="c4-zoom-explorer__nav">@Navigation</div>
 
             @if (Document is not null)
@@ -65,26 +85,39 @@
             }
             else
             {
-                <div class="c4-zoom-explorer__main@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)">
+                <div class="c4-zoom-explorer__main">
                     @{ RenderPicture(__builder); }
                 </div>
 
+                @* On a dynamic view the steps panel heads the right-hand column, beside
+                   the picture as the design's Dynamic screen draws it, and the
+                   inspector of a selected element follows it there. The Code level has
+                   no such column: its type panel is its own, and the level takes both
+                   columns, so no component inspector stands beside the selected type. *@
+                @if (_codeFor is null)
+                {
                 <div class="c4-zoom-explorer__aside" data-testid="c4-zoom-aside">
+                    @if (_playback.Count > 0)
+                    {
+                        @StepsPanel
+                    }
+
                     @if (_inspected is not null)
                     {
                         @Inspector
                     }
-                    else
+                    else if (_playback.Count == 0)
                     {
-                        <EmptyState Title="Nothing selected"
-                                    role="status"
-                                    TestId="c4-zoom-aside-empty">
-                            <DescriptionContent>
-                                Select an element to see what it is, the chapters that document it, and the decisions and debt on it.
-                            </DescriptionContent>
-                        </EmptyState>
+                        @* Nothing selected: what the open view is, as the design's
+                           Landscape screen says it, rather than "Nothing selected". *@
+                        <C4ViewSummary Workspace="@Workspace"
+                                       View="@(_view!)"
+                                       OnSelect="SelectFromSummary"
+                                       OnOpenView="OpenFromSummary"
+                                       TestId="c4-zoom-view-summary" />
                     }
                 </div>
+                }
             }
         </div>
     }
@@ -155,27 +188,7 @@
                     </p>
                 </div>
 
-                <ButtonGroup CssClass="c4-zoom-explorer__scale" AriaLabel="Zoom" TestId="c4-zoom-scale">
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               aria-label="Zoom out"
-                               title="Zoom out"
-                               Disabled="@(_scaleIndex == 0)"
-                               TestId="c4-zoom-scale-out"
-                               OnClick="() => Scale(-1)">−</AppButton>
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               title="Fit the picture to its frame"
-                               TestId="c4-zoom-scale-fit"
-                               OnClick="Fit">Fit</AppButton>
-                    <AppButton Size="ButtonSize.Small"
-                               Variant="ButtonVariant.Secondary"
-                               aria-label="Zoom in"
-                               title="Zoom in"
-                               Disabled="@(_scaleIndex == Scales.Length - 1)"
-                               TestId="c4-zoom-scale-in"
-                               OnClick="() => Scale(1)">+</AppButton>
-                </ButtonGroup>
+                <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
             }
             else
             {
@@ -184,26 +197,11 @@
             }
 
             @* The overlay switch: which records the cards carry. Offered only by a
-               host with records to count, as the inspector's record sections are. *@
-            @if (RecordsFor is not null)
+               host with records to count, as the inspector's record sections are. On
+               the surface it is the top row's, not the view heading's. *@
+            @if (RecordsFor is not null && !Surface)
             {
-                <div class="c4-zoom-explorer__overlay">
-                    <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
-                    <ButtonGroup Radio="true"
-                                 CssClass="c4-zoom-explorer__overlay-choices"
-                                 aria-labelledby="@($"{_frameId}-overlay")"
-                                 TestId="c4-zoom-overlay">
-                        @foreach (var choice in OverlayChoices)
-                        {
-                            <ToggleButton @key="choice"
-                                          Pressed="@(_overlay == choice)"
-                                          PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
-                                          BaseClass="c4-zoom-explorer__overlay-choice"
-                                          PressedCssClass="c4-zoom-explorer__overlay-choice--active"
-                                          TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
-                        }
-                    </ButtonGroup>
-                </div>
+                @OverlaySwitch
             }
         </header>
 
@@ -211,6 +209,7 @@
            card focused. Every card is made focusable by the viewer. *@
         RenderFragment frame = @<div class="c4-zoom-explorer__frame"
              id="@_frameId"
+             @ref="_frame"
              tabindex="0"
              role="group"
              aria-label="@($"{C4Exploration.Label(Workspace, _view)}. Enter zooms into the focused element, Backspace zooms out.")"
@@ -262,7 +261,7 @@
         }
         </div>
 
-        @if (_inspected is not null && !Surface)
+        @if (_inspected is not null && !Surface && _playback.Count == 0)
         {
             @Inspector
         }
@@ -276,17 +275,20 @@
         }
 
         @* A dynamic view plays its steps: the panel beside the picture, the current
-           step's arrow drawn in the primary colour by C4SvgWriter's step options. *@
-        @if (_playback.Count > 0)
+           step's arrow drawn in the primary colour by C4SvgWriter's step options.
+           Off the surface the panel and the inspector of a selected element share the
+           column beside the picture, so the inspector never wraps under it; on the
+           surface both are the right-hand column's. *@
+        @if (_playback.Count > 0 && !Surface)
         {
-            <C4DynamicSteps Steps="@_playback"
-                            Current="@_stepIndex"
-                            Playing="@_playing"
-                            ReducedMotion="@_reducedMotion"
-                            OnPrevious="PreviousStep"
-                            OnNext="NextStep"
-                            OnPlay="Play"
-                            OnPick="PickStep" />
+            <div class="c4-zoom-explorer__side" data-testid="c4-zoom-side">
+                @StepsPanel
+
+                @if (_inspected is not null)
+                {
+                    @Inspector
+                }
+            </div>
         }
 
         @* Under the picture while an overlay is on: what of the overlay's kind sits
@@ -322,13 +324,48 @@
         }
     }
 
+    /// <summary>A dynamic view's steps panel, with the decisions that name an element
+    /// on its path when the host has records to say.</summary>
+    private RenderFragment StepsPanel => @<C4DynamicSteps Steps="@_playback"
+                                                          Current="@_stepIndex"
+                                                          Playing="@_playing"
+                                                          ReducedMotion="@_reducedMotion"
+                                                          Decisions="@PathDecisions"
+                                                          OnOpenRecord="OpenRecordAsync"
+                                                          OnPrevious="PreviousStep"
+                                                          OnNext="NextStep"
+                                                          OnPlay="Play"
+                                                          OnPick="PickStep" />;
+
+    /// <summary>Which records the cards carry: None, Decisions or Debt.</summary>
+    private RenderFragment OverlaySwitch => @<div class="c4-zoom-explorer__overlay">
+        <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
+        <ButtonGroup Radio="true"
+                     CssClass="c4-zoom-explorer__overlay-choices"
+                     aria-labelledby="@($"{_frameId}-overlay")"
+                     TestId="c4-zoom-overlay">
+            @foreach (var choice in OverlayChoices)
+            {
+                <ToggleButton @key="choice"
+                              Pressed="@(_overlay == choice)"
+                              PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
+                              BaseClass="c4-zoom-explorer__overlay-choice"
+                              PressedCssClass="c4-zoom-explorer__overlay-choice--active"
+                              TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
+            }
+        </ButtonGroup>
+    </div>;
+
     /// <summary>The selected element, as the inspector shows it.</summary>
-    private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
+    private RenderFragment Inspector => @<C4ElementInspector @ref="_inspector"
+                                                            Element="@_inspected"
                                                             ZoomLabel="@_zoomLabel"
                                                             OnZoomIn="ZoomIntoSelectedAsync"
                                                             Deployment="@_deploymentNode"
                                                             OnOpenContainer="OpenContainerAsync"
                                                             Records="@_records"
+                                                            Relationships="@_relationships"
+                                                            RecordsAtThisLevel="@(_view?.Kind == C4ViewKind.SystemContext)"
                                                             OnOpenRecord="OpenRecordAsync" />;
 }
 
@@ -370,10 +407,19 @@
     /// on the bar. Cleared on the attach that honours it.</summary>
     private bool _refocus;
 
-    /// <summary>The layout this tab asks for: outside systems a <c>group</c> block
-    /// gathered are kept together in a labelled band, as the design's landscape draws
-    /// them. The C4 tab asks for none and draws what it always drew.</summary>
-    private static readonly C4LayoutOptions ZoomLayout = new(GroupBands: true);
+    /// <summary>The layout this tab asks for. Outside systems a <c>group</c> block
+    /// gathered are kept together in a labelled band, in one column beside the system,
+    /// as the design's landscape draws them. Every deployment node is framed, however
+    /// deep, so a node that holds only other nodes can be selected too. And the gaps
+    /// are wider, so the labels on a larger view have room. The C4 tab asks for none
+    /// and draws what it always drew.</summary>
+    internal static readonly C4LayoutOptions Layout = new(GroupBands: true)
+    {
+        BandsBeside = true,
+        NestedDeploymentNodes = true,
+        ColumnGap = 80,
+        RowGap = 144
+    };
 
     private C4Diagram? _diagram;
     private C4Workspace? _diagramWorkspace;
@@ -499,6 +545,12 @@
 
     private bool Surface => Navigation is not null;
 
+    private string SurfaceClass =>
+        "c4-zoom-explorer__surface"
+        + (Document is not null ? " c4-zoom-explorer__surface--document"
+            : _codeFor is not null ? " c4-zoom-explorer__surface--code"
+            : string.Empty);
+
     private string ExplorerClass =>
         "c4-zoom-explorer"
         + (Surface ? " c4-zoom-explorer--surface" : _playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty);
@@ -527,23 +579,17 @@
         }
     }
 
-    /// <summary>The sizes − and + step through, as a share of the frame.</summary>
-    private static readonly double[] Scales = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-    private const int FitIndex = 2;
-    private int _scaleIndex = FitIndex;
+    /// <summary>The step of <see cref="C4ZoomScale.Steps"/> the picture is drawn at,
+    /// kept here because a new view resets it.</summary>
+    private int _scaleIndex = C4ZoomScale.FitIndex;
 
     /// <summary>How large the picture is drawn now, as a percentage of its frame. For
     /// the host and for tests.</summary>
-    public int ScalePercent => (int)Math.Round(Scales[_scaleIndex] * 100);
+    public int ScalePercent => C4ZoomScale.Percent(_scaleIndex);
 
-    private string? CanvasStyle => _scaleIndex == FitIndex
+    private string? CanvasStyle => _scaleIndex == C4ZoomScale.FitIndex
         ? null
         : FormattableString.Invariant($"width: {ScalePercent}%; height: {ScalePercent}%;");
-
-    private void Scale(int step) => _scaleIndex = Math.Clamp(_scaleIndex + step, 0, Scales.Length - 1);
-
-    private void Fit() => _scaleIndex = FitIndex;
 
     private C4ZoomLocation? _reported;
 
@@ -622,6 +668,7 @@
             _zoomTarget = null;
             _zoomLabel = null;
             _records = null;
+            _relationships = null;
             return;
         }
 
@@ -667,6 +714,45 @@
         _zoomTarget = _inspected is null ? null : C4ZoomNavigation.ZoomInView(Workspace, _view, _inspected.Id);
         _zoomLabel = _zoomTarget is null || _inspected is null ? null : ZoomLabelFor(_inspected, Workspace.View(_zoomTarget));
         _records = RecordsOf(_inspected);
+        _relationships = RelationshipsOf(_inspected);
+    }
+
+    /// <summary>The lines into and out of the inspected element on the open view, for
+    /// the inspector's "Relationships · n"; null where the design lists none — every
+    /// view but the system context, whose lines are the system's whole outside.</summary>
+    private IReadOnlyList<C4InspectorRelationship>? _relationships;
+
+    private (string? View, string? Element, C4Workspace? Workspace) _relationshipsFor;
+
+    /// <summary>Worked out again only when the view, the element or the workspace
+    /// changed: a refresh runs on every parent render.</summary>
+    private IReadOnlyList<C4InspectorRelationship>? RelationshipsOf(C4Element? element)
+    {
+        if (element is null || _view is not { Kind: C4ViewKind.SystemContext } view)
+        {
+            _relationshipsFor = default;
+            return null;
+        }
+
+        var key = (view.Key, element.Id, Workspace);
+        if (key == _relationshipsFor && _relationships is not null) return _relationships;
+
+        _relationshipsFor = key;
+        return
+        [
+            .. C4MermaidWriter.VisibleRelationships(Workspace, view)
+                .Select(edge => (edge, outgoing: string.Equals(edge.FromId, element.Id, StringComparison.OrdinalIgnoreCase)))
+                .Where(pair => pair.outgoing || string.Equals(pair.edge.ToId, element.Id, StringComparison.OrdinalIgnoreCase))
+                .Select(pair =>
+                {
+                    var other = pair.outgoing ? pair.edge.ToId : pair.edge.FromId;
+                    return new C4InspectorRelationship(
+                        Workspace.Element(other)?.Name ?? other,
+                        pair.outgoing,
+                        pair.edge.Description,
+                        pair.edge.Technology);
+                })
+        ];
     }
 
     private Func<string, C4ElementRecords>? _recordsAskedOf;
@@ -731,6 +817,60 @@
     }
 
     private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
+
+    /// <summary>An element pressed in the view summary: selected, as a click on its
+    /// card selects it; the viewer is told on the next render. The summary goes with
+    /// the press — the inspector stands in its place — so the keyboard is handed to
+    /// the inspector's heading rather than dropped to the page.</summary>
+    private void SelectFromSummary(string elementId)
+    {
+        _selectedId = elementId;
+        _focusInspector = true;
+        Refresh();
+    }
+
+    private C4ElementInspector? _inspector;
+
+    /// <summary>Set by a selection from the view summary; the render that draws the
+    /// inspector moves the focus to it, and clears it.</summary>
+    private bool _focusInspector;
+
+    /// <summary>A way in pressed in the view summary: the view below that element.</summary>
+    private void OpenFromSummary(string viewKey) => Open(viewKey, null);
+
+    /// <summary>
+    /// The decisions that name an element on the open dynamic view's path, each once,
+    /// in file order — the design's "Decisions on this path". Null — the section left
+    /// out — with no host records to read, as the inspector leaves its sections out.
+    /// </summary>
+    private IReadOnlyList<C4InspectorRecord>? PathDecisions
+    {
+        get
+        {
+            if (RecordsFor is null || _playback.Count == 0) return null;
+
+            var key = (_view?.Key, RecordsFor, Workspace);
+            if (key == _pathDecisionsFor && _pathDecisions is not null) return _pathDecisions;
+
+            _pathDecisionsFor = key;
+            _pathDecisions =
+            [
+                .. _nodes
+                    .Select(node => node.ElementId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .SelectMany(elementId => CardRecords(elementId).Decisions)
+                    .GroupBy(record => record.Path, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First())
+                    .OrderBy(record => record.Guideline)
+                    .ThenBy(record => record.Number ?? record.Path, StringComparer.OrdinalIgnoreCase)
+            ];
+
+            return _pathDecisions;
+        }
+    }
+
+    private (string? View, Func<string, C4ElementRecords>? Records, C4Workspace? Workspace) _pathDecisionsFor;
+    private IReadOnlyList<C4InspectorRecord>? _pathDecisions;
 
     // ---- the record overlay ----------------------------------------------------
 
@@ -999,10 +1139,10 @@
     /// pressed while playing it pauses, and pressed on the last step it starts again
     /// from the first.
     /// <para>
-    /// A reader who asked for reduced motion gets no timed walk: the picture would
-    /// change under them unasked. Play then moves one step per press, wrapping from the
-    /// last to the first. The preference is read once, when the first steps panel is
-    /// drawn, so a press never waits on script: two quick presses are a play and a
+    /// Reduced motion changes nothing here: it takes the animation away, never the
+    /// function (<c>accessibility.md</c>, "Function preserved"), and the steps change
+    /// in place with no transition either way. The panel says so while the preference
+    /// is on. A press never waits on script, so two quick presses are a play and a
     /// pause, never two walks.
     /// </para>
     /// </summary>
@@ -1016,15 +1156,7 @@
             return;
         }
 
-        var last = _playback.Count - 1;
-
-        if (_reducedMotion)
-        {
-            MoveTo(_stepIndex >= last ? 0 : _stepIndex + 1);
-            return;
-        }
-
-        if (_stepIndex >= last) MoveTo(0);
+        if (_stepIndex >= _playback.Count - 1) MoveTo(0);
 
         if (_disposed) return;
 
@@ -1072,16 +1204,39 @@
         _play = null;
     }
 
-    private async Task<bool> ReducedMotionAsync()
+    /// <summary>Asks the viewer for the reduced-motion preference and to report each
+    /// later change of it through <see cref="ReducedMotionChanged"/>. No viewer reads
+    /// as no preference.</summary>
+    private async Task<bool> WatchReducedMotionAsync()
     {
+        _self ??= DotNetObjectReference.Create(this);
+
         try
         {
-            return await Js.InvokeAsync<bool>("backlogC4Zoom.reducedMotion");
+            var reduced = await Js.InvokeAsync<bool>("backlogC4Zoom.watchReducedMotion", _frameId, _self);
+            _motionWatched = true;
+            return reduced;
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
         {
             return false;
         }
+    }
+
+    /// <summary>Whether the viewer is watching the preference for this explorer, so
+    /// disposing tells it to stop.</summary>
+    private bool _motionWatched;
+
+    /// <summary>The reader turned reduced motion on or off while the explorer is open:
+    /// the viewer's <c>change</c> listener reports it.</summary>
+    [JSInvokable]
+    public Task ReducedMotionChanged(bool reduced)
+    {
+        if (_disposed || _reducedMotion == reduced) return Task.CompletedTask;
+
+        _reducedMotion = reduced;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     // ---- deployment ------------------------------------------------------------
@@ -1140,7 +1295,7 @@
             || !ReferenceEquals(_diagramWorkspace, Workspace)
             || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
         {
-            _diagram = C4LayoutEngine.Build(Workspace, view, ZoomLayout);
+            _diagram = C4LayoutEngine.Build(Workspace, view, Layout);
             _diagramWorkspace = Workspace;
             _diagramViewKey = view.Key;
         }
@@ -1156,7 +1311,7 @@
         if (Workspace.View(viewKey) is not { } next) return;
 
         CloseCodeLevel();
-        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = FitIndex;
+        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = C4ZoomScale.FitIndex;
         _view = next;
         _selectedId = selectId;
         Refresh();
@@ -1269,7 +1424,53 @@
     private async Task DismissHintAsync()
     {
         _hintClosed = true;
+
+        // Got it goes with the hint, and the focus would fall to the page, where the
+        // next Escape closes the Devbook: the picture takes it instead.
+        _focusFrame = true;
         await OnHintDismissed.InvokeAsync();
+    }
+
+    /// <summary>The picture's frame, which takes the keyboard when the control that
+    /// had it goes: Got it on the hint, or the inspector an Escape put away.</summary>
+    private ElementReference _frame;
+
+    /// <summary>Set when the control holding the focus is about to go; the render that
+    /// removes it hands the focus to the frame, and clears it.</summary>
+    private bool _focusFrame;
+
+    /// <summary>Whether Escape is this explorer's to handle: an element is selected
+    /// and clearing it is what the key does.</summary>
+    private bool HoldsEscape => _selectedId is not null && PictureShown;
+
+    /// <summary>Whether the picture is on screen: no Code level open over it, and on
+    /// the surface no host document standing in for it.</summary>
+    private bool PictureShown => _view is not null && _codeFor is null && !(Surface && Document is not null);
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        if (!string.Equals(args.Key, "Escape", StringComparison.Ordinal) || !HoldsEscape) return;
+
+        _selectedId = null;
+
+        // The inspector goes with the selection; the focus on its controls, or on a
+        // card no longer selected, is handed to the frame.
+        _focusFrame = true;
+        Refresh();
+    }
+
+    private async Task FocusFrameAsync()
+    {
+        _focusFrame = false;
+        if (!PictureShown || _frame.Id is null) return;
+
+        try
+        {
+            await _frame.FocusAsync(preventScroll: true);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
     }
 
     // ---- the Code level --------------------------------------------------------
@@ -1389,6 +1590,14 @@
     {
         await ReportLocationAsync();
 
+        if (_focusInspector)
+        {
+            _focusInspector = false;
+            if (_inspected is not null && _inspector is not null) await _inspector.FocusHeadingAsync();
+        }
+
+        if (_focusFrame) await FocusFrameAsync();
+
         // The Code level draws no C4 picture, and neither does the surface while a
         // document stands in for it. The viewer is handed the picture again when the
         // reader comes back to it.
@@ -1404,13 +1613,14 @@
             return;
         }
 
-        // A dynamic view tells the reader up front that Play will not move on its
-        // own, so the preference is read once the first steps panel is on screen —
-        // and only then, so a Play press never has to wait on script.
+        // The steps panel says when reduced motion is on, so the preference is
+        // watched from the first steps panel on screen — once, and only then, so a
+        // Play press never waits on script. A later change arrives through
+        // ReducedMotionChanged.
         if (_playback.Count > 0 && !_reducedMotionRead)
         {
             _reducedMotionRead = true;
-            if (await ReducedMotionAsync())
+            if (await WatchReducedMotionAsync())
             {
                 _reducedMotion = true;
                 StateHasChanged();
@@ -1489,6 +1699,17 @@
         _disposed = true;
         StopPlaying();
         CloseCodeLevel();
+
+        if (_motionWatched)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogC4Zoom.unwatchReducedMotion", _frameId);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+            }
+        }
 
         // Only after a viewer was asked for: a prerender disposes the component
         // without ever reaching OnAfterRender.

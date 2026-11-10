@@ -61,6 +61,19 @@ public sealed record C4LinkedRecord(
     /// <summary>A decision whose state, stored or stated by its file, is <c>proposed</c>.</summary>
     public bool Proposed =>
         Kind == C4RecordKind.Decision && string.Equals(Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A decision in force: see <see cref="IsAcceptedStatus"/>.</summary>
+    public bool Accepted => Kind == C4RecordKind.Decision && IsAcceptedStatus(Status);
+
+    /// <summary>
+    /// Whether a decision's state means it is in force. A decision's state is the
+    /// host's (local ADR 0044) — <c>proposed</c>, <c>decided</c>, <c>declined</c> —
+    /// and a merged record with none stored stands, so no state counts as accepted, as
+    /// <c>decided</c> and a file's own <c>accepted</c> do. Anything else — proposed,
+    /// declined, superseded — does not.
+    /// </summary>
+    public static bool IsAcceptedStatus(string? status) =>
+        status?.Trim().ToLowerInvariant() is null or "" or "accepted" or "decided";
 }
 
 /// <summary>

@@ -27,7 +27,12 @@ public sealed record Arc42SurfaceChapter(string Path, string? Number, string Tit
 /// <param name="Proposed">An ADR whose state, stored or stated by its file, is <c>proposed</c>.</param>
 /// <param name="Guideline">An ADR adopted from elsewhere, under <c>adr/guidelines/</c>.</param>
 /// <param name="Note">What is said on the right: "proposed", a TDR's severity and rung.</param>
-public sealed record Arc42SurfaceRecord(string Path, string Number, string Title, bool Proposed, bool Guideline, string? Note);
+public sealed record Arc42SurfaceRecord(string Path, string Number, string Title, bool Proposed, bool Guideline, string? Note)
+{
+    /// <summary>An ADR in force (<see cref="C4LinkedRecord.IsAcceptedStatus"/>): what the
+    /// decision log's Accepted filter keeps. Always false for a TDR.</summary>
+    public bool Accepted { get; init; }
+}
 
 /// <summary>A chapter that documents the open view, by the reference the views map
 /// states — a section anchor kept.</summary>
@@ -145,8 +150,11 @@ public static class Arc42Surface
                         C4ElementInspection.NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
                         C4ElementInspection.WithoutNumber(document.Title),
                         proposed,
-                        IsGuideline(document.Path),
-                        proposed ? "proposed" : null);
+                        Arc42DevbookCatalog.IsGuideline(document.Path),
+                        proposed ? "proposed" : null)
+                    {
+                        Accepted = C4LinkedRecord.IsAcceptedStatus(document.Status)
+                    };
                 })
                 .OrderBy(record => record.Guideline)
                 .ThenBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
@@ -167,8 +175,8 @@ public static class Arc42Surface
         ];
     }
 
-    /// <summary>The chapters the views map lists against a view, each reference once,
-    /// in file order.</summary>
+    /// <summary>The arc42 chapters the views map lists against a view, each reference
+    /// once, in file order.</summary>
     public static IReadOnlyList<Arc42SurfaceCitation> DocumentsView(Arc42DevbookCatalog catalog, C4WorkspaceEntry? workspace, string? viewKey)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -180,6 +188,12 @@ public static class Arc42Surface
 
         foreach (var reference in workspace.Documents(viewKey))
         {
+            // The views map may list another folder's chapter against a view (the
+            // domain's context map beside the container view) or a record; the list
+            // says "arc42", so it holds the arc42 chapters only, as the inspector's
+            // "Documented in arc42" does.
+            if (!Arc42DevbookCatalog.IsArc42Path(reference) || Arc42DevbookCatalog.IsDecisionRecord(reference)) continue;
+
             var file = C4ViewEntry.FileOf(reference);
             if (!seen.Add(file)) continue;
 
@@ -317,9 +331,6 @@ public static class Arc42Surface
         DevbookDebtLifecycle.Resolved => "resolved",
         _ => null
     };
-
-    private static bool IsGuideline(string path) =>
-        path.Replace('\\', '/').Contains("/adr/guidelines/", StringComparison.OrdinalIgnoreCase);
 
     private static bool SameFile(DevbookDocument document, string path) =>
         string.Equals(C4ViewEntry.FileOf(document.Path), C4ViewEntry.FileOf(path), StringComparison.OrdinalIgnoreCase);

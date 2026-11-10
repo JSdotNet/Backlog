@@ -47,7 +47,53 @@ public sealed record C4InspectorRecord(
     /// decision.</summary>
     public bool OpenDebt =>
         Kind == C4InspectorRecordKind.Debt && !string.Equals(Lifecycle?.Trim(), "resolved", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A decision whose state is <c>accepted</c>: what the inspector's
+    /// "n accepted" tally counts. Always false for debt.</summary>
+    public bool Accepted { get; init; }
+
+    /// <summary>A guideline ADR, adopted from elsewhere into <c>adr/guidelines/</c>.
+    /// Guidelines number from 0001 as the local records do, so a list says which a
+    /// number is. Always false for debt.</summary>
+    public bool Guideline { get; init; }
+
+    /// <summary>The name of the component inside the inspected element that the record
+    /// names, when the record is listed on a container for a component of it — "On
+    /// component Devbook". Null for a record that names the element itself.</summary>
+    public string? OnComponent { get; init; }
+
+    /// <summary>What a debt record's file says beyond its title, for the inspector's
+    /// debt card; null for a decision, or a host that read no file.</summary>
+    public C4InspectorDebtDetail? Detail { get; init; }
 }
+
+/// <summary>
+/// What a debt record's file says, as the inspector's debt card shows it on the element
+/// the record names.
+/// </summary>
+/// <param name="Summary">The debt in a sentence or two: the first paragraph under its
+/// <c>## The debt</c> heading, or null.</param>
+/// <param name="Remediation">The remediation option the record prefers, by its heading
+/// — "Option C — drop the exclusion" — or null when it marks none.</param>
+/// <param name="Origin">The decisions its <c>## Origin</c> names, each a way to open
+/// that record.</param>
+public sealed record C4InspectorDebtDetail(string? Summary, string? Remediation, IReadOnlyList<C4InspectorLink> Origin)
+{
+    public static C4InspectorDebtDetail Empty { get; } = new(null, null, []);
+}
+
+/// <summary>One line into or out of the inspected element on the view it is selected
+/// on, as the inspector's "Relationships · n" lists it.</summary>
+/// <param name="Other">The name of the element at the line's other end.</param>
+/// <param name="Outgoing">Whether the line leaves the inspected element.</param>
+/// <param name="Description">What the line says — "Polls" — or null.</param>
+/// <param name="Technology">What it travels over — "HTTPS" — or null.</param>
+public sealed record C4InspectorRelationship(string Other, bool Outgoing, string? Description, string? Technology);
+
+/// <summary>A record named in another's text, as the inspector links to it.</summary>
+/// <param name="Path">The record, as the host opens it.</param>
+/// <param name="Label">What the reader sees — "ADR 0008".</param>
+public sealed record C4InspectorLink(string Path, string Label);
 
 /// <summary>Which records the zoom tab's overlay draws on the cards.</summary>
 public enum C4RecordOverlay

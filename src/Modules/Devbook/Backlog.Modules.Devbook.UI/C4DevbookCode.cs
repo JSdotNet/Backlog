@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <summary>
 /// The Code level of the C4 zoom tab, read for the Devbook (local ADR 0046 §3): which
 /// components have code folders, their types read from the source by
-/// <see cref="CSharpCodeReader"/>, and the decision records linked to them.
+/// <see cref="CSharpCodeReader"/>, and the decision and debt records linked to them.
 /// <para>
 /// The catalog says where the code is — a building block's <c>code</c> field, spelled
 /// from the repository root — and the reader says what is there. This puts the two
@@ -48,12 +48,14 @@ public sealed partial class C4DevbookCode(CSharpCodeReader reader, IFolderEditor
         var name = catalog.Workspaces.Select(entry => entry.Workspace.Element(componentId)?.Name).FirstOrDefault(found => found is not null) ?? componentId;
         var folders = catalog.CodeOf(componentId);
         var decisions = Decisions(catalog, componentId);
+        var debt = Debt(catalog, componentId);
 
         if (catalog.RepositoryRoot is not { } root)
         {
             return new C4CodeLevel(name, folders, [], [], decisions)
             {
-                Problem = "This architecture folder sits on no repository, so there is no source to read."
+                Problem = "This architecture folder sits on no repository, so there is no source to read.",
+                Debt = debt
             };
         }
 
@@ -76,7 +78,7 @@ public sealed partial class C4DevbookCode(CSharpCodeReader reader, IFolderEditor
             }
         }, cancellationToken).ConfigureAwait(false);
 
-        var level = Map(name, folders, models, decisions);
+        var level = WithDebt(Map(name, folders, models, decisions), debt);
         return problems.Count == 0 ? level : level with { Problem = string.Join(" ", problems) };
     }
 
@@ -209,6 +211,53 @@ public sealed partial class C4DevbookCode(CSharpCodeReader reader, IFolderEditor
             .Select(Record)];
     }
 
+    /// <summary>The debt records linked to the component, each once, in the order the
+    /// chapters were read.</summary>
+    public static IReadOnlyList<C4CodeRecord> Debt(C4Catalog catalog, string componentId)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return [.. catalog.RecordsOf(componentId)
+            .Where(link => link.Record.Kind == C4RecordKind.Debt)
+            .Select(link => link.Record)
+            .DistinctBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
+            .Select(Record)];
+    }
+
+    /// <summary>
+    /// The component's debt on the level, and on each type the records whose title names
+    /// it. The convention pairs a chapter with its code through naming rather than a path
+    /// (<c>devbook-chapter-metadata.md</c>), so a record names a type the way a reader
+    /// would: by its name, in its title.
+    /// </summary>
+    public static C4CodeLevel WithDebt(C4CodeLevel level, IReadOnlyList<C4CodeRecord> debt)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        ArgumentNullException.ThrowIfNull(debt);
+
+        if (debt.Count == 0) return level;
+
+        return level with
+        {
+            Debt = debt,
+            Types = [.. level.Types.Select(type => type with { Debt = [.. debt.Where(record => Names(record.Title, type.Name))] })]
+        };
+    }
+
+    /// <summary>Whether <paramref name="text"/> names a type as a whole word, its type
+    /// parameters aside: "Builder" is not named by "Builders" or "DevbookBuilder".</summary>
+    public static bool Names(string text, string typeName)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(typeName);
+
+        var generic = typeName.IndexOf('<', StringComparison.Ordinal);
+        var name = (generic < 0 ? typeName : typeName[..generic]).Trim();
+        if (name.Length == 0) return false;
+
+        return Regex.IsMatch(text, $@"(?<![\w]){Regex.Escape(name)}(?![\w])", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    }
+
     /// <summary>A record as the panel lists it: "0004" beside "Knowledge index is a
     /// generated database", the number read off the file name or the title.</summary>
     public static C4CodeRecord Record(C4LinkedRecord record)
@@ -237,6 +286,6 @@ public sealed partial class C4DevbookCode(CSharpCodeReader reader, IFolderEditor
     [GeneratedRegex(@"^(\d{3,5})-")]
     private static partial Regex FileNumber();
 
-    [GeneratedRegex(@"^\s*(?:ADR|Decision)?\s*(\d{3,5})\s*[:.\-–—]\s*", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?:ADR|TDR|Decision|Debt)?\s*(\d{3,5})\s*[:.\-–—]\s*", RegexOptions.IgnoreCase)]
     private static partial Regex TitlePrefix();
 }

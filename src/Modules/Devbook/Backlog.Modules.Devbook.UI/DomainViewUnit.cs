@@ -32,8 +32,10 @@ public enum DomainViewPage
     /// <summary><c>flow.md</c>: the context's lifecycles.</summary>
     Flow,
 
-    /// <summary>Any other file the menu lists: a page the convention does not name.</summary>
-    Other
+    /// <summary>Any other file the menu lists — <c>actors.md</c>, <c>skills.md</c>, a
+    /// page the convention does not name, a legacy <c>index.md</c>: the file as
+    /// written (domain/devbook requirement "Any other file opens as written").</summary>
+    File
 }
 
 /// <summary>
@@ -66,7 +68,7 @@ public static class DomainViewUnit
             DomainDevbookDocumentKind.Requirements => DomainViewPage.Requirements,
             DomainDevbookDocumentKind.Model => DomainViewPage.Model,
             DomainDevbookDocumentKind.Flow => DomainViewPage.Flow,
-            _ => DomainViewPage.Other
+            _ => DomainViewPage.File
         };
     }
 
@@ -91,7 +93,8 @@ public static class DomainViewUnit
         _ => "Page"
     };
 
-    /// <summary>What the placeholder says when no row is selected or the file is of no known kind, in the feature chapter's words.</summary>
+    /// <summary>What the placeholder says when no row is selected, in the feature
+    /// chapter's words; for any other page, what it shows.</summary>
     public static string Description(DomainViewPage page) => page switch
     {
         DomainViewPage.None => "Choose the context map, a context, or a file inside one from the menu.",

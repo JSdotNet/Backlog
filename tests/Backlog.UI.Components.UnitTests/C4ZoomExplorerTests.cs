@@ -80,6 +80,72 @@ public sealed class C4ZoomExplorerTests : IDisposable
         Assert.Equal(1, told);
     }
 
+    /// <summary>Got it goes with the hint, and the focus on it would fall to the page,
+    /// where the next Escape closes the Devbook takeover.</summary>
+    [Fact]
+    public void Dismissing_the_hint_hands_the_focus_to_the_picture()
+    {
+        var explorer = Render();
+
+        explorer.Find("[data-testid='c4-zoom-hint-dismiss']").Click();
+
+        _context.JSInterop.VerifyFocusAsyncInvoke();
+    }
+
+    // ---- Escape ------------------------------------------------------------------
+
+    /// <summary>The explorer inside a host that closes on Escape, as the Devbook
+    /// takeover's main does.</summary>
+    /// <remarks>The key is pressed on the host's markup: a rendered child component's
+    /// own markup ends at the component, so a key pressed there never bubbles to the
+    /// host's handler.</remarks>
+    private (IRenderedComponent<C4ZoomExplorer> Explorer, IRenderedComponent<IComponent> Host) RenderInsideAnEscapeHost(Action closed)
+    {
+        var host = _context.Render(builder =>
+        {
+            builder.OpenElement(0, "main");
+            builder.AddAttribute(1, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, args =>
+            {
+                if (args.Key == "Escape") closed();
+            }));
+            builder.OpenComponent<C4ZoomExplorer>(2);
+            builder.AddAttribute(3, nameof(C4ZoomExplorer.Workspace), Workspace);
+            builder.AddAttribute(4, nameof(C4ZoomExplorer.HintDismissed), true);
+            builder.CloseComponent();
+            builder.CloseElement();
+        });
+
+        return (host.FindComponent<C4ZoomExplorer>(), host);
+    }
+
+    [Fact]
+    public async Task Escape_on_a_selected_element_clears_the_selection_and_leaves_the_host_open()
+    {
+        var closed = 0;
+        var (explorer, host) = RenderInsideAnEscapeHost(() => closed++);
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(Alias("backlog"), "context-backlog"));
+        Assert.Equal("backlog", explorer.Instance.SelectedElementId);
+
+        await host.Find("[data-testid='c4-zoom-frame']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Null(explorer.Instance.SelectedElementId);
+        Assert.Equal(0, closed);
+
+        // The inspector went with the selection; the keyboard stays on the picture.
+        _context.JSInterop.VerifyFocusAsyncInvoke();
+    }
+
+    [Fact]
+    public async Task Escape_with_nothing_selected_reaches_the_host()
+    {
+        var closed = 0;
+        var (_, host) = RenderInsideAnEscapeHost(() => closed++);
+
+        await host.Find("[data-testid='c4-zoom-frame']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, closed);
+    }
+
     [Fact]
     public void A_reader_who_dismissed_the_hint_sees_the_view_alone()
     {

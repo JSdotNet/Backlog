@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-10
-related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
+related: [".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
 ```
 
 When a note's meeting recording has downloaded to the desktop, the desktop sends
@@ -29,12 +29,10 @@ ADR 0014, as **Consequences** says.
 ```meta
 ```
 
-**A meeting recording will be a file on a note.** The plan `meeting-recording`
-has the phone record a meeting and add it to a note as one more file; that
-recording, its format and its rollover are the plan's own phone change, not built
-yet. The plan records the meeting as AAC in ADTS (`audio/aac`, `.aac`), because a
-cut-off ADTS file still plays, and rolls a recording over to a second file at
-24 MB. The file travels the way a photo does: uploaded to the blob store before
+**A meeting recording will be a file on a note.** The phone records a meeting and
+adds it to a note as one more file, as AAC in ADTS (`audio/aac`, `.aac`), 16 kHz
+mono at 32 kbps, in parts of 24 MB (ADR 0048, proposed, not yet built). ADR 0048
+leaves the transcription service, and the remux it may need, to this record. The file travels the way a photo does: uploaded to the blob store before
 the note that names it (ADR 0014), pulled by the desktop with the note (ADR 0025,
 `06-runtime-view.md#mobile-note-sync`). The person wants a transcript and a
 summary, not an hour of audio to listen back to.
@@ -106,8 +104,9 @@ stateDiagram-v2
   note or a restored backup.
 - **One file at a time**, in the background. A rolled-over recording's files are
   transcribed as separate files, each appending its own sections in order.
-- **Only audio.** Only a file of a recording type (`audio/aac`, `audio/mp4`) is
-  transcribed. A photo or a document on the same note is not sent.
+- **Only audio.** Only a file of a recording type ADR 0048 lets a note carry
+  (`audio/aac`, `audio/mp4`, `audio/x-m4a`) is transcribed; an M4A file is sent
+  as it is, with no remux. A photo or a document on the same note is not sent.
 - **Only with Foundry configured**, meaning `AzureFoundrySettings.IsConfigured`:
   endpoint, chat deployment and key all set, since the summary needs the chat
   deployment. Otherwise nothing is sent and the recording stays on the note.

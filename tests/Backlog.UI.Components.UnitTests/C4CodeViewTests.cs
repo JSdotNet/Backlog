@@ -3,8 +3,9 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The Code level of the C4 zoom tab, as the design's Code screen draws it: a class box
 /// per type with its stereotype, name and members, the Public / All toggle, the uses as
-/// arrows laid out by <see cref="C4LayoutEngine"/>, and the type panel — its files, Open
-/// in editor, and the decision records linked to the component.
+/// arrows laid out by <see cref="C4LayoutEngine"/>, − / Fit / + over them, and the type
+/// panel — its files, Open in editor, the reference it is held to, the decision records
+/// linked to the component, and its technical debt, else the component's.
 /// </summary>
 public sealed class C4CodeViewTests : IDisposable
 {
@@ -187,6 +188,127 @@ public sealed class C4CodeViewTests : IDisposable
         await view.Find("[data-testid='c4-code-decision']").ClickAsync(new());
 
         Assert.Equal([".devbook/arc42/adr/0004-knowledge-index.md"], opened);
+    }
+
+    /// <summary>The level of <see cref="Level"/> with debt: TDR 0001 names the
+    /// Refresher, TDR 0002 is the component's alone; and the Builder held to a
+    /// reference.</summary>
+    internal static readonly C4CodeLevel LevelWithDebt = Level with
+    {
+        Debt =
+        [
+            new("0001", "Refresher polls the folder", ".devbook/arc42/tdr/0001-refresher-polls.md"),
+            new("0002", "The panels share one cache", ".devbook/arc42/tdr/0002-one-cache.md")
+        ],
+        Types =
+        [
+            Level.Types[0] with { Debt = [new("0001", "Refresher polls the folder", ".devbook/arc42/tdr/0001-refresher-polls.md")] },
+            Level.Types[1] with { Reference = new C4CodeReference("tools/build.mjs", "BuilderParityTests") },
+            Level.Types[2]
+        ]
+    };
+
+    private static IReadOnlyList<string> DebtNumbers(IRenderedComponent<C4CodeView> view) =>
+        [.. view.FindAll("[data-testid='c4-code-debt-record'] .c4-code__record-number").Select(number => number.TextContent)];
+
+    [Fact]
+    public void Technical_debt_lists_what_names_the_type_and_falls_back_to_the_components()
+    {
+        var view = Render(LevelWithDebt);
+
+        // The Refresher is named by TDR 0001: its own debt, no fallback.
+        Assert.Contains("Technical debt", view.Find("[data-testid='c4-code-debt']").TextContent, StringComparison.Ordinal);
+        Assert.Equal(["0001"], DebtNumbers(view));
+        Assert.Empty(view.FindAll("[data-testid='c4-code-debt-fallback']"));
+
+        // Nothing names the Builder: the component's debt, said to be the component's.
+        Box(view, Builder).Click();
+        Assert.Equal(
+            "No TDR names Builder. Its component, Devbook, carries 2 TDRs:",
+            view.Find("[data-testid='c4-code-debt-fallback']").TextContent.Trim());
+        Assert.Equal(["0001", "0002"], DebtNumbers(view));
+    }
+
+    [Fact]
+    public void Without_any_debt_the_panel_says_neither_the_type_nor_the_component_carries_any()
+    {
+        var view = Render(Level);
+
+        Assert.Contains("No TDR names Refresher or Devbook.", view.Find("[data-testid='c4-code-debt']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(view.FindAll("[data-testid='c4-code-debt-record']"));
+    }
+
+    [Fact]
+    public async Task A_debt_record_opens_its_record()
+    {
+        var opened = new List<string>();
+        var view = Render(LevelWithDebt, openRecord: record =>
+        {
+            opened.Add(record.Path);
+            return Task.CompletedTask;
+        });
+
+        await view.Find("[data-testid='c4-code-debt-record']").ClickAsync(new());
+
+        Assert.Equal([".devbook/arc42/tdr/0001-refresher-polls.md"], opened);
+    }
+
+    [Fact]
+    public void Held_to_a_reference_shows_for_a_type_that_has_one_and_only_then()
+    {
+        var view = Render(LevelWithDebt);
+        Assert.Empty(view.FindAll("[data-testid='c4-code-reference']"));
+
+        Box(view, Builder).Click();
+
+        var reference = view.Find("[data-testid='c4-code-reference']");
+        Assert.Contains("Held to a reference", reference.TextContent, StringComparison.Ordinal);
+        Assert.Contains("tools/build.mjs, compared with it in BuilderParityTests.", reference.TextContent, StringComparison.Ordinal);
+
+        // In the design's order: the reference, then the decisions, then the debt.
+        var sections = view.FindAll("[data-testid='c4-code-panel'] > section").Select(section => section.GetAttribute("data-testid"));
+        Assert.Equal(["c4-code-reference", "c4-code-decisions", "c4-code-debt"], sections);
+    }
+
+    [Fact]
+    public void Minus_fit_and_plus_size_the_class_boxes()
+    {
+        var view = Render(Level);
+        string Scale() => view.Find(".c4-code__canvas").GetAttribute("data-scale")!;
+
+        Assert.Equal("100", Scale());
+        Assert.DoesNotContain("zoom", view.Find(".c4-code__canvas").GetAttribute("style"), StringComparison.Ordinal);
+
+        view.Find("[data-testid='c4-code-scale-in']").Click();
+        Assert.Equal("125", Scale());
+        Assert.Contains("zoom: 1.25", view.Find(".c4-code__canvas").GetAttribute("style"), StringComparison.Ordinal);
+
+        view.Find("[data-testid='c4-code-scale-out']").Click();
+        view.Find("[data-testid='c4-code-scale-out']").Click();
+        view.Find("[data-testid='c4-code-scale-out']").Click();
+        Assert.Equal("50", Scale());
+        Assert.True(view.Find("[data-testid='c4-code-scale-out']").HasAttribute("disabled"));
+
+        view.Find("[data-testid='c4-code-scale-fit']").Click();
+        Assert.Equal("100", Scale());
+    }
+
+    /// <summary>Another component's level opens at its own size, as a new view does;
+    /// the same component read again keeps the size the reader chose.</summary>
+    [Fact]
+    public void Another_components_level_opens_at_its_own_size()
+    {
+        var view = Render(Level);
+        string Scale() => view.Find(".c4-code__canvas").GetAttribute("data-scale")!;
+
+        view.Find("[data-testid='c4-code-scale-in']").Click();
+        Assert.Equal("125", Scale());
+
+        view.Render(parameters => parameters.Add(c => c.Level, Level with { }));
+        Assert.Equal("125", Scale());
+
+        view.Render(parameters => parameters.Add(c => c.Level, Level with { Component = "Tasks" }));
+        Assert.Equal("100", Scale());
     }
 
     [Fact]

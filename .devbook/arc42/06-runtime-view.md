@@ -164,6 +164,54 @@ sequenceDiagram
 - **Released on delivery.** The phone deletes the files once the capture is taken (201, or 200 for a known id).
 - **Status from the outbox.** *synced* once the entry is gone, *uploading i of n* during an attempt, *waiting* otherwise, *waiting — tap to retry* once parked.
 
+## Meeting Recording
+
+```meta
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+```
+
+A meeting recorded into a phone note reaches the desktop as one more of the note's files. Recording is new; the journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. None of it is built yet (local ADR 0048).
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Editor as Note editor
+    participant Rec as RecordingService
+    participant Files as notes/recordings
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Desk as Desktop
+
+    ME->>Editor: Record
+    Editor->>Rec: Start (foreground service, type microphone)
+    Rec->>Files: AAC ADTS stream, 16 kHz mono, 32 kbps
+    Rec-->>ME: Ongoing notification: timer, Pause, Stop
+
+    opt File reaches 24 MB
+        Rec->>Files: Close the part, open "part 2" with no gap
+    end
+
+    ME->>Editor: Stop
+    Rec->>Files: Close the file
+    Rec-->>Editor: File, duration, size, sha256
+    Editor->>Outbox: Note document + file, staged
+    Editor-->>ME: "Recording · duration" plays in place
+
+    loop Each file not yet uploaded
+        Outbox->>Sync: PUT /api/sync/attachments/{id} (checkpointed, retried alone)
+    end
+    Outbox->>Sync: POST /api/sync/tasks (type note, names the file)
+    Desk->>Sync: Pull the note, download the file
+    Desk-->>ME: Inbox item with a player
+```
+
+- **Started in the foreground.** Android 11 and later let a microphone service start only while the app is on screen, so Record starts it from the open note.
+- **A stream, not a container.** The file is an ADTS stream of self-contained AAC frames (local ADR 0048), so whatever was written before the app ended plays.
+- **Recovered on start.** A file left in `notes/recordings/` by an ended recording is attached to its note as "Recording (interrupted)" the next time the app starts.
+- **Paused by a call.** A phone call takes the microphone; the recording pauses and resumes only on Resume.
+- **A note gone mid-recording.** When the pull hides the note because the desktop deleted it, the recording runs on and Stop saves it to a new note "Recording · <date>".
+- **The upload is the existing one.** Each part is a note file: uploaded over any connection before the note that names it, checkpointed and retried on its own. A 409, 413 or 415 on a part sets the whole note aside, as for any file. The sync service must add `audio/aac`, `audio/mp4` and `audio/x-m4a` to its allowed types, and be deployed, before a phone build that records ships.
+
 ## Mobile My Day and Task Push
 
 ```meta
