@@ -445,7 +445,7 @@ public sealed class ContextMapTests
              "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
              "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
              "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
-             "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The replica protocol"],
+             "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The events read contract", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);
         Assert.True(map.RuleCards.Count >= 6);
