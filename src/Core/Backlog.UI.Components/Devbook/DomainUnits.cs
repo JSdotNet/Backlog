@@ -84,6 +84,19 @@ public sealed record DomainChapterFile(string Path, string Title, IReadOnlyList<
     /// <summary>The reference that names <paramref name="chapter"/>: this file's
     /// path and the chapter's anchor.</summary>
     public string ReferenceTo(DomainChapter chapter) => $"{Path}#{chapter.Anchor}";
+
+    /// <summary>The markdown between the title — and its <c>meta</c> block — and the
+    /// first chapter, without any <c>annotation</c> fence: what the file says
+    /// before it says anything in particular. Empty when it says nothing there.</summary>
+    public string Lead { get; init; } = string.Empty;
+
+    /// <summary>Every field of the title's <c>meta</c> block as written, by name.</summary>
+    public IReadOnlyDictionary<string, string> Meta { get; init; } = EmptyMeta;
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMeta = new Dictionary<string, string>();
+
+    /// <summary>The title's <c>related</c> entries as written.</summary>
+    public IReadOnlyList<string> Related => DomainUnits.List(Meta.GetValueOrDefault("related"));
 }
 
 /// <summary>What a pickable unit of a domain file is.</summary>
@@ -188,9 +201,26 @@ public static partial class DomainUnits
             if (match.Success) headings.Add((i, match.Groups[1].Value.Length, match.Groups[2].Value.Trim()));
         }
 
-        var title = headings.FirstOrDefault(h => h.Level == 1).Text ?? string.Empty;
+        var titleAt = headings.FindIndex(h => h.Level == 1);
+        var title = titleAt >= 0 ? headings[titleAt].Text : string.Empty;
         var chapters = Build(lines, headings, 0, headings.Count, 2);
-        return new DomainChapterFile(path, title, chapters);
+
+        // The lead runs from under the title, past its meta block, to the next `#`
+        // or `##`: the file's own words before its first chapter. A deeper heading
+        // before the first `##` belongs to no chapter, so it stays in the lead with
+        // its heading line rather than vanish.
+        var leadStart = titleAt >= 0 ? headings[titleAt].Line + 1 : 0;
+        var meta = titleAt >= 0 ? ReadMeta(lines, ref leadStart) : [];
+        var next = headings.FirstOrDefault(h => h.Line >= leadStart && h.Level <= 2);
+        var leadEnd = next.Text is null ? lines.Length : next.Line;
+        var lead = new StringBuilder();
+        Append(lead, lines, leadStart, leadEnd);
+
+        return new DomainChapterFile(path, title, chapters)
+        {
+            Lead = WithoutFences(lead.ToString(), "annotation", "meta").Trim(),
+            Meta = meta
+        };
     }
 
     /// <summary>The units a Domain page offers, in file order: every
@@ -401,7 +431,7 @@ public static partial class DomainUnits
     }
 
     /// <summary>A block's <c>rating</c>, else its <c>status</c>, else none.</summary>
-    private static string? StatusOf(Dictionary<string, string> meta) =>
+    internal static string? StatusOf(IReadOnlyDictionary<string, string> meta) =>
         meta.GetValueOrDefault("rating") is { Length: > 0 } rating ? rating
         : meta.GetValueOrDefault("status") is { Length: > 0 } status ? status
         : null;
@@ -439,20 +469,23 @@ public static partial class DomainUnits
 
     private static string WithoutFences(string markdown, params string[] languages)
     {
+        // Backtick and tilde fences alike, as Parse matches them; a fence closes on
+        // its own marker, so a ``` inside a ~~~ block does not end it.
         var builder = new StringBuilder();
-        var skipping = false;
+        string? skipping = null;
         foreach (var line in markdown.Split('\n'))
         {
             var trimmed = line.Trim();
-            if (!skipping && trimmed.StartsWith("```", StringComparison.Ordinal)
+            if (skipping is null
+                && (trimmed.StartsWith("```", StringComparison.Ordinal) || trimmed.StartsWith("~~~", StringComparison.Ordinal))
                 && languages.Any(language => string.Equals(trimmed[3..].Trim(), language, StringComparison.OrdinalIgnoreCase)))
             {
-                skipping = true;
+                skipping = trimmed[..3];
                 continue;
             }
-            if (skipping)
+            if (skipping is not null)
             {
-                if (trimmed.StartsWith("```", StringComparison.Ordinal)) skipping = false;
+                if (trimmed.StartsWith(skipping, StringComparison.Ordinal)) skipping = null;
                 continue;
             }
             builder.Append(line).Append('\n');

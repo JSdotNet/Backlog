@@ -23145,6 +23145,56 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     outline-offset: 2px;
 }
 
+/* A file the Domain view has no page of its own for, as written (DomainFilePage):
+   the unit pages' hero, then each chapter as a section under its heading. */
+.domain-file__lead > :first-child {
+    margin-top: 0;
+}
+
+.domain-file__lead > :last-child {
+    margin-bottom: 0;
+}
+
+.domain-file__related {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+.domain-file__related-label {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-file__section {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-file__section--nested {
+    padding-left: var(--spacing-md);
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.domain-file__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-file__heading--nested {
+    font-size: var(--font-size-lg);
+}
+
+.domain-file__body {
+    min-width: 0;
+}
+
 .domain-about__section {
     display: grid;
     gap: var(--spacing-xs);

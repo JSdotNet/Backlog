@@ -192,8 +192,8 @@ choices.
 
 The plan has built every page: the Context map, a context's page with its
 neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
-notes and tasks that link to each. Only the **Demo** button for a click demo is
-still to come, and a file of no known kind opens a placeholder.
+notes and tasks that link to each, and any other file as written. Only the
+**Demo** button for a click demo is still to come.
 
 Model opens on **Diagram**, headed by the root's name, which draws each
 `classDiagram` of the model file as the aggregate's consistency boundary: the

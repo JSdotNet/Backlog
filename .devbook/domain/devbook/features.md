@@ -782,6 +782,7 @@ field types reads Model.
 | Requirements | `requirements.md` | Each requirement and its scenarios |
 | Model | `model.md` | **Diagram**, **Fields** and **Events** |
 | Flow | A legacy `flow.md` | Its lifecycles, for a devbook from before devbook contract 37 |
+| Its heading | Any other file — `actors.md`, `skills.md`, a page a context adds | The file as written: title, lead, chapters, related |
 
 The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of

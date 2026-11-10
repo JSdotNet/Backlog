@@ -5,9 +5,9 @@
 @*
     The Domain area read by unit (local ADR 0047), behind the New domain view
     switch. It names the page the selected menu row opens and draws it: Context
-    map, Domain, Context, Features, Requirements, Model and Flow, and a
-    placeholder when no row is selected or the file is of no known kind. With the
-    switch off the pane renders
+    map, Domain, Context, Features, Requirements, Model and Flow; any other file
+    — actors.md, skills.md, a page a context adds — as written; and a
+    placeholder when no row is selected. With the switch off the pane renders
     DomainDevbookPanel and never this.
 
     Every page reads the same Brain and task links, cascaded as DomainChapterLinks:
@@ -68,6 +68,12 @@
     else if (Page == DomainViewPage.Flow)
     {
         <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+    }
+    else if (Page == DomainViewPage.File)
+    {
+        @* Followed like the context page's links, so a related link to a feature
+           or a requirement group opens on it. *@
+        <DomainViewFilePage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" />
     }
     else
     {

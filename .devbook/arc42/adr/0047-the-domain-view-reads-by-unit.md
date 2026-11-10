@@ -67,6 +67,7 @@ devbook before it reads well.
 | A legacy `flow.md` | **Flow** | Its lifecycles, for a devbook from before contract 37 |
 | `<kind>.<name>.md` | A child of its kind's row, titled by its heading | Its kind's page |
 | `*.demo.html` | No row | A **Demo** button on its page |
+| Any other file — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` | Its heading | The file as written: title, lead, chapters, related |
 | A file or folder named `_*` | Hidden | Nothing |
 
 1. **The menu follows the reading order.** It lists a context's files in the
@@ -81,8 +82,8 @@ devbook before it reads well.
    neighbours section at the top of its context's page, and the Overview follows
    below it. A context's page has no tabs, so every way into a context — the
    Context map, a related link, a `dependencies.md` link, the menu — shows it the
-   same way. Every other file follows its kind, and a file whose name starts with
-   `_` stays hidden.
+   same way. A file of a known kind follows its kind, any other file opens as
+   written, and a file whose name starts with `_` stays hidden.
 4. **An unsplit domain picks in the page.** A context whose domain is the one
    `domain.md` offers its aggregates, domain services and Glossary as a chapter
    bar inside the Domain page, rather than as rows.
@@ -181,6 +182,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-09 | §3 and the file table: any other file opens as written instead of a placeholder. | A file of no known kind, such as Fincent's `actors.md` or `import.md`, had a row and opened nothing. |
 | 2026-11-06 | Renumbered from 0045 to 0047. Amended by §7 and §8: a lifecycle or process draws on its unit's Domain page, below About or a service's summary, and the Flow row and page stay for a legacy `flow.md`; the view reads `rating ?? status` and shows no How settled bar where no chapter states one. | The plan merged `main` at devbook 1.35.0, whose contract 37 folds every `flow.md` into the chapters it draws and whose contract 38 takes workflow state out of the Markdown; `main` took 0045 and the open `plan/c4-zoom-navigation` claims 0046. |
 | 2026-11-02 | Renumbered from 0044 to 0045. | The plan merged `main`, which took 0044 for the devbook subject state record. |
 | 2026-10-30 | Renumbered from 0040 to 0044. | The plan merged `main`, which took 0040 for the Brain record and 0041–0043 since. |

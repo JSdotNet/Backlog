@@ -1686,6 +1686,21 @@ The system SHALL list no file or folder whose name starts with `_`.
 - **When** the reader opens the context in the Domain view
 - **Then** no row names `_archify` or a file inside it
 
+### Requirement: Any other file opens as written
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Actors_opens_as_written_with_its_title_lead_chapters_and_related_links, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Skills_and_a_page_the_convention_does_not_name_open_as_written, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Following_a_related_link_opens_its_page, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.No_selection_still_shows_the_placeholder, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewUnitTests.A_row_opens_the_page_for_its_file_kind, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFilePageTests]
+```
+
+The system SHALL open a file the Domain view has no page of its own for — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` — as the file as written: its kind and status above its title, the prose before its first chapter as the lead, its `related` as links to follow, and each chapter under its heading with its markdown and, where it states one, its own `related`. Following a link opens the page it names. The placeholder is left for no selection.
+
+#### Scenario: An actors file
+
+- **Given** a context whose `actors.md` is titled *Who works with tasks*, leads with one quoted paragraph, names `domain.md` in its `related`, and holds the chapters *Planner* and *Doer*
+- **When** the reader picks its row
+- **Then** the page shows *Who works with tasks*, the lead, *Planner* and *Doer* with their text, and a link to `domain.md`, and following that link opens the Domain page
+
 ### Requirement: An unsplit domain picks its units in the page
 
 ```meta
