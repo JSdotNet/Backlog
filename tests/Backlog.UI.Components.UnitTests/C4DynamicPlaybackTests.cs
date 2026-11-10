@@ -13,7 +13,8 @@ namespace Backlog.UI.Components.UnitTests;
 public sealed class C4DynamicPlaybackTests : IDisposable
 {
     private const string Attach = "backlogC4Zoom.attach";
-    private const string ReducedMotion = "backlogC4Zoom.reducedMotion";
+    private const string WatchReducedMotion = "backlogC4Zoom.watchReducedMotion";
+    private const string UnwatchReducedMotion = "backlogC4Zoom.unwatchReducedMotion";
 
     private const string Source = """
         workspace "Backlog" "For the playback tests" {
@@ -361,25 +362,88 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         Assert.Equal(2, explorer.Instance.CurrentStep);
     }
 
+    /// <summary>
+    /// <c>accessibility.md</c>, "Function preserved": reduced motion takes the
+    /// animation away, never the function. Play still walks every step on its own and
+    /// stops on the last; the panel says the steps change without animation.
+    /// </summary>
     [Fact]
-    public void Under_reduced_motion_play_moves_one_step_per_press_and_never_walks()
+    public void Under_reduced_motion_play_still_walks_the_steps_on_its_own()
     {
-        _context.JSInterop.Setup<bool>(ReducedMotion).SetResult(true);
+        _context.JSInterop.Setup<bool>(WatchReducedMotion, _ => true).SetResult(true);
         var explorer = RenderOnDynamic(TimeSpan.FromMilliseconds(10));
 
         explorer.WaitForElement("[data-testid='c4-dynamic-reduced-motion']");
-        Assert.Equal("Play the next step", explorer.Find("[data-testid='c4-dynamic-play']").GetAttribute("aria-label"));
+        Assert.Equal("Play all steps", explorer.Find("[data-testid='c4-dynamic-play']").GetAttribute("aria-label"));
 
         Press(explorer, "c4-dynamic-play");
+        Assert.True(explorer.Instance.Playing);
 
-        Assert.False(explorer.Instance.Playing);
-        Assert.Equal(2, explorer.Instance.CurrentStep);
+        explorer.WaitForAssertion(() =>
+        {
+            Assert.Equal("Step 4 of 4", Position(explorer));
+            Assert.False(explorer.Instance.Playing);
+        }, TimeSpan.FromSeconds(5));
+    }
 
-        for (var press = 0; press < 3; press++) Press(explorer, "c4-dynamic-play");
+    /// <summary>The preference is watched, not read once: a reader who turns reduced
+    /// motion on or off while the view is open is followed, the explorer told by the
+    /// viewer's <c>change</c> listener.</summary>
+    [Fact]
+    public async Task A_reduced_motion_change_made_mid_session_is_followed()
+    {
+        var watch = _context.JSInterop.Setup<bool>(WatchReducedMotion, _ => true);
+        watch.SetResult(false);
+        var explorer = RenderOnDynamic();
 
-        // From the last step a press goes back to the first, as Play does without it.
-        Assert.Equal(1, explorer.Instance.CurrentStep);
-        Assert.False(explorer.Instance.Playing);
+        explorer.WaitForAssertion(() => Assert.Single(_context.JSInterop.Invocations[WatchReducedMotion]));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-dynamic-reduced-motion']"));
+
+        // The listener is handed the explorer, the one the viewer calls back.
+        var invocation = Assert.Single(_context.JSInterop.Invocations[WatchReducedMotion]);
+        Assert.IsType<Microsoft.JSInterop.DotNetObjectReference<C4ZoomExplorer>>(invocation.Arguments[1]);
+
+        await explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(true));
+        explorer.WaitForElement("[data-testid='c4-dynamic-reduced-motion']");
+
+        await explorer.InvokeAsync(() => explorer.Instance.ReducedMotionChanged(false));
+        explorer.WaitForAssertion(() => Assert.Empty(explorer.FindAll("[data-testid='c4-dynamic-reduced-motion']")));
+
+        // Watched once per explorer, however many renders follow.
+        Assert.Single(_context.JSInterop.Invocations[WatchReducedMotion]);
+    }
+
+    [Fact]
+    public async Task Closing_the_explorer_stops_watching_the_preference()
+    {
+        _context.JSInterop.Setup<bool>(WatchReducedMotion, _ => true).SetResult(false);
+        var explorer = RenderOnDynamic();
+        explorer.WaitForAssertion(() => Assert.Single(_context.JSInterop.Invocations[WatchReducedMotion]));
+
+        await explorer.InvokeAsync(() => explorer.Instance.DisposeAsync().AsTask());
+
+        Assert.Single(_context.JSInterop.Invocations[UnwatchReducedMotion]);
+    }
+
+    /// <summary>The viewer's side of the watch: a <c>change</c> listener on the media
+    /// query that calls the explorer back, removed when the explorer goes.</summary>
+    [Fact]
+    public void The_viewer_listens_for_a_change_and_tells_the_explorer()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var start = script.IndexOf("watchReducedMotion(", StringComparison.Ordinal);
+        Assert.True(start >= 0, "watchReducedMotion is no longer in components.js.");
+        var end = script.IndexOf("select(id, alias)", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+        var watcher = script[start..end];
+
+        Assert.Contains("(prefers-reduced-motion: reduce)", watcher, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('change'", watcher, StringComparison.Ordinal);
+        Assert.Contains("invokeMethodAsync('ReducedMotionChanged'", watcher, StringComparison.Ordinal);
+        Assert.Contains("removeEventListener('change'", watcher, StringComparison.Ordinal);
+        Assert.Contains("unwatchReducedMotion(id)", watcher, StringComparison.Ordinal);
     }
 
     // ---- the C4 tab is untouched ---------------------------------------------------

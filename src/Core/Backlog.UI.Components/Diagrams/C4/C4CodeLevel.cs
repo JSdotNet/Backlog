@@ -2,8 +2,8 @@ namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
 /// What the Code level of the C4 zoom tab draws for one component: the types its code
-/// folders declare, the uses between them, and the decision records linked to the
-/// component.
+/// folders declare, the uses between them, and the decision and debt records linked to
+/// the component.
 /// <para>
 /// The component library knows neither the C# reader nor the devbook, so this is the
 /// picture already put into words — a stereotype, a name, member lines — and the host
@@ -26,6 +26,10 @@ public sealed record C4CodeLevel(
     /// <summary>Why the level could not be read — a folder outside the repository, a
     /// source that would not open — or null when it was.</summary>
     public string? Problem { get; init; }
+
+    /// <summary>The debt records linked to the component: what the type panel falls back
+    /// on for a type no debt record names.</summary>
+    public IReadOnlyList<C4CodeRecord> Debt { get; init; } = [];
 }
 
 /// <summary>One class box.</summary>
@@ -44,7 +48,23 @@ public sealed record C4CodeType(
     string Stereotype,
     IReadOnlyList<string> FilePaths,
     IReadOnlyList<string> PublicMembers,
-    IReadOnlyList<string> AllMembers);
+    IReadOnlyList<string> AllMembers)
+{
+    /// <summary>The debt records that name this type, a subset of the level's
+    /// <see cref="C4CodeLevel.Debt"/>.</summary>
+    public IReadOnlyList<C4CodeRecord> Debt { get; init; } = [];
+
+    /// <summary>The reference this type is held to, or null when it is held to
+    /// none.</summary>
+    public C4CodeReference? Reference { get; init; }
+}
+
+/// <summary>A reference implementation a type is held to, and the test that holds it
+/// there: <c>tools/devbook/build-database.mjs</c>, compared in
+/// <c>DevbookBuilderParityTests</c>.</summary>
+/// <param name="Source">The reference, as the repository spells its path.</param>
+/// <param name="HeldBy">The test that compares the type with it.</param>
+public sealed record C4CodeReference(string Source, string HeldBy);
 
 /// <summary>One type naming another: drawn as an arrow from <paramref name="From"/> to
 /// <paramref name="To"/>.</summary>
@@ -52,7 +72,8 @@ public sealed record C4CodeType(
 /// labelled "inherits" — rather than anywhere else.</param>
 public sealed record C4CodeUse(string From, string To, bool Inherits);
 
-/// <summary>A record linked to the component, as the type panel lists it.</summary>
+/// <summary>A decision or debt record linked to the component, as the type panel lists
+/// it.</summary>
 /// <param name="Number">Its number, "0004", or empty when the file names none.</param>
 /// <param name="Title">Its title with the number and prefix taken off.</param>
 /// <param name="Path">The chapter file, spelled as the chapter catalogs spell it; what
@@ -78,6 +99,7 @@ public sealed record C4ZoomCode(
     /// open-folder button does.</summary>
     public Func<string, Task<string?>>? OpenInEditor { get; init; }
 
-    /// <summary>Opens a linked record's chapter. Null leaves the records as text.</summary>
+    /// <summary>Opens a linked decision or debt record's chapter. Null leaves the records
+    /// as text.</summary>
     public Func<C4CodeRecord, Task>? OpenRecord { get; init; }
 }

@@ -12,12 +12,21 @@
     It draws what it is handed. The records are the host's (C4ElementRecords): with
     none handed — a host with no knowledge folder behind it, such as the storybook —
     the three record sections are left out rather than claiming the element has none.
+
+    The design's other screens add to the same panel rather than drawing their own:
+    the Context screen's "Relationships · n" (handed by the explorer, which knows
+    the view) and its "Records at this level" note in place of two empty record
+    sections; the Containers screen's "n accepted · n proposed" tally, its first five
+    decisions with "Show all n", and "On component <name>" on debt that names a
+    component inside the element; and the Components screen's debt card for debt on
+    the element itself — severity, the debt in a sentence, the lifecycle stepper,
+    the preferred remediation, the decision it originates in, and a way to open it.
 *@
 
 <aside class="c4-element-inspector" aria-label="Selected element" data-testid="@TestId">
     <div class="c4-element-inspector__head">
         <p class="c4-element-inspector__kind" data-testid="c4-inspector-kind">@C4LayoutEngine.KindLabel(Element.Kind)</p>
-        <h3 class="c4-element-inspector__name" data-testid="c4-inspector-name">@Element.Name</h3>
+        <h3 class="c4-element-inspector__name" tabindex="-1" @ref="_heading" data-testid="c4-inspector-name">@Element.Name</h3>
 
         @if (!string.IsNullOrWhiteSpace(Element.Technology))
         {
@@ -79,6 +88,37 @@
         </section>
     }
 
+    @* The lines into and out of the element on the view it is selected on, as the
+       design's Context screen lists them: the other end, what the line says, and
+       what it travels over. Handed by the explorer only where the design lists them. *@
+    @if (Relationships is { Count: > 0 } relationships)
+    {
+        <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-relationships")" data-testid="c4-inspector-relationships">
+            <h4 class="c4-element-inspector__heading" id="@($"{_id}-relationships")">Relationships · @relationships.Count</h4>
+
+            <ul class="c4-element-inspector__relationships">
+                @foreach (var relationship in relationships)
+                {
+                    <li class="c4-element-inspector__relationship" data-testid="c4-inspector-relationship">
+                        <span class="c4-element-inspector__relationship-what">
+                            <span class="c4-element-inspector__relationship-end">
+                                <span aria-hidden="true">@(relationship.Outgoing ? "→ " : "← ")</span><span class="sr-only">@(relationship.Outgoing ? "To " : "From ")</span>@relationship.Other
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(relationship.Description))
+                            {
+                                <span class="c4-element-inspector__relationship-says">@relationship.Description</span>
+                            }
+                        </span>
+                        @if (!string.IsNullOrWhiteSpace(relationship.Technology))
+                        {
+                            <span class="c4-element-inspector__relationship-tech">@relationship.Technology</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
     @if (Records is { } records)
     {
         <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-documented")" data-testid="c4-inspector-documented">
@@ -111,13 +151,24 @@
             }
         </section>
 
+        @if (RecordsAtThisLevel && records.Decisions.Count == 0 && records.Debt.Count == 0)
+        {
+            @* The design's Context screen: one note rather than two empty sections,
+               since a whole system is seldom what a record names. *@
+            <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-level")" data-testid="c4-inspector-at-this-level">
+                <h4 class="c4-element-inspector__heading" id="@($"{_id}-level")">Records at this level</h4>
+                <p class="c4-element-inspector__none" data-testid="c4-inspector-at-this-level-note">@AtThisLevelNote</p>
+            </section>
+        }
+        else
+        {
         <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-decisions")" data-testid="c4-inspector-decisions">
             <div class="c4-element-inspector__section-head">
                 <h4 class="c4-element-inspector__heading" id="@($"{_id}-decisions")">Decisions · @records.Decisions.Count</h4>
 
-                @if (records.Decisions.Count(record => record.Proposed) is > 0 and var proposed)
+                @if (DecisionTally(records.Decisions) is { } tally)
                 {
-                    <span class="c4-element-inspector__tally" data-testid="c4-inspector-proposed-count">@proposed proposed</span>
+                    <span class="c4-element-inspector__tally" data-testid="c4-inspector-decision-tally">@tally</span>
                 }
             </div>
 
@@ -127,8 +178,8 @@
             }
             else
             {
-                <ul class="c4-element-inspector__list">
-                    @foreach (var record in records.Decisions)
+                <ul class="c4-element-inspector__list" id="@($"{_id}-decision-list")">
+                    @foreach (var record in ShownDecisions(records.Decisions))
                     {
                         <li @key="record.Path">
                             <AppButton BaseClass="c4-element-inspector__record"
@@ -150,6 +201,16 @@
                         </li>
                     }
                 </ul>
+
+                @if (records.Decisions.Count > DecisionsShown)
+                {
+                    <AppButton BaseClass="c4-element-inspector__more"
+                               Variant="ButtonVariant.None"
+                               aria-expanded="@(_allDecisions ? "true" : "false")"
+                               aria-controls="@($"{_id}-decision-list")"
+                               TestId="c4-inspector-decisions-all"
+                               OnClick="ToggleDecisions">@(_allDecisions ? "Show fewer" : $"Show all {records.Decisions.Count}")</AppButton>
+                }
             }
         </section>
 
@@ -166,35 +227,64 @@
                     @foreach (var record in records.Debt)
                     {
                         <li @key="record.Path">
-                            <AppButton BaseClass="c4-element-inspector__record"
-                                       CssClass="c4-element-inspector__record--debt"
-                                       Variant="ButtonVariant.None"
-                                       TestId="c4-inspector-debt-record"
-                                       data-path="@record.Path"
-                                       title="@TouchesTitle(record)"
-                                       OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
-                                <span class="c4-element-inspector__debt-head">
-                                    @if (record.Number is not null)
+                            @if (record.OnComponent is null && record.Detail is { } detail)
+                            {
+                                RenderDebtCard(__builder, record, detail);
+                            }
+                            else
+                            {
+                                <AppButton BaseClass="c4-element-inspector__record"
+                                           CssClass="c4-element-inspector__record--debt"
+                                           Variant="ButtonVariant.None"
+                                           TestId="c4-inspector-debt-record"
+                                           data-path="@record.Path"
+                                           title="@TouchesTitle(record)"
+                                           OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+                                    <span class="c4-element-inspector__debt-head">
+                                        @if (record.Number is not null)
+                                        {
+                                            <span class="c4-element-inspector__number c4-element-inspector__number--debt">TDR @record.Number</span>
+                                        }
+                                        @if (DebtState(record) is { } state)
+                                        {
+                                            <span class="c4-element-inspector__debt-state" data-testid="c4-inspector-debt-state">@state</span>
+                                        }
+                                    </span>
+                                    <span class="c4-element-inspector__title">@record.Title</span>
+                                    @if (record.OnComponent is { } component)
                                     {
-                                        <span class="c4-element-inspector__number c4-element-inspector__number--debt">TDR @record.Number</span>
+                                        <span class="c4-element-inspector__on" data-testid="c4-inspector-debt-on">On component @component</span>
                                     }
-                                    @if (DebtState(record) is { } state)
-                                    {
-                                        <span class="c4-element-inspector__debt-state" data-testid="c4-inspector-debt-state">@state</span>
-                                    }
-                                </span>
-                                <span class="c4-element-inspector__title">@record.Title</span>
-                            </AppButton>
+                                </AppButton>
+                            }
                         </li>
                     }
                 </ul>
             }
         </section>
+        }
     }
 </aside>
 
 @code {
     private readonly string _id = "c4-inspector-" + Guid.NewGuid().ToString("N");
+
+    private ElementReference _heading;
+
+    /// <summary>Moves the keyboard to the element's name: a host that selected the
+    /// element from somewhere else on the page — the view summary — hands the reader
+    /// to what that selection shows. Out of the Tab order, so focusing it adds no stop.
+    /// No script to focus with leaves the focus where it was.</summary>
+    public async Task FocusHeadingAsync()
+    {
+        try
+        {
+            await _heading.FocusAsync();
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
 
     /// <summary>The element selected.</summary>
     [Parameter, EditorRequired]
@@ -229,6 +319,142 @@
 
     [Parameter]
     public string? TestId { get; set; } = "c4-element-inspector";
+
+    /// <summary>The lines into and out of the element on the view it is selected on,
+    /// listed under "Relationships · n"; null leaves the section out, as the explorer
+    /// does on every view but the system context.</summary>
+    [Parameter]
+    public IReadOnlyList<C4InspectorRelationship>? Relationships { get; set; }
+
+    /// <summary>Whether an element no record names says so in one "Records at this
+    /// level" note rather than two empty sections — the design's Context screen, where
+    /// a whole system is seldom what a record names.</summary>
+    [Parameter]
+    public bool RecordsAtThisLevel { get; set; }
+
+    /// <summary>How many decisions are listed before "Show all n", as the design's
+    /// Containers screen lists them.</summary>
+    internal const int DecisionsShown = 5;
+
+    private bool _allDecisions;
+    private string? _decisionsOf;
+
+    /// <summary>A new element starts with its decisions folded again.</summary>
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_decisionsOf, Element?.Id, StringComparison.Ordinal)) return;
+
+        _decisionsOf = Element?.Id;
+        _allDecisions = false;
+    }
+
+    private void ToggleDecisions() => _allDecisions = !_allDecisions;
+
+    private IEnumerable<C4InspectorRecord> ShownDecisions(IReadOnlyList<C4InspectorRecord> decisions) =>
+        _allDecisions ? decisions : decisions.Take(DecisionsShown);
+
+    /// <summary>"6 accepted · 2 proposed": each count the decisions have, or null when
+    /// they have neither.</summary>
+    private static string? DecisionTally(IReadOnlyList<C4InspectorRecord> decisions)
+    {
+        var accepted = decisions.Count(record => record.Accepted);
+        var proposed = decisions.Count(record => record.Proposed);
+
+        var parts = new List<string>(2);
+        if (accepted > 0) parts.Add($"{accepted} accepted");
+        if (proposed > 0) parts.Add($"{proposed} proposed");
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    /// <summary>The Context screen's note: who no record names, and where to look
+    /// instead when there is a level below.</summary>
+    private string AtThisLevelNote =>
+        (Element.Kind == C4ElementKind.SoftwareSystem ? "No ADR or TDR names the whole system." : "No ADR or TDR names it.")
+        + (ZoomLabel is null ? string.Empty : " Turn on an overlay to see where they sit one level down.");
+
+    /// <summary>The debt ladder's rungs, in the words a record's lifecycle is handed
+    /// in, and as the stepper shows them.</summary>
+    private static readonly (string Lifecycle, string Label)[] Rungs =
+    [
+        ("identified", "Identified"),
+        ("planned", "Planned"),
+        ("in progress", "In progress"),
+        ("resolved", "Resolved")
+    ];
+
+    /// <summary>
+    /// The design's Components screen: debt on the element itself, drawn whole — its
+    /// number and severity, its title, the debt in a sentence, where it stands on the
+    /// ladder, the remediation it prefers and the decision it originates in, and a way
+    /// to open it. Each part the record's file does not state is left out.
+    /// </summary>
+    private void RenderDebtCard(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder, C4InspectorRecord record, C4InspectorDebtDetail detail)
+    {
+        var current = Array.FindIndex(Rungs, rung => string.Equals(rung.Lifecycle, record.Lifecycle?.Trim(), StringComparison.OrdinalIgnoreCase));
+        var label = record.Number is null ? "TDR" : $"TDR {record.Number}";
+
+        <article class="c4-element-inspector__debt-card" aria-label="@label" data-testid="c4-inspector-debt-card" data-path="@record.Path">
+            <div class="c4-element-inspector__debt-head">
+                <span class="c4-element-inspector__number c4-element-inspector__number--debt">@label</span>
+                @if (record.Severity is not null)
+                {
+                    <span class="c4-element-inspector__severity" data-testid="c4-inspector-debt-severity">Severity <strong>@record.Severity</strong></span>
+                }
+            </div>
+
+            <p class="c4-element-inspector__debt-title">@record.Title</p>
+
+            @if (detail.Summary is not null)
+            {
+                <p class="c4-element-inspector__debt-summary" data-testid="c4-inspector-debt-summary">@detail.Summary</p>
+            }
+
+            @if (current >= 0)
+            {
+                <ol class="c4-element-inspector__ladder" aria-label="Lifecycle" data-testid="c4-inspector-debt-lifecycle">
+                    @for (var index = 0; index < Rungs.Length; index++)
+                    {
+                        var at = index;
+                        <li class="c4-element-inspector__rung@(at < current ? " c4-element-inspector__rung--done" : at == current ? " c4-element-inspector__rung--current" : string.Empty)"
+                            aria-current="@(at == current ? "step" : null)">@Rungs[at].Label</li>
+                    }
+                </ol>
+            }
+
+            @if (detail.Remediation is not null)
+            {
+                <p class="c4-element-inspector__debt-fact" data-testid="c4-inspector-debt-remediation">
+                    <span class="c4-element-inspector__debt-label">Preferred remediation</span>
+                    <span>@detail.Remediation</span>
+                </p>
+            }
+
+            @if (detail.Origin.Count > 0)
+            {
+                <p class="c4-element-inspector__debt-fact c4-element-inspector__debt-fact--inline" data-testid="c4-inspector-debt-origin">
+                    <span class="c4-element-inspector__debt-label">Origin</span>
+                    @foreach (var origin in detail.Origin)
+                    {
+                        <AppButton @key="origin.Path"
+                                   BaseClass="c4-element-inspector__link"
+                                   Variant="ButtonVariant.None"
+                                   TestId="c4-inspector-debt-origin-link"
+                                   data-path="@origin.Path"
+                                   OnClick="() => OnOpenRecord.InvokeAsync(origin.Path)">@origin.Label</AppButton>
+                    }
+                </p>
+            }
+
+            @* The library's button, as the zoom-in button above is: a BaseClass here
+               would replace btn and leave the variant and size without their rules. *@
+            <AppButton CssClass="c4-element-inspector__open"
+                       Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="c4-inspector-debt-open"
+                       OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">Open @label</AppButton>
+        </article>
+    }
 
     /// <summary>Says why a record named only in <c>c4-touches</c> is listed.</summary>
     private static string? TouchesTitle(C4InspectorRecord record) =>

@@ -1,0 +1,174 @@
+@*
+    The right-hand panel of the architecture surface while nothing is selected: what
+    the open view is, as the design's Landscape screen draws it rather than a bare
+    "Nothing selected". Its kind; what it shows in a line — "7 systems, 1 owned" on a
+    landscape, the cards counted by kind elsewhere; what it is for; a way into each
+    element it shows that has a deeper view; and the elements themselves, each a way to
+    select it and open its inspector. On a landscape or a system context the list is
+    the external systems, as the design lists them; on every other view, every card.
+
+    It reads the view and the model and holds nothing: the explorer selects and opens.
+*@
+
+<section class="c4-view-summary" aria-labelledby="@($"{_id}-title")" data-testid="@TestId">
+    <div class="c4-view-summary__head">
+        <p class="c4-view-summary__kind" data-testid="c4-view-summary-kind">@KindLabel</p>
+        <h3 class="c4-view-summary__title" id="@($"{_id}-title")" data-testid="c4-view-summary-title">@Headline</h3>
+        <p class="c4-view-summary__description" data-testid="c4-view-summary-description">@Description</p>
+
+        @foreach (var way in WaysIn)
+        {
+            <AppButton @key="way.ViewKey"
+                       BaseClass="c4-view-summary__way"
+                       Variant="ButtonVariant.None"
+                       TestId="c4-view-summary-way"
+                       data-view="@way.ViewKey"
+                       OnClick="() => OnOpenView.InvokeAsync(way.ViewKey)">@way.Label <span aria-hidden="true">→</span></AppButton>
+        }
+    </div>
+
+    @if (Listed.Count > 0)
+    {
+        <section class="c4-view-summary__section" aria-labelledby="@($"{_id}-list")" data-testid="c4-view-summary-list">
+            <h4 class="c4-view-summary__heading" id="@($"{_id}-list")">@ListTitle · @Listed.Count</h4>
+
+            <ul class="c4-view-summary__elements">
+                @foreach (var node in Listed)
+                {
+                    <li @key="node.ElementId">
+                        <AppButton BaseClass="c4-view-summary__element"
+                                   Variant="ButtonVariant.None"
+                                   aria-label="@($"Select {node.Name}")"
+                                   TestId="c4-view-summary-element"
+                                   data-element="@node.ElementId"
+                                   OnClick="() => OnSelect.InvokeAsync(node.ElementId)">
+                            <span class="c4-view-summary__name">@node.Name</span>
+                            @if (Detail(node) is { } detail)
+                            {
+                                <span class="c4-view-summary__detail">@detail</span>
+                            }
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+</section>
+
+@code {
+    private readonly string _id = "c4-view-summary-" + Guid.NewGuid().ToString("N");
+
+    [Parameter, EditorRequired]
+    public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
+
+    /// <summary>The view open on the surface.</summary>
+    [Parameter, EditorRequired]
+    public C4View View { get; set; } = default!;
+
+    /// <summary>An element of the list was pressed, by its model identifier.</summary>
+    [Parameter]
+    public EventCallback<string> OnSelect { get; set; }
+
+    /// <summary>A way in was pressed, by the view it opens.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenView { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-view-summary";
+
+    private IReadOnlyList<C4Node> _nodes = [];
+    private IReadOnlyList<C4Node> _listed = [];
+    private IReadOnlyList<(string ViewKey, string Label)> _ways = [];
+
+    private IReadOnlyList<C4Node> Listed => _listed;
+
+    private IReadOnlyList<(string ViewKey, string Label)> WaysIn => _ways;
+
+    protected override void OnParametersSet()
+    {
+        // The view's scope is the frame round the cards, not one of them.
+        _nodes = [.. C4Exploration.Nodes(Workspace, View)
+            .Where(node => View.Kind == C4ViewKind.SystemContext || !IsScope(node.ElementId))
+            .GroupBy(node => node.ElementId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())];
+
+        _listed = ListsExternals
+            ? [.. _nodes.Where(node => node.Kind == C4ElementKind.SoftwareSystem && !Owned(node.ElementId) && !IsScope(node.ElementId))]
+            : _nodes;
+
+        _ways =
+        [
+            .. _nodes
+                .Select(node => (node, target: C4ZoomNavigation.ZoomInView(Workspace, View, node.ElementId)))
+                .Where(pair => pair.target is not null)
+                // Two cards can zoom into the same view — an element drawn twice, or a
+                // view scoped above both — and a way in is one per view it opens.
+                .DistinctBy(pair => pair.target!, StringComparer.OrdinalIgnoreCase)
+                .Select(pair => (pair.target!, $"{pair.node.Name} — {WayLabel(Workspace.View(pair.target))}"))
+        ];
+    }
+
+    /// <summary>A landscape and a system context are the system's outside: the list is
+    /// the external systems, as the design lists them.</summary>
+    private bool ListsExternals => View.Kind is C4ViewKind.SystemLandscape or C4ViewKind.SystemContext;
+
+    private string ListTitle => ListsExternals ? "External systems" : "On this view";
+
+    private string KindLabel => View.Kind == C4ViewKind.SystemLandscape ? "Landscape" : C4Exploration.LevelLabel(View.Kind);
+
+    /// <summary>"7 systems, 1 owned" on a landscape; elsewhere the cards counted by
+    /// kind, "1 person, 6 containers, 2 software systems".</summary>
+    private string Headline
+    {
+        get
+        {
+            if (View.Kind == C4ViewKind.SystemLandscape)
+            {
+                var systems = _nodes.Where(node => node.Kind == C4ElementKind.SoftwareSystem).ToList();
+                return $"{Count(systems.Count, "system")}, {systems.Count(node => Owned(node.ElementId))} owned";
+            }
+
+            var kinds = _nodes
+                .OrderBy(node => node.Kind)
+                .GroupBy(node => C4LayoutEngine.KindLabel(node.Kind).ToLowerInvariant())
+                .Select(group => Count(group.Count(), group.Key))
+                .ToList();
+
+            return kinds.Count == 0 ? "Nothing drawn yet" : string.Join(", ", kinds);
+        }
+    }
+
+    private string Description =>
+        !string.IsNullOrWhiteSpace(View.Description) ? View.Description
+        : View.Kind == C4ViewKind.SystemLandscape ? "The landscape is the way into every system the model knows. Pick the owned one to start zooming."
+        : "Select an element to see what it is, the chapters that document it, and the decisions and debt on it.";
+
+    /// <summary>A software system whose insides the model draws: it has containers.</summary>
+    private bool Owned(string elementId) =>
+        Workspace.Elements.Any(element => element.Kind == C4ElementKind.Container
+            && string.Equals(element.ParentId, elementId, StringComparison.OrdinalIgnoreCase));
+
+    private bool IsScope(string elementId) =>
+        string.Equals(View.ScopeId, elementId, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Detail(C4Node node) =>
+        !string.IsNullOrWhiteSpace(node.Description) ? node.Description
+        : !string.IsNullOrWhiteSpace(node.Technology) ? node.Technology
+        : null;
+
+    /// <summary>Where a way in goes, the way the design words it: "system context",
+    /// "containers", "components".</summary>
+    private static string WayLabel(C4View? target) => target?.Kind switch
+    {
+        C4ViewKind.SystemContext => "system context",
+        C4ViewKind.Container => "containers",
+        C4ViewKind.Component => "components",
+        { } kind => C4Exploration.LevelLabel(kind).ToLowerInvariant(),
+        null => "zoom in"
+    };
+
+    private static string Count(int count, string noun) =>
+        count == 1 ? $"1 {noun}"
+        : noun == "person" ? $"{count} people"
+        : $"{count} {noun}s";
+}

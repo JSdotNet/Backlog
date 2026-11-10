@@ -385,6 +385,10 @@ internal static class StorybookIndex
             // none of them reads keeps DiagramView's rendering.
             new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycle a domain chapter opens with, drawn below its unit's About card, and a legacy `flow.md`, whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
 
+            // After the kinds' own pages: any other file of a context opens as
+            // written (domain/devbook requirement "Any other file opens as written").
+            new("devbook/domain-files", "Domain files", "DomainFilePage: a file the Domain view has no page of its own for — actors.md, skills.md, a page a context adds — as written: the unit pages' hero with its kind, title, lead and related links, then each chapter under its heading."),
+
             // The board atop a context's page, then the page that holds it
             // above its Overview (local ADR 0047).
             new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),

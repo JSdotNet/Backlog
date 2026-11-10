@@ -21,7 +21,11 @@ public sealed class DomainViewUnitTests
     [InlineData("tasks/model.md", DomainViewPage.Model)]
     [InlineData("tasks/flow.md", DomainViewPage.Flow)]
     [InlineData(@"tasks\flow.md", DomainViewPage.Flow)]
-    [InlineData("tasks/glossary-notes.md", DomainViewPage.Other)]
+    [InlineData("tasks/glossary-notes.md", DomainViewPage.File)]
+    [InlineData("tasks/actors.md", DomainViewPage.File)]
+    [InlineData("tasks/skills.md", DomainViewPage.File)]
+    [InlineData("financieel/import.md", DomainViewPage.File)]
+    [InlineData("index.md", DomainViewPage.File)]
     public void A_row_opens_the_page_for_its_file_kind(string? path, DomainViewPage expected) =>
         Assert.Equal(expected, DomainViewUnit.PageFor(path));
 
