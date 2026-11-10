@@ -63,6 +63,12 @@
          ISettledPullRequestStore: merged pull requests remembered across a restart,
          in app storage (local ADR 0042). The published surface only. -->
     <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+    <!-- The cross-context join under Events/ - the Tasks Calendar's events layer,
+         Tasks' ICalendarEvents answered over Events' published read contract
+         (local ADR 0050 §7). The published surface only: the adapter never sees
+         a knowledge event or its repository, though the implementation is
+         reachable through the Sqlite adapter below. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Devbook's

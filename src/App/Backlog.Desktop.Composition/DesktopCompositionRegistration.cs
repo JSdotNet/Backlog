@@ -11,6 +11,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -224,6 +225,10 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The Calendar's events layer, Tasks' port answered over Events' read contract
+        // (local ADR 0050 §7); it offers nothing while the `events` area is off.
+        services.AddEventsCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
         services.AddProgressCrossContextAdapters();

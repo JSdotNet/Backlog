@@ -429,9 +429,11 @@ public class WebHarnessHostTests
     /// module and <c>AddSqlite</c> answers its two store ports with the rooted SQLite adapters,
     /// while no shell surface, settings section or Ask AI source of it is registered — there is
     /// no pane yet — and with the default feature file the <c>events</c> switch reads as off.
+    /// The events read contract and the Calendar's port over it (§7) are composed too, and
+    /// with the switch off the Calendar is offered no events.
     /// </summary>
     [Fact]
-    public void The_desktop_harness_composes_the_events_store_and_shows_nothing_of_it()
+    public async Task The_desktop_harness_composes_the_events_store_and_shows_nothing_of_it()
     {
         const string module = "Backlog.Modules.Events";
 
@@ -457,6 +459,13 @@ public class WebHarnessHostTests
             source => source.AreaKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(source.GetType()));
         Assert.False(harness.Services.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>()
             .IsEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events));
+
+        Assert.Equal(module, harness.Services
+            .GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReader>()
+            .GetType().Assembly.GetName().Name);
+        var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>();
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(calendarEvents);
+        Assert.False((await calendarEvents.ReadAsync(TestContext.Current.CancellationToken)).Available);
     }
 
     /// <summary>

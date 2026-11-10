@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using Backlog.UI.Components.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Bunit;
@@ -458,6 +459,251 @@ public sealed class TasksPaneCalendarTests
 
         Assert.Contains(host.Toasts.Visible, toast => toast.Message.Contains("+release-q4 could not be planned: a cycle", StringComparison.Ordinal));
         Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-shelf-release-q4']"));
+    }
+
+    // --- Knowledge events ----------------------------------------------------
+
+    private const string EventTestId = "task-calendar-event-e0";
+
+    private const string KeyDateTestId = "task-calendar-key-date-k0";
+
+    [Fact]
+    public async Task Without_an_events_port_the_calendar_offers_no_events()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var pane = RenderCalendar(host);
+
+        Assert.Empty(pane.FindAll("[data-testid='task-calendar-show-events']"));
+        Assert.Empty(pane.FindAll(".task-calendar__event"));
+    }
+
+    /// <summary>The events area switched off answers Off: no box, and nothing drawn,
+    /// even on a device where the box was ticked before.</summary>
+    [Fact]
+    public async Task With_the_events_area_off_there_is_no_box_and_nothing_drawn_whatever_was_ticked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today) { Available = false };
+        events.SetShown(true);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.Empty(pane.FindAll("[data-testid='task-calendar-show-events']"));
+        Assert.Empty(pane.FindAll($"[data-testid='{EventTestId}']"));
+        Assert.Empty(pane.FindAll($"[data-testid='{KeyDateTestId}']"));
+    }
+
+    [Fact]
+    public async Task The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today);
+        events.SetShown(true);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() =>
+        {
+            var bar = pane.FindAll($"[data-testid='{EventTestId}']")[0];
+            Assert.Equal("Techorama · Going · Antwerp", bar.GetAttribute("title"));
+            Assert.Contains("task-calendar__event--filled", bar.ClassName);
+            Assert.False(bar.HasAttribute("data-calendar-task"));
+            Assert.Contains("task-calendar__event--tentative", pane.FindAll("[data-testid='task-calendar-event-e1']")[0].ClassName);
+            var keyDate = pane.Find($"[data-calendar-day='{Iso(Today)}'] [data-testid='{KeyDateTestId}']");
+            Assert.Equal("Early bird ends", keyDate.QuerySelector(".task-calendar__milestone-text")!.TextContent);
+        });
+        Assert.Equal(1, events.Reads);
+    }
+
+    /// <summary>The events are read on arriving at the Calendar and on a feature change —
+    /// which is how the box comes and goes as the events area is switched — not on every
+    /// render.</summary>
+    [Fact]
+    public async Task The_events_are_read_again_on_returning_to_the_calendar_and_on_a_feature_change()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today) { Available = false };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        pane.Render();
+        Assert.Equal(1, events.Reads);
+        Assert.Empty(pane.FindAll("[data-testid='task-calendar-show-events']"));
+
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.List));
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.Calendar));
+        pane.WaitForAssertion(() => Assert.Equal(2, events.Reads));
+
+        events.Available = true;
+        host.Features.SetEnabled("events", true);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(3, events.Reads);
+            Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-show-events']"));
+        });
+    }
+
+    /// <summary>On a device that never chose, the box is unticked and nothing is drawn; a
+    /// tick goes through the port, is kept by the store, and survives a restart.</summary>
+    [Fact]
+    public async Task On_a_device_that_never_chose_the_events_are_off_until_ticked_and_the_tick_is_kept()
+    {
+        using var settings = new TempSettings();
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today, new ShellNavigationStore(settings.Path));
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-show-events']")));
+        Assert.False(pane.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+        Assert.Empty(pane.FindAll($"[data-testid='{EventTestId}']"));
+        Assert.Empty(pane.FindAll($"[data-testid='{KeyDateTestId}']"));
+
+        pane.Find("[data-testid='task-calendar-show-events'] input").Change(true);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll($"[data-testid='{EventTestId}']")));
+        Assert.True(events.Shown);
+        Assert.True(new ShellNavigationStore(settings.Path).CalendarEventsShown);
+
+        pane.Find("[data-testid='task-calendar-show-events'] input").Change(false);
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='{EventTestId}']")));
+        Assert.False(new ShellNavigationStore(settings.Path).CalendarEventsShown);
+    }
+
+    [Fact]
+    public async Task Show_plans_and_show_events_are_ticked_apart()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today);
+        var events = new FakeCalendarEvents(Today);
+        events.SetShown(true);
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{PlanTestId}']"));
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{EventTestId}']"));
+        });
+
+        pane.Find("[data-testid='task-calendar-show-plans'] input").Change(false);
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='{PlanTestId}']")));
+        Assert.NotEmpty(pane.FindAll($"[data-testid='{EventTestId}']"));
+        Assert.True(events.Shown);
+    }
+
+    /// <summary>Until the first read lands the pane does not know whether the events area
+    /// is on, so it offers no box: a box drawn in that gap could be ticked while the area
+    /// is off, and the tick would be kept.</summary>
+    [Fact]
+    public async Task No_show_events_box_is_offered_before_the_events_read_lands()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var gate = new TaskCompletionSource();
+        var events = new FakeCalendarEvents(Today) { Gate = gate };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar'] [data-calendar-day]"));
+        Assert.Empty(pane.FindAll("[data-testid='task-calendar-show-events']"));
+
+        gate.SetResult();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-show-events']")));
+    }
+
+    /// <summary>A read made on an earlier day is read again on the next render, so the
+    /// Calendar left open overnight draws the events as they stand today. The pane reads
+    /// its own wall clock, so the test dates the last read back a day rather than moving
+    /// the clock.</summary>
+    [Fact]
+    public async Task The_events_are_read_again_once_the_day_has_moved_on()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        pane.Render();
+        Assert.Equal(1, events.Reads);
+
+        var readOn = typeof(TasksPane).GetField("_calendarEventsReadOn", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        readOn.SetValue(pane.Instance, (DateOnly?)Today.AddDays(-1));
+        pane.Render();
+
+        pane.WaitForAssertion(() => Assert.Equal(2, events.Reads));
+        Assert.Equal((DateOnly?)Today, (DateOnly?)readOn.GetValue(pane.Instance));
+    }
+
+    [Fact]
+    public async Task An_events_read_that_fails_leaves_the_tasks_on_the_calendar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today) { Fails = true };
+        events.SetShown(true);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar'] [data-calendar-day]"));
+        Assert.Empty(pane.FindAll(".task-calendar__event"));
+    }
+
+    /// <summary>A Going event across yesterday to tomorrow, a Considering one today, and an
+    /// early-bird key date today. What the adapter answers: Spotted and Skipped never
+    /// reach the port, so the fake hands none in.</summary>
+    private sealed class FakeCalendarEvents(DateOnly today, ShellNavigationStore? store = null) : ICalendarEvents
+    {
+        private bool _shown;
+
+        /// <summary>Off, unless ticked — or the store's answer when one is given, as the
+        /// real adapter reads it.</summary>
+        public bool Shown => store?.CalendarEventsShown ?? _shown;
+
+        public bool Available { get; set; } = true;
+
+        public bool Fails { get; init; }
+
+        /// <summary>When given, a read does not answer until it is released — as a read
+        /// over the database does not.</summary>
+        public TaskCompletionSource? Gate { get; init; }
+
+        public int Reads { get; private set; }
+
+        public void SetShown(bool shown)
+        {
+            if (store is null) _shown = shown;
+            else store.SetCalendarEventsShown(shown);
+        }
+
+        public async Task<CalendarEventsDto> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            if (Gate is not null) await Gate.Task;
+            if (Fails) throw new IOException("The events could not be read.");
+            if (!Available) return CalendarEventsDto.Off;
+
+            return new CalendarEventsDto(
+                [
+                    new("Techorama", "Going", "Antwerp", today.AddDays(-1), today.AddDays(1), Tentative: false),
+                    new("NDC Oslo", "Considering", "Online", today, today, Tentative: true)
+                ],
+                [new("Early bird ends", "Techorama", today)]);
+        }
     }
 
     /// <summary>A roadmap with one plan through today, a milestone today, and one plan on

@@ -386,6 +386,85 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The Calendar's "Show events" box is off on a device that never chose, and the key
+    /// is written only while it is on — so a missing setting reads as off, and turning it
+    /// off takes the key out again.
+    /// </summary>
+    [Fact]
+    public void Calendar_events_are_off_until_turned_on_and_only_on_writes_a_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.False(store.CalendarEventsShown);
+
+            store.SetLastSurface("Tools");
+            using (var off = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(off.RootElement.TryGetProperty("calendarEventsShown", out _));
+            }
+
+            store.SetCalendarEventsShown(true);
+            using (var on = JsonDocument.Parse(Written(path)))
+            {
+                Assert.True(on.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.True(restarted.CalendarEventsShown);
+            Assert.Equal("tools", restarted.LastSurface);
+
+            restarted.SetCalendarEventsShown(false);
+            using (var removed = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(removed.RootElement.TryGetProperty("calendarEventsShown", out _));
+            }
+
+            Assert.False(new ShellNavigationStore(path).CalendarEventsShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// "Show events" and "Show plans" are two boxes: ticking one leaves the other as it was,
+    /// in the file and after a restart.
+    /// </summary>
+    [Fact]
+    public void Calendar_events_and_calendar_plans_are_kept_apart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            store.SetCalendarEventsShown(true);
+            using (var events = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(events.RootElement.TryGetProperty("calendarPlansShown", out _));
+            }
+
+            Assert.False(store.CalendarPlansShown);
+
+            store.SetCalendarPlansShown(true);
+            store.SetCalendarEventsShown(false);
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.True(restarted.CalendarPlansShown);
+            Assert.False(restarted.CalendarEventsShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// A file from when the box was on by default says <c>false</c> once the reader
     /// turned it off; that choice stays off.
     /// </summary>

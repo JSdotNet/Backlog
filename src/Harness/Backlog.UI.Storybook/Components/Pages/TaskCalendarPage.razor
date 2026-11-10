@@ -3,7 +3,7 @@
 <PageTitle>Task calendar — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task calendar"
-           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it, or one week of tall columns when the range is Week. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. Hours the person sets aside for a task on a day are chips of their own, added up against the day's working hours. The Tasks pane that hands it the filtered rows is not this page's subject."
+           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it, or one week of tall columns when the range is Week. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. Knowledge events can be drawn too, in lanes above the plans: each event a bar, filled when decided and dashed while weighed up, and each key date a diamond. Hours the person sets aside for a task on a day are chips of their own, added up against the day's working hours. The Tasks pane that hands it the filtered rows is not this page's subject."
            Guidelines="@Rules">
 
     <Story Name="A month of tasks"
@@ -94,6 +94,31 @@ The tray's second section, **Plans without a window**, lists the `ShelfPlans`. D
                           TestId="plans" />
         </div>
         <p class="sb-state" data-testid="task-calendar-plans-state">@(_planEvent ?? "No plan started yet.")</p>
+    </Story>
+
+    <Story Name="Calendar with events"
+           Description="With `EventsAvailable` the month bar carries a **Show events** box after **Show plans**. It is unticked by default; the host keeps the choice (`ShowEvents`, `ShowEventsChanged`). It is ticked here. Each `CalendarEvent` is a bar across its days, cut at every week row as a plan is. The bar says **Title · State · Place**, and so do its tooltip and its accessible name. A bar carried on from the week before opens with `…`: Techorama runs from Sunday the 11th into the next week.
+
+A decided event — Going, Attended or Harvested — is a solid bar in the brand colour. One still being weighed up (`Tentative`, the Considering state) is a dashed outline with no fill, and its bar names the state. Each `CalendarKeyDate` is a hollow diamond chip on its day, before the day's milestones, its tooltip naming the event.
+
+Event lanes sit above the plan lanes, and the week makes room for both. The two boxes draw their own layer only. An event bar is no drag source and no drop: the calendar changes no event."
+           Code="@EventsCode">
+        <div class="sb-calendar" data-testid="task-calendar-events">
+            <TaskCalendar Tasks="@_tasks"
+                          Today="@Today"
+                          MyDayCount="2"
+                          PlansAvailable="true"
+                          ShowPlans="@_showPlansWithEvents"
+                          ShowPlansChanged="shown => _showPlansWithEvents = shown"
+                          Plans="@Plans"
+                          Milestones="@Milestones"
+                          EventsAvailable="true"
+                          ShowEvents="@_showEvents"
+                          ShowEventsChanged="shown => _showEvents = shown"
+                          Events="@Events"
+                          KeyDates="@KeyDates"
+                          TestId="events" />
+        </div>
     </Story>
 
     <Story Name="Planned hours"
@@ -238,6 +263,50 @@ Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detai
         _plans = [.. _plans, (plan.Tag, plan.Title, plan.Tag, start.Start, start.Start.AddDays(days - 1), 0, plan.TotalEffort, 4)];
         _planEvent = $"Started +{plan.Tag} on {start.Start:yyyy-MM-dd}.";
     }
+
+    // --- Knowledge events ---------------------------------------------------------
+
+    /// <summary>Ticked, unlike the component's default, so the story shows its subject.</summary>
+    private bool _showEvents = true;
+    private bool _showPlansWithEvents = true;
+
+    private static readonly IReadOnlyList<CalendarEvent> Events =
+    [
+        new("techorama", "Techorama", "Going", "Antwerp", new DateOnly(2026, 10, 11), new DateOnly(2026, 10, 13), Tentative: false),
+        new("ndc", "NDC Oslo", "Considering", "Oslo", new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 22), Tentative: true),
+        new("build", "Build", "Attended", "Online", new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 1), Tentative: false)
+    ];
+
+    private static readonly IReadOnlyList<CalendarKeyDate> KeyDates =
+    [
+        new("ndc-early-bird", "Early bird ends", "NDC Oslo", new DateOnly(2026, 10, 15))
+    ];
+
+    private const string EventsCode = """
+        <TaskCalendar Tasks="@tasks"
+                      Today="@today"
+                      PlansAvailable="true"
+                      @bind-ShowPlans="showPlans"
+                      Plans="@plans"
+                      EventsAvailable="@events.Available"
+                      @bind-ShowEvents="showEvents"
+                      Events="@calendarEvents"
+                      KeyDates="@keyDates" />
+
+        @code {
+            // Keyed by position: the calendar opens and writes no event, so it needs no id.
+            IReadOnlyList<CalendarEvent> calendarEvents =
+            [
+                new("e0", "Techorama", "Going", "Antwerp",
+                    new DateOnly(2026, 10, 11), new DateOnly(2026, 10, 13), Tentative: false),
+                new("e1", "NDC Oslo", "Considering", "Oslo",
+                    new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 22), Tentative: true)
+            ];
+
+            IReadOnlyList<CalendarKeyDate> keyDates =
+                [new("k0", "Early bird ends", "NDC Oslo", new DateOnly(2026, 10, 15))];
+        }
+        """;
 
     private IReadOnlyList<CalendarTask> EdgeTasks =>
     [

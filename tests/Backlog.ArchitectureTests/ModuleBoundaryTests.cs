@@ -626,6 +626,231 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// The Calendar's events layer is answered in <c>Backlog.Infrastructure.FileSystem</c>,
+    /// under <c>Events/</c>, through Events' <em>published</em> read contract and never its
+    /// implementation (local ADR 0050 §7).
+    ///
+    /// <para>A project-reference rule cannot draw this line. FileSystem references
+    /// <c>Backlog.Modules.Events.Abstractions</c> and nothing more of Events, but it also
+    /// references <c>Backlog.Infrastructure.Sqlite</c>, which references the Events
+    /// implementation, so <c>KnowledgeEvent</c> and <c>IKnowledgeEventRepository</c> compile
+    /// inside <c>Events/</c>. So this reads the compiled FileSystem assembly: no type in
+    /// that namespace names a type of the <c>Backlog.Modules.Events</c> assembly in its
+    /// base type, interfaces, fields, properties, or method and constructor signatures.
+    /// The assembly is read from where its own build put it, as
+    /// <see cref="ModuleAssemblyReferenceTests"/> reads the modules; a missing one fails and
+    /// says to build first.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_FileSystem_answers_the_calendars_events_through_the_events_published_surface()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.FileSystem",
+            "Backlog.Infrastructure.FileSystem.Events",
+            out var scanned);
+
+        Assert.Contains("EventsCalendarEvents", scanned);
+        Assert.Contains("EventsCrossContextAdapterRegistration", scanned);
+
+        // The adapter does read Events: through the published reader.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals(EventsAbstractions, StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".IKnowledgeEventReader", StringComparison.Ordinal));
+
+        var offenders = reached
+            .Where(entry => entry.Assembly.Equals(EventsImplementation, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Member} names {entry.Type}")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            $"Backlog.Infrastructure.FileSystem.Events reads the Events implementation; it reads {EventsAbstractions} only:\n"
+            + string.Join('\n', offenders));
+    }
+
+    /// <summary>
+    /// The scan above is only as good as its reach: one that read no signature would pass on
+    /// any adapter. The Sqlite repository behind Events is the one place that must name the
+    /// Events implementation, so the same scan over it has to find it.
+    /// </summary>
+    [Fact]
+    public void The_events_surface_scan_finds_the_implementation_where_it_is_named()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.Sqlite",
+            "Backlog.Infrastructure.Sqlite.Events",
+            out var scanned);
+
+        Assert.Contains("SqliteKnowledgeEventRepository", scanned);
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals(EventsImplementation, StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".IKnowledgeEventRepository", StringComparison.Ordinal));
+    }
+
+    private const string EventsImplementation = "Backlog.Modules.Events";
+
+    private const string EventsAbstractions = "Backlog.Modules.Events.Abstractions";
+
+    /// <summary>
+    /// Every type the types of <paramref name="ns"/> (and the types nested in them) name in
+    /// their base type, interfaces, fields, properties and method signatures, each with the
+    /// assembly it comes from, read off the compiled <paramref name="assembly"/> without
+    /// loading it. <paramref name="scanned"/> is the names of the top-level types read.
+    /// </summary>
+    private static List<(string Member, string Assembly, string Type)> TypesNamedFrom(
+        string assembly,
+        string ns,
+        out List<string> scanned)
+    {
+        var project = Repository.ProjectsUnder("src", "Infrastructure")
+            .Single(candidate => Path.GetFileNameWithoutExtension(candidate.Name).Equals(assembly, StringComparison.OrdinalIgnoreCase));
+        var testOutput = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var path = Path.Combine(project.DirectoryName!, "bin", testOutput.Parent!.Name, testOutput.Name, assembly + ".dll");
+
+        Assert.True(
+            File.Exists(path),
+            $"{assembly} is not built, so its signatures cannot be read. Build the solution "
+            + $"({testOutput.Parent.Name}, {testOutput.Name}) before running this test: {path}");
+
+        using var stream = File.OpenRead(path);
+        using var image = new System.Reflection.PortableExecutable.PEReader(stream);
+        var metadata = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader(image);
+        var names = new SignatureNames(metadata);
+
+        var reached = new List<(string Member, string Assembly, string Type)>();
+        scanned = [];
+
+        foreach (var handle in metadata.TypeDefinitions)
+        {
+            var type = metadata.GetTypeDefinition(handle);
+            if (!string.Equals(OuterNamespace(metadata, type), ns, StringComparison.Ordinal)) continue;
+
+            var typeName = metadata.GetString(type.Name);
+            if (type.GetDeclaringType().IsNil) scanned.Add(typeName);
+
+            void Add(string member, string signature)
+            {
+                foreach (var (from, name) in SignatureNames.Parse(signature)) reached.Add(($"{typeName}.{member}", from, name));
+            }
+
+            if (!type.BaseType.IsNil) Add("(base)", names.Of(type.BaseType));
+
+            foreach (var implemented in type.GetInterfaceImplementations())
+            {
+                Add("(interface)", names.Of(metadata.GetInterfaceImplementation(implemented).Interface));
+            }
+
+            foreach (var fieldHandle in type.GetFields())
+            {
+                var field = metadata.GetFieldDefinition(fieldHandle);
+                Add(metadata.GetString(field.Name), field.DecodeSignature(names, null));
+            }
+
+            foreach (var propertyHandle in type.GetProperties())
+            {
+                var property = metadata.GetPropertyDefinition(propertyHandle);
+                var signature = property.DecodeSignature(names, null);
+                Add(metadata.GetString(property.Name), string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]));
+            }
+
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var method = metadata.GetMethodDefinition(methodHandle);
+                var signature = method.DecodeSignature(names, null);
+                Add(metadata.GetString(method.Name), string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]));
+            }
+        }
+
+        return reached;
+    }
+
+    /// <summary>The namespace of <paramref name="type"/>, or of the type it is nested in —
+    /// a nested type, such as a closure the compiler wrote, carries none of its own.</summary>
+    private static string OuterNamespace(System.Reflection.Metadata.MetadataReader metadata, System.Reflection.Metadata.TypeDefinition type)
+    {
+        while (!type.GetDeclaringType().IsNil) type = metadata.GetTypeDefinition(type.GetDeclaringType());
+        return metadata.GetString(type.Namespace);
+    }
+
+    /// <summary>
+    /// Writes each type a signature names as <c>[assembly]Namespace.Name</c>, generic
+    /// arguments and element types included, so <see cref="Parse"/> can list every type
+    /// and the assembly it comes from. A type defined in the assembly being read is
+    /// written with an empty assembly.
+    /// </summary>
+    private sealed class SignatureNames(System.Reflection.Metadata.MetadataReader metadata)
+        : System.Reflection.Metadata.ISignatureTypeProvider<string, object?>
+    {
+        private static readonly System.Text.RegularExpressions.Regex Named =
+            new(@"\[(?<assembly>[^\]]*)\](?<type>[A-Za-z0-9_.`+<>]+?)(?=[\[\]<>,&* ]|$)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        public static IEnumerable<(string Assembly, string Type)> Parse(string signature) =>
+            Named.Matches(signature).Select(match => (match.Groups["assembly"].Value, match.Groups["type"].Value));
+
+        public string Of(System.Reflection.Metadata.EntityHandle handle) => handle.Kind switch
+        {
+            System.Reflection.Metadata.HandleKind.TypeDefinition => GetTypeFromDefinition(metadata, (System.Reflection.Metadata.TypeDefinitionHandle)handle, 0),
+            System.Reflection.Metadata.HandleKind.TypeReference => GetTypeFromReference(metadata, (System.Reflection.Metadata.TypeReferenceHandle)handle, 0),
+            System.Reflection.Metadata.HandleKind.TypeSpecification => GetTypeFromSpecification(metadata, null, (System.Reflection.Metadata.TypeSpecificationHandle)handle, 0),
+            _ => string.Empty
+        };
+
+        public string GetTypeFromDefinition(System.Reflection.Metadata.MetadataReader reader, System.Reflection.Metadata.TypeDefinitionHandle handle, byte rawTypeKind)
+        {
+            var type = reader.GetTypeDefinition(handle);
+            return $"[]{reader.GetString(type.Namespace)}.{reader.GetString(type.Name)}";
+        }
+
+        public string GetTypeFromReference(System.Reflection.Metadata.MetadataReader reader, System.Reflection.Metadata.TypeReferenceHandle handle, byte rawTypeKind)
+        {
+            var type = reader.GetTypeReference(handle);
+            var scope = type.ResolutionScope;
+
+            // A nested type is scoped by the type it is nested in: its assembly is that one's.
+            var outer = type;
+            while (scope.Kind == System.Reflection.Metadata.HandleKind.TypeReference)
+            {
+                outer = reader.GetTypeReference((System.Reflection.Metadata.TypeReferenceHandle)scope);
+                scope = outer.ResolutionScope;
+            }
+
+            var assembly = scope.Kind == System.Reflection.Metadata.HandleKind.AssemblyReference
+                ? reader.GetString(reader.GetAssemblyReference((System.Reflection.Metadata.AssemblyReferenceHandle)scope).Name)
+                : string.Empty;
+
+            return $"[{assembly}]{reader.GetString(outer.Namespace)}.{reader.GetString(type.Name)}";
+        }
+
+        public string GetTypeFromSpecification(System.Reflection.Metadata.MetadataReader reader, object? genericContext, System.Reflection.Metadata.TypeSpecificationHandle handle, byte rawTypeKind) =>
+            reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
+
+        public string GetPrimitiveType(System.Reflection.Metadata.PrimitiveTypeCode typeCode) => typeCode.ToString();
+
+        public string GetSZArrayType(string elementType) => elementType + "[]";
+
+        public string GetArrayType(string elementType, System.Reflection.Metadata.ArrayShape shape) => elementType + "[,]";
+
+        public string GetByReferenceType(string elementType) => elementType + "&";
+
+        public string GetPointerType(string elementType) => elementType + "*";
+
+        public string GetPinnedType(string elementType) => elementType;
+
+        public string GetGenericInstantiation(string genericType, System.Collections.Immutable.ImmutableArray<string> typeArguments) =>
+            $"{genericType}<{string.Join(',', typeArguments)}>";
+
+        public string GetGenericMethodParameter(object? genericContext, int index) => "!!" + index;
+
+        public string GetGenericTypeParameter(object? genericContext, int index) => "!" + index;
+
+        public string GetFunctionPointerType(System.Reflection.Metadata.MethodSignature<string> signature) =>
+            string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]);
+
+        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) => $"{unmodifiedType} {modifier}";
+    }
+
+    /// <summary>
     /// The sessions pane injects the cheap port and only the cheap port.
     ///
     /// <para><c>IAgentSessionSource</c> stats files; <c>IAgentActivitySource</c> reads

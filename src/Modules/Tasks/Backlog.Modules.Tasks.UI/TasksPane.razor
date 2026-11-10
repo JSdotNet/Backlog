@@ -589,6 +589,11 @@
                                       Milestones="@CalendarMilestones()"
                                       ShelfPlans="@CalendarShelf()"
                                       OnPlanStarted="OnCalendarPlanStartedAsync"
+                                      EventsAvailable="@CalendarEventsAvailable"
+                                      ShowEvents="@(_calendarEvents?.Shown ?? false)"
+                                      ShowEventsChanged="OnShowEventsChangedAsync"
+                                      Events="@CalendarEvents()"
+                                      KeyDates="@CalendarKeyDates()"
                                       HoursAvailable="true"
                                       HoursBlocks="@CalendarHoursBlocks()"
                                       CapacityOn="@CalendarCapacityOn"
@@ -1002,6 +1007,8 @@
         _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
         if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
 
+        _calendarEvents = Services.GetService(typeof(ICalendarEvents)) as ICalendarEvents;
+
         _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
         if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
 
@@ -1201,14 +1208,20 @@
             _ => false
         };
 
-    /// <summary>A feature switched — the roadmap among them — so the Calendar's plans are
-    /// read again before it next draws them.</summary>
+    /// <summary>A feature switched — the roadmap or the events among them — so the
+    /// Calendar's plans and events are read again before it next draws them. That read is
+    /// what brings the "Show events" box in and out as the events area is switched.</summary>
     private void HandleFeaturesChanged()
     {
         _calendarPlansStale = true;
+        _calendarEventsStale = true;
         _ = InvokeAsync(async () =>
         {
-            if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
+            if (Layout == TasksLayout.Calendar)
+            {
+                await ReadCalendarPlansAsync();
+                await ReadCalendarEventsAsync();
+            }
             StateHasChanged();
         });
 
@@ -1650,6 +1663,11 @@
         {
             await ReadCalendarPlansAsync();
         }
+
+        if (Layout == TasksLayout.Calendar && (arrived || _calendarEventsStale || _calendarEventsReadOn != Today))
+        {
+            await ReadCalendarEventsAsync();
+        }
     }
 
     private async Task ReadCalendarPlansAsync()
@@ -1740,6 +1758,76 @@
             Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
         }
     }
+
+    /// <summary>
+    /// The knowledge events for the Calendar, through Tasks' own read-only port — null in
+    /// a host that composed none, when the Calendar offers no events. The port's adapter
+    /// reads Events' published contract (local ADR 0050 §7) and answers Off while the
+    /// events area is switched off; nothing here holds an event id or writes an event.
+    /// </summary>
+    private ICalendarEvents? _calendarEvents;
+
+    /// <summary>The events as last read, and whether a read is owed before the Calendar
+    /// next draws them. No change signal: nothing writes an event yet, so they are read
+    /// on arriving at the Calendar, on a new day, on a feature change and when the box is
+    /// ticked. It starts Off — fail closed, as the adapter does — so no "Show events" box
+    /// is offered before the first read says whether the events area is on: a box drawn
+    /// in that gap could be ticked, and the tick kept, while the area is off.</summary>
+    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarEventsDto _calendarEventsRead =
+        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarEventsDto.Off;
+    private bool _calendarEventsStale = true;
+    private DateOnly? _calendarEventsReadOn;
+
+    private bool CalendarEventsAvailable => _calendarEvents is not null && _calendarEventsRead.Available;
+
+    private async Task ReadCalendarEventsAsync()
+    {
+        if (_calendarEvents is null) return;
+
+        _calendarEventsStale = false;
+        _calendarEventsReadOn = Today;
+        try
+        {
+            _calendarEventsRead = await _calendarEvents.ReadAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Events that cannot be read leave the tasks on the Calendar; the bars and
+            // diamonds are what goes missing, not the month or the pane.
+            _calendarEventsRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarEventsDto.Empty;
+        }
+    }
+
+    private async Task OnShowEventsChangedAsync(bool shown)
+    {
+        if (_calendarEvents is null) return;
+
+        _calendarEvents.SetShown(shown);
+        if (shown) await ReadCalendarEventsAsync();
+    }
+
+    /// <summary>Each event as a bar, keyed by its place in the read: the port carries no
+    /// event id, and the Calendar opens and writes none.</summary>
+    private IReadOnlyList<CalendarEvent> CalendarEvents() =>
+        [
+            .. _calendarEventsRead.Events.Select((calendarEvent, index) => new CalendarEvent(
+                string.Create(CultureInfo.InvariantCulture, $"e{index}"),
+                calendarEvent.Title,
+                calendarEvent.State,
+                calendarEvent.Place,
+                calendarEvent.Start,
+                calendarEvent.End,
+                calendarEvent.Tentative))
+        ];
+
+    private IReadOnlyList<CalendarKeyDate> CalendarKeyDates() =>
+        [
+            .. _calendarEventsRead.KeyDates.Select((keyDate, index) => new CalendarKeyDate(
+                string.Create(CultureInfo.InvariantCulture, $"k{index}"),
+                keyDate.Label,
+                keyDate.EventTitle,
+                keyDate.On))
+        ];
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
 
