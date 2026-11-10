@@ -13,9 +13,9 @@ export type WorkerState = 'running' | 'gate' | 'pr' | 'blocked' | 'done-before' 
 
 /** One execute-plan entry session and the delivery-flow run its worktree shows. */
 export type Worker = {
-  /** The session's `local_…` id, as start_session answered it. */
+  /** The session's `local_…` id, as start_session answered it, or a fallback sub-agent's agent id. */
   sessionId: string
-  /** The session's worktree, as list_sessions answered it; '' until known. */
+  /** The session's worktree, as list_sessions answered it, or the one a fallback's own calls name; '' until known. */
   worktree: string
   entryId: string
   n: number

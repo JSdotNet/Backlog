@@ -38,6 +38,10 @@ which runs this skill for the same plan.
 - **How.** Start the session in that folder through the host's way of starting one elsewhere —
   one the person opens with a click counts. Without one, print the prompt in a fenced block
   under the folder's path. Never edit, branch or open a worktree in the other checkout from here.
+- **Its entries.** The host refuses every session start on the turns of a session this one
+  started, so that session runs each of its entries through **Fallback** in `item-brief.md` —
+  sub-agents unattended, cards attended; started by the person, from the card or the printed
+  prompt, it starts them as sessions.
 - **Then.** The handed-off entries are no longer this run's: the run goes on with its own,
   never waits on the other session, and Stop and Report list each handoff with its repository,
   path and entries. A handoff only the person can open — a click, a printed prompt — is

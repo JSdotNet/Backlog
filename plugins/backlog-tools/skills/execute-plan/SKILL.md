@@ -57,7 +57,9 @@ session and its entry sessions and hands an entry in another repository to a ses
    entry's earlier session, and tear down a manual entry's app once it is Done — all per `assets/landing-modes.md`.
 3. **Dispatch.** For each ready entry, re-read its status and skip it when no longer ready;
    `transition` it to In progress and start its session as `assets/item-brief.md` says; the
-   session links itself to the entry. An entry that would be ready but for its repository is
+   session links itself to the entry. The host starts a session only on a turn the person typed
+   or one chained to it by sessions finishing; a start it refuses goes per **Fallback** there —
+   a card attended, a sub-agent unattended. An entry that would be ready but for its repository is
    handed to a session there, per **Handoff** in `assets/handoff.md`.
 4. **Gate.** *Attended*: an entry session ends its turn with `gate` and a review handoff or a
    question. Relay it verbatim with the entry's `<n> - <Title>` as it arrives — several waiting
@@ -69,17 +71,18 @@ session and its entry sessions and hands an entry in another repository to a ses
    `<base>`, `transition` the entry to Done and restack its children. A landed entry's session
    and worktree are the host's and stay. Re-read the graph (`get_plan_items`) so an entry filed
    meanwhile — a follow-up — is dispatched; go to step 3. A failure blocks the entry and its dependents only.
-6. **Wait.** While entry sessions or check watches run, end the turn; each session going idle
-   (`notify_when_idle`) and each watch ending wakes this session. On every wake: `list_sessions` (`linked: true`), a row's `cwd` its worktree; the
-   delivery surface's `list_runs` for each working entry session's `cwd`, which the band reads;
-   `list_events` with a small `limit` for each that ended a turn — the wake note quotes only 400
-   characters. Unattended, keep one one-shot 30-minute fallback wake-up pending, replacing the
-   previous one, so a lost notification does not end the run; attended, the shorter one
+6. **Wait.** While entries run, end the turn; entry sessions wake this session through
+   `wake_when_done` once none is still working, and a sub-agent by finishing. On every wake: `list_sessions` (`linked: true`), a row's `cwd` its worktree, and a sub-agent's per **Fallback**; the
+   delivery surface's `list_runs` for each working entry's worktree, which the band reads;
+   `list_events` with a small `limit` for each session that ended a turn — the wake note quotes only 400
+   characters. Unattended, keep one one-shot 2-hour fallback wake-up pending while entry
+   sessions work, replacing the previous one, so a lost notification does not end the run — a
+   wake-up's turn can start no session, so a long one rarely breaks the chain; attended, the shorter one
    `assets/gates.md` keeps while a gate waits. A merge only the person makes is
    never waited for: the run goes on to Stop.
 7. **Stop.** No entry ready and none running: list what blocks — each `task`/`test` the person
    has to do with the prompts waiting on it, each blocked entry with its reason and
-   dependents, each pull request waiting on the person, each handoff to another repository
+   dependents, each pull request waiting on the person, each entry's card waiting on a click, each handoff to another repository
    with its path and entries. Branch mode: open the closing pull request and link it on the
    sign-off entry. Then start the app for the next manual entry and hand it over, per
    **Manual entries** in `assets/landing-modes.md`. Invoking this skill again resumes from the plan's
@@ -89,7 +92,7 @@ session and its entry sessions and hands an entry in another repository to a ses
    worktree, the plan's tasks as the two links `open_window` answers for `surface: "tasks"`,
    `plan: <tag>`, `target: "web"` — the web link, which opens in Claude Desktop's browser pane, and
    the `backlog://` link, which opens a native window; when the server does not answer it, no links
-   and no word of them — and the landed entries' sessions, ready to archive — attended, offered once, archived only on the
+   and no word of them — and the landed entries' sessions, ready to archive (a sub-agent has none) — attended, offered once, archived only on the
    person's yes. Keep the report's prose to `../../resources/chat-reports.md`. An unattended run ends with a push notification carrying the counts and the links **Manual entries** names.
 
 ## Never
