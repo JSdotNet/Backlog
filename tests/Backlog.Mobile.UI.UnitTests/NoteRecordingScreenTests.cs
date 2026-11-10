@@ -282,6 +282,67 @@ public sealed class NoteRecordingScreenTests
         Assert.Null(session.LastFailure);
     }
 
+    [Fact]
+    public void A_phone_call_pauses_the_bar_and_says_why()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var call = Note("Planning call", "Agenda.", Now.AddHours(-1));
+        using var host = ShellHost.Paired(clock: clock, tasks: new ScriptedTaskService(call));
+        var app = OpenNote(host, call.Id);
+
+        PressRecord(app);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-recording']")));
+
+        host.MeetingRecorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal("paused", app.Find("[data-testid='note-recording']").GetAttribute("data-state"));
+            Assert.Equal("Paused: a phone call has the microphone.", app.Find("[data-testid='note-recording-notice']").TextContent);
+        });
+        Assert.NotNull(app.Find("[data-testid='note-recording-resume']"));
+    }
+
+    [Fact]
+    public void A_start_without_room_is_refused_beside_the_tools_and_draws_no_bar()
+    {
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
+        host.FreeSpace.Available = 120L * 1024 * 1024;
+        var app = OpenEditor(host, "notes/new");
+
+        PressRecord(app);
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "There is not enough storage on this phone to record: it needs 248 MB free and has 120 MB.",
+            app.Find("[data-testid='note-record-error']").TextContent));
+        Assert.Empty(app.FindAll("[data-testid='note-recording']"));
+    }
+
+    [Fact]
+    public async Task A_note_deleted_elsewhere_says_where_its_recording_went()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var call = Note("Planning call", "Agenda.", Now.AddHours(-1));
+        var tasks = new ScriptedTaskService(call);
+        using var host = ShellHost.Paired(clock: clock, tasks: tasks);
+        var app = OpenNote(host, call.Id);
+
+        PressRecord(app);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-recording']")));
+
+        var notes = host.Service<NoteViewProjection>();
+        tasks.Append(NoteFoldTests.Note("Planning call", Now.AddMinutes(5), call.Id, deletedAt: Now.AddMinutes(5)));
+        await notes.PullAsync(TestContext.Current.CancellationToken);
+        Assert.Null(notes.Find(call.Id));
+
+        app.Find("[data-testid='note-recording-stop']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "This note was deleted elsewhere. The recording was saved to a new note, Recording · 7 Oct 2026.",
+            app.Find("[data-testid='note-recording-moved']").TextContent));
+        Assert.Equal("Recording · 7 Oct 2026", Assert.Single(notes.Notes()).Title);
+    }
+
     private static void PressRecord(IRenderedComponent<Routes> app)
     {
         app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='note-record']").HasAttribute("disabled")));

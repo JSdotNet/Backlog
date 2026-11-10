@@ -51,7 +51,51 @@ internal sealed class ScriptedMeetingRecorder : IMeetingRecorder
 
     public string? Fault { get; private set; }
 
+    /// <summary>What has the microphone away from the recording; set by <see cref="Interrupt"/>.</summary>
+    public MeetingRecorderInterruption Interruption { get; private set; }
+
+    /// <summary>Whether this recorder says when its capture is silenced; when not, the session
+    /// watches the level instead.</summary>
+    public bool ReportsSilencing { get; set; }
+
     public event Action? Changed;
+
+    /// <summary>A phone call taking the microphone, another app silencing the capture, or the
+    /// microphone back: raised from the test's thread, as a platform callback would be.</summary>
+    public void Interrupt(MeetingRecorderInterruption interruption)
+    {
+        Interruption = interruption;
+        _raisingThread = Environment.CurrentManagedThreadId;
+
+        try
+        {
+            Changed?.Invoke();
+        }
+        finally
+        {
+            _raisingThread = 0;
+        }
+    }
+
+    /// <summary>Whether this recorder can measure the level at all; a browser with no
+    /// AudioContext cannot, and its level of 0 means nothing.</summary>
+    public bool MeasuresLevel { get; set; } = true;
+
+    /// <summary>How many times the recording was asked to pause.</summary>
+    public int PauseCount => Volatile.Read(ref _pauseCount);
+
+    /// <summary>Whether a pause ran on the thread raising an interruption or a fault — inside the
+    /// platform's own callback.</summary>
+    public bool PausedOnRaisingThread { get; private set; }
+
+    private int _pauseCount;
+
+    /// <summary>One level tick, as the Android head's 100 ms poll raises it.</summary>
+    public void Tick(double level)
+    {
+        Level = level;
+        Changed?.Invoke();
+    }
 
     public static (byte[] Bytes, TimeSpan Duration) AdtsPart(TimeSpan duration, int frames = 3) =>
         (AdtsStream.Of(Enumerable.Repeat(120, frames)), duration);
@@ -79,6 +123,8 @@ internal sealed class ScriptedMeetingRecorder : IMeetingRecorder
 
     public ValueTask PauseAsync()
     {
+        Interlocked.Increment(ref _pauseCount);
+        if (_raisingThread == Environment.CurrentManagedThreadId) PausedOnRaisingThread = true;
         if (State == MeetingRecorderState.Recording) Move(MeetingRecorderState.Paused);
         return ValueTask.CompletedTask;
     }

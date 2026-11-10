@@ -139,11 +139,13 @@ function fault(session, name) {
 }
 
 // The tick that moves the bar's timer, carrying the input level when there is
-// an analyser to measure it and 0 when there is not: a browser with no
-// AudioContext still shows the time running. Only while recording — a paused or
-// stopping recording has nothing to report.
+// an analyser to measure it and -1 when there is not: a browser with no
+// AudioContext still shows the time running, and the .NET side tells "cannot
+// measure" from silence, which would otherwise read as another app holding the
+// microphone. Only while recording — a paused or stopping recording has nothing
+// to report.
 function watchLevel(session) {
-    let measure = () => 0;
+    let measure = () => -1;
 
     try {
         const Context = window.AudioContext || window.webkitAudioContext;

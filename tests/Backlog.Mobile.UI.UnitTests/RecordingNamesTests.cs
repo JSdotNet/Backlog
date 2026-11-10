@@ -38,4 +38,10 @@ public sealed class RecordingNamesTests
     {
         Assert.Equal("Recording (interrupted)", RecordingNames.Interrupted);
     }
+
+    [Fact]
+    public void A_note_made_for_a_recording_is_titled_by_its_date_as_a_photo_note_is()
+    {
+        Assert.Equal("Recording · 10 Nov 2026", RecordingNames.NoteTitle(new DateOnly(2026, 11, 10)));
+    }
 }

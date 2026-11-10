@@ -78,6 +78,18 @@ public sealed class WebMeetingRecorder(IJSRuntime js) : IMeetingRecorder
 
     public string? Fault => _fault;
 
+    /// <summary>Always none: a browser says nothing of who else has the microphone.</summary>
+    public MeetingRecorderInterruption Interruption => MeetingRecorderInterruption.None;
+
+    /// <summary>A browser cannot say its capture was silenced, so the session watches the level.</summary>
+    public bool ReportsSilencing => false;
+
+    /// <summary>Whether the last tick carried a measured level: <c>meeting-recorder.js</c> sends
+    /// -1 from a browser with no <c>AudioContext</c>, whose level is no reading at all.</summary>
+    public bool MeasuresLevel => _measuresLevel;
+
+    private volatile bool _measuresLevel;
+
     public event Action? Changed;
 
     /// <inheritdoc />
@@ -272,13 +284,14 @@ public sealed class WebMeetingRecorder(IJSRuntime js) : IMeetingRecorder
     }
 
     /// <summary>Called from <c>meeting-recorder.js</c> a few times a second while recording,
-    /// with the input level from 0 to 1 — 0 where the browser cannot measure one. Each tick
-    /// moves the timer.</summary>
+    /// with the input level from 0 to 1, or -1 where the browser cannot measure one, which shows
+    /// as 0 and clears <see cref="MeasuresLevel"/>. Each tick moves the timer.</summary>
     [JSInvokable]
     public void OnLevel(double level)
     {
         if (_state != MeetingRecorderState.Recording) return;
 
+        _measuresLevel = level >= 0;
         Volatile.Write(ref _level, double.IsFinite(level) ? Math.Clamp(level, 0, 1) : 0);
         Changed?.Invoke();
     }
@@ -469,7 +482,7 @@ public sealed class WebMeetingRecorder(IJSRuntime js) : IMeetingRecorder
     /// <summary>The <c>getUserMedia</c> and recorder error names, in words a person can act on.</summary>
     private static string Describe(string? error) => error switch
     {
-        "NotAllowedError" or "SecurityError" => "Microphone access was denied. Allow it for this site and try again.",
+        "NotAllowedError" or "SecurityError" => MicrophoneAccess.DeniedInBrowser,
         "NotFoundError" or "OverconstrainedError" => "No microphone was found.",
         "NotReadableError" or "AbortError" or "audio-capture" => "The microphone could not be read. Another app may be using it.",
         "track-ended" => "The microphone stopped recording.",

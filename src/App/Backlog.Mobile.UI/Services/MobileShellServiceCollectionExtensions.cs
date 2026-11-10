@@ -50,6 +50,10 @@ public static class MobileShellServiceCollectionExtensions
         services.TryAddScoped<IMeetingRecorder, UnsupportedMeetingRecorder>();
         services.TryAddScoped<NoteRecordingSession>();
 
+        // The free space a recording watches, so it stops before the disk is full. The Android
+        // head registers its own over StatFs first; the harness reads the drive.
+        services.TryAddSingleton<IFreeSpace, DriveFreeSpace>();
+
         // The app bar's version control and its update window. A host that can
         // update itself registers its own service first - the Android head does;
         // anything else, the browser harness and the tests included, gets the

@@ -34,8 +34,7 @@ public sealed class AndroidAudioRecorder : IAudioRecorder
 {
     private const string ContentType = "audio/mp4";
 
-    private const string PermissionDenied =
-        "Microphone access was denied. Allow it in Android settings and try again.";
+    private const string PermissionDenied = AndroidMicrophoneAccess.Denied;
 
     private const string CouldNotRecord = "The microphone could not be read.";
 

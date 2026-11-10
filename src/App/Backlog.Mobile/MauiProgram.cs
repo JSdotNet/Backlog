@@ -92,6 +92,7 @@ public static class MauiProgram
 		// the recording the note page started. Before AddMobileShell, whose recorder cannot record.
 		builder.Services.AddSingleton<IMeetingRecorder, AndroidMeetingRecorder>();
 		builder.Services.AddSingleton<NoteRecordingSession>();
+		builder.Services.AddSingleton<IFreeSpace, AndroidFreeSpace>();
 
 		// The camera and the platform pickers for a talk note's attachments. The
 		// browser harness registers WebAttachmentPicker, over <InputFile>, instead.

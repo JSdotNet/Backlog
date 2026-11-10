@@ -18,6 +18,19 @@ public enum MeetingRecorderState
     Stopping,
 }
 
+/// <summary>What has taken the microphone away from a recording, as the host sees it.</summary>
+public enum MeetingRecorderInterruption
+{
+    /// <summary>Nothing: the recording hears the room.</summary>
+    None,
+
+    /// <summary>A telephony call is on; it always gets the microphone.</summary>
+    PhoneCall,
+
+    /// <summary>Another app has the microphone, and the capture receives silence.</summary>
+    Silenced,
+}
+
 /// <summary>
 /// The note a recording is for and the folder its part files go in
 /// (<c>notes/recordings/</c>), handed to <see cref="IMeetingRecorder.StartAsync"/>. The recorder
@@ -135,8 +148,20 @@ public interface IMeetingRecorder : IAsyncDisposable
     /// <summary>What went wrong while recording, in words, or <c>null</c>. Cleared by the next start.</summary>
     string? Fault { get; }
 
-    /// <summary>Raised when the state, the level, the elapsed time or the fault changed. May be
-    /// raised off the render thread.</summary>
+    /// <summary>What has the microphone away from the recording right now. Not a fault: the
+    /// recording goes on, and <see cref="NoteRecordingSession"/> decides what it means.</summary>
+    MeetingRecorderInterruption Interruption { get; }
+
+    /// <summary>Whether this recorder can say that its capture was silenced. Where it cannot,
+    /// the session reads a level held at 0 as a hint instead.</summary>
+    bool ReportsSilencing { get; }
+
+    /// <summary>Whether <see cref="Level"/> is measured at all. A host that cannot measure it
+    /// reports 0, which then says nothing about silence.</summary>
+    bool MeasuresLevel { get; }
+
+    /// <summary>Raised when the state, the level, the elapsed time, the fault or the
+    /// interruption changed. May be raised off the render thread.</summary>
     event Action? Changed;
 
     /// <summary>Whether this host can record at all; <c>false</c> rather than a throw where it
@@ -174,6 +199,12 @@ public sealed class UnsupportedMeetingRecorder : IMeetingRecorder
     public double Level => 0;
 
     public string? Fault => null;
+
+    public MeetingRecorderInterruption Interruption => MeetingRecorderInterruption.None;
+
+    public bool ReportsSilencing => false;
+
+    public bool MeasuresLevel => false;
 
     public event Action? Changed
     {

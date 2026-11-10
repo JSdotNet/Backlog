@@ -11,11 +11,14 @@ namespace Backlog.Mobile.UI.UnitTests;
 public sealed class NoteRecordingSessionTests : IAsyncDisposable
 {
     private readonly RecordingFixture _fixture = new();
+    private const long Megabyte = 1024 * 1024;
+
     private readonly ScriptedMeetingRecorder _recorder = new();
+    private readonly FakeFreeSpace _space = new();
     private readonly NoteRecordingSession _session;
 
     public NoteRecordingSessionTests() =>
-        _session = new NoteRecordingSession(_recorder, _fixture.Files, _fixture.Composer, _fixture.Notes);
+        _session = new NoteRecordingSession(_recorder, _fixture.Files, _fixture.Composer, _fixture.Notes, _space, _fixture.Clock);
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -198,20 +201,301 @@ public sealed class NoteRecordingSessionTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task A_note_that_is_gone_when_recording_stops_keeps_its_file_for_later()
+    public async Task A_note_deleted_elsewhere_while_recording_leaves_the_recording_running()
     {
         var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
         await _session.StartAsync(note.Id, Cancellation);
 
-        // The desktop archives the note mid-meeting.
-        _fixture.Service.State = InboxServiceState.Answering;
-        _fixture.Service.Append(NoteFoldTests.Note("Standup", _fixture.Clock.GetUtcNow().AddMinutes(5), note.Id, deletedAt: _fixture.Clock.GetUtcNow().AddMinutes(5)));
-        await _fixture.Notes.PullAsync(Cancellation);
+        await DeleteElsewhereAsync(note.Id);
 
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Equal(note.Id, _session.NoteId);
+    }
+
+    [Fact]
+    public async Task A_recording_whose_note_was_deleted_elsewhere_gets_a_note_of_its_own_on_stop()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.Parts.Add(ScriptedMeetingRecorder.AdtsPart(TimeSpan.FromSeconds(123)));
+        await _session.StartAsync(note.Id, Cancellation);
+
+        // The desktop archives the note mid-meeting.
+        await DeleteElsewhereAsync(note.Id);
         await _session.StopAsync(Cancellation);
 
-        Assert.NotNull(_session.Error);
-        Assert.Single(Directory.GetFiles(_fixture.Files.Folder));
+        var created = Assert.Single(_fixture.Notes.Notes(), row => row.Id != note.Id);
+        Assert.Equal("Recording · 10 Nov 2026", created.Title);
+        Assert.Equal(["Recording · 12:34", "Recording · part 2 · 2:03"], created.Attachments.Select(file => file.Name));
+        Assert.Equal(created.Attachments.Select(file => file.Id), _session.LastAttached.Select(file => file.Id));
+        Assert.Empty(Directory.GetFiles(_fixture.Files.Folder));
+        Assert.Null(_session.Error);
+        Assert.Equal(new RecordingMoved(note.Id, created.Id, "Recording · 10 Nov 2026"), _session.LastMoved);
+    }
+
+    [Fact]
+    public async Task A_part_that_cannot_be_prepared_for_the_new_note_stays_in_the_recordings_folder()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.Parts.Add(ScriptedMeetingRecorder.AdtsPart(TimeSpan.FromSeconds(30)));
+        RecordingPartFile? second = null;
+        _recorder.AfterPartWritten = part =>
+        {
+            if (part.Number != 2) return;
+            second = part;
+            Directory.CreateDirectory(_fixture.TalkNoteFiles.OutboxPath(part.AttachmentId));
+        };
+        await _session.StartAsync(note.Id, Cancellation);
+
+        await DeleteElsewhereAsync(note.Id);
+        await _session.StopAsync(Cancellation);
+
+        var created = Assert.Single(_fixture.Notes.Notes(), row => row.Id != note.Id);
+        Assert.Equal(["Recording · 12:34"], created.Attachments.Select(file => file.Name));
+        Assert.Equal(NoteRecordingSession.PartKept, _session.Error);
+        Assert.Equal([second!.Path], Directory.GetFiles(_fixture.Files.Folder));
+    }
+
+    [Fact]
+    public async Task A_phone_call_pauses_the_recording_and_says_so()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Paused);
+
+        Assert.Equal("Paused: a phone call has the microphone.", _session.Notice);
+        Assert.True(_session.IsRecording(note.Id));
+    }
+
+    [Fact]
+    public async Task The_end_of_a_call_leaves_the_recording_paused_until_it_is_resumed()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Paused);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.None);
+        await Task.Delay(50, Cancellation);
+
+        Assert.Equal(MeetingRecorderState.Paused, _session.State);
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task Resume_after_a_call_takes_the_call_notice_away()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Paused);
+        _recorder.Interrupt(MeetingRecorderInterruption.None);
+
+        await _session.ResumeAsync();
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task A_call_pauses_the_recording_once_and_off_the_thread_that_raised_it()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Paused);
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        _recorder.Tick(0);
+        await Task.Delay(50, Cancellation);
+
+        Assert.Equal(1, _recorder.PauseCount);
+        Assert.False(_recorder.PausedOnRaisingThread);
+    }
+
+    [Fact]
+    public async Task Resume_during_the_call_records_on_and_says_the_capture_hears_nothing()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Paused);
+
+        await _session.ResumeAsync();
+        _recorder.Tick(0);
+        await Task.Delay(50, Cancellation);
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Equal(RecordingNotices.Silenced, _session.Notice);
+        Assert.Equal(1, _recorder.PauseCount);
+    }
+
+    [Fact]
+    public async Task A_call_that_ended_before_its_pause_ran_does_not_pause()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        var queued = HoldBackground();
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        _recorder.Interrupt(MeetingRecorderInterruption.None);
+        foreach (var work in queued) await work();
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Equal(0, _recorder.PauseCount);
+    }
+
+    [Fact]
+    public async Task A_resume_pressed_before_the_call_pause_ran_does_not_pause()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        var queued = HoldBackground();
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.PhoneCall);
+        await _session.ResumeAsync();
+        foreach (var work in queued) await work();
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Equal(0, _recorder.PauseCount);
+    }
+
+    [Fact]
+    public async Task A_recorder_that_cannot_measure_the_level_gets_no_hint()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.MeasuresLevel = false;
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Tick(0);
+        _fixture.Clock.Advance(TimeSpan.FromSeconds(30));
+        _recorder.Tick(0);
+
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task Running_low_on_space_with_a_part_that_cannot_be_attached_says_both()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.Parts.Add(ScriptedMeetingRecorder.AdtsPart(TimeSpan.FromSeconds(30)));
+        _recorder.AfterPartWritten = part =>
+        {
+            if (part.Number == 2) Directory.CreateDirectory(_fixture.TalkNoteFiles.OutboxPath(part.AttachmentId));
+        };
+        await _session.StartAsync(note.Id, Cancellation);
+
+        await RunOutOfSpaceAsync();
+
+        Assert.Equal(
+            "The recording stopped because the phone has less than 200 MB free. " + NoteRecordingSession.PartKept,
+            _session.Error);
+    }
+
+    [Fact]
+    public async Task Running_low_on_space_after_the_note_was_deleted_says_where_the_recording_went()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+        await DeleteElsewhereAsync(note.Id);
+
+        await RunOutOfSpaceAsync();
+
+        Assert.Equal(
+            "The recording stopped because the phone has less than 200 MB free. What was recorded is on a new note, Recording · 10 Nov 2026.",
+            _session.Error);
+    }
+
+    [Fact]
+    public async Task A_capture_silenced_by_another_app_says_so_without_pausing_and_clears_when_it_is_back()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.ReportsSilencing = true;
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.Silenced);
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
+        Assert.Equal("Another app has the microphone. Nothing is being recorded.", _session.Notice);
+
+        _recorder.Interrupt(MeetingRecorderInterruption.None);
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task Silence_held_for_ten_seconds_on_a_recorder_that_cannot_report_silencing_is_a_hint_until_the_next_sound()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Tick(0);
+        _fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        _recorder.Tick(0);
+
+        Assert.Equal("No sound is reaching the recording. Another app may have the microphone.", _session.Notice);
+
+        _recorder.Tick(0.2);
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task A_recorder_that_reports_silencing_gets_no_hint_from_a_quiet_room()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _recorder.ReportsSilencing = true;
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _recorder.Tick(0);
+        _fixture.Clock.Advance(TimeSpan.FromSeconds(30));
+        _recorder.Tick(0);
+
+        Assert.Null(_session.Notice);
+    }
+
+    [Fact]
+    public async Task A_start_without_room_for_the_recording_is_refused_in_words_and_records_nothing()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        _space.Available = 120 * Megabyte;
+
+        var started = await _session.StartAsync(note.Id, Cancellation);
+
+        Assert.False(started);
+        Assert.Equal("There is not enough storage on this phone to record: it needs 248 MB free and has 120 MB.", _session.Error);
+        Assert.Empty(_recorder.Started);
+        Assert.Equal(MeetingRecorderState.Idle, _session.State);
+    }
+
+    [Fact]
+    public async Task Running_low_on_space_while_recording_stops_it_attaches_what_was_recorded_and_says_why()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+
+        _space.Available = 200 * Megabyte;
+        _fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        _recorder.Tick(0.3);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Idle);
+
+        Assert.Equal(RecordingSpace.Stopped, _session.Error);
+        Assert.Equal(RecordingSpace.Stopped, _session.LastFailure?.Error);
+        Assert.Single(_fixture.Notes.Find(note.Id)!.Attachments);
+    }
+
+    [Fact]
+    public async Task Free_space_is_looked_at_no_more_than_every_ten_seconds()
+    {
+        var note = await _fixture.Notes.CreateAsync("Standup", "notes", cancellationToken: Cancellation);
+        await _session.StartAsync(note.Id, Cancellation);
+
+        // Low the moment after the start's own look: the next look is ten seconds on.
+        _space.Available = 100 * Megabyte;
+        _fixture.Clock.Advance(TimeSpan.FromSeconds(9));
+        _recorder.Tick(0.3);
+        await Task.Delay(50, Cancellation);
+
+        Assert.Equal(MeetingRecorderState.Recording, _session.State);
     }
 
     [Fact]
@@ -285,6 +569,38 @@ public sealed class NoteRecordingSessionTests : IAsyncDisposable
         await WaitUntilAsync(() => _session.State == MeetingRecorderState.Idle);
 
         Assert.False(_recorder.StoppedOnRaisingThread);
+    }
+
+    /// <summary>Free space at the floor, seen on the next look ten seconds on; waits for the stop.</summary>
+    private async Task RunOutOfSpaceAsync()
+    {
+        _space.Available = 200 * Megabyte;
+        _fixture.Clock.Advance(NoteRecordingSession.SpaceCheckInterval);
+        _recorder.Tick(0.3);
+        await WaitUntilAsync(() => _session.State == MeetingRecorderState.Idle);
+    }
+
+    /// <summary>Holds what the session runs off the raising thread, for the test to run when it
+    /// chooses: the order a pool thread would not promise.</summary>
+    private List<Func<Task>> HoldBackground()
+    {
+        var queued = new List<Func<Task>>();
+        _session.RunInBackground = work =>
+        {
+            queued.Add(work);
+            return Task.CompletedTask;
+        };
+        return queued;
+    }
+
+    /// <summary>A pull bringing the note's tombstone, as a desktop delete or archive does.</summary>
+    private async Task DeleteElsewhereAsync(Guid noteId)
+    {
+        var at = _fixture.Clock.GetUtcNow().AddMinutes(5);
+        _fixture.Service.State = InboxServiceState.Answering;
+        _fixture.Service.Append(NoteFoldTests.Note("Standup", at, noteId, deletedAt: at));
+        await _fixture.Notes.PullAsync(Cancellation);
+        Assert.Null(_fixture.Notes.Find(noteId));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
