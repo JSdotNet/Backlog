@@ -29,6 +29,7 @@ using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Events.Extensions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
@@ -204,6 +205,12 @@ public static class DesktopCompositionRegistration
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
+
+        // Events (local ADR 0050): the module's one registration point. Its two stores are
+        // the events_knowledge_events and events_series tables AddSqlite registered above.
+        // Nothing of it shows yet — no pane, surface, settings section or Ask AI source —
+        // and the pane that comes later is gated on the `events` feature, off by default.
+        services.AddEventsModule();
 
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters

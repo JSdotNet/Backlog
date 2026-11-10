@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Events module — the Events bounded context (.devbook/domain/events, local
+    ADR 0050). Clean architecture, inside out:
+      DomainModels/  the Knowledge Event and Event Series aggregates and the
+                     value objects a knowledge event owns
+      Extensions/    AddEventsModule()
+    IKnowledgeEventRepository and IEventSeriesRepository are ports declared here;
+    their adapters are tables in backlog.db, under src/Infrastructure. This
+    project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Events</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddEventsModule(); the domain knows nothing about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Events.UnitTests" />
+  </ItemGroup>
+
+</Project>

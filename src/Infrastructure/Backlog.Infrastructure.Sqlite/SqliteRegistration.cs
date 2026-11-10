@@ -1,8 +1,10 @@
+using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Notifications;
 using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
+using Backlog.Modules.Events;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
@@ -24,8 +26,8 @@ namespace Backlog.Infrastructure.Sqlite;
 public static class SqliteRegistration
 {
     /// <summary>
-    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications and the
-    /// Claude Code api_request table, the model prices and the session request queue, each a
+    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications, the
+    /// knowledge events and event series, the Claude Code api_request table, the model prices and the session request queue, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
     /// The root is asked per call rather than fixed here, because somebody can move
@@ -90,6 +92,14 @@ public static class SqliteRegistration
         // the notifications table, its accepted answer kept there until its handler takes it.
         services.AddSingleton<INotificationRepository>(sp =>
             new RootedSqliteNotificationRepository(() => rootDirectory(sp)));
+
+        // Events' own documents (local ADR 0050 §2): one row per knowledge event in
+        // events_knowledge_events and one per series in events_series, each its own table
+        // under its own stamp.
+        services.AddSingleton<IKnowledgeEventRepository>(sp =>
+            new RootedSqliteKnowledgeEventRepository(() => rootDirectory(sp)));
+        services.AddSingleton<IEventSeriesRepository>(sp =>
+            new RootedSqliteEventSeriesRepository(() => rootDirectory(sp)));
 
         // The Claude Code api_request events the /v1/logs endpoint keeps (local ADR
         // 0024): the Sessions context's table, in the same file and following the

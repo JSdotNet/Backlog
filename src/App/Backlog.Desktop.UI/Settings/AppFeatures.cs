@@ -7,6 +7,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.SharedKernel;
 
@@ -175,6 +176,12 @@ public static class AppFeatures
             NotificationsFeatures.Notifications,
             "Notifications",
             "Let this desktop tell you something, or ask you something, and hear the answer from whichever paired device you are holding.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
+            EventsFeatures.Events,
+            "Events",
+            "Keep the knowledge events you attend to learn something: whether to go, and what you learned there.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
 

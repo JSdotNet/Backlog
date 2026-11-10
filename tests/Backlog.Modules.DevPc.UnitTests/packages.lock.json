@@ -715,6 +715,7 @@
       "backlog.infrastructure.sqlite": {
         "type": "Project",
         "dependencies": {
+          "Backlog.Modules.Events": "[1.0.0, )",
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
           "Backlog.Modules.Progress": "[1.0.0, )",
@@ -755,6 +756,20 @@
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
+        }
+      },
+      "backlog.modules.events": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
+        }
+      },
+      "backlog.modules.events.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
       "backlog.modules.inbox": {

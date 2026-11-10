@@ -1,6 +1,8 @@
+using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.Modules.Events;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Progress;
 using Backlog.Modules.Roadmap;
@@ -122,5 +124,26 @@ public sealed class SqliteRegistrationTests
         var store = provider.GetRequiredService<Backlog.Modules.Notifications.INotificationRepository>();
         Assert.IsType<Backlog.Infrastructure.Sqlite.Notifications.RootedSqliteNotificationRepository>(store);
         Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Notifications.INotificationRepository>());
+    }
+
+    /// <summary>Events' two owned documents (local ADR 0050 §2): each port one rooted
+    /// singleton, the same instance on every resolve.</summary>
+    [Fact]
+    public void The_knowledge_event_and_event_series_stores_are_each_one_rooted_singleton()
+    {
+        var services = new ServiceCollection();
+        services.AddSqlite(_ => Path.GetTempPath());
+
+        Assert.Equal(ServiceLifetime.Singleton, Assert.Single(services, d => d.ServiceType == typeof(IKnowledgeEventRepository)).Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, Assert.Single(services, d => d.ServiceType == typeof(IEventSeriesRepository)).Lifetime);
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        var events = provider.GetRequiredService<IKnowledgeEventRepository>();
+        var series = provider.GetRequiredService<IEventSeriesRepository>();
+        Assert.IsType<RootedSqliteKnowledgeEventRepository>(events);
+        Assert.IsType<RootedSqliteEventSeriesRepository>(series);
+        Assert.Same(events, provider.GetRequiredService<IKnowledgeEventRepository>());
+        Assert.Same(series, provider.GetRequiredService<IEventSeriesRepository>());
     }
 }

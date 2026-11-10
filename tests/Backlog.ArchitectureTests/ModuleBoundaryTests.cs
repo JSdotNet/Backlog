@@ -540,6 +540,57 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// Events is one module trio (local ADR 0050 §7): <c>Backlog.Modules.Events</c>, its
+    /// <c>.Abstractions</c> and its <c>.UI</c>. The implementation references nothing under
+    /// <c>src/Modules</c> but its own Abstractions — another context's <c>.Abstractions</c> is the
+    /// most ADR 0050 Verification 6 would allow it, and it needs none yet — and no other project
+    /// under <c>src/Modules</c> references the implementation. The generic rules above hold the
+    /// rest; this pins the trio, and its place in the solution and the filter CI builds.
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Events_is_one_trio_that_no_other_module_references()
+    {
+        const string module = "Backlog.Modules.Events";
+        const string abstractions = "Backlog.Modules.Events.Abstractions";
+        const string ui = "Backlog.Modules.Events.UI";
+        const string tests = "Backlog.Modules.Events.UnitTests";
+
+        var modules = Repository.ProjectsUnder("src", "Modules")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in new[] { module, abstractions, ui })
+        {
+            Assert.True(modules.ContainsKey(name), $"{name} is not under src/Modules/Events.");
+            Assert.Equal("Events", modules[name].Directory!.Parent!.Name);
+        }
+
+        var reachedFromTheModule = Repository.ReferencedProjectNames(modules[module])
+            .Where(modules.ContainsKey)
+            .ToList();
+
+        Assert.Equal([abstractions], reachedFromTheModule, StringComparer.OrdinalIgnoreCase);
+
+        var referencingTheModule = modules.Values
+            .Where(project => Repository.ReferencedProjectNames(project).Contains(module, StringComparer.OrdinalIgnoreCase))
+            .Select(project => project.Name)
+            .ToList();
+
+        Assert.True(
+            referencingTheModule.Count == 0,
+            $"{module} is referenced from inside src/Modules; another context reads Events through its .Abstractions: "
+            + string.Join(", ", referencingTheModule));
+
+        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
+
+        foreach (var name in new[] { module, abstractions, ui, tests })
+        {
+            Assert.Contains($"\\{name}.csproj\"", solution, StringComparison.Ordinal);
+            Assert.Contains($"\\\\{name}.csproj\"", filter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// The join between Capture and the Inbox runs through
     /// <c>Backlog.Infrastructure.Capture</c> and nowhere else: it answers
     /// Capture's ports — declared in the module implementation, next to the
