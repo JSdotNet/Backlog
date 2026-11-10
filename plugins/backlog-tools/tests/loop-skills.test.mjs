@@ -26,4 +26,15 @@ for (const { name, text } of loopStarted) {
     const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
     assert.doesNotMatch(frontmatter, /^disable-model-invocation:\s*true\s*$/m);
   });
+
+  // A long-running agent marks its session (icon, ALL CAPS title, pinned, Agents section).
+  test(`${name} marks its session per standing-session.md, which names its title`, () => {
+    assert.match(text, /\.\.\/\.\.\/resources\/standing-session\.md/);
+    const standing = fs.readFileSync(path.join(SKILLS, "..", "resources", "standing-session.md"), "utf8");
+    const row = standing.match(new RegExp("^\\| `" + name + "` \\| `([^`]+)` \\|$", "m"));
+    assert.ok(row, `standing-session.md has no title row for ${name}`);
+    const [icon, ...words] = row[1].split(" ");
+    assert.match(icon, /\p{Extended_Pictographic}/u);
+    assert.equal(words.join(" "), words.join(" ").toUpperCase());
+  });
 }

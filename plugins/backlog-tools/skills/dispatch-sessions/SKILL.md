@@ -16,7 +16,8 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 
 1. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. Keep one Monitor on
    `node assets/wait-requests.mjs` at its longest timeout, re-armed on expiry or `stopped`; never loop on tools.
-2. **Restart.** First turn only: `list_session_requests` and `list_deliveries` `state: claimed`;
+2. **Restart.** First turn only: mark this session per `../../resources/standing-session.md`;
+   `list_session_requests` and `list_deliveries` `state: claimed`;
    release each your `dispatcher` holds (`mark_session_request`, `mark_delivery`).
 3. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
    `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:

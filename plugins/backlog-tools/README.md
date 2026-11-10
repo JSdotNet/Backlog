@@ -230,6 +230,12 @@ orientation card when it has one, and read as before without it. `devbook-sweep`
 `dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
 those three skip it.
 
+`resources/standing-session.md` is how a skill a person keeps running under `/loop` stands out
+as a long-running agent: on its first turn `dispatch-sessions` and `tend-brain` title their own
+Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
+`🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
+host lacks. `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it.
+
 `resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
 skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
 nobody present, so they do not.
