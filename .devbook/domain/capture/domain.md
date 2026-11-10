@@ -34,7 +34,8 @@ it again. Those later edits are the Inbox Item's. See
 
 The aggregate has no owned entities beyond its root. The `Source Metadata`
 value object and the `Capture Source` enum carry what varies between captures. The
-`Capture Attachment` value object describes the files a capture brings.
+`Capture Attachment` value object describes the files a capture brings, and
+`Event Facts` the dates and place an event page capture found.
 
 ### Source Metadata
 
@@ -82,6 +83,25 @@ and a capture waiting longer than 30 days keeps its description but loses its
 bytes. Once a desktop has taken the capture in, its Inbox Item owns a copy of
 each file.
 
+### Event Facts
+
+```meta
+type: value-object
+related: [.devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/events/domain.md#event-date, .devbook/domain/inbox/domain.md#event-facts]
+```
+
+What an [event page capture](features.md#event-page-monitor) read about the edition
+beyond its text:
+
+- an optional `start` and `end`, each a date, plus a time of day and its UTC offset
+  when the source gave them;
+- an optional `place`, as the page wrote it;
+- the watched page it was read from, by its URL and its title.
+
+A capture from any other source carries none. In code these ride the
+`CaptureFacts` record beside the import manifest's facts, each field optional.
+Equality is by value.
+
 ### Tag
 
 ```meta
@@ -105,6 +125,8 @@ Origin type of a capture. Values and meaning:
   a note created on the phone's Notes tab.
 - `youtube` — a new video detected by the YouTube monitor.
 - `website` — a change detected by the website monitor.
+- `event_page` — a new edition read off a watched event page by the
+  [event page monitor](features.md#event-page-monitor).
 - `email` — a newsletter/summary ingested from an IMAP inbox.
 - `web_clipper` — content clipped by the browser extension/bookmarklet.
 - `ide` — content captured from an IDE-class host. It is a selection in an IDE
@@ -138,6 +160,7 @@ Each source has a concrete adapter behind this service:
 | Mobile app, through the sync service | `mobile` | yes |
 | YouTube monitor | `youtube` | yes |
 | Website monitor | `website` | yes |
+| Event page monitor | `event_page` | planned |
 | Import manifest | `import` | yes |
 | Email ingestion | `email` | planned |
 | Web clipper | `web_clipper` | planned |
@@ -188,6 +211,8 @@ This is Capture's published language for intake into the Inbox's
 - `captured_at` - time the source was captured.
 - `attachments` - `Capture Attachment` descriptions, when the capture brought
   files; each file is fetched from the attachment store by its id. Additive.
+- `event` - the `Event Facts`, for an `event_page` capture: `start`, `end`,
+  `place`, `target_url` and `target_title`. Each is optional. Additive.
 
 ### Consumers
 

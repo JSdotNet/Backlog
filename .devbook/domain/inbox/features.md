@@ -281,6 +281,7 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **l** | Open Move to list |
 | **r** | Move the item to the backlog |
 | **b** | Route it [To Brain](#route-to-brain) |
+| **e** | Route it [To Event](#route-to-event), while the Events area is on |
 | **g** | Go to its tags |
 | **x** | Pick it for an [act on several at once](#act-on-several-at-once) |
 | **t** | Start [triage mode](#triage-mode), as the header's **Start triage** button does |
@@ -727,6 +728,42 @@ sibling, naming each by its repository id. All of them share the general tag
 task needs neither. The lines come before the item's notes, so notes ending in a
 chapter or an open code block cannot take them in. A batch links the siblings of
 each of its items the same way.
+
+### Route to Event
+
+```meta
+type: sub-feature
+aliases: [To Event]
+feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
+related: [.devbook/domain/inbox/requirements.md#route-to-event, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/domain.md#knowledge-event, .devbook/domain/events/domain.md#event-series, .devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/inbox/domain.md#event-facts]
+```
+
+```mermaid
+flowchart TD
+    Item[Item routed To Event] --> Match{A Series whose page is the item's watched page?}
+    Match -- yes --> Same[Spotted event in that Series]
+    Match -- no --> New[New Series named after the page's title]
+    New --> NewEvent[Spotted event in the new Series]
+```
+
+**To Event** makes the item a [Knowledge Event](../events/domain.md#knowledge-event)
+at Spotted, from its title, link, dates and place. It is the route for an edition
+the [event page monitor](../capture/features.md#event-page-monitor) brought in, and
+it takes any other item the person wants to track as an event. It shows only while
+the [Events area](../events/context.md#events-area) is on.
+
+The event joins the [Event Series](../events/domain.md#event-series) whose page is
+the page the item was watched from. When no Series has that page, Events starts one
+named after the page's title, with the page as its link. An item that came from no
+watched page starts no Series, and the person names one on the event.
+
+It ends the item's triage as Route to Tasks does: the item is routed, once, and
+leaves the queue. Events is asked first, and the item is routed only once the event
+exists. A failure on the Events side leaves it unrouted. What Events makes of the
+dates is [the To Event route](../events/features.md#to-event-route) in Events.
+
+**To Event** sits beside Move to backlog and To Brain in triage and in the item's
+detail, and **e** takes it.
 
 ### Create plan from an item
 

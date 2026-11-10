@@ -15,6 +15,7 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBacklogTarget`, adapter over `ITaskItems` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxRouteRequestDto`) | Routing an item creates one draft Task per assigned repository. |
 | [Brain](../brain/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBrainTarget`, adapter over `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxBrainNoteRequestDto`) | Routing To Brain writes a Knowledge Note into the Brain's inbox area. |
+| [Events](../events/context.md) | OHS + Published Language (Inbox = supplier) | In-process port in `Backlog.Modules.Inbox.Abstractions`, adapter over Events' intake; not built yet | `.devbook/domain/inbox/domain.md#itemtriaged`, route `events` | Routing To Event makes a Spotted knowledge event. |
 | [Sync](../sync/context.md) | Customer/Supplier (Inbox = customer of the intake channel) | `IInboxIntake` and `IInboxCaptureOutbox` ports, driven by the desktop sync client | `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures reach the desktop and the phone learns their fate over one sync path. |
 
 `IInboxBacklogTarget` and `IInboxBrainTarget` are declared in `Backlog.Modules.Inbox.Abstractions`, and neither is an async event.

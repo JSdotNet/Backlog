@@ -1284,6 +1284,73 @@ The system SHALL make one task per repository for an item assigned to several, g
 - **When** it is moved to the backlog
 - **Then** one task is made, with no "Same capture in:" line and no `#from-inbox-` tag
 
+## Route to Event
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#route-to-event, .devbook/domain/events/requirements.md#to-event-route]
+```
+
+> What the To Event route promises the Inbox item. What the event is made of is in
+> [Events' requirements](../events/requirements.md#to-event-route). Nothing is built
+> yet.
+
+### Requirement: No To Event route while the area is off
+
+```meta
+type: requirement
+```
+
+The system SHALL offer no To Event route in triage, in the item's detail or on the **e** key while the `events` flag is off.
+
+#### Scenario: Route withdrawn
+
+- **Given** the `events` flag is off
+- **When** the person triages an Inbox item and presses **e**
+- **Then** To Event is not offered and the item stays in the queue
+
+### Requirement: The event joins the Series of its watched page
+
+```meta
+type: requirement
+```
+
+The system SHALL put the event made from an item in the Event Series whose page is the page the item was watched from.
+
+#### Scenario: Techorama again
+
+- **Given** an Event Series "Techorama Netherlands" whose page is techorama.nl, and an item the event page monitor read from techorama.nl
+- **When** the person routes the item To Event
+- **Then** the Spotted event is an edition of "Techorama Netherlands", and no new Series is made
+
+### Requirement: An unknown page starts a Series named after it
+
+```meta
+type: requirement
+```
+
+The system SHALL start a new Event Series, named after the watched page's title and linked to that page, when no Series has the page the item was watched from.
+
+#### Scenario: The first dotNET Friday
+
+- **Given** no Event Series has the page dotnetfriday.nl, whose title is "dotNET Friday"
+- **When** the person routes an item read from dotnetfriday.nl To Event
+- **Then** a Series "dotNET Friday" linked to dotnetfriday.nl exists, and the Spotted event is its edition
+
+### Requirement: To Event routes once, after the event exists
+
+```meta
+type: requirement
+```
+
+The system SHALL mark an item routed To Event, with the event's id, only once Events has made the event.
+
+#### Scenario: Events cannot take it
+
+- **Given** an unprocessed item and an Events store that fails to write
+- **When** the person routes it To Event
+- **Then** the item stays in the queue, unrouted, and the person is told the event was not made
+
 ## Route a batch to Tasks
 
 ```meta

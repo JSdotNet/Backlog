@@ -229,3 +229,150 @@ A cloud turn SHALL tell the model `nl` when the Dictation language is Dutch, `en
 - **Given** the Engine reads Cloud and the Dictation language is Dutch and English
 - **When** the person dictates a turn
 - **Then** the recording is sent with no language, and the model detects it
+
+## Event page monitor
+
+```meta
+type: requirements
+related: [.devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/capture/domain.md#event-facts]
+```
+
+> What the event page source promises. The feature chapter says why it reads pages
+> in this order and records its known limits. Nothing is built yet. The examples are
+> the first pages it watches: dotNET Friday and Techorama.
+
+### Requirement: The monitor takes the first step that gives a date
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL take an edition's dates and place from the first of these steps that gives a date: a schema.org event on the watched page, a schema.org event one registration link away, a date pattern in the page text.
+
+#### Scenario: Structured data on the page
+
+- **Given** a watched page whose schema.org event starts 2026-11-27T16:30+01:00 in Nieuwegein
+- **When** the person presses Run capture now
+- **Then** the Inbox gets one item starting 27 November 2026 at 16:30 `+01:00` in Nieuwegein
+
+#### Scenario: One hop to Eventbrite
+
+- **Given** dotnetfriday.nl names 27 November in its text and links to an Eventbrite listing with a schema.org event
+- **When** the person presses Run capture now
+- **Then** the item takes the listing's start, 16:30 `+01:00`, rather than the page text's date
+
+#### Scenario: A date in the page text
+
+- **Given** techorama.nl has no schema.org event and its text reads `26 - 28 OCT 2026`
+- **When** the person presses Run capture now
+- **Then** the item starts on 26 October 2026 and ends on 28 October 2026, with no time
+
+### Requirement: Dutch and English month names are read alike
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL read a date pattern whose month is written in English or in Dutch, in full or abbreviated.
+
+#### Scenario: A Dutch page
+
+- **Given** a watched page whose text reads `11 - 13 mei 2027`
+- **When** the person presses Run capture now
+- **Then** the item starts on 11 May 2027 and ends on 13 May 2027
+
+### Requirement: A page with no date still arrives
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL deliver an item with the page's title and link and no dates when no step gives a date.
+
+#### Scenario: No date found
+
+- **Given** a watched page with no schema.org event, no registration link and no date in its text
+- **When** the person presses Run capture now
+- **Then** the Inbox gets one item with the page's link and no dates
+
+### Requirement: A past edition is skipped
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL deliver no item for an edition whose end date is before today.
+
+#### Scenario: Last year's edition still on the page
+
+- **Given** today is 10 November 2026 and techorama.be still shows `11 - 13 MAY 2026`
+- **When** the person presses Run capture now
+- **Then** no item is delivered for techorama.be
+
+### Requirement: An edition is delivered once
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL deliver each edition once, knowing it by its listing id when the registration page has one and otherwise by the page URL, the year and the place.
+
+#### Scenario: A second run
+
+- **Given** the 27 November 2026 dotNET Friday was delivered on an earlier run
+- **When** the person presses Run capture now again
+- **Then** no new item is delivered for it
+
+#### Scenario: Next year's edition
+
+- **Given** the 2026 edition on techorama.nl was delivered, and the page now shows the 2027 edition
+- **When** the person presses Run capture now
+- **Then** the Inbox gets one new item, for the 2027 edition
+
+#### Scenario: A moved date
+
+- **Given** an edition delivered on an earlier run whose page now shows a later date
+- **When** the person presses Run capture now
+- **Then** no new item is delivered, and the item already in the Inbox keeps its first date
+
+### Requirement: The monitor reads pages only when asked
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL read its pages only when the person presses Run capture now.
+
+#### Scenario: The app left open
+
+- **Given** the event page source is on with two watched pages
+- **When** a day passes with the app open and nobody presses Run capture now
+- **Then** neither page is read
+
+### Requirement: The monitor asks no AI model
+
+```meta
+type: requirement
+```
+
+The event page monitor SHALL read every page by its fixed rules and send no page to an AI model.
+
+#### Scenario: Foundry configured
+
+- **Given** an AI model is configured for the Inbox and the event page source is on
+- **When** the person presses Run capture now
+- **Then** the run reads its pages without a call to the model
+
+### Requirement: No event page source while the area is off
+
+```meta
+type: requirement
+```
+
+The system SHALL neither list nor run the event page source while the `events` flag is off.
+
+#### Scenario: Area off
+
+- **Given** the `events` flag is off and `capture-sources.json` holds an event page source switched on
+- **When** the person opens the Sources panel and presses Run capture now
+- **Then** the panel lists no event page source, the run reads no event page, and the stored source is kept
