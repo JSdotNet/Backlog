@@ -57,8 +57,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
     // start has failed either way.
     private static readonly TimeSpan PromoteTimeout = TimeSpan.FromSeconds(5);
 
-    private const string PermissionDenied =
-        "Microphone access was denied. Allow it in Android settings and try again.";
+    private const string PermissionDenied = AndroidMicrophoneAccess.Denied;
 
     private const string Busy = "The microphone could not be started. Another app may be using it.";
     private const string NotOnScreen = "Recording can only start while Backlog is on screen.";
@@ -70,11 +69,20 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
     private readonly Lock _gate = new();
     private readonly Stopwatch _clock = new();
 
+    // AudioManager's MODE_CALL_SCREENING (API 30) and MODE_CALL_REDIRECT (API 33), by value: an
+    // older phone never reports them, so no version check is needed to compare against them.
+    private const int ModeCallScreening = 4;
+    private const int ModeCallRedirect = 5;
+
     private Capture? _capture;
     private Timer? _levelTimer;
     private MeetingRecorderState _state;
     private double _level;
     private string? _fault;
+    private bool _inCall;
+    private bool _silenced;
+    private AudioManager? _audio;
+    private Java.Lang.Object? _modeListener;
 
     public MeetingRecorderState State
     {
@@ -107,6 +115,31 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             lock (_gate) return _fault;
         }
     }
+
+    /// <summary>
+    /// A telephony call, read from the audio mode, which needs no phone-state permission:
+    /// <c>MODE_IN_CALL</c>, call screening or call redirect. A VoIP call
+    /// (<c>MODE_IN_COMMUNICATION</c>) is not one; it silences the capture, which Android 10 and
+    /// later report through the recording callback instead.
+    /// </summary>
+    public MeetingRecorderInterruption Interruption
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _inCall ? MeetingRecorderInterruption.PhoneCall
+                    : _silenced ? MeetingRecorderInterruption.Silenced
+                    : MeetingRecorderInterruption.None;
+            }
+        }
+    }
+
+    /// <summary><c>MediaRecorder</c>'s recording callback and <c>isClientSilenced</c> are API 29.</summary>
+    public bool ReportsSilencing => OperatingSystem.IsAndroidVersionAtLeast(29);
+
+    /// <summary><c>MediaRecorder.getMaxAmplitude</c> always measures.</summary>
+    public bool MeasuresLevel => true;
 
     public event Action? Changed;
 
@@ -204,9 +237,12 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             _state = MeetingRecorderState.Stopping;
             _clock.Stop();
             _level = 0;
+            _inCall = false;
+            _silenced = false;
         }
 
         StopLevelTimer();
+        UnwatchCalls();
         Changed?.Invoke();
 
         IReadOnlyList<MeetingRecordingPart> parts = [];
@@ -289,7 +325,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             return MeetingRecorderResult.Failed(NotOnScreen);
         }
 
-        var capture = new Capture(target, OnFault);
+        var capture = new Capture(target, OnFault, OnSilenced);
         try
         {
             capture.Start(context);
@@ -322,7 +358,119 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             // Under the gate with the state, so a Stop that follows always finds the timer to end.
             Interlocked.Exchange(ref _levelTimer, new Timer(_ => PollLevel(), null, LevelInterval, LevelInterval))?.Dispose();
         }
+
+        WatchCalls(context);
         return MeetingRecorderResult.Started;
+    }
+
+    /// <summary>
+    /// Follows the audio mode for a call: a listener from Android 12, the level tick before it.
+    /// A recording started during a call starts paused by none; the session acts on a call as it
+    /// begins.
+    /// </summary>
+    private void WatchCalls(Android.Content.Context context)
+    {
+        try
+        {
+            var audio = context.GetSystemService(Android.Content.Context.AudioService) as AudioManager;
+            if (audio is null) return;
+
+            lock (_gate)
+            {
+                _audio = audio;
+                _inCall = IsCall((int)audio.Mode);
+            }
+
+            if (OperatingSystem.IsAndroidVersionAtLeast(31) && context.MainExecutor is { } executor)
+            {
+                var listener = new ModeListener(OnModeChanged);
+                audio.AddOnModeChangedListener(executor, listener);
+                lock (_gate) _modeListener = listener;
+            }
+        }
+        catch (Java.Lang.Exception ex)
+        {
+            // No call detection is still a recording; a call then reaches it as a fault, if at all.
+            logger.LogWarning("Calls are not followed for this recording: {Error}", ex.GetType().Name);
+        }
+    }
+
+    private void UnwatchCalls()
+    {
+        AudioManager? audio;
+        Java.Lang.Object? listener;
+        lock (_gate)
+        {
+            audio = _audio;
+            listener = _modeListener;
+            _audio = null;
+            _modeListener = null;
+        }
+
+        if (audio is null || listener is null || !OperatingSystem.IsAndroidVersionAtLeast(31)) return;
+
+        try
+        {
+            audio.RemoveOnModeChangedListener((AudioManager.IOnModeChangedListener)listener);
+        }
+        catch (Java.Lang.Exception)
+        {
+            // Already gone with the recording.
+        }
+        finally
+        {
+            listener.Dispose();
+        }
+    }
+
+    private void OnModeChanged(int mode)
+    {
+        if (SetInCall(IsCall(mode))) Changed?.Invoke();
+    }
+
+    /// <summary>The mode read on the level tick, before Android 12 has a listener for it.</summary>
+    private bool PollMode()
+    {
+        AudioManager? audio;
+        lock (_gate) audio = _audio;
+        if (audio is null) return false;
+
+        try
+        {
+            return SetInCall(IsCall((int)audio.Mode));
+        }
+        catch (Java.Lang.Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Answers whether the call state changed.</summary>
+    private bool SetInCall(bool inCall)
+    {
+        lock (_gate)
+        {
+            if (_capture is null || _inCall == inCall) return false;
+            _inCall = inCall;
+        }
+
+        logger.LogInformation(inCall ? "A phone call took the microphone from a recording." : "The phone call ended.");
+        return true;
+    }
+
+    private static bool IsCall(int mode) =>
+        mode == (int)Mode.InCall || mode == ModeCallScreening || mode == ModeCallRedirect;
+
+    private void OnSilenced(Capture capture, bool silenced)
+    {
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_capture, capture) || _silenced == silenced) return;
+            _silenced = silenced;
+        }
+
+        logger.LogInformation(silenced ? "Another app silenced a recording." : "A recording hears the microphone again.");
+        Changed?.Invoke();
     }
 
     /// <summary>
@@ -353,13 +501,23 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
     private void PollLevel()
     {
         Capture? capture;
+        MeetingRecorderState state;
         lock (_gate)
         {
-            if (_state != MeetingRecorderState.Recording) return;
             capture = _capture;
+            state = _state;
         }
 
         if (capture is null) return;
+
+        // Paused too: a call's end has to be seen while the recording waits for Resume.
+        var callChanged = !OperatingSystem.IsAndroidVersionAtLeast(31) && PollMode();
+
+        if (state != MeetingRecorderState.Recording)
+        {
+            if (callChanged) Changed?.Invoke();
+            return;
+        }
 
         var level = Math.Clamp((double)capture.Amplitude() / MaxAmplitude, 0, 1);
 
@@ -413,16 +571,24 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
     }
 
+    /// <summary>The audio mode as it changes, from Android 12.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("android31.0")]
+    private sealed class ModeListener(Action<int> changed) : Java.Lang.Object, AudioManager.IOnModeChangedListener
+    {
+        public void OnModeChanged(int mode) => changed(mode);
+    }
+
     /// <summary>
     /// One recording: the <see cref="MediaRecorder"/>, the pipe it writes into, and the reader
     /// that feeds the pipe through <see cref="AdtsPartWriter"/> into part files.
     /// </summary>
-    private sealed class Capture(MeetingRecordingTarget target, Action<Capture, string> onFault)
+    private sealed class Capture(MeetingRecordingTarget target, Action<Capture, string> onFault, Action<Capture, bool> onSilenced)
     {
         private readonly Lock _gate = new();
         private readonly Dictionary<int, RecordingPartFile> _files = [];
 
         private MediaRecorder? _recorder;
+        private AudioManager.AudioRecordingCallback? _silencing;
         private ParcelFileDescriptor? _read;
         private Task? _reader;
         private AdtsPartWriter? _writer;
@@ -469,6 +635,15 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             _writer = new AdtsPartWriter(OpenPart);
             _reader = Task.Run(Read);
 
+            // Before the start, as Android asks: from 10 on, a capture another app takes the
+            // input from keeps running on silence, and this is how it says so.
+            if (OperatingSystem.IsAndroidVersionAtLeast(29) && context.MainExecutor is { } executor)
+            {
+                var silencing = new SilencingCallback(silenced => onSilenced(this, silenced));
+                recorder.RegisterAudioRecordingCallback(executor, silencing);
+                lock (_gate) _silencing = silencing;
+            }
+
             recorder.Start();
         }
 
@@ -496,15 +671,30 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         public void Halt()
         {
             MediaRecorder? recorder;
+            AudioManager.AudioRecordingCallback? silencing;
             lock (_gate)
             {
                 if (_halted) return;
                 _halted = true;
                 recorder = _recorder;
                 _recorder = null;
+                silencing = _silencing;
+                _silencing = null;
             }
 
             if (recorder is null) return;
+
+            if (silencing is not null && OperatingSystem.IsAndroidVersionAtLeast(29))
+            {
+                try
+                {
+                    recorder.UnregisterAudioRecordingCallback(silencing);
+                }
+                catch (Java.Lang.Exception)
+                {
+                    // Released with the recorder either way.
+                }
+            }
 
             try
             {
@@ -664,6 +854,15 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             catch (Java.IO.IOException)
             {
             }
+        }
+
+        /// <summary>Reports whether this recorder's own capture is silenced. The configurations a
+        /// <c>MediaRecorder</c>'s callback hears are its own.</summary>
+        [System.Runtime.Versioning.SupportedOSPlatform("android29.0")]
+        private sealed class SilencingCallback(Action<bool> changed) : AudioManager.AudioRecordingCallback
+        {
+            public override void OnRecordingConfigChanged(IList<AudioRecordingConfiguration>? configs) =>
+                changed(configs?.Any(config => config.IsClientSilenced) ?? false);
         }
 
         private bool Call(Action<MediaRecorder> action)

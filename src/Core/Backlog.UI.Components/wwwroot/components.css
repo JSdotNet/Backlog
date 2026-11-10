@@ -26008,6 +26008,14 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-sm);
 }
 
+/* What has the microphone away from a live recording. Semibold on the band's own
+   surface rather than a colour of its own: the band already says live or paused. */
+.recording-bar__notice {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .recording-bar--recording .recording-bar__dot {
         animation: none;

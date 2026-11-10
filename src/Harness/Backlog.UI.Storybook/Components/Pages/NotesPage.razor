@@ -131,6 +131,26 @@ Leaving the note does not stop the recording; the bar is back when the note is o
         </div>
     </Story>
 
+    @* The notice wording below is a copy of RecordingNotices in Backlog.Mobile.UI, which is
+       the source; the library cannot reference the app, so a change there is made here too. *@
+    <Story Name="Paused by a phone call"
+           Description="A phone call always gets the microphone, so the recording pauses as the call begins and the band says why in the host's words, as Notice. The end of the call does not carry it on: only Resume does, on the bar or in the notification, and the notice goes once the call is over."
+           Code="@CallCode">
+        <div class="sb-phone">
+            <RecordingBar State="RecordingBarState.Paused" Elapsed="TimeSpan.FromSeconds(1312)"
+                          Notice="Paused: a phone call has the microphone." TestId="story-recording-call" />
+        </div>
+    </Story>
+
+    <Story Name="Silenced by another app"
+           Description="Another app took the microphone and the capture hears only silence. The recording is not paused, since it carries on as soon as the microphone is back, but the band says nothing is being recorded until it is. A recorder that cannot say so shows the softer hint after ten seconds at a level of 0 instead."
+           Code="@SilencedCode">
+        <div class="sb-phone">
+            <RecordingBar State="RecordingBarState.Recording" Elapsed="TimeSpan.FromSeconds(2045)" Level="0"
+                          Notice="Another app has the microphone. Nothing is being recorded." TestId="story-recording-silenced" />
+        </div>
+    </Story>
+
     <Story Name="Saving the recording"
            Description="Stop is busy while the host closes the file and attaches it to the note, so a second press is dropped and the focus stays on the button. Pause is disabled. The file then shows among the note's attachments as “Recording · 12:34”."
            Code="@StoppingCode">
@@ -329,6 +349,16 @@ Leaving the note does not stop the recording; the bar is back when the note is o
 
     private const string PausedCode = """
         <RecordingBar State="RecordingBarState.Paused" Elapsed="TimeSpan.FromSeconds(754)" />
+        """;
+
+    private const string CallCode = """
+        <RecordingBar State="RecordingBarState.Paused" Elapsed="TimeSpan.FromSeconds(1312)"
+                      Notice="Paused: a phone call has the microphone." />
+        """;
+
+    private const string SilencedCode = """
+        <RecordingBar State="RecordingBarState.Recording" Elapsed="TimeSpan.FromSeconds(2045)" Level="0"
+                      Notice="Another app has the microphone. Nothing is being recorded." />
         """;
 
     private const string StoppingCode = """

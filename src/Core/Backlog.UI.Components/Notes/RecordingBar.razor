@@ -22,6 +22,11 @@
     glyph, and a word needs no tooltip. Stop is busy while the host attaches the
     file (interaction-guidelines.md#busy-actions), so a second press is dropped and
     the focus stays on it. A failure is an Alert in the band, in the host's words.
+
+    A notice is the host's word on what has the microphone away from a live
+    recording: a phone call that paused it, another app that silenced it. It is an
+    Alert under the head, so it is announced once as it appears, and it is drawn only
+    while the recording is live: a failed bar already says why it stopped.
 *@
 
 <div class="@ClassValue" role="group" aria-label="Recording" data-state="@Slug" data-testid="@TestId"
@@ -45,6 +50,11 @@
     }
     else
     {
+        @if (!string.IsNullOrWhiteSpace(Notice) && State is RecordingBarState.Recording or RecordingBarState.Paused)
+        {
+            <Alert Message="@Notice" BaseClass="recording-bar__notice" TestId="@PartTestId("notice")" />
+        }
+
         @* Not MetricMeter: that is a reading against a cap, with a heading that says "42 of
            100" and a caption, and none of the three has a place on a level that is only ever
            read live. The role and the words are the same; the shape is not. *@
@@ -87,6 +97,12 @@
     [Parameter]
     public string? Error { get; set; }
 
+    /// <summary>What has the microphone away from the recording, in words, shown while it is
+    /// <see cref="RecordingBarState.Recording"/> or <see cref="RecordingBarState.Paused"/>;
+    /// <c>null</c> for none.</summary>
+    [Parameter]
+    public string? Notice { get; set; }
+
     [Parameter]
     public EventCallback OnPause { get; set; }
 
@@ -104,8 +120,8 @@
     public string? CssClass { get; set; }
 
     /// <summary>The test id on the bar. Its parts get <c>{TestId}-dot</c>, <c>-label</c>,
-    /// <c>-timer</c>, <c>-meter</c>, <c>-pause</c>, <c>-resume</c>, <c>-stop</c>, <c>-error</c>
-    /// and <c>-dismiss</c>.</summary>
+    /// <c>-timer</c>, <c>-meter</c>, <c>-pause</c>, <c>-resume</c>, <c>-stop</c>, <c>-error</c>,
+    /// <c>-notice</c> and <c>-dismiss</c>.</summary>
     [Parameter]
     public string? TestId { get; set; }
 

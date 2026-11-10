@@ -197,7 +197,7 @@ public sealed class WebSpeechTranscriber(IJSRuntime js, ISpeechSettingsStore set
     private static string Describe(string? error) => error switch
     {
         "not-allowed" or "service-not-allowed" =>
-            "Microphone access was denied. Allow it for this site and try again.",
+            MicrophoneAccess.DeniedInBrowser,
         "no-speech" => "Nothing was heard. Try again and speak once the button is on.",
         "audio-capture" => "No microphone was found.",
         "network" => "Speech recognition needs the network and could not reach it.",

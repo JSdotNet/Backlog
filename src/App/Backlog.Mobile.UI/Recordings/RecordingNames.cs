@@ -24,6 +24,11 @@ public static class RecordingNames
             : string.Create(CultureInfo.InvariantCulture, $"Recording · part {number} · {Duration(duration)}");
     }
 
+    /// <summary>"Recording · 10 Nov 2026": the title of a note made for a recording whose own
+    /// note was deleted elsewhere while it ran, in the form of a photo note's "Photo · date".</summary>
+    public static string NoteTitle(DateOnly today) =>
+        string.Create(CultureInfo.InvariantCulture, $"Recording · {today:d MMM yyyy}");
+
     /// <summary>"m:ss" under an hour, "h:mm:ss" from an hour; seconds are not rounded up. The
     /// bar's own format, so the timer and the name it leaves cannot disagree.</summary>
     public static string Duration(TimeSpan duration) => RecordingBar.FormatElapsed(duration);

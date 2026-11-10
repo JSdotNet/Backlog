@@ -60,7 +60,7 @@ public sealed class RecordingService : Service
     private readonly Lock _gate = new();
 
     private NoteRecordingSession? _session;
-    private (MeetingRecorderState State, Guid? NoteId)? _shown;
+    private (MeetingRecorderState State, Guid? NoteId, string? Notice)? _shown;
     private bool _destroyed;
 
     /// <summary>
@@ -216,7 +216,8 @@ public sealed class RecordingService : Service
 
         lock (_gate)
         {
-            var now = (session.State, session.NoteId);
+            // The notice too, or a call's reason never reaches the notification.
+            var now = (session.State, session.NoteId, session.Notice);
             if (_shown == now) return;
             _shown = now;
         }
@@ -259,7 +260,7 @@ public sealed class RecordingService : Service
         switch (state)
         {
             case MeetingRecorderState.Paused:
-                builder.SetContentText("Paused");
+                builder.SetContentText(session?.Notice ?? "Paused");
                 builder.SetUsesChronometer(false);
                 builder.SetShowWhen(false);
                 builder.AddAction(0, "Resume", ActionIntent(ResumeAction));
@@ -279,6 +280,10 @@ public sealed class RecordingService : Service
                 builder.SetWhen(DateTimeOffset.UtcNow.Subtract(elapsed).ToUnixTimeMilliseconds());
                 builder.SetUsesChronometer(true);
                 builder.SetShowWhen(true);
+
+                // Another app has the microphone: the recording runs, and hears nothing.
+                if (session?.Notice is { } notice) builder.SetContentText(notice);
+
                 builder.AddAction(0, "Pause", ActionIntent(PauseAction));
                 builder.AddAction(0, "Stop", ActionIntent(StopAction));
                 break;

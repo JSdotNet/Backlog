@@ -15,13 +15,24 @@
 
 @if (Recording.IsRecording(NoteId))
 {
-    <RecordingBar State="@BarState" Elapsed="@Recording.Elapsed" Level="@Recording.Level"
+    <RecordingBar State="@BarState" Elapsed="@Recording.Elapsed" Level="@Recording.Level" Notice="@Recording.Notice"
                   OnPause="PauseAsync" OnResume="ResumeAsync" OnStop="StopAsync" TestId="@TestId" />
 }
-else if (Recording.LastFailure is { } failure && failure.NoteId == NoteId)
+else
 {
-    <RecordingBar State="RecordingBarState.Failed" Elapsed="@failure.Elapsed" Error="@failure.Error"
-                  OnDismiss="() => Recording.DismissFailure(NoteId)" TestId="@TestId" />
+    @if (Recording.LastFailure is { } failure && failure.NoteId == NoteId)
+    {
+        <RecordingBar State="RecordingBarState.Failed" Elapsed="@failure.Elapsed" Error="@failure.Error"
+                      OnDismiss="() => Recording.DismissFailure(NoteId)" TestId="@TestId" />
+    }
+
+    @* The note was deleted elsewhere while it recorded; Stop made a new note for the
+       recording, and this page is the one place the person still looks for it. *@
+    @if (Recording.LastMoved is { } moved && moved.FromNoteId == NoteId)
+    {
+        <Alert Message="@RecordingNotices.Moved(moved.Title)" Role="status" BaseClass="capture__notice"
+               TestId="@(string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-moved")" />
+    }
 }
 
 @code {

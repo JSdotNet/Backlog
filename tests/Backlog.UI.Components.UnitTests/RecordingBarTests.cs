@@ -126,6 +126,34 @@ public sealed class RecordingBarTests
     }
 
     [Theory]
+    [InlineData(RecordingBarState.Recording)]
+    [InlineData(RecordingBarState.Paused)]
+    public void A_notice_is_said_in_words_on_a_live_bar(RecordingBarState state)
+    {
+        using var context = new BunitContext();
+
+        var bar = context.Render<RecordingBar>(parameters => parameters
+            .Add(p => p.State, state)
+            .Add(p => p.Notice, "Paused: a phone call has the microphone.")
+            .Add(p => p.TestId, "bar"));
+
+        Assert.Equal("Paused: a phone call has the microphone.", bar.Find("[data-testid='bar-notice']").TextContent);
+    }
+
+    [Fact]
+    public void A_failed_bar_draws_no_notice()
+    {
+        using var context = new BunitContext();
+
+        var bar = context.Render<RecordingBar>(parameters => parameters
+            .Add(p => p.State, RecordingBarState.Failed)
+            .Add(p => p.Notice, "Another app has the microphone. Nothing is being recorded.")
+            .Add(p => p.TestId, "bar"));
+
+        Assert.Empty(bar.FindAll("[data-testid='bar-notice']"));
+    }
+
+    [Theory]
     [InlineData(0, "0:00")]
     [InlineData(59.9, "0:59")]
     [InlineData(754, "12:34")]

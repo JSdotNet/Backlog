@@ -43,6 +43,40 @@ public sealed class WebMeetingRecorderTests
     }
 
     [Fact]
+    public async Task A_refused_microphone_reads_as_dictation_refusal_does()
+    {
+        using var context = new BunitContext();
+        Recorder(context).Setup<string?>("start", _ => true).SetResult("NotAllowedError");
+        context.JSInterop.SetupModule("./_content/Backlog.Mobile.UI/recorder.js").Mode = JSRuntimeMode.Loose;
+        await using var meeting = new WebMeetingRecorder(context.JSInterop.JSRuntime);
+        await using var dictation = new WebAudioRecorder(context.JSInterop.JSRuntime);
+
+        var started = await meeting.StartAsync(new MeetingRecordingTarget(Guid.NewGuid(), TestFolders.Create()), TestContext.Current.CancellationToken);
+        var turn = dictation.RecordAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
+        await dictation.OnFailedAsync("NotAllowedError");
+
+        Assert.Equal("Microphone access was denied. Allow it for this site and try again.", started.Error);
+        Assert.Equal(started.Error, (await turn).Error);
+    }
+
+    [Fact]
+    public async Task A_browser_that_cannot_measure_the_level_says_so_rather_than_reporting_silence()
+    {
+        using var context = new BunitContext();
+        Recorder(context).Setup<string?>("start", _ => true).SetResult(null);
+        await using var recorder = new WebMeetingRecorder(context.JSInterop.JSRuntime);
+        await recorder.StartAsync(new MeetingRecordingTarget(Guid.NewGuid(), TestFolders.Create()), TestContext.Current.CancellationToken);
+
+        // meeting-recorder.js sends -1 from a browser with no AudioContext.
+        recorder.OnLevel(-1);
+        Assert.False(recorder.MeasuresLevel);
+        Assert.Equal(0, recorder.Level);
+
+        recorder.OnLevel(0.3);
+        Assert.True(recorder.MeasuresLevel);
+    }
+
+    [Fact]
     public async Task Slices_are_appended_to_one_part_and_a_stop_hands_it_back_as_audio_mp4()
     {
         using var context = new BunitContext();
