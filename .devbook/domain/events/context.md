@@ -44,8 +44,10 @@ flowchart LR
     Event -->|read by| Calendar["Calendar layer"]
 ```
 
-Nothing here is built yet. These chapters are the model a later change builds,
-decided in local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
+The Knowledge Event and Event Series aggregates are built in `Backlog.Modules.Events`, and each
+desktop keeps them as documents in a store of its own, behind the `events` flag. The pane, the To
+Event route, the harvest task, the phone and sync are not built yet. These chapters are the model
+those changes build, decided in local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
 Tasks and the Brain know no event. The event holds the task ids and note links,
 and a task or note never names the event back. Events publishes no domain event.
@@ -60,8 +62,8 @@ adapter in Infrastructure.
 Events owns its documents the way Notifications does
 ([ADR 0039 §3](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#3-notifications-get-their-own-replica-containers)).
 A knowledge event is a document kind of its own, on a replica container of its own,
-whose name is still open. Sync stores and carries the documents and reads none of
-their fields. Each desktop keeps the person's events in its own store and pushes
+whose name is still open. An event series is a document of its own beside it.
+Sync stores and carries the documents and reads none of their fields. Each desktop keeps the person's events in its own store and pushes
 its changes.
 
 - **Writers.** Every desktop of the person may change an event. The latest write

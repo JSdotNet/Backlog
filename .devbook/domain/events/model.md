@@ -15,17 +15,17 @@ related: [.devbook/domain/events/domain.md#knowledge-event, .devbook/domain/even
 classDiagram
     class KnowledgeEvent {
         <<aggregate root>>
-        +KnowledgeEventId Id
+        +Guid Id
         +string Title
-        +EventSeriesId? Series
+        +Guid? Series
         +EventDate? Start
         +EventDate? End
         +DateSource? DateSource
         +Place? Place
-        +string Link
+        +string? Link
         +KnowledgeEventState State
         +SkipReason? SkipReason
-        +string WhatToLearn
+        +string? WhatToLearn
         +KeyDate[] KeyDates
         +TicketState? Ticket
         +Cost? Cost
@@ -36,10 +36,10 @@ classDiagram
 
     class EventSeries {
         <<aggregate root>>
-        +EventSeriesId Id
+        +Guid Id
         +string Name
-        +string Organiser
-        +string Link
+        +string? Organiser
+        +string? Link
     }
 
     class AttachmentRequest {
@@ -58,7 +58,7 @@ classDiagram
     class Place {
         <<value object>>
         +string? Venue
-        +bool Online
+        +bool IsOnline
     }
 
     class KeyDate {
@@ -75,9 +75,15 @@ classDiagram
 
     class NoteLink {
         <<value object>>
-        +string Kind
+        +NoteLinkKind Kind
         +string Reference
         +string Title
+    }
+
+    class NoteLinkKind {
+        <<enumeration>>
+        Brain
+        Talk
     }
 
     class EventTaskLink {
@@ -111,6 +117,7 @@ classDiagram
     KnowledgeEvent "1" *-- "many" NoteLink
     KnowledgeEvent "1" *-- "many" EventTaskLink
     KnowledgeEvent --> KnowledgeEventState
+    NoteLink --> NoteLinkKind
     EventTaskLink --> TaskPurpose
     AttachmentRequest ..> KnowledgeEvent : event by id
 ```
