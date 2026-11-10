@@ -4,7 +4,9 @@
     the "All events" index — who raises it, when, who consumes it, and whether the
     chapters say it is emitted or only documented — and the picked row's contract
     shows beneath: raised by, the event, consumed by; its payload as rows; the
-    published-language rules consumers conform to. "What <context> listens to"
+    published-language rules consumers conform to; and the moves of the
+    context's lifecycles that raise it, under "Would fire on" until it is emitted
+    and "Fires on" once it is. "What <context> listens to"
     reads the dependency tables' published languages another context supplies.
     The words are the chapters'; a section the chapter does not write is named as
     missing rather than left out.
@@ -49,7 +51,7 @@ else
                                             class="domain-events__pick"
                                             data-testid="domain-event-pick"
                                             aria-current="@(picked ? "true" : null)"
-                                            @onclick="@(() => _selected = contract.Anchor)">@contract.Title</button>
+                                            @onclick="@(() => PickAsync(contract))">@contract.Title</button>
                                 </th>
                                 <td>@RaisedBy(contract)</td>
                                 <td>@DomainEventIndex.When(contract)</td>
@@ -150,6 +152,18 @@ else
                                 <p class="domain-event__unsaid">The chapter does not say.</p>
                             }
                         </section>
+                        @if (Moves.TryGetValue(selected.Title, out var moves) && moves.Count > 0)
+                        {
+                            <section class="domain-event__part domain-event__part--fires" data-testid="domain-event-fires">
+                                <h4 class="domain-event__label">@(selected.Delivery == DomainEventDelivery.Emitted ? "Fires on" : "Would fire on")</h4>
+                                <ul class="domain-event__moves">
+                                    @foreach (var move in moves)
+                                    {
+                                        <li class="domain-event__move" data-testid="domain-event-move">@move.From → @move.To</li>
+                                    }
+                                </ul>
+                            </section>
+                        }
                     </div>
                 </article>
             }
@@ -194,6 +208,16 @@ else
     [Parameter]
     public IReadOnlyList<DomainEventSubscription> Listens { get; set; } = [];
 
+    /// <summary>The moves each event fires on, by its name (<see cref="DomainEventIndex.Moves"/>).</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> Moves { get; set; } = DomainEventIndex.NoMoves;
+
+    /// <summary>The event the tab opens on, by the slug of its title — the one the
+    /// link that opened Model asked for. Taken only when the host changes it, so
+    /// the reader's own pick wins after.</summary>
+    [Parameter]
+    public string? OpenEvent { get; set; }
+
     /// <summary>The context's name, as the heading and "What … listens to" say it.</summary>
     [Parameter]
     public string Context { get; set; } = "this context";
@@ -207,6 +231,26 @@ else
     public string? TestId { get; set; } = "domain-events";
 
     private string? _selected;
+    private string? _openEventParameter;
+
+    /// <summary>Reported with the slug of the event the reader picked, so a host
+    /// that holds it opens the tab on that event again when it is drawn anew.</summary>
+    [Parameter]
+    public EventCallback<string?> OpenEventChanged { get; set; }
+
+    private async Task PickAsync(DomainEventContract contract)
+    {
+        _selected = contract.Anchor;
+        _openEventParameter = DomainUnits.Slug(contract.Title);
+        await OpenEventChanged.InvokeAsync(_openEventParameter);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_openEventParameter, OpenEvent, StringComparison.Ordinal)) return;
+        _openEventParameter = OpenEvent;
+        _selected = Events.FirstOrDefault(e => DomainUnits.Slug(e.Title) == OpenEvent)?.Anchor;
+    }
     private readonly string _listensId = $"domain-events-listens-{Guid.NewGuid():N}";
 
     /// <summary>The picked event, or the first when none is picked or the picked

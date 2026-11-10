@@ -30,7 +30,7 @@
     }
     else if (Page == DomainViewPage.Domain)
     {
-        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter"
+        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync"
                               OpenUnit="@Asked?.Anchor"
                               OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)"
                               OpenRule="@Asked?.Rule"
@@ -66,11 +66,11 @@
     }
     else if (Page == DomainViewPage.Model)
     {
-        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Flow)
     {
-        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else
     {
@@ -275,6 +275,15 @@
 
     private Task NavigateAsync(DevbookReference reference) =>
         DevbookChapterLink.From(reference) is { } target ? FollowAsync(target, alwaysTrue: false) : Task.CompletedTask;
+
+    /// <summary>A link followed on the Domain or Flow page. One into Model keeps
+    /// its anchor, which Model reads as the tab to open on — an event chip's
+    /// <c>model.md#taskprojected</c> opens Events on that event; any other goes to
+    /// the pane as it always has.</summary>
+    private Task OpenAsync(DevbookChapterLink target) =>
+        DomainViewUnit.PageFor(target.RelativePath) == DomainViewPage.Model
+            ? FollowAsync(target, alwaysTrue: false)
+            : OnNavigateToChapter.InvokeAsync(target);
 
     private Task OpenAlwaysTrueAsync(DomainAlwaysTrueLink unit) =>
         DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true, unit.Rule) : Task.CompletedTask;

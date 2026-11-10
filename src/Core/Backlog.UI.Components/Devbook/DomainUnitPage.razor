@@ -124,6 +124,11 @@
     [Parameter]
     public string? ModelPath { get; set; }
 
+    /// <summary>The domain's name as its context map heads it — "Backlog" — which
+    /// a unit's events say the rest of hears. Unset reads "the domain".</summary>
+    [Parameter]
+    public string? DomainName { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Domain";
 
@@ -140,6 +145,9 @@
 
     // The rule each unit's Always true is focused on, when a link asked for one.
     private readonly Dictionary<string, string?> _focusOf = [];
+
+    // The diagram each unit's About focuses, when a "How it moves" link asked for one.
+    private readonly Dictionary<string, int?> _flowFocusOf = [];
 
     protected override void OnParametersSet()
     {
@@ -251,6 +259,7 @@
     private readonly Dictionary<string, IReadOnlyList<DomainEventLine>> _events = [];
     private readonly Dictionary<string, IReadOnlyList<DomainGuarantee>> _guarantees = [];
     private readonly Dictionary<string, IReadOnlyList<DomainRuleGroup>> _rules = [];
+    private readonly Dictionary<string, IReadOnlyList<DomainChapterFlow>> _flows = [];
     private (DomainChapterFile?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?) _readFrom;
 
     private IReadOnlyList<DomainEventLine> EventsOf(DomainUnit unit)
@@ -259,6 +268,29 @@
         if (!_events.TryGetValue(unit.Key, out var events)) _events[unit.Key] = events = DomainUnits.EventsRaisedBy(unit.Reference, EventFiles);
         return events;
     }
+
+    // The diagrams the unit's chapter draws, in the order DomainChapterFlows draws them.
+    private IReadOnlyList<DomainChapterFlow> FlowsOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_flows.TryGetValue(unit.Key, out var flows)) _flows[unit.Key] = flows = DomainFlows.InChapter(unit.Chapter);
+        return flows;
+    }
+
+    // Focuses one of the unit's diagrams on About, which scrolls it into view.
+    private DomainPageLink MovesLink(DomainUnit unit, int flow, string testId) =>
+        new("How it moves", testId, () =>
+        {
+            _pageOf[unit.Key] = AboutId(unit);
+            _flowFocusOf[unit.Key] = flow;
+            StateHasChanged();
+            return Task.CompletedTask;
+        });
+
+    /// <summary>An enum row's link to the lifecycle on the page whose states are
+    /// its values (<see cref="DomainUnits.LifecycleOf"/>), or none.</summary>
+    private DomainPageLink? EnumMoves(DomainUnit unit, DomainEnum item) =>
+        DomainUnits.LifecycleOf(item, FlowsOf(unit)) is { } flow ? MovesLink(unit, flow, "domain-unit-enum-moves") : null;
 
     private IReadOnlyList<DomainGuarantee> GuaranteesOf(DomainUnit unit)
     {
@@ -358,11 +390,13 @@
             })
             : null;
 
-    private DomainPageLink? ModelLink(string text, string testId) => Follow(text, testId, ModelPath);
+    private DomainPageLink? ModelLink(string text, string testId, string? anchor = null) =>
+        Follow(text, testId, ModelPath is null || anchor is null ? ModelPath : $"{ModelPath}#{anchor}");
 
-    /// <summary>An aggregate's links out: its rules on Always true, the lifecycle
-    /// in the flow file a group of its rules or its own <c>related</c> names, and
-    /// the file's Glossary.</summary>
+    /// <summary>An aggregate's links out: its rules on Always true; how it moves —
+    /// the lifecycle in the flow file a group of its rules or its own
+    /// <c>related</c> names, else the first lifecycle its chapter draws on this
+    /// page, else a member's; how it is built, on Model; and the file's Glossary.</summary>
     private IReadOnlyList<DomainPageLink> AggregateLinks(DomainUnit unit)
     {
         var links = new List<DomainPageLink>();
@@ -373,10 +407,22 @@
             .Concat(RulesOf(unit).SelectMany(group => group.Links).Select(link => link.Reference))
             .FirstOrDefault(DomainUnits.IsFlowReference);
         if (Follow("How it moves", "domain-unit-link-flow", flow) is { } moves) links.Add(moves);
+        else if (Lifecycle(unit) is { } drawn) links.Add(MovesLink(unit, drawn, "domain-unit-link-flow"));
+
+        if (ModelLink("How it is built", "domain-unit-link-model-built") is { } built) links.Add(built);
 
         if (_units.Count > 1 && _units.FirstOrDefault(other => other.Kind == DomainUnitKind.Glossary) is { } glossary)
             links.Add(new DomainPageLink("Glossary", "domain-unit-link-glossary", () => OpenUnitAsync(glossary)));
         return links;
+    }
+
+    // The first lifecycle the aggregate's own chapter draws, else a member's.
+    private int? Lifecycle(DomainUnit unit)
+    {
+        var flows = FlowsOf(unit);
+        var own = Enumerable.Range(0, flows.Count).Where(i => flows[i].Figure is DomainFlowDiagram).ToList();
+        return own.Where(i => ReferenceEquals(flows[i].Chapter, unit.Chapter)).Select(i => (int?)i).FirstOrDefault()
+            ?? own.Select(i => (int?)i).FirstOrDefault();
     }
 
     /// <summary>A domain service's links out: its promises on Requirements, the
@@ -417,6 +463,7 @@
         _events.Clear();
         _guarantees.Clear();
         _rules.Clear();
+        _flows.Clear();
         _catalog = null;
     }
 
@@ -444,11 +491,18 @@
                                                   Events="@EventsOf(unit)"
                                                   Rules="@RulesOf(unit)"
                                                   Links="@AggregateLinks(unit)"
-                                                  Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events")"
+                                                  Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events", DomainModelTabs.Events)"
                                                   RulesOf="@(member => RulesAbout(unit, member))"
+                                                  MovesOf="@(item => EnumMoves(unit, item))"
+                                                  DomainName="@DomainName"
                                                   OnOpenRule="OpenRuleAsync"
                                                   HeroFooter="@Notes(unit)" />
-                            <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
+                            <DomainChapterFlows Unit="@unit.Chapter"
+                                                DocumentPath="@File.Path"
+                                                ModelPath="@ModelPath"
+                                                OnNavigate="NavigateAsync"
+                                                FocusFlow="@_flowFocusOf.GetValueOrDefault(unit.Key)"
+                                                FocusFlowChanged="@(asked => _flowFocusOf[unit.Key] = asked)" />
                         </TabPanel>
                         <TabPanel Id="@AlwaysTrueId(unit)" Title="@AlwaysTrueTitle(unit)" TabTestId="domain-unit-always-true-tab">
                             <h2 class="domain-unit__title domain-unit__title--page" data-testid="domain-unit-title">@unit.Label · always true</h2>
@@ -468,10 +522,11 @@
                                         Links="@ServiceLinks(unit)"
                                         Rules="@ServiceRules(unit)"
                                         OnOpenRule="OpenRuleAsync"
-                                        Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events")"
+                                        Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events", DomainModelTabs.Events)"
+                                        DomainName="@DomainName"
                                         HeroFooter="@Notes(unit)"
                                         OnNavigate="NavigateAsync" />
-                    <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
+                    <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" ModelPath="@ModelPath" OnNavigate="NavigateAsync" />
                     break;
                 default:
                     <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>

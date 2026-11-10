@@ -110,6 +110,15 @@ public sealed class DomainViewModelPageTests : IDisposable
         status: draft
         ```
 
+        **Task lifecycle**
+
+        ```mermaid
+        stateDiagram-v2
+            state "In progress" as InProgress
+            [*] --> Ready
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+        ```
+
         A refined, actionable item.
 
         ## Occurrence Spawning
@@ -139,6 +148,16 @@ public sealed class DomainViewModelPageTests : IDisposable
         ### Consumers
 
         - Monitoring & Dashboard.
+
+        ## TaskProjected
+
+        ```meta
+        type: domain-event
+        status: draft
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        Published when work on a `Task` starts.
         """;
 
     private const string Repositories = """
@@ -261,6 +280,45 @@ public sealed class DomainViewModelPageTests : IDisposable
         Assert.Equal("model", view.Find("[data-testid='domain-view']").GetAttribute("data-page"));
         Assert.Equal("mermaid", view.Find("[data-testid='domain-model-diagram']").GetAttribute("data-rendered"));
         Assert.Single(view.FindAll("[data-testid='diagram-view']"));
+    }
+
+    /// <summary>An event chip on a unit's lifecycle opens Model on that event's
+    /// contract, "Contracts on Model" opens its Events tab, and Model opened from
+    /// the menu still lands on Diagram.</summary>
+    [Fact]
+    public async Task An_event_chip_on_a_unit_opens_Model_on_that_events_contract()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-view']")), Patience);
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")), Patience);
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Domain")), Patience);
+        await ClickMenuItemAsync(component, "Domain");
+
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='domain-flow-event'][data-event='TaskProjected'] button")), Patience);
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-flow-event'][data-event='TaskProjected'] button").Click());
+
+        component.WaitForAssertion(() => Assert.Equal("model", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
+        component.WaitForAssertion(() => Assert.Equal("TaskProjected", component.Find("[data-testid='domain-event']").GetAttribute("data-name")), Patience);
+        Assert.Equal("true", component.Find("[data-testid='domain-model-tab-events']").GetAttribute("aria-selected"));
+        Assert.Equal("Would fire on", component.Find("[data-testid='domain-event-fires'] .domain-event__label").TextContent.Trim());
+        Assert.Equal("Ready → In progress", component.Find("[data-testid='domain-event-move']").TextContent.Trim());
+
+        // Model opened from the menu, after another page, lands on Diagram.
+        await ClickMenuItemAsync(component, "Domain");
+        component.WaitForAssertion(() => Assert.Equal("domain", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
+        await ClickMenuItemAsync(component, "Model");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-model-band']")), Patience);
+        Assert.Equal("true", component.Find("[data-testid='domain-model-tab-diagram']").GetAttribute("aria-selected"));
+
+        // Contracts on Model opens the Events tab on its first event.
+        await ClickMenuItemAsync(component, "Domain");
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='domain-unit-link-model-events']")), Patience);
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-unit-link-model-events']").Click());
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='domain-model-tab-events']").GetAttribute("aria-selected")), Patience);
+        Assert.Equal("StatusChanged", component.Find("[data-testid='domain-event']").GetAttribute("data-name"));
     }
 
     /// <summary>One menu row, by the label a reader reads; null while it is not drawn.</summary>

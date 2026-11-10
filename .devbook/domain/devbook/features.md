@@ -852,7 +852,8 @@ values, and domain services.
 **Events is an index with one contract open.** Events heads the page *What
 ‹context› tells other contexts*. It lists every event with who raises it, when,
 who consumes it and whether it is emitted, and shows the picked event's contract
-beneath. *What ‹context› listens to* reads the dependency tables' rows in which
+beneath and, where a lifecycle the context draws raises it, the moves it fires
+on, under *Would fire on* until it is emitted. *What ‹context› listens to* reads the dependency tables' rows in which
 another context supplies a published language.
 
 **The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
@@ -862,12 +863,21 @@ led by a filled square and each domain service by an outlined one; a split
 `domain.<name>.md` opens on its one aggregate. An aggregate's **About** is a
 summary of its chapter, not its prose. A card at the top holds the kind and
 status, the heading, the chapter's first sentence, a tile per group of its rules,
-and links to **Always true** and the Glossary. Below it
+and links to **Always true**, how it moves, how it is built on Model, and the
+Glossary. How it moves opens the flow file a group of its rules names, else
+the first lifecycle its chapter draws on the page, else the first a member's
+chapter draws. Below it
 sit a card per entity or value object it owns, with its first sentence and how
-many rules are about it, a count that opens them on the card, its enums as rows
-of values read as words, and the
-events it raises with who hears them. A summary that closes on a list of fields
-reads as far as the colon, so no field shows. Below them About draws each
+many rules are about it, a count that opens them on the card, and its enums as
+rows of values read as words. Each enum row is led by the words its chapter
+puts before its values, and the one a lifecycle on the page draws links to it.
+Last come the events it raises with who hears them, under *What the rest of
+‹domain› hears*, ‹domain› being the context map's heading, and *Not sent yet.*
+where the chapters say they are not emitted. An enum row reads the words its
+chapter puts before its values, such as *Lifecycle state*, rather than a
+question such as *Where the work is*: the chapter does not write the question,
+and ADR 0047 §5 keeps the view's wording the chapters'. A summary that closes on a list
+of fields reads as far as the colon, so no field shows. Below them About draws each
 lifecycle and process the aggregate's chapter opens with, and those of the
 typed chapters inside it, as [Flows draw in their chapter](#domain-view-by-unit)
 says.
@@ -890,7 +900,9 @@ on**, each opening on Requirements, what is always true of the units its
 `related` names, links to its promises, the aggregate it names
 and how it runs on Model, the events it raises, and the processes its chapter
 opens with. The rest of its prose says how
-it is invoked, which is Model's. A unit's events are the domain-event
+it is invoked, which is Model's. A promise reads no *Later:*: since contract
+38 no chapter states what is built, and the view reads no workflow state from
+prose. A unit's events are the domain-event
 chapters whose `related` names it, and a service's requirements are those whose
 `related` names it or that its own `related` names.
 
@@ -915,7 +927,8 @@ unit below its About card or its service summary, titled by that line, with the
 words before the fence as its lead and the chapter inside the unit named beside
 it. A `stateDiagram-v2` is drawn as one row of states. The forward transitions
 run above the row, the ways back run below it, and the way from the last state
-back to the first loops round the outside. A flowchart and a sequence are drawn
+back to the first loops round the outside, and an event chip opens Model on that
+event's contract. A flowchart and a sequence are drawn
 in the same cards, lines and type, so no diagram of a domain file is left to
 Mermaid. A devbook that still has a `flow.md` keeps its **Flow** row, which
 draws the file chapter by chapter the same way, the chapter's prose after its

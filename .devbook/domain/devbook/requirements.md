@@ -1803,10 +1803,10 @@ The system SHALL head Model's Fields tab with the aggregate root's kind, its cha
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_fires_on_the_moves_a_lifecycle_raises_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_which_move_an_event_would_fire_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_asked_event_opens_Events_on_its_contract]
 ```
 
-The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
+The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Where a transition of a `stateDiagram-v2` the context's domain files draw names the event, the contract SHALL end on the moves it fires on, each read *Ready → In progress* from the states' labels, under *Would fire on* while it is documented and *Fires on* once it is emitted. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
 
 #### Scenario: A documented event
 
@@ -1981,10 +1981,10 @@ The system SHALL offer the context map, under its file's heading and a sentence 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.An_event_chip_on_a_unit_opens_Model_on_that_events_contract]
 ```
 
-The system SHALL draw each `stateDiagram-v2` of a legacy `flow.md` or `flow.<name>.md` row, and each one a domain chapter opens with, as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model, where the events are read, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
+The system SHALL draw each `stateDiagram-v2` of a legacy `flow.md` or `flow.<name>.md` row, and each one a domain chapter opens with, as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model's Events tab on that event's contract, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
 
 #### Scenario: A lifecycle with a restore
 
@@ -2090,3 +2090,48 @@ The system SHALL show on a feature's detail and on each requirement the tasks wh
 - **Given** a task this backlog holds and a task id it does not hold, both naming the feature *Capture* in their Devbook references
 - **When** the reader picks *Capture* on Features
 - **Then** the detail shows the held task as a gold chip reading its title and the other as a dashed chip reading *not in this backlog*, and pressing the gold chip opens the task
+
+### Requirement: An enum row reads the words before its values
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitSummaryTests.An_enums_label_is_the_words_before_its_values, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_enum_row_leads_with_its_label_and_links_the_lifecycle_that_draws_it]
+```
+
+The system SHALL lead an enum row on an aggregate's About with the words its chapter puts before the colon of the sentence naming its values, and end the row on a link that focuses the lifecycle on the page whose states are all its values. A row has no label when it has no values, when that sentence has no colon, or when the words hold a code span or a link, end in *one of*, run past six words or repeat the heading.
+
+#### Scenario: Task's enums
+
+- **Given** a *Task* aggregate whose *Task Status* chapter reads *Lifecycle state: `draft`, `ready`, `in_progress`, `done`* and whose chapter draws a lifecycle of those states, and a *Weekday* reading *A day of the week, `monday` through `sunday`*
+- **When** the reader opens Task's About
+- **Then** *Task Status* is led by *Lifecycle state* and ends on *How it moves →*, which focuses the Task lifecycle, and *Weekday* has no label and no link
+
+### Requirement: About links to how the aggregate moves and is built
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_links_to_how_the_aggregate_moves_and_how_it_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_split_aggregate_links_to_its_own_model_split]
+```
+
+The system SHALL end an aggregate's About card on links to *Always true*, *How it moves* — the flow file a group of its rules names, else the first lifecycle its own chapter draws on the page, else the first a member's chapter draws — *How it is built*, which opens Model on Diagram, and the Glossary, in that order. *How it is built* opens the `model.<name>.md` beside a split `domain.<name>.md` when there is one, and `model.md` otherwise.
+
+#### Scenario: Task on an unsplit file
+
+- **Given** a context with `domain.md`, whose *Task* draws its lifecycle, and `model.md`
+- **When** the reader opens Task's About
+- **Then** the card reads *What is always true · N →*, *How it moves →*, *How it is built →* and *Glossary →*, and *How it is built* opens `model.md` on Diagram
+
+### Requirement: A unit's events say who hears them and when none is sent yet
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitsTests.An_event_a_chapter_says_is_not_emitted_is_not_sent, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_units_events_say_what_the_rest_of_the_domain_hears_and_when_none_is_sent_yet, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.The_events_heading_names_the_domain_the_context_map_heads]
+```
+
+The system SHALL head the events a unit raises *What the rest of ‹domain› hears*, ‹domain› being the context map's heading and *the domain* when the map has none or its heading names the map, and SHALL say *Not sent yet.* of each event Model marks *Documented*: once under the list when none of them is sent, else on each row that is not.
+
+#### Scenario: Tasks publishes no events yet
+
+- **Given** a context map headed *Backlog* and a Tasks `domain.md` saying *This context publishes no domain events yet.*
+- **When** the reader opens Task's About
+- **Then** the events read under *What the rest of Backlog hears*, with one *Not sent yet.* under the list

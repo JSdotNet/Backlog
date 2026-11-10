@@ -42,6 +42,69 @@ public sealed class DomainEventIndexTests
         Assert.Equal(["Sync", "Tasks"], monitoring.Select(l => l.Context));
     }
 
+    /// <summary>Only a transition of a lifecycle a unit draws says when an event
+    /// fires: the prose naming the move, a flowchart's edge and a note do not.</summary>
+    [Fact]
+    public void An_event_fires_on_the_moves_a_lifecycle_raises_it_on()
+    {
+        var domain = DomainUnits.Parse("""
+            # Tasks
+
+            ## Task
+
+            ```meta
+            type: aggregate
+            ```
+
+            **Task lifecycle**
+
+            ```mermaid
+            stateDiagram-v2
+                state "In progress" as InProgress
+                [*] --> Draft
+                Draft --> Ready : refined
+                Ready --> InProgress : started (TaskProjected, not yet emitted)
+                InProgress --> Done : finished (TaskCompleted, not yet emitted)
+                Done --> InProgress : reopened
+                note right of Draft : StatusChanged on every move
+            ```
+
+            - The `Ready → InProgress` transition would emit `TaskProjected`.
+
+            ## Occurrence Spawning
+
+            ```meta
+            type: domain-service
+            ```
+
+            ```mermaid
+            flowchart TD
+                A["ticked"] -->|OccurrenceSpawned| B["next occurrence"]
+            ```
+
+            Spawns the next occurrence.
+            """, ".devbook/domain/tasks/domain.md");
+        var legacy = DomainUnits.Parse("""
+            # Flow
+
+            ## Repeat
+
+            ```mermaid
+            stateDiagram-v2
+                Waiting --> Spawned : ticked (OccurrenceSpawned)
+                Spawned --> Waiting : again
+            ```
+            """, ".devbook/domain/tasks/flow.md");
+
+        var moves = DomainEventIndex.Moves([domain, legacy]);
+
+        Assert.Equal([new DomainEventMove("Ready", "In progress")], moves["TaskProjected"]);
+        Assert.Equal([new DomainEventMove("In progress", "Done")], moves["TaskCompleted"]);
+        Assert.Equal([new DomainEventMove("Waiting", "Spawned")], moves["OccurrenceSpawned"]);
+        Assert.False(moves.ContainsKey("StatusChanged"));
+        Assert.False(DomainEventIndex.Moves([domain]).ContainsKey("OccurrenceSpawned"));
+    }
+
     [Fact]
     public void A_wrapped_consumer_bullet_reads_whole_and_a_list_of_names_stays_one_name()
     {
