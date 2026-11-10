@@ -428,7 +428,11 @@
         "weekly-update",
         "change-report"
       ],
-      "overrides": {}
+      "overrides": {
+        "devbook-validate": {
+          "cron": "0 3 * * 0"
+        }
+      }
     }
   }
 }
