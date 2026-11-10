@@ -132,7 +132,7 @@ public static class NotificationPresentation
         return kind is { } only ? [.. notifications.Where(n => AskerKind(n) == only)] : notifications;
     }
 
-    /// <summary>The questions, the alerts, or whatever is still open; all of them for null.</summary>
+    /// <summary>The questions or the alerts; all of them for null.</summary>
     public static IReadOnlyList<NotificationView> KindOnly(IReadOnlyList<NotificationView> notifications, NotificationKindFilter? filter)
     {
         ArgumentNullException.ThrowIfNull(notifications);
@@ -149,8 +149,24 @@ public static class NotificationPresentation
         {
             NotificationKindFilter.Questions => notification.Kind == NotificationKind.Question,
             NotificationKindFilter.Alerts => notification.Kind == NotificationKind.Alert,
-            _ => notification.IsOpen
+            _ => throw new ArgumentOutOfRangeException(nameof(filter), filter, "Not a Kind filter.")
         };
+    }
+
+    /// <summary>
+    /// What the centre lists by state: the open notifications, and the settled ones — answered,
+    /// acknowledged, closed — too while <paramref name="showSettled"/> is on. <paramref name="kept"/>
+    /// is listed whatever its state: the one just answered or acknowledged in the centre, which
+    /// stays in view so the answer it got can be read.
+    /// </summary>
+    public static IReadOnlyList<NotificationView> SettledOnlyIfShown(
+        IReadOnlyList<NotificationView> notifications,
+        bool showSettled,
+        Guid? kept = null)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+
+        return showSettled ? notifications : [.. notifications.Where(n => n.IsOpen || n.Id == kept)];
     }
 
     /// <summary>
@@ -261,18 +277,35 @@ public static class NotificationPresentation
         return labels.Count == 0 ? null : string.Join(", ", labels);
     }
 
-    /// <summary>The line under a row's title: who raised it and when, or how it was settled.</summary>
-    public static string RowLine(NotificationView notification, DateTimeOffset now, Guid thisDeviceId)
+    /// <summary>The line under a row's title: who raised it and when, or how it was settled —
+    /// "Answered from this desktop", "Acknowledged · Sessions", "Closed". The answer or the reason
+    /// it settled with is not on it: <see cref="RowAnswer"/> says that, apart.</summary>
+    public static string RowLead(NotificationView notification, DateTimeOffset now, Guid thisDeviceId)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
         return notification.State switch
         {
             NotificationState.Answered when notification.Answer is { } answer =>
-                Join($"Answered from {DeviceLabel(answer.FromDeviceId, thisDeviceId)}", AnswerText(notification)),
+                $"Answered from {DeviceLabel(answer.FromDeviceId, thisDeviceId)}",
             NotificationState.Acknowledged => Join("Acknowledged", SourceLabel(notification)),
-            NotificationState.Closed => Join("Closed", notification.CloseReason),
+            NotificationState.Closed => "Closed",
             _ => Join(SourceLabel(notification), Ago(notification.CreatedAt, now))
+        };
+    }
+
+    /// <summary>What a settled row sets apart under its lead: the winning answer of an answered
+    /// question, or why a closed one closed. Null for an open or acknowledged one, and for a
+    /// closed one that names no reason.</summary>
+    public static string? RowAnswer(NotificationView notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        return notification.State switch
+        {
+            NotificationState.Answered => AnswerText(notification),
+            NotificationState.Closed when !string.IsNullOrWhiteSpace(notification.CloseReason) => notification.CloseReason,
+            _ => null
         };
     }
 
@@ -318,7 +351,12 @@ public static class NotificationPresentation
             NotificationState.Answered => new NotificationCardOutcome(
                 Answer: AnswerText(notification),
                 Device: notification.Answer is { } answer ? DeviceLabel(answer.FromDeviceId, thisDeviceId) : null,
-                When: when),
+                When: when,
+                // Apart as well, so the card marks the chosen choices in its list and sets
+                // the words written beside them in its answer block.
+                ChosenIds: notification.Answer?.ChoiceIds,
+                Text: string.IsNullOrWhiteSpace(notification.Answer?.Text) ? null : notification.Answer.Text,
+                Note: string.IsNullOrWhiteSpace(notification.Answer?.Note) ? null : notification.Answer.Note),
             NotificationState.Acknowledged => new NotificationCardOutcome(When: when),
             NotificationState.Closed => new NotificationCardOutcome(Reason: notification.CloseReason, When: when),
             _ => null
@@ -439,15 +477,13 @@ public enum NotificationGrouping
     None
 }
 
-/// <summary>The centre's Kind filter.</summary>
+/// <summary>The centre's Kind filter. Whether settled ones are listed is not a kind: the
+/// centre's Show settled switch says that, beside it.</summary>
 public enum NotificationKindFilter
 {
-    /// <summary>Questions, open or settled.</summary>
+    /// <summary>Questions.</summary>
     Questions,
 
-    /// <summary>Alerts, open or settled.</summary>
-    Alerts,
-
-    /// <summary>Whatever is still open, question or alert.</summary>
-    Open
+    /// <summary>Alerts.</summary>
+    Alerts
 }

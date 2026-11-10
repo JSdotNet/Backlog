@@ -18,8 +18,13 @@
     Seven or eight choices lay out as an even grid that wraps, so no row runs
     past the card. A question that takes a note adds a plain-text box, "Add a
     note (optional)", under the answers; whatever is in it goes with the answer.
-    A settled card draws no controls, only how it was settled: the winning answer
-    and the device it came from, Acknowledged, or Closed with its reason.
+    A settled card draws no controls that answer, only how it was settled. An
+    answered one whose host says which set answers were chosen lists them
+    read-only, the chosen ones marked with a tick and "Chosen", the rest quiet;
+    the words it carried — the text, the note — sit in an answer block, which
+    holds the whole answer instead when there is no list to mark. A closed one
+    puts its reason, verbatim, in that block. Under it, the outcome line says how
+    and when: "Answered from phone · 1 min ago", "Acknowledged", "Closed".
 
     An Origin, when the host hands one, says where the notification came from:
     the system as a badge and the place beside it above the title, who asked and
@@ -243,6 +248,42 @@
     }
     else
     {
+        @if (SettledChoices is { } settledChoices)
+        {
+            @* The set answers as they were offered, read-only: the chosen ones marked with a
+               tick and the word, never by colour alone, the rest drawn quiet. *@
+            <ul class="notification-card__settled-choices" data-testid="notification-card-settled-choices" aria-label="The answers it offered">
+                @foreach (var choice in settledChoices)
+                {
+                    var chosen = IsChosen(choice.Id);
+                    <li class="@(chosen ? "notification-card__settled-choice notification-card__settled-choice--chosen" : "notification-card__settled-choice")"
+                        data-testid="@($"notification-card-settled-choice-{choice.Id}")"
+                        data-chosen="@(chosen ? "true" : "false")">
+                        <span class="notification-card__settled-label">@choice.Label</span>
+                        @if (chosen)
+                        {
+                            <Badge Kind="notification-state" Slug="answered" TestId="notification-card-chosen"><CheckIcon Size="12" />Chosen</Badge>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (AnswerBlock is { } block)
+        {
+            <div class="notification-card__answer-block" data-testid="notification-card-answer-block">
+                @if (!string.IsNullOrWhiteSpace(block.Body))
+                {
+                    <span class="notification-card__answer-label">@block.Label</span>
+                    <p class="notification-card__answer-text" data-testid="notification-card-answer-text">@block.Body</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(block.Note))
+                {
+                    <p class="notification-card__answer-note" data-testid="notification-card-answer-note">Note: @block.Note</p>
+                }
+            </div>
+        }
+
         <p class="notification-card__outcome" data-testid="notification-card-outcome">@OutcomeText</p>
     }
 
@@ -377,16 +418,57 @@
         var (min, max, _) => $"Pick {min} to {max}"
     };
 
+    /// <summary>The question's set answers, drawn read-only on an answered card, when the host
+    /// says which were chosen and every chosen one is among them; null otherwise, so a choice
+    /// the list cannot mark is still shown, in the whole answer.</summary>
+    private IReadOnlyList<NotificationCardChoice>? SettledChoices =>
+        Model.State == NotificationCardState.Answered
+        && Model.Outcome?.ChosenIds is { } chosen
+        && Model.Answer is { Choices.Count: > 0 } spec
+        && chosen.All(id => spec.Choices.Any(choice => string.Equals(choice.Id, id, StringComparison.Ordinal)))
+            ? spec.Choices
+            : null;
+
+    private bool IsChosen(string choiceId) =>
+        Model.Outcome?.ChosenIds?.Contains(choiceId, StringComparer.Ordinal) == true;
+
+    /// <summary>
+    /// What the answer block sets apart above the outcome line, or null for nothing to set apart.
+    /// An answered card's words — the text and the note — beside the list that marks its choices,
+    /// or the whole answer when there is no list to mark them in; a closed card's reason, drawn
+    /// as it came, so a reason that carries an answer reads as one.
+    /// </summary>
+    private (string Label, string? Body, string? Note)? AnswerBlock
+    {
+        get
+        {
+            if (Model.Outcome is not { } outcome) return null;
+
+            (string Label, string? Body, string? Note) block = Model.State switch
+            {
+                NotificationCardState.Answered when SettledChoices is not null || outcome.ChosenIds is { Count: 0 } =>
+                    ("Answer", outcome.Text, outcome.Note),
+                NotificationCardState.Answered => ("Answer", outcome.Answer, null),
+                NotificationCardState.Closed => ("Reason", outcome.Reason, null),
+                _ => ("", null, null)
+            };
+
+            return string.IsNullOrWhiteSpace(block.Body) && string.IsNullOrWhiteSpace(block.Note) ? null : block;
+        }
+    }
+
+    /// <summary>How it settled and when, under the answer block that carries the answer or the
+    /// reason.</summary>
     private string OutcomeText => Model.State switch
     {
         NotificationCardState.Answered => Join(
             Model.Outcome?.Device is { Length: > 0 } device ? $"Answered from {device}" : "Answered",
-            Model.Outcome?.Answer,
+            null,
             Model.Outcome?.When),
         NotificationCardState.Acknowledged => Join("Acknowledged", null, Model.Outcome?.When),
         NotificationCardState.Closed => Join(
             "Closed",
-            Model.Outcome?.Reason is { Length: > 0 } reason ? reason : "no longer needs an answer",
+            string.IsNullOrWhiteSpace(Model.Outcome?.Reason) ? "no longer needs an answer" : null,
             Model.Outcome?.When),
         _ => string.Empty
     };

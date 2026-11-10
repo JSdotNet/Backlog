@@ -13,12 +13,16 @@
     keeps: nothing pressed lists everything, a repository lists what resolves to
     it, the Brain what resolves to none (local ADR 0027). Which repository a
     notification is about is the host's answer, through RepositoriesOf; one it
-    could not work out is listed under every scope. Over the scope sit the filters
-    — From, Asked by, Kind — each option counting what it would keep under the
-    others, and Group by. Group by and the filters are remembered on this device
-    when the host composes INotificationCentrePreferences; Clear filters keeps Group
-    by. The header's waiting badge stays global, so the subtitle says how many
-    waiting questions the scope and the filters hide.
+    could not work out is listed under every scope. Only open notifications are
+    listed until Show settled, a switch of its own, lists the answered,
+    acknowledged and closed ones too; one answered or acknowledged here stays
+    listed while it is the one picked, so its answer can be read. Over that sit the
+    filters — From, Asked by, Kind — each option counting what it would keep under
+    the others and Show settled, and Group by. Group by, the filters and Show
+    settled are remembered on this device when the host composes
+    INotificationCentrePreferences; Clear filters keeps Group by and Show settled.
+    The header's waiting badge stays global, so the subtitle says how many waiting
+    questions the scope and the filters hide.
 
     An answer given here goes to INotificationCentre.AnswerAsync, the path a
     Windows notification's answer takes too, so the owner checks it the same way
@@ -110,6 +114,16 @@
                 </ButtonGroup>
             </div>
 
+            @* On or off, so it stands alone outside every group (#group-shape-says-cardinality),
+               counting the settled ones under the scope and the filters. *@
+            <div class="notification-centre__filter">
+                <ToggleButton Pressed="ShowingSettled"
+                              PressedChanged="ChooseShowSettled"
+                              TestId="notification-centre-show-settled">
+                    Show settled<span class="notification-centre__tally" data-testid="notification-centre-settled-tally">@SettledTally</span>
+                </ToggleButton>
+            </div>
+
             <div class="notification-centre__filter">
                 <span class="notification-centre__filter-label">Group by</span>
                 <SelectField CurrentValue="@GroupingSlug(Grouping)"
@@ -155,8 +169,10 @@
                                   OnAcknowledge="@(() => AcknowledgeAsync(selected.Id))"
                                   TestId="notification-centre-card" />
             }
-            else if (_notifications.Count > 0)
+            else if (Shown.Count > 0)
             {
+                @* Only beside a list with something in it: over "Nothing waiting" there is
+                   nothing to pick. *@
                 <EmptyState Title="Pick a notification"
                             Description="Its body and its answers show here."
                             TestId="notification-centre-nothing-picked" />
@@ -167,7 +183,7 @@
 
 @code {
     private static readonly NotificationAskerKind[] AskerOptions = [NotificationAskerKind.AiAgent, NotificationAskerKind.Person];
-    private static readonly NotificationKindFilter[] KindOptions = [NotificationKindFilter.Questions, NotificationKindFilter.Alerts, NotificationKindFilter.Open];
+    private static readonly NotificationKindFilter[] KindOptions = [NotificationKindFilter.Questions, NotificationKindFilter.Alerts];
 
     private IReadOnlyList<NotificationView> _notifications = [];
     private readonly Dictionary<Guid, string?> _repositories = [];
@@ -184,6 +200,18 @@
     private string? _from;
     private NotificationAskerKind? _askedBy;
     private NotificationKindFilter? _kind;
+
+    /// <summary>The Show settled switch as chosen, and remembered on this device: off lists the
+    /// open notifications alone.</summary>
+    private bool _showSettled;
+
+    /// <summary>Set when a focus request opened on a settled notification while settled ones
+    /// were hidden: they are then listed until the switch is pressed. Never remembered.</summary>
+    private bool _settledSetAside;
+
+    /// <summary>The notification last answered or acknowledged here, kept in the list while
+    /// settled ones are hidden so its answer can be read, until another is picked.</summary>
+    private Guid? _kept;
 
     /// <summary>Set when a focus request opened on a notification the scope hides: the list
     /// then shows every repository until the header's scope changes.</summary>
@@ -232,17 +260,35 @@
     /// <summary>What the scope lets through, before any filter.</summary>
     private IReadOnlyList<NotificationView> Scoped => NotificationPresentation.ScopeOnly(_notifications, Scope, _repositories);
 
+    private bool ShowingSettled => _showSettled || _settledSetAside;
+
+    /// <summary>What the scope and Show settled let through: every filter, and every tally,
+    /// counts over this, so none counts a notification the list would not show.</summary>
+    private IReadOnlyList<NotificationView> Listed => NotificationPresentation.SettledOnlyIfShown(Scoped, ShowingSettled, KeptInView);
+
+    /// <summary>The one answered here, while it is still the one picked: once the selection
+    /// moves, it goes the way of every settled one.</summary>
+    private Guid? KeptInView => _kept is { } kept && kept == _selectedId ? kept : null;
+
     /// <summary>What every filter but From lets through — From's options count over it.</summary>
     private IReadOnlyList<NotificationView> FromBase =>
-        NotificationPresentation.KindOnly(NotificationPresentation.AskedByOnly(Scoped, _askedBy), _kind);
+        NotificationPresentation.KindOnly(NotificationPresentation.AskedByOnly(Listed, _askedBy), _kind);
 
     /// <summary>What every filter but Asked by lets through.</summary>
     private IReadOnlyList<NotificationView> AskedByBase =>
-        NotificationPresentation.KindOnly(NotificationPresentation.FromOnly(Scoped, _from), _kind);
+        NotificationPresentation.KindOnly(NotificationPresentation.FromOnly(Listed, _from), _kind);
 
     /// <summary>What every filter but Kind lets through.</summary>
     private IReadOnlyList<NotificationView> KindBase =>
-        NotificationPresentation.AskedByOnly(NotificationPresentation.FromOnly(Scoped, _from), _askedBy);
+        NotificationPresentation.AskedByOnly(NotificationPresentation.FromOnly(Listed, _from), _askedBy);
+
+    /// <summary>The settled notifications under the scope and every filter: what Show settled
+    /// adds while off, and lists while on. One kept in view already is not counted as added.</summary>
+    private int SettledTally =>
+        NotificationPresentation.FromOnly(
+                NotificationPresentation.KindOnly(NotificationPresentation.AskedByOnly(Scoped, _askedBy), _kind),
+                _from)
+            .Count(n => !n.IsOpen && (ShowingSettled || n.Id != KeptInView));
 
     /// <summary>The notifications the scope and every filter let through.</summary>
     private IReadOnlyList<NotificationView> Shown => NotificationPresentation.FromOnly(FromBase, _from);
@@ -266,7 +312,7 @@
         get
         {
             var counted = FromBase;
-            var froms = NotificationPresentation.Froms(Scoped);
+            var froms = NotificationPresentation.Froms(Listed);
             if (_from is not null && !froms.Contains(_from, StringComparer.Ordinal))
             {
                 froms = [.. froms.Append(_from).Order(StringComparer.OrdinalIgnoreCase)];
@@ -301,7 +347,8 @@
             };
 
             // The header's badge counts every open question; say where the rest are, so
-            // none goes unseen behind the scope or a filter.
+            // none goes unseen behind the scope or a filter. Show settled hides no open
+            // question, so it adds to neither.
             var scoped = Scoped.Count(n => n.IsOpenQuestion);
             var outside = _notifications.Count(n => n.IsOpenQuestion) - scoped;
             var filtered = scoped - open;
@@ -432,14 +479,16 @@
 
     private static readonly IReadOnlyDictionary<Guid, string?> NoAnswers = new Dictionary<Guid, string?>();
 
-    /// <summary>Opens on the notification a request asked for, clearing whatever filter or
-    /// scope hides it — so a jump from a Windows notification always lands — and keeping
-    /// Group by.</summary>
+    /// <summary>Opens on the notification a request asked for, listing settled ones for a
+    /// settled one and then clearing whatever filter or scope still hides it — so a jump from a
+    /// Windows notification always lands — and keeping Group by. None of that is remembered.</summary>
     private void ApplyFocus()
     {
         if (FocusNotificationId is not { } focus || focus == _focusApplied || _notifications.All(n => n.Id != focus)) return;
 
         _focusApplied = focus;
+        if (!ShowingSettled && _notifications.Any(n => n.Id == focus && !n.IsOpen)) _settledSetAside = true;
+
         if (Shown.All(n => n.Id != focus))
         {
             _from = null;
@@ -463,7 +512,19 @@
             _grouping is { } grouping ? GroupingSlug(grouping) : null,
             _askedBy is { } asker ? AskerSlug(asker) : null,
             _kind is { } kind ? KindSlug(kind) : null,
-            _from));
+            _from,
+            _showSettled ? true : null));
+    }
+
+    /// <summary>Lists the settled ones too, or hides them again, and remembers it. Pressed after
+    /// a jump listed them, it takes over from the jump; hiding them lets go of the one kept in
+    /// view since it was answered here.</summary>
+    private void ChooseShowSettled(bool on)
+    {
+        _showSettled = on;
+        _settledSetAside = false;
+        _kept = null;
+        Chosen();
     }
 
     private void ChooseFrom(string? from)
@@ -507,6 +568,7 @@
         _askedBy = AskerOptions.Cast<NotificationAskerKind?>().FirstOrDefault(asker => AskerSlug(asker!.Value) == choices.AskedBy);
         _kind = KindOptions.Cast<NotificationKindFilter?>().FirstOrDefault(kind => KindSlug(kind!.Value) == choices.Kind);
         _from = string.IsNullOrWhiteSpace(choices.From) ? null : choices.From;
+        _showSettled = choices.ShowSettled is true;
     }
 
     private static NotificationGrouping? ParseGrouping(string? slug) =>
@@ -528,19 +590,13 @@
         _ => "backlog"
     };
 
-    private static string KindSlug(NotificationKindFilter kind) => kind switch
-    {
-        NotificationKindFilter.Questions => "questions",
-        NotificationKindFilter.Alerts => "alerts",
-        _ => "open"
-    };
+    // "open", the slug of the Kind option Show settled replaced, is no longer one: a device that
+    // remembered it reads it as All, with settled ones hidden, which is where it was.
+    private static string KindSlug(NotificationKindFilter kind) =>
+        kind == NotificationKindFilter.Questions ? "questions" : "alerts";
 
-    private static string KindLabel(NotificationKindFilter kind) => kind switch
-    {
-        NotificationKindFilter.Questions => "Questions",
-        NotificationKindFilter.Alerts => "Alerts",
-        _ => "Open"
-    };
+    private static string KindLabel(NotificationKindFilter kind) =>
+        kind == NotificationKindFilter.Questions ? "Questions" : "Alerts";
 
     private void ShowError(Guid id, string message)
     {
@@ -550,6 +606,8 @@
 
     private void Select(Guid id)
     {
+        // Picking another lets go of the one kept in view since it was answered here.
+        if (id != _kept) _kept = null;
         _selectedId = id;
         _error = null;
         _errorFor = null;
@@ -559,6 +617,8 @@
     {
         _busyId = id;
         _error = null;
+        // Once answered it is settled; it stays in view so the answer it got can be read.
+        _kept = id;
 
         try
         {
@@ -581,6 +641,7 @@
     {
         _busyId = id;
         _error = null;
+        _kept = id;
 
         try
         {
