@@ -10,7 +10,8 @@
     its path); then each strategic rule
     as a card titled by its first sentence. A chapter List cannot read that way is
     shown as context-map.md writes it. A card on either tab hands its context to
-    OnOpen.
+    OnOpen, which opens the context on its neighbours; with a host that opens
+    contexts, List's intro says so.
 *@
 
 <section class="context-map-page" data-testid="@TestId" aria-label="Context map">
@@ -21,7 +22,7 @@
             <p class="context-map-page__intro" data-testid="context-map-page-intro">
                 @if (_tab == "list")
                 {
-                    @($"{Contexts(Map.Contexts.Count)} and {Relationships(Map.Lines.Count)}. Each card says why the context exists and how many relationships touch it.")
+                    @($"{Contexts(Map.Contexts.Count)} and {Relationships(Map.Lines.Count)}. Each card says why the context exists and how many relationships touch it.{(OnOpen.HasDelegate ? " Pick one to open it on its neighbours." : string.Empty)}")
                 }
                 else
                 {

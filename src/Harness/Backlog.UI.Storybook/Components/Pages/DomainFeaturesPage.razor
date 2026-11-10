@@ -7,14 +7,14 @@
            Guidelines="@Rules">
 
     <Story Name="Board"
-           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Quotes is proposed and dashed, Fax orders is deprecated and struck through in the box at the end of the last column."
+           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Quotes is proposed and dashed, Fax orders is deprecated and struck through in the box at the end of the last column. Checkout's flag chip leads with the flag glyph; the legend names a flag, decided at release, and a setting, chosen by a person, apart, each with its glyph."
            Code="@BoardCode"
            Source="@Features">
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" @bind-ActiveFeature="_active" TestId="story-domain-features-board" />
     </Story>
 
     <Story Name="Detail"
-           Description="Checkout picked: what it builds on, the flag it is gated by, the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page — and what is always true of what it uses: the Order's rules its requirements lean on, in place, three before the rest, each opening on where it is enforced."
+           Description="Checkout picked: what it builds on, the flag it is gated by with the default its chapter states (New checkout · flag · default off), the decision record its `related` names under Decided in (ADR 0012, its slug in words on the tooltip), the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page — and what is always true of what it uses: the Order's rules its requirements lean on, in place, three before the rest, each opening on where it is enforced."
            Code="@DetailCode"
            Source="@Requirements">
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="checkout" OnOpenAlwaysTrue="@(link => _openedRule = link.Rule)" TestId="story-domain-features-detail" />
@@ -31,14 +31,27 @@
     </Story>
 
     <Story Name="Split file"
-           Description="A split `features.gift-cards.md` holds one feature, so the board is that one card with its detail open. Its column still counts what it builds on in the base file."
+           Description="A split `features.gift-cards.md` holds one feature, so the board is that one card with its detail open. Its column still counts what it builds on in the base file. Its setting chip leads with the cog, and Configured by reads Gift card limit · setting · user · default 500."
            Code="@SplitCode"
            Source="@SplitFeatures">
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(SplitFile, [.. Files, SplitFile])" TestId="story-domain-features-split" />
     </Story>
 
+    <Story Name="Gate chips"
+           Description="DomainGateChip on its own: the chip the board and the Requirements heading draw for a feature's flag or setting, a neutral outline led by its kind's glyph. Inert, as on a card, it says its kind to a listener and its tooltip adds what the gate's chapter states. Given OnNavigate, as on a Requirements heading, it is a button named Gated by flag … or Configured by setting …. With no gate it names a kind alone, as the legend does."
+           Code="@GateCode">
+        <p>
+            <DomainGateChip Gate="@CheckoutGate" TestId="story-domain-gate-chip-flag" />
+            <DomainGateChip Gate="@GiftCardGate" TestId="story-domain-gate-chip-setting" />
+            <DomainGateChip Gate="@CheckoutGate" OnNavigate="@(reference => _followedGate = reference.Raw)" TestId="story-domain-gate-chip-follow" />
+            <DomainGateChip Kind="DomainFeatureGateKind.Flag" />
+            <DomainGateChip Kind="DomainFeatureGateKind.Setting" />
+        </p>
+        <p>Followed: @(_followedGate ?? "nothing yet")</p>
+    </Story>
+
     <Story Name="Tasks and Brain notes"
-           Description="The host cascades a DomainChapterLinks: the tasks whose Devbook references name each chapter, and the owner's Brain notes linking to it. Checkout's detail lists its tasks as chips — gold when this backlog holds the task, dashed and reading not in this backlog when it does not — and, under them, the host's From your Brain box; here a plain stand-in shows where it goes. Below the board, the two pieces stand alone for Ordering. A chapter no task names and no note links to carries neither."
+           Description="The host cascades a DomainChapterLinks: the tasks whose Devbook references name each chapter, and the owner's Brain notes linking to it. A card whose feature, or a sub-feature of it, a note links to carries the teal ◆ n note badge on its corner, beside its button: Checkout reads ◆ 2 notes, one on it and one on its sub-feature Invoice, and Ordering ◆ 1 note. Checkout's detail lists its tasks as chips — gold when this backlog holds the task, dashed and reading not in this backlog when it does not — and, under them, the host's From your Brain box; here a plain stand-in shows where it goes. Below the board, the two pieces stand alone for Ordering. A chapter no task names and no note links to carries neither."
            Code="@LinksCode">
         <CascadingValue Value="@Links">
             <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ActiveFeature="checkout" TestId="story-domain-features-links" />
@@ -57,6 +70,17 @@
 
     private string? _active;
     private string? _openedRule;
+    private string? _followedGate;
+
+    private static DomainFeatureGate CheckoutGate => DomainFeatures.Read(FeaturesFile, Files).Single(feature => feature.Key == "checkout").Gate!;
+
+    private static DomainFeatureGate GiftCardGate => DomainFeatures.Read(SplitFile, [.. Files, SplitFile]).Single().Gate!;
+
+    private const string GateCode = """
+        <DomainGateChip Gate="@feature.Gate" />
+        <DomainGateChip Gate="@group.Gate" OnNavigate="OpenAsync" />
+        <DomainGateChip Kind="DomainFeatureGateKind.Setting" />
+        """;
 
     private const string Path = ".devbook/domain/ordering/features.md";
 
@@ -84,7 +108,7 @@
         status: draft
         feature-flag: .devbook/domain/ordering/context.md#new-checkout
         depends-on: [.devbook/domain/ordering/features.md#ordering]
-        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/model.md#order]
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/model.md#order, .devbook/arc42/adr/0012-one-step-checkout.md]
         ```
 
         Pay for an order in one step.
@@ -154,6 +178,7 @@
 
         ```meta
         type: feature-flag
+        default: off
         ```
 
         Turns the one-step checkout on.
@@ -162,6 +187,8 @@
 
         ```meta
         type: setting
+        scope: user
+        default: 500
         ```
 
         The most a gift card may hold.
@@ -318,6 +345,7 @@
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> SampleNotes = new Dictionary<string, IReadOnlyList<BrainNoteLink>>
     {
         [DomainChapterLinks.Key($"{Path}#checkout")] = [new("projects/checkout.md", "Checkout ideas")],
+        [DomainChapterLinks.Key($"{Path}#invoice")] = [new("projects/invoicing.md", "Invoice terms")],
         [DomainChapterLinks.Key($"{Path}#ordering")] = [new("work/standup.md", "Standup")]
     };
 

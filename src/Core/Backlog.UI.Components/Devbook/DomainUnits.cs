@@ -723,11 +723,19 @@ public static partial class DomainUnits
         if (text.StartsWith('#')) return Normalize(PathOf(fromDocument) + text);
         if (IsRooted(text)) return Normalize(text);
 
-        // Relative, the way a Markdown viewer reads it: against the document's folder.
-        var folder = Normalize(PathOf(fromDocument));
+        return Relative(text, Normalize(PathOf(fromDocument))).ToLowerInvariant();
+    }
+
+    /// <summary><paramref name="relative"/> read the way a Markdown viewer reads
+    /// it, against <paramref name="document"/>'s folder, in the spelling
+    /// <paramref name="document"/> has: <c>.</c> and empty segments skipped,
+    /// <c>..</c> climbing one folder.</summary>
+    internal static string Relative(string relative, string document)
+    {
+        var folder = document.Replace('\\', '/');
         var slash = folder.LastIndexOf('/');
         var parts = (slash < 0 ? [] : folder[..slash].Split('/')).ToList();
-        foreach (var segment in text.Split('/'))
+        foreach (var segment in relative.Split('/'))
         {
             if (segment is "." or "") continue;
             if (segment == "..")
@@ -737,7 +745,7 @@ public static partial class DomainUnits
             }
             parts.Add(segment);
         }
-        return string.Join('/', parts).ToLowerInvariant();
+        return string.Join('/', parts);
     }
 
     /// <summary>A rooted reference beneath the domain folder, lower case.</summary>

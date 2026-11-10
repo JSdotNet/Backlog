@@ -3,14 +3,20 @@
     columns by what they build on, the `depends-on` chain counted end to end, as
     the design board "Tasks — features" lays it out.
 
-    The page opens on its title, a lead and a legend. Each card is compact: the
+    The page opens on its title, a lead and a legend that tells a flag, decided
+    at release, from a setting, chosen by a person. Each card is compact: the
     feature's heading, then one line of facts — how many sub-features it has, the
-    flag or setting it hangs on, and "n req · m tested" when it has requirements
-    — and, past the first column, what it comes after. A proposed feature is
-    dashed and says so; the deprecated ones are gathered, struck through, in one
-    box at the end of the last column. Picking a card opens its detail under the
-    board: what it builds on, its flag or setting, the model chapters its
-    `related` names and its sub-features, and beside them what it promises —
+    flag or setting it hangs on, led by its kind's glyph, and "n req · m tested"
+    when it has requirements — and, past the first column, what it comes after.
+    Beside a card, at its corner, the teal "◆ n note" badge counts the Brain notes
+    linking to the feature or a chapter inside it, the same notes its detail's
+    From your Brain box lists; it sits outside the card's button, since a button
+    holds no other. A proposed feature is dashed and says so; the deprecated ones
+    are gathered, struck through, in one box at the end of the last column.
+    Picking a card opens its detail under the board: what it builds on, its flag
+    or setting with that chapter's scope and default, the decision records its
+    `related` names under Decided in, the model chapters its `related` names and
+    its sub-features, and beside them what it promises —
     its requirement count, how many a test proves as a bar, and a way onto
     Requirements — and what is always true of what it uses, the rules its
     requirements lean on shown in place (DomainRuleList).
@@ -33,7 +39,8 @@
             <h2 class="domain-features__page-title" data-testid="domain-features-title">@PageTitle</h2>
             <p class="domain-features__lead" data-testid="domain-features-lead">@Count(_features.Count, "feature") and their sub-features, laid out by what each builds on. Read left to right: a feature sits one column after the last one it depends on.</p>
             <ul class="domain-features__legend" aria-label="Legend" data-testid="domain-features-legend">
-                <li class="domain-features__legend-item"><Badge Kind="tone" CssClass="domain-feature-card__gate">flag or setting</Badge>what it hangs on</li>
+                <li class="domain-features__legend-item" data-testid="domain-features-legend-flag"><DomainGateChip Kind="DomainFeatureGateKind.Flag" /> decided at release</li>
+                <li class="domain-features__legend-item" data-testid="domain-features-legend-setting"><DomainGateChip Kind="DomainFeatureGateKind.Setting" /> chosen by a person</li>
                 <li class="domain-features__legend-item"><span class="domain-feature-card__tally">n req · m tested</span>its promises on the Requirements page</li>
                 <li class="domain-features__legend-item"><Badge Kind="tone" CssClass="domain-feature-card__mark domain-features__legend-proposed">Proposed</Badge>agreed, not yet the model</li>
             </ul>
@@ -52,7 +59,8 @@
                             @foreach (var feature in cards)
                             {
                                 var selected = feature.Key == Active?.Key;
-                                <li class="domain-features__card-item">
+                                var notes = Links.NotesOn(DomainChapterLinks.Covering(feature.Reference, feature.Chapter));
+                                <li class="@(notes.Count > 0 ? "domain-features__card-item domain-features__card-item--notes" : "domain-features__card-item")">
                                     <button type="button"
                                             class="@CardClass(feature, selected)"
                                             data-testid="domain-feature-card"
@@ -70,7 +78,7 @@
                                                 }
                                                 @if (feature.Gate is { } gate)
                                                 {
-                                                    <Badge Kind="tone" CssClass="domain-feature-card__gate" TestId="domain-feature-gate" Title="@($"{gate.Word}: {gate.Chapter.Title}")" data-kind="@KindOf(gate)"><span class="sr-only">@(gate.Word): </span><span class="domain-feature-card__gate-name">@gate.Chapter.Title</span></Badge>
+                                                    <DomainGateChip Gate="@gate" TestId="domain-feature-gate" />
                                                 }
                                                 @if (feature.Requirements.Count > 0)
                                                 {
@@ -87,6 +95,12 @@
                                             <span class="domain-feature-card__after" data-testid="domain-feature-after">after @string.Join(", ", feature.BuildsOn.Select(chapter => chapter.Title))</span>
                                         }
                                     </button>
+                                    @if (notes.Count > 0)
+                                    {
+                                        <span class="domain-features__card-notes">
+                                            <BrainNotesBadge Notes="@notes" OnOpen="Links.OnOpenNote" TestId="domain-feature-card-notes" />
+                                        </span>
+                                    }
                                 </li>
                             }
                         </ul>
@@ -142,7 +156,7 @@
                             <dd class="domain-feature-detail__value">
                                 @if (active.Gate is { } gate)
                                 {
-                                    @Link(gate.Chapter)<span class="domain-feature-detail__gate-word">@(" · " + KindOf(gate))</span>
+                                    @Link(gate.Chapter)<span class="domain-feature-detail__gate-word">@(" · " + gate.KindWord + string.Concat(gate.Facts.Select(fact => " · " + fact)))</span>
                                 }
                                 else
                                 {
@@ -150,6 +164,20 @@
                                 }
                             </dd>
                         </div>
+                        @if (active.Decisions.Count > 0)
+                        {
+                            <div class="domain-feature-detail__fact" data-testid="domain-feature-decided-in">
+                                <dt class="domain-feature-detail__label">Decided in</dt>
+                                <dd class="domain-feature-detail__value">
+                                    <span class="domain-feature-detail__chapters">
+                                        @foreach (var decision in active.Decisions)
+                                        {
+                                            <span class="domain-feature-detail__chapter" data-testid="domain-feature-decision">@Decision(decision)</span>
+                                        }
+                                    </span>
+                                </dd>
+                            </div>
+                        }
                         <div class="domain-feature-detail__fact" data-testid="domain-feature-model">
                             <dt class="domain-feature-detail__label">Model it uses</dt>
                             <dd class="domain-feature-detail__value">@Chapters(active.ModelChapters, "None named", chips: true)</dd>
@@ -228,6 +256,11 @@
     [Parameter]
     public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
+    /// <summary>The Brain notes and tasks the host read once for the repository;
+    /// unset — the storybook, a test, no Brain — a card carries no badge.</summary>
+    [CascadingParameter]
+    public DomainChapterLinks? Cascaded { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Features";
 
@@ -288,8 +321,8 @@
     private static bool HasFacts(DomainFeature feature) =>
         feature.SubFeatures.Count > 0 || feature.Gate is not null || feature.Requirements.Count > 0 || feature.IsProposed;
 
-    /// <summary>The gate's kind in a lower-case word: <c>flag</c> or <c>setting</c>.</summary>
-    private static string KindOf(DomainFeatureGate gate) => gate.Word.ToLowerInvariant();
+    private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
+
 
     /// <summary>A flag gates a feature; a setting configures it. A feature with
     /// neither reads Gated by: Always on.</summary>
@@ -329,6 +362,13 @@
                 }
             }
         </span>;
+
+    /// <summary>A decision record by its number; its slug in words on the tooltip
+    /// and in the name a listener hears.</summary>
+    private RenderFragment Decision(DomainDecision decision) =>
+        DevbookReference.Parse(decision.Reference) is { } reference
+            ? @<DevbookReferenceLink Reference="@reference" Text="@decision.Label" OnNavigate="OnNavigate" TestId="domain-feature-link" title="@decision.Name" aria-label="@decision.Name" />
+            : @<span title="@decision.Name">@decision.Label</span>;
 
     private RenderFragment Link(DomainNamedChapter chapter) =>
         DevbookReference.Parse(chapter.Reference) is { } reference
