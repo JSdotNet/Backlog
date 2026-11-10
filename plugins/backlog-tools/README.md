@@ -168,8 +168,10 @@ running plan.
   on the next tick or re-armed Monitor. It writes no brief — the app builds each from the request's kind and id — so
   the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
   gate like any pasted entry: it changes no file, is no flow, and adds no execution path beside
-  the gate. It needs the `session-requests` flag on in the app. User-invoked only
-  (`disable-model-invocation: true`). `tests/dispatch-sessions.test.ts` drives the wait
+  the gate. It needs the `session-requests` flag on in the app. Started by the person alone,
+  yet model-invocable: `/loop` runs its inner command through the Skill tool, which refuses a
+  `disable-model-invocation` skill, so its description confines invocation to that start and
+  `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it. `tests/dispatch-sessions.test.ts` drives the wait
   script's decisions under `claude plugin test`; the two processes themselves run under
   `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
   sandbox spawns nothing.
