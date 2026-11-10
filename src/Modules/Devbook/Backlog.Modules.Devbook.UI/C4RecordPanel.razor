@@ -1,8 +1,10 @@
 @*
     Where an ADR or a TDR lands on the model, beside the record in the Chapters tab
     while `c4-zoom` is on (the design's ADR screen, plan c4-zoom-navigation): the
-    container view drawn small with what the record names marked, the decision chain,
-    and the arc42 chapters that cite it. Everything is read from the chapters'
+    container view drawn small with what the record names marked, the decision chain
+    (for a TDR, the ADRs it came from and the others it names; guideline ADRs marked
+    as such, since they number from 0001 as the local ones do), and the arc42
+    chapters that cite it. Everything is read from the chapters'
     metadata (local ADR 0046); C4RecordPlacement says how.
 
     Decides and touches are told apart by more than colour — a solid ringed tile with
@@ -112,10 +114,19 @@
         }
     </section>
 
-    @if (Placement.Kind == C4RecordKind.Decision)
-    {
-        <section class="devbook-record-model__section" data-testid="arc42-record-chain">
-            <h2 class="devbook-record-model__heading">Decision chain</h2>
+    <section class="devbook-record-model__section" data-testid="arc42-record-chain">
+        <h2 class="devbook-record-model__heading">Decision chain</h2>
+        @if (Placement.Kind == C4RecordKind.Debt)
+        {
+            @if (Placement.Origin.Count + Placement.Related.Count == 0)
+            {
+                <p class="devbook-record-model__note" data-testid="arc42-record-chain-empty">It names no decision record in <code>related:</code>.</p>
+            }
+            @Chain("Origin", "origin", Placement.Origin)
+            @Chain("Related", "related", Placement.Related)
+        }
+        else
+        {
             @if (Placement.Supersedes.Count + Placement.SupersededBy.Count + Placement.BuildsOn.Count + Placement.BuiltOnBy.Count == 0)
             {
                 <p class="devbook-record-model__note" data-testid="arc42-record-chain-empty">No other decision builds on it, and it builds on none.</p>
@@ -124,12 +135,12 @@
             @Chain("Superseded by", "superseded-by", Placement.SupersededBy)
             @Chain("Builds on", "builds-on", Placement.BuildsOn)
             @Chain("Built on by", "built-on-by", Placement.BuiltOnBy)
-            @if (AnyProposed)
-            {
-                <p class="devbook-record-model__note">Dashed: proposed.</p>
-            }
-        </section>
-    }
+        }
+        @if (AnyProposed)
+        {
+            <p class="devbook-record-model__note">Dashed: proposed.</p>
+        }
+    </section>
 
     <section class="devbook-record-model__section" data-testid="arc42-record-citations">
         <h2 class="devbook-record-model__heading">arc42 chapters that cite it</h2>
@@ -191,7 +202,9 @@
     public EventCallback<string> OnNavigate { get; set; }
 
     private bool AnyProposed =>
-        Placement.Supersedes.Concat(Placement.SupersededBy).Concat(Placement.BuildsOn).Concat(Placement.BuiltOnBy).Any(entry => entry.Proposed);
+        Placement.Supersedes.Concat(Placement.SupersededBy).Concat(Placement.BuildsOn).Concat(Placement.BuiltOnBy)
+            .Concat(Placement.Origin).Concat(Placement.Related)
+            .Any(entry => entry.Proposed);
 
     private RenderFragment Chain(string label, string key, IReadOnlyList<C4ChainRecord> records) => @<text>
         @if (records.Count > 0)
@@ -208,16 +221,31 @@
                 <AppButton BaseClass="@($"devbook-record-model__chip{(record.Proposed ? " devbook-record-model__chip--proposed" : null)}")"
                            Variant="ButtonVariant.None"
                            title="@record.Title"
-                           aria-label="@($"{record.Number} {record.Title}{(record.Proposed ? ", proposed" : null)}")"
+                           aria-label="@ChipLabel(record)"
                            data-proposed="@(record.Proposed ? "true" : "false")"
+                           data-scope="@(record.Guideline ? "guideline" : "local")"
                            TestId="arc42-record-chip"
                            OnClick="() => OnNavigate.InvokeAsync(record.Path)">
+                    @if (record.Guideline)
+                    {
+                        <span class="devbook-record-model__scope">guideline</span>
+                    }
                     <span class="devbook-record-model__number">@record.Number</span>
                     <span class="devbook-record-model__chip-title">@record.Title</span>
                 </AppButton>
             </li>
         }
     </ul>;
+
+    /// <summary>The chip read aloud: its kind before its number, so a guideline and
+    /// the local ADR sharing its number never sound the same.</summary>
+    private static string ChipLabel(C4ChainRecord record)
+    {
+        var kind = record.Guideline ? "Guideline ADR"
+            : Arc42DevbookCatalog.IsDebtRecord(record.Path) ? "TDR"
+            : "ADR";
+        return $"{kind} {record.Number} {record.Title}{(record.Proposed ? ", proposed" : null)}";
+    }
 
     private static string Reference(C4RecordCitation citation) =>
         citation.Anchor is null ? citation.Path : $"{citation.Path}#{citation.Anchor}";

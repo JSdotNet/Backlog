@@ -649,61 +649,69 @@ related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 > The `c4-zoom` switch gates these (local ADR 0046). Each has its cases written
 > inline until a journey proves it.
 
-### Requirement: The zoom tab sits beside the C4 tab
+### Requirement: The architecture surface stands in for the tabs while the switch is on
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_both_keys_on_the_pane_is_one_surface_rather_than_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_only_the_zoom_key_on_neither_C4_tab_is_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.The_surface_opens_on_the_model_with_the_header_the_bar_and_the_left_navigation, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.With_c4_zoom_off_the_pane_keeps_its_tabs_and_has_no_surface, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.With_c4_zoom_on_the_architecture_section_has_no_menu_of_the_pane_and_opens_the_chapter_in_the_surface, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.It_opens_on_the_system_context_view_with_the_hint_naming_the_ways_to_move, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_reader_who_dismissed_the_hint_sees_the_view_alone]
 ```
 
-The system SHALL offer a **C4 zoom** tab beside an unchanged **C4** tab in the architecture panel only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
+The system SHALL show the architecture panel as one surface, in place of its **Chapters** and **C4** tabs and with the pane's own architecture menu stood down, only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
 
 #### Scenario: Both switches on
 
 - **Given** `c4-diagrams` and `c4-zoom` are on and the repository has a C4 model
 - **When** the reader opens the architecture panel
-- **Then** the tabs read Chapters, C4 and C4 zoom, and the C4 tab shows what it showed with `c4-zoom` off
+- **Then** it shows the zoom bar, a left navigation headed by a find field, and the diagram, with no tabs and no menu of the pane beside them
+
+#### Scenario: The zoom switch off
+
+- **Given** `c4-diagrams` is on and `c4-zoom` is off
+- **When** the reader opens the architecture panel
+- **Then** the tabs read Chapters and C4, as they did before the surface existed
 
 #### Scenario: Only the zoom switch on
 
 - **Given** `c4-zoom` is on and `c4-diagrams` is off
 - **When** the reader opens the architecture panel
-- **Then** neither the C4 tab nor the C4 zoom tab is offered
+- **Then** no surface and no C4 tab is offered
 
 #### Scenario: First opening
 
-- **Given** the reader has never opened the C4 zoom tab
+- **Given** the reader has never opened the surface
 - **When** they open it
 - **Then** it shows the System context view and a hint naming zoom in, zoom out, jump and sideways
 
 #### Scenario: The hint once dismissed
 
 - **Given** the reader dismissed the hint
-- **When** they open the C4 zoom tab again
+- **When** they open the surface again
 - **Then** the System context view shows with no hint
 
 ### Requirement: The zoom bar names each level's element
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomNavigationTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.The_bar_rings_the_current_step_and_greys_the_steps_waiting_on_a_selection, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.The_also_links_open_the_landscape_dynamic_and_deployment_views]
 ```
 
-The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
+The system SHALL head the surface with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
 
 #### Scenario: On the context view
 
-- **Given** the zoom tab shows the System context view of Prompt Backlog
+- **Given** the surface shows the System context view of Prompt Backlog
 - **When** nothing is selected
 - **Then** the bar reads 1 Context Prompt Backlog, 2 Containers Prompt Backlog, 3 Components greyed "pick a container" and 4 Code greyed "pick a component"
 
 #### Scenario: A container selected
 
-- **Given** the zoom tab shows the Containers view
+- **Given** the surface shows the Containers view
 - **When** the reader selects Desktop App
 - **Then** step 3 reads Components Desktop App and can be picked, and step 4 still reads "pick a component"
 
 #### Scenario: The supplementary views
 
-- **Given** the zoom tab is open on any level
+- **Given** the surface is open on any level
 - **When** the reader looks beside the zoom bar
 - **Then** Landscape, Dynamic and Deployment are offered under "Also" and none of them is a numbered step
 
@@ -711,6 +719,7 @@ The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Con
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_the_system_opens_its_containers, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Selecting_a_container_fills_step_three_which_then_opens_its_components, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Backspace_out_of_the_components_opens_the_containers_with_that_container_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.An_earlier_step_zooms_out_with_the_element_zoomed_out_of_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Step_two_from_the_code_level_opens_the_containers_with_the_container_selected, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_an_element_with_nothing_deeper_selects_it_and_opens_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Only_cards_with_a_deeper_view_carry_a_zoom_in_chip]
 ```
 
 The system SHALL zoom into a drillable element on a double-click, on its "Zoom in" chip, or on Enter while it has focus, and zoom out on an earlier zoom bar step or on Backspace while the diagram has focus, keeping the element zoomed out of selected and taking neither key outside the focused diagram.
@@ -741,7 +750,7 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 
 #### Scenario: Keys outside the diagram
 
-- **Given** the zoom tab is open and the find field has focus
+- **Given** the surface is open and the find field has focus
 - **When** the reader presses Backspace or Enter
 - **Then** the field takes the key and the view does not change
 
@@ -755,15 +764,28 @@ The system SHALL zoom into a drillable element on a double-click, on its "Zoom i
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4ElementInspectorTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ElementInspectionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_inspector_lists_the_records_and_opens_one_in_the_surface]
 ```
 
-The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab), and a zoom-in button only when a deeper view of it exists.
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters and no other folder's that document a view showing it, the ADRs that name it and the TDRs that name it or, on a container, one of its components (a proposed ADR marked as proposed, a TDR with its severity and lifecycle, a component's TDR marked with the component, each opening on the surface in place of the view), and a zoom-in button only when a deeper view of it exists.
 
 #### Scenario: A container with records
 
 - **Given** the Containers view is open
 - **When** the reader selects Desktop App
 - **Then** the inspector reads Container, its description and .NET MAUI Blazor Hybrid, lists the arc42 chapters, ADRs and TDRs that name it, and offers to open its components
+
+#### Scenario: Debt on a component of the container
+
+- **Given** one TDR names the Devbook component of Desktop App and none names Desktop App
+- **When** the reader selects Desktop App on the Containers view
+- **Then** the Technical debt section lists that TDR marked "On component Devbook"
+
+#### Scenario: A chapter of another folder against the view
+
+- **Given** the views map lists the domain's context map against the Containers view
+- **When** the reader selects Desktop App
+- **Then** "Documented in arc42" lists the arc42 chapters only
 
 #### Scenario: An element with nothing deeper
 
@@ -781,12 +803,13 @@ The system SHALL show, for the selected element, its kind, description and techn
 
 - **Given** Desktop App is selected and its inspector lists a proposed ADR
 - **When** the reader picks that ADR
-- **Then** the Chapters tab opens on the ADR
+- **Then** the ADR opens on the surface beside the decision log, in place of the view
 
 ### Requirement: An overlay counts the records on each card
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4RecordOverlayTests]
 ```
 
 The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs, or of open TDRs, naming an element on its card, draws a card that open TDRs name on the error surface, counts under the diagram the records that name only elements below the view, and shows the open TDRs that name no element in a cross-cutting tray while Debt is chosen.
@@ -813,13 +836,14 @@ The system SHALL offer an overlay switch of None, Decisions and Debt that puts t
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookCodeTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4CodeViewTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Zooming_into_a_component_with_code_opens_its_code_level, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Opening_the_code_level_again_reads_it_again, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_component_without_code_keeps_step_four_grey, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.Only_a_component_with_code_carries_a_zoom_in_chip]
 ```
 
-The system SHALL draw the Code level of a component from the source its code link names when it is opened, showing the types and their members, and never from an authored diagram.
+The system SHALL draw the Code level of a component from the source in the folders its building block names in `code` when it is opened, showing the types and their members, and never from an authored diagram.
 
 #### Scenario: A component with a code link
 
-- **Given** the Devbook component's code link names `Backlog.Infrastructure.Devbook`
+- **Given** `building-blocks/devbook.md` names `src/Infrastructure/Backlog.Infrastructure.Devbook` in `code` for the Devbook component
 - **When** the reader zooms into Devbook
 - **Then** the Code view lists that project's types with their members, read from the source as it is now
 
@@ -839,6 +863,7 @@ The system SHALL draw the Code level of a component from the source its code lin
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4DynamicPlaybackTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomDeploymentTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4GroupBandExplorerTests.The_zoom_tab_draws_the_groups_as_bands]
 ```
 
 The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments behind one tab list with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
@@ -871,21 +896,28 @@ The system SHALL play a dynamic view one numbered step at a time, switch a deplo
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.Decisions_opens_the_decisions_chapter_beside_the_decision_log_and_a_record_shows_where_it_lands, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.A_chapter_opens_inside_the_surface_with_its_list_and_its_links_and_Back_returns_to_the_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.An_embedded_view_opens_in_the_picture_and_says_the_C4_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_on_a_decision_record_marks_what_it_decides_and_touches, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_on_a_decision_record_shows_its_decision_chain, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_zoom_off_a_decision_record_shows_no_model_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ChapterViewsTests.A_fence_that_disagrees_with_the_model_lists_what_each_has_alone]
 ```
 
-The system SHALL, while `c4-zoom` is on, show for an ADR or a TDR opened in the Chapters tab where it lands on the container view and its decision chain, and for an arc42 chapter the views it documents with the elements present in the model but not in its mermaid fence, and those in the fence but not in the model, flagged.
+The system SHALL, while `c4-zoom` is on, show beside an ADR or a TDR opened on the surface where it lands on the container view and its decision chain, and for an arc42 chapter draw each view it documents, flagging for a view drawn under a section with its own C4 mermaid fence the elements in the model but not in the fence, and those in the fence but not in the model.
 
 #### Scenario: A decision record
 
 - **Given** `c4-zoom` is on and ADR 0005 names Cloud Service and Cloud Database
-- **When** the reader opens ADR 0005 in the Chapters tab
-- **Then** a container view marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
+- **When** the reader opens ADR 0005 on the surface
+- **Then** a container view beside it marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
+
+#### Scenario: A chapter that embeds its view
+
+- **Given** `c4-zoom` is on and chapter 05 embeds the Containers view as `![…](c4:container-view)`
+- **When** the reader opens chapter 05 on the surface
+- **Then** the Containers view is drawn where the embed sits, and nothing is flagged
 
 #### Scenario: A chapter and the model disagree
 
-- **Given** `c4-zoom` is on and the fence in 05 Building block view draws Attachments, which the model lacks
-- **When** the reader opens chapter 05 in the Chapters tab
-- **Then** the chapter embeds the Containers view it documents and flags Attachments as in the fence but not in the model
+- **Given** `c4-zoom` is on, and a chapter section that `_c4/references.json` maps to the Containers view draws a C4 mermaid fence holding Attachments, which the model lacks
+- **When** the reader opens that chapter on the surface
+- **Then** the Containers view is drawn under that section and flags Attachments as in the fence but not in the model
 
 #### Scenario: The switch off
 
@@ -1477,7 +1509,7 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 > [New domain view](context.md#new-domain-view) switch (local ADR 0047). The plan
 > `+devbook-domain-view` builds them page by page; the Context map, a context's
 > page with its neighbours and its Overview, Domain, Features, Requirements, Model, Flow, the
-> Glossary and the Brain and task links are built. The Demo button is not.
+> Glossary and the Brain and task links are built.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1598,6 +1630,7 @@ The system SHALL show each rule on Always true as its heading, marked ✓ when i
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDemoTests.The_Features_page_shows_a_Demo_button_that_shows_its_demo_with_the_places_its_chapters_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Draws_no_row_for_invariants_dependencies_demo_or_underscore_files]
 ```
 
 The system SHALL offer a `*.demo.html` file as a Demo button on the page it belongs to and give it no row of its own.
@@ -1660,10 +1693,10 @@ The system SHALL show a bounded context as one page with no tabs, whichever way 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.How_settled_is_left_out_when_no_chapter_states_a_status, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.A_diagram_in_the_boundary_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowFiguresTests.Every_diagram_in_the_repository_context_files_is_drawn_in_the_lifecycle_style]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.How_settled_is_left_out_when_no_chapter_states_a_status, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.A_diagram_in_the_boundary_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowFiguresTests.Every_diagram_in_the_repository_context_files_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_events_offers_Events_after_Model, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_no_event_offers_no_Events, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.The_Events_lens_opens_Model_on_Events]
 ```
 
-The system SHALL show, below a context's neighbours, an Overview of the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the Overview shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. Where any of its chapters states a `rating` or a `status`, it also shows its chapters per rating or status as one bar; a devbook past devbook contract 38 states none, and the bar is left out. It shows its feature flags and settings with the features each gates, and the context's other pages with the question each answers. A state diagram, flowchart or sequence in the boundary's prose SHALL be drawn in the lifecycle's own style, not as Mermaid.
+The system SHALL show, below a context's neighbours, an Overview of the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the Overview shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. Where any of its chapters states a `rating` or a `status`, it also shows its chapters per rating or status as one bar; a devbook past devbook contract 38 states none, and the bar is left out. It shows its feature flags and settings with the features each gates, and the context's other pages with the question each answers, and Events as a page of its own when the context has a `model.md` and raises a domain event, Model's question then narrowing to what it is made of. A state diagram, flowchart or sequence in the boundary's prose SHALL be drawn in the lifecycle's own style, not as Mermaid.
 
 #### Scenario: A context's Overview
 
@@ -1685,6 +1718,21 @@ The system SHALL list no file or folder whose name starts with `_`.
 - **Given** a context holding an `_archify` folder
 - **When** the reader opens the context in the Domain view
 - **Then** no row names `_archify` or a file inside it
+
+### Requirement: Any other file opens as written
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Actors_opens_as_written_with_its_title_lead_chapters_and_related_links, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Skills_and_a_page_the_convention_does_not_name_open_as_written, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.Following_a_related_link_opens_its_page, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFilePageTests.No_selection_still_shows_the_placeholder, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewUnitTests.A_row_opens_the_page_for_its_file_kind, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFilePageTests]
+```
+
+The system SHALL open a file the Domain view has no page of its own for — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` — as the file as written: its kind and status above its title, the prose before its first chapter as the lead, its `related` as links to follow, and each chapter under its heading with its markdown and, where it states one, its own `related`. Following a link opens the page it names. The placeholder is left for no selection.
+
+#### Scenario: An actors file
+
+- **Given** a context whose `actors.md` is titled *Who works with tasks*, leads with one quoted paragraph, names `domain.md` in its `related`, and holds the chapters *Planner* and *Doer*
+- **When** the reader picks its row
+- **Then** the page shows *Who works with tasks*, the lead, *Planner* and *Doer* with their text, and a link to `domain.md`, and following that link opens the Domain page
 
 ### Requirement: An unsplit domain picks its units in the page
 
@@ -1802,10 +1850,10 @@ The system SHALL head Model's Fields tab with the aggregate root's kind, its cha
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_fires_on_the_moves_a_lifecycle_raises_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_which_move_an_event_would_fire_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_asked_event_opens_Events_on_its_contract]
 ```
 
-The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
+The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Where a transition of a `stateDiagram-v2` the context's domain files draw names the event, the contract SHALL end on the moves it fires on, each read *Ready → In progress* from the states' labels, under *Would fire on* while it is documented and *Fires on* once it is emitted. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
 
 #### Scenario: A documented event
 
@@ -1817,10 +1865,10 @@ The system SHALL head Model's Events tab *What ‹context› tells other context
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_title_names_the_context_and_the_lead_counts_its_features, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Without_a_context_name_the_page_title_is_Features, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_title_names_the_context_and_the_lead_counts_its_features, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Without_a_context_name_the_page_title_is_Features, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_legend_names_a_flag_and_a_setting_apart]
 ```
 
-The system SHALL open the Features page of a `features.md` or `features.<name>.md` row on a title naming its context, *What Tasks lets a person do* for Tasks (*Features* when the context has no name), a lead counting its features, and a legend for the flag or setting chip, the requirement tally and the *Proposed* mark.
+The system SHALL open the Features page of a `features.md` or `features.<name>.md` row on a title naming its context, *What Tasks lets a person do* for Tasks (*Features* when the context has no name), a lead counting its features, and a legend naming the flag chip (decided at release) and the setting chip (chosen by a person) apart, each by its glyph, the requirement tally and the *Proposed* mark.
 
 #### Scenario: Opening the Features of Tasks
 
@@ -1832,7 +1880,7 @@ The system SHALL open the Features page of a `features.md` or `features.<name>.m
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.Features_stand_in_columns_by_what_they_build_on_in_the_context, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_deprecated_feature_goes_to_the_end_of_its_column_and_a_proposed_one_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_sub_features_and_names_its_flag_or_setting, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_requirements_and_how_many_are_proved_from_their_tests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_split_file_reads_its_one_feature_with_the_depth_the_base_file_gives_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Cards_stand_in_columns_with_their_counts_flag_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_proposed_card_is_dashed_and_deprecated_features_gather_at_the_end_of_the_last_column, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_column_left_with_only_deprecated_features_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_setting_chip_is_outlined_like_a_flag_and_names_its_kind_only_to_a_listener, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_card_shows_no_summary_and_no_tally_without_requirements, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_picked_proposed_card_carries_the_selected_class, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_split_features_file_reads_its_one_feature_in_the_column_the_base_file_gives_it]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.Features_stand_in_columns_by_what_they_build_on_in_the_context, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_deprecated_feature_goes_to_the_end_of_its_column_and_a_proposed_one_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_sub_features_and_names_its_flag_or_setting, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_requirements_and_how_many_are_proved_from_their_tests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_split_file_reads_its_one_feature_with_the_depth_the_base_file_gives_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Cards_stand_in_columns_with_their_counts_flag_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_proposed_card_is_dashed_and_deprecated_features_gather_at_the_end_of_the_last_column, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_column_left_with_only_deprecated_features_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_flag_and_a_setting_chip_lead_with_their_kinds_glyph_and_name_it_to_a_listener, unit:dotnet:Backlog.UI.Components.UnitTests.FlagIconTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_card_shows_no_summary_and_no_tally_without_requirements, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_picked_proposed_card_carries_the_selected_class, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_split_features_file_reads_its_one_feature_in_the_column_the_base_file_gives_it]
 ```
 
 The system SHALL draw the features of a `features.md` or `features.<name>.md` row in columns by how many of the context's features each builds on through `depends-on`, each card showing its title, its sub-feature count, its flag or setting, *n req · m tested* when it has requirements and, past the first column, the features it comes after; a proposed feature dashed, a picked card edged in the brand colour even when proposed or hovered, and the deprecated features gathered, struck through, in one box at the end of the last column, a column they leave empty not drawn.
@@ -1853,10 +1901,10 @@ The system SHALL draw the features of a `features.md` or `features.<name>.md` ro
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.The_detail_names_what_it_builds_on_and_the_model_chapters_its_related_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_a_card_opens_its_detail_and_reports_the_pick, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Following_a_chapter_in_the_detail_hands_its_reference_to_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_gate_reads_its_link_then_its_kind_as_separate_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_promises_pane_counts_the_requirements_and_bars_how_many_a_test_proves, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_features_requirements_link_opens_Requirements_on_that_features_group]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.The_detail_names_what_it_builds_on_and_the_model_chapters_its_related_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_a_card_opens_its_detail_and_reports_the_pick, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Following_a_chapter_in_the_detail_hands_its_reference_to_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_gate_reads_its_link_then_its_kind_as_separate_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_promises_pane_counts_the_requirements_and_bars_how_many_a_test_proves, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_features_requirements_link_opens_Requirements_on_that_features_group, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_feature_names_the_decision_records_its_related_names_by_number, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_gate_reads_its_chapters_scope_and_default_from_context_md, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_gate_in_another_context_names_only_its_kind, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_detail_says_which_records_decided_it_and_follows_one, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_feature_naming_no_record_draws_no_decided_in_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_gate_line_reads_its_kind_scope_and_default]
 ```
 
-The system SHALL show, for the feature the reader picks on Features, what it builds on, the flag it is gated by or the setting it is configured by (*Always on* when neither), the model chapters its `related` names and its sub-features, each a link to the chapter it names, and beside them what it promises: its requirement count, a bar of how many a linked test proves, and a link that opens its group on Requirements.
+The system SHALL show, for the feature the reader picks on Features, what it builds on, the flag it is gated by or the setting it is configured by (*Always on* when neither), the gate chapter's scope and default where it states them, the model chapters its `related` names and its sub-features, each a link to the chapter it names, and, under Decided in, each decision record its `related` names by its number, and beside them what it promises: its requirement count, a bar of how many a linked test proves, and a link that opens its group on Requirements.
 
 #### Scenario: Picking Checkout
 
@@ -1864,14 +1912,20 @@ The system SHALL show, for the feature the reader picks on Features, what it bui
 - **When** the reader picks *Checkout* on Features
 - **Then** the detail names *Ordering* under Builds on, *New checkout · flag* under Gated by and *Order* under Model it uses, and promises 2 requirements, 1 of 2 linked to a test
 
+#### Scenario: Picking a feature a decision settled
+
+- **Given** *Checkout*, whose `related` names `.devbook/arc42/adr/0012-one-step-checkout.md`, behind the flag *New checkout* whose chapter states `default: off`
+- **When** the reader picks it
+- **Then** Gated by reads *New checkout · flag · default off*, and Decided in reads *ADR 0012*
+
 ### Requirement: Requirements read per feature with their proof
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirements_file_reads_one_group_per_feature_with_its_tally, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirement_reads_its_shall_sentence_and_whether_a_test_proves_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_scenario_reads_as_given_when_then_rows_with_an_and_clause_split_into_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.An_and_row_joins_the_row_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_clause_is_not_split_inside_a_code_span_or_emphasis, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_split_requirements_file_reads_its_one_feature, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.Requirements_written_straight_under_the_title_are_one_group, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Requirements_read_per_feature_with_the_shall_sentence_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_scenario_reads_as_rows_with_an_and_clause_as_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_another_feature_shows_its_requirements]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirements_file_reads_one_group_per_feature_with_its_tally, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirement_reads_its_shall_sentence_and_whether_a_test_proves_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_scenario_reads_as_given_when_then_rows_with_an_and_clause_split_into_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.An_and_row_joins_the_row_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_clause_is_not_split_inside_a_code_span_or_emphasis, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_split_requirements_file_reads_its_one_feature, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.Requirements_written_straight_under_the_title_are_one_group, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Requirements_read_per_feature_with_the_shall_sentence_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_scenario_reads_as_rows_with_an_and_clause_as_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_another_feature_shows_its_requirements, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_reads_the_gate_of_the_feature_it_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_naming_no_feature_or_an_ungated_one_shows_no_gate, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_requirements_header_names_the_features_flag]
 ```
 
-The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, per feature, each requirement with its SHALL sentence set apart and whether a test its `tests` field names proves it, and each scenario as Given, When and Then rows, a row joining clauses with ", and" read as one bullet per clause.
+The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, per feature, its heading naming the flag or setting its feature hangs on, each requirement with its SHALL sentence set apart and whether a test its `tests` field names proves it, and each scenario as Given, When and Then rows, a row joining clauses with ", and" read as one bullet per clause.
 
 #### Scenario: A proved requirement
 
@@ -1883,10 +1937,10 @@ The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, pe
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_page_opens_on_a_card_counting_the_rules_its_features_lean_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.No_rule_card_shows_when_no_feature_leans_on_one]
 ```
 
-The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
+The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves, and, when the file's features lean on any rule, a What is always true card counting the distinct rules, on Domain; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
 
 #### Scenario: A feature with seven requirements
 
@@ -1950,7 +2004,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ContextMapTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextMapPageTests]
 ```
 
-The system SHALL offer the context map, under its file's heading and a sentence counting its contexts, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context's page. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
+The system SHALL offer the context map, under its file's heading and a sentence counting its contexts, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context's page. List's sentence says that picking a context opens it on its neighbours. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
 
 #### Scenario: Contracts by their short names
 
@@ -1980,10 +2034,10 @@ The system SHALL offer the context map, under its file's heading and a sentence 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.An_event_chip_on_a_unit_opens_Model_on_that_events_contract]
 ```
 
-The system SHALL draw each `stateDiagram-v2` of a legacy `flow.md` or `flow.<name>.md` row, and each one a domain chapter opens with, as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model, where the events are read, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
+The system SHALL draw each `stateDiagram-v2` of a legacy `flow.md` or `flow.<name>.md` row, and each one a domain chapter opens with, as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model's Events tab on that event's contract, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
 
 #### Scenario: A lifecycle with a restore
 
@@ -2057,16 +2111,22 @@ The system SHALL offer, from the Domain page's chapter bar, a Glossary that list
 ```meta
 type: requirement
 related: [.devbook/domain/brain/requirements.md#requirement-backlinks-reach-only-the-owner-and-write-nothing]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_unit_lists_the_notes_linking_to_it_or_to_a_chapter_inside_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_glossary_term_carries_its_notes_badge_and_box_and_a_term_with_none_carries_neither, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_model_part_counts_the_notes_linking_to_its_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.Links_to_a_whole_file_name_no_chapter_and_a_note_is_listed_once_per_chapter, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repository_s_links_read_per_heading_once_per_note_and_heading]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_unit_lists_the_notes_linking_to_it_or_to_a_chapter_inside_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_glossary_term_carries_its_notes_badge_and_box_and_a_term_with_none_carries_neither, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_model_part_counts_the_notes_linking_to_its_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.Links_to_a_whole_file_name_no_chapter_and_a_note_is_listed_once_per_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_feature_card_counts_the_notes_its_detail_lists, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_card_counts_the_brain_notes_linking_to_it_or_a_sub_feature, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repository_s_links_read_per_heading_once_per_note_and_heading]
 ```
 
-The system SHALL show under each unit, feature and glossary term of the Domain view the From your Brain box for the owner's Brain notes linking to that chapter or to a chapter inside it, and on each model-diagram part and glossary term a teal **◆ n note** badge counting them, and draw neither where no note links.
+The system SHALL show under each unit, feature and glossary term of the Domain view the From your Brain box for the owner's Brain notes linking to that chapter or to a chapter inside it, and on each feature card, model-diagram part and glossary term a teal **◆ n note** badge counting them, and draw neither where no note links.
 
 #### Scenario: Notes on an aggregate and its entity
 
 - **Given** a Brain note *Plan* linking to the aggregate *Task* and a note *Steps idea* linking to its entity *Sub Item*
 - **When** the reader opens the Domain page on *Task*
 - **Then** the box under *Task* lists *Plan* and *Steps idea*, and on Model *SubItem*'s part reads ◆ 1 note
+
+#### Scenario: Notes on a feature and its sub-feature
+
+- **Given** a Brain note linking to *Checkout* and one linking to its sub-feature *Invoice*
+- **When** the reader opens Features
+- **Then** Checkout's card reads ◆ 2 notes, and its detail's box lists both
 
 #### Scenario: A term no note links to
 
@@ -2089,3 +2149,48 @@ The system SHALL show on a feature's detail and on each requirement the tasks wh
 - **Given** a task this backlog holds and a task id it does not hold, both naming the feature *Capture* in their Devbook references
 - **When** the reader picks *Capture* on Features
 - **Then** the detail shows the held task as a gold chip reading its title and the other as a dashed chip reading *not in this backlog*, and pressing the gold chip opens the task
+
+### Requirement: An enum row reads the words before its values
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitSummaryTests.An_enums_label_is_the_words_before_its_values, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_enum_row_leads_with_its_label_and_links_the_lifecycle_that_draws_it]
+```
+
+The system SHALL lead an enum row on an aggregate's About with the words its chapter puts before the colon of the sentence naming its values, and end the row on a link that focuses the lifecycle on the page whose states are all its values. A row has no label when it has no values, when that sentence has no colon, or when the words hold a code span or a link, end in *one of*, run past six words or repeat the heading.
+
+#### Scenario: Task's enums
+
+- **Given** a *Task* aggregate whose *Task Status* chapter reads *Lifecycle state: `draft`, `ready`, `in_progress`, `done`* and whose chapter draws a lifecycle of those states, and a *Weekday* reading *A day of the week, `monday` through `sunday`*
+- **When** the reader opens Task's About
+- **Then** *Task Status* is led by *Lifecycle state* and ends on *How it moves →*, which focuses the Task lifecycle, and *Weekday* has no label and no link
+
+### Requirement: About links to how the aggregate moves and is built
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_links_to_how_the_aggregate_moves_and_how_it_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_split_aggregate_links_to_its_own_model_split]
+```
+
+The system SHALL end an aggregate's About card on links to *Always true*, *How it moves* — the flow file a group of its rules names, else the first lifecycle its own chapter draws on the page, else the first a member's chapter draws — *How it is built*, which opens Model on Diagram, and the Glossary, in that order. *How it is built* opens the `model.<name>.md` beside a split `domain.<name>.md` when there is one, and `model.md` otherwise.
+
+#### Scenario: Task on an unsplit file
+
+- **Given** a context with `domain.md`, whose *Task* draws its lifecycle, and `model.md`
+- **When** the reader opens Task's About
+- **Then** the card reads *What is always true · N →*, *How it moves →*, *How it is built →* and *Glossary →*, and *How it is built* opens `model.md` on Diagram
+
+### Requirement: A unit's events say who hears them and when none is sent yet
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitsTests.An_event_a_chapter_says_is_not_emitted_is_not_sent, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_units_events_say_what_the_rest_of_the_domain_hears_and_when_none_is_sent_yet, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.The_events_heading_names_the_domain_the_context_map_heads]
+```
+
+The system SHALL head the events a unit raises *What the rest of ‹domain› hears*, ‹domain› being the context map's heading and *the domain* when the map has none or its heading names the map, and SHALL say *Not sent yet.* of each event Model marks *Documented*: once under the list when none of them is sent, else on each row that is not.
+
+#### Scenario: Tasks publishes no events yet
+
+- **Given** a context map headed *Backlog* and a Tasks `domain.md` saying *This context publishes no domain events yet.*
+- **When** the reader opens Task's About
+- **Then** the events read under *What the rest of Backlog hears*, with one *Not sent yet.* under the list

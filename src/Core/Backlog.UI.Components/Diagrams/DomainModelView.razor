@@ -155,7 +155,7 @@
                 <DomainServiceInvocations Services="@Chapters.Services" />
             </TabPanel>
             <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
-                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" />
+                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Moves="@Chapters.Moves" OpenEvent="@_openEvent" OpenEventChanged="@(slug => _openEvent = slug)" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" />
             </TabPanel>
         </ChildContent>
     </Tabs>
@@ -223,13 +223,23 @@
     [Parameter]
     public string Title { get; set; } = "Model";
 
+    /// <summary>The anchor of the link that opened the page
+    /// (<see cref="DomainModelTabs.For"/>): an event's slug opens Events on its
+    /// contract, <c>events</c> Events, <c>fields</c> Fields; anything else Diagram.
+    /// Taken only when the host changes it, so the reader's own pick wins after.</summary>
+    [Parameter]
+    public string? OpenAnchor { get; set; }
+
     [Parameter]
     public string? AriaLabel { get; set; } = "Model";
 
     [Parameter]
     public string? TestId { get; set; } = "domain-model-view";
 
-    private string _tab = "diagram";
+    private string _tab = DomainModelTabs.Diagram;
+    private string? _openEvent;
+    private string? _anchorParameter;
+    private bool _anchorRead;
     private readonly string _notesHeadingId = $"domain-model-notes-{Guid.NewGuid():N}";
     private IReadOnlyList<DomainModelFence>? _read;
     private IReadOnlyList<string> _roots = [];
@@ -238,6 +248,13 @@
 
     protected override void OnParametersSet()
     {
+        if (!_anchorRead || !string.Equals(_anchorParameter, OpenAnchor, StringComparison.Ordinal))
+        {
+            (_anchorRead, _anchorParameter) = (true, OpenAnchor);
+            var opening = DomainModelTabs.For(OpenAnchor, Chapters.Events, Markdown);
+            (_tab, _openEvent) = (opening.Tab, opening.Event);
+        }
+
         if (!ReferenceEquals(_markdownRead, Markdown))
         {
             _markdownRead = Markdown;

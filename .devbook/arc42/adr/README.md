@@ -72,7 +72,7 @@ between inherited ADRs 0005 and 0009.
 - **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
 - **[0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](0044-devbook-subject-state-lives-in-backlogs-own-store.md)** *(proposed, built; amends 0004, 0008, 0011, 0012 and 0029)*
 - **[0045 — The sync service relays a phone dictation to Foundry for transcription and keeps none of it](0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)** *(amends the thin-cloud constraint, beside 0023)*
-- **[0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
+- **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
 
 ## Inherited decisions

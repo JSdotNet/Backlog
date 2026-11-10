@@ -53,6 +53,9 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal("proposed", decisions.Single(record => record.Number == "0006").Note);
         Assert.True(decisions[^1].Guideline);
 
+        // A record with no state stored stands: accepted, as the log's filter counts it.
+        Assert.Equal([true, true, false, true], decisions.Select(record => record.Accepted));
+
         var debt = Assert.Single(Arc42Surface.Debt(catalog));
         Assert.Equal("High · planned", debt.Note);
     }
@@ -74,6 +77,34 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         // TDR 0001 is on the mobile app, which the containers view draws.
         Assert.Equal(["0001"], links.Debt.Select(record => record.Number));
+    }
+
+    /// <summary>The views map may list another folder's chapter against a view — the
+    /// domain's context map beside the container view — or a record; "arc42 ·
+    /// documents this view" lists the arc42 chapters only, as the inspector's
+    /// "Documented in arc42" does.</summary>
+    [Fact]
+    public async Task The_chapters_documenting_a_view_are_the_arc42_chapters_only()
+    {
+        const string Mixed = """
+            {
+              "views": {
+                "containers-backlog": [
+                  ".arc42/05-building-block-view.md#container-view",
+                  ".devbook/domain/context-map.md",
+                  ".domain/context-map.md",
+                  ".arc42/adr/0005-replica.md"
+                ]
+              }
+            }
+            """;
+
+        var (catalog, c4) = await LoadAsync(Mixed);
+
+        var documenting = Arc42Surface.DocumentsView(catalog, c4.Workspaces[0], "containers-backlog");
+
+        var only = Assert.Single(documenting);
+        Assert.Equal("05", only.Number);
     }
 
     [Fact]
@@ -257,6 +288,36 @@ public sealed class Arc42SurfaceTests : IDisposable
             Assert.Single(component.FindAll("[data-testid='arc42-record-model']"));
             Assert.Equal("page", component.FindAll("[data-testid='arc42-surface-record']").Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).GetAttribute("aria-current"));
         });
+    }
+
+    /// <summary>The design's decision log: All, Accepted or Proposed, each with its
+    /// count, the list narrowed to the choice.</summary>
+    [Fact]
+    public async Task The_decision_log_filters_by_status()
+    {
+        await using var harness = CreateHarness();
+        var component = harness.Render(null);
+        Settle(component);
+
+        await component.Find("[data-testid='arc42-surface-decisions']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-surface-decision-filter']")));
+
+        string[] Numbers() =>
+        [
+            .. component.FindAll("[data-testid='arc42-surface-record'] .arc42-surface-nav__number").Select(number => number.TextContent.Trim())
+        ];
+
+        var choices = component.FindAll("[data-testid='arc42-surface-decision-filter'] button");
+        Assert.Equal(["All 3", "Accepted 2", "Proposed 1"], choices.Select(choice => choice.TextContent.Trim()));
+        Assert.Equal("true", choices[0].GetAttribute("aria-checked"));
+        Assert.Equal(["0003", "0005", "0006", "0004"], Numbers());
+
+        await component.Find("[data-testid='arc42-surface-decision-filter-proposed']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal(["0006"], Numbers()));
+
+        await component.Find("[data-testid='arc42-surface-decision-filter-accepted']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal(["0003", "0005", "0004"], Numbers()));
+        Assert.Equal("true", component.Find("[data-testid='arc42-surface-decision-filter-accepted']").GetAttribute("aria-checked"));
     }
 
     [Fact]
@@ -457,7 +518,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · planned", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Planned", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
 
@@ -466,7 +529,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("High · resolved", component.Find("[data-testid='c4-inspector-debt-state']").TextContent.Trim());
+            // Debt on the selected element is drawn as its card: the severity, and the rung.
+            Assert.Equal("Severity High", component.Find("[data-testid='c4-inspector-debt-severity']").TextContent.Trim());
+            Assert.Equal("Resolved", component.Find("[data-testid='c4-inspector-debt-lifecycle'] [aria-current='step']").TextContent.Trim());
             Assert.Equal("3 · 2 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent.Trim());
         });
     }
@@ -538,9 +603,9 @@ public sealed class Arc42SurfaceTests : IDisposable
         }
         """;
 
-    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync()
+    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync(string references = References)
     {
-        await using var harness = CreateHarness();
+        await using var harness = CreateHarness(references: references);
         var store = harness.Context.Services.GetRequiredService<Arc42DevbookStore>();
         var c4 = harness.Context.Services.GetRequiredService<C4DevbookStore>();
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));

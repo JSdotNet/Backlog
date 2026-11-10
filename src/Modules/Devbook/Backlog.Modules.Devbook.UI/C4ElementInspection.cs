@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Backlog.UI.Components.Diagrams.C4;
+using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -40,10 +41,12 @@ public static partial class C4ElementInspection
 
         if (string.IsNullOrWhiteSpace(elementId)) return C4ElementRecords.None;
 
+        var stored = states ?? C4RecordStates.None;
+
         return new C4ElementRecords(
             DocumentedIn(workspace, chapters, elementId),
-            Records(catalog, elementId, C4RecordKind.Decision, C4InspectorRecordKind.Decision, states ?? C4RecordStates.None),
-            Records(catalog, elementId, C4RecordKind.Debt, C4InspectorRecordKind.Debt, states ?? C4RecordStates.None));
+            Records(catalog, elementId, C4RecordKind.Decision, C4InspectorRecordKind.Decision, stored),
+            Debt(catalog, workspace.Workspace, chapters, elementId, stored));
     }
 
     /// <summary>
@@ -92,6 +95,12 @@ public static partial class C4ElementInspection
             foreach (var reference in references)
             {
                 var file = C4ViewEntry.FileOf(reference);
+
+                // The views map may list another folder's chapter against a view (the
+                // domain's context map beside the container view) or a record; the
+                // section says "arc42", so it lists the arc42 folder's chapters only.
+                if (!Arc42DevbookCatalog.IsArc42Path(reference) || Arc42DevbookCatalog.IsDecisionRecord(reference)) continue;
+
                 var anchor = AnchorOf(reference);
                 if (!seen.Add($"{file}#{anchor}")) continue;
 
@@ -145,11 +154,135 @@ public static partial class C4ElementInspection
                         Proposed: record.Proposed,
                         Severity: record.Severity?.ToString(),
                         Lifecycle: LifecycleLabel(record.Lifecycle),
-                        Touches: touches);
+                        Touches: touches)
+                    {
+                        Accepted = record.Accepted,
+                        Guideline = Arc42DevbookCatalog.IsGuideline(record.Path)
+                    };
                 })
                 .OrderBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
         ];
     }
+
+    /// <summary>
+    /// The debt that names the element, and on a container the debt that names a
+    /// component inside it: the design's Containers screen lists the Devbook
+    /// component's debt on Desktop App, "On component Devbook". A record that names the
+    /// container itself is listed as the container's. Each carries what its file says
+    /// (<see cref="DebtDetail"/>) for the debt card.
+    /// </summary>
+    private static List<C4InspectorRecord> Debt(
+        C4Catalog catalog,
+        C4Workspace workspace,
+        IReadOnlyList<DevbookDocument> chapters,
+        string elementId,
+        C4RecordStates states)
+    {
+        var own = Records(catalog, elementId, C4RecordKind.Debt, C4InspectorRecordKind.Debt, states);
+        var listed = new HashSet<string>(own.Select(record => C4ViewEntry.FileOf(record.Path)), StringComparer.OrdinalIgnoreCase);
+        var rolledUp = new Dictionary<string, (C4InspectorRecord Record, List<string> Components)>(StringComparer.OrdinalIgnoreCase);
+
+        if (workspace.Element(elementId) is { Kind: C4ElementKind.Container } container)
+        {
+            var components = workspace.Elements
+                .Where(element => element.Kind == C4ElementKind.Component
+                    && string.Equals(element.ParentId, container.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(element => element.Name, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var component in components)
+            {
+                foreach (var record in Records(catalog, component.Id, C4RecordKind.Debt, C4InspectorRecordKind.Debt, states))
+                {
+                    var file = C4ViewEntry.FileOf(record.Path);
+                    if (listed.Contains(file)) continue;
+
+                    if (rolledUp.TryGetValue(file, out var entry)) entry.Components.Add(component.Name);
+                    else rolledUp[file] = (record, [component.Name]);
+                }
+            }
+        }
+
+        return
+        [
+            .. own
+                .Concat(rolledUp.Values.Select(entry => entry.Record with { OnComponent = string.Join(", ", entry.Components) }))
+                .Select(record => record with { Detail = DebtDetail(record.Path, chapters) })
+                .OrderBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    /// <summary>
+    /// What a debt record's file says beyond its title, read off the sections the
+    /// repository's debt records carry: the first paragraph under <c>## The debt</c>;
+    /// the option under <c>## Remediation options</c> whose heading marks it preferred
+    /// now (the last such, since a record that changed its mind marks the earlier one
+    /// "preferred before ..."); and the decisions its origin names. A record the
+    /// folder does not hold has nothing to read: null.
+    /// </summary>
+    private static C4InspectorDebtDetail? DebtDetail(string path, IReadOnlyList<DevbookDocument> chapters)
+    {
+        var file = C4ViewEntry.FileOf(path);
+        var document = chapters.FirstOrDefault(candidate =>
+            string.Equals(C4ViewEntry.FileOf(candidate.Path), file, StringComparison.OrdinalIgnoreCase));
+        if (document is null) return null;
+
+        string? section = null;
+        string? summary = null;
+        string? remediation = null;
+
+        foreach (var block in document.Blocks)
+        {
+            switch (block)
+            {
+                case DevbookHeadingBlock { Level: <= 2 } heading:
+                    section = heading.Level == 2 ? heading.Text.Trim() : null;
+                    break;
+
+                case DevbookHeadingBlock { Level: 3 } option
+                    when Is(section, "Remediation options") && PreferredNow(option.Text):
+                    remediation = OptionName(option.Text);
+                    break;
+
+                case DevbookParagraphBlock paragraph when Is(section, "The debt") && summary is null:
+                    summary = MarkdownRender.PlainText(paragraph.Content).Trim();
+                    break;
+            }
+        }
+
+        return new C4InspectorDebtDetail(
+            string.IsNullOrWhiteSpace(summary) ? null : summary,
+            remediation,
+            OriginDecisions(document, chapters));
+    }
+
+    private static bool Is(string? section, string heading) =>
+        string.Equals(section, heading, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>An option heading that marks it preferred now: "(preferred)" or
+    /// "(preferred since ...)", not "(preferred before ...)".</summary>
+    private static bool PreferredNow(string heading)
+    {
+        var marked = OptionMark().Match(heading);
+        return marked.Success
+            && marked.Groups[1].Value.Contains("preferred", StringComparison.OrdinalIgnoreCase)
+            && !marked.Groups[1].Value.Contains("before", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>An option heading without its parenthesised mark and code ticks:
+    /// "Option C — drop the exclusion".</summary>
+    private static string OptionName(string heading) =>
+        OptionMark().Replace(heading, string.Empty).Replace("`", string.Empty, StringComparison.Ordinal).Trim();
+
+    /// <summary>The decisions the record's origin names, read the one way the
+    /// placement panel reads them (<see cref="C4RecordPlacement.OriginDecisions"/>):
+    /// bounded by its <c>related:</c> list, a guideline told apart from the local
+    /// record of the same number.</summary>
+    private static List<C4InspectorLink> OriginDecisions(DevbookDocument document, IReadOnlyList<DevbookDocument> chapters) =>
+    [
+        .. C4RecordPlacement.OriginDecisions(document, chapters).Select(adr => new C4InspectorLink(
+            adr.Path,
+            Arc42DevbookCatalog.IsGuideline(adr.Path) ? $"Guideline ADR {NumberOf(adr.Path)}" : $"ADR {NumberOf(adr.Path)}"))
+    ];
 
     /// <summary>A rung of the debt ladder the way a reader says it.</summary>
     private static string? LifecycleLabel(DevbookDebtLifecycle? lifecycle) => lifecycle switch
@@ -191,6 +324,9 @@ public static partial class C4ElementInspection
         var stripped = FileNumber().Replace(name, string.Empty, 1);
         return stripped.Length == 0 ? name : stripped;
     }
+
+    [GeneratedRegex(@"\s*\(([^()]*)\)\s*$")]
+    private static partial Regex OptionMark();
 
     [GeneratedRegex(@"^\d+[-_.\s]+")]
     private static partial Regex FileNumber();

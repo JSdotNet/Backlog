@@ -312,7 +312,12 @@ public sealed class DomainFlowsTests
         Assert.Contains("domain-flow__event--documented", projected.GetAttribute("class"));
         Assert.DoesNotContain("domain-flow__event--documented", row.Find("[data-event='TaskCompleted']").GetAttribute("class"));
         projected.QuerySelector("button")!.Click();
-        Assert.Equal(".devbook/domain/tasks/model.md", followed?.Raw);
+        Assert.Equal(".devbook/domain/tasks/model.md#taskprojected", followed?.Raw);
+
+        // A host that resolved a split's own model file sends the chip there.
+        row.Render(parameters => parameters.Add(p => p.ModelPath, ".devbook/domain/tasks/model.recurring.md"));
+        row.Find("[data-testid='domain-flow-event'][data-event='TaskProjected'] button").Click();
+        Assert.Equal(".devbook/domain/tasks/model.recurring.md#taskprojected", followed?.Raw);
         Assert.Contains("Ready to In progress: started, raising TaskProjected (documented, not emitted yet)", row.FindAll("figcaption li").Select(item => item.TextContent));
     }
 

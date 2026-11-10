@@ -6559,6 +6559,22 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-background);
 }
 
+/* The Domain view's Demo strip (local ADR 0047), above the page: its buttons in a
+   row, wearing the default control tone
+   (.devbook/design/color-scheme.md#domain-view-element-tones), and each demo
+   shown below them. */
+.domain-view__demos {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.domain-view__demo-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
 .devbook-concerns,
 .devbook-items,
 .devbook-subitems,
@@ -8596,6 +8612,15 @@ a.pull-request-detail-checks__name:hover {
 
 .devbook-record-model__chip .devbook-record-model__number {
     color: inherit;
+}
+
+/* A guideline ADR numbers from 0001 as a local one does: the word before its number
+   tells the two apart without relying on colour. */
+.devbook-record-model__scope {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .devbook-record-model__citation {
@@ -11761,6 +11786,24 @@ a.pull-request-detail-checks__name:hover {
     font-weight: var(--font-weight-semibold);
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+/* The decision log's status filter: All, Accepted, Proposed, one chosen — the
+   library's radio ButtonGroup at its small size, placed in line with the list
+   under it. The rail is narrower than three labelled counts at the default size,
+   so the group takes the rail's width and its segments share it; a rail too
+   narrow even for that wraps the last segment rather than clipping it. */
+.arc42-surface-nav__filter {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: calc(100% - 2 * var(--spacing-sm));
+    margin: 0 var(--spacing-sm) var(--spacing-xs);
+}
+
+.arc42-surface-nav__filter > .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
 }
 
 .arc42-surface-nav__item {

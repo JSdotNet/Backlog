@@ -176,16 +176,17 @@ related: [".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-
 Roslyn's C# parser, used for syntax trees and nothing else.
 
 - **Used for** — `CSharpCodeReader` in `Backlog.Infrastructure.Devbook` reads the
-  C4 zoom tab's Code level. It parses each `*.cs` under a component's folder with
+  Code level of the C4 zoom surface. It parses each `*.cs` under a component's folder with
   `CSharpSyntaxTree.ParseText` and lists the types, their members, and the uses
   between types it can see by name. It reads on demand and caches by the files'
   timestamps. The package reaches only the desktop side: the mobile head does
   not reference the Devbook adapter.
 - **Why** — local ADR 0046 §3 draws level 4 from the source and never from an
   authored diagram. Syntax trees need only the files, so nothing compiles or
-  restores and no SDK has to match. A branch snapshot reads the same as a clone
-  the app builds. Because nothing is compiled, the package version need not
-  follow the SDK's compiler.
+  restores and no SDK has to match. A clone the app never builds reads the same
+  as one it does. A branch snapshot carries the devbook folders and no source, so
+  its Code view has nothing to parse. Because nothing is compiled, the package
+  version need not follow the SDK's compiler.
 
 ## GitHub CLI
 

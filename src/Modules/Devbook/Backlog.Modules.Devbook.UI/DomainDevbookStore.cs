@@ -642,15 +642,29 @@ public sealed class DomainDevbookStore : IDisposable
         const string Prefix = ".domain/";
         if (view.Error is not null || !documentPath.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return null;
 
-        var file = Path.Combine(view.RootPath, documentPath[Prefix.Length..].Replace('/', Path.DirectorySeparatorChar));
         try
         {
-            return File.Exists(file) ? File.ReadAllText(file) : null;
+            return WithinRoot(view.RootPath, documentPath[Prefix.Length..]) is { } file && File.Exists(file)
+                ? File.ReadAllText(file)
+                : null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return null;
         }
+    }
+
+    /// <summary>The full path <paramref name="relative"/> names under
+    /// <paramref name="root"/>, or null when it leaves the folder — a <c>..</c>
+    /// step, or a rooted path such as <c>C:/secret.md</c> that
+    /// <see cref="Path.Combine(string, string)"/> would take whole.</summary>
+    internal static string? WithinRoot(string root, string relative)
+    {
+        var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
+        var full = Path.GetFullPath(Path.Combine(fullRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
+        return full.StartsWith(fullRoot, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            ? full
+            : null;
     }
 
     private static string MermaidKind(IReadOnlyList<string> lines)

@@ -82,15 +82,15 @@ default: off
 related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
 ```
 
-Turning it on adds a **C4 zoom** tab beside the **C4** tab in the architecture
-panel. An ADR, a TDR or an arc42 chapter in the **Chapters** tab then shows where
-it lands in the C4 model. It needs `c4-diagrams` on as well, because the model it
-walks is the one that switch shows. With `c4-diagrams` off the panel offers no zoom
-tab, whatever this switch says. The **C4** tab is the same with this switch on or
-off.
+Turning it on makes the architecture panel one **architecture surface** in place
+of its **Chapters** and **C4** tabs, and the pane's own architecture menu stands
+down. An ADR, a TDR or an arc42 chapter opened on the surface shows where it lands
+in the C4 model. It needs `c4-diagrams` on as well, because the model it walks is
+the one that switch shows. With `c4-diagrams` off the panel keeps its **Chapters**
+tab, whatever this switch says. With this switch off, the tabs are as they were.
 
 The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and the
-switch is retired once the zoom tab has been validated and replaces the **C4** tab
+switch is retired once the surface has been validated and replaces the **C4** tab
 (local ADR 0046).
 
 ## Devbook editing
@@ -192,8 +192,8 @@ choices.
 
 The plan has built every page: the Context map, a context's page with its
 neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
-notes and tasks that link to each. Only the **Demo** button for a click demo is
-still to come, and a file of no known kind opens a placeholder.
+notes and tasks that link to each, the **Demo** button for a click demo,
+and any other file as written.
 
 Model opens on **Diagram**, headed by the root's name, which draws each
 `classDiagram` of the model file as the aggregate's consistency boundary: the

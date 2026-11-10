@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Brain;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -31,7 +33,7 @@ public sealed class DomainFeatureBoardTests
         // The chip shows the chapter's title; a listener also hears what it is.
         var gate = checkout.QuerySelector("[data-testid='domain-feature-gate']")!;
         Assert.Equal("flag", gate.GetAttribute("data-kind"));
-        Assert.Equal("New checkout", gate.QuerySelector(".domain-feature-card__gate-name")!.TextContent.Trim());
+        Assert.Equal("New checkout", gate.QuerySelector(".domain-gate-chip__name")!.TextContent.Trim());
         Assert.Equal("Flag:", gate.QuerySelector(".sr-only")!.TextContent.Trim());
 
         var tally = checkout.QuerySelector("[data-testid='domain-feature-requirements']")!;
@@ -43,7 +45,7 @@ public sealed class DomainFeatureBoardTests
     }
 
     [Fact]
-    public void A_setting_chip_is_outlined_like_a_flag_and_names_its_kind_only_to_a_listener()
+    public void A_flag_and_a_setting_chip_lead_with_their_kinds_glyph_and_name_it_to_a_listener()
     {
         using var context = new BunitContext();
         var board = Board(context);
@@ -51,10 +53,183 @@ public sealed class DomainFeatureBoardTests
         var gate = board.Find("[data-key='quotes'] [data-testid='domain-feature-gate']");
         Assert.Equal("setting", gate.GetAttribute("data-kind"));
         var flag = board.Find("[data-key='checkout'] [data-testid='domain-feature-gate']");
+
+        // Both outlined alike; only the glyph in front tells them apart to the eye.
         Assert.Equal(flag.ClassName, gate.ClassName);
-        Assert.Equal("Setting: Quote validity", gate.GetAttribute("title"));
-        Assert.Equal("Flag: New checkout", flag.GetAttribute("title"));
+        Assert.NotNull(flag.QuerySelector("svg.flag-icon.domain-gate-chip__glyph[aria-hidden='true'][width='12']"));
+        Assert.Null(flag.QuerySelector("svg.settings-icon"));
+        Assert.NotNull(gate.QuerySelector("svg.settings-icon.domain-gate-chip__glyph[aria-hidden='true'][width='12']"));
+        Assert.Null(gate.QuerySelector("svg.flag-icon"));
+
+        // The glyph is never the only carrier: the kind word stays for a listener.
+        Assert.Equal("Setting: Quote validity · user · default 14 days", gate.GetAttribute("title"));
+        Assert.Equal("Flag: New checkout · default off", flag.GetAttribute("title"));
         Assert.Equal("Setting: Quote validity", gate.TextContent.Trim());
+        Assert.Equal("Flag: New checkout", flag.TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_legend_names_a_flag_and_a_setting_apart()
+    {
+        using var context = new BunitContext();
+        var board = Board(context);
+
+        var legend = board.Find("[data-testid='domain-features-legend']");
+        var flag = legend.QuerySelector("[data-testid='domain-features-legend-flag']")!;
+        var setting = legend.QuerySelector("[data-testid='domain-features-legend-setting']")!;
+
+        Assert.Equal("flag decided at release", Words(flag.TextContent));
+        Assert.NotNull(flag.QuerySelector("svg.flag-icon[aria-hidden='true']"));
+        Assert.Equal("setting chosen by a person", Words(setting.TextContent));
+        Assert.NotNull(setting.QuerySelector("svg.settings-icon[aria-hidden='true']"));
+        Assert.DoesNotContain("flag or setting", legend.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_card_counts_the_brain_notes_linking_to_it_or_a_sub_feature()
+    {
+        using var context = new BunitContext();
+        var board = WithNotes(context, Notes(), _ => { });
+
+        var item = board.Find("[data-testid='domain-feature-card'][data-key='checkout']").ParentElement!;
+        var badge = item.QuerySelector("[data-testid='domain-feature-card-notes']")!;
+        Assert.Equal("◆ 2 notes", badge.QuerySelector("[data-testid='domain-feature-card-notes-button']")!.TextContent.Trim());
+
+        // Beside the card, never inside it: a button holds no button.
+        Assert.Null(item.QuerySelector("[data-testid='domain-feature-card'] [data-testid='domain-feature-card-notes']"));
+        Assert.Contains("domain-features__card-item", item.ClassList);
+
+        Assert.Null(board.Find("[data-testid='domain-feature-card'][data-key='ordering']").ParentElement!.QuerySelector("[data-testid='domain-feature-card-notes']"));
+        Assert.Empty(board.FindAll("[data-testid='domain-features-deprecated'] [data-testid='domain-feature-card-notes']"));
+    }
+
+    [Fact]
+    public void Pressing_a_cards_note_badge_opens_the_note_without_picking_the_card()
+    {
+        using var context = new BunitContext();
+        BrainNoteLink? opened = null;
+        string? picked = null;
+        var board = WithNotes(
+            context,
+            new Dictionary<string, IReadOnlyList<BrainNoteLink>> { [DomainChapterLinks.Key(".devbook/domain/ordering/features.md#quotes")] = [new BrainNoteLink("work/quotes.md", "Quotes")] },
+            parameters => parameters.Add(p => p.ActiveFeatureChanged, key => picked = key),
+            note => opened = note);
+
+        board.Find("[data-testid='domain-feature-card-notes-button']").Click();
+
+        Assert.Equal("work/quotes.md", opened!.Path);
+        Assert.Null(picked);
+        Assert.Equal("ordering", board.Find("[data-testid='domain-feature-detail']").GetAttribute("data-key"));
+    }
+
+    /// <summary>A note on Checkout and one on its sub-feature Invoice.</summary>
+    private static Dictionary<string, IReadOnlyList<BrainNoteLink>> Notes() => new()
+    {
+        [DomainChapterLinks.Key(".devbook/domain/ordering/features.md#checkout")] = [new BrainNoteLink("work/checkout.md", "Checkout")],
+        [DomainChapterLinks.Key(".devbook/domain/ordering/features.md#invoice")] = [new BrainNoteLink("work/invoice.md", "Invoice")]
+    };
+
+    private static IRenderedComponent<CascadingValue<DomainChapterLinks>> WithNotes(
+        BunitContext context,
+        IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> notes,
+        Action<ComponentParameterCollectionBuilder<DomainFeatureBoard>> more,
+        Action<BrainNoteLink>? open = null)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var links = new DomainChapterLinks
+        {
+            Notes = notes,
+            OnOpenNote = EventCallback.Factory.Create<BrainNoteLink>(new object(), note => open?.Invoke(note))
+        };
+        return context.Render<CascadingValue<DomainChapterLinks>>(parameters => parameters
+            .Add(c => c.Value, links)
+            .AddChildContent<DomainFeatureBoard>(board =>
+            {
+                board.Add(p => p.Columns, DomainFeatures.Columns(DomainFeaturesTests.FeaturesFile, DomainFeaturesTests.Files));
+                more(board);
+            }));
+    }
+
+    [Fact]
+    public void The_detail_says_which_records_decided_it_and_follows_one()
+    {
+        using var context = new BunitContext();
+        DevbookReference? followed = null;
+        var board = Board(context, parameters => parameters.Add(p => p.OnNavigate, reference => followed = reference));
+
+        var facts = board.FindAll("[data-testid='domain-feature-detail'] .domain-feature-detail__fact").Select(fact => fact.GetAttribute("data-testid")).ToList();
+        Assert.Equal(facts.IndexOf("domain-feature-detail-gate") + 1, facts.IndexOf("domain-feature-decided-in"));
+
+        var row = board.Find("[data-testid='domain-feature-decided-in']");
+        Assert.Equal("Decided in", row.QuerySelector("dt")!.TextContent.Trim());
+        var link = row.QuerySelector("button")!;
+        Assert.Equal("ADR 0001", link.TextContent.Trim());
+        Assert.Equal("ADR 0001 — X", link.GetAttribute("title"));
+        Assert.Equal("ADR 0001 — X", link.GetAttribute("aria-label"));
+
+        link.Click();
+
+        Assert.Equal(".devbook/arc42/adr/0001-x.md", followed!.Path);
+    }
+
+    [Fact]
+    public void A_feature_naming_no_record_draws_no_decided_in_row()
+    {
+        using var context = new BunitContext();
+        var board = Board(context, parameters => parameters.Add(p => p.ActiveFeature, "quotes"));
+
+        Assert.Empty(board.FindAll("[data-testid='domain-feature-decided-in']"));
+    }
+
+    [Fact]
+    public void The_gate_line_reads_its_kind_scope_and_default()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var file = DomainUnits.Parse("""
+            # Features
+
+            ## Checkout
+
+            ```meta
+            type: feature
+            feature-flag: context.md#new-checkout
+            ```
+
+            Pay in one step.
+
+            ## Quotes
+
+            ```meta
+            type: feature
+            setting: context.md#quote-validity
+            ```
+
+            Ask first.
+
+            ## Express
+
+            ```meta
+            type: feature
+            feature-flag: context.md#express
+            ```
+
+            Faster.
+            """, DomainFeaturesTests.FeaturesPath);
+        // The sample context, with one more flag that states no default.
+        var withExpress = DomainUnits.Parse(DomainFeaturesTests.Context + "\n\n## Express\n\n```meta\ntype: feature-flag\n```\n\nTurns express on.\n", ".devbook/domain/ordering/context.md");
+        var others = DomainFeaturesTests.Files.Where(other => !other.Path.EndsWith("/context.md", StringComparison.Ordinal) && other.Path != DomainFeaturesTests.FeaturesPath).ToList();
+        var board = context.Render<DomainFeatureBoard>(parameters => parameters.Add(p => p.Columns, DomainFeatures.Columns(file, [withExpress, .. others, file])));
+
+        Assert.Equal("New checkout · flag · default off", Words(board.Find("[data-testid='domain-feature-detail-gate'] dd").TextContent));
+
+        board.Find("[data-key='quotes']").Click();
+        Assert.Equal("Quote validity · setting · user · default 14 days", Words(board.Find("[data-testid='domain-feature-detail-gate'] dd").TextContent));
+
+        // A chapter stating no default says none.
+        board.Find("[data-key='express']").Click();
+        Assert.Equal("Express · flag", Words(board.Find("[data-testid='domain-feature-detail-gate'] dd").TextContent));
+        Assert.Equal("Flag: Express", board.Find("[data-key='express'] [data-testid='domain-feature-gate']").GetAttribute("title"));
     }
 
     [Fact]
@@ -146,8 +321,8 @@ public sealed class DomainFeatureBoardTests
         Assert.Equal("What Ordering lets a person do", board.Find("[data-testid='domain-features-title']").TextContent.Trim());
         Assert.StartsWith("4 features and their sub-features, laid out by what each builds on.", board.Find("[data-testid='domain-features-lead']").TextContent.Trim(), StringComparison.Ordinal);
         var legend = board.Find("[data-testid='domain-features-legend']").TextContent;
-        Assert.Contains("flag or setting", legend, StringComparison.Ordinal);
-        Assert.Contains("what it hangs on", legend, StringComparison.Ordinal);
+        Assert.Contains("decided at release", legend, StringComparison.Ordinal);
+        Assert.Contains("chosen by a person", legend, StringComparison.Ordinal);
         Assert.Contains("its promises on the Requirements page", legend, StringComparison.Ordinal);
         Assert.Contains("agreed, not yet the model", legend, StringComparison.Ordinal);
     }
@@ -191,12 +366,12 @@ public sealed class DomainFeatureBoardTests
 
         var gate = board.Find("[data-testid='domain-feature-detail-gate']");
         Assert.Equal("Gated by", gate.QuerySelector("dt")!.TextContent.Trim());
-        Assert.Equal("New checkout · flag", Words(gate.QuerySelector("dd")!.TextContent));
+        Assert.Equal("New checkout · flag · default off", Words(gate.QuerySelector("dd")!.TextContent));
 
         board.Find("[data-key='quotes']").Click();
         gate = board.Find("[data-testid='domain-feature-detail-gate']");
         Assert.Equal("Configured by", gate.QuerySelector("dt")!.TextContent.Trim());
-        Assert.Equal("Quote validity · setting", Words(gate.QuerySelector("dd")!.TextContent));
+        Assert.Equal("Quote validity · setting · user · default 14 days", Words(gate.QuerySelector("dd")!.TextContent));
 
         board.Find("[data-key='ordering']").Click();
         gate = board.Find("[data-testid='domain-feature-detail-gate']");

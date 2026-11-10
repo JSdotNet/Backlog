@@ -19,6 +19,10 @@ public sealed record DomainEventField(string Name, string Meaning);
 /// what the rest of the line says it does with the event.</summary>
 public sealed record DomainEventConsumer(string Name, string? What);
 
+/// <summary>A move of a lifecycle that raises an event: the states it leaves and
+/// reaches, by the labels the diagram gives them — "Ready", "In progress".</summary>
+public sealed record DomainEventMove(string From, string To);
+
 /// <summary>
 /// The Events tab's index and detail, read out of the chapters as written
 /// (local ADR 0047 §5): when an event fires, who consumes it, its payload as
@@ -146,6 +150,52 @@ public static partial class DomainEventIndex
 
         return result;
     }
+
+    /// <summary>No event fires on any move.</summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> NoMoves { get; } = new Dictionary<string, IReadOnlyList<DomainEventMove>>();
+
+    /// <summary>
+    /// The moves each event fires on: every transition of a <c>stateDiagram-v2</c>
+    /// the context's aggregate and domain-service chapters draw — and a legacy
+    /// <c>flow.md</c>'s diagrams — whose label names the event, by the event's
+    /// name, each move once, in source order. Prose saying a move "would emit" an
+    /// event is not read, nor a flowchart's edges or a note: only a transition.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> Moves(IEnumerable<DomainChapterFile> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+
+        var moves = new Dictionary<string, List<DomainEventMove>>(StringComparer.Ordinal);
+        foreach (var diagram in files.SelectMany(Lifecycles))
+        {
+            foreach (var transition in diagram.Transitions)
+            {
+                if (transition.Event is not { } raised) continue;
+                var move = new DomainEventMove(Name(diagram, transition.From), Name(diagram, transition.To));
+                if (!moves.TryGetValue(raised.Name, out var list)) moves[raised.Name] = list = [];
+                if (!list.Contains(move)) list.Add(move);
+            }
+        }
+        return moves.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DomainEventMove>)pair.Value, StringComparer.Ordinal);
+    }
+
+    private static IEnumerable<DomainFlowDiagram> Lifecycles(DomainChapterFile file)
+    {
+        // A legacy flow file draws its lifecycles in chapters of no unit's type.
+        var figures = DomainUnits.IsFlowReference(file.Path)
+            ? file.AllChapters().SelectMany(chapter => DomainFlows.Section(chapter).Diagrams)
+            : file.AllChapters()
+                .Where(chapter => chapter.Type is "aggregate" or "domain-service")
+                .SelectMany(chapter => DomainFlows.InChapter(chapter).Select(flow => flow.Figure));
+        return figures.OfType<DomainFlowDiagram>();
+    }
+
+    private static string Name(DomainFlowDiagram diagram, string id) => diagram.State(id) switch
+    {
+        { Kind: DomainFlowStateKind.Start } => "Start",
+        { Kind: DomainFlowStateKind.End } => "End",
+        var state => state.Label
+    };
 
     private static bool IsSelf(string name, string context, string? slug) =>
         string.Equals(name, context, StringComparison.OrdinalIgnoreCase)

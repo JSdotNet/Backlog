@@ -5,9 +5,10 @@
 @*
     The Domain area read by unit (local ADR 0047), behind the New domain view
     switch. It names the page the selected menu row opens and draws it: Context
-    map, Domain, Context, Features, Requirements, Model and Flow, and a
-    placeholder when no row is selected or the file is of no known kind. With the
-    switch off the pane renders
+    map, Domain, Context, Features, Requirements, Model and Flow; any other file
+    — actors.md, skills.md, a page a context adds — as written; and a
+    placeholder when no row is selected. Above the page, the Demo strip for
+    whatever demos it owns. With the switch off the pane renders
     DomainDevbookPanel and never this.
 
     Every page reads the same Brain and task links, cascaded as DomainChapterLinks:
@@ -20,6 +21,9 @@
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
+@* Above every page, once: a page's demo is the same Demo button wherever it is
+   drawn, and it draws nothing on a page that owns none. *@
+<DomainViewDemos RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
 <CascadingValue Value="@Links" IsFixed="false">
     @if (Page == DomainViewPage.ContextMap)
     {
@@ -27,7 +31,7 @@
     }
     else if (Page == DomainViewPage.Domain)
     {
-        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter"
+        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync"
                               OpenUnit="@Asked?.Anchor"
                               OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)"
                               OpenRule="@Asked?.Rule"
@@ -63,11 +67,17 @@
     }
     else if (Page == DomainViewPage.Model)
     {
-        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Flow)
     {
-        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+    }
+    else if (Page == DomainViewPage.File)
+    {
+        @* Followed like the context page's links, so a related link to a feature
+           or a requirement group opens on it. *@
+        <DomainViewFilePage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" />
     }
     else
     {
@@ -272,6 +282,15 @@
 
     private Task NavigateAsync(DevbookReference reference) =>
         DevbookChapterLink.From(reference) is { } target ? FollowAsync(target, alwaysTrue: false) : Task.CompletedTask;
+
+    /// <summary>A link followed on the Domain or Flow page. One into Model keeps
+    /// its anchor, which Model reads as the tab to open on — an event chip's
+    /// <c>model.md#taskprojected</c> opens Events on that event; any other goes to
+    /// the pane as it always has.</summary>
+    private Task OpenAsync(DevbookChapterLink target) =>
+        DomainViewUnit.PageFor(target.RelativePath) == DomainViewPage.Model
+            ? FollowAsync(target, alwaysTrue: false)
+            : OnNavigateToChapter.InvokeAsync(target);
 
     private Task OpenAlwaysTrueAsync(DomainAlwaysTrueLink unit) =>
         DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true, unit.Rule) : Task.CompletedTask;

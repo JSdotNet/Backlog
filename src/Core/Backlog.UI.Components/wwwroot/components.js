@@ -7717,6 +7717,10 @@
 
     const zooms = new Map();
 
+    // The reduced-motion listener of each explorer, by its frame id: the function
+    // that removes it.
+    const motionWatches = new Map();
+
     function zoomNodes(svg) {
         return Array.from(svg.querySelectorAll('g.node'));
     }
@@ -7873,12 +7877,29 @@
         },
 
         /**
-         * Whether the reader asked for reduced motion. Read when a dynamic view's
-         * steps panel is first drawn; Play then steps once per press instead of
-         * walking on a timer.
+         * Whether the reader asks for reduced motion now, and from then on a
+         * `change` listener that tells the explorer when the setting is turned on or
+         * off mid-session. Play walks the steps either way: reduced motion takes the
+         * animation away, never the function (accessibility.md, "Function
+         * preserved"). One listener per explorer; watching again replaces it.
          */
-        reducedMotion() {
-            return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        watchReducedMotion(id, dotnet) {
+            const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+            if (!query) return false;
+
+            motionWatches.get(id)?.();
+            const changed = event => {
+                dotnet.invokeMethodAsync('ReducedMotionChanged', !!event.matches).catch(() => { });
+            };
+            query.addEventListener('change', changed);
+            motionWatches.set(id, () => query.removeEventListener('change', changed));
+            return !!query.matches;
+        },
+
+        /** Removes an explorer's reduced-motion listener, when it goes. */
+        unwatchReducedMotion(id) {
+            motionWatches.get(id)?.();
+            motionWatches.delete(id);
         },
 
         /** Moves the selection ring without a new picture. */
