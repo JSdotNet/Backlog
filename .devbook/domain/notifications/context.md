@@ -131,17 +131,16 @@ before it arrives, so a first pull raises none.
 On the owner desktop the person reads and answers through `INotificationCentre`:
 
 - **The notification centre**, a takeover the shell's **Notifications** option
-  opens, wearing the count of open questions. The centre lists the open
-  notifications. **Show settled**, a toggle of its own and off by default, adds
-  those answered, acknowledged or closed in the last seven days. A settled row
-  puts its answer, or a closed one's reason, on its own line under the row's lead
-  line. The one picked is drawn whole beside the list as the library's `NotificationCard`, its Markdown body
-  through `MarkdownView` and Mermaid through `DiagramView`.
+  opens, wearing the count of open questions. What it lists, and when, is
+  [Answering on the owner desktop](requirements.md#answering-on-the-owner-desktop).
+  A settled row puts its answer, or a closed one's reason, on its own line under
+  the row's lead line. The one picked is drawn whole beside the list as the
+  library's `NotificationCard`, its Markdown body through `MarkdownView` and
+  Mermaid through `DiagramView`.
 
   A single-choice question shows buttons, a multiple-choice one checkboxes, an open one
   a plain-text box, and an alert Acknowledge. A choice that takes text asks for its text in a plain-text box
-  before it sends. A notification answered or acknowledged in the centre stays
-  listed and picked until another is picked, so the person can read the answer it got.
+  before it sends.
 
   A settled card offers no control that answers. An answered card whose answer
   names set answers lists every set answer read-only. The chosen ones carry a tick
@@ -163,13 +162,9 @@ device. A viewer's reply takes the same path, so the owner checks every answer
 alike.
 
 The centre's list follows the header's repository scope, by the rule the
-Sessions list keeps (local ADR 0027):
-
-- nothing pressed lists every notification;
-- one repository, or several pressed with Ctrl, lists those about them;
-- the Brain lists those about no repository.
-
-A notification carries no repository of its own. The host works it out at read time
+Sessions list keeps (local ADR 0027), as
+[its requirement](requirements.md#requirement-the-centre-follows-the-headers-repository-scope)
+says. A notification carries no repository of its own. The host works it out at read time
 from what its producer left on it (`NotificationRepositories`):
 
 - a run's worktree or place;
@@ -179,9 +174,9 @@ from what its producer left on it (`NotificationRepositories`):
 - a remark's chapter.
 
 Pairing, the settings test and an MCP call from no session name none and are the
-Brain's. One the host could not work out, because its source
-could not be read, is listed under every scope. A failing source therefore never
-hides a question.
+Brain's. One whose source could not be read has no repository the host can work
+out, and the centre lists it under every scope, so a failing source never hides a
+question.
 
 The owner desktop publishes that answer with each notification it pushes, worked
 out by the same rule when it pushes. The answer is the repository's alias, the name its header
@@ -192,15 +187,13 @@ no aliases of its own, so this is what its Repository filter reads
 ([Answering from another device](features.md#answering-from-another-device);
 local ADR 0039).
 
-Three filters sit over the list. Each option counts what it would keep under the
-other two filters and **Show settled**. The tally on **Show settled** counts the
-settled notifications the scope and the filters keep.
+Three filters sit over the list, beside **Show settled**:
 
 - **From:** the system, per [Origin](domain.md#origin).
 - **Asked by:** *AI agent* or *Person*, the asker kind of
   [Origin](domain.md#origin).
-- **Kind:** *All*, *Questions*, *Alerts*. A machine that remembered the former
-  *Open* reads it as *All*, with settled ones hidden.
+- **Kind:** *All*, *Questions*, *Alerts*. *Open* was a Kind before **Show
+  settled** took its place.
 
 **Group by** offers:
 
@@ -210,18 +203,11 @@ settled notifications the scope and the filters keep.
 - *Subject* ([Subject](domain.md#subject));
 - *Not grouped*.
 
-Unchosen, it groups by repository, or by system while one repository or the Brain
-alone is pressed. A group holding an open question comes first, then by its newest notification;
-inside a group an open question leads, then newest first. Group by, the filters
-and **Show settled** are remembered on this machine. **Clear filters** resets every
-filter and keeps Group by and **Show settled**. The **Notifications** option's count stays global, so
-the subtitle says how many waiting questions lie outside the scope and how many
-the filters hide. It reads *Loading…* until the first load returns.
-
-The centre can open on one notification, as **Open in Backlog** does. When that
-one is settled while settled ones are hidden, the centre lists settled ones for
-that visit. It then clears whatever filter or scope still hides it. None of that
-is remembered.
+The centre's tallies, its grouping, what it remembers on the machine, its
+subtitle and how a jump such as **Open in Backlog** lands are
+[requirements](requirements.md#answering-on-the-owner-desktop). The
+**Notifications** option's count stays global, so a narrow scope or filter never
+hides that a question waits.
 
 The person tries the system out on **Settings › Notifications**
 (`settings/notifications`, offered behind the `notifications` switch). **Send test
