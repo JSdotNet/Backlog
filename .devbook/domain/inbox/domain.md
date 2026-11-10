@@ -26,12 +26,12 @@ aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, Duplicate
 ```mermaid
 stateDiagram-v2
     [*] --> Unprocessed : Capture delivers item / typed by hand
-    Unprocessed --> Routed : Route to Tasks / Create plan / To Brain
+    Unprocessed --> Routed : Route to Tasks / Create plan / To Brain / To Event
     Unprocessed --> Deferred : Defer for later review
     Unprocessed --> Archived : Dismiss / not actionable
     Deferred --> Deferred : Change the review date
     Deferred --> Unprocessed : Review date reached / Return to inbox
-    Deferred --> Routed : Route to Tasks / Create plan / To Brain
+    Deferred --> Routed : Route to Tasks / Create plan / To Brain / To Event
     Deferred --> Archived : Dismissed after deferral
     Routed --> Unprocessed : Undo (return to the inbox)
     Archived --> Unprocessed : Undo (restore)
@@ -168,18 +168,19 @@ type: value-object
 aliases: [RoutingTarget, InboxRoutingDto]
 ```
 
-The destination chosen during triage. It holds four fields:
+The destination chosen during triage. It holds five fields:
 
-- `domain`: the target, which is tasks, devbook for the To Brain route, or
-  archive;
+- `domain`: the target, which is tasks, devbook for the To Brain route, events
+  for the To Event route, or archive;
 - `repo_ids`: the repositories the item was assigned when it was routed;
 - `task_ids`: the entries Tasks created for it, one per repository, or one when
   no repository was assigned;
+- `event_id`: the knowledge event Events made for it, on the events route only;
 - `routed_at`: when it was routed.
 
-It is immutable once set, and equality is by value. The task ids name
-aggregates in another context that may since have been deleted there, which is
-why they are ids and not references.
+It is immutable once set, and equality is by value. The task ids and the event
+id name aggregates in another context that may since have been deleted there,
+which is why they are ids and not references.
 
 ### Tag
 
@@ -210,6 +211,19 @@ facts, because a link shared by a colleague and the same link clipped alone
 mean different things to the reader triaging them. The channel is provenance
 mirrored from Capture; the person is provenance the channel cannot carry. It is
 immutable once set, and equality is by value.
+
+### Event Facts
+
+```meta
+type: value-object
+related: [.devbook/domain/capture/domain.md#event-facts, .devbook/domain/inbox/features.md#route-to-event]
+```
+
+The dates, place and watched page an event page capture found, mirrored from
+Capture's [Event Facts](../capture/domain.md#event-facts). The item keeps them as
+provenance, unchanged, and hands them over when it is routed
+[To Event](features.md#route-to-event). An item from any other source has none.
+Equality is by value.
 
 ### Attachment
 
@@ -322,7 +336,7 @@ aliases: [CaptureSource, source, channel]
 ```
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
-`website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
+`website`, `event_page`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
 channel of a [Capture (manual)](#capture-manual). `import` is the channel of an
 item read from an import manifest, which can arrive filed in the Inbox
 List the manifest names. It is still `unprocessed`, because filing is not
@@ -445,6 +459,13 @@ refused when no Brain folder is set up, and a failed write leaves the item
 unrouted. A note routed To Brain stays on the phone as the Inbox note it was,
 as one routed to Tasks does.
 
+**To Event** hands the item's title, link and [Event Facts](#event-facts) to
+Events, which makes a Spotted knowledge event in the Series of its watched page,
+or in a new one ([Route to Event](features.md#route-to-event)). It records the
+routing target as `events`, with the event's id and no task. Events is asked
+first, and the item is routed only once the event exists. The route is withdrawn
+while the [Events area](../events/context.md#events-area) is off.
+
 ## Classification
 
 ```meta
@@ -528,7 +549,7 @@ shape is stable although the destination-specific fields differ.
 ### Payload
 
 - `inbox_item_id` - originating Inbox Item identifier.
-- `route` - `tasks` or `devbook`.
+- `route` - `tasks`, `devbook` or `events`.
 - `note_path` - the note the `devbook` route wrote, relative to the Brain's
   root; answered by Devbook rather than sent to it.
 - `title` - normalized title.
@@ -539,6 +560,8 @@ shape is stable although the destination-specific fields differ.
   one untargeted task when empty.
 - `type` - requested task type when routing to Tasks.
 - `topic` - requested knowledge topic when routing To Brain.
+- `event` - the item's `Event Facts` when routing To Event; `event_id`, the
+  event Events made, is answered by Events rather than sent to it.
 - `source_inbox_id` - preserved source id for traceability.
 - `triaged_at` - time of the routing decision.
 
@@ -549,6 +572,9 @@ shape is stable although the destination-specific fields differ.
 - Devbook, which writes a `Knowledge Note` into the Brain's inbox area for the
   `devbook` route, through the in-process `IInboxBrainTarget` port
   (realised as `InboxBrainNoteRequestDto`), not an event.
+- Events, which makes a Spotted `Knowledge Event` for the `events` route,
+  through an in-process port in `Backlog.Modules.Inbox.Abstractions` answered by
+  an adapter over Events' intake, not an event.
 
 ### Published language rules
 

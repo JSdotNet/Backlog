@@ -222,8 +222,9 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 The reader runs the monitors on demand from the Inbox, without waiting for a
 schedule. A folded Sources panel on the Inbox pane, beside the button that
 runs them, sets which sources are watched and what each one looks at. The sources
-are YouTube, website and email; the targets are channels, URLs and senders. A
-source is off until switched on.
+are YouTube, website, event page and email; the targets are channels, URLs, page
+URLs and senders. A source is off until switched on, and the event page source
+shows only while the [Events area](../events/context.md#events-area) is on.
 
 A run answers per source. It says how many new captures it delivered, or that no
 `Source Adapter` exists for that source yet. A source that cannot be watched says
@@ -258,6 +259,59 @@ the Inbox. It finds the feed through `<link rel=alternate>`, a feed link on the
 same host, or a well-known path. A site with no feed has no fallback yet: the
 monitor does not compare the page between runs. There is no folder filing and no
 `#capture/web/{domain}` auto-tag yet.
+
+### Event page monitor
+
+```meta
+type: sub-feature
+feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
+related: [.devbook/domain/capture/requirements.md#event-page-monitor, .devbook/domain/capture/domain.md#event-facts, .devbook/domain/capture/context.md#capture-sources, .devbook/domain/events/features.md#to-event-route, .devbook/domain/inbox/features.md#route-to-event]
+```
+
+```mermaid
+flowchart TD
+    Page[A watched event page] --> S1{schema.org event on the page?}
+    S1 -- yes --> Dates[Item with dates and place]
+    S1 -- no --> S2{Registration link with a schema.org event?}
+    S2 -- yes --> Dates
+    S2 -- no --> S3{Date pattern in the page text?}
+    S3 -- yes --> Dates
+    S3 -- no --> Link[Item with the page link only]
+```
+
+Watches the pages where organisers announce their events, and brings each new
+edition into the Inbox for the person to route [To Event](../inbox/features.md#route-to-event).
+It is a capture source of its own, `event_page`. Its targets are page URLs, kept in
+the Inbox's Sources panel the way YouTube channels are. It shows only while the
+[Events area](../events/context.md#events-area) is on.
+
+The monitor reads each page by fixed rules and asks no AI model. It stops at the first step that
+gives a date:
+
+1. A schema.org event in the page's structured data.
+2. One hop to a registration link, and the schema.org event on that page. A
+   registration link points at an Eventbrite host, or its text says *register*,
+   *registreer* or *tickets*.
+3. A date pattern in the page text, with English or Dutch month names, such as
+   `26 - 28 OCT 2026`.
+4. No date found: the item arrives with only the page link.
+
+The dates and place it found ride with the capture as its
+[Event Facts](domain.md#event-facts). A date has a time and a UTC offset only when the
+source gave them. An edition whose end date has passed is skipped, because an
+organiser's page often still shows last year's edition.
+
+Each edition is delivered once. Its external id is the listing id when the
+registration page has one. Otherwise it is the page URL, the year and the place, so
+next year's edition on the same page is a new item.
+
+The monitor runs only when the person presses [Run capture now](#run-capture-now).
+[Scheduled scans](#scheduled-scans) does not cover it.
+
+- **Known limit:** a date that moves after its edition was delivered is not
+  noticed. A run only asks whether an external id is already known.
+- **Known limit:** a page whose layout changes can hide its dates. The item then
+  arrives with only the page link, which is the visible symptom.
 
 ### News email ingestion
 
