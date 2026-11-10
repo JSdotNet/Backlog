@@ -1,0 +1,168 @@
+@using System.Globalization
+@*
+    A meeting being recorded into a note (.devbook/domain/capture/features.md#meeting-recording):
+    a dot, the time recorded so far, the input level, and Pause and Stop, on a band
+    above the note's files. The host owns the recording and hands its state in; the
+    bar draws it and raises the presses.
+
+    The band says the state three ways, so none of them carries it alone
+    (.devbook/design/accessibility.md): the word beside the dot, the dot's shape —
+    StatusDot's, a filled dot while recording, a hollow ring while paused, a square
+    once it failed — and the band's soft surface, error while live and warning while
+    paused. The word is a polite status, so a screen reader hears "Paused" once
+    rather than a colour it cannot see.
+
+    The timer is role="timer", which is not a live region: a reader asks it the
+    time rather than hearing every second of a meeting. The level is role="meter"
+    with the reading in words, drawn as a scaled fill rather than a width so it
+    moves on transform alone, and still under prefers-reduced-motion, where the dot
+    stops pulsing too (interaction-guidelines.md#motion-and-reduced-motion).
+
+    Pause, Resume and Stop are labelled buttons: the library has no pause or stop
+    glyph, and a word needs no tooltip. Stop is busy while the host attaches the
+    file (interaction-guidelines.md#busy-actions), so a second press is dropped and
+    the focus stays on it. A failure is an Alert in the band, in the host's words.
+*@
+
+<div class="@ClassValue" role="group" aria-label="Recording" data-state="@Slug" data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <div class="recording-bar__head">
+        <StatusDot Tone="@DotTone" CssClass="recording-bar__dot" TestId="@PartTestId("dot")" />
+        <span class="recording-bar__label" role="status" data-testid="@PartTestId("label")">@LabelText</span>
+        <time class="recording-bar__timer" role="timer" datetime="@IsoDuration" data-testid="@PartTestId("timer")">@FormatElapsed(Elapsed)</time>
+    </div>
+
+    @if (State is RecordingBarState.Failed)
+    {
+        <Alert Message="@(string.IsNullOrWhiteSpace(Error) ? "The recording stopped." : Error)"
+               BaseClass="recording-bar__error" TestId="@PartTestId("error")" />
+        @if (OnDismiss.HasDelegate)
+        {
+            <div class="recording-bar__actions">
+                <AppButton Size="ButtonSize.Small" OnClick="() => OnDismiss.InvokeAsync()" TestId="@PartTestId("dismiss")">Dismiss</AppButton>
+            </div>
+        }
+    }
+    else
+    {
+        @* Not MetricMeter: that is a reading against a cap, with a heading that says "42 of
+           100" and a caption, and none of the three has a place on a level that is only ever
+           read live. The role and the words are the same; the shape is not. *@
+        <div class="recording-bar__meter" role="meter" aria-label="Input level"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="@LevelPercent"
+             aria-valuetext="@($"{LevelPercent} percent")" data-testid="@PartTestId("meter")">
+            <span class="recording-bar__level" style="@($"transform: scaleX({Invariant(LevelShown)})")"></span>
+        </div>
+
+        <div class="recording-bar__actions">
+            @if (State is RecordingBarState.Paused)
+            {
+                <AppButton Size="ButtonSize.Small" OnClick="() => OnResume.InvokeAsync()" TestId="@PartTestId("resume")">Resume</AppButton>
+            }
+            else
+            {
+                <AppButton Size="ButtonSize.Small" Disabled="@(State is RecordingBarState.Stopping)"
+                           OnClick="() => OnPause.InvokeAsync()" TestId="@PartTestId("pause")">Pause</AppButton>
+            }
+            <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                       Busy="@(State is RecordingBarState.Stopping)" BusyLabel="Saving the recording"
+                       OnClick="() => OnStop.InvokeAsync()" TestId="@PartTestId("stop")">Stop</AppButton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public RecordingBarState State { get; set; }
+
+    /// <summary>The audio recorded so far, pauses left out.</summary>
+    [Parameter]
+    public TimeSpan Elapsed { get; set; }
+
+    /// <summary>The input level, 0 (silence) to 1; anything outside is clamped.</summary>
+    [Parameter]
+    public double Level { get; set; }
+
+    /// <summary>What went wrong, in words, shown in the <see cref="RecordingBarState.Failed"/> state.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public EventCallback OnPause { get; set; }
+
+    [Parameter]
+    public EventCallback OnResume { get; set; }
+
+    [Parameter]
+    public EventCallback OnStop { get; set; }
+
+    /// <summary>Takes a failed bar away; with no delegate the failed bar has no button.</summary>
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the bar. Its parts get <c>{TestId}-dot</c>, <c>-label</c>,
+    /// <c>-timer</c>, <c>-meter</c>, <c>-pause</c>, <c>-resume</c>, <c>-stop</c>, <c>-error</c>
+    /// and <c>-dismiss</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>
+    /// <c>m:ss</c> under an hour and <c>h:mm:ss</c> from an hour, floored to the second — the
+    /// format the recording's attachment name uses too, so the bar and the file it leaves
+    /// agree.
+    /// </summary>
+    public static string FormatElapsed(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+
+        var hours = (long)elapsed.TotalHours;
+        return hours > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{hours}:{elapsed.Minutes:00}:{elapsed.Seconds:00}")
+            : string.Create(CultureInfo.InvariantCulture, $"{elapsed.Minutes}:{elapsed.Seconds:00}");
+    }
+
+    private string Slug => State.ToString().ToLowerInvariant();
+
+    private FlowStepTone DotTone => State switch
+    {
+        RecordingBarState.Paused => FlowStepTone.Pending,
+        RecordingBarState.Failed => FlowStepTone.Blocked,
+        _ => FlowStepTone.Active,
+    };
+
+    private string LabelText => State switch
+    {
+        RecordingBarState.Paused => "Paused",
+        RecordingBarState.Stopping => "Saving the recording",
+        RecordingBarState.Failed => "Recording stopped",
+        _ => "Recording",
+    };
+
+    /// <summary>Nothing moves on a bar that is not capturing.</summary>
+    private double LevelShown => State is RecordingBarState.Recording ? Math.Clamp(Level, 0, 1) : 0;
+
+    private int LevelPercent => (int)Math.Round(LevelShown * 100, MidpointRounding.AwayFromZero);
+
+    private string IsoDuration
+    {
+        get
+        {
+            var elapsed = Elapsed < TimeSpan.Zero ? TimeSpan.Zero : Elapsed;
+            return string.Create(CultureInfo.InvariantCulture, $"PT{(long)elapsed.TotalHours}H{elapsed.Minutes}M{elapsed.Seconds}S");
+        }
+    }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? $"recording-bar recording-bar--{Slug}"
+        : $"recording-bar recording-bar--{Slug} {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+
+    private static string Invariant(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+}

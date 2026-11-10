@@ -46,6 +46,7 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddSingleton<ISpeechSettingsStore>(SpeechSettings);
         _context.Services.AddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore>(NotificationFilters);
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
+        _context.Services.AddSingleton<IMeetingRecorder>(MeetingRecorder);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") }));
@@ -76,6 +77,10 @@ internal sealed class ShellHost : IDisposable
 
     /// <summary>What the Note page's and the capture sheet's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();
+
+    /// <summary>The Note page's meeting recorder, driven by hand: it records, and a stop
+    /// writes the parts it is given into the recordings folder.</summary>
+    public ScriptedMeetingRecorder MeetingRecorder { get; } = new();
 
     public IDeviceCredentialStore Credentials { get; }
 
