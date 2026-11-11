@@ -1,8 +1,8 @@
 # ADR 0050: Events is its own bounded context
 
 ```meta
-date: 2026-11-10
-related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
+date: 2026-11-11
+related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
 ```
 
 Events is a bounded context of its own. It holds the knowledge events a person
@@ -183,6 +183,11 @@ for its published contracts and `Backlog.Modules.Events.UI` for its screens
 (inherited ADR 0005). It reaches another context only through that context's
 `.Abstractions`.
 
+Superseded in part by [ADR 0055](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)
+(proposed): the Calendar becomes a surface of its own, and the events layer's port
+moves from Tasks to the Calendar. Events' read contract is unchanged. The text below
+is the decision as first taken.
+
 The Calendar is Tasks' view, so Tasks draws the events layer. Events publishes a
 read contract in its `.Abstractions`. Tasks reads it through a port of its own,
 which an Infrastructure adapter answers, as the Calendar's **Show plans** layer
@@ -218,7 +223,7 @@ Negative:
     [Automation capture](../../domain/capture/features.md#automation-capture),
     event facts on the capture, and a Talk note attached to an event;
   - Tasks: a **Show events** choice on the
-    [Calendar view](../../domain/tasks/features.md#calendar-view), and its
+    [Calendar view](../../domain/calendar/features.md#calendar-view), and its
     dependency tables;
   - Sync: the feeds list, the container and the inbound table in
     [Sync](../../domain/sync/context.md);
@@ -280,4 +285,5 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §7 superseded in part by ADR 0055: the Calendar is a surface of its own, and the events layer's port moves from Tasks to the Calendar. The read contract stays. | The Calendar reads more sources than tasks, so a Tasks-owned port per source stopped making sense. |
 | 2026-11-10 | Proposed: Events is a bounded context for knowledge events, its documents on their own replica container, linking notes and tasks by id, one way. | No context held an event's dates and decision together, and the phone needs it where the Brain is out of reach. |
