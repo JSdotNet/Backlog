@@ -9,8 +9,8 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// refused in words, and nothing is written.</summary>
 internal sealed class NoBrainTarget : IInboxBrainTarget
 {
-    public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result.Failure<string>(InboxErrors.BrainUnavailable(InboxErrors.NoBrainHere)));
+    public Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(InboxErrors.NoBrainHere)));
 
     public string? UnavailableReason => InboxErrors.NoBrainHere;
 }

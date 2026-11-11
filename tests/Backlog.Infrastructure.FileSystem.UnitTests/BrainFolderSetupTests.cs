@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class BrainFolderSetupTests : IDisposable
 {
-    private static readonly string[] ParaFolders = ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"];
+    private static readonly string[] ParaFolders = ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"];
 
     private readonly string _brain = Path.Combine(
         Path.GetTempPath(),

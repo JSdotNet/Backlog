@@ -469,7 +469,9 @@
                     await (State.TriageMode ? State.RouteFromTriageAsync() : State.RouteToBacklogAsync());
                     break;
                 case "b" when CanDecide:
-                    await State.RouteToBrainAsync();
+                    // The destination picker, on the inbox area: b again takes it.
+                    if (State.TriageMode) _triage?.OpenBrainPicker();
+                    else _detail?.OpenBrainPicker();
                     break;
                 case "d":
                     if (State.TriageMode) _triage?.OpenDefer();

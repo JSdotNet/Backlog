@@ -84,16 +84,17 @@ public static partial class BrainConventions
     public const string IgnoreHeading = "Ignore";
 
     /// <summary>The PARA set, in its reading order: the areas a Brain has when it
-    /// declares none.</summary>
+    /// declares none. <c>someday</c> follows <c>projects</c> (local ADR 0054 §3).</summary>
     public static IReadOnlyList<BrainArea> Para { get; } =
     [
         new("Inbox", "_inbox", 1, "Notes not yet filed; where a capture lands."),
         new("Projects", "projects", 2, "Active work with a goal and a deadline."),
-        new("Areas", "areas", 3, "Ongoing responsibilities without a deadline."),
-        new("Resources", "resources", 4, "Reference material and collected knowledge."),
-        new("People", "people", 5, "Notes about the people the work involves."),
-        new("Journal", "journal", 6, "Dated entries."),
-        new("Archive", "archive", 7, "Inactive notes kept for future search.")
+        new("Someday", "someday", 3, "Possibilities not committed to."),
+        new("Areas", "areas", 4, "Ongoing responsibilities without a deadline."),
+        new("Resources", "resources", 5, "Reference material and collected knowledge."),
+        new("People", "people", 6, "Notes about the people the work involves."),
+        new("Journal", "journal", 7, "Dated entries."),
+        new("Archive", "archive", 8, "Inactive notes kept for future search.")
     ];
 
     /// <summary>

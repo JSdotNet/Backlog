@@ -278,7 +278,7 @@ public static class InboxTriagePassApply
             if (assigned.IsFailure) return new Step(null, new Refusal(route.ItemId, assigned.Error));
         }
 
-        var routed = await inbox.RouteToBacklogAsync(route.ItemId, route.EntryType, cancellationToken).ConfigureAwait(false);
+        var routed = await inbox.RouteToBacklogAsync(route.ItemId, route.EntryType, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return routed.IsSuccess
             ? new Step(new InboxTriageApplied(route, Routed: routed.Value), null)

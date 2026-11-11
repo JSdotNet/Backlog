@@ -3,6 +3,7 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Modules.Inbox;
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
@@ -19,7 +20,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Inbox MCP tools over the real Inbox module and its real <c>backlog.db</c>: the
 /// conference-notes case they were made for — thirteen notes from the phone over two days,
-/// one with a slide photo — listed, read with the photo's file, and archived once filed.
+/// one with a slide photo — listed, read with the photo's file, and archived once filed;
+/// and an action an assistant heard, captured into the queue the way Add by hand files one.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class InboxMcpToolsOverSqliteTests : IDisposable
@@ -93,6 +95,34 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
 
         var again = await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(ids[1], Cancellation));
         Assert.Contains("inbox.item.invalid_transition", again.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>.devbook/domain/inbox/requirements.md#capture-to-inbox-over-mcp</c>, "Remind
+    /// me": the capture is a manual, unprocessed item in the store, its title kept on one line and
+    /// its notes as written, with the link it named.</summary>
+    [Fact]
+    public async Task An_assistants_capture_is_a_manual_unprocessed_item_in_the_queue()
+    {
+        var tools = Tools();
+
+        const string Notes = "# Not a heading here\n\n- [ ] nor a step";
+
+        var captured = await tools.CaptureAsync(
+            "Call Anna\nabout the invoice",
+            Notes,
+            "https://example.test/invoice/42",
+            Cancellation);
+
+        var stored = await _store.GetAsync(captured.Id, Cancellation);
+        Assert.NotNull(stored);
+        Assert.Equal("Call Anna about the invoice", stored.Title);
+        Assert.Equal(Notes, stored.BodyMd);
+        Assert.Equal("https://example.test/invoice/42", stored.SourceUrl);
+        Assert.Equal("manual", stored.Source.Channel);
+        Assert.Equal(InboxStatus.Unprocessed, stored.Status);
+
+        var listed = await tools.ListAsync(cancellationToken: Cancellation);
+        Assert.Equal(captured.Id, Assert.Single(listed.Items).Id);
     }
 
     private InboxTools Tools() => new(_provider.CreateScope().ServiceProvider.GetRequiredService<IInboxItems>());

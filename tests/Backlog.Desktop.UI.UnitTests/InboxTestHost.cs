@@ -332,7 +332,7 @@ internal sealed class FakeInboxItems : IInboxItems
     /// what the pane does when the module says no. Reset after one use.</summary>
     public Error? NextCaptureError { get; set; }
 
-    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", CancellationToken cancellationToken = default)
+    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", string? sourceUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(title)) return Task.FromResult(Result.Failure<InboxItemDto>(InboxErrors.ItemNeedsTitle));
 
@@ -671,10 +671,12 @@ internal sealed class FakeInboxItems : IInboxItems
     public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default)
     {
         SingleRouteCalls++;
         SingleRoutes.Add((id, entryType));
+        SingleRouteSchedules.Add(schedule);
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
@@ -697,12 +699,32 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>Every item To Brain was asked for, in order.</summary>
     public List<Guid> BrainRoutes { get; } = [];
 
+    /// <summary>The destination each route To Brain named, in order: null for
+    /// the inbox area.</summary>
+    public List<string?> BrainFolders { get; } = [];
+
+    /// <summary>What <see cref="ListBrainDestinationsAsync"/> answers: the PARA
+    /// areas and one project, the inbox first, unless a test sets its own.</summary>
+    public IReadOnlyList<InboxBrainDestinationDto> BrainDestinations { get; set; } =
+    [
+        new("_inbox", "Inbox", IsInbox: true),
+        new("projects", "Projects"),
+        new("projects/launch", "Projects › launch/brief", IsProject: true),
+        new("someday", "Someday"),
+        new("resources", "Resources"),
+    ];
+
+    public Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(BrainDestinations);
+
     /// <summary>The module's To Brain, restated: refused with
     /// <c>inbox.brain.unavailable</c> through <see cref="FailAct"/> under
-    /// <c>"brain"</c>, else the item is routed to the Brain with no task.</summary>
-    public async Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <c>"brain"</c>, else the item is routed to the Brain with no task, into
+    /// the destination named or the inbox area.</summary>
+    public async Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default)
     {
         BrainRoutes.Add(id);
+        BrainFolders.Add(folder);
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("brain", id, out var refused)) return Result.Failure<InboxBrainRoutedDto>(refused);
@@ -716,7 +738,9 @@ internal sealed class FakeInboxItems : IInboxItems
             Routing = new InboxRoutingDto(RoutingDomain.Devbook, [], [], Now)
         });
 
-        return new InboxBrainRoutedDto(id, "_inbox/" + id.ToString("N") + ".md");
+        var destination = BrainDestinations.FirstOrDefault(candidate => candidate.Folder == folder);
+        var area = folder is null ? "Inbox" : (destination?.Label.Split(" › ")[0] ?? folder);
+        return new InboxBrainRoutedDto(id, (folder ?? "_inbox") + "/" + id.ToString("N") + ".md", area);
     }
 
     /// <summary>What Tasks refuses the next batch's document with, if anything:
@@ -759,6 +783,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>Every single route asked of the port, with the entry type it
     /// named — null when none was given.</summary>
     public List<(Guid Id, string? EntryType)> SingleRoutes { get; } = [];
+
+    /// <summary>The schedule every single route was asked with, in the order
+    /// asked — null when none was given.</summary>
+    public List<InboxRouteScheduleDto?> SingleRouteSchedules { get; } = [];
 
     /// <summary>The module's proposal, restated: the tag minted as the route
     /// would, decided items refused, the seeded dependencies among the rest.</summary>

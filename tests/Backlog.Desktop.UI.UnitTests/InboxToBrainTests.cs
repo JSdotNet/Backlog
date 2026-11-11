@@ -3,15 +3,16 @@ using Backlog.UI.Components.Feedback;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// To Brain on the Inbox pane (<c>.devbook/domain/inbox/features.md#route-to-brain</c>):
-/// the decision beside Move to backlog, in triage and on the item, its key, the
-/// destination chip that now takes it, its undo, and the words a Brain that is not
-/// set up answers with.
+/// the decision beside Move to backlog, in triage and on the item, its key, its
+/// destination picker (local ADR 0054 §2), the destination chip that now takes
+/// it, its undo, and the words a Brain that is not set up answers with.
 /// </summary>
 public sealed class InboxToBrainTests
 {
@@ -25,6 +26,7 @@ public sealed class InboxToBrainTests
         var button = pane.Find("[data-testid='inbox-triage-decisions'] [data-testid='inbox-to-brain']");
         Assert.Contains("To Brain", button.TextContent, StringComparison.Ordinal);
         await button.ClickAsync(new());
+        await ChooseAsync(pane, 0);
 
         pane.WaitForAssertion(() =>
         {
@@ -34,6 +36,7 @@ public sealed class InboxToBrainTests
             Assert.Contains("Standup → Brain", pane.Find("[data-testid='inbox-triage-just-decided-line']").TextContent, StringComparison.Ordinal);
         });
         Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-brain-routed" && toast.Message.Contains("Standup", StringComparison.Ordinal));
+        Assert.Equal([null], harness.Inbox.BrainFolders);
     }
 
     [Fact]
@@ -44,6 +47,7 @@ public sealed class InboxToBrainTests
         var pane = await harness.StartTriageAsync();
 
         await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("b"));
+        await PressInPickerAsync(pane, "b");
         pane.WaitForAssertion(() => Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing));
 
         await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
@@ -69,6 +73,7 @@ public sealed class InboxToBrainTests
         var pane = await harness.StartTriageAsync();
 
         await pane.Find("[data-testid='inbox-to-brain']").ClickAsync(new());
+        await ChooseAsync(pane, 0);
 
         pane.WaitForAssertion(() => Assert.Contains(
             harness.Toasts.Visible,
@@ -89,6 +94,7 @@ public sealed class InboxToBrainTests
         await pane.Find($"[data-testid='inbox-item-{items[0].Id:D}']").ClickAsync(new());
 
         await pane.Find("[data-testid='inbox-detail-decisions'] [data-testid='inbox-to-brain']").ClickAsync(new());
+        await ChooseAsync(pane, 0);
 
         pane.WaitForAssertion(() => Assert.StartsWith(
             "Kept in your Brain on",
@@ -153,6 +159,134 @@ public sealed class InboxToBrainTests
 
         Assert.True(button.HasAttribute("disabled"));
         Assert.Equal(Reason, button.GetAttribute("title"));
+    }
+
+    // --- The destination picker (local ADR 0054 §2) --------------------------
+
+    /// <summary>To Brain opens the picker rather than routing: the Brain's areas in
+    /// tab order and its projects, the inbox area first and focused.</summary>
+    [Fact]
+    public async Task To_brain_opens_a_picker_listing_the_areas_with_the_inbox_first_and_focused()
+    {
+        using var harness = Harness.Create();
+        harness.SeedNewestFirst("Keep this");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.Find("[data-testid='inbox-triage-decisions'] [data-testid='inbox-to-brain']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Inbox", "Projects", "Projects › launch/brief", "Someday", "Resources"],
+            pane.FindAll("[data-testid='inbox-brain-choices'] .menu-list__label").Select(label => label.TextContent)));
+        Assert.Equal("0", pane.Find("[data-testid='inbox-brain-choices-brain-0']").GetAttribute("tabindex"));
+        Assert.Empty(harness.Inbox.BrainRoutes);
+    }
+
+    /// <summary>B opens the picker on the item's detail too, and B again files the
+    /// item into the inbox area: today's route, two presses away.</summary>
+    [Fact]
+    public async Task B_twice_on_the_detail_keeps_today_s_route_into_the_inbox_area()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Article", "Still waiting");
+        var pane = harness.Render();
+        await pane.InvokeAsync(harness.State.InitializeAsync);
+        await pane.Find($"[data-testid='inbox-item-{items[0].Id:D}']").ClickAsync(new());
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("b"));
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-brain-dialog']")));
+        Assert.Empty(harness.Inbox.BrainRoutes);
+
+        await PressInPickerAsync(pane, "b");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([items[0].Id], harness.Inbox.BrainRoutes);
+            Assert.Empty(pane.FindAll("[data-testid='inbox-brain-dialog']"));
+        });
+        Assert.Equal([null], harness.Inbox.BrainFolders);
+    }
+
+    /// <summary>Choosing an area files the item there, and the toast names it.</summary>
+    [Fact]
+    public async Task Choosing_an_area_files_the_item_there_and_the_toast_names_the_area()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Learn the cello");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("b"));
+        await ChooseAsync(pane, 3);
+
+        pane.WaitForAssertion(() => Assert.Equal(["someday"], harness.Inbox.BrainFolders));
+        Assert.Equal(RoutingDomain.Devbook, harness.Inbox.Find(items[0].Id)!.Routing!.Domain);
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == "inbox-brain-routed");
+        Assert.Contains("Someday area", toast.Message, StringComparison.Ordinal);
+        Assert.Contains("someday/", toast.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Choosing a project files the item into that project's folder.</summary>
+    [Fact]
+    public async Task Choosing_a_project_files_the_item_into_its_folder()
+    {
+        using var harness = Harness.Create();
+        harness.SeedNewestFirst("Retry budget");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.Find("[data-testid='inbox-triage-decisions'] [data-testid='inbox-to-brain']").ClickAsync(new());
+        await ChooseAsync(pane, 2);
+
+        pane.WaitForAssertion(() => Assert.Equal(["projects/launch"], harness.Inbox.BrainFolders));
+        Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-brain-routed" && toast.Message.Contains("Projects area", StringComparison.Ordinal));
+    }
+
+    /// <summary>A Brain that lists no destination still offers its inbox, so the
+    /// picker always has the route it replaced.</summary>
+    [Fact]
+    public async Task A_brain_listing_nothing_still_offers_its_inbox()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainDestinations = [];
+        harness.SeedNewestFirst("Keep this");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("b"));
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Inbox"],
+            pane.FindAll("[data-testid='inbox-brain-choices'] .menu-list__label").Select(label => label.TextContent)));
+        await ChooseAsync(pane, 0);
+        pane.WaitForAssertion(() => Assert.Equal([null], harness.Inbox.BrainFolders));
+    }
+
+    /// <summary>B opens nothing while the Brain cannot take a note, as the button
+    /// is disabled then.</summary>
+    [Fact]
+    public async Task B_opens_no_picker_while_the_brain_cannot_take_a_note()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnavailableReason = "Pick a folder for your Brain in Settings › Storage.";
+        harness.SeedNewestFirst("Keep this");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("b"));
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-brain-dialog']"));
+        Assert.Empty(harness.Inbox.BrainRoutes);
+    }
+
+    /// <summary>Takes the picker's row at <paramref name="index"/>, once it is drawn.</summary>
+    private static async Task ChooseAsync(IRenderedComponent<InboxPane> pane, int index)
+    {
+        var selector = $"[data-testid='inbox-brain-choices-brain-{index}']";
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll(selector)));
+        await pane.Find(selector).ClickAsync(new());
+    }
+
+    /// <summary>Presses <paramref name="key"/> inside the picker, once it is drawn.</summary>
+    private static async Task PressInPickerAsync(IRenderedComponent<InboxPane> pane, string key)
+    {
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-brain-choices-brain-0']")));
+        await pane.Find("[data-testid='inbox-brain-picker']").KeyDownAsync(new KeyboardEventArgs { Key = key });
     }
 
     [Fact]

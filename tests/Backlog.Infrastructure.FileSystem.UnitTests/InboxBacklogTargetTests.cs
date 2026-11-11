@@ -84,6 +84,37 @@ public sealed class InboxBacklogTargetTests
         Assert.Empty(parsed.Unreadable ?? []);
     }
 
+    /// <summary>A due date and My Day chosen beside Move to backlog are written
+    /// as Tasks' own tokens, and read back as the task's due date and the day
+    /// it was picked for.</summary>
+    [Fact]
+    public void A_due_date_and_my_day_parse_back_onto_the_entry()
+    {
+        var request = new InboxRouteRequestDto(Item, "Call the dentist", string.Empty, null, [], [])
+        {
+            DueOn = new DateOnly(2026, 11, 18),
+            InMyDayOn = new DateOnly(2026, 11, 11),
+        };
+
+        var parsed = EntryTextParser.Parse(InboxBacklogTarget.Compose(request, "JSdotNet/Backlog"));
+
+        Assert.Equal(new DateOnly(2026, 11, 18), parsed.DueOn);
+        Assert.Equal(new DateOnly(2026, 11, 11), parsed.InMyDayOn);
+        Assert.Equal(["JSdotNet/Backlog"], parsed.RepoIds);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    /// <summary>Without either, the route's text is what it always was.</summary>
+    [Fact]
+    public void Without_a_schedule_no_due_or_my_day_token_is_written()
+    {
+        var request = new InboxRouteRequestDto(Item, "Call the dentist", string.Empty, null, [], []);
+
+        var text = InboxBacklogTarget.Compose(request, null);
+
+        Assert.Equal("# Call the dentist\n`task` `!draft`\n", text);
+    }
+
     [Fact]
     public void Without_a_repository_no_repo_token_is_written()
     {

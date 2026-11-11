@@ -115,8 +115,9 @@ internal sealed class InboxItems(
         string title,
         string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
+        string? sourceUrl = null,
         CancellationToken cancellationToken = default) =>
-        capture.Handle(new CaptureItemCommand(title, notes, channel), cancellationToken);
+        capture.Handle(new CaptureItemCommand(title, notes, channel, sourceUrl), cancellationToken);
 
     public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) =>
         setTags.Handle(new SetTagsCommand(id, tags), cancellationToken);
@@ -198,11 +199,15 @@ internal sealed class InboxItems(
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default) =>
-        routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
+        routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType, schedule), cancellationToken);
 
-    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) =>
-        routeToBrain.Handle(new RouteToBrainCommand(id), cancellationToken);
+    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default) =>
+        routeToBrain.Handle(new RouteToBrainCommand(id, folder), cancellationToken);
+
+    public Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        brainTarget?.ListDestinationsAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,

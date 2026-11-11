@@ -27,11 +27,17 @@ public interface IInboxItems
     /// a person can use offline. <paramref name="notes"/> is what was written
     /// beneath the title and becomes the item's body; null or blank is a bare
     /// one-line capture. <paramref name="channel"/> is the capture source it is
-    /// filed under and defaults to the domain's word for "by hand".</summary>
+    /// filed under and defaults to the domain's word for "by hand".
+    /// <paramref name="sourceUrl"/> is the link the capture is about when the
+    /// caller names one — an assistant's <c>capture_to_inbox</c> does; null reads
+    /// it off the title. Fails with <c>inbox.item.needs_title</c> for a blank
+    /// title and <c>inbox.capture.source_not_a_link</c> for a link that is no
+    /// http or https address.</summary>
     Task<Result<InboxItemDto>> CaptureAsync(
         string title,
         string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
+        string? sourceUrl = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Replaces the item's tags. Bare names; a name that reads as a
@@ -172,18 +178,33 @@ public interface IInboxItems
     /// <c>inbox.route.unknown_entry_type</c> before the backlog is asked. The
     /// captures archived as the item's duplicates go with it, title and link,
     /// written on every entry it becomes.
+    /// </para>
+    /// <para>
+    /// <paramref name="schedule"/>, when it sets anything, gives every entry
+    /// the due date it names and puts every entry in today's My Day when it
+    /// asks; null or empty leaves the entries exactly as a plain route makes
+    /// them.
     /// </para></summary>
     Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>To Brain: writes the item into the person's Brain as a new note
-    /// in its inbox area, keeping its title and body, and records that it went
-    /// there. An item routes exactly once, whichever way. A Brain that is not set
-    /// up or cannot be written fails with <c>inbox.brain.unavailable</c>, in words
-    /// that say what to do, and the item stays open.</summary>
-    Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default);
+    /// — into <paramref name="folder"/>, a destination
+    /// <see cref="ListBrainDestinationsAsync"/> listed, or the inbox area when it
+    /// is null — keeping its title and body, and records that it went there. An
+    /// item routes exactly once, whichever way. A Brain that is not set up or
+    /// cannot be written fails with <c>inbox.brain.unavailable</c>, in words that
+    /// say what to do, and the item stays open.</summary>
+    Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Where To Brain can file an item, in the order its destination
+    /// picker lists them, the inbox area first; empty while the Brain cannot take
+    /// a note.</summary>
+    Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     /// <summary>Routes several items as one batch — one plan import whose
     /// entries share a new plan tag. It overloads the single route by name, but

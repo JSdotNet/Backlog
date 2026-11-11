@@ -13,11 +13,14 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The Inbox's captures — from the phone, the website, a YouTube share — for an agent that
 /// files them elsewhere: list them, read one with its attachments' files, and archive it once
-/// it is filed.
+/// it is filed. And the one of the four that writes a capture: an action the assistant
+/// heard, so it reaches clarify (local ADR 0054).
 /// <para>
 /// <b>Through <see cref="IInboxItems"/>, never the database.</b> The archive is the module's
 /// own <c>ArchiveAsync</c>, so it meets the same transition rule and the same save — and with
-/// it the same replica outbox — as the pane's Archive. Nothing here deletes.
+/// it the same replica outbox — as the pane's Archive. The capture is the module's own
+/// <c>CaptureAsync</c>, Add by hand's path, so it meets the same guard on the text. Nothing
+/// here deletes.
 /// </para>
 /// <para>
 /// Its own group behind the Inbox pane's key: switching the pane off withdraws these too.
@@ -29,6 +32,7 @@ public sealed class InboxTools(IInboxItems inbox)
     internal const string ListInboxItems = "list_inbox_items";
     internal const string ReadInboxItem = "read_inbox_item";
     internal const string ArchiveInboxItem = "archive_inbox_item";
+    internal const string CaptureToInbox = "capture_to_inbox";
 
     /// <summary>How much of a body a listed item previews.</summary>
     internal const int PreviewLength = 160;
@@ -102,6 +106,39 @@ public sealed class InboxTools(IInboxItems inbox)
         if (archived.IsFailure) throw RepositoryScope.Failure(archived.Error);
 
         return InboxItemSummaryPayload.From(await FindAsync(id, cancellationToken).ConfigureAwait(false));
+    }
+
+    // Not idempotent: Add by hand keeps no key a second call could match on, so the
+    // same title sent twice is two captures — a client must not retry one that may have
+    // landed. Not destructive: nothing that was there changes. Closed: the Inbox is this
+    // machine's, and a capture reaches the phone only through the sync it already has.
+    [McpServerTool(Name = CaptureToInbox, Title = "Capture into the Inbox", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
+    [Description(
+        "Captures something the person wants to act on — a reminder, a to-do, a thing to look into — into the "
+        + "Inbox as a new unprocessed item, as the Inbox's own Add by hand does, so the person clarifies it later: "
+        + "what it is, and where it goes. Use capture_note instead for a note already judged worth keeping as "
+        + "knowledge; that one goes straight into the Brain. Calling this twice captures twice. Answers the new "
+        + "item, its id first. Refused for a blank title (inbox.item.needs_title) or a source link that is no "
+        + "http or https address (inbox.capture.source_not_a_link).")]
+    public async Task<InboxItemSummaryPayload> CaptureAsync(
+        [Description("The capture's title: one line, as the person would say it. Line breaks become spaces.")]
+        string title,
+        [Description("Optional. Notes under the title, in Markdown, kept as the item's body as text, trimmed.")]
+        string? body = null,
+        [Description("Optional. The link the capture is about, an absolute http or https address.")]
+        string? sourceUrl = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Manual: the domain's word for "by hand" — somebody deciding to capture, which an
+        // assistant asked to remember something is, rather than a capture arriving from a
+        // device or a feed. The title is the module's to trim and collapse, so the guard is
+        // the one the capture field meets.
+        var captured = await inbox
+            .CaptureAsync(title, body, InboxEnumMap.ManualChannel, sourceUrl, cancellationToken)
+            .ConfigureAwait(false);
+        if (captured.IsFailure) throw RepositoryScope.Failure(captured.Error);
+
+        return InboxItemSummaryPayload.From(captured.Value);
     }
 
     private async Task<InboxItemDto> FindAsync(Guid id, CancellationToken cancellationToken)
