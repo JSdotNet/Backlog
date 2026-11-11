@@ -1,0 +1,639 @@
+@using System.Globalization
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@*
+    Schedules: every schedule this machine runs, with the state its latest run left it
+    in (local ADR 0051 §2 and §6; .devbook/domain/sessions/features.md, "Schedules and
+    their runs"). A page inside the Sessions takeover, as Delivery economics is, so the
+    shell's one-main-view rule and the names it persists are untouched: the pane switches
+    to it and back, the breadcrumb returns to the list with its filters and selection as
+    they were, and a reopened pane shows the list.
+
+    It reads top to bottom: a line counting the schedules and their repositories, the
+    Show filter with a count on each option, a card per schedule that needs the person
+    (Needs you or Held — the schedules that lead the page), then every schedule in one
+    table, a section per repository. Choosing a schedule opens its detail beside the
+    table: the cadence and the next run, what holds it, and its recent runs newest first.
+
+    Backlog only reads. A run is marked done the way it always was — its session archived
+    in Claude Desktop — and the readings come from the pane, which reads the schedule
+    register beside the session records whose archived flag decides Handled. "Open run"
+    opens the run's session in the Sessions list: this app has no way into a Claude
+    Desktop session of its own, and the list's detail is where that session is read.
+
+    Like the list, it is not a monitor: it reads when the pane reads, and on Refresh.
+*@
+
+<section class="sessions-panel schedules-page" id="@FocusId" tabindex="-1" aria-labelledby="schedules-title" data-testid="schedules-page">
+    @* The way back first, where a reader looks for where they are. *@
+    <nav class="delivery-economics__breadcrumb" aria-label="Breadcrumb" data-testid="schedules-breadcrumb">
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   CssClass="delivery-economics__back"
+                   TestId="schedules-back"
+                   OnClick="() => OnBack.InvokeAsync()">Sessions</AppButton>
+        <span class="delivery-economics__crumb-separator" aria-hidden="true">/</span>
+        <span class="delivery-economics__crumb" aria-current="page">Schedules</span>
+    </nav>
+
+    <SectionHeader BaseClass="sessions-panel__header"
+                   TextCssClass=""
+                   TitleCssClass="sessions-panel__title"
+                   DescriptionCssClass="sessions-panel__subtitle"
+                   DescriptionTestId="schedules-subtitle"
+                   ActionsCssClass="sessions-panel__header-actions"
+                   TitleId="schedules-title"
+                   Title="Schedules"
+                   Description="@Subtitle">
+        <Actions>
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@Loading"
+                       TestId="schedules-refresh"
+                       OnClick="() => OnRefresh.InvokeAsync()">
+                @(Loading ? "Reading..." : "Refresh")
+            </AppButton>
+            <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </Actions>
+    </SectionHeader>
+
+    <div class="sessions-panel__filters" data-testid="schedules-filters">
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Show</span>
+            <ButtonGroup AriaLabel="Which schedules to show" TestId="schedules-show">
+                @foreach (var filter in Filters)
+                {
+                    <ToggleButton Pressed="_filter == filter"
+                                  PressedChanged="_ => _filter = filter"
+                                  TestId="@($"schedules-show-{Slug(filter)}")">
+                        @FilterLabel(filter)
+                        <span class="sessions-filter__tally" data-testid="schedules-show-count">@ScheduleOverview.Count(Schedules, filter)</span>
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+    </div>
+
+    <div class="sessions-panel__content schedules-page__content" aria-busy="@(Loading ? "true" : null)">
+        @if (Error is { } error)
+        {
+            <Alert Message="@error" BaseClass="sessions-panel__notice" Role="alert" TestId="schedules-error" />
+        }
+
+        @if (_openMissing is { } missing)
+        {
+            <Alert Message="@missing" BaseClass="sessions-panel__notice" Role="status" TestId="schedules-open-missing" />
+        }
+
+        @if (Schedules.Count == 0 && Error is null)
+        {
+            <EmptyState Title="No schedule has reported a run yet"
+                        Description="@EmptyDescription"
+                        TestId="schedules-empty" />
+        }
+        else if (Schedules.Count > 0)
+        {
+            var shown = Shown;
+            var needs = shown.Where(schedule => ScheduleOverview.NeedsYou(schedule.State)).ToList();
+            var selected = SelectedOf(shown);
+
+            @if (needs.Count > 0)
+            {
+                <section class="schedules-page__needs" aria-labelledby="schedules-needs-title" data-testid="schedules-needs">
+                    <h3 class="schedules-page__heading" id="schedules-needs-title">Needs you <Badge BaseClass="schedules-page__heading-count" Kind="" TestId="schedules-needs-count">@needs.Count</Badge></h3>
+                    <div class="schedules-page__cards">
+                        @foreach (var schedule in needs)
+                        {
+                            @NeedsCard(schedule)
+                        }
+                    </div>
+                </section>
+            }
+
+            <div class="schedules-page__layout">
+                <section class="schedules-page__all" aria-labelledby="schedules-all-title" data-testid="schedules-all">
+                    <h3 class="schedules-page__heading" id="schedules-all-title">All schedules</h3>
+                    <DataTable TItem="ScheduleReadingResult"
+                               Columns="Columns"
+                               Sections="@SectionsOf(shown)"
+                               RowKey="schedule => schedule.Schedule.Id"
+                               RowCssClass="@(schedule => ReferenceEquals(schedule, selected) ? "schedules-page__row schedules-page__row--selected" : "schedules-page__row")"
+                               RowAttributes="@(schedule => new Dictionary<string, object> { ["data-testid"] = "schedules-row", ["data-schedule"] = schedule.Schedule.Id, ["data-state"] = StateSlug(schedule.State) })"
+                               RowNoun="schedule"
+                               AriaLabel="Every schedule, by repository"
+                               EmptyMessage="@($"No schedule reads {FilterLabel(_filter)}")"
+                               EmptyDescription="Show All to see every schedule."
+                               TestId="schedules-table">
+                        <Row Context="schedule">
+                            <td>
+                                <ToggleButton BaseClass="schedules-page__name"
+                                              PressedCssClass="schedules-page__name--selected"
+                                              Pressed="@ReferenceEquals(schedule, selected)"
+                                              PressedChanged="_ => Select(schedule)"
+                                              TestId="schedules-row-name">@ScheduleOverview.Name(schedule.Schedule)</ToggleButton>
+                            </td>
+                            <td class="schedules-page__quiet" title="@schedule.Schedule.Cron" data-testid="schedules-row-cadence">@ScheduleCadence.Describe(schedule.Schedule.Cron)</td>
+                            <td class="schedules-page__quiet" data-testid="schedules-row-last">@LastRun(schedule)</td>
+                            <td class="schedules-page__quiet" data-testid="schedules-row-next">@(schedule.NextRunAt is { } next ? When(next) : "—")</td>
+                            <td data-testid="schedules-row-state">@StateChip(schedule.State, "schedules-row-chip")</td>
+                        </Row>
+                    </DataTable>
+                </section>
+
+                @if (selected is not null)
+                {
+                    @Detail(selected)
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>One card per schedule that needs the person: its state and since when,
+    /// its repository and name, what the run asks, then Open run and All runs.</summary>
+    private RenderFragment NeedsCard(ScheduleReadingResult schedule) => __builder =>
+    {
+        var target = RunToOpen(schedule);
+
+        <Card CssClass="schedules-page__card"
+              AriaLabel="@ScheduleOverview.Name(schedule.Schedule)"
+              TestId="schedules-card"
+              Compact="true"
+              data-schedule="@schedule.Schedule.Id">
+            <div class="schedules-page__card-head">
+                @StateChip(schedule.State, "schedules-card-chip")
+                <span class="schedules-page__quiet" data-testid="schedules-card-since">@Since(schedule)</span>
+            </div>
+            <div class="schedules-page__card-title">
+                @RepositoryTag(schedule.Schedule.Repository)
+                <h4 class="schedules-page__card-name" data-testid="schedules-card-name">@ScheduleOverview.Name(schedule.Schedule)</h4>
+            </div>
+            @Asks(schedule)
+            <div class="schedules-page__card-actions">
+                @if (target is not null)
+                {
+                    <AppButton Variant="ButtonVariant.Primary"
+                               TestId="schedules-card-open"
+                               OnClick="() => Open(target)">@OpenLabel(schedule, target)</AppButton>
+                }
+                <AppButton Variant="ButtonVariant.Ghost"
+                           TestId="schedules-card-runs"
+                           OnClick="() => ShowRuns(schedule)">All runs</AppButton>
+            </div>
+        </Card>
+    };
+
+    /// <summary>What a schedule that needs the person asks of them, in its own run's words
+    /// where it sent some.</summary>
+    private RenderFragment Asks(ScheduleReadingResult schedule) => __builder =>
+    {
+        if (schedule.State is ScheduledRunState.Held)
+        {
+            <p class="schedules-page__ask" data-testid="schedules-card-ask">@HeldAsk(schedule)</p>
+            return;
+        }
+
+        var run = schedule.Runs.Count > 0 ? schedule.Runs[0].Run : null;
+
+        if (run is { NeedsYou.Count: > 0 })
+        {
+            <ul class="schedules-page__ask schedules-page__ask-lines" data-testid="schedules-card-ask">
+                @foreach (var line in run.NeedsYou.Take(MaxAskLines))
+                {
+                    <li>@line</li>
+                }
+                @if (run.NeedsYou.Count > MaxAskLines)
+                {
+                    <li class="schedules-page__quiet" data-testid="schedules-card-ask-more">@($"and {run.NeedsYou.Count - MaxAskLines} more")</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="schedules-page__ask" data-testid="schedules-card-ask">@(run?.Verdict is { } verdict ? $"The run's verdict: {verdict}." : "The run asks for you. Open it to read what.")</p>
+        }
+    };
+
+    /// <summary>The selected schedule: its cadence and next run, what holds or missed it,
+    /// its recent runs newest first, and the run to open.</summary>
+    private RenderFragment Detail(ScheduleReadingResult schedule) => __builder =>
+    {
+        var target = RunToOpen(schedule);
+
+        <aside class="delivery-economics__panel schedules-page__detail"
+               id="@DetailId"
+               tabindex="-1"
+               aria-labelledby="schedules-detail-title"
+               data-testid="schedules-detail"
+               data-schedule="@schedule.Schedule.Id">
+            <div class="schedules-page__detail-head">
+                @RepositoryTag(schedule.Schedule.Repository)
+                <h3 class="delivery-economics__panel-title" id="schedules-detail-title" data-testid="schedules-detail-title">@ScheduleOverview.Name(schedule.Schedule)</h3>
+                <p class="delivery-economics__lede" data-testid="schedules-detail-cadence">@CadenceLine(schedule)</p>
+            </div>
+
+            @if (schedule.State is ScheduledRunState.Held)
+            {
+                <Callout Heading="@HeldHeading(schedule)" TestId="schedules-detail-held">@HeldExplanation</Callout>
+            }
+            else if (schedule.State is ScheduledRunState.Missed)
+            {
+                <p class="delivery-economics__lede" data-testid="schedules-detail-missed">@MissedLine(schedule)</p>
+            }
+
+            <h4 class="schedules-page__heading">Recent runs</h4>
+            @if (schedule.Runs.Count == 0)
+            {
+                <p class="delivery-economics__lede" data-testid="schedules-detail-no-runs">No run of this schedule has reported yet.</p>
+            }
+            else
+            {
+                <ol class="schedules-page__runs" data-testid="schedules-detail-runs">
+                    @foreach (var run in schedule.Runs.Take(MaxRecentRuns))
+                    {
+                        <li class="schedules-page__run" @key="run.Run.SessionId" data-testid="schedules-detail-run" data-session="@run.Run.SessionId">
+                            <span class="schedules-page__run-text">
+                                <span class="schedules-page__run-when">@When(ScheduleOverview.Began(run.Run))</span>
+                                <span class="schedules-page__quiet" data-testid="schedules-detail-run-note">@RunNote(schedule, run)</span>
+                            </span>
+                            @RunChip(run)
+                        </li>
+                    }
+                </ol>
+                @if (schedule.Runs.Count > MaxRecentRuns)
+                {
+                    <p class="delivery-economics__lede" data-testid="schedules-detail-older">@($"{schedule.Runs.Count - MaxRecentRuns} older runs are not shown.")</p>
+                }
+            }
+
+            @if (target is not null)
+            {
+                <AppButton Variant="ButtonVariant.Primary"
+                           CssClass="schedules-page__detail-open"
+                           TestId="schedules-detail-open"
+                           OnClick="() => Open(target)">@($"Open the {Day(ScheduleOverview.Began(target.Run))} run")</AppButton>
+            }
+        </aside>
+    };
+
+    /// <summary>A state as a chip: the word carries it, the tone only groups it.</summary>
+    private static RenderFragment StateChip(ScheduledRunState? state, string testId) => __builder =>
+    {
+        <Badge Kind="tone" Slug="@Tone(state)" TestId="@testId" data-state="@StateSlug(state)">@StateLabel(state)</Badge>
+    };
+
+    /// <summary>A run's chip in the detail: a run that skipped itself reads Skipped while
+    /// it holds, so the one run that holds the schedule is the one that says why.</summary>
+    private static RenderFragment RunChip(ScheduledRunReading run) => __builder =>
+    {
+        if (run.Run.Skipped && run.State is ScheduledRunState.Held)
+        {
+            <Badge Kind="tone" Slug="archived" TestId="schedules-detail-run-chip" data-state="skipped">Skipped</Badge>
+        }
+        else
+        {
+            @StateChip(run.State, "schedules-detail-run-chip")
+        }
+    };
+
+    private RenderFragment RepositoryTag(string? repository) => __builder =>
+    {
+        <span class="schedules-page__repo" title="@repository" data-testid="schedules-repo">@RepositoryName(repository)</span>
+    };
+
+    /// <summary>A repository as this workspace calls it: the shell's alias where it knows
+    /// one, as the list beside the page names it, else as the runs reported it.</summary>
+    private string RepositoryName(string? repository) =>
+        string.IsNullOrWhiteSpace(repository) ? OtherRepository : RepositoryAlias?.Invoke(repository) ?? repository;
+
+    private const int MaxAskLines = 3;
+
+    private const int MaxRecentRuns = 10;
+
+    private const string OtherRepository = "No repository";
+
+    private static readonly ScheduleFilter[] Filters =
+    [
+        ScheduleFilter.All,
+        ScheduleFilter.NeedsYou,
+        ScheduleFilter.ReviewReady,
+        ScheduleFilter.FailedOrMissed,
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Schedule"),
+        new("Cadence"),
+        new("Last run"),
+        new("Next run"),
+        new("State"),
+    ];
+
+    /// <summary>Every schedule the pane read, already narrowed to the shell's repository
+    /// scope the way the list is.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ScheduleReadingResult> Schedules { get; set; } = [];
+
+    /// <summary>A repository's alias in this workspace, or null where it has none. The
+    /// pane's, so the page names a repository the way the list does.</summary>
+    [Parameter]
+    public Func<string?, string?>? RepositoryAlias { get; set; }
+
+    /// <summary>Why the schedules could not be read, or null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Whether the pane is reading again.</summary>
+    [Parameter]
+    public bool Loading { get; set; }
+
+    /// <summary>The repositories the shell has scoped, in words, or null for all.</summary>
+    [Parameter]
+    public string? ScopeLabel { get; set; }
+
+    /// <summary>When the readings were taken: what "since" and "next" are said against.</summary>
+    [Parameter]
+    public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>The zone times are shown in: this machine's.</summary>
+    [Parameter]
+    public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Local;
+
+    /// <summary>
+    /// Opens a run's session in the Sessions list, by its session id, and answers whether
+    /// the list holds it. The pane's: it leaves the page when it does.
+    /// </summary>
+    [Parameter]
+    public Func<string, bool>? OpenRun { get; set; }
+
+    /// <summary>Back to the session list, its filters and selection as they were.</summary>
+    [Parameter]
+    public EventCallback OnBack { get; set; }
+
+    /// <summary>The pane's own close: the page is inside the takeover.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>Read the sessions and the schedules again.</summary>
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    /// <summary>The page's id, which opening it puts the focus on.</summary>
+    internal const string FocusId = "schedules-page";
+
+    private const string DetailId = "schedules-detail";
+
+    private ScheduleFilter _filter = ScheduleFilter.All;
+
+    /// <summary>The schedule the reader chose, by id, or null for the first one shown.</summary>
+    private string? _selectedId;
+
+    private string? _openMissing;
+
+    private bool _focusDetail;
+
+    private IReadOnlyList<ScheduleReadingResult> Shown =>
+        [.. Schedules.Where(schedule => ScheduleOverview.Matches(_filter, schedule.State))];
+
+    /// <summary>The schedule the detail shows: the one chosen while the filter shows it,
+    /// else the first the table draws — never one the table does not show.</summary>
+    private ScheduleReadingResult? SelectedOf(IReadOnlyList<ScheduleReadingResult> shown)
+    {
+        var ordered = ScheduleOverview.Groups(shown).SelectMany(group => group.Schedules).ToList();
+
+        return ordered.FirstOrDefault(schedule => schedule.Schedule.Id == _selectedId) ?? ordered.FirstOrDefault();
+    }
+
+    private IReadOnlyList<DataTableSection<ScheduleReadingResult>> SectionsOf(IReadOnlyList<ScheduleReadingResult> shown) =>
+        [.. ScheduleOverview.Groups(shown).Select(group => new DataTableSection<ScheduleReadingResult>(
+            RepositoryName(group.Repository),
+            group.Schedules,
+            group.Repository ?? "\u0000other"))];
+
+    private void Select(ScheduleReadingResult schedule)
+    {
+        _selectedId = schedule.Schedule.Id;
+        _openMissing = null;
+    }
+
+    /// <summary>All runs: the schedule in the detail, its runs listed, and the reader put
+    /// there. A filter that would hide it goes back to All.</summary>
+    private void ShowRuns(ScheduleReadingResult schedule)
+    {
+        Select(schedule);
+        if (!ScheduleOverview.Matches(_filter, schedule.State)) _filter = ScheduleFilter.All;
+        _focusDetail = true;
+    }
+
+    private void Open(ScheduledRunReading run)
+    {
+        _openMissing = null;
+
+        if (OpenRun?.Invoke(run.Run.SessionId) is true) return;
+
+        _openMissing = $"The Sessions list does not show the {Day(ScheduleOverview.Began(run.Run))} run's session ({run.Run.SessionId}): this PC has no record of it, or it is outside the repositories the header is scoped to.";
+    }
+
+    /// <summary>The run Open run opens: the one that holds a held schedule, else the
+    /// latest.</summary>
+    private static ScheduledRunReading? RunToOpen(ScheduleReadingResult schedule) =>
+        ScheduleOverview.Holder(schedule) ?? (schedule.Runs.Count > 0 ? schedule.Runs[0] : null);
+
+    private string OpenLabel(ScheduleReadingResult schedule, ScheduledRunReading target) =>
+        schedule.State is ScheduledRunState.Held
+            ? $"Open the {Day(ScheduleOverview.Began(target.Run))} run"
+            : "Open run";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        string? target = null;
+
+        if (firstRender)
+        {
+            target = FocusId;
+        }
+        else if (_focusDetail)
+        {
+            _focusDetail = false;
+            target = DetailId;
+        }
+
+        if (target is null) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", target);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page went with its circuit; there is nothing left to focus.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering, or a host with no JavaScript: the page is still on screen.
+        }
+    }
+
+    private string Subtitle
+    {
+        get
+        {
+            var repositories = Schedules
+                .Select(schedule => schedule.Schedule.Repository)
+                .Where(repository => !string.IsNullOrWhiteSpace(repository))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+
+            var counted = Schedules.Count == 1 ? "1 schedule" : $"{Schedules.Count} schedules";
+            var across = repositories == 1 ? "1 repository" : $"{repositories} repositories";
+            var scope = ScopeLabel is null ? string.Empty : $" in {ScopeLabel}";
+
+            return $"{counted} across {across}{scope}, as their runs reported them. Archive a run in Claude Desktop to mark it handled.";
+        }
+    }
+
+    private string EmptyDescription => ScopeLabel is null
+        ? "A schedule shows here once one of its runs reports to Backlog, which the backlog-tools plugin's hooks do for every scheduled run."
+        : $"No schedule in {ScopeLabel} has reported. A schedule shows here once one of its runs reports to Backlog.";
+
+    private string LastRun(ScheduleReadingResult schedule)
+    {
+        if (schedule.Runs.Count == 0) return "—";
+
+        var latest = schedule.Runs[0].Run;
+        var when = When(ScheduleOverview.Began(latest));
+
+        return latest.Skipped ? $"{when} · skipped" : when;
+    }
+
+    private string Since(ScheduleReadingResult schedule)
+    {
+        if (ScheduleOverview.Holder(schedule) is { } holder) return $"since {Day(ScheduleOverview.Began(holder.Run))}";
+
+        return schedule.Runs.Count > 0 ? Day(schedule.Runs[0].Run.FinishedAt ?? ScheduleOverview.Began(schedule.Runs[0].Run)) : string.Empty;
+    }
+
+    private string HeldAsk(ScheduleReadingResult schedule)
+    {
+        var skipped = ScheduleOverview.SkippedInARow(schedule);
+        var count = skipped == 1 ? "1 skipped so far" : $"{skipped} skipped so far";
+
+        return ScheduleOverview.Holder(schedule) is { } holder
+            ? $"Answer the {Day(ScheduleOverview.Began(holder.Run))} run. Until it is archived, every run skips itself ({count})."
+            : $"An earlier run is not archived. Until it is, every run skips itself ({count}).";
+    }
+
+    private string HeldHeading(ScheduleReadingResult schedule) =>
+        ScheduleOverview.Holder(schedule) is { } holder
+            ? $"Held since {Day(ScheduleOverview.Began(holder.Run))}."
+            : "Held by an earlier run.";
+
+    private const string HeldExplanation =
+        "Each run skips itself while that run is unarchived. Answer its brief, then archive it in Claude Desktop to release the schedule.";
+
+    private string MissedLine(ScheduleReadingResult schedule) => schedule.DueAt is { } due
+        ? $"Missed: it was due {When(due)}, and no run has reported its start since."
+        : "Missed: a due time passed and no run has reported its start since.";
+
+    private string CadenceLine(ScheduleReadingResult schedule)
+    {
+        var cadence = ScheduleCadence.Describe(schedule.Schedule.Cron);
+
+        return schedule.NextRunAt is { } next ? $"{cadence} · next {When(next)}" : cadence;
+    }
+
+    private string RunNote(ScheduleReadingResult schedule, ScheduledRunReading run)
+    {
+        var report = run.Run;
+
+        if (report.Skipped)
+        {
+            var holder = report.HeldBy is { } held
+                ? schedule.Runs.FirstOrDefault(candidate => string.Equals(candidate.Run.SessionId, held, StringComparison.Ordinal))
+                : ScheduleOverview.Holder(schedule);
+
+            return holder is null
+                ? "Skipped: an earlier run is not archived"
+                : $"Skipped: the {Day(ScheduleOverview.Began(holder.Run))} run is not archived";
+        }
+
+        if (report.Failed) return report.Verdict is { } error ? $"Failed: {error}" : "Failed";
+        if (report.FinishedAt is null) return "Started, no summary yet";
+        if (report.NeedsYou.Count > 0) return report.NeedsYou.Count == 1 ? report.NeedsYou[0] : $"{report.NeedsYou[0]} (+{report.NeedsYou.Count - 1} more)";
+
+        return report.Verdict ?? "Finished";
+    }
+
+    /// <summary>A moment, short: the weekday within a week either side of now, the date
+    /// beyond it, with the time.</summary>
+    internal string When(DateTimeOffset at)
+    {
+        var local = TimeZoneInfo.ConvertTime(at, Zone);
+        var today = TimeZoneInfo.ConvertTime(Now, Zone).Date;
+        var days = Math.Abs((local.Date - today).TotalDays);
+        var time = local.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+        if (days == 0) return $"Today {time}";
+
+        return days < 6
+            ? $"{local.ToString("ddd", CultureInfo.InvariantCulture)} {time}"
+            : $"{local.ToString("ddd d MMM", CultureInfo.InvariantCulture)} {time}";
+    }
+
+    /// <summary>A day, as "Fri 6 Nov".</summary>
+    internal string Day(DateTimeOffset at) =>
+        TimeZoneInfo.ConvertTime(at, Zone).ToString("ddd d MMM", CultureInfo.InvariantCulture);
+
+    private static string FilterLabel(ScheduleFilter filter) => filter switch
+    {
+        ScheduleFilter.NeedsYou => "Needs you",
+        ScheduleFilter.ReviewReady => "Review ready",
+        ScheduleFilter.FailedOrMissed => "Failed or missed",
+        _ => "All",
+    };
+
+    private static string Slug(ScheduleFilter filter) => filter switch
+    {
+        ScheduleFilter.NeedsYou => "needs-you",
+        ScheduleFilter.ReviewReady => "review-ready",
+        ScheduleFilter.FailedOrMissed => "failed-or-missed",
+        _ => "all",
+    };
+
+    internal static string StateLabel(ScheduledRunState? state) => state switch
+    {
+        ScheduledRunState.NeedsYou => "Needs you",
+        ScheduledRunState.Held => "Held",
+        ScheduledRunState.Failed => "Failed",
+        ScheduledRunState.Missed => "Missed",
+        ScheduledRunState.ReviewReady => "Review ready",
+        ScheduledRunState.Handled => "Handled",
+        ScheduledRunState.NoSummaryYet => "No summary yet",
+        _ => "No runs",
+    };
+
+    private static string StateSlug(ScheduledRunState? state) => state switch
+    {
+        ScheduledRunState.NeedsYou => "needs-you",
+        ScheduledRunState.Held => "held",
+        ScheduledRunState.Failed => "failed",
+        ScheduledRunState.Missed => "missed",
+        ScheduledRunState.ReviewReady => "review-ready",
+        ScheduledRunState.Handled => "handled",
+        ScheduledRunState.NoSummaryYet => "no-summary-yet",
+        _ => "none",
+    };
+
+    /// <summary>The tone a state reads in, from the library's tone family: the states that
+    /// need the person on the alert and fault tones, the ones that are done settled.</summary>
+    private static string Tone(ScheduledRunState? state) => state switch
+    {
+        ScheduledRunState.NeedsYou or ScheduledRunState.Held => "alert",
+        ScheduledRunState.Failed => "fault",
+        ScheduledRunState.Missed => "archived",
+        ScheduledRunState.ReviewReady => "live",
+        ScheduledRunState.Handled => "settled",
+        _ => "quiet",
+    };
+}

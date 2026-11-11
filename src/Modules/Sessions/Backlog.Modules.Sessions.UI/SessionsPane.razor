@@ -83,12 +83,18 @@
     remembered — the pane opens on the list, the way every filter here opens on its
     first option.
 
+    Schedules is the takeover's second page, on the same terms (local ADR 0051 §6): the
+    header's button switches to it, its breadcrumb switches back, and its Open run comes
+    back to the list on the run's session row. The pane reads the schedule register with
+    every reading, against the same session records, because a run reads Handled by its
+    session's archived flag.
+
     The loop sessions — the session dispatcher and the Brain tender a person keeps under
     /loop (local ADR 0051 §3) — lead the list in an Agents section under every grouping.
     Their titles make them the Agent purpose, and their state is the one their check-ins
     with Backlog decide, not the process's. The panel shows such a row's loop card, whose
-    Pause, Resume and Stop set the command the next check_in answer carries. The header's
-    Schedules button and the Scheduled fold count the schedules that need the person.
+    Pause, Resume and Stop set the command the next check_in answer carries. The Scheduled
+    fold says how many schedules need the person and opens the Schedules page too.
 *@
 
 @if (_economics)
@@ -101,6 +107,19 @@
                            OnBack="CloseEconomics"
                            OnClose="() => OnClose.InvokeAsync()"
                            OnRefresh="RefreshAsync" />
+}
+else if (_schedulesPage)
+{
+    <SchedulesPage Schedules="@ScopedSchedules"
+                   Error="@_schedulesError"
+                   Loading="@_loading"
+                   ScopeLabel="@(Scoped ? ScopeLabel : null)"
+                   Now="@_schedulesReadAt"
+                   RepositoryAlias="RepositoryAlias"
+                   OpenRun="OpenRunInList"
+                   OnBack="CloseSchedules"
+                   OnClose="() => OnClose.InvokeAsync()"
+                   OnRefresh="RefreshAsync" />
 }
 else
 {
@@ -123,27 +142,26 @@ else
                Group by moves the same rows around, and it names both numbers the
                moment a filter leaves some of them out. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
-            @if (_schedules is not null)
-            {
-                @* The way to the schedules, beside Delivery economics, with how many of
-                   them need the person (local ADR 0051 §6): Needs you, Held, Failed and
-                   Missed, the states that alert. No badge while none does. *@
-                <AppButton Variant="ButtonVariant.Secondary"
-                           TestId="sessions-open-schedules"
-                           OnClick="OpenSchedules">
-                    Schedules
-                    @if (SchedulesNeedingYou > 0)
-                    {
-                        <span class="sessions-panel__needs-badge" data-testid="sessions-schedules-badge" aria-hidden="true">@SchedulesNeedingYou</span>
-                        <span class="sr-only">, @NeedYouLabel(SchedulesNeedingYou)</span>
-                    }
-                </AppButton>
-            }
             <AppButton Variant="ButtonVariant.Secondary"
                        TestId="sessions-open-economics"
                        id="@OpenEconomicsId"
                        OnClick="OpenEconomics">
                 Delivery economics
+            </AppButton>
+            @* Schedules is the takeover's second page, reached the same way. Its badge
+               counts the schedules that need the person — Needs you or Held — and is
+               absent when none does. *@
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="sessions-open-schedules"
+                       id="@OpenSchedulesId"
+                       OnClick="OpenSchedules">
+                Schedules
+                @if (SchedulesNeedingYou > 0)
+                {
+                    <span class="sessions-filter__tally"
+                          title="@(SchedulesNeedingYou == 1 ? "1 schedule needs you" : $"{SchedulesNeedingYou} schedules need you")"
+                          data-testid="sessions-schedules-badge">@SchedulesNeedingYou<span class="sr-only"> need you</span></span>
+                }
             </AppButton>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
@@ -439,17 +457,14 @@ else
                                         </ul>
                                     </ChildContent>
                                 </FoldControl>
-                                @if (_schedules is not null)
-                                {
-                                    @* A control of its own, so the fold trigger's sibling and
-                                       never inside it; after it in the document, so the tab
-                                       order runs as the heading reads, and stacked at the
-                                       heading's end. *@
-                                    <AppButton BaseClass="sessions-group__open-schedules"
-                                               Variant="ButtonVariant.None"
-                                               TestId="sessions-scheduled-open-schedules"
-                                               OnClick="OpenSchedules">Open Schedules</AppButton>
-                                }
+                                @* The Schedules page, like the header's button. A control of
+                                   its own, so the fold trigger's sibling and never inside it;
+                                   after it in the document, so the tab order runs as the
+                                   heading reads, and stacked at the heading's end. *@
+                                <AppButton BaseClass="sessions-group__open-schedules"
+                                           Variant="ButtonVariant.None"
+                                           TestId="sessions-scheduled-open-schedules"
+                                           OnClick="OpenSchedules">Open Schedules</AppButton>
                             </div>
                             continue;
                         }
@@ -1097,14 +1112,6 @@ else
     /// composed no queue.</summary>
     private int? WaitingRequests { get; set; }
 
-    /// <summary>Every schedule as its reports decide its state, or null where the host
-    /// composed no Schedule Register — and then there is no Schedules button.</summary>
-    private IReadOnlyList<ScheduleReadingResult>? _schedules;
-
-    /// <summary>How many schedules need the person: the header's badge and the Scheduled
-    /// fold's chip.</summary>
-    private int SchedulesNeedingYou => _schedules is { } schedules ? ScheduleReading.NeedingPerson(schedules) : 0;
-
     private static string NeedYouLabel(int count) => count == 1 ? "1 needs you" : $"{count} need you";
 
     /// <summary>Whether a command is being set on a loop, and why the last one failed.</summary>
@@ -1146,23 +1153,6 @@ else
         }
     };
 
-    /// <summary>
-    /// The Schedules button and the Scheduled fold's link. Until the Schedules page
-    /// lands (plan entry 9) the schedules this pane can show are the desktop app's
-    /// scheduled runs, folded in the Open view: the view switches there and unfolds them.
-    /// </summary>
-    private void OpenSchedules()
-    {
-        _economics = false;
-        _view = AgentSessionView.Open;
-        _scheduledOpen = true;
-
-        // A filter that reads the title would leave no Scheduled section to open.
-        _purpose = null;
-        _planTag = null;
-        _planState = null;
-    }
-
     /// <summary>Sets the person's command on a loop; the next check-in's answer carries
     /// it. The reading is replaced with what the register answered, so the card shows the
     /// command at once; a register that fails says so on the card and changes nothing.</summary>
@@ -1197,31 +1187,29 @@ else
         }
     }
 
-    /// <summary>The loop sessions, the dispatcher's capacity and work, and the schedules,
-    /// read beside the sessions. Each source is optional and the host's to compose; one
+    /// <summary>The loop sessions and the dispatcher's capacity and work, read beside the
+    /// sessions. Each source is optional and the host's to compose; one
     /// that is missing or fails leaves its part of the pane empty rather than failing it.</summary>
-    private sealed record LoopsAndSchedules(
+    private sealed record LoopReading(
         IReadOnlyDictionary<string, LoopSessionReading> Loops,
         DateTimeOffset ReadAt,
         CapacityReading? Capacity,
         int? WaitingRequests,
-        IReadOnlyList<LoopWorkItem>? Work,
-        IReadOnlyList<ScheduleReadingResult>? Schedules);
+        IReadOnlyList<LoopWorkItem>? Work);
 
-    /// <summary>What <see cref="ReadLoopsAndSchedulesAsync"/> read, taken in on the
+    /// <summary>What <see cref="ReadLoopsAsync"/> read, taken in on the
     /// renderer's thread.</summary>
-    private void Apply(LoopsAndSchedules read)
+    private void Apply(LoopReading read)
     {
         _loops = read.Loops;
         _loopsReadAt = read.ReadAt;
         _capacity = read.Capacity;
         WaitingRequests = read.WaitingRequests;
         _loopWork = read.Work;
-        _schedules = read.Schedules;
         _commandError = null;
     }
 
-    private async Task<LoopsAndSchedules> ReadLoopsAndSchedulesAsync(AgentSessionCatalog catalog)
+    private async Task<LoopReading> ReadLoopsAsync()
     {
         var now = _clock.GetUtcNow();
         var loops = new Dictionary<string, LoopSessionReading>(StringComparer.Ordinal);
@@ -1281,28 +1269,12 @@ else
             }
         }
 
-        IReadOnlyList<ScheduleReadingResult>? schedules = null;
-
-        if (Services.GetService<IScheduleRegister>() is { } register)
-        {
-            try
-            {
-                schedules = ScheduleReading.Read(await register.ListAsync(), ScheduleReading.ArchivedIn(catalog), now, TimeZoneInfo.Local);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                // The button stays, with no badge: the schedules are there, their states unread.
-                schedules = [];
-            }
-        }
-
-        return new LoopsAndSchedules(
+        return new LoopReading(
             loops,
             now,
             capacity,
             requests is null ? null : SessionRequests.Waiting(requests, now).Count,
-            requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now),
-            schedules);
+            requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now));
     }
 
     /// <summary>The open waiting questions, read beside the sessions. The relay is the
@@ -1852,6 +1824,114 @@ else
     private bool ReopensOnReturn(DeliveryRun run) =>
         _focusAfterEconomics && ReferenceEquals(run, _economicsOpener);
 
+    /// <summary>Whether the pane shows the Schedules page instead of the list.</summary>
+    private bool _schedulesPage;
+
+    /// <summary>Every schedule the register holds, read at the pane's last reading against
+    /// that reading's session records (local ADR 0051 §2).</summary>
+    private IReadOnlyList<ScheduleReadingResult> _schedules = [];
+
+    /// <summary>Why the schedules could not be read at the last reading, or null.</summary>
+    private string? _schedulesError;
+
+    /// <summary>When the schedules were last read: what the page says "since" against.</summary>
+    private DateTimeOffset _schedulesReadAt = DateTimeOffset.UtcNow;
+
+    /// <summary>The element the list, once drawn again after the page, puts the focus on.</summary>
+    private string? _focusAfterSchedules;
+
+    /// <summary>The row Open run on the Schedules page opened, marked until another is chosen.</summary>
+    private string? _openedRunRowKey;
+
+    private const string OpenSchedulesId = "sessions-open-schedules";
+
+    private void OpenSchedules() => _schedulesPage = true;
+
+    /// <summary>Back to the list, with its filters and selection as they were.</summary>
+    private void CloseSchedules()
+    {
+        _schedulesPage = false;
+        _focusAfterSchedules = OpenSchedulesId;
+    }
+
+    /// <summary>
+    /// The page's Open run: the list again, on the row of the run's session — by its own
+    /// id, its desktop id, or a delivery run it drove — selected, widened to when the
+    /// filters hide it, unfolded to when the Scheduled fold holds it, and focused. A
+    /// session this reading does not hold leaves the page where it is and says so.
+    /// </summary>
+    private bool OpenRunInList(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return false;
+
+        bool Is(SessionRow row) =>
+            string.Equals(row.Session?.Id, sessionId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(row.Session?.DesktopSessionId, sessionId, StringComparison.OrdinalIgnoreCase);
+
+        bool Drove(SessionRow row) =>
+            row.Runs.Any(run => run.SessionIds.Contains(sessionId, StringComparer.OrdinalIgnoreCase));
+
+        // The session's own row first; a row whose delivery run the session drove only
+        // where it has none, since a run naming two sessions joins the first one's row.
+        var scoped = ScopedSessions;
+        if ((scoped.FirstOrDefault(Is) ?? scoped.FirstOrDefault(Drove)) is not { } row) return false;
+
+        _selectedKey = row.Key;
+        _openedRunRowKey = row.Key;
+
+        if (!Visible.Any(candidate => candidate.Key == row.Key))
+        {
+            _view = AgentSessionView.All;
+            ClearFilters();
+        }
+
+        if (View.Scheduled is { } scheduled && scheduled.Rows.Any(candidate => candidate.Key == row.Key)) _scheduledOpen = true;
+
+        _schedulesPage = false;
+        _focusAfterSchedules = RowDomId(row);
+        StateHasChanged();
+
+        return true;
+    }
+
+    /// <summary>The schedules the shell's repository scope admits, by the list's own rule:
+    /// a schedule is in by the repository its runs reported; with the Brain scoped, one
+    /// that names no configured repository is the Brain's.</summary>
+    private IReadOnlyList<ScheduleReadingResult> ScopedSchedules => Scoped
+        ? [.. _schedules.Where(schedule =>
+            Scopes(schedule.Schedule.Repository)
+            || (global::Backlog.SharedKernel.BrainScope.In(RepositoryScope) && !Configured(schedule.Schedule.Repository)))]
+        : _schedules;
+
+    /// <summary>How many schedules in scope need the person: Needs you or Held.</summary>
+    private int SchedulesNeedingYou => ScopedSchedules.Count(schedule => ScheduleOverview.NeedsYou(schedule.State));
+
+    /// <summary>The schedule register's records, or why they could not be read. A host
+    /// without a register — the sessions flag off, or a build with no workspace — reads
+    /// as no schedules rather than a failure.</summary>
+    private async Task<(IReadOnlyList<ScheduleRecord> Records, string? Error)> ReadSchedulesAsync()
+    {
+        if (Services.GetService<IScheduleRegister>() is not { } register) return ([], null);
+
+        try
+        {
+            return (await register.ListAsync(), null);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return ([], $"The schedules could not be read: {exception.Message}");
+        }
+    }
+
+    /// <summary>The records read against this reading's session records, whose archived
+    /// flag decides Handled, at the pane's clock in this machine's zone.</summary>
+    private void ReadSchedules((IReadOnlyList<ScheduleRecord> Records, string? Error) read)
+    {
+        _schedulesReadAt = _clock.GetUtcNow();
+        _schedulesError = read.Error;
+        _schedules = ScheduleReading.Read(read.Records, ScheduleReading.ArchivedIn(_catalog), _schedulesReadAt, TimeZoneInfo.Local);
+    }
+
     /// <summary>
     /// The runs the page reads: those of the rows the shell's repository scope admits,
     /// by the list's own rule, or the whole catalog when nothing is scoped. Kept as one
@@ -2179,15 +2259,15 @@ else
         var sessions = Task.Run(() => Sessions.GetSessionsAsync());
         var runs = Task.Run(() => Runs.GetRunsAsync());
         var asks = Task.Run(ReadAsksAsync);
+        var schedules = Task.Run(ReadSchedulesAsync);
 
         _catalog = await sessions;
         _runs = await runs;
         _asks = await asks;
+        ReadSchedules(await schedules);
 
-        // On the pool for the same reason as the readings above; it needs the catalog,
-        // whose archived flags decide which schedules are Handled.
-        var catalog = _catalog;
-        Apply(await Task.Run(() => ReadLoopsAndSchedulesAsync(catalog)));
+        // On the pool for the same reason as the readings above.
+        Apply(await Task.Run(ReadLoopsAsync));
         await ReadPricesAsync();
         _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
         _read = true;
@@ -2243,7 +2323,11 @@ else
         _focusPending = !string.IsNullOrWhiteSpace(FocusSessionId);
 
         // A task that opens the pane on a session asks for the list.
-        if (_focusPending) _economics = false;
+        if (_focusPending)
+        {
+            _economics = false;
+            _schedulesPage = false;
+        }
 
         RevealFocused();
     }
@@ -2291,7 +2375,7 @@ else
         "sessions-row-" + string.Concat(row.Key.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
 
     private IReadOnlyDictionary<string, object>? FocusAttributes(SessionRow row) =>
-        IsFocused(row)
+        IsFocused(row) || string.Equals(row.Key, _openedRunRowKey, StringComparison.Ordinal)
             ? new Dictionary<string, object>
             {
                 ["id"] = RowDomId(row),
@@ -2304,15 +2388,17 @@ else
     {
         // The list is not on screen, so there is no selected row to ask about or
         // focus; returning to it renders again and asks then.
-        if (_economics) return;
+        if (_economics || _schedulesPage) return;
 
-        if (_focusAfterEconomics)
+        if (_focusAfterEconomics || _focusAfterSchedules is not null)
         {
+            var target = _focusAfterSchedules ?? FocusTargetAfterEconomics();
             _focusAfterEconomics = false;
+            _focusAfterSchedules = null;
 
             try
             {
-                await JS.InvokeVoidAsync("backlogFocus", FocusTargetAfterEconomics());
+                await JS.InvokeVoidAsync("backlogFocus", target);
             }
             catch (JSDisconnectedException)
             {
@@ -2381,6 +2467,7 @@ else
     private void Select(SessionRow row)
     {
         _selectedKey = row.Key;
+        _openedRunRowKey = null;
         _commandError = null;
     }
 

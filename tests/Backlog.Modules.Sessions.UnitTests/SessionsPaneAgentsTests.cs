@@ -11,8 +11,8 @@ namespace Backlog.Modules.Sessions.UnitTests;
 /// The loop sessions in the Sessions pane (local ADR 0051 §3, §4, §6; the design's
 /// "Sessions pane" and "Loop session states" artboards): the Agents section that leads
 /// the list, the Agent purpose, a loop session's card with its capacity tiles, its work
-/// list and its Pause, Resume and Stop, and the counts of the schedules that need the
-/// person on the Scheduled fold and the Schedules button.
+/// list and its Pause, Resume and Stop, and the Scheduled fold's count of the schedules
+/// that need the person with its way to the Schedules page.
 /// </summary>
 public sealed class SessionsPaneAgentsTests
 {
@@ -348,97 +348,51 @@ public sealed class SessionsPaneAgentsTests
     // --- The schedules that need the person ------------------------------------------
 
     [Fact]
-    public async Task The_Schedules_button_sits_beside_Delivery_economics_with_how_many_need_you()
-    {
-        using var context = new Harness(Session("task-1", "Fix the importer"));
-        await context.ScheduleAsync("weekly-update", needsYou: true);
-        await context.ScheduleAsync("issue-sweep", failed: true);
-        await context.ScheduleAsync("change-report");
-
-        var pane = context.Render();
-
-        pane.WaitForAssertion(() =>
-        {
-            var button = pane.Find("[data-testid='sessions-open-schedules']");
-            Assert.Equal("2", button.QuerySelector("[data-testid='sessions-schedules-badge']")!.TextContent.Trim());
-            Assert.Contains("2 need you", button.TextContent, StringComparison.Ordinal);
-
-            var actions = pane.FindAll(".sessions-panel__header-actions > *").Select(action => action.GetAttribute("data-testid")).ToList();
-            Assert.Equal(actions.IndexOf("sessions-open-economics") - 1, actions.IndexOf("sessions-open-schedules"));
-        });
-    }
-
-    [Fact]
-    public async Task No_schedule_needing_you_leaves_the_button_without_a_badge()
-    {
-        using var context = new Harness(Session("task-1", "Fix the importer"));
-        await context.ScheduleAsync("change-report");
-
-        var pane = context.Render();
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.NotNull(pane.Find("[data-testid='sessions-open-schedules']"));
-            Assert.Empty(pane.FindAll("[data-testid='sessions-schedules-badge']"));
-        });
-    }
-
-    [Fact]
-    public void A_host_with_no_schedule_register_shows_no_Schedules_button()
-    {
-        using var context = new Harness(Session("task-1", "Fix the importer")) { WithSchedules = false };
-
-        var pane = context.Render();
-
-        pane.WaitForElement("[data-testid='sessions-row']");
-        Assert.Empty(pane.FindAll("[data-testid='sessions-open-schedules']"));
-    }
-
-    [Fact]
-    public async Task The_Scheduled_fold_says_how_many_need_you_and_links_to_the_schedules()
+    public async Task The_Scheduled_fold_says_how_many_need_you_and_opens_the_Schedules_page()
     {
         using var context = new Harness(
             Session("task-1", "Fix the importer", archived: false, lastActivity: Noon.AddMinutes(-1)),
             Session("routine-1", "Weekly update", archived: false, scheduledTask: "weekly-update", state: AgentSessionState.Finished));
         await context.ScheduleAsync("weekly-update", needsYou: true);
         await context.ScheduleAsync("issue-sweep", held: true);
+        await context.ScheduleAsync("package-update", failed: true);
 
         var pane = context.Render(view: "open");
 
         pane.WaitForAssertion(() =>
         {
             var fold = pane.Find($"[data-group-key='{AgentSessionGroups.ScheduledKey}']");
+
+            // Needs you and Held, the count the header's badge keeps: a failed run is not counted.
             Assert.Equal("2 need you", fold.QuerySelector("[data-testid='sessions-scheduled-needs-you']")!.TextContent.Trim());
+            Assert.Equal("2", pane.Find("[data-testid='sessions-schedules-badge']").TextContent.Replace("need you", string.Empty, StringComparison.Ordinal).Trim());
 
             // The link is the fold trigger's sibling, never inside it.
             var link = fold.QuerySelector("[data-testid='sessions-scheduled-open-schedules']")!;
             Assert.Equal("Open Schedules", link.TextContent.Trim());
             Assert.Null(link.Closest("[data-testid='sessions-scheduled-fold']"));
-            Assert.Equal("false", fold.QuerySelector("[data-testid='sessions-scheduled-fold']")!.GetAttribute("aria-expanded"));
         });
 
         pane.Find("[data-testid='sessions-scheduled-open-schedules']").Click();
 
         pane.WaitForAssertion(() =>
-            Assert.Equal("true", pane.Find("[data-testid='sessions-scheduled-fold']").GetAttribute("aria-expanded")));
+        {
+            Assert.NotNull(pane.Find("[data-testid='schedules-page']"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-list']"));
+        });
     }
 
     [Fact]
-    public async Task The_Schedules_button_opens_the_scheduled_runs_from_any_view()
+    public async Task No_schedule_needing_you_leaves_the_fold_without_a_chip()
     {
         using var context = new Harness(
-            Session("task-1", "Fix the importer", archived: false, lastActivity: Noon.AddMinutes(-1)),
-            Session("routine-1", "Weekly update", archived: false, scheduledTask: "weekly-update", state: AgentSessionState.Finished));
-        await context.ScheduleAsync("weekly-update", needsYou: true);
+            Session("routine-1", "Change report", archived: false, scheduledTask: "change-report", state: AgentSessionState.Finished));
+        await context.ScheduleAsync("change-report");
 
-        var pane = context.Render();
-        pane.WaitForElement("[data-testid='sessions-open-schedules']").Click();
+        var pane = context.Render(view: "open");
 
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", pane.Find("[data-testid='sessions-view-open']").GetAttribute("aria-pressed"));
-            Assert.Equal("true", pane.Find("[data-testid='sessions-scheduled-fold']").GetAttribute("aria-expanded"));
-        });
+        pane.WaitForElement("[data-testid='sessions-scheduled-open-schedules']");
+        Assert.Empty(pane.FindAll("[data-testid='sessions-scheduled-needs-you']"));
     }
 
     [Fact]
@@ -460,26 +414,6 @@ public sealed class SessionsPaneAgentsTests
             Assert.Equal(AgentSessionGroups.ScheduledKey, keys[^1]);
             Assert.NotNull(pane.Find("[data-testid='sessions-scheduled-fold']"));
             Assert.Equal("1 needs you", pane.Find("[data-testid='sessions-scheduled-needs-you']").TextContent.Trim());
-        });
-    }
-
-    [Fact]
-    public async Task Open_Schedules_lifts_a_title_filter_that_would_hide_the_scheduled_runs()
-    {
-        using var context = new Harness(
-            Session(DispatcherId, "📡 SESSION DISPATCHER", archived: false, lastActivity: Noon.AddMinutes(-2)),
-            Session("routine-1", "Weekly update", archived: false, scheduledTask: "weekly-update", state: AgentSessionState.Finished));
-        await context.ScheduleAsync("weekly-update", needsYou: true);
-
-        var pane = context.Render();
-        pane.WaitForElement("[data-testid='sessions-open-schedules']");
-        pane.Find("[data-testid='sessions-purpose-agent']").Click();
-        pane.Find("[data-testid='sessions-open-schedules']").Click();
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", pane.Find("[data-testid='sessions-purpose-all']").GetAttribute("aria-pressed"));
-            Assert.Equal("true", pane.Find("[data-testid='sessions-scheduled-fold']").GetAttribute("aria-expanded"));
         });
     }
 
@@ -553,7 +487,6 @@ public sealed class SessionsPaneAgentsTests
         public InMemorySessionRequestStore Requests { get; }
         public HeldWaitingQuestions Questions { get; } = new();
         public CapacityReading? Capacity { get; set; }
-        public bool WithSchedules { get; init; } = true;
 
         public void CheckIn(
             string sessionId,
@@ -591,7 +524,7 @@ public sealed class SessionsPaneAgentsTests
             _context.Services.AddSingleton<ISessionRequestStore>(Requests);
             _context.Services.AddSingleton<IWaitingQuestionStore>(Questions);
             _context.Services.AddSingleton<ICapacityReader>(new FixedCapacity(this));
-            if (WithSchedules) _context.Services.AddSingleton<IScheduleRegister>(Schedules);
+            _context.Services.AddSingleton<IScheduleRegister>(Schedules);
 
             var pane = _context.Render<SessionsPane>();
 

@@ -6,8 +6,7 @@ namespace Backlog.Modules.Sessions.UnitTests;
 /// <summary>
 /// The pure parts behind the Sessions pane's Agents (local ADR 0051 §3, §6): a loop
 /// session's title reads as the Agent purpose, the Agents section leads every grouping,
-/// the schedules that need the person are counted by the states that alert, and a loop
-/// reads on screen in the design's words.
+/// and a loop reads on screen in the design's words.
 /// </summary>
 public sealed class AgentPurposeTests
 {
@@ -78,18 +77,6 @@ public sealed class AgentPurposeTests
 
         Assert.Same(sections, AgentSessionGroups.AgentsFirst(sections));
     }
-
-    [Theory]
-    [InlineData(ScheduledRunState.NeedsYou, true)]
-    [InlineData(ScheduledRunState.Held, true)]
-    [InlineData(ScheduledRunState.Failed, true)]
-    [InlineData(ScheduledRunState.Missed, true)]
-    [InlineData(ScheduledRunState.ReviewReady, false)]
-    [InlineData(ScheduledRunState.Handled, false)]
-    [InlineData(ScheduledRunState.NoSummaryYet, false)]
-    [InlineData(null, false)]
-    public void A_schedule_needs_the_person_in_the_states_that_alert(ScheduledRunState? state, bool needs) =>
-        Assert.Equal(needs, ScheduleReading.NeedsPerson(state));
 
     [Fact]
     public void The_held_line_says_what_a_dispatcher_holds_against_its_limit()

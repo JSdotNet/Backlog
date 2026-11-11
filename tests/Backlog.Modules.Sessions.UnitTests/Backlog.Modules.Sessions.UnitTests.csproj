@@ -36,8 +36,8 @@
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
     <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryLoopRegister.cs" Link="Shared\TestDoubles\InMemoryLoopRegister.cs" />
-    <Compile Include="..\Shared\TestDoubles\HeldWaitingQuestions.cs" Link="Shared\TestDoubles\HeldWaitingQuestions.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryScheduleRegister.cs" Link="Shared\TestDoubles\InMemoryScheduleRegister.cs" />
+    <Compile Include="..\Shared\TestDoubles\HeldWaitingQuestions.cs" Link="Shared\TestDoubles\HeldWaitingQuestions.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemorySessionRequestStore.cs" Link="Shared\TestDoubles\InMemorySessionRequestStore.cs" />
   </ItemGroup>
 
