@@ -56,10 +56,11 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     public bool IsC4View => Path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Whether this names a section's folder as a whole rather than a
-    /// file in it — what <see cref="ForFolder"/> builds, its path ending in a
-    /// separator. Following it opens the
-    /// section's tab with whatever chapter that section has open.</summary>
-    public bool IsFolder => Anchor is null && Path.EndsWith('/') && !DevbookMenu.IsPersonalTabKey(AreaKey);
+    /// file in it — what <see cref="ForFolder"/> builds, and
+    /// <see cref="ForBrainNote"/> for a Brain area, its path ending in a separator.
+    /// Following it opens the section's tab with whatever chapter that section has
+    /// open.</summary>
+    public bool IsFolder => Anchor is null && Path.EndsWith('/');
 
     /// <summary>
     /// A section's folder, for a caller that names a folder rather than a chapter
@@ -123,7 +124,9 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// (<c>projects/plan.md#next</c>). Its area key is the Brain's
     /// (<see cref="DevbookMenu.PersonalTabKey"/>), and its path is already the one
     /// the Brain's menu selects by, so <see cref="RelativePath"/> leaves it whole.
-    /// A note at the Brain's root sits in no area and resolves to nothing.
+    /// A note at the Brain's root sits in no area and resolves to nothing. An area
+    /// folder alone, with its trailing slash (<c>_inbox/</c>), names the area's tab
+    /// (<see cref="IsFolder"/>).
     /// </summary>
     public static DevbookChapterLink? ForBrainNote(string? link)
     {
@@ -134,6 +137,14 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
         path = path.TrimStart('/');
 
         var separator = path.IndexOf('/');
+
+        // An area as a whole — its folder and a trailing slash, as the Inbox's queue
+        // health opens the Brain's inbox area: that area's tab.
+        if (separator > 0 && separator == path.Length - 1 && reference.Slug is null)
+        {
+            return new DevbookChapterLink(DevbookMenu.PersonalTabKey(path[..separator]), path, null);
+        }
+
         if (separator <= 0 || !IsChapterFile(path)) return null;
 
         return new DevbookChapterLink(DevbookMenu.PersonalTabKey(path[..separator]), path, reference.Slug);

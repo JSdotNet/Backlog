@@ -112,6 +112,60 @@ public sealed class InboxBrainTargetTests : IDisposable
         Assert.Null(target.UnavailableReason);
     }
 
+    /// <summary>Queue health's count (<c>.devbook/domain/inbox/features.md#queue-health-bar</c>):
+    /// every note in the inbox area a route lands in, its sub-folders included and its
+    /// dot-folders and other files left out.</summary>
+    [Fact]
+    public async Task The_notes_in_the_inbox_area_are_counted()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain);
+        Directory.CreateDirectory(Path.Combine(Brain, "_inbox", "later"));
+        Directory.CreateDirectory(Path.Combine(Brain, "_inbox", ".obsidian"));
+        Directory.CreateDirectory(Path.Combine(Brain, "projects"));
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "one.md"), "# One", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "later", "two.md"), "# Two", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", ".obsidian", "hidden.md"), "# Hidden", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "photo.png"), "", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "projects", "filed.md"), "# Filed", Cancellation);
+        _setting = Brain;
+
+        var unfiled = await target.UnfiledNotesAsync(Cancellation);
+
+        Assert.Equal(new InboxBrainUnfiledDto("_inbox", 2), unfiled);
+    }
+
+    /// <summary>A Brain whose inbox area has no folder yet has nothing to file.</summary>
+    [Fact]
+    public async Task An_inbox_area_with_no_folder_yet_holds_no_note()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        Directory.CreateDirectory(Brain);
+        _setting = Brain;
+
+        var unfiled = await new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain).UnfiledNotesAsync(Cancellation);
+
+        Assert.Equal(new InboxBrainUnfiledDto("_inbox", 0), unfiled);
+    }
+
+    /// <summary>No Brain set, a folder that is missing, or no folder source: nothing,
+    /// so the Inbox shows nothing for the Brain.</summary>
+    [Fact]
+    public async Task Without_a_brain_there_is_no_count()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain);
+
+        Assert.Null(await target.UnfiledNotesAsync(Cancellation));
+
+        _setting = Brain;
+        Assert.Null(await target.UnfiledNotesAsync(Cancellation));
+
+        Directory.CreateDirectory(Brain);
+        Assert.Null(await new InboxBrainTarget(new BrainNoteWriter(brain), brain).UnfiledNotesAsync(Cancellation));
+        Assert.Null(await ((IInboxBrainTarget)new NoBrainTarget()).UnfiledNotesAsync(Cancellation));
+    }
+
     /// <summary>The destination the picker named is where the note lands, and the
     /// area it names is the toast's (local ADR 0054 §2).</summary>
     [Fact]

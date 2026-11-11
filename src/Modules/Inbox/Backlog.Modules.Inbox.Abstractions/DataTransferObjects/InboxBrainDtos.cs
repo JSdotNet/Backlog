@@ -32,6 +32,14 @@ public sealed record InboxBrainNoteWrittenDto(string NotePath, string Area);
 /// area it is in (<c>Inbox</c>), which the toast names.</summary>
 public sealed record InboxBrainRoutedDto(Guid InboxItemId, string NotePath, string Area = "Inbox");
 
+/// <summary>The notes waiting in the Brain's inbox area — what the queue health
+/// bar counts beside the Inbox's own items
+/// (<c>.devbook/domain/inbox/features.md#queue-health-bar</c>).</summary>
+/// <param name="AreaFolder">The inbox area's folder, relative to the Brain's root
+/// (<c>_inbox</c>): what the Devbook is opened at.</param>
+/// <param name="Count">How many notes sit in it, its sub-folders included.</param>
+public sealed record InboxBrainUnfiledDto(string AreaFolder, int Count);
+
 /// <summary>
 /// One place To Brain can file an item, as the destination picker lists it
 /// (<c>.devbook/domain/inbox/features.md#route-to-brain</c>): an area of the

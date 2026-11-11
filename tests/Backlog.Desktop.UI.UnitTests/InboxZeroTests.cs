@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -187,6 +188,32 @@ public sealed class InboxZeroTests : IDisposable
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find($"[data-testid='inbox-item-{item.Id:D}']")));
         Assert.Empty(pane.FindAll("[data-testid='inbox-zero']"));
+    }
+
+    [Fact]
+    public async Task Notes_still_to_file_in_the_Brain_keep_the_inbox_from_reading_clear()
+    {
+        var item = _inbox.Seed("Old newsletter");
+        _inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+
+        var pane = _context.Render<InboxPane>();
+        await pane.InvokeAsync(State.InitializeAsync);
+        await pane.InvokeAsync(async () =>
+        {
+            State.SelectItem(item.Id);
+            await State.ArchiveAsync();
+        });
+
+        // The Inbox is empty, but the Brain's inbox area is not: no "Inbox is clear".
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-pane-empty']")));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-zero']"));
+        Assert.Equal("2 notes to file in the Brain", pane.Find("[data-testid='inbox-queue-health-brain']").TextContent.Trim());
+
+        // Filed away in the Brain, the next reload finds both empty.
+        _inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 0);
+        await pane.InvokeAsync(State.ReloadAsync);
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-zero']")));
     }
 
     [Fact]

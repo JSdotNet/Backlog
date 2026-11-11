@@ -102,6 +102,12 @@ internal sealed class InboxItems(
     public string? BrainUnavailableReason =>
         brainTarget is null ? InboxErrors.NoBrainHere : brainTarget.UnavailableReason;
 
+    /// <summary>The Brain target's count of its inbox area; with none, no Brain.</summary>
+    public Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        brainTarget is null
+            ? Task.FromResult<InboxBrainUnfiledDto?>(null)
+            : brainTarget.UnfiledNotesAsync(cancellationToken);
+
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
         snapshot.Handle(new GetInboxQuery(), cancellationToken);
 

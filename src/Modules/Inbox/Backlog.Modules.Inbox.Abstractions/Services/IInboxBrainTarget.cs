@@ -39,4 +39,11 @@ public interface IInboxBrainTarget
     /// the button and the suggestion chip before anybody presses them, rather than
     /// offering a decision it then refuses.</summary>
     string? UnavailableReason { get; }
+
+    /// <summary>The notes waiting in the Brain's inbox area — the area a routed item
+    /// lands in — and that area's folder; null while no Brain is set, its folder is
+    /// missing, or the host has none, so the Inbox shows nothing for it. An area whose
+    /// folder does not exist yet holds no note.</summary>
+    Task<InboxBrainUnfiledDto?> UnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<InboxBrainUnfiledDto?>(null);
 }

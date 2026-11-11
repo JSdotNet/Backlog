@@ -1094,6 +1094,85 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-oldest']"));
     }
 
+    [Fact]
+    public async Task Queue_health_counts_the_notes_waiting_in_the_Brains_inbox_area()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Waiting");
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 3);
+
+        var pane = await harness.RenderAsync();
+
+        var brain = pane.Find("[data-testid='inbox-pane-nav'] [data-testid='inbox-queue-health'] [data-testid='inbox-queue-health-brain']");
+        Assert.Equal("3 notes to file in the Brain", brain.TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task One_note_in_the_Brains_inbox_area_reads_in_the_singular()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 1);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("1 note to file in the Brain", pane.Find("[data-testid='inbox-queue-health-brain']").TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Without_a_Brain_or_with_nothing_to_file_queue_health_says_nothing_about_the_Brain(bool brainSet)
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Waiting");
+        harness.Inbox.BrainUnfiled = brainSet ? new InboxBrainUnfiledDto("_inbox", 0) : null;
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-brain']"));
+    }
+
+    [Fact]
+    public async Task Pressing_the_Brain_count_asks_the_host_to_open_the_Brain_at_its_inbox_area()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("Inbox", 2);
+        var opened = new List<string>();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.OnOpenBrainArea, (string folder) => opened.Add(folder)));
+
+        var brain = pane.Find("[data-testid='inbox-queue-health-brain']");
+        Assert.Equal("BUTTON", brain.TagName);
+        await brain.ClickAsync(new());
+
+        Assert.Equal(["Inbox"], opened);
+    }
+
+    [Fact]
+    public async Task Without_a_way_to_open_the_Brain_its_count_is_a_line_not_a_button()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("P", pane.Find("[data-testid='inbox-queue-health-brain']").TagName);
+    }
+
+    [Fact]
+    public async Task A_reload_takes_in_the_Brains_new_count()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+        var pane = await harness.RenderAsync();
+
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 0);
+        await pane.InvokeAsync(harness.State.ReloadAsync);
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-brain']")));
+    }
+
     // --- Deferral ------------------------------------------------------------
 
     [Fact]

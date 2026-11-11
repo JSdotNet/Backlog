@@ -288,6 +288,34 @@ public sealed class InboxDesktopState : IDisposable
         }
     }
 
+    /// <summary>The notes waiting in the Brain's inbox area as of the last reload, or
+    /// null while no Brain is set or readable — then the queue health bar says
+    /// nothing about the Brain (features.md#queue-health-bar).</summary>
+    public InboxBrainUnfiledDto? BrainUnfiled { get; private set; }
+
+    /// <summary>The Brain's count, or none when the Brain could not be read: a Brain
+    /// that fails to answer hides its line rather than failing the Inbox's reload.</summary>
+    private async Task<InboxBrainUnfiledDto?> BrainUnfiledOrNoneAsync()
+    {
+        try
+        {
+            return await _inbox.BrainUnfiledNotesAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>How many notes the Brain's inbox area holds; zero without a Brain.</summary>
+    public int BrainUnfiledCount => BrainUnfiled?.Count ?? 0;
+
+    /// <summary>The queue health bar's Brain line: "3 notes to file in the Brain",
+    /// or null when there is no Brain or nothing in its inbox area to file.</summary>
+    public string? BrainUnfiledLine => BrainUnfiledCount > 0
+        ? $"{Counted(BrainUnfiledCount, "note", "notes")} to file in the Brain"
+        : null;
+
     /// <summary>The header's short form of the queue's health: "3 waiting ·
     /// oldest 12 days", or "Nothing waiting".</summary>
     public string WaitingSummary
@@ -548,10 +576,15 @@ public sealed class InboxDesktopState : IDisposable
     {
         var version = ++_reloadVersion;
 
+        // The Brain's inbox area travels with the snapshot too: a note routed To
+        // Brain, or filed away in the Brain, moves the count on the next reload.
+        // Started first, as it is a folder walk the other reads need not wait on.
+        var brainCount = BrainUnfiledOrNoneAsync();
         var snapshot = await _inbox.GetSnapshotAsync();
         // The backlog's tags travel with the snapshot, and are dropped with it
         // when a later reload has overtaken this one.
         var backlogTags = await _backlogTags.TagsInUseAsync();
+        var brainUnfiled = await brainCount;
 
         if (version != _reloadVersion) return;
 
@@ -559,6 +592,7 @@ public sealed class InboxDesktopState : IDisposable
         Lists = snapshot.Lists;
         Groups = snapshot.Groups;
         BacklogTags = backlogTags;
+        BrainUnfiled = brainUnfiled;
         Loaded = true;
 
         // A capture that arrived in the slice being triaged is counted after
@@ -2396,12 +2430,15 @@ public sealed class InboxDesktopState : IDisposable
     /// <summary>Whether the inbox-zero screen takes the place of the rows and
     /// the detail: the unfiled Inbox is open, nothing in it is still waiting,
     /// and the session has decided something. Not while a route, a bulk act or
-    /// a list's confirmation is under way — their panels live in the rows.</summary>
+    /// a list's confirmation is under way — their panels live in the rows. Nor
+    /// while the Brain's inbox area still holds notes: the inbox is only clear when
+    /// both are (features.md#inbox-zero).</summary>
     public bool ShowsInboxZero =>
         Loaded
         && !DeferredSelected
         && SelectedListId is null
         && InboxCount == 0
+        && BrainUnfiledCount == 0
         && SessionDecisionTotal > 0
         && !SelectionMode
         && !RoutingInFlight

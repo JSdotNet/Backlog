@@ -20,8 +20,26 @@ namespace Backlog.Infrastructure.Brain;
 /// Its source is <see cref="BrainNoteSource.Inbox"/>.
 /// </para>
 /// </summary>
-public sealed class InboxBrainTarget(IBrainNoteWriter writer, IDevbookPersonalSource? brain = null) : IInboxBrainTarget
+public sealed class InboxBrainTarget(IBrainNoteWriter writer, IDevbookPersonalSource? brain = null, IBrainFolderSource? folders = null) : IInboxBrainTarget
 {
+    /// <summary>The notes in the inbox area the writer files into, worked out the way
+    /// the writer works it out (<see cref="BrainNoteText.InboxArea"/>). Null without a
+    /// folder source to ask, or while the Brain folder is unset or missing. On the
+    /// pool: the areas are a disk walk and the count another.</summary>
+    public Task<InboxBrainUnfiledDto?> UnfiledNotesAsync(CancellationToken cancellationToken = default)
+    {
+        if (folders is null) return Task.FromResult<InboxBrainUnfiledDto?>(null);
+
+        return Task.Run(() =>
+        {
+            if (folders.BrainRoot is not { } root || !folders.BrainFolderPresent()) return null;
+
+            var area = BrainNoteText.InboxArea(folders.Areas(), BrainConventions.ReadIgnored(root));
+            var count = BrainConventions.CountNotes(Path.Combine(root, area.Folder));
+            return (InboxBrainUnfiledDto?)new InboxBrainUnfiledDto(area.Folder, count);
+        }, cancellationToken);
+    }
+
     /// <summary>The Brain folder's own refusal while it cannot be resolved — the
     /// words the writer would refuse in — else null. Without a folder source to ask,
     /// the writer is the only judge, and a route is offered.</summary>

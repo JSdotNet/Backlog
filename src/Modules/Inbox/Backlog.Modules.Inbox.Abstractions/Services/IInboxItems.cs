@@ -335,6 +335,12 @@ public interface IInboxItems
     /// is shown disabled with its reason rather than refused once pressed.</summary>
     string? BrainUnavailableReason => null;
 
+    /// <summary>The notes waiting in the Brain's inbox area, for the queue health
+    /// bar (<c>features.md#queue-health-bar</c>); null while no Brain is set or
+    /// readable, so nothing is shown. A folder walk, answered off the render thread.</summary>
+    Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<InboxBrainUnfiledDto?>(null);
+
     /// <summary>Whether a triage advisor is registered and can run. Unlike
     /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it
     /// is false every AI triage surface is hidden, not disabled (local ADR 0023 §4).</summary>

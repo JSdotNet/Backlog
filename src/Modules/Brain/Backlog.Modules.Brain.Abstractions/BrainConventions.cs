@@ -427,6 +427,40 @@ public static partial class BrainConventions
     }
 
     /// <summary>
+    /// How many notes sit under <paramref name="directory"/>: every <c>.md</c> file in
+    /// it and its sub-folders, walked the way <see cref="HoldsNote"/> walks — dot
+    /// sub-folders and linked folders left out, names only, so no file is opened and a
+    /// cloud placeholder is never downloaded. Zero for a folder that does not exist or
+    /// cannot be listed. What the Inbox counts as the Brain's notes still to file
+    /// (<c>.devbook/domain/inbox/features.md#queue-health-bar</c>).
+    /// </summary>
+    public static int CountNotes(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+
+        try
+        {
+            if (!Directory.Exists(directory)) return 0;
+
+            var count = Directory.EnumerateFiles(directory, "*.md", NoteListing).Count();
+
+            foreach (var child in new DirectoryInfo(directory).EnumerateDirectories("*", Listing))
+            {
+                if (child.Name.StartsWith('.')) continue;
+                if (child.Attributes.HasFlag(FileAttributes.ReparsePoint) && IsLink(child)) continue;
+                count += CountNotes(child.FullName);
+            }
+
+            return count;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            // A folder that cannot be listed shows no note.
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Whether a <c>.md</c> file sits anywhere under <paramref name="directory"/>,
     /// outside its dot sub-folders: names only, stopping at the first, so no file
     /// is opened and a cloud placeholder is never downloaded. A sub-folder that is

@@ -84,6 +84,25 @@
                     </li>
                 </ul>
             }
+            @if (State.BrainUnfiledLine is { } brainLine)
+            {
+                @* The Brain's inbox area, counted beside the Inbox: notes still to
+                   file are a queue too. Pressed, the Devbook opens on the Brain at
+                   that area. Nothing here without a Brain, or with nothing to file. *@
+                @if (OnOpenBrainArea.HasDelegate)
+                {
+                    <AppButton Variant="ButtonVariant.None"
+                               BaseClass="inbox-pane__health-brain"
+                               CssClass="inbox-pane__health-brain--action"
+                               title="Open the Brain at its inbox area"
+                               OnClick="() => OnOpenBrainArea.InvokeAsync(State.BrainUnfiled!.AreaFolder)"
+                               TestId="inbox-queue-health-brain">@brainLine</AppButton>
+                }
+                else
+                {
+                    <p class="inbox-pane__health-brain" data-testid="inbox-queue-health-brain">@brainLine</p>
+                }
+            }
         </section>
     }
 </div>
@@ -163,6 +182,12 @@
 
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>Raised with the Brain's inbox area folder when its count in queue
+    /// health is pressed; the host opens the Devbook on the Brain there. None, and
+    /// the count is a line rather than a button.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenBrainArea { get; set; }
 
     private bool _menuOpen;
     private double _menuX;
