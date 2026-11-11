@@ -1080,7 +1080,7 @@ is the pressed state's to say, not the shape's.
 ## Combobox
 
 ```meta
-related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/calendar/features.md#planned-hours"]
 ```
 
 A combobox is a text field with a list of suggestions under it. The reader may

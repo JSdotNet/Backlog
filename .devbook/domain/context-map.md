@@ -155,8 +155,9 @@ flowchart LR
     %% harvest task is built. Sync -> Events is built: the knowledge event
     %% replica, and the phone's attachment requests on the task feed, reach
     %% Events through IKnowledgeEventReplication and IEventAttachmentRequests.
-    %% The Calendar is a layout of the Tasks pane (ADR 0022), so the events layer
-    %% lands on Tasks. The two Tasks edges run through different parts. See
+    %% The code still draws the Calendar as a layout of the Tasks pane (ADR 0022),
+    %% so the events layer lands on Tasks until ADR 0055 is built. The two Tasks
+    %% edges run through different parts. See
     %% .devbook/domain/events/context.md.
     Inbox -.->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
     Capture -.->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
@@ -164,6 +165,10 @@ flowchart LR
     Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
     Events -->|"Customer/Supplier<br/>The events layer on the Calendar view, through a Tasks-owned port and an adapter"| Tasks
     Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
+
+    %% Calendar (local ADR 0055) is not drawn until its module is built: the
+    %% plans and events still reach it through Tasks-owned ports, as above. See
+    %% the strategic rules.
 ```
 
 ## Published languages and contracts
@@ -334,8 +339,14 @@ flowchart LR
 
   The links run one way. `Tasks` and `Brain` know no event, and no task or note
   field, tag or link names one. Its documents ride `Sync` as Notifications' do,
-  on a replica container of their own that Sync never reads. The Calendar is
-  Tasks' view (local ADR 0022), so `Tasks` draws the events layer through its own
-  port, over Events' read contract. Events and Tasks supply each other through
+  on a replica container of their own that Sync never reads. Until local ADR 0055
+  is built, `Tasks` draws the Calendar's events layer through its own port, over
+  Events' read contract; the port then moves to the Calendar. Events and Tasks supply each other through
   different parts, so the two edges make no cycle of modules. Events publishes no
   domain event.
+- `Calendar` reads layers and owns no data (local ADR 0055, proposed and not
+  built). `Tasks`, `Roadmap Planning` and `Events` each answer a layer port the
+  [Calendar](calendar/context.md) owns, through an adapter, and its writes go
+  back through the source. The Calendar references no source and no source
+  references it, so the edges make no cycle. It joins the landscape and the
+  diagram with the change that builds its module.

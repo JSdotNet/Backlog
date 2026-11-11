@@ -52,7 +52,7 @@ Tasks is the customer in every Customer/Supplier row.
     draws as it did before.
 - **Roadmap Planning:** A task is filed under the plan's own slug. Tasks conforms to
   that vocabulary and holds no roadmap state.
-- **Events:** The [Calendar](features.md#calendar-view) reads the events and never
+- **Events:** The [Calendar](../calendar/features.md#calendar-view) reads the events and never
   writes one. No Tasks type holds an event id. `EventsCalendarEvents` lives under
   `Infrastructure.FileSystem/Events/` and answers nothing while the `events` flag is off.
 - **Sync:** The feed moves through the sync service, and `TaskReplicaMerge` lives in

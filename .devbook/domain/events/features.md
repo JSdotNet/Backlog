@@ -133,7 +133,7 @@ version.
 ```meta
 type: feature
 feature-flag: .devbook/domain/events/context.md#events-area
-related: [.devbook/domain/events/requirements.md#events-on-the-calendar, .devbook/domain/tasks/features.md#calendar-view, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md]
+related: [.devbook/domain/events/requirements.md#events-on-the-calendar, .devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
 ```
 
 The Calendar shows the decided events beside the tasks and plans, under a
@@ -141,9 +141,9 @@ The Calendar shows the decided events beside the tasks and plans, under a
 while Going or later, outlined while Considering. Its key dates mark their own day.
 Spotted and Skipped events stay off it, so nothing reaches the Calendar unasked.
 
-The Calendar is Tasks' [view](../tasks/features.md#calendar-view), so Tasks draws the
-layer from Events' read contract. The layer changes no event: an event is not
-dragged to another day there.
+The events are the Calendar's Events [layer](../calendar/domain.md#calendar-layer),
+read from Events' read contract through a port the Calendar owns (local ADR 0055).
+The layer changes no event: an event is not dragged to another day there.
 
 ## Events on the phone
 

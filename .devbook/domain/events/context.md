@@ -30,7 +30,7 @@ Outside it:
 | The tasks themselves, and the Brain scope they file under | [Tasks](../tasks/domain.md#task), and [Brain scope](../brain/features.md#brain-scope) |
 | The takeaways | [Brain](../brain/context.md), as [Knowledge Notes](../brain/domain.md#knowledge-note) |
 | The notes taken at a talk | [Inbox](../inbox/domain.md#note), as [Talk notes](../capture/features.md#talk-note) |
-| The Calendar view | Tasks ([Calendar view](../tasks/features.md#calendar-view)) |
+| The Calendar view | [Calendar](../calendar/features.md#calendar-view) |
 | Carrying the documents between devices | [Sync](../sync/context.md) |
 
 ```mermaid
@@ -144,5 +144,5 @@ form no cycle of modules.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#calendar-view) | Customer/Supplier (Events = supplier) | Tasks' `ICalendarEvents`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Events/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
+| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier (Events = supplier) | Tasks' `ICalendarEvents`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Events/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
 | The phone (`Backlog.Mobile.UI`) | Conformist, through Sync | Pulls the `knowledgeEvents` feed, and posts attachment requests on the task feed | `KnowledgeEventChange`, and the task feed; local ADR 0050 | A read-only view of the person's events at the venue. |

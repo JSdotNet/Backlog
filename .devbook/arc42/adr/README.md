@@ -48,7 +48,7 @@ between inherited ADRs 0005 and 0009.
 - **[0019 — The roadmap counts the person's working week in hours, and the week travels with the pace](0019-roadmap-counts-the-working-week.md)** *(proposed; amends 0013 and 0018)*
 - **[0020 — Items from GitHub and spec-manager arrive as linked tasks, through one connector contract](0020-external-items-arrive-as-linked-tasks.md)**
 - **[0021 — The GitHub accounts and the repository registry ride the task feed as two whole documents](0021-github-accounts-and-repository-registry-ride-the-task-feed.md)** *(accepted, built; amends 0005)*
-- **[0022 — The desktop shell shows one main view, picked by a view switch, and takeovers replace it](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)** *(accepted, built; §2's In progress view superseded by 0035)*
+- **[0022 — The desktop shell shows one main view, picked by a view switch, and takeovers replace it](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)** *(accepted, built; §2's In progress view superseded by 0035; §1's Calendar as a Tasks layout superseded by 0055)*
 - **[0023 — Inbox items may be read by the Foundry model](0023-inbox-items-may-be-read-by-the-foundry-model.md)** *(accepted, built but for Ask again; reverses the "no model reads the item" line of the Inbox features)*
 - **[0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)** *(accepted; extends 0012)*
 - **[0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](0025-notes-ride-the-task-feed.md)** *(proposed, built; extends 0009)*
@@ -74,7 +74,8 @@ between inherited ADRs 0005 and 0009.
 - **[0045 — The sync service relays a phone dictation to Foundry for transcription and keeps none of it](0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)** *(amends the thin-cloud constraint, beside 0023)*
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
-- **[0050 — Events is its own bounded context](0050-events-is-its-own-bounded-context.md)** *(proposed, specification only)*
+- **[0050 — Events is its own bounded context](0050-events-is-its-own-bounded-context.md)** *(proposed, specification only; §7's events layer moves to the Calendar by 0055)*
+- **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, specification only; supersedes 0022 §1 for the Calendar)*
 
 ## Inherited decisions
 

@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-07
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
 c4: [backlog.desktop.shell]
 c4-touches: [backlog.desktop.inbox, backlog.desktop.devbook, backlog.desktop.roadmap, backlog.desktop.sessions, backlog.desktop.dashboard, backlog.desktop.backlogModule]
 ```
@@ -33,6 +33,13 @@ deferred pieces step 18 settled landed in pull request #1134.
 > [ADR 0035](0035-goals-and-impediments-replace-sprints.md) (proposed).** §2's
 > **In progress** view becomes the **Goals** view, in the same place, without its
 > Now board of needs-you sessions and pull requests. The rest of this record stands.
+
+> **Superseded in part, 2026-11-11, by
+> [ADR 0055](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed).**
+> §1's rule that the Calendar is a layout of the Tasks pane: the Calendar becomes a
+> surface of its own that reads the Tasks, Plans and Events layers. Tasks and Board
+> stay one pane, and the Calendar keeps its slot in §2's view switch and its stored
+> names in §6.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -104,6 +111,9 @@ was remembered. Roadmap is offered while `RoadmapFeatures.Roadmap` is on, and In
 progress while the Sessions or the Pull requests feature is. A view whose feature
 goes off falls back to Tasks, and the choice is kept, so the view comes back when
 the feature does.
+
+Superseded for the Calendar by [ADR 0055](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md),
+which makes it a surface of its own; the text below is the decision as first taken.
 
 Tasks, Board and Calendar are one pane, the Tasks pane, in three layouts. They
 share its filter bar, its open task and its selection. Roadmap and In progress

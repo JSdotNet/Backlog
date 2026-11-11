@@ -129,3 +129,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
 - [ADR 0050 — Events is its own bounded context](adr/0050-events-is-its-own-bounded-context.md) (proposed)
+- [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed)

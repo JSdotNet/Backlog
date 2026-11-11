@@ -934,7 +934,7 @@ tag, filed under those repositories, and placed from that effort. The card then
 leaves the shelf and what was planned is announced. A shelf with nothing to offer
 is not drawn.
 
-The Tasks [Calendar](../tasks/features.md#calendar-view) offers the same shelf as
+The [Calendar](../calendar/features.md#calendar-view) offers the same shelf as
 **Plans without a window**, and there a plan is dropped on a day instead. The same
 import places it, with one difference. The window opens on the first worked day
 on or after the day it was dropped on, or today for a day already past. Its end is
