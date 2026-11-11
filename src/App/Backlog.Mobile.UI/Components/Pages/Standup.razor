@@ -30,13 +30,15 @@
 
 <PageTitle>Stand-up</PageTitle>
 
-<header class="standup-heading">
-    @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+@* The tab bar names the page on screen; the heading is kept for screen readers.
+   Refresh sits beside the iteration switch once there is a stand-up, and up here
+   on a row of its own until then. *@
+<header class="@(Progress.HoldsStandUp ? "standup-heading" : "standup-heading standup-heading--refresh")">
     <h1 class="sr-only">Stand-up</h1>
-    <IconButton AriaLabel="Refresh" Title="Refresh the stand-up" Disabled="_refreshing"
-                OnClick="RefreshAsync" CssClass="standup-heading__refresh" TestId="standup-refresh">
-        <RefreshCwIcon Size="20" />
-    </IconButton>
+    @if (!Progress.HoldsStandUp)
+    {
+        @Refresh
+    }
 </header>
 
 @if (_pullNotice is not null)
@@ -62,23 +64,27 @@ else
 
     <div class="standup" data-testid="standup">
         <div class="standup__iteration">
-            <RadioGroup TValue="IterationLength"
-                        Options="Lengths"
-                        Value="Length"
-                        ValueChanged="length => _length = length"
-                        OptionLabel="StandupText.Length"
-                        OptionTestId="@(length => $"standup-length-{length.ToString().ToLowerInvariant()}")"
-                        AriaLabel="Iteration"
-                        BaseClass="standup-switch"
-                        OptionVariantClass=""
-                        OptionCssClass="standup-switch__option"
-                        CheckedOptionCssClass="standup-switch__option standup-switch__option--checked"
-                        TestId="standup-iteration" />
+            <div class="standup__iteration-row">
+                <RadioGroup TValue="IterationLength"
+                            Options="Lengths"
+                            Value="Length"
+                            ValueChanged="length => _length = length"
+                            OptionLabel="StandupText.Length"
+                            OptionTestId="@(length => $"standup-length-{length.ToString().ToLowerInvariant()}")"
+                            AriaLabel="Iteration"
+                            BaseClass="standup-switch"
+                            OptionVariantClass=""
+                            OptionCssClass="standup-switch__option"
+                            CheckedOptionCssClass="standup-switch__option standup-switch__option--checked"
+                            TestId="standup-iteration" />
+                @Refresh
+            </div>
             <span class="standup__windows" data-testid="standup-windows">@StandupText.Window(reading.Last) → @StandupText.Window(reading.Next)</span>
         </div>
 
         <section class="standup__block" aria-labelledby="standup-goals-title" data-testid="standup-goals">
-            <h2 class="standup__block-title" id="standup-goals-title">Goals</h2>
+            @* The goals open the page under the switch, so their title is kept for screen readers only. *@
+            <h2 class="sr-only" id="standup-goals-title">Goals</h2>
             @if (reading.Goals.Count == 0)
             {
                 <EmptyState Title="No goals yet"
@@ -248,6 +254,13 @@ else
     private bool _looked;
     private bool _showResolved;
     private bool _disposed;
+
+    /// <summary>The one refresh, written once for the two places the page draws it.</summary>
+    private RenderFragment Refresh =>
+        @<IconButton AriaLabel="Refresh" Title="Refresh the stand-up" Disabled="_refreshing"
+                     OnClick="RefreshAsync" CssClass="standup-refresh" TestId="standup-refresh">
+            <RefreshCwIcon Size="20" />
+        </IconButton>;
 
     /// <summary>The length this visit reads by: the one the person switched to, else the
     /// one a desktop last read by, else Week.</summary>
