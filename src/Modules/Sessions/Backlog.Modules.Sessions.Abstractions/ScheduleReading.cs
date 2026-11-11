@@ -142,5 +142,20 @@ public static class ScheduleReading
         return archived.Contains;
     }
 
+    /// <summary>Whether a schedule in this state needs the person: the states that alert
+    /// (local ADR 0051 §5) — Needs you, Held, Failed and Missed. Review ready shows on its
+    /// row only, so it is not counted.</summary>
+    public static bool NeedsPerson(ScheduledRunState? state) =>
+        state is ScheduledRunState.NeedsYou or ScheduledRunState.Held or ScheduledRunState.Failed or ScheduledRunState.Missed;
+
+    /// <summary>How many of <paramref name="schedules"/> need the person — what the
+    /// Schedules button's badge and the Scheduled fold's chip count.</summary>
+    public static int NeedingPerson(IEnumerable<ScheduleReadingResult> schedules)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+
+        return schedules.Count(schedule => NeedsPerson(schedule.State));
+    }
+
     private static DateTimeOffset Began(ScheduledRun run) => run.StartedAt ?? run.FirstReportedAt;
 }
