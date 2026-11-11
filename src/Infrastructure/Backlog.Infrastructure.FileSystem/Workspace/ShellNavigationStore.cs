@@ -191,6 +191,7 @@ public sealed class ShellNavigationStore
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
+        RoadmapArchiveOffered = dto?.RoadmapArchiveOffered ?? Empty;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -319,6 +320,11 @@ public sealed class ShellNavigationStore
     /// §2): off until turned on on this device. Read through the Devbook module's
     /// <c>IBrainShowHidden</c>.</summary>
     public bool BrainHiddenShown { get; private set; }
+
+    /// <summary>The roadmap items, by id, this device has offered to move a finished
+    /// plan's project note to the archive (local ADR 0052 §5): each is offered once,
+    /// whatever the person did with the offer. Empty until the first offer.</summary>
+    public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -565,6 +571,17 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>Remembers that the roadmap item <paramref name="itemId"/> was offered
+    /// the archive move. One already remembered writes nothing.</summary>
+    public void MarkRoadmapArchiveOffered(string itemId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+        if (RoadmapArchiveOffered.Contains(itemId, StringComparer.OrdinalIgnoreCase)) return;
+
+        RoadmapArchiveOffered = [.. RoadmapArchiveOffered.Append(itemId).Order(StringComparer.Ordinal)];
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -662,6 +679,9 @@ public sealed class ShellNavigationStore
                 C4ZoomHintDismissed = C4ZoomHintDismissed ? true : null,
                 // Likewise left out while off, and likewise a stored name.
                 BrainHiddenShown = BrainHiddenShown ? true : null,
+                // Left out until the first offer. A stored name: never rename it
+                // without reading the old one.
+                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered],
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -769,6 +789,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? BrainHiddenShown { get; init; }
+
+        /// <summary>Written as <c>roadmapArchiveOffered</c>, and only once a plan was offered.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RoadmapArchiveOffered { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

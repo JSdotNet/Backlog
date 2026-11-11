@@ -80,6 +80,16 @@ public static class RoadmapCrossContextAdapterRegistration
                 sp.GetService<TimeProvider>(),
                 sp.GetService<IRoadmapBrainNotes>()));
 
+        // A finished plan's project note and its move to the archive (local ADR 0052 §5),
+        // scoped as the rollup it reads is. The Brain's areas are its adapter's answer:
+        // a host that composed no Brain has none, so nothing is ever finished there.
+        services.AddScoped<IRoadmapProjectNoteArchive>(sp =>
+            new RoadmapProjectNoteArchive(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetRequiredService<IRoadmapItemRollup>(),
+                sp.GetService<IRoadmapProjectNotes>(),
+                sp.GetService<ShellNavigationStore>()));
+
         // The shelf of plans not yet on the roadmap reads the backlog the same way,
         // so it is scoped for the same reason: ITaskItems is.
         services.AddScoped<IImportedPlanSource, ImportedPlanSource>();

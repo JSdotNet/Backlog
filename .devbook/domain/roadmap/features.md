@@ -565,6 +565,35 @@ whole. Off, the lanes close up over the open work, and an arrow to a hidden plan
 goes with it. The switch is on by default and stays with the device, as the Hours
 switch does, because what is shown of the plan is not part of the plan.
 
+### Archiving a finished plan's project note
+
+```meta
+type: sub-feature
+related: [.devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md, .devbook/arc42/adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md, .devbook/domain/brain/domain.md#cross-linking, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/design/interaction-guidelines.md#feedback-and-toasts, .devbook/domain/roadmap/requirements.md#archiving-a-finished-plans-project-note]
+```
+
+When a plan's last task is done, its project note still sits in the Brain's
+projects area. A plan's project notes are the Brain notes it gathers, by a
+`#brain:` Knowledge Ref or by its tag, that sit in the projects area of a Brain
+with an archive area. A Brain without one is never offered the move.
+
+If a plan finishes while the app is open, a toast offers **Move the project note
+to the archive** for its first project note. On the press, the Brain's link
+writer moves the file into the archive area, keeping its path below the area and
+every byte inside it. The plan's Knowledge Refs that named the note follow it to
+the new path, the heading they named kept. A refused move, such as a name already
+taken in the archive, says why and leaves the plan as it was.
+
+Dismissing the toast, or letting it time out, changes nothing. Either way the plan
+is never offered again on this device, whatever happens to it later. A plan
+already finished when the app opens is not offered, because the app cannot tell
+when it finished, and a launch must not raise a toast for every old plan.
+
+The weekly review lists every finished plan's project note still in the projects
+area, offered or not: `list_brain_reviews` answers them under `toArchive`, with
+the plan that gathers each.
+See [the requirements](requirements.md#archiving-a-finished-plans-project-note).
+
 ### Forecasting work in flight
 
 ```meta

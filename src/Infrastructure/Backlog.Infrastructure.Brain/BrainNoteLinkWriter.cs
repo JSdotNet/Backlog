@@ -199,7 +199,9 @@ public sealed class BrainNoteLinkWriter : IBrainNoteLinkWriter
         return BrainLinkWrite.Moved(target);
     }
 
-    private static bool IsArchive(BrainArea area) =>
+    /// <summary>Whether <paramref name="area"/> is the one the conventions name the
+    /// archive — by its name or its folder.</summary>
+    internal static bool IsArchive(BrainArea area) =>
         string.Equals(area.Name.Trim(), "Archive", StringComparison.OrdinalIgnoreCase)
         || string.Equals(area.Folder, "archive", StringComparison.OrdinalIgnoreCase);
 

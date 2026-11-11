@@ -9692,6 +9692,12 @@ button.tag-chip__label {
     margin-left: auto;
 }
 
+/* An offer's one button sits right after the words; the dismiss control's auto
+   margin keeps it alone at the trailing edge. */
+.toast__action {
+    flex-shrink: 0;
+}
+
 .toast--success { background: var(--color-success); border-color: var(--color-border-strong); }
 .toast--warning { border-color: var(--color-primary-dark); }
 .toast--error { background: var(--color-error); border-color: var(--color-border-strong); }

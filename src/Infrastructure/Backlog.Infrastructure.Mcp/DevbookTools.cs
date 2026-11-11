@@ -3,6 +3,7 @@ using System.Globalization;
 
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
@@ -58,7 +59,8 @@ public sealed class DevbookTools(
     IDevbookPersonalSource? brain = null,
     IBrainNoteWriter? brainNotes = null,
     IBrainReviewDates? brainReviews = null,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    IRoadmapProjectNoteArchive? projectNotes = null)
 {
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
     internal const string ReadKnowledgeChapter = "read_knowledge_chapter";
@@ -583,7 +585,8 @@ public sealed class DevbookTools(
         "Lists the Brain notes whose review date has come — the review: YYYY-MM-DD a note's top meta block names, "
         + "on or before the given day — oldest date first, each with its path from the Brain's root, which "
         + "read_knowledge_chapter takes under " + BrainMcpScope.Value + ". A note whose review value is no date is "
-        + "listed under warnings and left out of the due list; it is never an error. Read-only: nothing sets a "
+        + "listed under warnings and left out of the due list; it is never an error. toArchive lists the project "
+        + "notes of finished plans still in the projects area, to move to the archive. Read-only: nothing sets a "
         + "review date but the person and their agent, editing the note.")]
     public async Task<BrainReviewsPayload> ListBrainReviewsAsync(
         [Description("The day to compare against, as YYYY-MM-DD. Optional: today, on this machine's clock.")]
@@ -620,10 +623,17 @@ public sealed class DevbookTools(
 
         var answer = await brainReviews.DueAsync(today, cancellationToken).ConfigureAwait(false);
 
+        // A finished plan's project note still in the projects area (local ADR 0052
+        // §5): offered once in the app, and listed here every week until it moves.
+        var finished = projectNotes is null
+            ? []
+            : await projectNotes.FinishedAsync(cancellationToken).ConfigureAwait(false);
+
         return new BrainReviewsPayload(
             today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             [.. answer.Due.Select(note => new BrainReviewPayload(note.NotePath, note.Title, note.Review.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)))],
-            [.. answer.Unreadable.Select(note => new BrainReviewWarningPayload(note.NotePath, note.Title, note.Value, note.Message))]);
+            [.. answer.Unreadable.Select(note => new BrainReviewWarningPayload(note.NotePath, note.Title, note.Value, note.Message))],
+            [.. finished.Select(note => new BrainArchiveCandidatePayload(note.NotePath, note.NoteTitle, note.PlanTitle))]);
     }
 
     /// <summary>

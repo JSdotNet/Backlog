@@ -37,7 +37,15 @@
                Severity="@message.Severity"
                DurationMilliseconds="@message.DurationMilliseconds"
                TestId="@message.TestId"
-               OnDismissed="() => Dismiss(message.Id)" />
+               OnDismissed="() => Dismiss(message.Id)">
+            @if (message.HasAction)
+            {
+                <AppButton Size="ButtonSize.Small"
+                           CssClass="toast__action"
+                           TestId="@(message.TestId is null ? null : message.TestId + "-action")"
+                           OnClick="() => RunAsync(message)">@message.ActionLabel</AppButton>
+            }
+        </Toast>
     }
 </ToastHost>
 
@@ -64,6 +72,14 @@
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void Dismiss(Guid id) => _channel?.Dismiss(id);
+
+    // The toast goes first, so a second press while the action runs finds no
+    // button; the action's own outcome is its publisher's to report.
+    private async Task RunAsync(ToastMessage message)
+    {
+        Dismiss(message.Id);
+        if (message.Action is { } action) await action();
+    }
 
     public void Dispose()
     {

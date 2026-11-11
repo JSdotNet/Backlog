@@ -88,6 +88,12 @@ public static class BrainAdapterRegistration
         services.Replace(ServiceDescriptor.Singleton<IRoadmapBrainNotes>(sp =>
             new BrainRoadmapNoteReader(sp.GetRequiredService<IBrainFolderSource>())));
 
+        // A finished plan's project note and its move to the archive (local ADR 0052
+        // §5), through the link writer above. Roadmap's port; absent in a host with no
+        // Brain, where no plan is ever offered the move.
+        services.AddSingleton<IRoadmapProjectNotes>(sp =>
+            new BrainRoadmapProjectNotes(sp.GetRequiredService<BrainFolderSource>(), sp.GetRequiredService<IBrainNoteLinkWriter>()));
+
         // The watch ties the setting to the refresher; each head starts it after Build().
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
