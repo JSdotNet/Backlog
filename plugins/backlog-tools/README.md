@@ -316,6 +316,31 @@ read for, so a session is not paying a process spawn on every `Read` and `Grep`.
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
 any error, so a closed app costs a session nothing but a refused connection.
 
+### Scheduled run reports
+
+`hooks/schedule-run-report.mjs` reports each run a Claude Desktop schedule starts to the app's
+Schedules page (local ADR 0051 §1). Such a run's first prompt opens with
+`<scheduled-task name="<taskId>" …>`, and that task id is the schedule's id in Backlog.
+
+- **SessionStart** (`startup`) reads that first prompt from the transcript — Claude Desktop
+  writes it there before the hook fires — and adds context telling the session, before any other
+  work, to look its entry up once with the scheduler tool (`list_scheduled_tasks`) and call
+  `report_schedule_run` with event `started`, its title, cron and repository, and the session id
+  the hook names. A `UserPromptSubmit` hook does the same for a transcript not yet on disk; the
+  shell lets only a prompt carrying `<scheduled-task` through to Node, and a marker per session
+  in the temp folder keeps the context to once.
+- **Stop** posts the finish to `POST /schedule-runs` on the same port and token as `/telemetry`:
+  `skipped`, with the line, when the final message opens with `Skipped:`; else `finished` with
+  the report's bold verdict line (its first line of prose when it has none) and the rows under
+  every *Needs you* heading, each as its cells joined by ` · `. The final message is the Stop
+  payload's `last_assistant_message`, else the transcript's last assistant text.
+
+A session no schedule started reports nothing. Like the forwarder, the script gives up after
+two seconds and exits 0 with nothing printed on any error, so a closed app, the `sessions` flag
+off (`404`) or a refused report never fails or holds up the run. Its decisions live in
+`hooks/schedule-run-logic.mjs`; `node --test plugins/backlog-tools/tests/schedule-run-report.test.mjs`
+drives them and the hook process against a stand-in route.
+
 ### The plan-progress pane
 
 `hooks/hooks.json` also names a hooks module, `hooks/register.tsx` — Claude Code's function
