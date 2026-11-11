@@ -106,6 +106,115 @@ public sealed class BrainNoteWriterTests : IDisposable
         Assert.Equal("mine too", File.ReadAllText(Path.Combine(Brain, "_inbox", "standup-2.md")));
     }
 
+    // --- A target area (local ADR 0054 §2) ----------------------------------
+
+    /// <summary>No folder named is the inbox area, as before the picker.</summary>
+    [Fact]
+    public async Task No_target_is_the_inbox_area_and_says_so()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Standup", null, BrainNoteSource.Inbox, Folder: "  "), TestContext.Current.CancellationToken);
+
+        Assert.Equal("_inbox/standup.md", written.RelativePath);
+        Assert.Equal("Inbox", written.Area);
+    }
+
+    [Fact]
+    public async Task A_target_area_is_written_into_straight_away()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Learn the cello", "One day.", BrainNoteSource.Inbox, Folder: "someday"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("someday/learn-the-cello.md", written.RelativePath);
+        Assert.Equal("Someday", written.Area);
+        Assert.Equal(
+            BrainNoteText.Compose("Learn the cello", "One day.", BrainNoteSource.Inbox),
+            await File.ReadAllTextAsync(Path.Combine(Brain, "someday", "learn-the-cello.md"), TestContext.Current.CancellationToken));
+        Assert.False(Directory.Exists(Path.Combine(Brain, "_inbox")));
+    }
+
+    /// <summary>A project's folder is made the first time a note is filed into it;
+    /// the naming and the <c>-2</c> suffix hold there as in the inbox.</summary>
+    [Fact]
+    public async Task A_project_subfolder_is_created_and_a_taken_name_gets_the_next_free_one()
+    {
+        UseBrain();
+        Directory.CreateDirectory(Path.Combine(Brain, "projects", "sync-rewrite"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "sync-rewrite", "retry-budget.md"), "mine");
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Retry budget", "New", BrainNoteSource.Manual, Folder: "projects/sync-rewrite"), TestContext.Current.CancellationToken);
+        var fresh = await writer.WriteAsync(new BrainNoteDraft("Launch plan", null, BrainNoteSource.Manual, Folder: "projects/launch"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("projects/sync-rewrite/retry-budget-2.md", written.RelativePath);
+        Assert.Equal("Projects", written.Area);
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(Brain, "projects", "sync-rewrite", "retry-budget.md")));
+        Assert.Equal("projects/launch/launch-plan.md", fresh.RelativePath);
+        Assert.True(File.Exists(Path.Combine(Brain, "projects", "launch", "launch-plan.md")));
+    }
+
+    /// <summary>The text guard holds wherever the note lands.</summary>
+    [Fact]
+    public async Task The_text_guard_holds_in_a_target_area()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Odd", "```meta\ntype: x\n```", BrainNoteSource.Manual, Folder: "resources"), TestContext.Current.CancellationToken);
+
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.RelativePath!), TestContext.Current.CancellationToken);
+        Assert.Contains("\n​```meta\n", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>A destination outside the Brain's areas, or climbing out of the
+    /// Brain, writes nothing and says so.</summary>
+    [Theory]
+    [InlineData("meetings")]
+    [InlineData("../outside")]
+    [InlineData("projects/../../outside")]
+    [InlineData("projects/.hidden")]
+    public async Task A_target_that_is_not_an_area_writes_nothing(string folder)
+    {
+        UseBrain();
+        var (writer, _) = Create();
+
+        var written = await writer.WriteAsync(new BrainNoteDraft("Lost", null, BrainNoteSource.Manual, Folder: folder), TestContext.Current.CancellationToken);
+
+        Assert.False(written.Written);
+        Assert.Equal(BrainNoteWriter.NotAnArea(folder), written.Error);
+        Assert.Empty(Directory.GetFileSystemEntries(Brain));
+        Assert.False(Directory.Exists(Path.Combine(_root, "outside")));
+    }
+
+    [Fact]
+    public async Task The_destinations_are_the_areas_and_the_project_notes()
+    {
+        UseBrain();
+        Directory.CreateDirectory(Path.Combine(Brain, "projects", "launch"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "sync-rewrite.md"), "# Sync rewrite\n");
+        File.WriteAllText(Path.Combine(Brain, "projects", "launch", "brief.md"), "# Brief\n");
+        File.WriteAllText(Path.Combine(Brain, "projects", "launch", "notes.txt"), "not a note");
+        var (writer, _) = Create();
+
+        var destinations = await writer.ListDestinationsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["_inbox", "projects", "projects/launch", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
+            destinations.Select(destination => destination.Folder));
+    }
+
+    [Fact]
+    public async Task No_brain_folder_lists_no_destinations()
+    {
+        var (writer, _) = Create();
+
+        Assert.Empty(await writer.ListDestinationsAsync(TestContext.Current.CancellationToken));
+    }
+
     /// <summary>
     /// Routing an item To Brain, undoing it and routing it again lands on the note
     /// the first route wrote, while nobody has edited it — no <c>-2</c> copy beside

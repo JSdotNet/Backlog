@@ -1705,7 +1705,7 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0054 decides these outcomes. None is built yet.
+> Local ADR 0054 decides these outcomes. Only the destination picker is built.
 
 ### Requirement: S, n and w take Someday, Done now and Waiting for
 
@@ -1731,6 +1731,7 @@ The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.B_twice_on_the_detail_keeps_today_s_route_into_the_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.Choosing_a_project_files_the_item_into_its_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.The_destinations_are_the_areas_and_the_project_notes, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_route_with_a_destination_lands_in_it_and_names_its_area]
 ```
 
 The system SHALL offer To Brain a destination picker listing the Brain's areas and the active notes in its `projects` area, starting on the inbox area, and SHALL write the note into the area chosen, or beside the project note chosen.

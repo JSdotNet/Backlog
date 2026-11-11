@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.Brain;
 /// <summary>
 /// Answers the Inbox's <see cref="IInboxBrainTarget"/> port over the Brain's
 /// <see cref="IBrainNoteWriter"/>: an item routed To Brain becomes a note in the
-/// Brain's inbox area, through the same writer the Devbook pane's Capture uses,
+/// Brain's inbox area, or the area or project its picker named, through the same writer the Devbook pane's Capture uses,
 /// so the two write the same kind of note under the same guard on the text
 /// (<c>.devbook/domain/brain/features.md#capture-into-the-brain</c>).
 /// <para>
@@ -30,18 +30,30 @@ public sealed class InboxBrainTarget(IBrainNoteWriter writer, IDevbookPersonalSo
             ? location.Message ?? BrainFolderSource.NoBrainFolder
             : null;
 
-    public async Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var written = await writer
-            .WriteAsync(new BrainNoteDraft(request.Title, BodyOf(request), BrainNoteSource.Inbox), cancellationToken)
+            .WriteAsync(new BrainNoteDraft(request.Title, BodyOf(request), BrainNoteSource.Inbox, request.Folder), cancellationToken)
             .ConfigureAwait(false);
 
         return written.Written
-            ? Result.Success(written.RelativePath!)
-            : Result.Failure<string>(InboxErrors.BrainUnavailable(written.Error!));
+            ? Result.Success(new InboxBrainNoteWrittenDto(written.RelativePath!, written.Area ?? AreaOf(written.RelativePath!)))
+            : Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(written.Error!));
     }
+
+    public async Task<IReadOnlyList<InboxBrainDestinationDto>> ListDestinationsAsync(CancellationToken cancellationToken = default)
+    {
+        if (UnavailableReason is not null) return [];
+
+        var destinations = await writer.ListDestinationsAsync(cancellationToken).ConfigureAwait(false);
+        return [.. destinations.Select(destination => new InboxBrainDestinationDto(destination.Folder, destination.Label, destination.IsInbox, destination.IsProject))];
+    }
+
+    /// <summary>A writer that did not name the area: the note's top folder, as a
+    /// tab is named after a discovered one.</summary>
+    private static string AreaOf(string relativePath) => BrainConventions.NameFor(relativePath.Split('/')[0]);
 
     /// <summary>The note's body: the item's, with its source link as the last line
     /// when it has one the body does not already carry.</summary>

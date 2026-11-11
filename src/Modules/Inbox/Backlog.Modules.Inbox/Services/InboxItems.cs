@@ -195,8 +195,11 @@ internal sealed class InboxItems(
         CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
 
-    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) =>
-        routeToBrain.Handle(new RouteToBrainCommand(id), cancellationToken);
+    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default) =>
+        routeToBrain.Handle(new RouteToBrainCommand(id, folder), cancellationToken);
+
+    public Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        brainTarget?.ListDestinationsAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,

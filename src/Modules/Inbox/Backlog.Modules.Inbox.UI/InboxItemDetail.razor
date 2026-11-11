@@ -452,7 +452,7 @@
                 var brainUnavailable = State.ToBrainUnavailableReason;
                 <AppButton Disabled="@(Busy || brainUnavailable is not null)"
                            Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
-                           OnClick="State.RouteToBrainAsync"
+                           OnClick="OpenBrainPicker"
                            TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
             }
             <AppButton Disabled="@Busy"
@@ -570,6 +570,10 @@
            reaches for, one key and Enter away. A particular date is still the
            field beside the pickers — this is the quick half, not a second
            date picker. *@
+        <InboxBrainPicker State="State"
+                          Open="@_brainOpen"
+                          OpenChanged="open => _brainOpen = open" />
+
         <Modal Open="@_deferOpen"
                OpenChanged="open => _deferOpen = open"
                Title="Defer until"
@@ -1071,6 +1075,18 @@
     }
 
     private bool _deferOpen;
+
+    /// <summary>Opens To Brain's destination picker, as <c>b</c> and the button
+    /// do. Refused while the Brain cannot take a note, as the button is.</summary>
+    public void OpenBrainPicker()
+    {
+        if (!CanDecide || State.ToBrainUnavailableReason is not null) return;
+
+        _brainOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _brainOpen;
 
     private IReadOnlyList<MenuItem> DeferChoices() => InboxDecisionMenus.DeferChoices(State.Today);
 

@@ -1265,13 +1265,22 @@ public sealed class InboxDesktopState : IDisposable
     }
 
     /// <summary>
-    /// To Brain: writes the selected item into the person's Brain as a note and
-    /// moves on, as a route to the backlog does. A Brain that is not set up, or
-    /// cannot be written, is said in a toast in the Brain's own words, and the
-    /// item stays where it was. Its undo returns the item to the queue; the note
-    /// is the person's file now, in their own folder, and stays.
+    /// To Brain into the Brain's inbox area: what the destination picker starts
+    /// on, and what taking the <i>Keep as knowledge</i> suggestion does.
     /// </summary>
-    public async Task RouteToBrainAsync()
+    public Task RouteToBrainAsync() => RouteToBrainAsync(folder: null);
+
+    /// <summary>
+    /// To Brain: writes the selected item into the person's Brain as a note — into
+    /// <paramref name="folder"/>, a destination the picker listed
+    /// (<see cref="LoadBrainDestinationsAsync"/>), or the inbox area when it is
+    /// null — and moves on, as a route to the backlog does. The toast names the
+    /// area and the note. A Brain that is not set up, or cannot be written, is said
+    /// in a toast in the Brain's own words, and the item stays where it was. Its
+    /// undo returns the item to the queue; the note is the person's file now, in
+    /// their own folder, and stays.
+    /// </summary>
+    public async Task RouteToBrainAsync(string? folder)
     {
         if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
 
@@ -1282,14 +1291,14 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.RouteToBrainAsync(item.Id);
+            var routed = await _inbox.RouteToBrainAsync(item.Id, string.IsNullOrWhiteSpace(folder) ? null : folder);
             if (Report(routed, BrainErrorTestId)) return;
 
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, ToBrainLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            _toasts?.Publish(ToastMessage.Info($"Kept \"{ItemTitle(item)}\" in your Brain as {routed.Value.NotePath}.", "inbox-brain-routed"));
+            _toasts?.Publish(ToastMessage.Info(BrainRoutedMessage(ItemTitle(item), routed.Value), "inbox-brain-routed"));
         }
         finally
         {
@@ -1298,13 +1307,41 @@ public sealed class InboxDesktopState : IDisposable
         }
     }
 
+    /// <summary>What the toast after a route To Brain says: the item, the area it
+    /// went into, and the note it became.</summary>
+    internal static string BrainRoutedMessage(string title, InboxBrainRoutedDto routed) =>
+        $"Kept \"{title}\" in your Brain's {routed.Area} area as {routed.NotePath}.";
+
+    /// <summary>
+    /// Where To Brain can file the selected item, in the order its destination
+    /// picker lists them: the Brain's inbox area first — the one the picker starts
+    /// on — then its other areas in tab order and its projects. Read each time the
+    /// picker opens, so an area or a project note made a moment ago is offered.
+    /// With nothing listed — a Brain that answers none — the inbox area alone is,
+    /// so the picker always has today's route on it.
+    /// </summary>
+    public async Task<IReadOnlyList<InboxBrainDestinationDto>> LoadBrainDestinationsAsync()
+    {
+        var listed = await _inbox.ListBrainDestinationsAsync();
+        if (listed.Count == 0) return [DefaultBrainDestination];
+
+        var inbox = listed.FirstOrDefault(destination => destination.IsInbox);
+        return inbox is null || ReferenceEquals(inbox, listed[0])
+            ? listed
+            : [inbox, .. listed.Where(destination => !ReferenceEquals(destination, inbox))];
+    }
+
+    /// <summary>The picker's one row when the Brain lists no destination: the
+    /// inbox area, whichever folder the Brain names it.</summary>
+    internal static InboxBrainDestinationDto DefaultBrainDestination { get; } = new(string.Empty, "Inbox", IsInbox: true);
+
     /// <summary>To Brain's name, on its button and its undo.</summary>
     public const string ToBrainLabel = "To Brain";
 
     /// <summary>What the To Brain buttons say on hover: the act and its key, or —
     /// while the Brain cannot take a note — why not, in the words the route would
     /// refuse in.</summary>
-    public const string ToBrainTitle = "Keep it as a note in your Brain (b)";
+    public const string ToBrainTitle = "Keep it as a note in your Brain, in the area you pick (b)";
 
     /// <summary>Why To Brain cannot be taken now, or null while it can. Asked on
     /// render, so a Brain folder set a moment ago enables the button at once.</summary>
