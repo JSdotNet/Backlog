@@ -484,6 +484,7 @@ public sealed class InboxDesktopState : IDisposable
         await _inbox.EnsureDefaultOrganizerAsync();
         await ResurfaceDueItemsAsync();
         await ReloadAsync();
+        await RefreshBrainDestinationsAsync();
     }
 
     /// <summary>Called by the shell each time the pane is shown again after
@@ -504,6 +505,7 @@ public sealed class InboxDesktopState : IDisposable
         {
             await ResurfaceDueItemsAsync();
             await ReloadAsync();
+            await RefreshBrainDestinationsAsync();
         }
         finally
         {
@@ -1351,7 +1353,22 @@ public sealed class InboxDesktopState : IDisposable
     /// undo returns the item to the queue; the note is the person's file now, in
     /// their own folder, and stays.
     /// </summary>
-    public async Task RouteToBrainAsync(string? folder)
+    public Task RouteToBrainAsync(string? folder) => RouteToBrainAsync(folder, ToBrainLabel);
+
+    /// <summary>
+    /// Someday (<c>s</c>, local ADR 0054): To Brain with the Brain's
+    /// <c>someday</c> area chosen, in one press — no picker. Everything else is
+    /// To Brain's: routed once, the toast names the area and the note, the undo
+    /// returns the item and leaves the note. A Brain whose areas have no
+    /// <c>someday</c> is not asked (<see cref="SomedayUnavailableReason"/>), and
+    /// one that refuses all the same says so in its own words while the item stays
+    /// where it was.
+    /// </summary>
+    public Task RouteToSomedayAsync() => SomedayUnavailableReason is null
+        ? RouteToBrainAsync(InboxBrainDestinationDto.SomedayFolder, SomedayLabel)
+        : Task.CompletedTask;
+
+    private async Task RouteToBrainAsync(string? folder, string label)
     {
         if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
 
@@ -1365,7 +1382,7 @@ public sealed class InboxDesktopState : IDisposable
             var routed = await _inbox.RouteToBrainAsync(item.Id, string.IsNullOrWhiteSpace(folder) ? null : folder);
             if (Report(routed, BrainErrorTestId)) return;
 
-            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, ToBrainLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, label, item.Id, DeleteTasks: false, DeferralOf(item)));
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
@@ -1377,6 +1394,81 @@ public sealed class InboxDesktopState : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>
+    /// Done now (<c>n</c>, local ADR 0054 — the two-minute rule): routes the
+    /// selected item to one task created already ticked, Done and
+    /// <c>completed:</c> today, carrying the item's id as its provenance, and
+    /// moves on as Move to backlog does. A due date or My Day chosen beside Move
+    /// to backlog is not given to it: the work is over. Its undo deletes that task
+    /// while it is still Done, and returns the item to the queue.
+    /// </summary>
+    public async Task DoneNowAsync()
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var routed = await _inbox.RouteDoneNowAsync(item.Id);
+            if (Report(routed)) return;
+
+            _routeSchedules.Remove(item.Id);
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, DoneNowLabel, item.Id, DeleteTasks: true, DeferralOf(item)) { MadeDone = true });
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            Routed?.Invoke(routed.Value);
+            _toasts?.Publish(ToastMessage.Info($"Recorded \"{ItemTitle(item)}\" as done.", DoneNowToastTestId));
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The Brain's destinations as last listed — each time the pane is
+    /// opened or shown again, and each time the destination picker opens — or
+    /// null before the first.</summary>
+    private IReadOnlyList<InboxBrainDestinationDto>? _brainDestinations;
+
+    /// <summary>
+    /// Why Someday cannot be taken now, or null while it can: To Brain's own
+    /// reason while the Brain cannot take a note, or — for a Brain whose areas,
+    /// as last listed, have no <c>someday</c> (one that declares its own) — that
+    /// it has none. Asked on render, so the buttons, <c>s</c> and the outcome card
+    /// are disabled with the reason rather than offered and then refused.
+    /// </summary>
+    public string? SomedayUnavailableReason =>
+        ToBrainUnavailableReason
+        ?? (_brainDestinations is { Count: > 0 } listed
+            && !listed.Any(destination => string.Equals(destination.Folder, InboxBrainDestinationDto.SomedayFolder, StringComparison.OrdinalIgnoreCase))
+                ? NoSomedayArea
+                : null);
+
+    /// <summary>What Someday says while the Brain has no <c>someday</c> area.</summary>
+    public const string NoSomedayArea = "Your Brain has no someday area. Declare one in its CONVENTIONS.md to keep possibilities there.";
+
+    /// <summary>Someday's name, on its button and its undo.</summary>
+    public const string SomedayLabel = "Someday";
+
+    /// <summary>What the Someday buttons say on hover: the act and its key.</summary>
+    public const string SomedayTitle = "Keep it in your Brain's someday area, not committed to (s)";
+
+    /// <summary>Done now's name, on its button and its undo.</summary>
+    public const string DoneNowLabel = "Done now";
+
+    /// <summary>What the Done now buttons say on hover: the act and its key.</summary>
+    public const string DoneNowTitle = "Done in two minutes: record it as a task already ticked (n)";
+
+    /// <summary>The toast a Done now publishes.</summary>
+    public const string DoneNowToastTestId = "inbox-done-now-routed";
 
     /// <summary>What the toast after a route To Brain says: the item, the area it
     /// went into, and the note it became.</summary>
@@ -1394,12 +1486,28 @@ public sealed class InboxDesktopState : IDisposable
     public async Task<IReadOnlyList<InboxBrainDestinationDto>> LoadBrainDestinationsAsync()
     {
         var listed = await _inbox.ListBrainDestinationsAsync();
+        _brainDestinations = listed;
         if (listed.Count == 0) return [DefaultBrainDestination];
 
         var inbox = listed.FirstOrDefault(destination => destination.IsInbox);
         return inbox is null || ReferenceEquals(inbox, listed[0])
             ? listed
             : [inbox, .. listed.Where(destination => !ReferenceEquals(destination, inbox))];
+    }
+
+    /// <summary>Lists the Brain's destinations for <see cref="SomedayUnavailableReason"/>
+    /// when the pane opens or is shown again. A Brain that cannot be listed
+    /// leaves the last answer standing rather than failing the pane's open: the
+    /// route itself still refuses in the Brain's own words.</summary>
+    private async Task RefreshBrainDestinationsAsync()
+    {
+        try
+        {
+            await LoadBrainDestinationsAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>The picker's one row when the Brain lists no destination: the
@@ -1540,7 +1648,9 @@ public sealed class InboxDesktopState : IDisposable
             plan = members.Count >= 2 ? plan with { ItemIds = members } : null;
         }
 
-        var current = advice with { Duplicate = duplicate, Plan = plan };
+        var outcome = _dismissedTriageCards.Contains((itemId, InboxTriageCardKind.Outcome)) ? null : advice.Outcome;
+
+        var current = advice with { Duplicate = duplicate, Plan = plan, Outcome = outcome };
         return current.HasCards ? current : null;
     }
 
@@ -1664,6 +1774,23 @@ public sealed class InboxDesktopState : IDisposable
         // rather than opening an empty screen.
         if (pass is not null)
         {
+            // Someday cannot be taken while the Brain has no someday area or
+            // cannot take a note, so the pass does not offer it either: those
+            // items are left for the reader rather than stopping Apply.
+            if (SomedayUnavailableReason is not null && pass.Outcomes.Any(outcome => outcome.Outcome == InboxClarifyOutcome.Someday))
+            {
+                var proposed = pass;
+                var dropped = proposed.Outcomes
+                    .Where(outcome => outcome.Outcome == InboxClarifyOutcome.Someday && !proposed.Unplaced.Contains(outcome.ItemId))
+                    .Select(outcome => outcome.ItemId)
+                    .ToList();
+                pass = proposed with
+                {
+                    Outcomes = [.. proposed.Outcomes.Where(outcome => outcome.Outcome != InboxClarifyOutcome.Someday)],
+                    Unplaced = [.. proposed.Unplaced, .. dropped],
+                };
+            }
+
             var draft = new InboxTriagePassDraft(pass, Items, Lists);
             if (draft.IsEmpty) _triagePassError = NothingProposed;
             else _triagePassDraft = draft;
@@ -1874,6 +2001,12 @@ public sealed class InboxDesktopState : IDisposable
                 var previous = before.TryGetValue(filing.ItemId, out var filed) ? filed.ListId : null;
                 if (previous != filing.ListId) _undo.Record(new InboxMoveUndoStep("Move to list", filing.ItemId, previous));
                 break;
+            case InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.Someday } someday:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, SomedayLabel, someday.ItemId, DeleteTasks: false, Deferral(someday.ItemId)));
+                break;
+            case InboxTriageOutcomeDecision doneNow:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, DoneNowLabel, doneNow.ItemId, DeleteTasks: true, Deferral(doneNow.ItemId)) { MadeDone = true });
+                break;
         }
     }
 
@@ -2021,9 +2154,10 @@ public sealed class InboxDesktopState : IDisposable
         {
             if (!TriageMode || SelectedItem is not { } item || !IsUndecided(item) || TriageAdvice is not { } advice) return [];
 
-            var cards = new List<InboxTriageCardKind>(2);
+            var cards = new List<InboxTriageCardKind>(3);
             if (advice.Duplicate is not null) cards.Add(InboxTriageCardKind.Duplicate);
             if (advice.Plan is not null) cards.Add(InboxTriageCardKind.Plan);
+            if (advice.Outcome is not null) cards.Add(InboxTriageCardKind.Outcome);
             return cards;
         }
     }
@@ -2054,8 +2188,21 @@ public sealed class InboxDesktopState : IDisposable
             case InboxTriageCardKind.Plan:
                 await MakeTriagePlanAsync();
                 break;
+
+            case InboxTriageCardKind.Outcome:
+                await TakeTriageOutcomeAsync();
+                break;
         }
     }
+
+    /// <summary>The outcome card's main act: Someday or Done now, the decision
+    /// the card names, taken as its button and key take it.</summary>
+    public Task TakeTriageOutcomeAsync() => TriageAdvice?.Outcome?.Outcome switch
+    {
+        InboxClarifyOutcome.Someday => RouteToSomedayAsync(),
+        InboxClarifyOutcome.DoneNow => DoneNowAsync(),
+        _ => Task.CompletedTask,
+    };
 
     /// <summary>The duplicate card's main act: merge the item into the backlog
     /// task it repeats, or archive it as a duplicate of the inbox item it
@@ -2295,7 +2442,9 @@ public sealed class InboxDesktopState : IDisposable
             InboxDeferUndoStep => "Deferred",
             InboxMoveUndoStep => item?.ListId is { } listId ? FindList(listId)?.Name ?? "a list" : "Inbox",
             InboxRouteUndoStep { Kind: InboxDecisionKind.LinkToTask } => "Linked to a task",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain, Label: SomedayLabel } => "Someday",
             InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain } => "Brain",
+            InboxRouteUndoStep { MadeDone: true } => "Done",
             InboxRouteUndoStep => "Backlog",
             _ => step.Label,
         };
@@ -2714,6 +2863,7 @@ public sealed class InboxDesktopState : IDisposable
         InboxDeferUndoStep { WasDeferred: true } defer => _inbox.DeferAsync(defer.ItemId, defer.PreviousUntil),
         InboxDeferUndoStep defer => _inbox.ResurfaceAsync(defer.ItemId),
         InboxMoveUndoStep move => _inbox.MoveToListAsync(move.ItemId, move.PreviousListId),
+        InboxRouteUndoStep { MadeDone: true } doneNow => _inbox.ReturnDoneNowToInboxAsync(doneNow.ItemId),
         InboxRouteUndoStep route => _inbox.ReturnToInboxAsync(route.ItemId, route.DeleteTasks),
         _ => throw new InvalidOperationException($"No way back for {step.GetType().Name}."),
     };
@@ -3651,6 +3801,9 @@ public enum InboxTriageCardKind
 
     /// <summary>"Group into a plan".</summary>
     Plan,
+
+    /// <summary>"Someday" or "Done now" (local ADR 0054).</summary>
+    Outcome,
 }
 
 /// <summary>The session's latest decision as triage's "Just decided" reads it:

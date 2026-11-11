@@ -1741,12 +1741,14 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0054 decides these outcomes. Only the destination picker is built.
+> Local ADR 0054 decides these outcomes. The destination picker, Someday and
+> Done now are built; Waiting for is not.
 
 ### Requirement: S, n and w take Someday, Done now and Waiting for
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.S_files_it_without_a_picker_and_u_takes_it_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_decided_item_is_not_routed_again_by_s_or_n]
 ```
 
 The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w**, through the same act as the decision's button in the item's detail and in triage mode, and SHALL offer by key no act the detail withholds for that item.
@@ -1788,6 +1790,7 @@ The system SHALL offer To Brain a destination picker listing the Brain's areas a
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Someday_in_triage_files_the_item_in_the_someday_area_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_brain_with_no_someday_area_offers_someday_disabled_with_the_reason]
 ```
 
 The system SHALL route an item taken as Someday To Brain into the Brain's `someday` area, and SHALL offer Someday disabled, with its reason, while the Brain has no `someday` area.
@@ -1808,6 +1811,7 @@ The system SHALL route an item taken as Someday To Brain into the Brain's `somed
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_asks_for_one_entry_completed_today_and_routes_the_item_to_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_routes_once_and_a_tasks_failure_leaves_the_item_open, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Done_now_writes_a_done_entry_ticked_on_the_day]
 ```
 
 The system SHALL route an item taken as Done now to a task created ticked, with today's date as its `completed:`, and mark the item routed once the task is saved.

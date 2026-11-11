@@ -239,13 +239,13 @@ actionable, and the backlog holds every commitment.
 | Create plan | — | A plan |
 | Merge | — | A comment on a task already tracked |
 
-Someday, Done now and Waiting for, and the destination picker are decided in
-local ADR 0054 and not yet built. The due date or My Day on Move to backlog is
-built ([Route to Tasks](#route-to-tasks)).
+Waiting for is decided in local ADR 0054 and not yet built. Someday, Done now,
+the destination picker, and the due date or My Day on Move to backlog are built
+([Route to Brain](#route-to-brain), [Route to Tasks](#route-to-tasks)).
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
-key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
-**Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+key: **Move to backlog**, **To Brain**, **Someday**, **Done now**, **Move to
+list**, **Defer** and **Archive**. The bar stays in place while the detail scrolls. Delete, tags and
 repositories stay in the detail itself, because they are not the decision the
 item is waiting for.
 
@@ -291,7 +291,7 @@ Picking a set is separate from choosing the item the detail shows.
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation, .devbook/domain/inbox/requirements.md#clarify-outcomes]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests]
 ```
 
 With the Inbox pane in use, a triage session runs from the keyboard:
@@ -314,7 +314,7 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **?** | Open the **Shortcuts** dialog |
 | **Escape** | Leave the mode the reader is in |
 
-**s**, **n** and **w** are decided in local ADR 0054 and not yet built.
+**w** is decided in local ADR 0054 and not yet built.
 
 The Tasks pane binds no letters, so **Escape** is the one key the two panes
 share. A key offers only the acts the item's detail offers: a routed or
@@ -365,7 +365,7 @@ From the top down the screen holds:
   after those rows. Previous (**k**) and **Skip** (**j**) step without deciding.
 - **The item**: its kind, its source and when it was captured, then its title,
   notes and tags. The tags are the field **g** goes to.
-- **AI cards**, up to two, numbered **1** and **2** — see [AI triage
+- **AI cards**, up to three, numbered from **1** — see [AI triage
   cards](#ai-triage-cards). The rule-based suggestions follow, numbered after
   them. With no AI card shown, the suggestions are numbered from 1.
 - **Move to backlog in**: a repository picker with one box per configured
@@ -377,9 +377,9 @@ From the top down the screen holds:
   repository ticked, the pickers read **Brain**, where the entry is filed.
   More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
-  backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
-  Local ADR 0054 adds Someday (**s**), Done now (**n**) and Waiting for (**w**);
-  they are not yet built.
+  backlog (**r**), To Brain (**b**), Someday (**s**), Done now (**n**), Move to
+  list (**l**), Defer (**d**) and Archive (**a**). Local ADR 0054 adds Waiting
+  for (**w**), not yet built.
 - **Due** and **Add to My Day**, under the repository picker, beside Move to
   backlog: the date and the My Day choice **r** gives every task it makes
   ([Route to Tasks](#route-to-tasks)).
@@ -389,7 +389,8 @@ triage will show them. Under it, **Just decided** shows the session's last
 decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 The decisions that move on are archive, defer, move to a list, move to the
-backlog and merge into a task, and once built Someday, Done now and Waiting for. A reader who skipped items with **j** finds them
+backlog, To Brain, Someday, Done now and merge into a task, and once built
+Waiting for. A reader who skipped items with **j** finds them
 again past the last row, and [Inbox zero](#inbox-zero) follows when none is left.
 Tags and repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
@@ -401,12 +402,12 @@ type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#triage-mode]
 related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests]
 ```
 
 When the reader opens an item in triage, the Azure Foundry model reads it
 against the open backlog and the rest of the inbox. Triage shows what it
-noticed as at most two cards, under the heading **AI noticed**.
+noticed as at most three cards, under the heading **AI noticed**.
 `.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`
 settles what is sent, and when.
 
@@ -425,13 +426,18 @@ settles what is sent, and when.
   not yet built, and shows disabled until Tasks lists its plans to the Inbox
   through a port. Picking one will tag the item and those captures with that
   plan's `+tag`.
+- **Someday, not now** or **Done in two minutes.** The clarify outcome the
+  model reads the item as (local ADR 0054), with the reason. Its main act,
+  **Keep for someday** or **Record as done**, takes [Someday](#route-to-brain)
+  or [Done now](#route-to-tasks) as the decision bar does; Keep for someday is
+  disabled, with the reason, while Someday is. **Dismiss** turns the card down.
 
 The model is asked once per item per app session. **Ask again**, in the AI
 section, would ask again for the item shown and replace the cards; it is
 planned, not yet built.
 
-A card shown is numbered **1**, or **2** when both are, and is taken with its
-number key, as a suggestion is. The rule-based suggestions are numbered after
+The cards shown are numbered from **1** in that order, and each is taken with
+its number key, as a suggestion is. The rule-based suggestions are numbered after
 the cards. A card the model has nothing to say about is not shown.
 
 When Foundry is not configured or the call fails, no card is shown.
@@ -458,7 +464,7 @@ decision](#undo-a-decision)).
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests]
 ```
 
 ```mermaid
@@ -477,13 +483,17 @@ app closes:
 - move to a list;
 - move to the backlog;
 - merge into a task;
-- To Brain.
+- To Brain and Someday;
+- Done now.
 
-Two decisions reach outside the Inbox, and undoing them is bounded by that:
+Three decisions reach outside the Inbox, and undoing them is bounded by that:
 
 - **Move to backlog.** Undo deletes the tasks the move made, but only while
   none of them has started. Once one has, the undo is refused with a sentence
   that names the started task, and nothing changes.
+- **Done now.** Undo deletes the ticked task it made while that task is still
+  Done; once it is archived, the undo is refused the same way. To Brain and
+  Someday leave the note they wrote, which is the person's file by then.
 - **Merge into a task.** Undo restores the capture as it was. The comment stays
   on the task, because by then it may have been read or answered.
 
@@ -584,8 +594,10 @@ The screen groups the proposals:
   one as its duplicate, or keep both.
 - **Move to backlog on their own**: single routes, each with the entry type the
   model reads it as and its repositories.
-- **The rest**: items to file, one row per list, and items to archive. Each row
-  is accepted as a whole, and **Show** opens it to accept them one by one. The
+- **The rest**: items to file, one row per list, items to archive, and items to
+  take [Someday](#route-to-brain) or [Done now](#route-to-tasks), one row each.
+  Each row is accepted as a whole, and **Show** opens it to accept them one by
+  one. The
   items the model could not place are **Left for you**, with **Triage them**.
 
 Every proposal carries its reason, and a toggle accepts it or not. A duplicate
@@ -605,7 +617,8 @@ the screen lists them:
 - a duplicate, through merge into a task or archive as a duplicate;
 - a single route, by writing its repositories to the item and moving it to the
   backlog;
-- a filing or an archive, through its own act.
+- a filing or an archive, through its own act;
+- a Someday or a Done now, through the act its decision-bar button takes.
 
 [AI triage pass Apply](features.md#ai-triage-pass) shows what happens when a
 decision is refused. Each decision lands as one step of the
@@ -744,7 +757,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 ```meta
 type: sub-feature
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests]
 ```
 
 Create one draft task per repository assigned to the item, or a single
@@ -771,12 +784,15 @@ route runs. The choice is held per item until it routes, so **r** takes it too.
 Without either, the route makes exactly the tasks it always did. A
 [batch route](#route-a-batch-to-tasks) offers neither.
 
-Local ADR 0054 adds two more variants of this route, not yet built. Each routes
-the item once, and a failure on the Tasks side leaves it open:
+Local ADR 0054 adds two more variants of this route. Each routes the item once,
+and a failure on the Tasks side leaves it open:
 
-- **Done now (n).** The task is created already ticked, `completed:` today: the
-  two-minute rule.
-- **Waiting for (w).** The task is created with a
+- **Done now (n).** One task is created already ticked, Done and `completed:`
+  today: the two-minute rule. It carries the item's id as its provenance and
+  its attachment folder, in the item's first repository or none; the other
+  repositories get no sibling, because nothing is left to do there. A due date
+  or My Day chosen beside Move to backlog does not go with it.
+- **Waiting for (w)**, not yet built. The task is created with a
   [waiting-for](../tasks/domain.md#waiting-for): who it waits on, and an
   optional follow-up date.
 
@@ -965,9 +981,11 @@ To Brain again reuses that note, instead of writing a `-2` copy, while the file
 still holds exactly the text the route would write. A note somebody has edited is theirs, and a second route writes a new one.
 Only a route reuses: two captures in the Brain with the same words are two notes.
 
-Local ADR 0054 also decides **Someday (s)**, not yet built: To Brain with the
-`someday` area chosen, in one press. A Brain with no `someday` area offers it
-disabled, with the reason.
+**Someday (s)** (local ADR 0054) is To Brain with the `someday` area chosen, in
+one press, beside To Brain in triage and in the item's detail. Its toast and
+its undo are To Brain's. A Brain with no `someday` area — one that declares its
+own areas — offers it disabled, with the reason, as it does while the Brain
+cannot take a note.
 
 An item is still routed once whichever destination is chosen, and the Inbox
 keeps nothing of it but the record.

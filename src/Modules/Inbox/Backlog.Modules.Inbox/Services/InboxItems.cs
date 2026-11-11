@@ -164,6 +164,9 @@ internal sealed class InboxItems(
     public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) =>
         returnToInbox.Handle(new ReturnToInboxCommand(id, deleteTasks), cancellationToken);
 
+    public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
+        returnToInbox.Handle(new ReturnToInboxCommand(id, DeleteTasks: true, MadeDone: true), cancellationToken);
+
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
 
@@ -202,6 +205,9 @@ internal sealed class InboxItems(
         InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType, schedule), cancellationToken);
+
+    public Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default) =>
+        routeToBacklog.Handle(new RouteToBacklogCommand(id, DoneNow: true), cancellationToken);
 
     public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default) =>
         routeToBrain.Handle(new RouteToBrainCommand(id, folder), cancellationToken);

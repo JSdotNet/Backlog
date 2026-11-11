@@ -475,6 +475,14 @@
                            Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
                            OnClick="OpenBrainPicker"
                            TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
+                <AppButton Disabled="@(Busy || State.SomedayUnavailableReason is not null)"
+                           Title="@(State.SomedayUnavailableReason ?? InboxDesktopState.SomedayTitle)"
+                           OnClick="State.RouteToSomedayAsync"
+                           TestId="inbox-someday"><span class="inbox-pane__decision-label">@InboxDesktopState.SomedayLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">S</kbd></AppButton>
+                <AppButton Disabled="@Busy"
+                           Title="@InboxDesktopState.DoneNowTitle"
+                           OnClick="State.DoneNowAsync"
+                           TestId="inbox-done-now"><span class="inbox-pane__decision-label">@InboxDesktopState.DoneNowLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">N</kbd></AppButton>
             }
             <AppButton Disabled="@Busy"
                        Title="File it in one of your lists (l)"

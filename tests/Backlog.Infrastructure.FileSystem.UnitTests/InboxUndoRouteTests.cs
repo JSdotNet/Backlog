@@ -79,6 +79,23 @@ public sealed class InboxUndoRouteTests : IDisposable
         Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
     }
 
+    /// <summary>Done now's undo: the entry it made was born Done and ticked, so
+    /// Done is no reason to refuse — archived still is.</summary>
+    [Fact]
+    public async Task Done_nows_undo_deletes_the_done_entry_it_made_but_not_an_archived_one()
+    {
+        var done = await TaskAsync("# Reply to Sam\n`task` `!done` `completed:2026-11-11`\n");
+        var archived = await TaskAsync("# Reply to Ann\n`task` `!archived` `completed:2026-11-11`\n");
+
+        var refused = await Target.DeleteRoutedTasksAsync([archived.Id], madeDone: true, TestContext.Current.CancellationToken);
+        var deleted = await Target.DeleteRoutedTasksAsync([done.Id], madeDone: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, refused.Error.Code);
+        Assert.True(deleted.IsSuccess);
+        var left = await Tasks.ListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal([archived.Id], left.Select(task => task.Id));
+    }
+
     private async Task<TaskItemDto> TaskAsync(string text)
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);

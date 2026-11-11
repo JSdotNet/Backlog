@@ -22,7 +22,7 @@
     var busy = State.RoutingInFlight;
     var decisions = draft.DecisionCount;
     var groups = draft.FilingGroups;
-    var restCount = draft.Filings.Count + draft.Archives.Count;
+    var restCount = draft.Filings.Count + draft.Archives.Count + draft.Outcomes.Count;
 
     <article class="inbox-pass" aria-labelledby="inbox-pass-title" data-testid="inbox-pass">
         <header class="inbox-pass__header" data-testid="inbox-pass-header">
@@ -274,6 +274,32 @@
                             </div>
                         }
 
+                        @foreach (var (outcome, label, slug) in OutcomeRows)
+                        {
+                            var proposals = draft.Outcomes.Where(proposal => proposal.Outcome == outcome).ToList();
+                            if (proposals.Count == 0) continue;
+
+                            var key = slug;
+                            var reason = proposals.Select(proposal => proposal.Reason).FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+                            <div class="inbox-pass__rest-row" @key="key" data-testid="@($"inbox-pass-{slug}")">
+                                <div class="inbox-pass__rest-line">
+                                    <span class="inbox-pass__rest-text">
+                                        @label @proposals.Count
+                                        @if (reason is not null)
+                                        {
+                                            @(" — ")<em class="inbox-pass__rest-reason">@reason</em>
+                                        }
+                                    </span>
+                                    @Accept(AllOrPart(proposals), on => SetAll(proposals, on), $"inbox-pass-{slug}-accept", busy, $"{label} {proposals.Count}")
+                                    @Show(key, $"inbox-pass-{slug}-show")
+                                </div>
+                                @if (_shown.Contains(key))
+                                {
+                                    @Shown(draft, proposals, $"inbox-pass-{slug}-item")
+                                }
+                            </div>
+                        }
+
                         @if (draft.Unplaced.Count > 0)
                         {
                             <div class="inbox-pass__rest-row" data-testid="inbox-pass-left">
@@ -300,6 +326,15 @@
 
     /// <summary>The rows of The rest whose items are shown, by key.</summary>
     private readonly HashSet<string> _shown = [];
+
+    /// <summary>The rest's rows for the clarify outcomes (local ADR 0054), after
+    /// the archives, in the order Apply takes them: what each is called, and the
+    /// slug its test ids carry.</summary>
+    private static readonly (InboxClarifyOutcome Outcome, string Label, string Slug)[] OutcomeRows =
+    [
+        (InboxClarifyOutcome.Someday, InboxDesktopState.SomedayLabel, "someday"),
+        (InboxClarifyOutcome.DoneNow, InboxDesktopState.DoneNowLabel, "done-now"),
+    ];
 
     /// <summary>An Accept toggle: "Accepted" with a tick when on, "Accept" when
     /// off — the state is <c>aria-pressed</c>, the words and the tick say it to

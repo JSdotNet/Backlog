@@ -129,6 +129,12 @@ public interface IInboxItems
     /// Only a routed item; the session undo history is the one caller.</summary>
     Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default);
 
+    /// <summary>Takes Done now back: as
+    /// <see cref="ReturnToInboxAsync(Guid, bool, CancellationToken)"/> with its
+    /// entries deleted, where the one entry Done now made — born Done and ticked —
+    /// does not count as started. Archived still refuses.</summary>
+    Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
     /// runs it when it opens; nothing schedules it.</summary>
@@ -190,6 +196,13 @@ public interface IInboxItems
         string? entryType = null,
         InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Done now (local ADR 0054, the two-minute rule): routes the item to
+    /// one task created already ticked — Done, <c>completed:</c> today — carrying
+    /// the item's id as its provenance, as Move to backlog does. One task however
+    /// many repositories the item names: its first, or none. An item routes
+    /// exactly once, and a failure on the Tasks side leaves it open.</summary>
+    Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>To Brain: writes the item into the person's Brain as a new note
     /// — into <paramref name="folder"/>, a destination

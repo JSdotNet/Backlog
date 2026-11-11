@@ -327,6 +327,87 @@ public sealed class RouteToBacklogTests
         Assert.Null(request.InMyDayOn);
     }
 
+    /// <summary>Done now (local ADR 0054): one entry ticked off today, carrying
+    /// the item as its provenance, and the item routed once to it.</summary>
+    [Fact]
+    public async Task Done_now_asks_for_one_entry_completed_today_and_routes_the_item_to_it()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Reply to Sam");
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        store.Seed(item);
+
+        var result = await DoneNow(store, target, item.Id);
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(item.Id, request.InboxItemId);
+        Assert.Equal(DateOnly.FromDateTime(Decision.UtcDateTime), request.CompletedOn);
+        Assert.Equal(["jsdotnet/backlog"], request.RepoIds);
+        Assert.Null(request.DueOn);
+        Assert.Null(request.InMyDayOn);
+
+        var taskId = Assert.Single(result.Value.TaskIds);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+        Assert.Equal([taskId], item.Routing!.TaskIds);
+    }
+
+    [Fact]
+    public async Task Done_now_with_no_repository_makes_one_untargeted_entry()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await DoneNow(store, target, item.Id);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(Assert.Single(target.Requests).RepoIds);
+    }
+
+    [Fact]
+    public async Task Done_now_routes_once_and_a_tasks_failure_leaves_the_item_open()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget { FailWith = Error.Validation("entry.needs_title", "No title.") };
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var failed = await DoneNow(store, target, item.Id);
+
+        Assert.True(failed.IsFailure);
+        Assert.Null(item.Routing);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+
+        target.FailWith = null;
+        Assert.True((await DoneNow(store, target, item.Id)).IsSuccess);
+
+        var again = await DoneNow(store, target, item.Id);
+        Assert.True(again.IsFailure);
+        Assert.Equal("inbox.item.invalid_transition", again.Error.Code);
+        Assert.Equal(2, target.Requests.Count);
+    }
+
+    /// <summary>A plain route never asks for a ticked entry.</summary>
+    [Fact]
+    public async Task A_plain_route_carries_no_completed_date()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id);
+
+        Assert.Null(Assert.Single(target.Requests).CompletedOn);
+    }
+
+    private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> DoneNow(InMemoryInboxStore store, FakeBacklogTarget target, Guid id) =>
+        new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
+            .Handle(new RouteToBacklogCommand(id, DoneNow: true), TestContext.Current.CancellationToken);
+
     private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> Route(
         InMemoryInboxStore store,
         FakeBacklogTarget target,
