@@ -22,8 +22,9 @@ Import's `devbook:` token on a `plan` entry, gathering by tag, and the item's
 Brain chips. The task side is built too: a task's Devbook references hold a Brain
 address from the task's picker, Import's `devbook:` token and `set_devbook_references`;
 `list_devbook_references` marks one with `scope: "#brain"`; the task shows a Brain
-chip; and `run-plan-item` reads an entry's Brain notes before it works. The repository owner settled it as changes
-C8 and C11 of the GTD and PARA exploration of 2026-10-29, the "pick up from the
+chip; and `run-plan-item` reads an entry's Brain notes before it works. `import-plan`
+writes a plan from a Brain project note and names the note on the `plan` entry and its
+steps. The repository owner settled it as changes C8 and C11 of the GTD and PARA exploration of 2026-10-29, the "pick up from the
 Brain" slice.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
@@ -214,3 +215,4 @@ Look for tests that show these behaviours:
 | 2026-11-11 | Proposed: a Knowledge Ref and a task's Devbook references may name a Brain note as `#brain:<path>`, resolved for the owner only. | Picking up a note into a task or plan needs the link from the work to the note too (C8, C11, 2026-10-29). |
 | 2026-11-11 | The plan side built: Knowledge Ref, Import's `plan` entry `devbook:` token (ADR 0013 amended), gathering by tag, Brain chips. | Plan entry gtd-para:14. |
 | 2026-11-11 | The task side built: a task's Devbook references hold a Brain address, answered from the owner's Brain with `scope: "#brain"` over MCP, shown as a Brain chip, and read by `run-plan-item` before a session works. | Plan entry gtd-para:15. |
+| 2026-11-11 | `import-plan` takes a Brain note as its source: the `plan` entry and its steps carry `devbook:#brain:` and name the note in `Read first:`; the import grammar documents the address. | Plan entry gtd-para:18. |
