@@ -217,7 +217,8 @@ public static class EntryTextParser
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
         DateOnly? BlockedSince = null,
-        AgendaTime? AgendaTime = null);
+        AgendaTime? AgendaTime = null,
+        WaitingFor? WaitingFor = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -241,7 +242,8 @@ public static class EntryTextParser
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
         DateOnly? BlockedSince = null,
-        AgendaTime? AgendaTime = null)
+        AgendaTime? AgendaTime = null,
+        WaitingFor? WaitingFor = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -395,7 +397,8 @@ public static class EntryTextParser
             metadata.StartedOn,
             metadata.DevbookReferences ?? [],
             metadata.BlockedSince,
-            metadata.AgendaTime);
+            metadata.AgendaTime,
+            metadata.WaitingFor);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -416,6 +419,9 @@ public static class EntryTextParser
         DateOnly? completedOn = null;
         DateOnly? startedOn = null;
         DateOnly? blockedSince = null;
+        string? waitingWho = null;
+        DateOnly? followUpOn = null;
+        string? followUpText = null;
         EntryView? view = null;
         Attachment? attachment = null;
         int? effort = null;
@@ -513,6 +519,29 @@ public static class EntryTextParser
                         // backlog is in the way, so it is written down.
                         if (TryParseDateToken(value, out var blockedOn)) blockedSince = blockedOn;
                         else unreadable.Add(new UnreadableToken("blocked", value));
+                        break;
+
+                    case "waiting":
+                        // Who the task waits on, free text: whatever is between the
+                        // colon and the closing backtick, spaces and all
+                        // (.devbook/domain/tasks/domain.md#waiting-for). Last one
+                        // wins like `due:`, because a task waits on one party.
+                        // Empty is the one malformed value: absent means absent.
+                        if (value.Length == 0) unreadable.Add(new UnreadableToken("waiting", value));
+                        else waitingWho = value;
+                        break;
+
+                    case "followup":
+                        // The waiting-for's follow-up date. Whether it stands
+                        // beside a `waiting:` is only known once the whole line is
+                        // read, so it is held here and judged after the loop, the
+                        // way `for:` is.
+                        if (TryParseDateToken(value, out var followUp))
+                        {
+                            followUpOn = followUp;
+                            followUpText = value;
+                        }
+                        else unreadable.Add(new UnreadableToken("followup", value));
                         break;
 
                     case "effort":
@@ -686,6 +715,18 @@ public static class EntryTextParser
             unreadable.Add(new UnreadableToken("for", agendaMinutesText));
         }
 
+        // A follow-up date with nobody to follow up with is not a waiting-for: it
+        // reads as malformed, the way `for:` does without `at:`.
+        WaitingFor? waitingFor = null;
+        if (waitingWho is not null)
+        {
+            waitingFor = new WaitingFor(waitingWho, followUpOn);
+        }
+        else if (followUpText is not null)
+        {
+            unreadable.Add(new UnreadableToken("followup", followUpText));
+        }
+
         return new Metadata(
             type,
             priority,
@@ -708,7 +749,8 @@ public static class EntryTextParser
             startedOn,
             devbookReferences,
             blockedSince,
-            agendaTime);
+            agendaTime,
+            waitingFor);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1672,6 +1714,14 @@ public static class EntryTextParser
         // has found something in the way of it — the newest fact about it, so it
         // reads last of the three.
         if (entry.BlockedSince is { } blockedSince) meta += $" `blocked:{DateToken(blockedSince)}`";
+
+        // Who the task waits on, after the block and before the entries it waits
+        // on: the three together answer "why is this not moving".
+        if (entry.WaitingFor is { } waitingFor)
+        {
+            foreach (var token in WaitingForTokens(waitingFor)) meta += $" `{token}`";
+        }
+
         foreach (var id in (entry.DependsOn ?? []).Where(id => !string.IsNullOrWhiteSpace(id)))
         {
             meta += $" `after:{id.Trim()}`";
@@ -1931,6 +1981,24 @@ public static class EntryTextParser
     public static string WithBlocked(string raw, DateOnly? blockedSince) =>
         RewriteMetaLine(raw, blockedSince: blockedSince, updateBlocked: true);
 
+    /// <summary>Writes who the entry waits on, and its follow-up date, on to the
+    /// metadata line, or clears both. The two tokens travel together: clearing the
+    /// waiting-for takes <c>followup:</c> with it, since a date alone is no
+    /// waiting-for (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>).</summary>
+    public static string WithWaitingFor(string raw, WaitingFor? waitingFor) =>
+        RewriteMetaLine(raw, waitingFor: waitingFor, updateWaitingFor: true);
+
+    /// <summary>The <c>waiting:</c> and <c>followup:</c> tokens for a waiting-for,
+    /// in that order; no <c>followup:</c> when it has no date.</summary>
+    public static IReadOnlyList<string> WaitingForTokens(WaitingFor waitingFor)
+    {
+        ArgumentNullException.ThrowIfNull(waitingFor);
+
+        return waitingFor.FollowUpOn is { } followUp
+            ? [$"waiting:{waitingFor.Who}", $"followup:{DateToken(followUp)}"]
+            : [$"waiting:{waitingFor.Who}"];
+    }
+
     /// <summary>Rewrites the whole set of <c>after:</c> tokens. An empty list
     /// clears them: the ids are the dependency, so there is nothing left to say
     /// once they are gone.</summary>
@@ -2172,6 +2240,8 @@ public static class EntryTextParser
         bool updateCompletedOn = false,
         DateOnly? blockedSince = null,
         bool updateBlocked = false,
+        WaitingFor? waitingFor = null,
+        bool updateWaitingFor = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
         IReadOnlyList<string>? repoIds = null,
@@ -2312,6 +2382,13 @@ public static class EntryTextParser
             if (blockedSince is { } blockedOn) tokens.Add($"blocked:{DateToken(blockedOn)}");
         }
 
+        if (updateWaitingFor)
+        {
+            RemoveNamedToken(tokens, "waiting");
+            RemoveNamedToken(tokens, "followup");
+            if (waitingFor is { } waiting) tokens.AddRange(WaitingForTokens(waiting));
+        }
+
         if (updateDependsOn)
         {
             RemoveNamedToken(tokens, "after");
@@ -2421,6 +2498,7 @@ public static class EntryTextParser
         if (parsed.StartedOn is { } startedOn) tokens.Add($"started:{DateToken(startedOn)}");
         if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
         if (parsed.BlockedSince is { } blockedSince) tokens.Add($"blocked:{DateToken(blockedSince)}");
+        if (parsed.WaitingFor is { } waitingFor) tokens.AddRange(WaitingForTokens(waitingFor));
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
         if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");
         tokens.AddRange((parsed.RepoIds ?? []).Select(repo => $"repo:{repo}"));

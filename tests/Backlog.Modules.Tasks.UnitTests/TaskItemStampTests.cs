@@ -57,6 +57,7 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.SetCompletedOn)] = task => task.SetCompletedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetStartedOn)] = task => task.SetStartedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetBlockedSince)] = task => task.SetBlockedSince(new DateOnly(2026, 2, 1)),
+        [nameof(TaskItem.SetWaitingFor)] = task => task.SetWaitingFor(new WaitingFor("Anna", new DateOnly(2026, 2, 1))),
         [nameof(TaskItem.SetView)] = task => task.SetView(EntryView.Notes),
         [nameof(TaskItem.SetAttachment)] = task => task.SetAttachment(null),
         [nameof(TaskItem.SetDependsOn)] = task => task.SetDependsOn(["other"]),

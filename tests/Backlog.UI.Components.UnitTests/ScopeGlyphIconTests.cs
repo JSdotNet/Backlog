@@ -30,6 +30,10 @@ public sealed class ScopeGlyphIconTests
         AssertIconContract<PlayIcon>("play-icon");
 
     [Fact]
+    public void The_hourglass_keeps_the_icon_contract() =>
+        AssertIconContract<HourglassIcon>("hourglass-icon");
+
+    [Fact]
     public void The_sort_mark_keeps_the_icon_contract() =>
         AssertIconContract<ArrowUpDownIcon>("arrow-up-down-icon");
 

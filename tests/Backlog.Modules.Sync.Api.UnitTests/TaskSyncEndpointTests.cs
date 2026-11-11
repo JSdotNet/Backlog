@@ -56,6 +56,30 @@ public class TaskSyncEndpointTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(pulled.Since));
     }
 
+    /// <summary>A task's waiting-for — who it waits on and the follow-up day — goes
+    /// through the service and arrives on the other device as it was pushed (local
+    /// ADR 0054 §4). The metadata line never crosses the wire, so the two members
+    /// are all there is of it.</summary>
+    [Fact]
+    public async Task A_waiting_for_reaches_the_other_device()
+    {
+        var (desktop, phone) = await PairedDevices();
+
+        var id = Guid.CreateVersion7();
+        var payload = TaskSyncClientExtensions.Payload("Fix the roof") with
+        {
+            WaitingFor = "Jansen Roofing",
+            FollowUpOn = new DateOnly(2026, 11, 20)
+        };
+
+        var pushed = await desktop.PushChanges([new TaskChange(id, DateTimeOffset.UtcNow, DeletedAt: null, payload)]);
+        Assert.Equal(HttpStatusCode.OK, pushed.StatusCode);
+
+        var arrived = Assert.Single((await phone.PullTasks()).Tasks);
+        Assert.Equal("Jansen Roofing", arrived.Change.Task.WaitingFor);
+        Assert.Equal(new DateOnly(2026, 11, 20), arrived.Change.Task.FollowUpOn);
+    }
+
     /// <summary>
     /// The bug a deleted plan kept coming back through. The desktop deletes and
     /// pushes the tombstone; the laptop, which pulled the live task days ago and

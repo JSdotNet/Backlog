@@ -92,9 +92,10 @@ public sealed class MyDayScopeTests
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
 
-        Assert.Equal(2, scopes.Count);
+        Assert.Equal(3, scopes.Count);
         Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
         Assert.Contains("Ready in a plan", scopes[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Waiting", scopes[2].TextContent, StringComparison.Ordinal);
         Assert.DoesNotContain(pane.FindAll(".filter-bar .chip"), chip => chip.TextContent.Contains("No repo", StringComparison.Ordinal));
         Assert.Empty(pane.FindAll("[data-testid='norepo-filter-option']"));
 
@@ -125,10 +126,10 @@ public sealed class MyDayScopeTests
         var pane = host.Render();
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
-        string[] glyphs = ["sun-icon", "play-icon"];
-        string[] names = ["My Day", "Ready in a plan"];
+        string[] glyphs = ["sun-icon", "play-icon", "hourglass-icon"];
+        string[] names = ["My Day", "Ready in a plan", "Waiting"];
 
-        Assert.Equal(2, scopes.Count);
+        Assert.Equal(3, scopes.Count);
 
         for (var i = 0; i < scopes.Count; i++)
         {

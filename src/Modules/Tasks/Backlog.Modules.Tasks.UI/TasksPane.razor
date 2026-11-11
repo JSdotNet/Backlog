@@ -179,6 +179,18 @@
                                       PressedChanged="State.SetReadyInPlanFilter">
                             <PlayIcon CssClass="chip__icon" /><span class="sr-only">Ready in a plan</span><span class="chip__count">@ReadyInPlanCount</span>
                         </ToggleButton>
+
+                        @* The Waiting slice: the open tasks waiting on someone, soonest
+                           follow-up first and undated last — see
+                           TasksDesktopState.WaitingForOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.WaitingForOnly"
+                                      TestId="waitingfor-filter-option"
+                                      Title="@(State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first")"
+                                      PressedChanged="State.SetWaitingForFilter">
+                            <HourglassIcon CssClass="chip__icon" /><span class="sr-only">Waiting</span><span class="chip__count">@WaitingForCount</span>
+                        </ToggleButton>
                     </div>
 
                     @* Where a task came from, and whose it is there. Nothing at all
@@ -659,7 +671,7 @@
                                       OnSelected="OnEntrySelectedAsync"
                                       OnToggle="OnEntryToggledAsync"
                                       OnRename="OnEntryRenamedAsync"
-                                      Reorderable="true"
+                                      Reorderable="@(!State.WaitingForOnly)"
                                       OnReorder="OnEntryReorderedAsync"
                                       OnLink="OnEntryLinkedAsync"
                                       OnTagSelected="OnRowTagSelected"
@@ -956,7 +968,9 @@
         Priority,
         Effort,
         Attachment,
-        Devbook
+        Devbook,
+        WaitingFor,
+        FollowUpOn
     }
 
     /// <summary>The row a right-click asked for a menu on. Held from the gesture
@@ -3289,9 +3303,9 @@
             new(RowMenuDuePick, "Pick a date", "🗓"),
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
-            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null),
-            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
-            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null)
+            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null || State.WaitingForOnly),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null || State.WaitingForOnly),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null || State.WaitingForOnly)
         ];
 
         // Where the work went, after where the row sits and before the act that
@@ -3593,6 +3607,11 @@
     /// <c>TasksDesktopState.IsReadyInPlan</c>, which already leaves finished rows
     /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
+
+    /// <summary>How many of those same rows are waiting on someone — see
+    /// <c>TasksDesktopState.IsWaitingForSomeone</c>, which leaves finished rows
+    /// out.</summary>
+    private int WaitingForCount => State.ScopedRows.Count(State.IsWaitingForSomeone);
 
     // --- The open-work summary and its report --------------------------------
 
@@ -4057,6 +4076,17 @@
                     <Badge Kind="started" data-testid="entry-started-badge" title="Started">Started @FormatDate(started)</Badge>
                 }
 
+                @* Who the entry waits on, and the follow-up day, on the same terms:
+                   only when there is one. A passed follow-up says "overdue" in words,
+                   the way a passed reminder reads (.devbook/domain/tasks/domain.md#waiting-for). *@
+                @if (row.PreviewWaitingFor is { } waiting)
+                {
+                    <Badge Kind="waiting"
+                           Slug="@(IsFollowUpOverdue(row, waiting) ? "overdue" : null)"
+                           data-testid="entry-waiting-badge"
+                           title="Waiting on someone">@WaitingForBadgeText(waiting, IsFollowUpOverdue(row, waiting))</Badge>
+                }
+
                 @* Grouped and named after the entry, out loud. Both of these act on
                    the whole task — one files it as an issue, the other hands the
                    entry to a tool — and a step used to carry buttons that looked
@@ -4480,6 +4510,63 @@
                                         Placeholder="Add an entry"
                                         CssClass="entry-doc__schedule-depends"
                                         TestId="entry-depends-select" />
+                    }
+                </TaskActionGroup>
+
+                @* Who the task waits on, outside the backlog, and when to chase them
+                   (.devbook/domain/tasks/domain.md#waiting-for). Straight under
+                   Dependencies, because both answer "why is this not moving", and its
+                   own group rather than a row there: "Waiting for" above is the chain
+                   of other entries, and this is a person or a party, so the two are
+                   never said in one breath. Across the width with the other
+                   trailing groups, which leaves the two columns level as Ranking
+                   describes. The follow-up row appears once someone is
+                   named, because a date alone is no waiting-for; a passed date reads
+                   overdue, the way a passed reminder does. *@
+                <TaskActionGroup Label="Waiting on someone" TestId="entry-schedule-waiting">
+                    <TaskAction Icon="👤"
+                                Label="@(row.PreviewWaitingFor is null ? "Wait on someone" : "Waiting on")"
+                                Value="@row.PreviewWaitingFor?.Who"
+                                Set="@(row.PreviewWaitingFor is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.WaitingFor)"
+                                OnClear="() => State.ChangeWaitingForAsync(row, null)"
+                                TestId="entry-action-waiting" />
+
+                    @if (IsPickerOpen(SchedulePicker.WaitingFor))
+                    {
+                        @* @onchange rather than ValueChanged, for the reason the
+                           attachment path gives: every keystroke would be a save, and
+                           an empty value means "clear". *@
+                        <TextField Bare="true"
+                                   AriaLabel="Who it waits on"
+                                   Placeholder="A person or a party"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-waiting-input"
+                                   Value="@(row.PreviewWaitingFor?.Who ?? string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnWaitingForPickedAsync(row, e)" />
+                    }
+
+                    @if (row.PreviewWaitingFor is { } waitingFor)
+                    {
+                        <TaskAction Icon="📅"
+                                    Label="@(IsFollowUpOverdue(row, waitingFor) ? "Follow up — overdue" : waitingFor.FollowUpOn is null ? "Add a follow-up date" : "Follow up")"
+                                    Value="@FormatDate(waitingFor.FollowUpOn)"
+                                    Set="@(waitingFor.FollowUpOn is not null)"
+                                    OnSet="() => TogglePicker(SchedulePicker.FollowUpOn)"
+                                    OnClear="() => State.ChangeWaitingForAsync(row, new WaitingFor(waitingFor.Who))"
+                                    CssClass="@(IsFollowUpOverdue(row, waitingFor) ? "task-action--overdue" : null)"
+                                    TestId="entry-action-followup-on" />
+
+                        @if (IsPickerOpen(SchedulePicker.FollowUpOn))
+                        {
+                            <TextField Bare="true"
+                                       Type="date"
+                                       AriaLabel="Follow-up date"
+                                       InputCssClass="entry-doc__schedule-input"
+                                       data-testid="entry-followup-input"
+                                       Value="@(waitingFor.FollowUpOn is { } followUp ? EntryTextParser.DateToken(followUp) : string.Empty)"
+                                       @onchange="(ChangeEventArgs e) => OnFollowUpPickedAsync(row, waitingFor, e)" />
+                        }
                     }
                 </TaskActionGroup>
 
@@ -5126,6 +5213,37 @@
                 : null);
     }
 
+    /// <summary>Who the entry waits on, from its field. Blank clears the waiting-for,
+    /// the same gesture as the ✕; a name keeps the follow-up date already set. A
+    /// backtick cannot sit inside a token, so a name holding one is not written.</summary>
+    private async Task OnWaitingForPickedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        var value = (e.Value?.ToString() ?? string.Empty).Trim();
+        ClosePicker();
+
+        if (value.Contains('`', StringComparison.Ordinal)) return;
+
+        await State.ChangeWaitingForAsync(
+            row,
+            value.Length == 0 ? null : new WaitingFor(value, row.PreviewWaitingFor?.FollowUpOn));
+    }
+
+    /// <summary>The follow-up date, from its field. Clearing the native field clears
+    /// the date and keeps who the entry waits on.</summary>
+    private async Task OnFollowUpPickedAsync(EntryRow row, WaitingFor waitingFor, ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? string.Empty;
+        ClosePicker();
+
+        await State.ChangeWaitingForAsync(
+            row,
+            new WaitingFor(
+                waitingFor.Who,
+                DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var followUp)
+                    ? followUp
+                    : null));
+    }
+
     private async Task OnReminderPickedAsync(EntryRow row, ChangeEventArgs e)
     {
         var value = e.Value?.ToString() ?? string.Empty;
@@ -5460,6 +5578,20 @@
 
     private static string? FormatDate(DateOnly? date) =>
         date?.ToString("d", CultureInfo.CurrentCulture);
+
+    /// <summary>Whether the entry's follow-up day has passed while it is still open:
+    /// a ticked-off entry is never overdue, the way a finished date is not.</summary>
+    private static bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
+        !row.IsPreviewCompleted && waiting.IsFollowUpOverdue(Today);
+
+    /// <summary>What the row's waiting badge says: who, and the follow-up day when
+    /// there is one, with "overdue" once that day has passed.</summary>
+    private static string WaitingForBadgeText(WaitingFor waiting, bool overdue) =>
+        waiting.FollowUpOn is { } followUp
+            ? overdue
+                ? $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)} · overdue"
+                : $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)}"
+            : $"Waiting on {waiting.Who}";
 
     private static string? FormatReminder(DateTime? remindAt) =>
         remindAt?.ToString("g", CultureInfo.CurrentCulture);

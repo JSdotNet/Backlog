@@ -40,7 +40,11 @@ internal static class Projections
         entry.DependsOn ?? [],
         entry.ImportPlanId,
         entry.ImportItemId,
-        entry.CreatedAt);
+        entry.CreatedAt)
+    {
+        WaitingFor = entry.WaitingFor?.Who,
+        FollowUpOn = entry.WaitingFor?.FollowUpOn
+    };
 
     internal static DevbookReferencePayload DevbookReference(ResolvedDevbookReference reference) => new(
         reference.Reference,

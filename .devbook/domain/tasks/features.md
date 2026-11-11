@@ -499,6 +499,30 @@ tracked [raises an impediment](../progress/features.md#raising-an-impediment) an
 [links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
 The task stores no impediment id, and Tasks never calls Progress.
 
+### Waiting for someone
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#waiting-for, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.The_waiting_for_survives_the_canonical_rewrite, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.A_passed_follow_up_date_reads_overdue, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskWaitingForTests.A_database_written_before_the_waiting_for_columns_still_opens_and_reads, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaWaitingForTests.A_waiting_for_survives_the_json_document, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.WaitingForToolsTests.List_entries_names_who_an_entry_waits_on_and_when_to_follow_up, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_slice_keeps_the_waiting_tasks_soonest_follow_up_first_and_undated_last, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_editor_clears_the_follow_up_date_alone_or_the_whole_waiting_for]
+```
+
+Record who a task waits on outside the backlog, and when to chase them: its
+[Waiting For](domain.md#waiting-for). It is the `waiting:` token on the task's
+metadata line, free text, with an optional `followup:` date beside it. It is not
+the "Waiting for" of a [dependency chain](#readiness-and-chain-order), which names
+other entries.
+
+- The open task's **Waiting on someone** group names who and the follow-up date,
+  and clears either. Clearing who clears the date too.
+- A follow-up date that has passed reads overdue on the task until the waiting-for
+  is cleared or the task is ticked off.
+- The filter bar's **Waiting** scope lists the open tasks waiting on someone,
+  soonest follow-up first and undated last. Reordering is off while it is on,
+  because that order is not the rank.
+- `list_entries` and `read_item` name who and the date. The waiting-for crosses
+  [sync](#multi-device-sync) as two fields of the task's document.
+
 ### Filing a follow-up after an entry
 
 ```meta

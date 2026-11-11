@@ -406,7 +406,9 @@ public sealed class TaskReplicaMerge(
             PlannedHours: task.PlannedHours.Count == 0
                 ? null
                 : [.. task.PlannedHours.Select(block => new PlannedHoursPayload(block.On, block.Hours))],
-            SourceNotificationId: task.SourceNotificationId);
+            SourceNotificationId: task.SourceNotificationId,
+            WaitingFor: task.WaitingFor?.Who,
+            FollowUpOn: task.WaitingFor?.FollowUpOn);
     }
 
     /// <summary>The source reference a document carries, or null. One that names no
@@ -482,6 +484,7 @@ public sealed class TaskReplicaMerge(
         task.SetCompletedOn(payload.CompletedOn);
         task.SetStartedOn(payload.StartedOn);
         task.SetBlockedSince(payload.BlockedSince);
+        task.SetWaitingFor(WaitingFor.From(payload.WaitingFor, payload.FollowUpOn));
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
         // Filtered for the reason the local store filters them: one value the

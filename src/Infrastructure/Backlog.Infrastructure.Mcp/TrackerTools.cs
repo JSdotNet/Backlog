@@ -209,7 +209,11 @@ public sealed class TrackerTools(
             entry.Title,
             EnumMap.ToWire(entry.Status),
             EntryTextParser.ToRawText(entry),
-            entry.DevbookReferences);
+            entry.DevbookReferences)
+        {
+            WaitingFor = entry.WaitingFor?.Who,
+            FollowUpOn = entry.WaitingFor?.FollowUpOn
+        };
     }
 
     /// <summary>
