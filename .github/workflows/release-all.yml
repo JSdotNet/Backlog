@@ -25,8 +25,11 @@ on:
   push:
     tags:
       - 'v*'
+  # 02:00 Amsterdam time, summer and winter alike. On the spring-forward night 02:00
+  # does not exist, and GitHub runs it at 03:00 instead.
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 2 * * *'
+      timezone: Europe/Amsterdam
   workflow_dispatch:
     inputs:
       version:
