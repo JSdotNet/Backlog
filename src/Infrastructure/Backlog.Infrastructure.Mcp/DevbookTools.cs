@@ -534,7 +534,8 @@ public sealed class DevbookTools(
         "Writes a new note into the Brain's inbox area — the person's own notes outside every repository — with the "
         + "title as its heading and the body below it, as the app's own Capture does. Never overwrites: a title whose "
         + "file name is taken gets the next free one, so calling this twice writes two notes. Answers the note's path "
-        + "from the Brain's root, which read_knowledge_chapter takes under " + BrainMcpScope.Value + ".")]
+        + "from the Brain's root, which read_knowledge_chapter takes under " + BrainMcpScope.Value + ". For an action "
+        + "the person still has to clarify, use the Inbox's capture_to_inbox instead.")]
     public async Task<CapturedNotePayload> CaptureNoteAsync(
         [Description("The note's title: one line, which is also what its file name is made from.")]
         string title,

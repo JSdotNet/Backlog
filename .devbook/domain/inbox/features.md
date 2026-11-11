@@ -138,7 +138,8 @@ field to try again.
 The result is a [Capture (manual)](domain.md#capture-manual), captured and
 received at the same instant. It lands unfiled in the queue and opens in the
 detail beside it. It needs no paired device, which makes it the offline path and
-the way an inbox is seeded without a phone.
+the way an inbox is seeded without a phone. An assistant captures the same way
+over MCP ([Work the queue over MCP](#work-the-queue-over-mcp)).
 
 ### Capture attachments
 
@@ -1004,22 +1005,26 @@ tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:d
 ```
 
 Let an assistant file captures elsewhere, such as conference notes into the Brain,
-without opening the pane or the database. The app's MCP server carries three tools,
-behind the Inbox pane's switch:
+without opening the pane or the database, and capture an action it hears so it
+reaches clarify (local ADR 0054). The app's MCP server carries four tools, behind
+the Inbox pane's switch:
 
 | Tool | Does |
 | --- | --- |
 | `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview and an attachment count. |
 | `read_inbox_item` | Answers one capture whole: body, source URL, tags, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
 | `archive_inbox_item` | Archives a capture once it is filed, through the same act as [Archive](#archive). The phone stops offering it, and it stays restorable. |
+| `capture_to_inbox` | Captures a title, optional Markdown notes and an optional source link as a new unprocessed item, through the same act as [Add by hand](#add-by-hand). Answers the new item, its id first. |
 
-No tool deletes. An unknown id, an unknown status and a reversed range are each
-refused with a code.
+`capture_to_inbox` files under source `manual` and meets Add by hand's guard on the
+text: the title becomes one line, and the notes are kept as text. A source
+link must be an `http` or `https` address. Calling it twice captures twice.
+`capture_note` stays the Brain's tool for a note already judged worth keeping
+([MCP Brain scope](../brain/features.md#mcp-brain-scope)), and each tool's
+description tells an assistant which to call.
 
-Local ADR 0054 adds a fourth tool, not yet built: `capture_to_inbox` captures an
-action an assistant hears into the Inbox as a new unprocessed item, so it reaches
-clarify. `capture_note` stays the Brain's tool for a note already judged worth
-keeping ([MCP Brain scope](../brain/features.md#mcp-brain-scope)).
+No tool deletes. An unknown id, an unknown status, a reversed range, a blank
+title and a source link that is no web address are each refused with a code.
 
 ## Queue health
 

@@ -1828,12 +1828,13 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
 ```
 
-> Local ADR 0054 decides the tool. It is not built yet.
+> Local ADR 0054 decides the tool.
 
 ### Requirement: An assistant's capture lands in the Inbox
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests.An_assistants_capture_is_a_manual_unprocessed_item_in_the_queue, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests.Capture_goes_through_add_by_hand_as_a_manual_capture_and_answers_its_id]
 ```
 
 The system SHALL make an assistant's `capture_to_inbox` call a new unprocessed Inbox item with the title and notes it sends, and SHALL write nothing into the Brain.

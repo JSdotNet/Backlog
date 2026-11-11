@@ -276,11 +276,11 @@ public static class BacklogMcpTools
         typeof(NotificationTools),
         [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
 
-    /// <summary>The Inbox's captures, behind the Inbox pane's key.</summary>
+    /// <summary>The Inbox's captures, and capturing into it, behind the Inbox pane's key.</summary>
     public static McpToolGroup Inbox { get; } = new(
         InboxFeatures.Pane,
         typeof(InboxTools),
-        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem]);
+        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem, InboxTools.CaptureToInbox]);
 
     /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or

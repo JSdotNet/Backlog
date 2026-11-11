@@ -146,6 +146,7 @@ public class McpToolCreationTests
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                InboxTools.CaptureToInbox,
                 SessionRequestTools.ClaimDelivery,
                 SessionRequestTools.ClaimSessionRequest,
                 NotificationTools.Close,
