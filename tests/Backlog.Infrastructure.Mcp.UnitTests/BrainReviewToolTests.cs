@@ -3,6 +3,8 @@ using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
+using Microsoft.Extensions.Time.Testing;
+
 using ModelContextProtocol;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
@@ -93,7 +95,7 @@ public sealed class BrainReviewToolTests : IDisposable
             brain,
             new BrainNoteWriter(brain),
             reviews,
-            new FixedClock(new DateTimeOffset(2026, 11, 11, 9, 30, 0, TimeSpan.Zero)));
+            new FakeTimeProvider(new DateTimeOffset(2026, 11, 11, 9, 30, 0, TimeSpan.Zero)));
     }
 
     private sealed class FakeReviews(BrainReviewsDue answer) : IBrainReviewDates
@@ -105,12 +107,5 @@ public sealed class BrainReviewToolTests : IDisposable
             AskedFor = today;
             return Task.FromResult(answer);
         }
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }
