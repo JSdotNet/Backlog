@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reports a scheduled run to Backlog's Schedules page (local ADR 0051 §1). One script, three
+// Reports a scheduled run to Backlog's Schedules page (local ADR 0051 §1). One script, four
 // Claude Code hook events, told apart by the payload's hook_event_name:
 //
 // - SessionStart (startup) and UserPromptSubmit: when the session's first prompt opens with
@@ -10,7 +10,11 @@
 //   to once.
 // - Stop: POST the run's finish to http://127.0.0.1:<port>/schedule-runs, beside the app's
 //   /mcp, with the same bearer token — `skipped` when the final message opens with `Skipped:`,
-//   else `finished` with its verdict line and its Needs-you rows.
+//   with the session it names as `heldBy`; `failed` when it opens with `Failed:`; else
+//   `finished` with its verdict line and its Needs-you rows.
+// - StopFailure: Claude Code fires it instead of Stop when the turn ends on an API error (a rate
+//   limit, an overloaded or failing server, a billing or authentication error). POST `failed`
+//   with the error line the session shows as the verdict.
 //
 // Must never fail or hold up the run: every error exits 0 with nothing printed, an app that is
 // not running refuses the connection at once, and a hung one is abandoned after TIMEOUT_MS.
@@ -23,6 +27,7 @@ import readline from "node:readline";
 
 import {
     endpointFrom,
+    failureReport,
     finishReport,
     firstPrompt,
     lastAssistantText,
@@ -106,12 +111,16 @@ async function start(event) {
 async function finish(event) {
     const scheduleId = await scheduleOf(event);
     if (!scheduleId) return;
-    // Stop fires after every turn; once a person has replied in the run's session, its report
-    // stands and a later turn is no finish.
+    // Stop and StopFailure fire after every turn; once a person has replied in the run's session,
+    // its report stands and a later turn is no finish, nor a failure of the run.
     const entries = await readTranscript(event.transcript_path);
     if (promptedAfterStart(entries)) return;
-    const message = typeof event.last_assistant_message === "string" ? event.last_assistant_message : lastAssistantText(entries);
-    const report = finishReport(scheduleId, event.session_id, message);
+    let report;
+    if (event.hook_event_name === "StopFailure") report = failureReport(scheduleId, event.session_id, event);
+    else {
+        const message = typeof event.last_assistant_message === "string" ? event.last_assistant_message : lastAssistantText(entries);
+        report = finishReport(scheduleId, event.session_id, message);
+    }
 
     let settingsText = null;
     try {
@@ -129,7 +138,7 @@ async function finish(event) {
 async function main() {
     const event = JSON.parse(await readStdin());
     if (!event.session_id) return;
-    if (event.hook_event_name === "Stop") await finish(event);
+    if (event.hook_event_name === "Stop" || event.hook_event_name === "StopFailure") await finish(event);
     else if (event.hook_event_name === "SessionStart" || event.hook_event_name === "UserPromptSubmit") await start(event);
 }
 

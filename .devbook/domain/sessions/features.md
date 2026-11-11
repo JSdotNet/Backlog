@@ -1662,7 +1662,9 @@ forty schedules across seven repositories cannot read every run's session to fin
 need them.
 
 Each scheduled run reports to Backlog itself. A `backlog-tools` hook has it report its start,
-and another reports its finish with its verdict and any Needs-you lines. The app never reads
+and another reports its finish with its verdict and any Needs-you lines. A run that ends on an
+error reports a failure with the error line, and a run that skips itself names the earlier run
+that holds it where it can. The app never reads
 Claude Desktop's own schedule or run files. A schedule appears here after its first report.
 Local
 [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
