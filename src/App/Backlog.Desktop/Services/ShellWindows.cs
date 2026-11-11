@@ -13,8 +13,11 @@ namespace Backlog.Desktop.Services;
 /// <list type="bullet">
 /// <item>Every window's <see cref="Window.Destroying"/> flushes
 /// <see cref="ShellNavigationStore"/>, not only the main one's.</item>
-/// <item>Closing the main window closes every popped-out one and quits the app: the
-/// main window owns the app's life.</item>
+/// <item>Closing the main window hides it to the notification area while the person
+/// keeps the app running in the tray (<see cref="MainWindowClosePolicy"/>): the
+/// stores are flushed, the process, its MCP server and every popped-out window keep
+/// running. The tray's Quit, sign-out and shutdown, or the setting turned off, close
+/// every popped-out window and quit the app.</item>
 /// <item>A popped-out window writes its bounds to <see cref="ShellWindowStore"/> when it
 /// moves, resizes or closes, and the next window of that surface opens there, clamped to
 /// a monitor that is connected now.</item>
@@ -27,7 +30,11 @@ namespace Backlog.Desktop.Services;
 /// </list>
 /// A singleton, because the windows outlive every window's scope.
 /// </summary>
-public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowStore windowBounds, ISurfaceCatalog catalog) : IShellWindows
+public sealed class ShellWindows(
+    ShellNavigationStore navigation,
+    ShellWindowStore windowBounds,
+    ISurfaceCatalog catalog,
+    WorkspaceSettingsStore settings) : IShellWindows, IDisposable
 {
     private const string AppTitle = "Backlog.Desktop";
 
@@ -46,19 +53,58 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
 
     private readonly object _gate = new();
     private Window? _main;
+
+    /// <summary>The app is ending now: set once the main window is destroyed, so the
+    /// windows it closes know a quit, not the person, closed them.</summary>
     private bool _quitting;
 
+    /// <summary>Something asked the app to end — the tray's Quit, sign-out, shutdown —
+    /// so the next close of the main window quits rather than hides.</summary>
+    private volatile bool _quitRequested;
+
+    /// <summary>A start at sign-in skipped reopening the remembered windows; they open
+    /// the first time the main window is shown.</summary>
+    private bool _reopenWhenShown;
+#if WINDOWS
+    private TrayIcon? _tray;
+#endif
+
+    /// <summary>Raised on the main thread each time closing the main window hid it to
+    /// the notification area rather than quitting.</summary>
+    public event Action? MainWindowHidden;
+
     /// <summary>The main window: <c>/</c>, under the app's own title.</summary>
-    public Window CreateMainWindow()
+    /// <param name="hidden">True for a start at sign-in (local ADR 0043 §5): the window
+    /// is created and hidden at once, so the app opens straight to the tray.</param>
+    public Window CreateMainWindow(bool hidden = false)
     {
         // One main window per run: this head asks for it once, at start. A second
         // would take over as the window the others are shown in front of.
-        var window = new Window(new MainPage()) { Title = DecoratedTitle(AppTitle) };
+        var title = DecoratedTitle(AppTitle);
+        var window = new Window(new MainPage()) { Title = title };
         lock (_gate)
         {
             _main = window;
         }
 
+#if WINDOWS
+        window.Created += (_, _) =>
+        {
+            if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is not { } appWindow) return;
+
+            appWindow.Closing += OnMainWindowClosing;
+            if (!hidden) return;
+
+            // Hidden now, and once more after the launch has activated the window,
+            // whichever comes last.
+            appWindow.Hide();
+            MainThread.BeginInvokeOnMainThread(() => appWindow.Hide());
+        };
+
+        _tray = TrayIcon.TryCreate(title, ActivateMainWindow, RequestQuit, OnSessionEnding);
+#endif
+
+        // Reached only when the close was not cancelled: the policy said Quit.
         window.Destroying += (_, _) =>
         {
             Flush();
@@ -66,6 +112,92 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         };
 
         return window;
+    }
+
+    /// <summary>
+    /// Quits the app the way the tray's Quit does: marks the quit as asked for, so the
+    /// close policy answers Quit, and closes the main window, whose close flushes the
+    /// stores, closes every other window and ends the app.
+    /// </summary>
+    public void RequestQuit()
+    {
+        _quitRequested = true;
+
+        Window? main;
+        lock (_gate)
+        {
+            main = _main;
+        }
+
+        if (main is null) return;
+
+        // Always queued: the tray's menu asks from inside its own window's message,
+        // and quitting removes that window.
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (Application.Current is { } application) application.CloseWindow(main);
+        });
+    }
+
+    /// <summary>
+    /// Windows asks whether it may sign out or shut down (<paramref name="ending"/>
+    /// false), then says it will (true). What was on screen is written at the question,
+    /// but only the answer makes a close quit: another app may still cancel the
+    /// shutdown, and the next ✕ should hide as before.
+    /// </summary>
+    private void OnSessionEnding(bool ending)
+    {
+        if (ending) _quitRequested = true;
+        Flush();
+    }
+
+    /// <summary>
+    /// Reopens the remembered windows beside the main window (local ADR 0043 §5) — at
+    /// start, or for a start at sign-in, the first time the main window is shown, so a
+    /// start to the tray opens no window at all.
+    /// </summary>
+    public void ReopenRememberedWhenShown(bool hidden)
+    {
+        if (hidden)
+        {
+            lock (_gate)
+            {
+                _reopenWhenShown = true;
+            }
+
+            return;
+        }
+
+        ReopenRemembered();
+    }
+
+#if WINDOWS
+    /// <summary>
+    /// The main window's ✕ or Alt+F4 (local ADR 0043 §5). When the policy says Hide,
+    /// the close is cancelled, the stores are flushed as a close would flush them, and
+    /// the window is hidden; popped-out windows stay open. When it says Quit, the close
+    /// goes ahead and <see cref="Window.Destroying"/> does the rest.
+    /// </summary>
+    private void OnMainWindowClosing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
+    {
+        var action = MainWindowClosePolicy.For(settings.KeepRunningInTray, _quitRequested, _tray?.IsShown == true);
+        if (action != MainWindowCloseAction.Hide) return;
+
+        args.Cancel = true;
+        Flush();
+        sender.Hide();
+        MainWindowHidden?.Invoke();
+    }
+#endif
+
+    /// <summary>Removes the tray icon. The app is ending.</summary>
+    public void Dispose()
+    {
+#if WINDOWS
+        var tray = _tray;
+        _tray = null;
+        tray?.Dispose();
+#endif
     }
 
     /// <inheritdoc />
@@ -277,12 +409,35 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
     public void ActivateMainWindow()
     {
         Window? main;
+        bool reopen;
         lock (_gate)
         {
             main = _main;
+            reopen = _reopenWhenShown && main is not null;
+            if (reopen) _reopenWhenShown = false;
         }
 
-        if (main is not null) OnMainThread(() => Application.Current?.ActivateWindow(main));
+        // Shown first: a main window hidden to the tray comes back for every caller
+        // that asks for it - the tray, a plain second launch, a link, a toast, Show
+        // in main window (local ADR 0043 §5).
+        if (main is not null) OnMainThread(() =>
+        {
+#if WINDOWS
+            (main.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow?.Show();
+#endif
+            Application.Current?.ActivateWindow(main);
+
+            if (!reopen) return;
+
+            try
+            {
+                ReopenRemembered();
+            }
+            catch (Exception)
+            {
+                // As at start: the main window is up, and the next start tries again.
+            }
+        });
     }
 
     /// <inheritdoc />
@@ -351,9 +506,9 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
     }
 
     /// <summary>
-    /// The main window went: every popped-out window goes with it, and the app quits.
-    /// Without the quit the app would live on in the windows beside it, which is not
-    /// what closing the main window means (local ADR 0043 §5).
+    /// The main window went: every popped-out window goes with it, the tray icon is
+    /// removed, and the app quits. Without the quit the app would live on in the
+    /// windows beside it, which is not what quitting means (local ADR 0043 §5).
     /// </summary>
     private void CloseEveryOtherWindowAndQuit()
     {
@@ -374,6 +529,7 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
 
         foreach (var window in others) application.CloseWindow(window);
 
+        Dispose();
         application.Quit();
     }
 

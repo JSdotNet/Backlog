@@ -10,8 +10,8 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The goal operations an agent performs through the server: read the goals, set one, edit
-/// it, attach and detach its work, and delete it
+/// The goal operations an agent performs through the server: read the goals and the
+/// iterations they are read over, set one, edit it, attach and detach its work, and delete it
 /// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>, local ADR 0035).
 /// <para>
@@ -30,10 +30,16 @@ namespace Backlog.Infrastructure.Mcp;
 /// <param name="goals">Progress's goal port. Every call here goes through it.</param>
 /// <param name="repositories">The repository registry a pull request's repository is
 /// resolved through, never registered in (see <see cref="RepositoryScope"/>).</param>
+/// <param name="standUp">Progress's iteration reading, which <c>read_iterations</c> answers
+/// from. A port of this class rather than a class of its own, because a group is constructed
+/// from one class and the reading is the goals' (<see cref="BacklogMcpTools.Goals"/>).</param>
+/// <param name="clock">Where "today" comes from when a call names its own length. Optional, as
+/// on <see cref="RoadmapTools"/>; without a length the port reads the host's today itself.</param>
 [McpServerToolType]
-public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
+public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, IStandUp standUp, TimeProvider? clock = null)
 {
     internal const string ListGoals = "list_goals";
+    internal const string ReadIterations = "read_iterations";
     internal const string CreateGoal = "create_goal";
     internal const string UpdateGoal = "update_goal";
     internal const string AttachToGoal = "attach_to_goal";
@@ -63,6 +69,72 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
 
         return new GoalsPayload([.. listed.ValueOrThrow().Select(summary => GoalPayload.From(summary.Goal, summary.Progress))]);
     }
+
+    /// <summary>
+    /// The iteration reading the goals view and the stand-up draw from, over
+    /// <see cref="IStandUp"/> (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>), so a
+    /// session reports the figures the person sees. It moves nothing: Ready to resolve is a
+    /// reading, and a person resolves (local ADR 0035, 2026-10-29 amendment).
+    /// </summary>
+    // Open world for the reason list_goals is: the reading counts pull requests by their state
+    // on GitHub, for the goals, what was finished and what an impediment holds back.
+    [McpServerTool(Name = ReadIterations, Title = "Read the goals and iterations", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [Description(
+        "The last and next iteration windows, and every goal read over them: its standing (on-track or at-risk), "
+        + "the day it is expected to land, and its progress with how many items it finished in the last window. "
+        + "Then the items finished in the last window and planned for the next, grouped by goal with No goal last; "
+        + "the planned effort against the capacity; how many impediments were resolved in the last window; and every "
+        + "open impediment with who it is with, its days open, the goal it holds back, each item it holds back and "
+        + "whether that is settled, and whether it reads ready to resolve. Read-only: ready to resolve is a reading, "
+        + "and resolving is set_impediment_state. Refused for a length that is not day, week, two-weeks or month "
+        + "(progress.iteration_length_unknown).")]
+    public async Task<IterationsPayload> ReadIterationsAsync(
+        [Description("Optional. The iteration length to read with: day, week, two-weeks or month. Without it, the "
+            + "person's own setting applies.")]
+        string? length = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(length))
+        {
+            var own = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
+
+            return IterationsPayload.From(own.ValueOrThrow());
+        }
+
+        if (!Lengths.TryGetValue(length.Trim(), out var named))
+        {
+            throw RepositoryScope.Failure(SharedKernel.Results.Error.Validation(
+                "progress.iteration_length_unknown",
+                $"'{length}' is not an iteration length. Use day, week, two-weeks or month, or leave it out for the person's own."));
+        }
+
+        var read = await standUp.ReadAsync(Today(), named, cancellationToken).ConfigureAwait(false);
+
+        return IterationsPayload.From(read.ValueOrThrow());
+    }
+
+    /// <summary>The host's today in local time, the day <see cref="IStandUp.ReadAsync(CancellationToken)"/>
+    /// reads for when it chooses the length itself.</summary>
+    private DateOnly Today() => DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    /// <summary>The length tokens a call names, as the setting stores them
+    /// (<c>.devbook/domain/progress/context.md#iteration-length</c>).</summary>
+    internal static readonly IReadOnlyDictionary<string, IterationLength> Lengths =
+        new Dictionary<string, IterationLength>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["day"] = IterationLength.Day,
+            ["week"] = IterationLength.Week,
+            ["two-weeks"] = IterationLength.TwoWeeks,
+            ["month"] = IterationLength.Month,
+        };
+
+    internal static string ToWire(IterationLength length) => length switch
+    {
+        IterationLength.Day => "day",
+        IterationLength.Week => "week",
+        IterationLength.TwoWeeks => "two-weeks",
+        _ => "month",
+    };
 
     [McpServerTool(Name = CreateGoal, Title = "Set a goal", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(

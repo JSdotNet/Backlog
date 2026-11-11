@@ -1152,10 +1152,15 @@ shared library builds it.
   the focus stays where the click left it. A second press of the trigger closes
   it the same way.
 - **It stays open while used:** a link that leaves the page closes it by
-  leaving.
+  leaving. A control that moves the reader's attention elsewhere, such as a row
+  that jumps to what it names, closes it through the host's `CloseAsync`, and the
+  focus goes where the host puts it. A switch or a Cancel still leaves it open.
+  When a press removes the control that held the focus and the panel has none
+  left to give it, the host calls `FocusAsync`: the focus goes to the trigger and
+  the panel stays open. The Tasks pane's session queue does both.
 
 Review surface: storybook → *Overlays* → **PopoverButton** (closed, open, a switch
-flipped with the panel still open).
+flipped with the panel still open) and **PopoverButton closed by the host**.
 
 ## Action Density and Overflow
 
