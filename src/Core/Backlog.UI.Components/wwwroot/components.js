@@ -1363,6 +1363,18 @@
         }
     };
 
+    // The text the reader has selected inside `element`, or null when nothing is
+    // selected or the selection starts outside it — the line a Brain note's
+    // Create task takes as its title.
+    window.backlogSelectedText = (element) => {
+        const selection = window.getSelection?.();
+        if (!element || !selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+        if (!element.contains(selection.anchorNode)) return null;
+
+        const text = selection.toString();
+        return text && text.trim().length > 0 ? text : null;
+    };
+
     window.backlogClipboard = {
         copy: async (text) => {
             const value = text ?? '';
