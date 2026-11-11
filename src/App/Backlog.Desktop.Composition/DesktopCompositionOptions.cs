@@ -68,6 +68,11 @@ public sealed class DesktopCompositionOptions
     /// <summary>The file what the last backup did is kept in.</summary>
     public required string BackupStatePath { get; init; }
 
+    /// <summary>The database file the MCP audit log keeps its records in (local ADR
+    /// 0052, Phase 0): per installation, beside the device files, and never the
+    /// workspace's <c>backlog.db</c>, which a backup commits to GitHub.</summary>
+    public required string McpAuditLogPath { get; init; }
+
     /// <summary>The file the sync service's address from the Settings page is kept
     /// in.</summary>
     public required string SyncServiceSettingsPath { get; init; }

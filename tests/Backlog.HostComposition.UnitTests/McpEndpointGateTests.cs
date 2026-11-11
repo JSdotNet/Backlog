@@ -12,6 +12,7 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Tests;
 
 using Microsoft.AspNetCore.Hosting;
@@ -55,7 +56,8 @@ public class McpEndpointGateTests
         IDeliverySurfaceLifecycle? surface = null,
         bool sessionRequests = true,
         ISessionRequestStore? queue = null,
-        INotifications? notifications = null)
+        INotifications? notifications = null,
+        IMcpAuditLog? audit = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -76,6 +78,10 @@ public class McpEndpointGateTests
                 // And a recording port rather than the owner's notifications, which
                 // would publish to this machine's shared backlog.db.
                 if (notifications is not null) services.AddSingleton(notifications);
+
+                // And an in-memory audit log in every test, rather than this
+                // worktree's mcp-audit.db: every call below would otherwise land there.
+                services.AddSingleton(audit ?? new RecordingAuditLog());
             });
         }
     }
@@ -589,6 +595,111 @@ public class McpEndpointGateTests
         Assert.NotNull(origin);
         Assert.Equal("MCP ask", origin.Via);
         Assert.Equal("Claude Code", origin.System);
+    }
+
+    /// <summary>
+    /// A call that answers is recorded once, as succeeded, against the harness's caller
+    /// (local ADR 0052, Phase 0). Over the real endpoint, because the record is written by
+    /// a filter the SDK runs, in the order the host installed its filters.
+    /// </summary>
+    [Fact]
+    public async Task A_call_that_answers_is_recorded_as_succeeded()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit: audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "open_window", new { surface = "tasks", target = "desktop" });
+
+        Assert.DoesNotContain("\"isError\":true", body, StringComparison.Ordinal);
+        var call = Assert.Single(audit.Records);
+        Assert.Equal("open_window", call.Tool);
+        Assert.Equal(McpAudit.HarnessCaller, call.Caller);
+        Assert.Equal(McpCallOutcome.Succeeded, call.Outcome);
+        Assert.Null(call.TargetId);
+        Assert.False(string.IsNullOrWhiteSpace(call.CorrelationId));
+        Assert.InRange(call.At, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(1));
+    }
+
+    /// <summary>
+    /// A call the server refuses before the tool runs - here a switched-off tool, which the
+    /// feature gate answers as unknown - is still recorded, as refused, with the tool name
+    /// the caller sent and the id it named.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_call_is_recorded_as_refused()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(sessions: false, surface: new RecordingSurface(), audit: audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, DeliverySurfaceOperations.GetRun, new { worktree = @"D:\Repos\example", runId = "run-7" });
+
+        Assert.Contains("Unknown tool", body, StringComparison.Ordinal);
+        var call = Assert.Single(audit.Records);
+        Assert.Equal(DeliverySurfaceOperations.GetRun, call.Tool);
+        Assert.Equal(McpCallOutcome.Refused, call.Outcome);
+        Assert.Equal("run-7", call.TargetId);
+        Assert.Equal(McpAudit.HarnessCaller, call.Caller);
+    }
+
+    /// <summary>A tool that refuses the call itself, with its reason, is recorded as
+    /// refused too: the refusal is the server's, whichever filter or tool gave it.</summary>
+    [Fact]
+    public async Task A_call_the_tool_refuses_is_recorded_as_refused()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit: audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "open_window", new { surface = "proposals", target = "web" });
+
+        Assert.Contains("is not available", body, StringComparison.Ordinal);
+        Assert.Equal(McpCallOutcome.Refused, Assert.Single(audit.Records).Outcome);
+    }
+
+    /// <summary>A call that ends in an error with no reason - here an argument the SDK
+    /// cannot bind, which it answers only with "An error occurred invoking" - is
+    /// recorded as failed, neither as a success nor as a refusal.</summary>
+    [Fact]
+    public async Task A_call_that_errors_without_a_reason_is_recorded_as_failed()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit: audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "read_item", new { });
+
+        Assert.Contains("\"isError\":true", body, StringComparison.Ordinal);
+        var call = Assert.Single(audit.Records);
+        Assert.Equal("read_item", call.Tool);
+        Assert.Equal(McpCallOutcome.Failed, call.Outcome);
+    }
+
+    /// <summary>The audit log in memory, in the order the calls were recorded.</summary>
+    private sealed class RecordingAuditLog : IMcpAuditLog
+    {
+        private readonly List<McpAuditRecord> _records = [];
+
+        public event Action? Changed;
+
+        public IReadOnlyList<McpAuditRecord> Records
+        {
+            get
+            {
+                lock (_records) return [.. _records];
+            }
+        }
+
+        public Task AppendAsync(McpAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            lock (_records) _records.Add(record);
+            Changed?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<McpAuditRecord>> LatestAsync(int count, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. Records.Reverse().Take(count)]);
     }
 
     /// <summary>One stateless <c>tools/call</c>, as its body.</summary>

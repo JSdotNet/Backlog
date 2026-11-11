@@ -544,6 +544,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),

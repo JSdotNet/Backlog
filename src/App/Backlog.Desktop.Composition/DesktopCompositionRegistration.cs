@@ -21,6 +21,7 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Mcp;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Capture.Extensions;
@@ -49,6 +50,7 @@ using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
@@ -270,6 +272,9 @@ public static class DesktopCompositionRegistration
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
         services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(options.BackupStatePath));
+        // The MCP audit log (local ADR 0052, Phase 0), per installation like the backup
+        // state: one record per tool call, written by the call filter both hosts install.
+        services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
 
         // Where the sync service is, asked per client rather than fixed here: the URL
