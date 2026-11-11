@@ -64,10 +64,9 @@ devbook before it reads well.
 | `domain.<name>.invariants.md` | No row | **Always true** on `domain.<name>.md`'s page |
 | `features.md`, `requirements.md`, `model.md` | Their kind's row | The kind's page; Model has **Diagram**, **Fields** and **Events** |
 | A diagram a domain chapter opens with | No row | Drawn on its unit's Domain page, below **About** or the service's summary |
-| A legacy `flow.md` | **Flow** | Its lifecycles, for a devbook from before contract 37 |
 | `<kind>.<name>.md` | A child of its kind's row, titled by its heading | Its kind's page |
 | `*.demo.html` | No row | A **Demo** button on its page |
-| Any other file — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` | Its heading | The file as written: title, lead, chapters, related |
+| Any other file — `actors.md`, `skills.md`, a page a context adds, a legacy `index.md` or `flow.md` | Its heading | The file as written: title, lead, chapters, related |
 | `assets/` | Hidden | Its images, where the chapters embed them |
 | A file or folder named `_*` | Hidden | Nothing |
 
@@ -101,8 +100,10 @@ devbook before it reads well.
    diagram of an aggregate, and of the typed chapters inside it, below its
    About card, and a domain service's below its summary, each in the
    lifecycle's own cards and lines, never as Mermaid. The menu stays derived
-   from file names, so no Flow row stands for diagrams found inside a file;
-   a devbook that still has a `flow.md` keeps its Flow row and page.
+   from file names, so no Flow row stands for diagrams found inside a file.
+   There is no Flow page: a devbook that still has a `flow.md` opens it as any
+   other file, as written, until devbook's migration 037 folds it into its
+   chapters.
 8. **No workflow state is read from a chapter.** Devbook contract 38 took
    `status` out of every domain chapter. The view reads a block's `rating`,
    else its `status`, as the devbook reader does, so a devbook past 38 shows
@@ -186,6 +187,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | §7 and the file table: the Flow row and page are gone; a legacy `flow.md` opens as any other file. | A page kept for a retired file showed stale lifecycles beside the ones now drawn in place; a devbook before contract 37 is updated, not given a page of its own. |
 | 2026-11-10 | The file table and §3: `assets/` is hidden, its images shown where the chapters embed them. §8: Model's Diagram draws no proposed state, and a dashed line there is a reference by id. | The table named no row for the `assets` folder the view already hid (PR #1453), and PR #1440 left open whether Diagram draws proposed parts dashed. |
 | 2026-11-09 | §3 and the file table: any other file opens as written instead of a placeholder. | A file of no known kind, such as Fincent's `actors.md` or `import.md`, had a row and opened nothing. |
 | 2026-11-09 | Built the Demo button: one per demo above the page, hidden until pressed. | The last page element the plan had left unbuilt. |

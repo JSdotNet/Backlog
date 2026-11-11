@@ -89,11 +89,4 @@ public sealed class DomainUnitSummaryTests
     [InlineData("AI Work Log", "an AI work log")]
     public void A_heading_reads_inside_a_sentence(string title, string phrase) =>
         Assert.Equal(phrase, DomainUnits.WithArticle(title));
-
-    [Theory]
-    [InlineData(".devbook/domain/tasks/flow.md#task-lifecycle", true)]
-    [InlineData(".devbook/domain/tasks/flow.recurring.md", true)]
-    [InlineData(".devbook/domain/tasks/domain.md#flowing", false)]
-    public void A_flow_reference_names_a_flow_file(string reference, bool flow) =>
-        Assert.Equal(flow, DomainUnits.IsFlowReference(reference));
 }

@@ -40,10 +40,10 @@ public static partial class DevbookReadingConvention
         ["domain"] = new("context-map.md", [], []),
         ["domain/*"] = new(
             "context.md",
-            ["domain.md", "actors.md", "skills.md", "features.md", "model.md", "flow.md", "dependencies.md"],
+            ["domain.md", "actors.md", "skills.md", "features.md", "model.md", "dependencies.md"],
             [])
         {
-            Split = ["domain.md", "features.md", "skills.md", "model.md", "flow.md"],
+            Split = ["domain.md", "features.md", "skills.md", "model.md"],
             SubpageSuffix = "invariants",
             SubpageOf = ["domain.md"]
         },

@@ -113,9 +113,9 @@ public sealed class DevbookMenuTreeViewTests
     public void A_counted_row_shows_its_count_after_its_label()
     {
         using var context = new BunitContext();
-        var split = new DevbookMenuNode("financieel/flow.geld-eruit.md", "Geld eruit", "financieel/flow.geld-eruit.md", DevbookMenuNodeKind.File, "domain", [], true);
-        var flows = new DevbookMenuNode("financieel/flow.md", "Flows", "financieel/flow.md", DevbookMenuNodeKind.File, "domain", [split], true) { Count = 1 };
-        var root = new DevbookMenuNode("domain", "Domain", "domain", DevbookMenuNodeKind.Folder, "domain", [flows], true);
+        var split = new DevbookMenuNode("financieel/features.geld-eruit.md", "Geld eruit", "financieel/features.geld-eruit.md", DevbookMenuNodeKind.File, "domain", [], true);
+        var features = new DevbookMenuNode("financieel/features.md", "Features", "financieel/features.md", DevbookMenuNodeKind.File, "domain", [split], true) { Count = 1 };
+        var root = new DevbookMenuNode("domain", "Domain", "domain", DevbookMenuNodeKind.Folder, "domain", [features], true);
 
         var component = context.Render<DevbookMenuTreeView>(parameters => parameters
             .Add(view => view.HeadingLabel, "Domain")
@@ -129,7 +129,7 @@ public sealed class DevbookMenuTreeViewTests
         var accessibleName = string.Concat(button.ChildNodes
             .Where(node => node is not IElement element || !element.HasAttribute("aria-hidden"))
             .Select(node => node.TextContent));
-        Assert.Equal("Flows, 1 item", accessibleName.Trim());
+        Assert.Equal("Features, 1 item", accessibleName.Trim());
     }
 
     private static DevbookMenuNode BuildDomainTree()
