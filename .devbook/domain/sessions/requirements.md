@@ -486,3 +486,195 @@ The system SHALL register no question and publish nothing for a session while th
 - **Given** the `notifications` flag is off
 - **When** a session's hook calls `ask` with its session id
 - **Then** `ask` answers that notifications are not available, and the session asks in place
+
+## Schedules and their runs
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/domain.md#schedule-register]
+```
+
+> Local ADR 0051 decides these requirements. None is built yet.
+
+### Requirement: A schedule is known only from its runs' reports
+
+```meta
+type: requirement
+```
+
+The system SHALL learn of a schedule and its runs only from the start and finish reports its runs send over MCP, and SHALL read no file Claude Desktop keeps for its schedules or runs.
+
+#### Scenario: A schedule's first run
+
+- **Given** a schedule Backlog has no report of
+- **When** its first run reports its start with the schedule's id, title, repository and cron
+- **Then** the schedule appears on the Schedules page with that run reading No summary yet
+
+#### Scenario: A schedule that never ran
+
+- **Given** a schedule in Claude Desktop that has not fired yet
+- **When** the person opens the Schedules page
+- **Then** the schedule is not listed
+
+### Requirement: A run reads the state its reports and its session give it
+
+```meta
+type: requirement
+```
+
+The system SHALL read a run as Needs you, Held, Failed, Review ready or No summary yet from its reports while its session is not archived, and as Handled once its session is archived.
+
+#### Scenario: A run that needs the person
+
+- **Given** a weekly update run that reported two Needs-you lines
+- **When** the person opens the Schedules page
+- **Then** the schedule reads Needs you and its card shows the two lines
+
+#### Scenario: A held schedule
+
+- **Given** an issue sweep whose Friday run is not archived
+- **When** Monday's run reports that it skipped itself for that reason
+- **Then** the schedule reads Held, and Monday's run is a Skipped line under it
+
+#### Scenario: The person archives the run
+
+- **Given** a schedule that reads Needs you
+- **When** the person archives the run's session in Claude Desktop
+- **Then** the run reads Handled at the next reading of the session records
+
+### Requirement: A schedule that does not start in time reads Missed
+
+```meta
+type: requirement
+```
+
+The system SHALL read a schedule as Missed when 30 minutes have passed since its cron's due time and no run reported its start.
+
+#### Scenario: The machine was asleep
+
+- **Given** a schedule due at 05:30 whose runs have reported before
+- **When** it is 06:01 and no run has reported its start since 05:30
+- **Then** the schedule reads Missed
+
+### Requirement: A schedule that needs the person raises one alert per cause
+
+```meta
+type: requirement
+```
+
+The system SHALL raise one Alert, with its Windows notification, when a schedule turns Needs you, Held, Failed or Missed, and SHALL close it when its cause clears.
+
+#### Scenario: A held sweep skips again
+
+- **Given** an issue sweep that reads Held and has raised its alert
+- **When** its next run skips itself too
+- **Then** no second alert is raised
+
+#### Scenario: The cause clears
+
+- **Given** an Open alert that a weekly update needs the person
+- **When** the person archives that run's session
+- **Then** the alert closes
+
+#### Scenario: Ready for review
+
+- **Given** a run that reported work ready for review
+- **When** the schedule reads Review ready
+- **Then** the row shows it and no alert is raised
+
+## Loop sessions
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/sessions/domain.md#loop-register]
+```
+
+> Local ADR 0051 decides these requirements. None is built yet.
+
+### Requirement: A loop session's state is read from its check-ins
+
+```meta
+type: requirement
+```
+
+The system SHALL read a loop session as Listening when it checked in within 2 minutes, Holding when it checks in while work waits and a capacity limit is reached, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
+
+#### Scenario: A Manager waits for requests
+
+- **Given** a Manager whose wait call reached Backlog 40 seconds ago
+- **When** the person opens the Sessions list
+- **Then** its row in the Agents section reads Listening
+
+#### Scenario: Usage is over the limit
+
+- **Given** a Manager with a usage limit of 80% and three requests waiting
+- **When** plan usage reads 84% at its check-in
+- **Then** it reads Holding and names the usage limit
+
+#### Scenario: A hung loop
+
+- **Given** a Manager with a 30-minute heartbeat whose session still has a process
+- **When** 41 minutes pass with no check-in
+- **Then** it reads Stalled
+
+### Requirement: The check-in answer carries the person's wish and the work waiting
+
+```meta
+type: requirement
+```
+
+The system SHALL answer every `check_in` with the work waiting for the loop, whether there is room for it, and the `pause`, `resume` or `stop` the person last set on the loop.
+
+#### Scenario: The person pauses the Manager
+
+- **Given** a Listening Manager
+- **When** the person pauses it and it next checks in
+- **Then** the answer carries `pause`, and the Manager starts no request until an answer carries `resume`
+
+### Requirement: The app measures capacity for a loop
+
+```meta
+type: requirement
+```
+
+The system SHALL measure the dispatched sessions working, plan usage from the Claude usage cache, CPU and free memory, and SHALL count no Waiting session as working.
+
+#### Scenario: Sessions waiting on questions
+
+- **Given** a Manager with a limit of three sessions, and three dispatched sessions all Waiting
+- **When** it checks in with a request waiting
+- **Then** the answer says there is room
+
+### Requirement: A loop that stops raises one alert
+
+```meta
+type: requirement
+```
+
+The system SHALL raise one Alert, with its Windows notification, when a loop turns Stalled, or Not running while work waits for it, and SHALL close it when the loop checks in again.
+
+#### Scenario: The Manager stops with requests waiting
+
+- **Given** a Manager with three session requests waiting
+- **When** its session is archived
+- **Then** one alert says the dispatcher stopped and how many requests wait
+
+#### Scenario: The Brain tender stops with nothing waiting
+
+- **Given** a Brain tender with no work waiting
+- **When** its process ends
+- **Then** it reads Not running and no alert is raised
+
+### Requirement: Schedules and loop sessions leave with the Sessions area
+
+```meta
+type: requirement
+```
+
+The system SHALL offer no Schedules page, Agents section, run report tool or `check_in` tool, and raise no schedule or loop alert, while the `sessions` flag is off.
+
+#### Scenario: The flag is off
+
+- **Given** the `sessions` flag is off
+- **When** a scheduled run's hook reports its start
+- **Then** the report tool is not on the MCP endpoint, and nothing is recorded
