@@ -284,6 +284,8 @@ declined, are human actions. This amends ADR 0044 §6:
 Answering an agent's question stays a person's action too: only the person answers,
 in the app (ADR 0041).
 
+*Built 2026-11-11 by entry 2 (`human-only-decisions`).* ADR 0044 §6 records how.
+
 ### 8. A remote agent reaches Backlog through OAuth 2.1 on the sync service
 
 ```meta

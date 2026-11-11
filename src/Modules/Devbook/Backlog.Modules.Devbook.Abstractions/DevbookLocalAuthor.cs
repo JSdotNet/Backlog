@@ -16,6 +16,17 @@ public static class DevbookLocalAuthor
     public static string Name => Environment.MachineName;
 
     /// <summary>
+    /// The author every Devbook write that arrives over MCP is stamped with — a
+    /// note, a reply, a proposal set back to draft — in place of <see cref="Name"/>.
+    /// <para>
+    /// Local ADR 0052 §7: the MCP token is an agent's, so a write through it is
+    /// never recorded as the person's. A record already stored keeps the author it
+    /// was written with; <see cref="Display"/> reads this one back as written.
+    /// </para>
+    /// </summary>
+    public const string AgentViaMcp = "agent via MCP";
+
+    /// <summary>
     /// How a recorded author reads on this host: "You" when it is
     /// <see cref="Name"/>, compared without case as a machine label is, and the
     /// recorded name otherwise. One rule for a remark and a subject's state, so the

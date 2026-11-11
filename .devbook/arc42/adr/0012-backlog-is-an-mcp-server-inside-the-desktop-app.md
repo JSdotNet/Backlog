@@ -328,6 +328,11 @@ operations: `devbook_list_notes`, `devbook_post_note` and `devbook_resolve_note`
 joined the four, behind the same key. The group binds, so a devbook skill finds
 Backlog as its host.
 
+*Amended 2026-11-11 by local ADR 0052 §7.* `devbook_approve` and `devbook_accept`
+left the group: the person approves and accepts in the app. The group holds five
+operations, and `devbook_set_state` sets `draft` alone, so a devbook skill finds
+Backlog's read and note half only.
+
 ## Consequences
 
 Positive:
@@ -433,6 +438,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-11 | Built §1's Rotate on the **Bearer token** card and the limit on failed bearer attempts: ten within 60 seconds answer every bearer request 429 for 60 seconds, with one audit record. | Plan `zero-trust-auth` entry 6, ADR 0052 Phase 0. |
+| 2026-11-11 | The decision group drops `devbook_approve` and `devbook_accept` (local ADR 0052 §7): five operations, `devbook_set_state` to `draft` alone. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-11 | Built §1's audit log: one record per tool call, in a per-installation `mcp-audit.db`, kept 30 days and shown on the MCP server Settings page's **Activity** card. | Plan `zero-trust-auth` entry 5, ADR 0052 Phase 0. |
 | 2026-11-11 | Amended §1 by local ADR 0052: the shared bearer token becomes a per-registration grant whose broker mints 15-minute scoped tokens, checked by scope policies behind the `Origin` check. Not built yet. | Plan `zero-trust-auth`: the one plaintext token never expired and opened every tool to every caller. |
 | 2026-11-10 | The MCP listener now outlives the main window (local ADR 0043 §5). It stops only on Quit, sign-out, shutdown or an MSIX update. While **Keep running in the tray when closed** is on, closing the window no longer removes the tools from sessions. Not built yet. | Plan `tray-keep-alive`: closing the window was the most common reason a session ran without the `backlog` tools. |

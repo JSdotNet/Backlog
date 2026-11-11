@@ -103,7 +103,9 @@ operations for every store.
 
 The app always says who acted and when: the host's own name, the one a remark's
 author carries, and the store's clock. A caller never passes either, except in the
-import below, which keeps who and when the repository wrote down.
+import below, which keeps who and when the repository wrote down. A write that
+arrives over MCP is stamped *agent via MCP* instead of the host's name, and only
+the person approves or accepts, in the app (local ADR 0052 §7).
 
 A state has a second source: what a repository's default branch still states in
 its Markdown. Before the branch-true decision, a chapter's `meta` block stated a

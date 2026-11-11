@@ -154,8 +154,6 @@ public class McpToolCreationTests
                 TrackerTools.CreateItem,
                 GoalTools.DeleteGoal,
                 GoalTools.DetachFromGoal,
-                DecisionTools.Accept,
-                DecisionTools.Approve,
                 DecisionTools.PostNote,
                 DecisionTools.ResolveNote,
                 DecisionTools.SetState,
@@ -264,8 +262,8 @@ public class McpToolCreationTests
         // the host's, so neither by nor at is a parameter a caller could fill in.
         Assert.Equal(["repository", "subject"], schemas["devbook_get_state"]);
         Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
-        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_approve"]);
-        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_accept"]);
+        Assert.DoesNotContain("devbook_approve", schemas.Keys);
+        Assert.DoesNotContain("devbook_accept", schemas.Keys);
 
         // The units are optional: without them the tool answers the stated entries.
         Assert.Equal(["repository", "units"], schemas["list_sync_directions"]);
@@ -278,7 +276,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "address", "body"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "devbook_post_note")));
         Assert.Equal(["repository", "id"], schemas["devbook_resolve_note"]);
         Assert.All(
-            [DecisionTools.GetState, DecisionTools.SetState, DecisionTools.Approve, DecisionTools.Accept],
+            [DecisionTools.GetState, DecisionTools.SetState],
             name =>
             {
                 var tool = Tools().Single(candidate => candidate.ProtocolTool.Name == name);

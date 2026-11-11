@@ -218,9 +218,10 @@ public sealed class McpServerWorkerTests : IDisposable
 
     /// <summary>
     /// Claude Code's OTLP logs reach the head's listener at <c>/v1/logs</c> behind the
-    /// same bearer-token guard as <c>/mcp</c> (local ADR 0024): the real listener, bound
-    /// on loopback, refuses an export with no token and one with the wrong token —
-    /// storing nothing — and stores the one carrying the token the Settings page copies.
+    /// telemetry token (local ADR 0024): the real listener, bound on loopback, refuses an
+    /// export with no token, the wrong token, the MCP server's own token and the question
+    /// hook's — storing nothing — and stores the one carrying the telemetry token the
+    /// Settings page copies.
     /// </summary>
     [Fact]
     public async Task The_logs_route_refuses_a_missing_or_wrong_token_and_stores_the_right_ones_export()
@@ -235,7 +236,7 @@ public sealed class McpServerWorkerTests : IDisposable
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var token = settings.EnsureTelemetryToken();
 
         using (var response = await client.SendAsync(Export(null), TestContext.Current.CancellationToken))
         {
@@ -244,6 +245,16 @@ public sealed class McpServerWorkerTests : IDisposable
         }
 
         using (var response = await client.SendAsync(Export(token + "-wrong"), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Export(settings.EnsureMcpServerToken()), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Export(settings.EnsureQuestionHookToken()), TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -279,7 +290,7 @@ public sealed class McpServerWorkerTests : IDisposable
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var token = settings.EnsureTelemetryToken();
 
         for (var export = 0; export < 2; export++)
         {
@@ -538,6 +549,128 @@ public sealed class McpServerWorkerTests : IDisposable
             Changed?.Invoke();
             return null;
         }
+    }
+
+    /// <summary>
+    /// The telemetry token reaches <c>/v1/logs</c> and nothing else: on the real listener a
+    /// tool call carrying it is refused with 401 before any tool runs, and so are the
+    /// session-request wait and the hook script route.
+    /// </summary>
+    [Fact]
+    public async Task A_telemetry_token_calling_a_tool_is_refused_with_401()
+    {
+        var settings = Settings(FreePort());
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureTelemetryToken();
+
+        foreach (var tool in new[] { "notify", "list_entries", "transition" })
+        {
+            using var response = await client.SendAsync(ToolCall(tool, token), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+
+        foreach (var path in new[] { SessionRequestWaitEndpoint.RoutePath, AskBacklogHook.RoutePath })
+        {
+            using var get = new HttpRequestMessage(HttpMethod.Get, path);
+            get.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(get, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
+    /// <summary>
+    /// The question hook's token reaches the question tools alone: a call to notify, ask,
+    /// get_answer or close gets past the guard, while any other tool, a tool list, a
+    /// batch and the session-request wait answer 401.
+    /// </summary>
+    [Fact]
+    public async Task A_question_hook_token_reaches_the_question_tools_and_nothing_else()
+    {
+        var settings = Settings(FreePort());
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureQuestionHookToken();
+
+        foreach (var tool in McpLoopbackGuard.QuestionTools)
+        {
+            // Answered by the MCP server itself, with the call's id: the guard read the body
+            // and put it back, so MapMcp read the same request from the start.
+            using var response = await client.SendAsync(ToolCall(tool, token), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains("\"id\":1", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+
+        using (var smuggled = Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"ask\",\"Name\":\"list_entries\",\"arguments\":{}}}", token))
+        using (var response = await client.SendAsync(smuggled, TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        foreach (var tool in new[] { "list_entries", "transition", "claim_delivery", "devbook_approve" })
+        {
+            using var response = await client.SendAsync(ToolCall(tool, token), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var list = Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", token))
+        using (var response = await client.SendAsync(list, TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var batch = Rpc("[" + Call("ask") + "]", token))
+        using (var response = await client.SendAsync(batch, TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Wait(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
+    /// <summary>
+    /// The MCP server's own token still calls every tool: the split narrows the two new
+    /// tokens and leaves the registrations' token as it was everywhere but the logs route.
+    /// </summary>
+    [Fact]
+    public async Task The_mcp_token_still_reaches_every_tool()
+    {
+        var settings = Settings(FreePort());
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        using var response = await client.SendAsync(ToolCall("list_entries", settings.EnsureMcpServerToken()), TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>One JSON-RPC <c>tools/call</c> of <paramref name="tool"/>.</summary>
+    private static string Call(string tool) =>
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"" + tool + "\",\"arguments\":{}}}";
+
+    /// <summary>A <c>tools/call</c> of <paramref name="tool"/> on <c>/mcp</c>, as the hook
+    /// script sends one.</summary>
+    private static HttpRequestMessage ToolCall(string tool, string token) => Rpc(Call(tool), token);
+
+    private static HttpRequestMessage Rpc(string body, string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, McpServerWorker.EndpointPath)
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
     }
 
     /// <summary>The JSON fixture <c>ClaudeCodeOtlpLogsTests</c> describes, posted the

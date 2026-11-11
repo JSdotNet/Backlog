@@ -123,6 +123,8 @@ public sealed class WorkspaceSettingsStore
         // than construction is the moment.
         McpServerPort = settings?.McpServer?.ToPort() ?? DefaultMcpServerPort;
         McpServerToken = Clean(settings?.McpServer?.Token);
+        QuestionHookToken = Clean(settings?.McpServer?.HookToken);
+        TelemetryToken = Clean(settings?.McpServer?.TelemetryToken);
 
         // The legacy name is consulted only when the current one is absent, so a
         // file written before the context was renamed reads as the same choice
@@ -244,6 +246,22 @@ public sealed class WorkspaceSettingsStore
     /// </para>
     /// </summary>
     public string? McpServerToken { get; private set; }
+
+    /// <summary>
+    /// The token the <c>ask-backlog</c> question hook presents (local ADR 0041 §4), or null
+    /// until one has been generated. Kept beside <see cref="McpServerToken"/>, on the same
+    /// plaintext terms, and accepted by the listener on the question tools alone — notify,
+    /// ask, get_answer and close — so a hook that leaks it cannot call a write tool.
+    /// </summary>
+    public string? QuestionHookToken { get; private set; }
+
+    /// <summary>
+    /// The token Claude Code's OpenTelemetry exporter presents (local ADR 0024), or null
+    /// until one has been generated. Kept beside <see cref="McpServerToken"/>, on the same
+    /// plaintext terms, and accepted by the listener on <c>/v1/logs</c> alone, so a leaked
+    /// exporter header cannot call a tool.
+    /// </summary>
+    public string? TelemetryToken { get; private set; }
 
     /// <summary>Raised when the MCP port or token changes, for the worker that
     /// has to rebind or start demanding a different token. Separate from
@@ -986,7 +1004,7 @@ public sealed class WorkspaceSettingsStore
     {
         if (McpServerToken is { } existing) return existing;
 
-        McpServerToken = NewMcpServerToken();
+        McpServerToken = NewToken();
 
         // The save failure is deliberately dropped rather than returned. The
         // caller is the listener asking what token to demand, and a token it
@@ -1011,21 +1029,49 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public string? RotateMcpServerToken()
     {
-        McpServerToken = NewMcpServerToken();
+        McpServerToken = NewToken();
 
         var error = SaveSettings("Token rotated, but the new one couldn't be saved for next time.");
         McpChanged?.Invoke();
         return error;
     }
 
-    private static string NewMcpServerToken() =>
-        Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(McpServerTokenBytes));
-
     /// <summary>256 bits, which is what
     /// <c>IRegistrationCredentialGenerator</c> uses and for the same reason: no
     /// dictionary to price, and 43 Base64Url characters is still short enough to
     /// paste.</summary>
     private const int McpServerTokenBytes = 32;
+
+    private static string NewToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(McpServerTokenBytes));
+
+    /// <summary>
+    /// The question hook's token, generated and saved on first need the way
+    /// <see cref="EnsureMcpServerToken"/> generates its own — the same construction, and a
+    /// save that failed still answers the token for this run. Never the MCP token: the
+    /// split is what keeps a hook from holding a credential that calls write tools.
+    /// </summary>
+    public string EnsureQuestionHookToken() =>
+        QuestionHookToken ?? Minted(QuestionHookToken = NewToken(), "Question hook token created, but it couldn't be saved for next time.");
+
+    /// <summary>
+    /// The telemetry exporter's token, generated and saved on first need the way
+    /// <see cref="EnsureMcpServerToken"/> generates its own. Never the MCP token: the
+    /// exporter's header sits in a <c>settings.json</c> <c>env</c> block, and a copy of it
+    /// must not reach a tool.
+    /// </summary>
+    public string EnsureTelemetryToken() =>
+        TelemetryToken ?? Minted(TelemetryToken = NewToken(), "Telemetry token created, but it couldn't be saved for next time.");
+
+    /// <summary>Saves a token just generated and says so, the way
+    /// <see cref="EnsureMcpServerToken"/> does: a failed save still answers the token for
+    /// this run.</summary>
+    private string Minted(string token, string saveFailure)
+    {
+        _ = SaveSettings(saveFailure);
+        McpChanged?.Invoke();
+
+        return token;
+    }
 
     /// <summary>
     /// Points branch snapshots at a different folder, or — with a blank path —
@@ -1126,7 +1172,7 @@ public sealed class WorkspaceSettingsStore
                 // token generated nor a port chosen - so a workspace that has
                 // never switched the MCP server on keeps producing the file it
                 // always did.
-                McpServer = StoreMcpServerSettings.From(McpServerPort, McpServerToken),
+                McpServer = StoreMcpServerSettings.From(McpServerPort, McpServerToken, QuestionHookToken, TelemetryToken),
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
@@ -1298,6 +1344,14 @@ public sealed class WorkspaceSettingsStore
         /// server already trusts would defend against nothing.</summary>
         public string? Token { get; init; }
 
+        /// <summary>The question hook's token, in plaintext on the same terms.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? HookToken { get; init; }
+
+        /// <summary>The telemetry exporter's token, in plaintext on the same terms.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? TelemetryToken { get; init; }
+
         /// <summary>The chosen port, or null for
         /// <see cref="DefaultMcpServerPort"/>.</summary>
         public int? Port { get; init; }
@@ -1318,12 +1372,14 @@ public sealed class WorkspaceSettingsStore
         /// worth writing even at the default port — it is the part that cannot
         /// be recomputed.
         /// </para></summary>
-        public static StoreMcpServerSettings? From(int port, string? token) =>
-            token is null && port == DefaultMcpServerPort
+        public static StoreMcpServerSettings? From(int port, string? token, string? hookToken = null, string? telemetryToken = null) =>
+            token is null && hookToken is null && telemetryToken is null && port == DefaultMcpServerPort
                 ? null
                 : new StoreMcpServerSettings
                 {
                     Token = token,
+                    HookToken = hookToken,
+                    TelemetryToken = telemetryToken,
                     Port = port == DefaultMcpServerPort ? null : port
                 };
     }

@@ -173,9 +173,10 @@ before, with every edit refused.
 - **A subject's workflow state is read-only.** *(Added 2026-10-30 with
   [local ADR 0044](0044-devbook-subject-state-lives-in-backlogs-own-store.md).)* The arc42 panel shows a decision or
   debt record's state and offers no pick, though a branch snapshot of an active
-  repository does. The MCP tools `devbook_set_state`, `devbook_approve` and
-  `devbook_accept` refuse with `repository.archived`; `devbook_get_state`
-  still reads.
+  repository does. The MCP tool `devbook_set_state` refuses with
+  `repository.archived`; `devbook_get_state` still reads. *(2026-11-11, local
+  ADR 0052 §7: approve and accept left MCP for the Instructions area's Proposals
+  tab, which shows an archived repository's proposals and refuses both.)*
 - **The Instructions area is read-only too.** It reads the clone's instruction
   files as before and offers no edit.
 
