@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-10
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 Each module puts its screen in the desktop shell by registering a **`ShellSurface`** from
@@ -257,6 +257,11 @@ only in a live session.
 **No feature flag.** Pop-out, the routes and the MCP tool are always available. A
 surface's own feature flag still hides it everywhere the catalog is read (§1).
 
+**Amended 2026-11-11 by local ADR 0052 §4, not yet built.** `open_window` and the link
+tokens it mints need the `ui:open` scope, so only a grant holding it can open a
+window or mint a web link. The cookie a link buys expires after 8 idle hours rather
+than living as long as the app runs. The app logs every link `open_window` mints.
+
 ## Consequences
 
 ```meta
@@ -336,6 +341,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended §7 by local ADR 0052: `open_window` and its link tokens need the `ui:open` scope, the link cookie expires after 8 idle hours, and every minted link is logged. Not built yet. | Plan `zero-trust-auth`: any holder of the shared MCP token could mint a link to full UI access for as long as the app ran. |
 | 2026-11-10 | Amended §5, renamed from "the main window owns the app's life": closing the main window (✕ or Alt+F4) flushes the navigation and window-bounds stores and hides it to a notification-area icon. The process and the MCP listener keep running, and popped-out windows stay open. The tray menu has **Open Backlog** and **Quit**, and a double-click restores the window. Quit keeps the flush, closes every window and quits. A plain second launch, a `backlog://` link, a toast press and **Show in main window** re-show a hidden main window, and the first hide shows a one-time toast. Two per-machine switches join the MCP server settings page: **Keep running in the tray when closed**, on by default, and **Start Backlog when I sign in**, off by default, an MSIX `StartupTask` that starts to the tray. That switch is disabled in an unpackaged build and when Windows reports the task disabled by the person or by policy. The runtime view gains the scenario "Main window close, hide and quit". Not built yet. | Plan `tray-keep-alive`: closing the window stopped the MCP listener, so every session lost the `backlog` tools until Backlog was opened again. |
 | 2026-11-04 | Both §4 toggles kept side by side after `main` landed **Keep on top**: the header reads title, scope chips, **Keep on top**, **Remember this window**, **Show in main window**. **Keep on top** keeps the pin; **Remember this window** wears Lucide's `bookmark` (`BookmarkIcon`). Both sit in `surface-window__actions`, so below 40rem they stay on the title's row. `IShellWindows` answers `CanKeepOnTop` and `CanRemember` apart, and `shell-windows.json` keeps `onTop` and `remembered` as sections of their own beside `surfaces`. | Two toggles on one glyph would read as one control, and the pin already meant on top. |
 | 2026-11-04 | §5's remembered windows built. `ShellWindowStore` keeps a `remembered` list (key, surface, query, bounds) beside `surfaces`, written only while one is remembered. A query value stored as null is left out on read. `ShellWindowReopenPlan` sorts the remembered windows into those to open and those whose surface `ISurfaceCatalog` no longer offers, which are forgotten. `ShellWindows.ReopenRemembered` runs from `App` once the main window is created. It reopens each window under its old key at its own bounds, clamped to a connected monitor, and one that throws is forgotten without stopping the rest. `SurfaceWindow` draws the **Remember this window** toggle through `IShellWindows.CanRemember`, which only the head's `ShellWindows` answers true. Each jump and chip press is reported through `ReportShowing`. `BookmarkIcon` joins the component library. Quitting, closing the window, and bounds after a restart have no unit test, because they live in the head; they are checked by hand. | The amendment's own row, below, built in the same pull request. |

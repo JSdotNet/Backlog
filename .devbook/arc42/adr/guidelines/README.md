@@ -91,7 +91,7 @@ always say which set you mean.
 | [0010](0010-opentelemetry-observability.md) | OpenTelemetry for observability | `active` | `ServiceDefaults`, modules |
 | [0011](0011-centralized-frontend-styling-variables.md) | Centralized styling variables | `active` | `Backlog.UI.Components` |
 | [0012](0012-authentication-external-identity-providers.md) | OIDC for external identity | `proposed` | GitHub OAuth, cloud auth |
-| [0013](0013-authorization-zero-trust.md) | Zero Trust authorization | `proposed` | sync service, module calls |
+| [0013](0013-authorization-zero-trust.md) | Zero Trust authorization | `proposed`; applied for the MCP surface by local ADR 0052 | sync service, MCP surface, module calls |
 | [0014](0014-persistence-and-repository-boundaries.md) | Persistence and repository boundaries | `active` | `Backlog.Infrastructure.Sqlite` |
 | [0015](0015-resilience-for-outbound-dependencies.md) | Resilience at adapter boundaries | `active` | GitHub, Claude, Foundry calls |
 | [0017](0017-http-error-contract-and-problem-details.md) | Problem Details error contract | `proposed` | the sync API surface |
