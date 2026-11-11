@@ -509,7 +509,8 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
 The pane reports the session when nothing in the unfiled Inbox is still
-waiting and this session has decided something. It says the inbox is clear and
+waiting, the Brain's inbox area holds no note to file
+([Queue health bar](#queue-health-bar)), and this session has decided something. It says the inbox is clear and
 shows what the session did in place of the list and the detail; the side menu
 stays. The report holds:
 
@@ -1035,9 +1036,9 @@ long, and raise configurable alerts when the queue exceeds a threshold.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health]
+related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health, .devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests]
 ```
 
 The Inbox half of queue health sits at the foot of the side menu. It shows how
@@ -1054,6 +1055,15 @@ oldest d days".
 
 It reads the whole queue, whichever list is open. The dashboard half, and the
 configurable alerts, are Monitoring's.
+
+Under the lines, the Brain's inbox area is counted too: "n notes to file in the
+Brain", in the Brain's teal. It counts every note in the area a route
+[To Brain](#route-to-brain) lands in, its sub-folders included and its dot-folders
+left out. Pressing it opens the Devbook on the Brain at that area's tab
+([Brain mode of the Devbook pane](../brain/features.md#brain-mode-of-the-devbook-pane)).
+With no Brain set, a Brain folder that is missing, or nothing in the area, the line
+is not shown. The count is read with the queue, so a note filed away in the Brain
+shows on the Inbox's next reload.
 
 ## Notes
 

@@ -22,3 +22,11 @@ public sealed record InboxBrainNoteRequestDto(
 /// <summary>An item routed To Brain, and the note it became: the note's path
 /// relative to the Brain's root (<c>_inbox/standup.md</c>).</summary>
 public sealed record InboxBrainRoutedDto(Guid InboxItemId, string NotePath);
+
+/// <summary>The notes waiting in the Brain's inbox area — what the queue health
+/// bar counts beside the Inbox's own items
+/// (<c>.devbook/domain/inbox/features.md#queue-health-bar</c>).</summary>
+/// <param name="AreaFolder">The inbox area's folder, relative to the Brain's root
+/// (<c>_inbox</c>): what the Devbook is opened at.</param>
+/// <param name="Count">How many notes sit in it, its sub-folders included.</param>
+public sealed record InboxBrainUnfiledDto(string AreaFolder, int Count);

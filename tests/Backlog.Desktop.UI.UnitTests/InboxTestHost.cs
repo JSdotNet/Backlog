@@ -123,6 +123,12 @@ internal sealed class FakeInboxItems : IInboxItems
     /// take a note.</summary>
     public string? BrainUnavailableReason { get; set; }
 
+    /// <summary>What the Brain's inbox area holds; null by default, no Brain set.</summary>
+    public InboxBrainUnfiledDto? BrainUnfiled { get; set; }
+
+    public Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(BrainUnfiled);
+
     /// <summary>What the advisor answers per item; an item with no entry is
     /// answered with no cards.</summary>
     public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];

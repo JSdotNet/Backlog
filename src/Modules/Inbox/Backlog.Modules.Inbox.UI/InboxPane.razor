@@ -253,6 +253,11 @@
     [Parameter]
     public RenderFragment? Sources { get; set; }
 
+    /// <summary>Opens the Devbook on the Brain at an area folder — the Brain's inbox
+    /// area, pressed in queue health. The pane names no Devbook: the host does.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenBrainArea { get; set; }
+
     /// <summary>The capture field's input, which a capture hands the focus
     /// back to so the next thought can be typed straight away.</summary>
     internal const string CaptureInputId = "inbox-pane-capture-input";
@@ -313,7 +318,7 @@
         else
         {
             <div class="inbox-pane__body" data-testid="inbox-pane-body">
-                <InboxSideMenu State="State" />
+                <InboxSideMenu State="State" OnOpenBrainArea="OnOpenBrainArea" />
 
                 @if (State.ShowsInboxZero)
                 {

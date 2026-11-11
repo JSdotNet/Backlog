@@ -731,6 +731,21 @@ The system SHALL, when the Inbox has no item still waiting after decisions this 
 - **When** the reader opens it
 - **Then** the plain empty state is shown, with no counts
 
+### Requirement: The inbox is clear only when the Brain's inbox area is too
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.Notes_still_to_file_in_the_Brain_keep_the_inbox_from_reading_clear
+```
+
+The system SHALL NOT show inbox zero while the Brain's inbox area holds a note to file, even when the unfiled Inbox has none waiting.
+
+#### Scenario: The Inbox emptied, the Brain not
+
+- **Given** the reader decided the last waiting item this session and the Brain's inbox area holds two notes
+- **When** the pane redraws
+- **Then** the plain empty state is shown, not "Inbox is clear", and queue health reads "2 notes to file in the Brain"
+
 ## AI triage pass
 
 ```meta
@@ -1158,6 +1173,27 @@ The system SHALL show in the side menu the number of unprocessed items in every 
 - **Given** no unprocessed items
 - **When** the pane opens
 - **Then** the side menu reads "Nothing waiting" and shows no bar
+
+### Requirement: The Brain's inbox area is counted beside the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Queue_health_counts_the_notes_waiting_in_the_Brains_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Without_a_Brain_or_with_nothing_to_file_queue_health_says_nothing_about_the_Brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Pressing_the_Brain_count_asks_the_host_to_open_the_Brain_at_its_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.An_area_folder_asked_for_opens_that_areas_tab, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.The_notes_in_the_inbox_area_are_counted, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.Without_a_brain_there_is_no_count]
+```
+
+The system SHALL show in queue health the number of notes in the Brain's inbox area as "n notes to file in the Brain" while it holds any, open the Devbook on the Brain at that area when it is pressed, and show nothing for the Brain while no Brain folder is set or present.
+
+#### Scenario: Notes waiting in the Brain
+
+- **Given** a Brain whose inbox area holds three notes
+- **When** the pane opens
+- **Then** queue health reads "3 notes to file in the Brain", and pressing it opens the Devbook on the Brain at its inbox area
+
+#### Scenario: No Brain
+
+- **Given** no Brain folder is set
+- **When** the pane opens
+- **Then** queue health says nothing about the Brain
 
 ## Classification and enrichment
 

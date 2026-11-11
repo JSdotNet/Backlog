@@ -94,7 +94,7 @@ public static class BrainAdapterRegistration
         // Inbox's cross-context registration leaves a refusing target for a host
         // without a Brain, and whichever of the two runs first, this one wins.
         services.Replace(ServiceDescriptor.Scoped<IInboxBrainTarget>(sp =>
-            new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>())));
+            new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>(), sp.GetService<IBrainFolderSource>())));
 
         return services;
     }
