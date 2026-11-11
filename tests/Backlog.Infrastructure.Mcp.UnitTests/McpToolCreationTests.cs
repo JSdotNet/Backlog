@@ -146,6 +146,7 @@ public class McpToolCreationTests
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                LoopTools.CheckIn,
                 SessionRequestTools.ClaimDelivery,
                 SessionRequestTools.ClaimSessionRequest,
                 NotificationTools.Close,
@@ -411,6 +412,7 @@ public class McpToolCreationTests
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
+            [typeof(LoopTools)] = new LoopTools(new InMemoryLoopRegister()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
             [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())

@@ -102,6 +102,9 @@ public class BacklogMcpToolsTests
                 "mark_delivery",
                 "list_deliveries",
 
+                // The loop sessions' two-way check-in (local ADR 0051 §3).
+                "check_in",
+
                 // Notifications' four (local ADR 0039).
                 "notify",
                 "ask",
@@ -137,6 +140,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
@@ -167,7 +171,8 @@ public class BacklogMcpToolsTests
     /// sessions off means "Backlog is not where I watch my agents work", which
     /// does not stop at the reads. The usage tool is the third group on it: it reads
     /// the same runs and sessions, apart from the surface so the flow driving a run
-    /// is never handed its measured figures.
+    /// is never handed its measured figures. <c>check_in</c> is the fourth: local ADR 0051
+    /// §6 puts the loop sessions behind the sessions key, with no key of their own.
     /// </para>
     /// <para>
     /// The devbook key is the third, on the same argument: reading a chapter,
@@ -205,7 +210,7 @@ public class BacklogMcpToolsTests
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
-            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage],
+            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Loops],
             byKey[SessionFeatures.Sessions]);
 
         // The devbook's three: the chapters and notes, the subjects' workflow
@@ -343,6 +348,7 @@ public class BacklogMcpToolsTests
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
             NotificationTools.Close,
+            LoopTools.CheckIn,
             WindowTools.OpenWindow
         ];
 
@@ -377,7 +383,8 @@ public class BacklogMcpToolsTests
             GoalTools.DetachFromGoal,
             ImpedimentTools.LinkToImpediment,
             ImpedimentTools.UnlinkFromImpediment,
-            NotificationTools.GetAnswer
+            NotificationTools.GetAnswer,
+            LoopTools.CheckIn
         ];
 
         var seen = new List<string>();

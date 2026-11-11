@@ -247,6 +247,17 @@ public static class BacklogMcpTools
         ]);
 
     /// <summary>
+    /// <c>check_in</c>, the loop sessions' two-way check-in (local ADR 0051 §3), behind
+    /// <c>sessions</c>: §6 puts every part of the loop sessions behind that key, with no key
+    /// of its own. Not on <see cref="SessionRequests"/>, whose key is off by default: the
+    /// Brain tender checks in with no queue at all.
+    /// </summary>
+    public static McpToolGroup Loops { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(LoopTools),
+        [LoopTools.CheckIn]);
+
+    /// <summary>
     /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
@@ -299,7 +310,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Inbox, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
