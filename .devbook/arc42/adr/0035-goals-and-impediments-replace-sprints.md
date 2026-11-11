@@ -1,7 +1,7 @@
 # ADR 0035: Goals and impediments replace sprints
 
 ```meta
-date: 2026-10-29
+date: 2026-11-12
 related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#holds-back", ".devbook/domain/progress/domain.md#stand-up-reading", ".devbook/domain/progress/domain.invariants.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/requirements.md#tracking-an-impediment", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 c4-touches: [backlog.desktop.shell, backlog.desktop.dashboard, backlog.mobile, backlog.cloud, backlog.taskStore]
 ```
@@ -20,9 +20,10 @@ becomes the **Goals** view, always on: the `goals` flag that replaced the
 ```meta
 ```
 
-Proposed, 2026-10-17, and amended on 2026-10-26 and 2026-10-29 ([History](#history)). Not yet built: the plan `+goals-standup` builds it and
-removes the sprint code it retires. It awaits acceptance at the Personal
-Validation gate of the flow-spec run that drafted it.
+Accepted, 2026-11-12, by the repository owner at the Personal Validation gate of
+the flow-spec run that brought Progress level with PR #1807. Proposed 2026-10-17,
+and amended on 2026-10-26 and 2026-10-29 ([History](#history)). Built by the plan
+`+goals-standup`, merged in PR #1389, which also removed the sprint code it retires.
 
 It supersedes the sprint parts of ADR 0022 §2 and of ADR 0028, as
 [Supersedes](#supersedes) names them. Progress as its own boundary stands.
@@ -536,6 +537,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Accepted, as built. | Goals, impediments and the stand-up ship, and the sprint code is gone. |
 | 2026-10-29 | Amended §2, §5, §6, §8, §9 and verification items 3, 5, 7, 9 to 11: an impediment holds back tasks, pull requests and plans, and reads as ready to resolve once all are settled, while resolving stays a person's move. The blocked-task policy is retired, and the `impediment` document moves to version 2. | The policy raised 29 impediments nobody resolved, and the person wants to raise their own and name the work they hold back. |
 | 2026-10-26 | Amended §2 and verification item 3: the due date is optional, and a goal without one is due on the last day of next, derived on every reading and never stored. | A goal already sits in the iteration, so the person should not have to give it a date. |
 | 2026-10-17 | Proposed: goals and impediments in Progress replace sprints. | Sprints asked for more ceremony than the work has. |
