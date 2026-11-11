@@ -1393,12 +1393,13 @@ type: requirements
 related: [.devbook/domain/brain/features.md#para-organization, .devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/domain.md#knowledge-note, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0054 decides these. None is built yet.
+> Local ADR 0054 decides these. Only the first is built.
 
 ### Requirement: The PARA default holds someday after projects
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests.The_para_default_set_has_eight_areas_with_someday_after_projects, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests.A_brain_declaring_its_own_areas_gets_no_someday, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_eight_para_areas_are_the_tabs]
 ```
 
 The system SHALL show, for a Brain whose `CONVENTIONS.md` declares no areas, the area `someday` directly after `projects`, and SHALL add no `someday` area to a Brain that declares its own.

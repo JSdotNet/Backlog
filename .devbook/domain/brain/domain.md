@@ -111,7 +111,7 @@ When `CONVENTIONS.md` declares no areas, the PARA set applies ([The areas are th
 
 - `_inbox`: notes not yet filed; where a capture lands.
 - `projects`: active work with a goal and a deadline.
-- `someday`: possibilities not committed to. Decided in local ADR 0054 and not yet built: until it is, the set holds the seven areas without it.
+- `someday`: possibilities not committed to (local ADR 0054).
 - `areas`: ongoing responsibilities without a deadline.
 - `resources`: reference material and collected knowledge.
 - `people`: notes about the people the work involves.

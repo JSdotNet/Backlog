@@ -11,6 +11,8 @@
       IBrainShowHidden        folder picker a host supplies
       IBrainNoteWriter      the one writer of a Brain note, behind Capture,
                               To Brain and the assistant tools
+      BrainNoteDestinations where a new note may go: the areas and the
+                              project folders To Brain's picker lists
       IBrainBacklinks,      what the Brain's database answers about repository
       IBrainTaskLinks         chapters and tasks its notes name
 

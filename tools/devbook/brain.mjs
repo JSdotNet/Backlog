@@ -38,11 +38,12 @@ const IGNORE_HEADING = 'ignore';
 export const PARA_AREAS = Object.freeze([
     { name: 'Inbox', folder: '_inbox', order: 1 },
     { name: 'Projects', folder: 'projects', order: 2 },
-    { name: 'Areas', folder: 'areas', order: 3 },
-    { name: 'Resources', folder: 'resources', order: 4 },
-    { name: 'People', folder: 'people', order: 5 },
-    { name: 'Journal', folder: 'journal', order: 6 },
-    { name: 'Archive', folder: 'archive', order: 7 },
+    { name: 'Someday', folder: 'someday', order: 3 },
+    { name: 'Areas', folder: 'areas', order: 4 },
+    { name: 'Resources', folder: 'resources', order: 5 },
+    { name: 'People', folder: 'people', order: 6 },
+    { name: 'Journal', folder: 'journal', order: 7 },
+    { name: 'Archive', folder: 'archive', order: 8 },
 ]);
 
 /** The node attributes a Brain adds to the devbook's list attributes. */

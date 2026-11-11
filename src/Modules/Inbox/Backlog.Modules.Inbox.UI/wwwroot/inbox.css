@@ -1608,6 +1608,28 @@
     background: var(--color-background-alt);
 }
 
+/* Beside Move to backlog: the due date and My Day its tasks may get. One row
+   of fields that wraps, in the detail just above the decisions and in triage
+   under the repositories. */
+.inbox-pane__route-schedule {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+}
+
+.inbox-pane__route-schedule-due,
+.inbox-pane__route-schedule-date {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.inbox-pane__route-schedule-my-day {
+    align-self: center;
+}
+
 .inbox-pane__decide-hint {
     margin-left: auto;
 }

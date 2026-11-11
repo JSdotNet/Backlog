@@ -60,6 +60,46 @@ public sealed class RouteToBrainTests
         Assert.False(item.IsOpen);
     }
 
+    /// <summary>The destination the picker named goes to the Brain with the item,
+    /// and the area the Brain answers comes back for the toast (local ADR 0054 §2).</summary>
+    [Fact]
+    public async Task A_picked_destination_is_handed_to_the_brain_and_its_area_comes_back()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBrainTarget();
+        var item = InboxItem.Capture(
+            "Learn the cello",
+            new InboxSource("web", Person: null),
+            sourceUrl: null,
+            ContentKind.Note,
+            Items.Noon,
+            Items.Noon,
+            replicaBacked: false);
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id, "someday");
+
+        Assert.Equal("someday", Assert.Single(target.Requests).Folder);
+        Assert.Equal("someday/learn-the-cello.md", result.Value.NotePath);
+        Assert.Equal("Someday", result.Value.Area);
+        Assert.Equal(RoutingDomain.Devbook, item.Routing!.Domain);
+    }
+
+    /// <summary>No destination is the inbox area, as before the picker.</summary>
+    [Fact]
+    public async Task No_destination_asks_for_the_inbox_area()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBrainTarget();
+        var item = InboxItem.Capture("Standup", new InboxSource("web", Person: null), sourceUrl: null, ContentKind.Note, Items.Noon, Items.Noon, replicaBacked: false);
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id);
+
+        Assert.Null(Assert.Single(target.Requests).Folder);
+        Assert.Equal("Inbox", result.Value.Area);
+    }
+
     /// <summary>The requirement's second scenario, and the second requirement: a
     /// note keeps its title and body, and stays on the phone as the Inbox note it
     /// was — nothing tells the replica to forget it, and no second note goes out.</summary>
@@ -192,9 +232,9 @@ public sealed class RouteToBrainTests
         Assert.Null(item.Routing);
     }
 
-    private static Task<Result<InboxBrainRoutedDto>> Route(InMemoryInboxStore store, FakeBrainTarget target, Guid id) =>
+    private static Task<Result<InboxBrainRoutedDto>> Route(InMemoryInboxStore store, FakeBrainTarget target, Guid id, string? folder = null) =>
         new RouteToBrainCommandHandler(store, new FakeTimeProvider(Decision), target)
-            .Handle(new RouteToBrainCommand(id), Cancellation);
+            .Handle(new RouteToBrainCommand(id, folder), Cancellation);
 
     private sealed class FakeBrainTarget : IInboxBrainTarget
     {
@@ -204,13 +244,16 @@ public sealed class RouteToBrainTests
 
         public string? UnavailableReason => RefuseWith;
 
-        public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
+        public Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
 
+            var folder = request.Folder ?? "_inbox";
             return Task.FromResult(RefuseWith is { } refusal
-                ? Result.Failure<string>(InboxErrors.BrainUnavailable(refusal))
-                : Result.Success("_inbox/" + string.Join('-', request.Title.ToLowerInvariant().Split(' ')) + ".md"));
+                ? Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(refusal))
+                : Result.Success(new InboxBrainNoteWrittenDto(
+                    folder + "/" + string.Join('-', request.Title.ToLowerInvariant().Split(' ')) + ".md",
+                    request.Folder is null ? "Inbox" : "Someday")));
         }
     }
 }

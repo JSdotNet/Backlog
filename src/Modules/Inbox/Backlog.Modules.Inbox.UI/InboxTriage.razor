@@ -381,6 +381,9 @@
                         </div>
                     }
                     <p class="inbox-pane__hint inbox-triage__footnote">More than one repository makes one entry per repository, linked to each other.</p>
+                    <InboxRouteSchedule State="State"
+                                        Disabled="@(!open || Busy)"
+                                        TestId="inbox-triage-route-schedule" />
                 </section>
 
                 @* The decisions, each naming its key and doing what it does. To
@@ -403,7 +406,7 @@
                     <AppButton CssClass="inbox-triage__decision"
                                Disabled="@(!open || Busy || brainUnavailable is not null)"
                                Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
-                               OnClick="State.RouteToBrainAsync"
+                               OnClick="OpenBrainPicker"
                                TestId="inbox-to-brain">
                         <kbd class="inbox-pane__key" aria-hidden="true">B</kbd>
                         <span class="inbox-triage__decision-label">@InboxDesktopState.ToBrainLabel</span>
@@ -496,6 +499,10 @@
             </ChildContent>
         </Modal>
 
+        <InboxBrainPicker State="State"
+                          Open="@_brainOpen"
+                          OpenChanged="value => _brainOpen = value" />
+
         <Modal Open="@_deferOpen"
                OpenChanged="value => _deferOpen = value"
                Title="Defer until"
@@ -551,6 +558,18 @@
         _deferOpen = true;
         _ = InvokeAsync(StateHasChanged);
     }
+
+    /// <summary>Opens To Brain's destination picker, as <c>b</c> and the button
+    /// do. Refused while the Brain cannot take a note, as the button is.</summary>
+    public void OpenBrainPicker()
+    {
+        if (!CanDecide || State.ToBrainUnavailableReason is not null) return;
+
+        _brainOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _brainOpen;
 
     /// <summary>Asks for what triage shows about the item on screen: the AI
     /// cards, the suggestions and the relations. Each is a no-op once the
