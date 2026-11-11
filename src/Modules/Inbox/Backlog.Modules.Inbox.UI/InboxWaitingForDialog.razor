@@ -1,0 +1,124 @@
+@*
+    Waiting for's question (local ADR 0054 §4,
+    .devbook/domain/inbox/features.md#route-to-tasks): who the work waits on,
+    free text and required, and an optional day to follow up. Confirming routes
+    the item as Move to backlog does, every task carrying that waiting-for. The
+    column's detail and triage both open it, by W or the Waiting for button.
+
+    The pane leaves every key pressed inside a dialog to the dialog, so typing a
+    name here is typing, never a shortcut. The confirm button stays off while
+    the name is blank or holds a backtick, which entry text cannot carry.
+*@
+@using System.Globalization
+@using Microsoft.JSInterop
+
+<Modal Open="@Open"
+       OpenChanged="OnOpenChangedAsync"
+       Title="@InboxDesktopState.WaitingForLabel"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-waiting-for-dialog">
+    <ChildContent>
+        @* A form so Enter in either field confirms. Blazor refuses the browser's
+           own submit for a form with an onsubmit handler, so nothing navigates. *@
+        <form class="inbox-pane__picker-dialog" @onsubmit="ConfirmAsync" data-testid="inbox-waiting-for-form">
+            <TextField Label="Waiting on"
+                       Value="@_who"
+                       ValueChanged="value => _who = value"
+                       Placeholder="Who has the next step"
+                       ErrorMessage="@WhoError"
+                       Id="@WhoInputId"
+                       TestId="inbox-waiting-for-who" />
+            <TextField Label="Follow up on (optional)"
+                       Type="date"
+                       Value="@_followUp"
+                       ValueChanged="value => _followUp = value"
+                       TestId="inbox-waiting-for-follow-up" />
+            <ButtonGroup AriaLabel="Waiting for" CssClass="inbox-pane__defer-actions">
+                <AppButton Variant="ButtonVariant.Primary"
+                           Type="submit"
+                           Disabled="@(!CanConfirm)"
+                           Busy="@State.RouteRunning"
+                           BusyLabel="Moving to backlog"
+                           TestId="inbox-waiting-for-confirm">@InboxDesktopState.WaitingForLabel</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost"
+                           OnClick="() => OnOpenChangedAsync(false)"
+                           TestId="inbox-waiting-for-cancel">Cancel</AppButton>
+            </ButtonGroup>
+        </form>
+    </ChildContent>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The id of the Waiting on field, which the dialog focuses as it opens.</summary>
+    public const string WhoInputId = "inbox-waiting-for-who-input";
+
+    private string? _who;
+
+    private string? _followUp;
+
+    private bool _wasOpen;
+
+    private bool _focusOnRender;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    private bool WhoHasBacktick => _who?.Contains('`', StringComparison.Ordinal) == true;
+
+    private bool CanConfirm => !string.IsNullOrWhiteSpace(_who) && !WhoHasBacktick && !State.RoutingInFlight;
+
+    private string? WhoError => WhoHasBacktick ? "A name cannot hold a backtick." : null;
+
+    protected override void OnParametersSet()
+    {
+        // Each opening asks afresh: the last item's answer is not this one's.
+        if (Open && !_wasOpen)
+        {
+            _who = null;
+            _followUp = null;
+            _focusOnRender = true;
+        }
+
+        _wasOpen = Open;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusOnRender) return;
+
+        _focusOnRender = false;
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", WhoInputId, false);
+        }
+        catch (JSException)
+        {
+            // The field is still there to click.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (!CanConfirm) return;
+
+        var followUpOn = DateOnly.TryParseExact(_followUp, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : (DateOnly?)null;
+
+        if (await State.WaitingForAsync(_who!, followUpOn)) await OnOpenChangedAsync(false);
+    }
+
+    private Task OnOpenChangedAsync(bool open) => OpenChanged.InvokeAsync(open);
+}

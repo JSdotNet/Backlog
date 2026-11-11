@@ -204,6 +204,19 @@ public interface IInboxItems
     /// exactly once, and a failure on the Tasks side leaves it open.</summary>
     Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Waiting for (local ADR 0054 §4): routes the item as
+    /// <see cref="RouteToBacklogAsync(Guid, string?, InboxRouteScheduleDto?, CancellationToken)"/>
+    /// does — one task per repository, with <paramref name="schedule"/>'s due date
+    /// and My Day — every task carrying <paramref name="waitingFor"/>: who it
+    /// waits on and the optional follow-up date. A blank who, or one with a
+    /// backtick, answers <see cref="InboxErrors.WaitingForWhoRequiredCode"/> and
+    /// routes nothing. Its undo is Move to backlog's.</summary>
+    Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>To Brain: writes the item into the person's Brain as a new note
     /// — into <paramref name="folder"/>, a destination
     /// <see cref="ListBrainDestinationsAsync"/> listed, or the inbox area when it

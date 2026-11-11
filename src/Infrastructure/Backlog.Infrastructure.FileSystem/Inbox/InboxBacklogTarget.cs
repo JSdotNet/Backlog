@@ -411,6 +411,10 @@ internal sealed partial class InboxBacklogTarget(
     /// A completed date on the request — Done now — makes the entry <c>!done</c>
     /// and writes the tick as <c>completed:</c>, instead of <c>!draft</c>.
     /// </para>
+    /// <para>
+    /// A waiting-for on the request — Waiting for — becomes the
+    /// <c>waiting:</c> and <c>followup:</c> tokens on every entry it makes.
+    /// </para>
     /// </summary>
     internal static string Compose(
         InboxRouteRequestDto request,
@@ -452,6 +456,13 @@ internal sealed partial class InboxBacklogTarget(
         if (request.DueOn is { } dueOn) text.Append(" `due:").Append(EntryTextParser.DateToken(dueOn)).Append('`');
         if (request.InMyDayOn is { } inMyDayOn) text.Append(" `myday:").Append(EntryTextParser.DateToken(inMyDayOn)).Append('`');
         if (request.CompletedOn is { } completedOn) text.Append(" `completed:").Append(EntryTextParser.DateToken(completedOn)).Append('`');
+
+        // Waiting for: who the entry waits on and the follow-up day, through
+        // Tasks' own token writer so the spelling is the one its parser reads.
+        if (request.WaitingFor is { } waitingFor && WaitingFor.From(waitingFor.Who, waitingFor.FollowUpOn) is { } waiting)
+        {
+            foreach (var token in EntryTextParser.WaitingForTokens(waiting)) text.Append(" `").Append(token).Append('`');
+        }
 
         text.Append('\n');
 

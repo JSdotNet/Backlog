@@ -404,6 +404,72 @@ public sealed class RouteToBacklogTests
         Assert.Null(Assert.Single(target.Requests).CompletedOn);
     }
 
+    /// <summary>Waiting for (local ADR 0054 §4): Move to backlog's route — one
+    /// entry per repository, with the schedule — every entry carrying who it
+    /// waits on and the follow-up date.</summary>
+    [Fact]
+    public async Task Waiting_for_routes_like_move_to_backlog_with_the_waiting_for_on_every_entry()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Quote for the roof");
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        store.Seed(item);
+        var followUp = new DateOnly(2026, 12, 1);
+
+        var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto("  Sam\nthe roofer ", followUp), new InboxRouteScheduleDto(AddToMyDay: true));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(new InboxWaitingForDto("Sam the roofer", followUp), request.WaitingFor);
+        Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], request.RepoIds);
+        Assert.NotNull(request.InMyDayOn);
+        Assert.Null(request.CompletedOn);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+        Assert.Equal(result.Value.TaskIds, item.Routing!.TaskIds);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Sam `x`")]
+    public async Task Waiting_for_with_nobody_writable_routes_nothing(string who)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto(who));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, result.Error.Code);
+        Assert.Empty(target.Requests);
+        Assert.Null(item.Routing);
+    }
+
+    [Fact]
+    public async Task A_plain_route_carries_no_waiting_for()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id);
+
+        Assert.Null(Assert.Single(target.Requests).WaitingFor);
+    }
+
+    private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> WaitingFor(
+        InMemoryInboxStore store,
+        FakeBacklogTarget target,
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null) =>
+        new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
+            .Handle(new RouteToBacklogCommand(id, Schedule: schedule, WaitingFor: waitingFor), TestContext.Current.CancellationToken);
+
     private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> DoneNow(InMemoryInboxStore store, FakeBacklogTarget target, Guid id) =>
         new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
             .Handle(new RouteToBacklogCommand(id, DoneNow: true), TestContext.Current.CancellationToken);

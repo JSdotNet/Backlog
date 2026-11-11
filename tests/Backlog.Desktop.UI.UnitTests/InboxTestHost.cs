@@ -727,6 +727,40 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxRoutedDto(id, taskIds);
     }
 
+    /// <summary>Every Waiting for asked for, in order: the item, who it waits on
+    /// and the schedule it went with.</summary>
+    public List<(Guid Id, InboxWaitingForDto WaitingFor, InboxRouteScheduleDto? Schedule)> WaitingForRoutes { get; } = [];
+
+    /// <summary>The module's Waiting for, restated: refused through
+    /// <see cref="FailAct"/> under <c>"waiting-for"</c>, a blank who refused as
+    /// the module refuses it, else Move to backlog's route.</summary>
+    public async Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default)
+    {
+        WaitingForRoutes.Add((id, waitingFor, schedule));
+        if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("waiting-for", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
+        if (!waitingFor.IsValid) return Result.Failure<InboxRoutedDto>(InboxErrors.WaitingForWhoRequired);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        var taskIds = Enumerable.Range(0, Math.Max(1, item.RepoIds.Count)).Select(_ => Guid.NewGuid()).ToList();
+        OnRouted?.Invoke(item, taskIds);
+
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+        });
+
+        return new InboxRoutedDto(id, taskIds);
+    }
+
     /// <summary>Done now's undo, restated as a return that deletes its task,
     /// recorded as <c>"return-done"</c>.</summary>
     public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default)
