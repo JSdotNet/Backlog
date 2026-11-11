@@ -31,12 +31,16 @@
            behave: a new message has to be a new component instance rather than the
            previous one re-parameterised, or OnParametersSet would restart the timer
            of whichever toast happened to be at that position. *@
+        @* An offer is marked `toast--offer` so components.css stacks its words above
+           its button: a button label as long as the archive offer's, beside the words
+           in one row, squeezes them into columns a word or two wide. *@
         <Toast @key="message.Id"
                Title="@message.Title"
                Message="@message.Message"
                Severity="@message.Severity"
                DurationMilliseconds="@message.DurationMilliseconds"
                TestId="@message.TestId"
+               CssClass="@(message.HasAction ? "toast--offer" : null)"
                OnDismissed="() => Dismiss(message.Id)">
             @if (message.HasAction)
             {

@@ -302,6 +302,16 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         <ToastTray TestId="toast-tray" />
     </Story>
 
+    <Story Name="Offer toast"
+           Description="A toast that carries one button naming its act — the roadmap's archive offer, in its own words. An offer stacks its title, its sentence and then its button, with the dismiss control alone at the top right, so a label this long never squeezes the words into columns a word or two wide. It is drawn by the tray in the story above, the only one on the page."
+           Code="@OfferCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Secondary" TestId="publish-offer" OnClick="PublishOffer">
+                Publish offer
+            </AppButton>
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -451,6 +461,20 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         });
     }
 
+    private void PublishOffer() => Toasts.Publish(new ToastMessage
+    {
+        Title = "House move is done",
+        Message = "Its project note House move is still in the projects area.",
+        TestId = "storybook-offer",
+        DurationMilliseconds = ToastMessage.ErrorDuration,
+        ActionLabel = "Move the project note to the archive",
+        Action = () =>
+        {
+            Toasts.Publish(ToastMessage.Info("The offer's button was pressed."));
+            return Task.CompletedTask;
+        },
+    });
+
     private void RunSave() => _save.Touch();
 
     public void Dispose()
@@ -572,6 +596,21 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
 
         @code {
             private void Report(string message) => Toasts.Publish(ToastMessage.Error(message));
+        }
+        """;
+
+    private const string OfferCode = """
+        @inject IToastChannel Toasts
+
+        @code {
+            private void Offer() => Toasts.Publish(new ToastMessage
+            {
+                Title = "House move is done",
+                Message = "Its project note House move is still in the projects area.",
+                DurationMilliseconds = ToastMessage.ErrorDuration,
+                ActionLabel = "Move the project note to the archive",
+                Action = () => ArchiveAsync(),
+            });
         }
         """;
 }

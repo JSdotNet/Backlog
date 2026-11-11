@@ -9679,7 +9679,9 @@ button.tag-chip__label {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    max-width: 26rem;
+    max-width: min(26rem, calc(100vw - 2 * var(--spacing-lg)));
+    /* Never wider than the viewport leaves beside the host's two edge gaps, so a
+       toast on a 390px phone keeps both edges on screen. */
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -9706,6 +9708,35 @@ button.tag-chip__label {
    margin keeps it alone at the trailing edge. */
 .toast__action {
     flex-shrink: 0;
+}
+
+/* An offer stacks: title, sentence, then its button, each a full row of the first
+   column, with the dismiss control alone in the second column's first row. Its
+   button names its act in words, and a label that long beside the words in one row
+   squeezed them into columns a word or two wide (ToastTray marks the offer). */
+.toast--offer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--spacing-sm);
+    row-gap: var(--spacing-xs);
+}
+
+.toast--offer > .toast__title,
+.toast--offer > .toast__message {
+    grid-column: 1;
+}
+
+.toast--offer > .toast__action {
+    grid-column: 1;
+    justify-self: start;
+    margin-top: var(--spacing-xs);
+}
+
+.toast--offer > .toast__dismiss {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
 }
 
 .toast--success { background: var(--color-success); border-color: var(--color-border-strong); }
