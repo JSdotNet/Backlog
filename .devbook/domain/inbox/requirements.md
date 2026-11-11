@@ -1697,3 +1697,149 @@ The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, i
 - **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not taken in
 - **When** the reader opens it
 - **Then** the capture is shown with no button to route, defer, accept or archive it
+
+## Clarify outcomes
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+```
+
+> Local ADR 0054 decides these outcomes. None is built yet.
+
+### Requirement: S, n and w take Someday, Done now and Waiting for
+
+```meta
+type: requirement
+```
+
+The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w**, through the same act as the decision's button in the item's detail and in triage mode, and SHALL offer by key no act the detail withholds for that item.
+
+#### Scenario: Someday by key
+
+- **Given** an unprocessed item is chosen and the Brain has a `someday` area
+- **When** the reader presses s
+- **Then** the item is routed into the `someday` area, as the Someday button routes it
+
+#### Scenario: A routed item
+
+- **Given** an item already moved to the backlog is chosen
+- **When** the reader presses n or w
+- **Then** the item stays as it is and no task is made
+
+### Requirement: To Brain files where the destination picker points
+
+```meta
+type: requirement
+```
+
+The system SHALL offer To Brain a destination picker listing the Brain's areas and the active notes in its `projects` area, starting on the inbox area, and SHALL write the note into the area chosen, or beside the project note chosen.
+
+#### Scenario: The default
+
+- **Given** a Brain under the PARA default
+- **When** the reader routes an item To Brain without changing the picker
+- **Then** the note is written into `_inbox`
+
+#### Scenario: A project
+
+- **Given** a Brain whose `projects` area holds the note `projects/sync-rewrite.md`
+- **When** the reader routes an item To Brain with *sync-rewrite* chosen
+- **Then** the note is written into `projects/`, beside `sync-rewrite.md`, and the item leaves the queue as routed
+
+### Requirement: Someday routes To Brain into the someday area
+
+```meta
+type: requirement
+```
+
+The system SHALL route an item taken as Someday To Brain into the Brain's `someday` area, and SHALL offer Someday disabled, with its reason, while the Brain has no `someday` area.
+
+#### Scenario: A maybe
+
+- **Given** a capture titled "Learn to sail" and a Brain under the PARA default
+- **When** the reader takes Someday
+- **Then** `someday/` holds a note titled "Learn to sail" and the item has left the queue as routed
+
+#### Scenario: A Brain with its own areas
+
+- **Given** a `CONVENTIONS.md` declaring the areas `work` and `home` only
+- **When** the reader looks at the Someday button
+- **Then** it is disabled and says the Brain has no `someday` area
+
+### Requirement: Done now creates the task already ticked
+
+```meta
+type: requirement
+```
+
+The system SHALL route an item taken as Done now to a task created ticked, with today's date as its `completed:`, and mark the item routed once the task is saved.
+
+#### Scenario: Two minutes
+
+- **Given** a capture titled "Reply to Anna about Friday"
+- **When** the reader takes Done now on 2026-11-12
+- **Then** the backlog holds a task titled "Reply to Anna about Friday" ticked on 2026-11-12, and the item has left the queue as routed
+
+#### Scenario: Tasks refuses
+
+- **Given** the Tasks side fails to save the task
+- **When** the reader takes Done now
+- **Then** no task is made and the item stays in the queue, unrouted
+
+### Requirement: Waiting for creates the task with its waiting-for
+
+```meta
+type: requirement
+```
+
+The system SHALL route an item taken as Waiting for to a task carrying the waiting-for the reader names, who and an optional follow-up date, and mark the item routed once the task is saved.
+
+#### Scenario: A reply owed
+
+- **Given** a capture titled "Quote for the roof"
+- **When** the reader takes Waiting for, names "Jansen Roofing" and the follow-up date 2026-11-20
+- **Then** the backlog holds the task with `waiting:Jansen Roofing` and `followup:2026-11-20`, and the item has left the queue as routed
+
+### Requirement: Move to backlog may set a due date or My Day
+
+```meta
+type: requirement
+```
+
+The system SHALL let the reader set a due date or put the task in My Day as part of Move to backlog, and SHALL save the task with it in the same route.
+
+#### Scenario: Due on Friday
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader picks the due date 2026-11-13 and presses r
+- **Then** the task the item became is due on 2026-11-13
+
+#### Scenario: Today
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader ticks My Day and presses r
+- **Then** the task the item became is in today's My Day
+
+## Capture to Inbox over MCP
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+```
+
+> Local ADR 0054 decides the tool. It is not built yet.
+
+### Requirement: An assistant's capture lands in the Inbox
+
+```meta
+type: requirement
+```
+
+The system SHALL make an assistant's `capture_to_inbox` call a new unprocessed Inbox item with the title and notes it sends, and SHALL write nothing into the Brain.
+
+#### Scenario: Remind me
+
+- **Given** an assistant connected to the app's MCP server, with the Inbox pane's switch on
+- **When** it calls `capture_to_inbox` with the title "Call Anna about the invoice"
+- **Then** the queue holds an unprocessed item titled "Call Anna about the invoice", and the Brain's inbox area is unchanged

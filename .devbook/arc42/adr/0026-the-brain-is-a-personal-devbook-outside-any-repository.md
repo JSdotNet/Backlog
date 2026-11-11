@@ -39,6 +39,12 @@ disk are the tabs, and `CONVENTIONS.md` is an overlay with an `Ignore` list.
 > nothing else in the file. It may also move a finished project note into the
 > archive area on the person's press.
 
+> **Amended 2026-11-11 by
+> [ADR 0054](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)
+> (proposed).** [§2](#2-the-convention-lives-in-the-folder): the PARA default
+> set gains `someday`, after `projects`. [§3](#3-a-note-is-a-devbook-chapter-with-three-more-fields):
+> a note may carry a `review` date, which the app reads and never writes.
+
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
 
@@ -123,8 +129,9 @@ in two groups:
 
 1. **Declared areas come first.** They are the areas the `## Areas` section of
    `CONVENTIONS.md` lists, in its order. When it declares none, the PARA set
-   applies: `_inbox`, `projects`, `areas`, `resources`, `people`, `journal` and
-   `archive`. A declared area keeps its tab when its folder is empty or missing,
+   applies: `_inbox`, `projects`, `someday` (since ADR 0054), `areas`,
+   `resources`, `people`, `journal` and `archive`. A declared area keeps its
+   tab when its folder is empty or missing,
    so capture always has a target.
 2. **Discovered areas follow.** Every other top folder that holds at least one
    Markdown note, at any depth, is an area too. Its tab is named after the
@@ -172,6 +179,9 @@ It adds three fields:
 
 The person and their agent write these fields. Since ADR 0052 the app may also
 append a task id to an existing note's `tasks` field.
+
+Since ADR 0054 a note may also carry a `review` date, which the weekly review
+reads. The app never writes it.
 
 ### 4. The database is built into app storage, never into the folder
 
@@ -313,6 +323,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended by ADR 0054: the PARA default set gains `someday` (§2), and a note may carry a `review` date (§3). | GTD needs a home for possibilities and a date to look at a note again. |
 | 2026-11-11 | Amended by ADR 0052: the app may append a task id to an existing note's `tasks` field (§3). | Picking up a note into a task needs the link at the note's end too. |
 | 2026-10-13 | The Brain is one personal devbook folder per user, outside every repository. | A person's notes span repositories, so a folder per repository splits them. |
 | 2026-08-03 | A `.brain/` dot-folder at workspace, repository and project level. | Every scope carried the same dot-folder contract. |
