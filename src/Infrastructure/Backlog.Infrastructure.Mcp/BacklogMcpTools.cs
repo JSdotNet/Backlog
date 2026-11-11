@@ -247,7 +247,8 @@ public static class BacklogMcpTools
         ]);
 
     /// <summary>
-    /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
+    /// The goal tools: read the goals and the iterations they are read over, set, edit and
+    /// delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
     /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
@@ -258,6 +259,7 @@ public static class BacklogMcpTools
         typeof(GoalTools),
         [
             GoalTools.ListGoals,
+            GoalTools.ReadIterations,
             GoalTools.CreateGoal,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
