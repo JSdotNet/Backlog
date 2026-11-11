@@ -1,0 +1,128 @@
+@page "/events"
+@using Backlog.Mobile.UI.Components.Events
+@using Backlog.Mobile.UI.Events
+@inject EventViewProjection EventView
+@inject AppLifecycle Lifecycle
+@implements IDisposable
+
+<PageTitle>Events</PageTitle>
+
+@*
+    The Events tab (.devbook/domain/events/features.md#events-on-the-phone): the
+    upcoming knowledge events the paired desktops track, the soonest first, then
+    the ones with no dates yet. A Skipped event and one that is over are left off.
+    Each row is the event's title, its state, when it runs and where, and opens
+    the event's detail.
+
+    Read only. The phone never changes an event: the desktop does, and the next
+    pull brings it here. The feed is pulled when the page opens and whenever the
+    app comes back to the front; what the phone last pulled is drawn first, so a
+    phone with no signal at the venue still shows it.
+*@
+
+@{
+    var upcoming = EventView.Upcoming();
+}
+
+<header class="events-heading">
+    <span class="events-heading__lede" data-testid="events-lede">@Lede(upcoming.Count)</span>
+    @* The tab bar names the page on screen; the heading is kept for screen readers. *@
+    <h1 class="sr-only">Events</h1>
+    <IconButton AriaLabel="Refresh events" Title="Refresh events" Disabled="_pulling"
+                OnClick="PullAsync" CssClass="events-heading__refresh" TestId="events-refresh">
+        <RefreshCwIcon Size="16" />
+    </IconButton>
+</header>
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="events-pull-notice" />
+}
+
+<section class="events" aria-label="Upcoming events">
+    @if (upcoming.Count == 0)
+    {
+        @if (_pulled || EventView.HoldsAny)
+        {
+            <EmptyState Title="No upcoming events"
+                        Description="Events you are considering or going to on the desktop show up here."
+                        TestId="events-none" />
+        }
+        else
+        {
+            <Spinner Label="Loading events" />
+        }
+    }
+    else
+    {
+        <ul class="events__list" data-testid="events-list">
+            @foreach (var item in upcoming)
+            {
+                <li @key="item.Id">
+                    @* The library's tappable row: a title with a word beside it — here the
+                       event's state — and one line under it, when and where. *@
+                    <NoteRow Title="@item.Title" When="@EventText.StateLabel(item.State)" Snippet="@EventText.Line(item)"
+                             Href="@EventText.Href(item.Id)" CssClass="events__row" TestId="event-row"
+                             data-state="@item.State.ToString().ToLowerInvariant()" />
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    private bool _pulling;
+    private bool _pulled;
+    private string? _pullNotice;
+
+    private static string Lede(int count) => count switch
+    {
+        0 => "Nothing coming up",
+        1 => "1 upcoming event",
+        _ => $"{count} upcoming events"
+    };
+
+    protected override void OnInitialized()
+    {
+        EventView.Changed += OnChanged;
+        Lifecycle.Resumed += OnResumed;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await PullAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(PullAsync);
+
+    private async Task PullAsync()
+    {
+        if (_pulling) return;
+        _pulling = true;
+        StateHasChanged();
+
+        try
+        {
+            await EventView.PullAsync();
+            _pullNotice = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _pullNotice = $"{SyncPullFailure.Reason(ex)} Showing events as this phone last saw them.";
+        }
+        finally
+        {
+            _pulling = false;
+            _pulled = true;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        EventView.Changed -= OnChanged;
+        Lifecycle.Resumed -= OnResumed;
+    }
+}

@@ -1024,6 +1024,7 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",

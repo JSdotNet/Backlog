@@ -17,8 +17,12 @@ namespace Backlog.Infrastructure.Sqlite.Events;
 /// (local ADR 0006). A document that will not parse is skipped rather than rewritten.
 /// <c>created_at</c> is stamped on the first save and kept; <c>updated_at</c> on every save.
 /// </para>
+/// <para>
+/// It also answers <see cref="IEventSeriesReplicaStore"/> over the same rows, on
+/// <see cref="SqliteKnowledgeEventRepository"/>'s terms.
+/// </para>
 /// </summary>
-public sealed class SqliteEventSeriesRepository : IEventSeriesRepository
+public sealed class SqliteEventSeriesRepository : IEventSeriesRepository, IEventSeriesReplicaStore
 {
     private readonly string _databasePath;
     private readonly TimeProvider _clock;
@@ -72,9 +76,9 @@ public sealed class SqliteEventSeriesRepository : IEventSeriesRepository
         ArgumentNullException.ThrowIfNull(series);
 
         var document = JsonSerializer.Serialize(EventSeriesDocument.From(series), EventSeriesDocument.JsonOptions);
-        var now = Stamp(_clock.GetUtcNow());
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        var now = Stamp(await NextStampAsync(connection, series.Id, cancellationToken).ConfigureAwait(false));
         await using var command = connection.CreateCommand();
 
         // created_at is left out of the update, so the first save's stamp is the one kept.
@@ -93,6 +97,83 @@ public sealed class SqliteEventSeriesRepository : IEventSeriesRepository
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task<IReadOnlyList<StoredEventSeries>> ListChangedSinceAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText =
+            "SELECT document, updated_at FROM events_series WHERE updated_at > $since ORDER BY updated_at, id;";
+        command.Parameters.AddWithValue("$since", Stamp(since));
+
+        var changed = new List<StoredEventSeries>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (Parse(reader.GetString(0)) is { } series)
+            {
+                changed.Add(new StoredEventSeries(series, ReadStamp(reader.GetString(1))));
+            }
+        }
+
+        return changed;
+    }
+
+    public async Task<bool> SaveReplicatedAsync(
+        EventSeries series,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(series);
+
+        var document = JsonSerializer.Serialize(EventSeriesDocument.From(series), EventSeriesDocument.JsonOptions);
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        // The latest-write-wins rule in the statement that writes, as for knowledge events.
+        command.CommandText =
+            """
+            INSERT INTO events_series (id, created_at, updated_at, document)
+            VALUES ($id, $now, $stamp, $document)
+            ON CONFLICT(id) DO UPDATE SET
+                updated_at = excluded.updated_at,
+                document = excluded.document
+            WHERE excluded.updated_at > events_series.updated_at;
+            """;
+
+        command.Parameters.AddWithValue("$id", Key(series.Id));
+        command.Parameters.AddWithValue("$now", Stamp(_clock.GetUtcNow()));
+        command.Parameters.AddWithValue("$stamp", Stamp(updatedAt));
+        command.Parameters.AddWithValue("$document", document);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+    }
+
+    /// <summary>Now, but never at or before the stamp the row already holds, for the reason
+    /// <see cref="SqliteKnowledgeEventRepository"/> gives.</summary>
+    private async Task<DateTimeOffset> NextStampAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
+    {
+        var stamp = _clock.GetUtcNow();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT updated_at FROM events_series WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", Key(id));
+
+        if (await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string stored)
+        {
+            var held = ReadStamp(stored);
+            if (stamp <= held) stamp = held.AddTicks(1);
+        }
+
+        return stamp;
+    }
+
+    private static DateTimeOffset ReadStamp(string stamp) =>
+        DateTimeOffset.Parse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
 
     /// <summary>The stored series, or null for a document this build cannot read.</summary>
     private static EventSeries? Parse(string document)

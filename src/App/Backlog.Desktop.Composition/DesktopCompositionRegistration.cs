@@ -283,6 +283,8 @@ public static class DesktopCompositionRegistration
         // Devbook subject state's progress sits beside the annotation progress, in its
         // own file: the folder is the per-installation one, the feed is separate.
         services.AddDevbookSubjectSyncStore(options.AnnotationSyncFolder);
+        // And the knowledge event feed's (local ADR 0050 §2), beside them in its own file.
+        services.AddKnowledgeEventSyncStore(options.AnnotationSyncFolder);
         services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
@@ -549,6 +551,10 @@ public static class DesktopCompositionRegistration
         // And devbook subject state, the annotations' sibling: the states the panels and
         // the MCP tools set travel to this person's other desktops on the same switch.
         services.AddDevbookSubjectSyncClient(SyncServiceAddress);
+        // And knowledge events and their series (local ADR 0050 §2): each desktop pushes what
+        // it saved and takes the later copy of what another saved, and the phone reads the
+        // same feed. Answers to the sync switch and to the events switch.
+        services.AddKnowledgeEventSyncClient(SyncServiceAddress);
 
         // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two

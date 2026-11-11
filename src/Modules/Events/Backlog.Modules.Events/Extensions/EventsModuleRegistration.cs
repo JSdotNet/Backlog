@@ -38,6 +38,14 @@ public static class EventsModuleRegistration
         // but that port. TryAdd, so a second call adds nothing.
         services.TryAddSingleton<IKnowledgeEventReader, KnowledgeEventReader>();
 
+        // The replication port the sync client's knowledge event exchange reads and writes
+        // through (local ADR 0050 §2), over the host's replica stores when it registered them.
+        services.TryAddSingleton<IKnowledgeEventReplication, KnowledgeEventReplication>();
+
+        // Where the sync client applies the phone's attachment requests (local ADR 0050 §3):
+        // a Talk note linked to an event, over the host's event repository.
+        services.TryAddSingleton<IEventAttachmentRequests, EventAttachmentRequests>();
+
         return services;
     }
 }

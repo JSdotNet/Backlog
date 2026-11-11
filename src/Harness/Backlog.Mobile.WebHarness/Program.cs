@@ -96,6 +96,15 @@ if (app.Configuration.GetValue("Harness:SeedStandup", false))
     await StandupSeed.SeedAsync(app.Services, app.Services.GetRequiredService<TimeProvider>());
 }
 
+// Knowledge events to look at without a desktop that has its events feature on: a series and
+// events coming up, undated, over and Skipped, written into this device's event view before
+// anything reads it, and only while it holds nothing. Off unless the configuration turns it on,
+// which appsettings.Development.json does.
+if (app.Configuration.GetValue("Harness:SeedEvents", false))
+{
+    await EventsSeed.SeedAsync(app.Services, app.Services.GetRequiredService<TimeProvider>());
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
