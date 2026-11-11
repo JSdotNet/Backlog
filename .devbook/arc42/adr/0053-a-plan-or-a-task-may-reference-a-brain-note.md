@@ -17,7 +17,9 @@ Tag.
 ```meta
 ```
 
-Proposed, 2026-11-11. Not yet built. The repository owner settled it as changes
+Proposed, 2026-11-11. The plan side is built: a Roadmap Item's Knowledge Ref,
+Import's `devbook:` token on a `plan` entry, gathering by tag, and the item's
+Brain chips. The task side is not yet built. The repository owner settled it as changes
 C8 and C11 of the GTD and PARA exploration of 2026-10-29, the "pick up from the
 Brain" slice.
 
@@ -207,3 +209,4 @@ Look for tests that show these behaviours:
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-11 | Proposed: a Knowledge Ref and a task's Devbook references may name a Brain note as `#brain:<path>`, resolved for the owner only. | Picking up a note into a task or plan needs the link from the work to the note too (C8, C11, 2026-10-29). |
+| 2026-11-11 | The plan side built: Knowledge Ref, Import's `plan` entry `devbook:` token (ADR 0013 amended), gathering by tag, Brain chips. | Plan entry gtd-para:14. |

@@ -26,6 +26,10 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// placement opens the window on the first worked day on or after the latest of it, today
 /// and the day after the predecessors end, sizes it as it would from today, and leaves it
 /// as the person's placement: the keep-up projection no longer moves it.</param>
+/// <param name="KnowledgeRefs">The entry's <c>devbook:</c> values — a repository chapter
+/// or a Brain address (a Knowledge Ref may hold one, local ADR 0053 §2) — set as the item's Knowledge Refs when the
+/// import creates it. A re-import leaves an existing item's refs alone (ADR 0013,
+/// ruling 5).</param>
 public sealed record PlanImportEntryDto(
     string Title,
     string? Tag,
@@ -35,7 +39,8 @@ public sealed record PlanImportEntryDto(
     DateOnly? Due = null,
     IReadOnlyList<string>? After = null,
     string? Notes = null,
-    DateOnly? Start = null);
+    DateOnly? Start = null,
+    IReadOnlyList<string>? KnowledgeRefs = null);
 
 /// <summary>
 /// What the caller already knows about the work gathered under one plan tag: the

@@ -193,11 +193,13 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/dom
 flowchart TD
     Item["Roadmap Item<br/>(tag, task_id, knowledge_refs)"]
     Item --> Named["By name:<br/>the named task + listed knowledge_refs"]
-    Item --> Tagged["By tag:<br/>tasks filed under the tag + chapters whose roadmap list names it"]
+    Item --> Tagged["By tag:<br/>tasks filed under the tag + chapters and Brain notes whose roadmap list names it"]
     Tasks["Tasks<br/>(supplier)"] -.-> Tagged
     Tasks -.-> Named
     Devbook["Devbook<br/>(supplier)"] -.-> Tagged
     Devbook -.-> Named
+    Brain["Brain<br/>(supplier, owner only)"] -.-> Tagged
+    Brain -.-> Named
     Named --> Dedup["Merge: reached both ways is counted once,<br/>and recorded as reached both ways"]
     Tagged --> Dedup
     Dedup --> Total["Total registered effort:<br/>sum of registered story points only"]
@@ -217,6 +219,12 @@ Something reached both ways is shown once and marked, so a person about to remov
 a link sees whether the tag would still hold the work. The item reports
 **how many gathered things carry no estimate** beside its
 [total registered effort](domain.md#effort), so a small total cannot hide a pile of unsized work.
+
+The Brain's owner also gathers the Brain notes the item names as
+`#brain:<path>` and those whose `roadmap` list names its tag. The item's detail
+shows them as their own group of Brain chips, each opening its note in the
+Brain. A note this device cannot read is listed by its address, unresolved, and
+says why (local ADR 0053).
 
 ## Priority planning
 

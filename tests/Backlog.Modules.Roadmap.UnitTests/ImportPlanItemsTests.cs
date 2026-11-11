@@ -110,6 +110,34 @@ public class ImportPlanItemsTests
         Assert.Empty(result.Updated);
     }
 
+    /// <summary>A Knowledge Ref may hold a Brain address (local ADR 0053 §2), so an entry's <c>devbook:</c> tokens, a Brain address
+    /// among them, become the new item's Knowledge Refs, as written.</summary>
+    [Fact]
+    public async Task ANewItem_TakesTheEntrysKnowledgeRefs_BrainAddressesIncluded()
+    {
+        await ImportedAsync([Entry("plan-a") with
+        {
+            KnowledgeRefs = [".devbook/domain/tasks/domain.md#task", "#brain:projects/sync.md"]
+        }]);
+
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", "#brain:projects/sync.md"], Stored("plan-a").KnowledgeRefs.Refs);
+    }
+
+    /// <summary>ADR 0013 ruling 5 does not list the chapters among what a re-import
+    /// replaces: the refs a person set on an existing item are theirs, and a document
+    /// naming others leaves them as they are.</summary>
+    [Fact]
+    public async Task AReimport_LeavesAnExistingItemsKnowledgeRefsAlone()
+    {
+        await ImportedAsync([Entry("plan-a") with { KnowledgeRefs = ["#brain:projects/sync.md"] }]);
+
+        await ImportedAsync([Entry("plan-a", "Renamed") with { KnowledgeRefs = ["#brain:projects/other.md"] }]);
+
+        var item = Stored("plan-a");
+        Assert.Equal("Renamed", item.Title);
+        Assert.Equal(["#brain:projects/sync.md"], item.KnowledgeRefs.Refs);
+    }
+
     [Fact]
     public async Task NothingGathered_TheItemStartsTodayForTheDefaultSpan()
     {

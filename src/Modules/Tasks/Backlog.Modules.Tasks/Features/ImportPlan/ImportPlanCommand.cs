@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -135,6 +136,7 @@ public sealed class ImportPlanCommandHandler(
         if (parsedAll.Count == 0) return EmptyPlan;
         if (FirstDuplicateItemId(parsedEntries) is { } duplicate) return DuplicateItemId(duplicate);
         if (FirstInvalidDevbookReference(parsedEntries) is { } invalid) return InvalidDevbookReference(invalid);
+        if (FirstInvalidKnowledgeReference(planEntries) is { } invalidOnPlan) return InvalidDevbookReference(invalidOnPlan);
 
         // Each level resolves after: against its own ids only. A task naming a
         // `plan` entry would otherwise be stored as a dependency on an id no task
@@ -431,7 +433,8 @@ public sealed class ImportPlanCommandHandler(
                 plan.Priority,
                 plan.DueOn,
                 after,
-                string.IsNullOrWhiteSpace(plan.Body) ? null : plan.Body));
+                string.IsNullOrWhiteSpace(plan.Body) ? null : plan.Body,
+                KnowledgeRefs(plan.DevbookReferences)));
         }
 
         var taskTags = taskEntries
@@ -725,6 +728,36 @@ public sealed class ImportPlanCommandHandler(
         parsedEntries
             .SelectMany(parsed => parsed.DevbookReferences ?? [])
             .FirstOrDefault(reference => !TaskDevbookReference.TryParse(reference, out _));
+
+    /// <summary>
+    /// The first <c>devbook:</c> value a <c>plan</c> entry that will be laid out wrote
+    /// that names neither a page nor a note in the Brain, or null when every one does.
+    /// A plan entry may name a Brain note, since a Knowledge Ref may hold one (local
+    /// ADR 0053 §2); a task entry may not yet, so
+    /// <see cref="FirstInvalidDevbookReference"/> still refuses one there.
+    /// <para>
+    /// Only the entries with exactly one plan tag are asked: the others are skipped and
+    /// reported, and their tokens are never stored, so one of them cannot refuse a
+    /// document whose tasks would otherwise go down.
+    /// </para>
+    /// </summary>
+    private static string? FirstInvalidKnowledgeReference(IReadOnlyList<EntryTextParser.ParsedEntry> planEntries) =>
+        planEntries
+            .Where(parsed => PlanTags(parsed.Tags).Count == 1)
+            .SelectMany(parsed => parsed.DevbookReferences ?? [])
+            .FirstOrDefault(reference => !BrainNoteAddress.TryParse(reference, out _) && !TaskDevbookReference.TryParse(reference, out _));
+
+    /// <summary>
+    /// A <c>plan</c> entry's <c>devbook:</c> values as the item's Knowledge Refs, in
+    /// the order written: a repository chapter in the spelling a task stores, a Brain
+    /// address as the person wrote it. Already checked by
+    /// <see cref="FirstInvalidKnowledgeReference"/>, so each one reads.
+    /// </summary>
+    private static IReadOnlyList<string> KnowledgeRefs(IReadOnlyList<string>? references) =>
+        [.. (references ?? [])
+            .Select(reference => BrainNoteAddress.Is(reference)
+                ? reference.Trim()
+                : TaskDevbookReference.TryParse(reference, out var chapter) ? chapter.Value : reference.Trim())];
 
     /// <summary>The one plan tag every parsed entry has in common — the
     /// <c>+tag</c> written with its sigil, or for a legacy plan the bare

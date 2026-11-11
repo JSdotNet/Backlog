@@ -62,7 +62,8 @@ public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
             ToPlanning(entry.Priority),
             entry.Due,
             entry.After,
-            entry.Notes);
+            entry.Notes,
+            KnowledgeRefs: entry.KnowledgeRefs);
 
     /// <summary>The plan holds the bare slug; the backlog stores it as <c>+slug</c>.</summary>
     private static string Lift(string tag) => tag.StartsWith('+') ? tag[1..] : tag;
