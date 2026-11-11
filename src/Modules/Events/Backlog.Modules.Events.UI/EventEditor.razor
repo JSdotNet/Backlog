@@ -642,7 +642,7 @@
     /// two new rows never share an empty name.</summary>
     private static string KeyDateRemoveName(KeyDateDraft row) =>
         !string.IsNullOrWhiteSpace(row.Label) ? $"Remove the key date {row.Label}"
-        : EventPresentation.ParseDate(row.Date) is { } date ? $"Remove the key date on {EventPresentation.Day(new EventDayDto(date))}"
+        : EventPresentation.ParseDate(row.Date) is { } date ? $"Remove the key date on {EventPresentation.Day(new EventDateDto(date))}"
         : "Remove this key date";
 
     private void AddKeyDate() => _keyDates.Add(new KeyDateDraft(string.Empty, string.Empty));

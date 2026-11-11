@@ -40,8 +40,10 @@ public class InfrastructureGraphTests
             + "its merged pull requests across a restart, the Progress adapter under Progress/ that reads "
             + "goal pull requests through its contract, and the Tasks adapter under Tasks/ that answers the "
             + "task row's pull-request port through the same contract (local ADR 0042). The eleventh is "
-            + "Events' published surface, for the cross-context join under Events/ that files an event's "
-            + "prep tasks and reads its task chips through Tasks' ITaskItems (local ADR 0050 §3)."),
+            + "Events' published surface, for the Inbox's To Event route under Inbox/, which makes a Spotted "
+            + "knowledge event through IKnowledgeEvents beside the Inbox's other routes, and for the "
+            + "cross-context join under Events/ that files an event's prep tasks and reads its task chips "
+            + "through Tasks' ITaskItems (local ADR 0050 §3)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "

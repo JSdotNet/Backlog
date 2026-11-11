@@ -86,7 +86,7 @@ internal sealed class EventsPane(
     public Task<Result<KnowledgeEventDto>> SkipAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.Skip(reason), cancellationToken);
 
-    public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDayDto? start, EventDayDto? end, CancellationToken cancellationToken = default) =>
+    public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
         {
             var from = ToDate(start);
@@ -373,9 +373,9 @@ internal sealed class EventsPane(
 
     private static EventSeriesDto SeriesDto(EventSeries s) => new(s.Id, s.Name, s.Organiser, s.Link);
 
-    private static EventDayDto? Day(EventDate? date) => date is null ? null : new EventDayDto(date.Date, date.Time, date.UtcOffset);
+    private static EventDateDto? Day(EventDate? date) => date is null ? null : new EventDateDto(date.Date, date.Time, date.UtcOffset);
 
-    private static Result<EventDate?> ToDate(EventDayDto? day)
+    private static Result<EventDate?> ToDate(EventDateDto? day)
     {
         if (day is null) return Result.Success<EventDate?>(null);
 

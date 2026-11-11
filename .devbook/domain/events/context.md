@@ -46,8 +46,9 @@ flowchart LR
 
 The Knowledge Event and Event Series aggregates and the Events pane are built in
 `Backlog.Modules.Events`, with prep tasks, behind the `events` flag. Each desktop keeps the
-aggregates as documents in a store of its own. The To Event route, the harvest task, the phone and
-sync are not built yet. These chapters are the model those changes build, decided in local
+aggregates as documents in a store of its own. The Inbox's To Event route makes Spotted events
+through `IKnowledgeEvents`. The harvest task, the phone and sync are not built yet. These chapters
+are the model those changes build, decided in local
 [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
 Tasks and the Brain know no event. The event holds the task ids and note links,

@@ -85,7 +85,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     public async Task Dates_the_person_types_are_saved_as_typed()
     {
         var id = await Add("dotNET Friday");
-        var start = new EventDayDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet);
+        var start = new EventDateDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet);
 
         var dated = await Pane.SetDatesAsync(id, start, null, Token);
 
@@ -109,7 +109,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     {
         var id = await Add("Techorama Belgium");
 
-        var dated = await Pane.SetDatesAsync(id, new EventDayDto(new DateOnly(2026, 10, 28)), new EventDayDto(new DateOnly(2026, 10, 26)), Token);
+        var dated = await Pane.SetDatesAsync(id, new EventDateDto(new DateOnly(2026, 10, 28)), new EventDateDto(new DateOnly(2026, 10, 26)), Token);
 
         Assert.Equal("knowledge_event.dates_out_of_order", dated.Error.Code);
         Assert.Null((await Pane.GetAsync(id, Token)).Value.Start);
@@ -120,7 +120,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     {
         var id = await Add("dotNET Friday");
 
-        var dated = await Pane.SetDatesAsync(id, new EventDayDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30)), null, Token);
+        var dated = await Pane.SetDatesAsync(id, new EventDateDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30)), null, Token);
 
         Assert.Equal("event_date.offset_missing", dated.Error.Code);
     }

@@ -37,7 +37,7 @@ public interface IEventsPane
 
     /// <summary>Sets the dates the person typed, with date source Typed, or clears them with a
     /// null start and end.</summary>
-    Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDayDto? start, EventDayDto? end, CancellationToken cancellationToken = default);
+    Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default);
 
     Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default);
 

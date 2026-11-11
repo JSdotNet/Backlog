@@ -1,3 +1,6 @@
+using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Services;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -7,10 +10,15 @@ namespace Backlog.Modules.Events.Extensions;
 /// The module's composition root (guideline ADR 0005, local ADR 0050 §7). A host calls
 /// <see cref="AddEventsModule"/> once.
 /// <para>
-/// The module publishes no port yet: no pane or other context reads it. The repositories,
-/// <see cref="IKnowledgeEventRepository"/> and <see cref="IEventSeriesRepository"/>, are the
-/// host's to register — today the <c>events_*</c> tables in <c>backlog.db</c> — as
-/// <c>INotificationRepository</c> is.
+/// The module publishes <see cref="IKnowledgeEvents"/>, the contract the Inbox's To Event route
+/// reaches Events through. The repositories, <see cref="IKnowledgeEventRepository"/> and
+/// <see cref="IEventSeriesRepository"/>, are the host's to register — today the
+/// <c>events_*</c> tables in <c>backlog.db</c> — as <c>INotificationRepository</c> is. Both are
+/// singletons there, so the contract over them is one too.
+/// </para>
+/// <para>
+/// It also publishes <see cref="IEventsPane"/>, the Events pane's port. That one is Scoped,
+/// one per window, because it holds Tasks' scoped port through <see cref="IEventTaskTarget"/>.
 /// </para>
 /// </summary>
 public static class EventsModuleRegistration
@@ -20,7 +28,8 @@ public static class EventsModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddScoped<Abstractions.IEventsPane, Services.EventsPane>();
+        services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
+        services.TryAddScoped<IEventsPane, EventsPane>();
 
         return services;
     }

@@ -1313,6 +1313,53 @@ public sealed class InboxDesktopState : IDisposable
     /// <summary>The test id of the toast a refused To Brain raises.</summary>
     internal const string BrainErrorTestId = "inbox-brain-error";
 
+    /// <summary>
+    /// To Event: makes the selected item a Spotted knowledge event and moves on,
+    /// as To Brain does (<c>.devbook/domain/inbox/features.md#route-to-event</c>).
+    /// Nothing happens while the Events area is off, because the route is not
+    /// offered. A failure on Events' side is said in a toast and the item stays.
+    /// Its undo returns the item to the queue; the event stays in Events.
+    /// </summary>
+    public async Task RouteToEventAsync()
+    {
+        if (!ToEventOffered || SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var routed = await _inbox.RouteToEventAsync(item.Id);
+            if (Report(routed, EventErrorTestId)) return;
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToEvent, ToEventLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            _toasts?.Publish(ToastMessage.Info($"Spotted \"{ItemTitle(item)}\" as an event.", "inbox-event-routed"));
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>To Event's name, on its button and its undo.</summary>
+    public const string ToEventLabel = "To Event";
+
+    /// <summary>What the To Event buttons say on hover: the act and its key.</summary>
+    public const string ToEventTitle = "Track it as a knowledge event (e)";
+
+    /// <summary>Whether To Event is offered: while the Events area is on. Asked on
+    /// render, so switching the flag shows or withdraws the route at once.</summary>
+    public bool ToEventOffered => _inbox.ToEventOffered;
+
+    /// <summary>The test id of the toast a refused To Event raises.</summary>
+    internal const string EventErrorTestId = "inbox-event-error";
+
     /// <summary>Asks the drafter for a plan about the selected item and imports
     /// it. Refused up front when the drafter is unavailable — the button is
     /// disabled then, but a keyboard can still reach a disabled act's handler
@@ -2158,6 +2205,7 @@ public sealed class InboxDesktopState : IDisposable
             InboxMoveUndoStep => item?.ListId is { } listId ? FindList(listId)?.Name ?? "a list" : "Inbox",
             InboxRouteUndoStep { Kind: InboxDecisionKind.LinkToTask } => "Linked to a task",
             InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain } => "Brain",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.ToEvent } => "Event",
             InboxRouteUndoStep => "Backlog",
             _ => step.Label,
         };
@@ -2314,6 +2362,7 @@ public sealed class InboxDesktopState : IDisposable
         (InboxDecisionKind.Archive, "archived"),
         (InboxDecisionKind.MergeIntoTask, "merged"),
         (InboxDecisionKind.ToBrain, "kept in your Brain"),
+        (InboxDecisionKind.ToEvent, "spotted as events"),
     ];
 
     /// <summary>Every decision this session made and kept, of every kind.</summary>

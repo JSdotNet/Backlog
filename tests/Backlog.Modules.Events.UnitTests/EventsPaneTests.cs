@@ -81,9 +81,9 @@ public sealed class EventsPaneTests : EventsPaneFixture
     public async Task An_event_still_running_today_counts_as_upcoming_and_one_that_ended_yesterday_as_past()
     {
         var running = await Add("Running since yesterday");
-        Assert.True((await Pane.SetDatesAsync(running, new EventDayDto(new DateOnly(2026, 11, 9)), new EventDayDto(new DateOnly(2026, 11, 10)), Token)).IsSuccess);
+        Assert.True((await Pane.SetDatesAsync(running, new EventDateDto(new DateOnly(2026, 11, 9)), new EventDateDto(new DateOnly(2026, 11, 10)), Token)).IsSuccess);
         var ended = await Add("Ended yesterday");
-        Assert.True((await Pane.SetDatesAsync(ended, new EventDayDto(new DateOnly(2026, 11, 8)), new EventDayDto(new DateOnly(2026, 11, 9)), Token)).IsSuccess);
+        Assert.True((await Pane.SetDatesAsync(ended, new EventDateDto(new DateOnly(2026, 11, 8)), new EventDateDto(new DateOnly(2026, 11, 9)), Token)).IsSuccess);
         await Dated("Next month", new DateOnly(2026, 12, 4));
         await Add("Undated");
 

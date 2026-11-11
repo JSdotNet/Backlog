@@ -60,4 +60,9 @@ public sealed record InboxRoutingDto(
     RoutingDomain Domain,
     IReadOnlyList<string> RepoIds,
     IReadOnlyList<Guid> TaskIds,
-    DateTimeOffset RoutedAt);
+    DateTimeOffset RoutedAt)
+{
+    /// <summary>The knowledge event an item routed To Event became, or null for
+    /// every other route. A member so every other caller builds it as before.</summary>
+    public Guid? EventId { get; init; }
+}

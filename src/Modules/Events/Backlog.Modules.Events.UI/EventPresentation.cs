@@ -82,14 +82,14 @@ public static class EventPresentation
     };
 
     /// <summary>A day as the list reads it: <c>27 Nov 2026</c>, with its time when known.</summary>
-    public static string Day(EventDayDto day)
+    public static string Day(EventDateDto day)
     {
         var date = day.Date.ToString("d MMM yyyy", Invariant);
         return day.Time is { } time ? $"{date} {time.ToString("HH:mm", Invariant)}" : date;
     }
 
     /// <summary>When the event runs, in words: a day, a range, or that it is not known yet.</summary>
-    public static string When(EventDayDto? start, EventDayDto? end)
+    public static string When(EventDateDto? start, EventDateDto? end)
     {
         if (start is null) return "Date not known";
         if (end is null || end == start) return Day(start);
@@ -125,15 +125,15 @@ public static class EventPresentation
     /// when a time is given (OQ-12): a typed time is the desktop's local time. Null when the date
     /// field holds no date.
     /// </summary>
-    public static EventDayDto? DayOf(string? dateText, string? timeText, TimeZoneInfo zone)
+    public static EventDateDto? DayOf(string? dateText, string? timeText, TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(zone);
 
         if (ParseDate(dateText) is not { } date) return null;
-        if (ParseTime(timeText) is not { } time) return new EventDayDto(date);
+        if (ParseTime(timeText) is not { } time) return new EventDateDto(date);
 
         var offset = zone.GetUtcOffset(date.ToDateTime(time, DateTimeKind.Unspecified));
-        return new EventDayDto(date, time, offset);
+        return new EventDateDto(date, time, offset);
     }
 
     /// <summary>An offset as the time field's help text says it: <c>UTC+01:00</c>.</summary>

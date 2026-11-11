@@ -37,7 +37,8 @@ public sealed class InboxEnumMapTests
     {
         { RoutingDomain.Tasks, "tasks" },
         { RoutingDomain.Devbook, "devbook" },
-        { RoutingDomain.Archive, "archive" }
+        { RoutingDomain.Archive, "archive" },
+        { RoutingDomain.Events, "events" }
     };
 
     [Theory]

@@ -7,7 +7,7 @@ related: [.devbook/domain/events/features.md]
 
 > What Events guarantees, one chapter per feature. Each requirement is one SHALL
 > sentence with the scenarios that prove it, and names its tests once it is built.
-> The Events pane and prep tasks are built.
+> The Events pane, prep tasks and the To Event route are built.
 
 ## Events pane
 
@@ -139,6 +139,7 @@ related: [.devbook/domain/events/features.md#to-event-route]
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.A_routed_item_becomes_a_Spotted_event_with_its_title_and_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.To_Event_in_triage_routes_the_item_says_so_and_moves_on]
 ```
 
 The system SHALL turn an Inbox item routed To Event into a Spotted knowledge event with the item's title and link.
@@ -153,6 +154,7 @@ The system SHALL turn an Inbox item routed To Event into a Spotted knowledge eve
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.Dates_read_from_the_page_travel_with_the_date_source_Event_page, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.A_multi_day_edition_keeps_its_end, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.InboxCaptureDeliveryTests.An_event_page_captures_facts_travel_to_the_intake, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_event_page_capture_keeps_its_facts_on_the_item]
 ```
 
 The system SHALL give the event the dates and place its capture found, with the date source Event page.
@@ -167,6 +169,7 @@ The system SHALL give the event the dates and place its capture found, with the 
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_item_without_dates_still_arrives_with_none, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_item_with_no_facts_still_routes]
 ```
 
 The system SHALL create the event without dates when the capture found none.

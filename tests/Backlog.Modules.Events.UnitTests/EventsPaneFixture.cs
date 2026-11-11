@@ -38,7 +38,7 @@ public abstract class EventsPaneFixture
     protected async Task<Guid> Dated(string title, DateOnly start)
     {
         var id = await Add(title);
-        Assert.True((await Pane.SetDatesAsync(id, new EventDayDto(start), null, Token)).IsSuccess);
+        Assert.True((await Pane.SetDatesAsync(id, new EventDateDto(start), null, Token)).IsSuccess);
         return id;
     }
 }

@@ -217,6 +217,7 @@ immutable once set, and equality is by value.
 ```meta
 type: value-object
 related: [.devbook/domain/capture/domain.md#event-facts, .devbook/domain/inbox/features.md#route-to-event]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_event_page_capture_keeps_its_facts_on_the_item, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.A_capture_from_any_other_source_has_no_facts, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteInboxRepositoryTests.An_items_event_facts_and_its_event_come_back_whole, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.InboxCaptureDeliveryTests.An_event_page_captures_facts_travel_to_the_intake]
 ```
 
 The dates, place and watched page an event page capture found, mirrored from

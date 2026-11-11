@@ -409,6 +409,19 @@
                         <span class="inbox-triage__decision-label">@InboxDesktopState.ToBrainLabel</span>
                         <span class="inbox-triage__decision-hint">a note to keep</span>
                     </AppButton>
+                    @* The third route, shown only while the Events area is on. *@
+                    @if (State.ToEventOffered)
+                    {
+                        <AppButton CssClass="inbox-triage__decision"
+                                   Disabled="@(!open || Busy)"
+                                   Title="@InboxDesktopState.ToEventTitle"
+                                   OnClick="State.RouteToEventAsync"
+                                   TestId="inbox-to-event">
+                            <kbd class="inbox-pane__key" aria-hidden="true">E</kbd>
+                            <span class="inbox-triage__decision-label">@InboxDesktopState.ToEventLabel</span>
+                            <span class="inbox-triage__decision-hint">an event to weigh</span>
+                        </AppButton>
+                    }
                     <AppButton CssClass="inbox-triage__decision"
                                Disabled="@Busy"
                                Title="File it in one of your lists (l)"

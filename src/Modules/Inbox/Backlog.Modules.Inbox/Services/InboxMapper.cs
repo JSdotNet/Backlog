@@ -27,7 +27,7 @@ internal static class InboxMapper
         [.. item.RepoIds],
         item.ListId,
         item.Routing is { } routing
-            ? new InboxRoutingDto(routing.Domain, routing.RepoIds, routing.TaskIds, routing.RoutedAt)
+            ? new InboxRoutingDto(routing.Domain, routing.RepoIds, routing.TaskIds, routing.RoutedAt) { EventId = routing.EventId }
             : null,
         item.DeferredUntil)
     {

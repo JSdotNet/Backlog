@@ -1,9 +1,5 @@
 namespace Backlog.Modules.Events.Abstractions;
 
-/// <summary>A day, plus a time of day and its UTC offset when known
-/// (<c>.devbook/domain/events/domain.md#event-date</c>). A time always carries its offset.</summary>
-public sealed record EventDayDto(DateOnly Date, TimeOnly? Time = null, TimeSpan? UtcOffset = null);
-
 /// <summary>Where the event happens: a venue, or online (<c>domain.md#place</c>).</summary>
 public sealed record PlaceDto(string? Venue, bool IsOnline);
 
@@ -17,7 +13,7 @@ public sealed record CostDto(decimal Amount, string Currency);
 public sealed record EventSeriesDto(Guid Id, string Name, string? Organiser, string? Link);
 
 /// <summary>Another edition of the open event's series, as the editor lists it.</summary>
-public sealed record EventEditionDto(Guid Id, string Title, EventDayDto? Start, KnowledgeEventState State);
+public sealed record EventEditionDto(Guid Id, string Title, EventDateDto? Start, KnowledgeEventState State);
 
 /// <summary>
 /// A note the event links (<c>domain.md#note-link</c>). <paramref name="Title"/> is the Brain
@@ -38,8 +34,8 @@ public sealed record KnowledgeEventSummaryDto(
     Guid Id,
     string Title,
     KnowledgeEventState State,
-    EventDayDto? Start,
-    EventDayDto? End,
+    EventDateDto? Start,
+    EventDateDto? End,
     string? SeriesName,
     PlaceDto? Place);
 
@@ -54,8 +50,8 @@ public sealed record KnowledgeEventDto(
     Guid Id,
     string Title,
     EventSeriesDto? Series,
-    EventDayDto? Start,
-    EventDayDto? End,
+    EventDateDto? Start,
+    EventDateDto? End,
     DateSource? DateSource,
     PlaceDto? Place,
     string? Link,

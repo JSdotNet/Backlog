@@ -222,7 +222,8 @@ The original source link and capture timestamp are kept whatever is decided.
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
 key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
-**Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+**Archive**, with **To Event** after To Brain while the
+[Events area](../events/context.md#events-area) is on. The bar stays in place while the detail scrolls. Delete, tags and
 repositories stay in the detail itself, because they are not the decision the
 item is waiting for.
 
@@ -736,6 +737,7 @@ type: sub-feature
 aliases: [To Event]
 feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
 related: [.devbook/domain/inbox/requirements.md#route-to-event, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/domain.md#knowledge-event, .devbook/domain/events/domain.md#event-series, .devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/inbox/domain.md#event-facts]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests]
 ```
 
 ```mermaid
@@ -753,13 +755,16 @@ it takes any other item the person wants to track as an event. It shows only whi
 the [Events area](../events/context.md#events-area) is on.
 
 The event joins the [Event Series](../events/domain.md#event-series) whose page is
-the page the item was watched from. When no Series has that page, Events starts one
-named after the page's title, with the page as its link. An item that came from no
+the page the item was watched from, compared without regard to case or a trailing
+slash. When no Series has that page, Events starts one named after the page's title,
+or after its host when the page gave none, with the page as its link. An item that came from no
 watched page starts no Series, and the person names one on the event.
 
 It ends the item's triage as Route to Tasks does: the item is routed, once, and
 leaves the queue. Events is asked first, and the item is routed only once the event
-exists. A failure on the Events side leaves it unrouted. What Events makes of the
+exists. A failure on the Events side leaves it unrouted, and a toast says the event
+was not made. Undo returns the item to the queue and leaves the event in Events, as
+To Brain leaves its note. What Events makes of the
 dates is [the To Event route](../events/features.md#to-event-route) in Events.
 
 **To Event** sits beside Move to backlog and To Brain in triage and in the item's
