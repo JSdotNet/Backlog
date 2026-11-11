@@ -1385,3 +1385,48 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 - **When** an assistant calls the capture tool with a title and a body
 - **Then** a new note with that title and body is in the Brain's inbox area
 
+
+## PARA default gains someday
+
+```meta
+type: requirements
+related: [.devbook/domain/brain/features.md#para-organization, .devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/domain.md#knowledge-note, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+```
+
+> Local ADR 0053 decides these. None is built yet.
+
+### Requirement: The PARA default holds someday after projects
+
+```meta
+type: requirement
+```
+
+The system SHALL show, for a Brain whose `CONVENTIONS.md` declares no areas, the area `someday` directly after `projects`, and SHALL add no `someday` area to a Brain that declares its own.
+
+#### Scenario: No declaration
+
+- **Given** a `CONVENTIONS.md` declaring no areas
+- **And** no other top folder holds a note
+- **When** the pane shows the Brain
+- **Then** it shows the tabs `_inbox`, `projects`, `someday`, `areas`, `resources`, `people`, `journal` and `archive`, in that order
+
+#### Scenario: Declared areas
+
+- **Given** a `CONVENTIONS.md` declaring the areas *Work* (`work`) and *Home life* (`home`)
+- **And** no other top folder holds a note
+- **When** the pane shows the Brain
+- **Then** it shows the tabs *Work* and *Home life* and no *Someday* tab
+
+### Requirement: The app never writes a review date
+
+```meta
+type: requirement
+```
+
+The system SHALL read a note's optional `review` date and SHALL never add, change or remove it, through capture, To Brain or the link writer.
+
+#### Scenario: Linking a note with a review date
+
+- **Given** a note whose top `meta` block says `review: 2026-12-01`
+- **When** the app appends a task id to the note's `tasks` field
+- **Then** the block still says `review: 2026-12-01`, byte for byte

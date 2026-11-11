@@ -214,12 +214,32 @@ Review unprocessed items one by one or in batch and take an action per item.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#columns]
+related: [.devbook/domain/inbox/requirements.md#columns, .devbook/domain/inbox/requirements.md#clarify-outcomes, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 The reader routes an item to Tasks or To Brain, defers, archives or deletes
 it. Along the way the reader may tag it, assign repositories and annotate it.
 The original source link and capture timestamp are kept whatever is decided.
+
+Each decision is one outcome of the GTD clarify step, and each item ends in one
+home (local ADR 0053): the Inbox lets it go, the Brain keeps what is not
+actionable, and the backlog holds every commitment.
+
+| Decision | Key | Outcome |
+| --- | --- | --- |
+| Archive | **a** | Trash, kept findable |
+| Delete | — | Trash |
+| To Brain | **b** | Reference, filed where the destination picker points |
+| Defer | **d** | The tickler: back on its review date |
+| Someday | **s** | A note in the Brain's `someday` area |
+| Done now | **n** | A task created already ticked |
+| Waiting for | **w** | A task with a [waiting-for](../tasks/domain.md#waiting-for) |
+| Move to backlog | **r** | A task, optionally with a due date or in My Day |
+| Create plan | — | A plan |
+| Merge | — | A comment on a task already tracked |
+
+Someday, Done now and Waiting for, the destination picker, and the due date or
+My Day on Move to backlog are decided in local ADR 0053 and not yet built.
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
 key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
@@ -267,7 +287,7 @@ Picking a set is separate from choosing the item the detail shows.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation]
+related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation, .devbook/domain/inbox/requirements.md#clarify-outcomes]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
 ```
@@ -282,12 +302,17 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **l** | Open Move to list |
 | **r** | Move the item to the backlog |
 | **b** | Route it [To Brain](#route-to-brain) |
+| **s** | Route it [Someday](#route-to-brain), into the Brain's `someday` area |
+| **n** | Done now: route it to a task created already ticked |
+| **w** | Waiting for: route it to a task that waits on someone |
 | **g** | Go to its tags |
 | **x** | Pick it for an [act on several at once](#act-on-several-at-once) |
 | **t** | Start [triage mode](#triage-mode), as the header's **Start triage** button does |
 | **u** | Undo the latest decision of the session ([Undo a decision](#undo-a-decision)) |
 | **?** | Open the **Shortcuts** dialog |
 | **Escape** | Leave the mode the reader is in |
+
+**s**, **n** and **w** are decided in local ADR 0053 and not yet built.
 
 The Tasks pane binds no letters, so **Escape** is the one key the two panes
 share. A key offers only the acts the item's detail offers: a routed or
@@ -351,13 +376,15 @@ From the top down the screen holds:
   More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
   backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
+  Local ADR 0053 adds Someday (**s**), Done now (**n**) and Waiting for (**w**),
+  and a due date or My Day beside Move to backlog; they are not yet built.
 
 Beside the item an **Up next** list shows the next four items in the order
 triage will show them. Under it, **Just decided** shows the session's last
 decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 The decisions that move on are archive, defer, move to a list, move to the
-backlog and merge into a task. A reader who skipped items with **j** finds them
+backlog and merge into a task, and once built Someday, Done now and Waiting for. A reader who skipped items with **j** finds them
 again past the last row, and [Inbox zero](#inbox-zero) follows when none is left.
 Tags and repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
@@ -710,7 +737,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks]
+related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
 ```
 
@@ -728,6 +755,18 @@ sibling, naming each by its repository id. All of them share the general tag
 task needs neither. The lines come before the item's notes, so notes ending in a
 chapter or an open code block cannot take them in. A batch links the siblings of
 each of its items the same way.
+
+Local ADR 0053 adds three variants of this route, not yet built. Each routes the
+item once, and a failure on the Tasks side leaves it open:
+
+- **Move to backlog with a date.** Triage may set the task's
+  [due date](../tasks/domain.md#due-date) or put it in
+  [My Day](../tasks/domain.md#my-day) in the same step.
+- **Done now (n).** The task is created already ticked, `completed:` today: the
+  two-minute rule.
+- **Waiting for (w).** The task is created with a
+  [waiting-for](../tasks/domain.md#waiting-for): who it waits on, and an
+  optional follow-up date.
 
 ### Create plan from an item
 
@@ -857,7 +896,7 @@ without the ask.
 ```meta
 type: sub-feature
 aliases: [Route to Devbook, To Brain]
-related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
+related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.Routing_the_same_item_again_reuses_the_untouched_note_it_wrote, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set]
 ```
@@ -891,6 +930,18 @@ leaves the note where it is, as the person's file by then. Routing the same item
 To Brain again reuses that note, instead of writing a `-2` copy, while the file
 still holds exactly the text the route would write. A note somebody has edited is theirs, and a second route writes a new one.
 Only a route reuses: two captures in the Brain with the same words are two notes.
+
+Local ADR 0053 gives the route a destination, not yet built:
+
+- **A destination picker.** **To Brain** lists the Brain's
+  [areas](../brain/domain.md#para-category) and the active notes in its
+  `projects` area, and starts on the inbox area. The note is written into the
+  area chosen, or beside the project note chosen, so it is filed once.
+- **Someday (s).** To Brain with the `someday` area chosen, in one press. A
+  Brain with no `someday` area offers it disabled, with the reason.
+
+An item is still routed once whichever destination is chosen, and the Inbox
+keeps nothing of it but the record.
 
 ### Defer
 
@@ -948,7 +999,7 @@ folder to the task.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#archive]
-related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments]
+related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments, .devbook/domain/inbox/requirements.md#capture-to-inbox-over-mcp, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests]
 ```
 
@@ -964,6 +1015,11 @@ behind the Inbox pane's switch:
 
 No tool deletes. An unknown id, an unknown status and a reversed range are each
 refused with a code.
+
+Local ADR 0053 adds a fourth tool, not yet built: `capture_to_inbox` captures an
+action an assistant hears into the Inbox as a new unprocessed item, so it reaches
+clarify. `capture_note` stays the Brain's tool for a note already judged worth
+keeping ([MCP Brain scope](../brain/features.md#mcp-brain-scope)).
 
 ## Queue health
 
