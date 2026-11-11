@@ -54,7 +54,7 @@ public sealed class SessionAlertsTests
         Assert.Equal("Review two pull requests; Follow up on two issues", alert.Summary);
         Assert.Equal(SessionAlerts.SchedulesPlace, alert.Place);
         Assert.Equal(
-            [new SessionAlertAction("Open run", SessionAlertTarget.Run, "run-1"), new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules)],
+            [new SessionAlertAction("Open run", SessionAlertTarget.Run, "run-1"), new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: "issue-sweep")],
             alert.Actions);
         Assert.False(alert.IsCritical);
     }
@@ -128,7 +128,7 @@ public sealed class SessionAlertsTests
         Assert.Equal(SessionAlertCause.Missed, missed.Cause);
         Assert.Equal(missed.Key, stillMissed.Key);
         Assert.Equal("It was due at 05:30 and no run has started.", missed.Summary);
-        Assert.Equal([new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules)], missed.Actions);
+        Assert.Equal([new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: "issue-sweep")], missed.Actions);
 
         var started = Recorded(
             Report(ScheduledRunEvent.Started, "run-1"),

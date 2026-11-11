@@ -157,6 +157,7 @@ public sealed class SessionAlertPublisher(
         {
             case SessionAlertTarget.Schedules:
                 query.Add(new(PageKey, SchedulesPage));
+                if (action.ScheduleId is { Length: > 0 } schedule) query.Add(new(ScheduleKey, schedule));
                 break;
             case SessionAlertTarget.Run or SessionAlertTarget.Sessions when action.SessionId is { Length: > 0 } session:
                 query.Add(new(SessionKey, sessionIdOf?.Invoke(session) ?? session));
@@ -178,6 +179,9 @@ public sealed class SessionAlertPublisher(
 
     /// <summary>The Schedules page's value of <see cref="PageKey"/>.</summary>
     internal const string SchedulesPage = "schedules";
+
+    /// <summary>The query key naming the schedule the Schedules page opens on.</summary>
+    internal const string ScheduleKey = "schedule";
 
     /// <summary>One sweep: publish what holds, close what cleared. Answers how many it published
     /// and closed; what the timer runs, and what a test calls.</summary>

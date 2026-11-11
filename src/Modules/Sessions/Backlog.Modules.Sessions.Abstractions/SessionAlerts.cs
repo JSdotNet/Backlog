@@ -42,7 +42,9 @@ public enum SessionAlertTarget
 /// <param name="Target">Where it opens.</param>
 /// <param name="SessionId">The session it opens on, for <see cref="SessionAlertTarget.Run"/> and
 /// <see cref="SessionAlertTarget.Sessions"/>; null for the Schedules page.</param>
-public sealed record SessionAlertAction(string Label, SessionAlertTarget Target, string? SessionId = null);
+/// <param name="ScheduleId">The schedule the Schedules page opens on, for
+/// <see cref="SessionAlertTarget.Schedules"/>; null otherwise.</param>
+public sealed record SessionAlertAction(string Label, SessionAlertTarget Target, string? SessionId = null, string? ScheduleId = null);
 
 /// <summary>
 /// One alert the Sessions context wants open now: its cause, the key that names this one
@@ -195,7 +197,7 @@ public static class SessionAlerts
 
                     The alert closes once the run's session is archived.
                     """,
-                    RunActions(run.SessionId)));
+                    RunActions(run.SessionId, id)));
             }
             else if (reading.State == ScheduledRunState.Failed)
             {
@@ -214,7 +216,7 @@ public static class SessionAlerts
 
                     The alert closes once the run's session is archived.
                     """,
-                    RunActions(run.SessionId)));
+                    RunActions(run.SessionId, id)));
             }
         }
 
@@ -230,7 +232,7 @@ public static class SessionAlerts
                 Each run of **{name}** skips itself while an earlier run's session is not archived.
                 Archive that run in Claude once it is handled, and the next run goes ahead.
                 """,
-                RunActions(held)));
+                RunActions(held, id)));
         }
 
         if (schedule.State == ScheduledRunState.Missed && schedule.DueAt is { } due)
@@ -247,7 +249,7 @@ public static class SessionAlerts
                 **{name}** was due at {at}, and no run reported its start within {(int)ScheduleReading.MissedGrace.TotalMinutes} minutes.
                 The machine may have been asleep, or the schedule turned off. The alert closes once a run starts.
                 """,
-                [new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules)]));
+                [new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: id)]));
         }
 
         return alerts;
@@ -333,10 +335,10 @@ public static class SessionAlerts
             : listed;
     }
 
-    private static SessionAlertAction[] RunActions(string sessionId) =>
+    private static SessionAlertAction[] RunActions(string sessionId, string scheduleId) =>
     [
         new("Open run", SessionAlertTarget.Run, sessionId),
-        new("Open Schedules", SessionAlertTarget.Schedules),
+        new("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: scheduleId),
     ];
 
     private static string NameOf(Schedule schedule) =>

@@ -367,6 +367,12 @@
     [Parameter]
     public Func<string, bool>? OpenRun { get; set; }
 
+    /// <summary>The schedule to pick in the detail when the page opens on it — a schedule
+    /// alert's Open Schedules — or null for the first one the table draws. Taken once per
+    /// value, so the reader's own choice afterwards stands.</summary>
+    [Parameter]
+    public string? SelectedScheduleId { get; set; }
+
     /// <summary>Back to the session list, its filters and selection as they were.</summary>
     [Parameter]
     public EventCallback OnBack { get; set; }
@@ -390,6 +396,10 @@
     private string? _selectedId;
 
     private string? _openMissing;
+
+    /// <summary>The <see cref="SelectedScheduleId"/> last taken, so the reader's own choice is
+    /// not undone by the next render.</summary>
+    private string? _selectedTaken;
 
     private bool _focusDetail;
 
@@ -444,6 +454,15 @@
         schedule.State is ScheduledRunState.Held
             ? $"Open the {Day(ScheduleOverview.Began(target.Run))} run"
             : "Open run";
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedScheduleId) || SelectedScheduleId == _selectedTaken) return;
+
+        _selectedTaken = SelectedScheduleId;
+        _selectedId = SelectedScheduleId;
+        _openMissing = null;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

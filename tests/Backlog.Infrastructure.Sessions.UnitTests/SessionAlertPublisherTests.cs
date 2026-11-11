@@ -66,7 +66,7 @@ public sealed class SessionAlertPublisherTests
         Assert.Equal(
             [
                 new NotificationAction("Open run", "backlog://window/sessions?session=run-1"),
-                new NotificationAction("Open Schedules", "backlog://window/sessions?page=schedules")
+                new NotificationAction("Open Schedules", "backlog://window/sessions?page=schedules&schedule=weekly-update")
             ],
             alert.Actions!);
     }

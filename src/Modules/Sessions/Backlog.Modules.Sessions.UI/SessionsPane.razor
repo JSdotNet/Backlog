@@ -110,6 +110,7 @@ else if (_schedulesPage)
                    Now="@_schedulesReadAt"
                    RepositoryAlias="RepositoryAlias"
                    OpenRun="OpenRunInList"
+                   SelectedScheduleId="@_scheduleAsked"
                    OnBack="CloseSchedules"
                    OnClose="() => OnClose.InvokeAsync()"
                    OnRefresh="RefreshAsync" />
@@ -1026,6 +1027,17 @@ else
     /// </summary>
     [Parameter]
     public string? FocusSessionId { get; set; }
+
+    /// <summary>Whether the pane was opened on the Schedules page — a schedule alert's Open
+    /// Schedules — rather than on the list. Acted on when it is first asked for, so the
+    /// reader's own Back is not undone by the next render.</summary>
+    [Parameter]
+    public bool OpenOnSchedules { get; set; }
+
+    /// <summary>The schedule the Schedules page opens on, picked in its detail; null for the
+    /// page's own first. Read only with <see cref="OpenOnSchedules"/>.</summary>
+    [Parameter]
+    public string? FocusScheduleId { get; set; }
 
     private string Heading => _view switch
     {
@@ -2023,6 +2035,13 @@ else
     /// the same one does not widen the filters the reader has since narrowed.</summary>
     private string? _focusApplied;
 
+    /// <summary>The Schedules page request last acted on, so the same one is not acted on
+    /// twice; null while none was made.</summary>
+    private (bool Open, string? ScheduleId)? _schedulesAsked;
+
+    /// <summary>The schedule handed to the page to pick.</summary>
+    private string? _scheduleAsked;
+
     private bool _focusPending;
 
     private bool _focusMissing;
@@ -2035,6 +2054,14 @@ else
         // The scope and the alias callback may answer differently now, behind the
         // same references; the derived view is worked out again on the next ask.
         _derived = null;
+
+        if (OpenOnSchedules && _schedulesAsked != (true, FocusScheduleId))
+        {
+            _schedulesAsked = (true, FocusScheduleId);
+            _scheduleAsked = FocusScheduleId;
+            _economics = false;
+            _schedulesPage = true;
+        }
 
         if (string.Equals(FocusSessionId, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
 
