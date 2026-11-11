@@ -70,7 +70,42 @@ export function startContext(scheduleId, sessionId) {
         `1. Look up this task's own entry once with the scheduler tool (\`list_scheduled_tasks\`, the entry whose taskId is \`${scheduleId}\`): its title and its cronExpression.`,
         `2. Call the backlog MCP server's \`report_schedule_run\` with scheduleId \`${scheduleId}\`, sessionId \`${sessionId}\`, event \`started\`, title the entry's title, cron its cronExpression, and repository the owner/name it runs in — the part of its title before \` · \`, else this folder's git remote.`,
         "If the scheduler tool or report_schedule_run is not available or refuses, go on with the run without retrying. Do not report the finish yourself: a hook reports it when this session stops.",
+        "When this run skips itself because an earlier run is not archived, end its `Skipped:` line with that run's session id as the scheduler's run list gives it, as `(session <session_id>)`. When an error stops the run before it can finish its work, end on one line that opens with `Failed:` and says the error.",
     ].join("\n");
+}
+
+// A session id a `Skipped:` line names: one after the word `session` that carries a digit, else a
+// bare desktop `local_<id>`, else a bare UUID. Null when it names none, as the pickup gate's own
+// line — which names the earlier run only by its start time — does.
+export function heldByOf(line) {
+    const text = String(line ?? "");
+    const named = text.match(/\bsession(?:[ _-]?id)?\s*[:=]?\s*`?([A-Za-z0-9_-]*\d[A-Za-z0-9_-]*)`?/i);
+    if (named && named[1].length >= 6 && !/^\d{4}-\d{2}-\d{2}/.test(named[1])) return named[1];
+    const local = text.match(/\blocal_[0-9a-f][0-9a-f-]{7,}/i);
+    if (local) return local[0];
+    const uuid = text.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i);
+    return uuid ? uuid[0] : null;
+}
+
+// The first non-blank line of a text, trimmed; null when there is none.
+function firstLine(text) {
+    for (const line of String(text ?? "").split(/\r?\n/)) {
+        if (line.trim()) return line.trim();
+    }
+    return null;
+}
+
+// The `failed` report a StopFailure makes — the turn ended on an API error. Its verdict is the error
+// line the session shows (`last_assistant_message`, such as `API Error: Rate limit reached`), else
+// the error's details, else its type.
+export function failureReport(scheduleId, sessionId, event) {
+    const payload = event && typeof event === "object" ? event : {};
+    const verdict =
+        firstLine(payload.last_assistant_message) ||
+        firstLine(payload.error_details) ||
+        (typeof payload.error === "string" && payload.error.trim() ? `API error: ${payload.error.trim()}` : null) ||
+        "API error";
+    return { scheduleId, sessionId, event: "failed", verdict };
 }
 
 const isHeading = (line) => /^\s{0,3}#{1,6}\s/.test(line);
@@ -156,13 +191,22 @@ export function needsYouRows(message) {
     return rows;
 }
 
-// The finish report a final message makes: `skipped` when it opens with `Skipped:`, else
-// `finished` with its verdict line and its Needs-you rows (none sent as an empty list, so a
-// later report clears an earlier one's).
+// The finish report a final message makes: `skipped` when it opens with `Skipped:`, with the
+// session it names as `heldBy`; `failed` when it opens with `Failed:`, the error after it as the
+// verdict; else `finished` with its verdict line and its Needs-you rows (none sent as an empty
+// list, so a later report clears an earlier one's).
 export function finishReport(scheduleId, sessionId, message) {
     const text = typeof message === "string" ? message.trim() : "";
     if (text.startsWith("Skipped:")) {
-        return { scheduleId, sessionId, event: "skipped", verdict: text.split(/\r?\n/)[0].trim() };
+        const line = text.split(/\r?\n/)[0].trim();
+        const heldBy = heldByOf(line);
+        return heldBy
+            ? { scheduleId, sessionId, event: "skipped", verdict: line, heldBy }
+            : { scheduleId, sessionId, event: "skipped", verdict: line };
+    }
+    if (text.startsWith("Failed:")) {
+        const error = text.split(/\r?\n/)[0].slice("Failed:".length).trim();
+        return { scheduleId, sessionId, event: "failed", verdict: error || null };
     }
     return {
         scheduleId,
