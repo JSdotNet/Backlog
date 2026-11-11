@@ -665,7 +665,9 @@ public sealed class McpServerWorker : IDisposable
                     TimeProvider.System,
                     context.RequestAborted,
                     questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
-                    sessions: context.RequestServices.GetService<IAgentSessionSource>()).ConfigureAwait(false);
+                    sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+                    sessionId: context.Request.Query["sessionId"].ToString(),
+                    loops: context.RequestServices.GetService<ILoopRegister>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -674,7 +676,8 @@ public sealed class McpServerWorker : IDisposable
             }
 
             context.Response.StatusCode = reply.StatusCode;
-            if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            if (reply.Failure is not null && reply.StatusCode == 503) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            else if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length == 0) return;
 
@@ -973,7 +976,8 @@ public sealed class McpServerWorker : IDisposable
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
     /// dispatcher tools would carry across anyway but the route must not depend on, and
     /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
-    /// for the answer deliveries the same route hands out, on the same grounds.
+    /// for the answer deliveries the same route hands out, on the same grounds, and
+    /// <see cref="ILoopRegister"/> for the check-in a Manager's wait records (local ADR 0051 §3).
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -996,6 +1000,7 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(ISessionRequestStore))
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
+            .Append(typeof(ILoopRegister))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

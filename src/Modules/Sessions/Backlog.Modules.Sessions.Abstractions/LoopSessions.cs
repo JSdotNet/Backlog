@@ -258,6 +258,18 @@ public static class LoopSessions
             : earlier with { CheckIn = checkIn };
     }
 
+    /// <summary>A dispatch wait at <paramref name="at"/> recorded over <paramref name="loop"/>
+    /// (local ADR 0051 §3): a check-in with only the session and the time, so only the
+    /// check-in time moves — and never backwards, so a wait that arrives late changes nothing.</summary>
+    public static LoopSession RecordWait(LoopSession loop, DateTimeOffset at)
+    {
+        ArgumentNullException.ThrowIfNull(loop);
+
+        return at > loop.CheckIn.At
+            ? loop with { CheckIn = loop.CheckIn with { At = at } }
+            : loop;
+    }
+
     /// <summary><paramref name="command"/> set on <paramref name="loop"/> at <paramref name="now"/>.
     /// Setting None clears what the person set.</summary>
     public static LoopSession Command(LoopSession loop, LoopCommand command, DateTimeOffset now)
@@ -280,6 +292,14 @@ public interface ILoopRegister
     /// <summary>Records <paramref name="checkIn"/> as its session's latest, keeping the
     /// command set on it, and answers the session as it now stands.</summary>
     Task<LoopSession> CheckInAsync(LoopCheckIn checkIn, CancellationToken cancellationToken = default);
+
+    /// <summary>Records a dispatch wait at <paramref name="at"/> — the Manager's call to
+    /// <c>GET /session-requests/wait</c>, which local ADR 0051 §3 counts as a check-in with
+    /// only the session and the time — and answers the session as it now stands.</summary>
+    /// <remarks>Only the check-in time moves, and never backwards (<see cref="LoopSessions.RecordWait"/>):
+    /// what the last full check-in said and the person's command are kept. Null, and nothing
+    /// written, when <paramref name="sessionId"/> is blank or no loop session has it.</remarks>
+    Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default);
 
     /// <summary>The loop session with <paramref name="sessionId"/>, or null when it never checked in.</summary>
     Task<LoopSession?> GetAsync(string sessionId, CancellationToken cancellationToken = default);
