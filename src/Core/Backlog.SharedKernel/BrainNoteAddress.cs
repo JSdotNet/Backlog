@@ -72,7 +72,11 @@ public sealed record BrainNoteAddress
         var path = (hash < 0 ? rest : rest[..hash]).Trim().Replace('\\', '/');
         var slug = hash < 0 ? null : rest[(hash + 1)..].Trim();
 
-        path = path.TrimStart('/');
+        while (path.StartsWith("./", StringComparison.Ordinal) || path.StartsWith('/'))
+        {
+            path = path.StartsWith('/') ? path[1..] : path[2..];
+        }
+
         if (path.Length == 0) return false;
         if (path.Split('/').Any(segment => segment == "..")) return false;
 

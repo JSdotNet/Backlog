@@ -42,6 +42,16 @@
     {
         <span class="brain-note-chip__unresolved" role="img" aria-label="@ProblemText" title="@ProblemText">!</span>
     }
+
+    @if (OnRemove.HasDelegate)
+    {
+        @* The holder's own remove, as a task's Devbook reference carries one — the
+           same control and look as DevbookReferenceChip's. *@
+        <IconButton AriaLabel="@RemoveName"
+                    BaseClass="devbook-chip__remove"
+                    Disabled="@Disabled"
+                    OnClick="RemoveAsync">&#215;</IconButton>
+    }
 </span>
 
 @code {
@@ -82,6 +92,12 @@
     /// refuse the click.</summary>
     [Parameter]
     public EventCallback<string> OnOpen { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when the remove control is
+    /// pressed — resolved or not, since an address that names nothing is still the
+    /// holder's to drop. With no handler there is no remove control.</summary>
+    [Parameter]
+    public EventCallback<string> OnRemove { get; set; }
 
     [Parameter]
     public bool Disabled { get; set; }
@@ -134,4 +150,9 @@
     }
 
     private Task OpenAsync() => OnOpen.InvokeAsync(Reference);
+
+    private Task RemoveAsync() => OnRemove.InvokeAsync(Reference);
+
+    private string RemoveName =>
+        Unresolved ? $"Remove the Brain note {Text} — {ProblemText}" : $"Remove the Brain note {Text}";
 }

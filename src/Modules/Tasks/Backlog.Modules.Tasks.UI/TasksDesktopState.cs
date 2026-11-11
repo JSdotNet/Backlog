@@ -3937,7 +3937,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(reference);
 
-        if (reference.Length == 0 || reference[0] is '.' or '/') return reference;
+        // A Brain address (#brain:…, local ADR 0053) names no repository page; it is
+        // compared in its one spelling, the one the task stores.
+        if (Backlog.SharedKernel.BrainNoteAddress.TryParse(reference, out var brain)) return brain.Value;
+        if (reference.Length == 0 || reference[0] is '.' or '/' or '#') return reference;
 
         var hash = reference.IndexOf('#');
         var path = hash < 0 ? reference : reference[..hash];

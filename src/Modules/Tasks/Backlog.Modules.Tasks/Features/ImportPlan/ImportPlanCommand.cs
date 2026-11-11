@@ -733,8 +733,8 @@ public sealed class ImportPlanCommandHandler(
     /// The first <c>devbook:</c> value a <c>plan</c> entry that will be laid out wrote
     /// that names neither a page nor a note in the Brain, or null when every one does.
     /// A plan entry may name a Brain note, since a Knowledge Ref may hold one (local
-    /// ADR 0053 §2); a task entry may not yet, so
-    /// <see cref="FirstInvalidDevbookReference"/> still refuses one there.
+    /// ADR 0053 §2); so may a task entry, whose Devbook references read a
+    /// <c>#brain:</c> address through <see cref="TaskDevbookReference"/>.
     /// <para>
     /// Only the entries with exactly one plan tag are asked: the others are skipped and
     /// reported, and their tokens are never stored, so one of them cannot refuse a

@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Tasks.DomainModels;
 
 /// <summary>
@@ -37,6 +39,12 @@ public sealed record UsageEvent(DateTimeOffset Timestamp, string Action);
 /// that knows the repository's pages — the task panel does — may spell a reference
 /// in the legacy <c>.domain/</c> form first, and a path that starts with a dot is
 /// left as it is.
+/// </para>
+/// <para>
+/// A note in the owner's Brain is a reference too, written
+/// <c>#brain:&lt;path&gt;[#slug]</c> (local ADR 0053): its <see cref="Path"/> keeps the
+/// <c>#brain:</c> prefix, so <see cref="Value"/> is the address in
+/// <see cref="BrainNoteAddress"/>'s one spelling and no repository page can match it.
 /// </para>
 /// <para>
 /// Whether the page exists is deliberately not asked. A reference outlives a
@@ -81,6 +89,19 @@ public sealed record TaskDevbookReference
 
         var value = text.Trim();
         if (value.Length >= 2 && value[0] == '[' && value[^1] == ']') value = value[1..^1].Trim();
+
+        // A note in the owner's Brain (local ADR 0053 §1 and §2): read by the Brain's
+        // own rule and kept in its one spelling, the prefix included, so a reader
+        // routes it to the Brain before it looks anything up. One that wears the
+        // prefix and names no note is refused rather than kept as a repository path
+        // it can never be.
+        if (BrainNoteAddress.Is(value))
+        {
+            if (!BrainNoteAddress.TryParse(value, out var address)) return false;
+
+            reference = new TaskDevbookReference(BrainNoteAddress.Prefix + address.Path, address.Slug);
+            return true;
+        }
 
         var hash = value.IndexOf('#', StringComparison.Ordinal);
         var path = (hash < 0 ? value : value[..hash]).Trim().Replace('\\', '/');

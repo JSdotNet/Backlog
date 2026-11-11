@@ -163,6 +163,15 @@ public sealed record DevbookReferencePayload(
     /// of a journey or of a scenarios file, or the parts a requirement's
     /// <c>Proved by:</c> lines name — each with its run state. Null when it stands for none.</summary>
     public IReadOnlyList<ScenarioPartPayload>? Parts { get; init; }
+
+    /// <summary><c>#brain</c> for a note in the owner's Brain, written
+    /// <c>#brain:&lt;path&gt;[#slug]</c> (local ADR 0053): <see cref="Path"/> is then the
+    /// note's path from the Brain's root, and the note is read with
+    /// <c>read_knowledge_chapter</c>, this value as its <c>repository</c> and that path
+    /// as its <c>chapterPath</c>. Null for a chapter of the repository's devbook. Added
+    /// beside the positional fields so a caller that never asked reads the payload as
+    /// before.</summary>
+    public string? Scope { get; init; }
 }
 
 /// <summary>

@@ -4586,16 +4586,34 @@
                     <span class="entry-doc__devbook" role="list" aria-label="Devbook references" data-testid="entry-devbook-references">
                         @foreach (var reference in references)
                         {
-                            <DevbookReferenceChip role="listitem"
-                                                  @key="reference.Reference"
-                                                  Reference="@reference.Reference"
-                                                  Title="@ChipTitle(reference)"
-                                                  Status="@reference.Status"
-                                                  Broken="@reference.IsBroken"
-                                                  Problem="@DevbookProblem(reference.State)"
-                                                  OnOpen="@DevbookOpener(row, reference)"
-                                                  OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
-                                                  TestId="entry-devbook-reference" />
+                            @* A note in the owner's Brain (local ADR 0053) wears the
+                               Brain's chip, not a repository chapter's: it opens on the
+                               Brain side, and no devbook status applies to it. *@
+                            @if (reference.IsBrainNote)
+                            {
+                                <span role="listitem" class="entry-doc__brain-reference" @key="reference.Reference">
+                                    <Backlog.UI.Components.Brain.BrainNoteChip Reference="@reference.Reference"
+                                                                               Title="@ChipTitle(reference)"
+                                                                               Unresolved="@(reference.State is not (DevbookReferenceState.Page or DevbookReferenceState.Chapter))"
+                                                                               Problem="@BrainProblem(reference)"
+                                                                               OnOpen="@BrainOpener(reference)"
+                                                                               OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                                               TestId="entry-devbook-brain-reference" />
+                                </span>
+                            }
+                            else
+                            {
+                                <DevbookReferenceChip role="listitem"
+                                                      @key="reference.Reference"
+                                                      Reference="@reference.Reference"
+                                                      Title="@ChipTitle(reference)"
+                                                      Status="@reference.Status"
+                                                      Broken="@reference.IsBroken"
+                                                      Problem="@DevbookProblem(reference.State)"
+                                                      OnOpen="@DevbookOpener(row, reference)"
+                                                      OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                      TestId="entry-devbook-reference" />
+                            }
                         }
                     </span>
                 }
@@ -4640,7 +4658,7 @@
                                     MatchValue="true"
                                     MaxOptions="DevbookPickerMaxOptions"
                                     AllowCreate="true"
-                                    Placeholder="Find a page or chapter, or type path#anchor"
+                                    Placeholder="Find a page or chapter, or type path#anchor or #brain:note.md"
                                     CssClass="entry-doc__devbook-picker"
                                     TestId="entry-devbook-select" />
                 }
@@ -4821,6 +4839,34 @@
             ? EventCallback.Factory.Create<string>(this, value =>
                 OnOpenDevbookReference.InvokeAsync(new DevbookReferenceRequest(State.DevbookRepositoryAliasFor(row), value)))
             : default;
+
+    /// <summary>A Brain note chip's opener: the note — its path inside the Brain and
+    /// heading — handed to the host to show on the Devbook pane's Brain side. None when
+    /// the host wired no Brain opener; the chip opens only once it resolved.</summary>
+    private EventCallback<string> BrainOpener(ResolvedDevbookReference reference) =>
+        OnOpenBrainNote.HasDelegate && Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address)
+            ? EventCallback.Factory.Create<string>(this, _ =>
+                OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink(address.Chapter, reference.Title)))
+            : default;
+
+    /// <summary>Why a Brain note reference does not open, in the Brain chip's own
+    /// words: no Brain readable on this device, or a Brain that holds no such note.
+    /// Null for one that resolved.</summary>
+    private static string? BrainProblem(ResolvedDevbookReference reference)
+    {
+        if (!Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address))
+        {
+            return Backlog.UI.Components.Brain.BrainNoteChip.NotABrainAddress;
+        }
+
+        return reference.State switch
+        {
+            DevbookReferenceState.Page or DevbookReferenceState.Chapter => null,
+            DevbookReferenceState.Unverified => Backlog.UI.Components.Brain.BrainNoteChip.NotInYourBrain,
+            DevbookReferenceState.UnknownHeading => $"No heading #{address.Slug} in the Brain note {address.Path} any more.",
+            _ => Backlog.UI.Components.Brain.BrainNoteChip.NotInThisBrain(address.Chapter)
+        };
+    }
 
     // --- Keyboard ----------------------------------------------------------
 

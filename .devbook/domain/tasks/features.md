@@ -111,8 +111,8 @@ is recorded, not how much.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage, .devbook/arc42/adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskDevbookReferenceTests.A_brain_note_is_kept_as_its_address, unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanDevbookReferenceTests.A_devbook_token_naming_a_brain_note_lands_on_the_task, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainDevbookReferenceResolverTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_brain_address_is_never_looked_up_in_the_repository_devbook, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.A_brain_note_is_listed_with_the_brain_scope_and_its_note_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_brain_note_is_a_brain_chip_that_says_when_it_is_not_in_this_brain_and_can_be_removed, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a journey that prove it. A journey is one
@@ -154,12 +154,22 @@ each part with its state, last run and failed step, and a count
 with whether the task is proved.
 
 A task's Devbook references may also name a note in the person's Brain, as
-`#brain:<path from the Brain's root>`. Only the Brain's owner sees it resolved,
-from their own Brain. Anyone else, and an owner with no Brain set, sees it
-unresolved, never as an error. Listing the references over MCP answers the note's
-address, which the `#brain` knowledge tools read
-([MCP Brain scope](../brain/features.md#mcp-brain-scope)). The address travels
-with the task, and the note's content never does (local ADR 0053).
+`#brain:<path from the Brain's root>`, optionally followed by `#heading`. It is
+typed into the task's Devbook picker, written by Import's `devbook:` token, or set
+over MCP. One that names no note, such as `#brain:` alone, is refused. It is never
+looked up in the repository's devbook.
+
+Only the Brain's owner sees it resolved, from their own Brain. The task shows it as
+a Brain chip titled from the note, which opens the note on the Devbook pane's Brain
+side. Anyone else, and an owner with no Brain set, sees the address unresolved,
+never as an error. A Brain without the note says so on the chip. Either way the
+chip can be removed.
+
+Listing the references over MCP marks the note with `scope: "#brain"` and gives
+its path from the Brain's root, which `read_knowledge_chapter` reads under
+`#brain` ([MCP Brain scope](../brain/features.md#mcp-brain-scope)). A session run
+on the task reads those notes before it works. The address travels with the task,
+and the note's content never does (local ADR 0053).
 
 ## Bulk editing
 
