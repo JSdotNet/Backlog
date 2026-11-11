@@ -88,6 +88,13 @@
     back to the list on the run's session row. The pane reads the schedule register with
     every reading, against the same session records, because a run reads Handled by its
     session's archived flag.
+
+    The loop sessions — the session dispatcher and the Brain tender a person keeps under
+    /loop (local ADR 0051 §3) — lead the list in an Agents section under every grouping.
+    Their titles make them the Agent purpose, and their state is the one their check-ins
+    with Backlog decide, not the process's. The panel shows such a row's loop card, whose
+    Pause, Resume and Stop set the command the next check_in answer carries. The Scheduled
+    fold says how many schedules need the person and opens the Schedules page too.
 *@
 
 @if (_economics)
@@ -383,6 +390,7 @@ else
             // would sort the list once for each of them.
             var sections = Sections;
             var scheduled = View.Scheduled;
+            var agents = View.Agents;
             var selected = Selected;
             _shownKey = selected?.Key;
 
@@ -390,6 +398,27 @@ else
                 <section class="sessions-list" aria-label="Claude and Copilot sessions this PC has a record of" data-testid="sessions-list">
                     @foreach (var section in sections)
                     {
+                        if (ReferenceEquals(section, agents))
+                        {
+                            @* The loop sessions, always first whatever the grouping (local ADR
+                               0051 §6): the agents that keep the rest of the list moving, so
+                               a stalled one is the first thing a reader sees. *@
+                            <div class="sessions-group sessions-group--agents" @key="@AgentSessionGroups.AgentsKey" data-testid="sessions-group" data-group-key="@AgentSessionGroups.AgentsKey">
+                                <h3 class="sessions-group__heading">
+                                    <span class="sessions-group__name" data-testid="sessions-group-name">@section.Name</span>
+                                    <span class="sessions-group__size" title="@SessionCount(section.Rows.Count)" data-testid="sessions-group-size">@section.Rows.Count</span>
+                                    <span class="sessions-group__note">· long-running loop sessions, always first</span>
+                                </h3>
+                                <ul class="sessions-group__rows">
+                                    @foreach (var row in section.Rows)
+                                    {
+                                        @RowItem(row)
+                                    }
+                                </ul>
+                            </div>
+                            continue;
+                        }
+
                         if (ReferenceEquals(section, scheduled))
                         {
                             @* The desktop app's routine runs, folded: on the machine this
@@ -399,7 +428,7 @@ else
                                section's heading; folded on every open of the pane, because
                                nothing here remembers a filter. The rows stay in the DOM
                                behind it, hidden, and every count above still counts them. *@
-                            <div class="sessions-group" @key="@AgentSessionGroups.ScheduledKey" data-testid="sessions-group" data-group-key="@AgentSessionGroups.ScheduledKey">
+                            <div class="sessions-group sessions-group--scheduled" @key="@AgentSessionGroups.ScheduledKey" data-testid="sessions-group" data-group-key="@AgentSessionGroups.ScheduledKey">
                                 <FoldControl Expanded="_scheduledOpen"
                                              ExpandedChanged="value => _scheduledOpen = value"
                                              HeadingLevel="3"
@@ -409,6 +438,16 @@ else
                                     <LabelContent>
                                         <span class="sessions-group__name" data-testid="sessions-group-name">@section.Name</span>
                                         <span class="sessions-group__size" title="@SessionCount(section.Rows.Count)" data-testid="sessions-group-size">@section.Rows.Count</span>
+                                        @if (SchedulesNeedingYou > 0)
+                                        {
+                                            @* How many schedules need the person, by the states
+                                               their own reports decided — not a count of the
+                                               rows folded here. *@
+                                            <Badge Kind="tone"
+                                                   Slug="alert"
+                                                   CssClass="sessions-group__needs"
+                                                   TestId="sessions-scheduled-needs-you">@NeedYouLabel(SchedulesNeedingYou)</Badge>
+                                        }
                                     </LabelContent>
                                     <ChildContent>
                                         <ul class="sessions-group__rows">
@@ -419,6 +458,14 @@ else
                                         </ul>
                                     </ChildContent>
                                 </FoldControl>
+                                @* The Schedules page, like the header's button. A control of
+                                   its own, so the fold trigger's sibling and never inside it;
+                                   after it in the document, so the tab order runs as the
+                                   heading reads, and stacked at the heading's end. *@
+                                <AppButton BaseClass="sessions-group__open-schedules"
+                                           Variant="ButtonVariant.None"
+                                           TestId="sessions-scheduled-open-schedules"
+                                           OnClick="OpenSchedules">Open Schedules</AppButton>
                             </div>
                             continue;
                         }
@@ -541,7 +588,13 @@ else
                            Slug="@Slug(planState)"
                            TestId="sessions-plan-state">@SessionTitles.Label(planState)</Badge>
                 }
-                @if (IsIdle(row))
+                @if (reading.Purpose is SessionPurpose.Agent)
+                {
+                    @* A loop session's state is the Loop State its check-ins decide,
+                       not the process's: a hung loop keeps its process (local ADR 0051 §3). *@
+                    @LoopStateChip(LoopOf(row), row, "sessions-loop-row-state")
+                }
+                else if (IsIdle(row))
                 {
                     @* Not a state: a note on the desktop record, in the quiet tone, where
                        the Finished chip would stand. The session still reads Finished, and
@@ -571,7 +624,14 @@ else
                 <span class="@RepositoryClass(row)" title="@RepositoryTitle(row)" data-testid="sessions-repository">@Or(RepositoryLabel(row.Repository))</span>
                 <span data-testid="sessions-machine">@row.Environment</span>
                 <span aria-hidden="true">·</span>
-                <span title="@Moment(row.LastActivityAt)" data-testid="sessions-last-activity">@Ago(row.LastActivityAt)</span>
+                @if (reading.Purpose is SessionPurpose.Agent && LoopOf(row) is { } checkedIn)
+                {
+                    <span title="@Moment(checkedIn.Loop.CheckIn.At)" data-testid="sessions-loop-row-check-in">checked in @LoopSessionView.Ago(checkedIn.Loop.CheckIn.At, _loopsReadAt)</span>
+                }
+                else
+                {
+                    <span title="@Moment(row.LastActivityAt)" data-testid="sessions-last-activity">@Ago(row.LastActivityAt)</span>
+                }
                 @if (DurationLabel(row.Duration) is { } duration)
                 {
                     <span aria-hidden="true">·</span>
@@ -585,6 +645,11 @@ else
                 <span class="sessions-row__spacer" aria-hidden="true"></span>
                 <span class="sessions-row__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@OutputLabel(row.OutputTokens)</span>
             </span>
+            @if (reading.Purpose is SessionPurpose.Agent && LoopOf(row) is { } loop)
+            {
+                @* What the loop holds, from its latest check-in. *@
+                <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-holds">@LoopSessionView.HeldLine(loop.Loop, WaitingRequests, CapacityLimits.Default, _capacity?.WorkingSessions)</span>
+            }
             @if (row.Runs.Count > 0)
             {
                 @* The run the row last drove: one mark per stage and where it stands,
@@ -639,7 +704,14 @@ else
                                TestId="sessions-entrypoint">@entrypoint</Badge>
                     }
                 </span>
-                <IntegrationStateChip Session="@State(row.State)" />
+                @if (IsAgent(row))
+                {
+                    @LoopStateChip(LoopOf(row), row, "sessions-detail-loop-state")
+                }
+                else
+                {
+                    <IntegrationStateChip Session="@State(row.State)" />
+                }
                 <span class="sessions-detail__when" title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</span>
             </div>
             <h3 class="@($"sessions-detail__title {(IsIdentifierTitle(row) ? "data-table__mono" : string.Empty)}".Trim())" data-testid="sessions-detail-title">@row.Title</h3>
@@ -746,6 +818,25 @@ else
                 }
             </dl>
 
+            @if (IsAgent(row))
+            {
+                @* A loop session drives no delivery run and produces no pull request:
+                   its card is the loop — what it runs, how it stands, what it holds and
+                   the commands the person can set on it. *@
+                var loop = LoopOf(row);
+
+                <LoopSessionCard @key="@row.Key"
+                                 Loop="@loop"
+                                 Kind="@(LoopSessions.KindOfTitle(row.Title) ?? LoopKind.Dispatcher)"
+                                 Now="@_loopsReadAt"
+                                 Capacity="@_capacity"
+                                 Work="@_loopWork"
+                                 Busy="@_commanding"
+                                 Error="@_commandError"
+                                 OnCommand="command => SetLoopCommandAsync(loop, command)" />
+            }
+            else
+            {
             @if (row.Runs.Count > 0)
             {
                 @* The run card: every run the row holds, latest first. The latest is
@@ -823,6 +914,7 @@ else
                     </div>
                 </div>
             </section>
+            }
         </aside>
     };
 
@@ -1000,6 +1092,191 @@ else
     };
 
     private static string MoreLabel(int more) => more == 1 ? "+1 more" : $"+{more} more";
+
+    /// <summary>Every loop session that has checked in, by its session id, as the Loop
+    /// Register and the session list read them at the last refresh; empty where the host
+    /// composed no register (local ADR 0051 §3).</summary>
+    private IReadOnlyDictionary<string, LoopSessionReading> _loops = new Dictionary<string, LoopSessionReading>(StringComparer.Ordinal);
+
+    /// <summary>When the loops were read: what a check-in's age is measured against.</summary>
+    private DateTimeOffset _loopsReadAt = DateTimeOffset.UtcNow;
+
+    /// <summary>The dispatcher's room as the app measured it at the last refresh, or null
+    /// where the host measures none or no dispatcher has checked in.</summary>
+    private CapacityReading? _capacity;
+
+    /// <summary>The requests and deliveries a dispatcher works through, or null where the
+    /// host composed no queue.</summary>
+    private IReadOnlyList<LoopWorkItem>? _loopWork;
+
+    /// <summary>How many session requests wait for a dispatcher, or null where the host
+    /// composed no queue.</summary>
+    private int? WaitingRequests { get; set; }
+
+    private static string NeedYouLabel(int count) => count == 1 ? "1 needs you" : $"{count} need you";
+
+    /// <summary>Whether a command is being set on a loop, and why the last one failed.</summary>
+    private bool _commanding;
+    private string? _commandError;
+
+    private static bool IsAgent(SessionRow row) => SessionTitles.Of(row).Purpose is SessionPurpose.Agent;
+
+    /// <summary>The loop a row is, by the session id it checks in with — its transcript's
+    /// id, or the desktop app's — or null for a loop session that has not checked in.</summary>
+    private LoopSessionReading? LoopOf(SessionRow row) =>
+        row.Session is { } session && _loops.TryGetValue(session.Id, out var loop) ? loop : null;
+
+    /// <summary>A loop's state as a chip on the badge tone scale. Before its first
+    /// check-in, a session with no process — finished or archived — reads Not running
+    /// like any loop without one; one still running reads "No check-in yet".</summary>
+    private static RenderFragment LoopStateChip(LoopSessionReading? loop, SessionRow row, string testId) => __builder =>
+    {
+        if (loop is { } reading)
+        {
+            <Badge Kind="tone"
+                   Slug="@LoopSessionView.Tone(reading.State)"
+                   Title="Its state, as its check-ins with Backlog decide it"
+                   TestId="@testId">@LoopSessionView.Label(reading.State)</Badge>
+        }
+        else if (LoopSessions.ProcessOf(row.Session) is LoopProcess.Gone or LoopProcess.Archived)
+        {
+            <Badge Kind="tone"
+                   Slug="@LoopSessionView.Tone(LoopState.NotRunning)"
+                   Title="No process, and it never checked in with Backlog"
+                   TestId="@testId">@LoopSessionView.Label(LoopState.NotRunning)</Badge>
+        }
+        else
+        {
+            <Badge Kind="tone"
+                   Slug="archived"
+                   Title="This loop has not checked in with Backlog yet"
+                   TestId="@testId">@LoopSessionView.NoCheckIn</Badge>
+        }
+    };
+
+    /// <summary>Sets the person's command on a loop; the next check-in's answer carries
+    /// it. The reading is replaced with what the register answered, so the card shows the
+    /// command at once; a register that fails says so on the card and changes nothing.</summary>
+    private async Task SetLoopCommandAsync(LoopSessionReading? loop, LoopCommand command)
+    {
+        if (loop is null || _commanding || Services.GetService<LoopSessionMonitor>() is not { } monitor) return;
+
+        _commanding = true;
+        _commandError = null;
+
+        try
+        {
+            if (await monitor.SetCommandAsync(loop.Loop.SessionId, command) is { } changed)
+            {
+                _loops = new Dictionary<string, LoopSessionReading>(_loops, StringComparer.Ordinal)
+                {
+                    [changed.SessionId] = loop with { Loop = changed }
+                };
+            }
+            else
+            {
+                _commandError = "Backlog holds no check-in for this loop any more, so the command was not set. Refresh to read it again.";
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _commandError = $"Couldn't set the command: {exception.Message}";
+        }
+        finally
+        {
+            _commanding = false;
+        }
+    }
+
+    /// <summary>The loop sessions and the dispatcher's capacity and work, read beside the
+    /// sessions. Each source is optional and the host's to compose; one
+    /// that is missing or fails leaves its part of the pane empty rather than failing it.</summary>
+    private sealed record LoopReading(
+        IReadOnlyDictionary<string, LoopSessionReading> Loops,
+        DateTimeOffset ReadAt,
+        CapacityReading? Capacity,
+        int? WaitingRequests,
+        IReadOnlyList<LoopWorkItem>? Work);
+
+    /// <summary>What <see cref="ReadLoopsAsync"/> read, taken in on the
+    /// renderer's thread.</summary>
+    private void Apply(LoopReading read)
+    {
+        _loops = read.Loops;
+        _loopsReadAt = read.ReadAt;
+        _capacity = read.Capacity;
+        WaitingRequests = read.WaitingRequests;
+        _loopWork = read.Work;
+        _commandError = null;
+    }
+
+    private async Task<LoopReading> ReadLoopsAsync()
+    {
+        var now = _clock.GetUtcNow();
+        var loops = new Dictionary<string, LoopSessionReading>(StringComparer.Ordinal);
+
+        if (Services.GetService<LoopSessionMonitor>() is { } monitor)
+        {
+            try
+            {
+                foreach (var loop in await monitor.ReadAsync()) loops.TryAdd(loop.Loop.SessionId, loop);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                loops.Clear();
+            }
+        }
+
+        IReadOnlyList<SessionRequest>? requests = null;
+
+        if (Services.GetService<ISessionRequestStore>() is { } queue)
+        {
+            try
+            {
+                requests = await queue.ListAsync();
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                requests = null;
+            }
+        }
+
+        IReadOnlyList<WaitingQuestion> undelivered = [];
+
+        if (Services.GetService<IWaitingQuestionStore>() is { } questions)
+        {
+            try
+            {
+                undelivered = await questions.ListUndeliveredAsync();
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                undelivered = [];
+            }
+        }
+
+        CapacityReading? capacity = null;
+
+        if (loops.Values.Any(loop => loop.Loop.CheckIn.Kind is LoopKind.Dispatcher)
+            && Services.GetService<ICapacityReader>() is { } reader)
+        {
+            try
+            {
+                capacity = await reader.ReadAsync(CapacityLimits.Default);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                capacity = null;
+            }
+        }
+
+        return new LoopReading(
+            loops,
+            now,
+            capacity,
+            requests is null ? null : SessionRequests.Waiting(requests, now).Count,
+            requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now));
+    }
 
     /// <summary>The open waiting questions, read beside the sessions. The relay is the
     /// desktop's; a host without one, or a store that cannot be read, leaves every row
@@ -2000,6 +2277,9 @@ else
         _runs = await runs;
         _asks = await asks;
         ReadSchedules(await schedules);
+
+        // On the pool for the same reason as the readings above.
+        Apply(await Task.Run(ReadLoopsAsync));
         await ReadPricesAsync();
         _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
         _read = true;
@@ -2209,10 +2489,13 @@ else
         _withRuns = false;
     }
 
+    /// <summary>Picks a row; a failed loop command belongs to the loop it was set on, so
+    /// it goes with the selection.</summary>
     private void Select(SessionRow row)
     {
         _selectedKey = row.Key;
         _openedRunRowKey = null;
+        _commandError = null;
     }
 
     /// <summary>
@@ -2353,7 +2636,8 @@ else
         IReadOnlyDictionary<SessionPurpose, int> PurposeCounts,
         int PurposeTotal,
         IReadOnlyList<AgentSessionGroup> Sections,
-        AgentSessionGroup? Scheduled)
+        AgentSessionGroup? Scheduled,
+        AgentSessionGroup? Agents)
     {
         public bool IsFor(
             IReadOnlyList<SessionRow> rows,
@@ -2413,8 +2697,13 @@ else
             // always were. The step hands back the same sections when nothing moved, so
             // a different list means its last section is the Scheduled one — told by
             // reference rather than by key, which a repository could share.
-            var sections = _view is AgentSessionView.Open ? AgentSessionGroups.ScheduledApart(grouped) : grouped;
-            var scheduled = ReferenceEquals(sections, grouped) ? null : sections[^1];
+            var apart = _view is AgentSessionView.Open ? AgentSessionGroups.ScheduledApart(grouped) : grouped;
+            var scheduled = ReferenceEquals(apart, grouped) ? null : apart[^1];
+
+            // The loop sessions lead every grouping's sections. The step keeps a section
+            // it took nothing from as the same instance, and no scheduled run is a loop,
+            // so the Scheduled section is still told by reference.
+            var sections = AgentSessionGroups.AgentsFirst(apart);
 
             return _derived = new SessionsView(
                 _rows,
@@ -2435,7 +2724,8 @@ else
                 SessionPurposes.Counts(purposeBase),
                 purposeBase.Count,
                 sections,
-                scheduled);
+                scheduled,
+                ReferenceEquals(sections, apart) ? null : sections[0]);
         }
     }
 
