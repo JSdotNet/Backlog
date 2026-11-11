@@ -456,9 +456,15 @@ h1, h2, h3 {
 /* The version control wears `.header-util` for its shape, so only the version
    number's own type is left here. It is no longer in the header at all — it leads
    the app-shell footer, where `.app-footer` above places it. `.header-util` is the
-   shape a utility button has, not a statement about where it lives. */
+   shape a utility button has, not a statement about where it lives.
+
+   `line-height: 1` because the number shares the label's line box (AppFooter.razor
+   wraps both in one span so they share a baseline). At the inherited line height the
+   mono face's taller ascent and descent stretched that box by 2px, which made the
+   button outgrow its 1.5rem and the footer band 1px taller. */
 .app-version code {
     font-family: var(--font-family-mono);
+    line-height: 1;
     color: var(--color-text-primary);
 }
 
