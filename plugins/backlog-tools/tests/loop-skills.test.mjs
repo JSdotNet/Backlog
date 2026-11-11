@@ -81,6 +81,13 @@ for (const { name, text } of loopStarted) {
     assert.match(steps, /\$\{CLAUDE_SESSION_ID\}/);
   });
 
+  // A Manager's wait reaches Backlog far more often than a tick, so it is a check-in too.
+  if (name === "dispatch-sessions") {
+    test("dispatch-sessions arms its wait with its own session id", () => {
+      assert.match(body, /node assets\/wait-requests\.mjs --session \$\{CLAUDE_SESSION_ID\}/);
+    });
+  }
+
   test(`${name} stays within the 40-line SKILL.md body budget`, () => {
     const lines = body.replace(/\s+$/, "").split(/\r?\n/).length;
     assert.ok(lines <= 40, `${name} body is ${lines} lines`);

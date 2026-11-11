@@ -22,6 +22,21 @@ internal sealed class InMemoryLoopRegister(TimeProvider? clock = null) : ILoopRe
         }
     }
 
+    public Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return Task.FromResult<LoopSession?>(null);
+
+        lock (_gate)
+        {
+            if (!_held.TryGetValue(sessionId.Trim(), out var loop)) return Task.FromResult<LoopSession?>(null);
+
+            var waited = LoopSessions.RecordWait(loop, at);
+            _held[loop.SessionId] = waited;
+
+            return Task.FromResult<LoopSession?>(waited);
+        }
+    }
+
     public Task<LoopSession?> GetAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         lock (_gate) return Task.FromResult(_held.GetValueOrDefault(sessionId.Trim()));

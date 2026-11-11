@@ -73,6 +73,36 @@ public class ScheduleToolsTests
     }
 
     [Fact]
+    public async Task A_skip_naming_the_holder_by_its_desktop_id_is_held_by_the_run_that_reported_under_it()
+    {
+        var register = new InMemoryScheduleRegister();
+        var friday = Session("friday-transcript", archived: false) with { DesktopSessionId = "local_friday" };
+        var tools = Tools(register, new FakeTimeProvider(Due), friday);
+        await tools.ReportScheduleRunAsync("sweep", "friday-transcript", "finished", needsYou: ["Validate #5"], cancellationToken: Cancel);
+
+        await tools.ReportScheduleRunAsync("sweep", "monday", "skipped", heldBy: "local_friday", cancellationToken: Cancel);
+        await tools.ReportScheduleRunAsync("sweep", "tuesday", "skipped", heldBy: "friday-transcript", cancellationToken: Cancel);
+        await tools.ReportScheduleRunAsync("sweep", "wednesday", "skipped", heldBy: "local_unknown", cancellationToken: Cancel);
+
+        var runs = (await register.ListAsync(Cancel)).Single().Runs.ToDictionary(run => run.SessionId);
+        Assert.Equal("friday-transcript", runs["monday"].HeldBy);
+        Assert.Equal("friday-transcript", runs["tuesday"].HeldBy);
+        Assert.Equal("local_unknown", runs["wednesday"].HeldBy);
+    }
+
+    [Fact]
+    public async Task A_skip_is_recorded_with_its_holder_as_sent_when_the_session_list_cannot_be_read()
+    {
+        var register = new InMemoryScheduleRegister();
+        var tools = new ScheduleTools(register, new FailingSessions(), new FakeTimeProvider(Due)) { Zone = TimeZoneInfo.Utc };
+
+        var answer = await tools.ReportScheduleRunAsync("sweep", "monday", "skipped", heldBy: "local_friday", cancellationToken: Cancel);
+
+        Assert.Equal("held", answer.State);
+        Assert.Equal("local_friday", (await register.ListAsync(Cancel)).Single().Runs.Single().HeldBy);
+    }
+
+    [Fact]
     public async Task A_run_whose_session_the_desktop_app_archived_answers_handled()
     {
         var tools = Tools(new InMemoryScheduleRegister(), new FakeTimeProvider(Due), Session("run-1", archived: true));

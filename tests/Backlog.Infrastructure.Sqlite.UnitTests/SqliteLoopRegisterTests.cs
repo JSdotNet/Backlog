@@ -112,6 +112,62 @@ public sealed class SqliteLoopRegisterTests : IDisposable
         }
     }
 
+    /// <summary>A dispatch wait (local ADR 0051 §3) for a session the register does not
+    /// know is no check-in: nothing to move, and no row is made from a session id alone.</summary>
+    [Fact]
+    public async Task A_wait_for_a_session_that_never_checked_in_answers_null_and_writes_no_row()
+    {
+        var register = Register();
+
+        Assert.Null(await register.RecordWaitAsync("nobody", Noon, Ct));
+        Assert.Null(await register.RecordWaitAsync("  ", Noon, Ct));
+        Assert.Empty(await register.ListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_wait_moves_only_the_check_in_time_and_keeps_the_command()
+    {
+        var register = Register();
+        var checkIn = CheckIn("manager-session", Noon, LoopActivity.Holding);
+        await register.CheckInAsync(checkIn, Ct);
+        _clock.Now = Noon + TimeSpan.FromMinutes(1);
+        await register.SetCommandAsync("manager-session", LoopCommand.Pause, Ct);
+
+        var waited = await register.RecordWaitAsync(" manager-session ", Noon + TimeSpan.FromMinutes(5), Ct);
+
+        var expected = new LoopSession(checkIn with { At = Noon + TimeSpan.FromMinutes(5) }, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
+        Assert.Equal(expected, waited);
+        Assert.Equal(expected, await Register().GetAsync("manager-session", Ct));
+    }
+
+    [Fact]
+    public async Task A_wait_earlier_than_the_last_check_in_leaves_it_where_it_is()
+    {
+        var register = Register();
+        var checkIn = CheckIn("manager-session", Noon + TimeSpan.FromMinutes(5));
+        await register.CheckInAsync(checkIn, Ct);
+
+        var waited = await register.RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(2), Ct);
+
+        Assert.Equal(new LoopSession(checkIn, LoopCommand.None, null), waited);
+        Assert.Equal(checkIn, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
+    [Fact]
+    public async Task A_full_check_in_after_a_wait_records_it_whole_and_keeps_the_command()
+    {
+        var register = Register();
+        await register.CheckInAsync(CheckIn("manager-session", Noon), Ct);
+        _clock.Now = Noon + TimeSpan.FromMinutes(1);
+        await register.SetCommandAsync("manager-session", LoopCommand.Pause, Ct);
+        await register.RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(2), Ct);
+
+        var later = CheckIn("manager-session", Noon + TimeSpan.FromMinutes(3), LoopActivity.Working);
+        await register.CheckInAsync(later, Ct);
+
+        Assert.Equal(new LoopSession(later, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1)), await Register().GetAsync("manager-session", Ct));
+    }
+
     [Fact]
     public void AddSqlite_registers_a_rooted_register_as_a_singleton()
     {

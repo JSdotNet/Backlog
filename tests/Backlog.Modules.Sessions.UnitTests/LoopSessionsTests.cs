@@ -136,6 +136,20 @@ public class LoopSessionsTests
         Assert.Null(cleared.CommandSetAt);
     }
 
+    /// <summary>A dispatch wait (local ADR 0051 §3) is a check-in with only the session and
+    /// the time: everything else the last check-in said, and the person's command, stay.</summary>
+    [Fact]
+    public void A_wait_moves_only_the_check_in_time_and_never_back()
+    {
+        var full = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, new LoopHeldWork(1, 2, 3, 0), Noon);
+        var paused = LoopSessions.Command(LoopSessions.Record(null, full), LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
+
+        var waited = LoopSessions.RecordWait(paused, Noon + TimeSpan.FromMinutes(3));
+
+        Assert.Equal(new LoopSession(full with { At = Noon + TimeSpan.FromMinutes(3) }, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1)), waited);
+        Assert.Equal(waited, LoopSessions.RecordWait(waited, Noon + TimeSpan.FromMinutes(2)));
+    }
+
     [Fact]
     public async Task The_monitor_reads_each_loop_against_the_session_list()
     {

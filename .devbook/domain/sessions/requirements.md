@@ -537,6 +537,12 @@ The system SHALL read a run as Needs you, Held, Failed, Review ready or No summa
 - **When** Monday's run reports that it skipped itself for that reason
 - **Then** the schedule reads Held, and Monday's run is a Skipped line under it
 
+#### Scenario: A run that ends on an error
+
+- **Given** a weekly update run whose turn ends on an API error
+- **When** the person opens the Schedules page
+- **Then** the schedule reads Failed and its latest run shows the error line
+
 #### Scenario: The person archives the run
 
 - **Given** a schedule that reads Needs you

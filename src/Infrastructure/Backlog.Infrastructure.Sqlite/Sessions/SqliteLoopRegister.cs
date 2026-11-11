@@ -13,9 +13,9 @@ namespace Backlog.Infrastructure.Sqlite.Sessions;
 /// machine's; nothing replicates it.
 /// <para>
 /// The table is this context's, created by idempotent <c>IF NOT EXISTS</c> DDL on any open
-/// the file is not yet stamped for (local ADR 0003). A check-in and a command each write in
-/// one immediate transaction, so a check-in arriving while the person sets a command keeps
-/// the command.
+/// the file is not yet stamped for (local ADR 0003). A check-in, a dispatch wait and a
+/// command each write in one immediate transaction, so a check-in arriving while the person
+/// sets a command keeps the command. A dispatch wait writes the check-in time and nothing else.
 /// </para>
 /// </summary>
 public sealed class SqliteLoopRegister : ILoopRegister
@@ -57,6 +57,39 @@ public sealed class SqliteLoopRegister : ILoopRegister
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return recorded;
+    }
+
+    public async Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return null;
+
+        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = connection.BeginTransaction(deferred: false);
+
+        if (await ReadAsync(connection, transaction, sessionId.Trim(), cancellationToken).ConfigureAwait(false) is not { } loop)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+            return null;
+        }
+
+        var waited = LoopSessions.RecordWait(loop, at);
+
+        // The check-in time alone: a column a later build added keeps what that build wrote.
+        if (waited != loop)
+        {
+            await using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE loop_check_ins SET checked_in_at = $checked_in_at WHERE session_id = $session_id;";
+            update.Parameters.AddWithValue("$checked_in_at", Text(waited.CheckIn.At)!);
+            update.Parameters.AddWithValue("$session_id", waited.SessionId);
+
+            await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        return waited;
     }
 
     public async Task<LoopSession?> GetAsync(string sessionId, CancellationToken cancellationToken = default)
@@ -253,6 +286,9 @@ public sealed class RootedSqliteLoopRegister(Func<string> currentRootDirectory, 
 
     public Task<LoopSession> CheckInAsync(LoopCheckIn checkIn, CancellationToken cancellationToken = default) =>
         Current.CheckInAsync(checkIn, cancellationToken);
+
+    public Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default) =>
+        Current.RecordWaitAsync(sessionId, at, cancellationToken);
 
     public Task<LoopSession?> GetAsync(string sessionId, CancellationToken cancellationToken = default) =>
         Current.GetAsync(sessionId, cancellationToken);

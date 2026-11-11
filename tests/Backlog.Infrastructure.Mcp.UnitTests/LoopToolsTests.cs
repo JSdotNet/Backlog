@@ -75,6 +75,28 @@ public class LoopToolsTests
         Assert.Equal("stop", (await _tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, cancellationToken: Ct)).Command);
     }
 
+    /// <summary>A dispatch wait moves only the time (local ADR 0051 §3); the next
+    /// <c>check_in</c> records everything it says again.</summary>
+    [Fact]
+    public async Task A_check_in_after_a_wait_records_the_full_check_in_again()
+    {
+        await _tools.CheckInAsync("dispatcher", "manager-session", "holding", 5, requests: 1, cancellationToken: Ct);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await _register.RecordWaitAsync("manager-session", _clock.GetUtcNow(), Ct);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+
+        var answer = await _tools.CheckInAsync("dispatcher", "manager-session", "working", 15, sessions: 2, cancellationToken: Ct);
+
+        Assert.Equal(Noon + TimeSpan.FromMinutes(2), answer.CheckedInAt);
+
+        var stored = await _register.GetAsync("manager-session", Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(LoopActivity.Working, stored.CheckIn.Activity);
+        Assert.Equal(15, stored.CheckIn.HeartbeatMinutes);
+        Assert.Equal(new LoopHeldWork(0, 0, 2, 0), stored.CheckIn.Held);
+        Assert.Equal(Noon + TimeSpan.FromMinutes(2), stored.CheckIn.At);
+    }
+
     [Fact]
     public async Task A_command_is_kept_per_loop_session()
     {

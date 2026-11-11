@@ -16,8 +16,8 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 
 1. **Check in** per `../../resources/standing-session.md#check-in`, `sessionId` `${CLAUDE_SESSION_ID}`, `state`
    `holding` if a limit held the last queue, `heartbeatMinutes` step 8's last pace (30 at first), `sessions:` step 6's count.
-2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. Keep one Monitor on
-   `node assets/wait-requests.mjs` at its longest timeout, re-armed on expiry or `stopped`; never loop on tools.
+2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. One Monitor, longest timeout, re-armed on expiry or
+   `stopped`: `node assets/wait-requests.mjs --session ${CLAUDE_SESSION_ID}`, each wait a check-in; never loop on tools.
 3. **Restart.** First unpaused turn only: mark this session per `../../resources/standing-session.md#mark`;
    `released` (`mark_session_request`, `mark_delivery`) each your `dispatcher` holds in either list's `state: claimed`.
 4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
