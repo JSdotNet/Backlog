@@ -703,6 +703,27 @@ public sealed class SessionsPaneAgentsTests
     }
 
     [Fact]
+    public async Task A_dispatch_wait_moves_the_rows_check_in_on_the_panes_own_timer_and_keeps_its_state()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, activity: LoopActivity.Holding, at: Noon.AddMinutes(-20));
+
+        var pane = context.Render();
+        pane.WaitForAssertion(() => Assert.Equal("checked in 20 min ago", pane.Find("[data-testid='sessions-loop-row-check-in']").TextContent.Trim()));
+
+        // The Manager's long poll counts as a check-in with only the time: the row's age
+        // follows it on the next tick, and what the last full check-in said stands.
+        await context.Register.RecordWaitAsync(DispatcherId, Noon.AddSeconds(10), TestContext.Current.CancellationToken);
+        context.Advance(SessionsPane.LoopRefreshInterval);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("checked in 20 s ago", pane.Find("[data-testid='sessions-loop-row-check-in']").TextContent.Trim());
+            Assert.Equal("Holding", pane.Find("[data-testid='sessions-loop-row-state']").TextContent.Trim());
+        });
+    }
+
+    [Fact]
     public void The_timer_stops_with_the_pane()
     {
         using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
@@ -912,6 +933,9 @@ public sealed class SessionsPaneAgentsTests
             public int Lists => Volatile.Read(ref _lists);
 
             public Task<LoopSession> CheckInAsync(LoopCheckIn checkIn, CancellationToken cancellationToken = default) => inner.CheckInAsync(checkIn, cancellationToken);
+
+            public Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default) =>
+                inner.RecordWaitAsync(sessionId, at, cancellationToken);
 
             public Task<LoopSession?> GetAsync(string sessionId, CancellationToken cancellationToken = default) => inner.GetAsync(sessionId, cancellationToken);
 
