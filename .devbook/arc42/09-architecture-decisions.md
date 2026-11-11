@@ -112,7 +112,7 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)
 - [ADR 0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](adr/0025-notes-ride-the-task-feed.md)
 - [ADR 0026 — The Brain is a personal devbook, one folder per user outside any repository](adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
-- [ADR 0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](adr/0027-the-brain-is-a-scope-beside-the-repositories.md)
+- [ADR 0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](adr/0027-the-brain-is-a-scope-beside-the-repositories.md) (§6 amended by ADR 0053)
 - [ADR 0028 — Progress is its own boundary, and Tasks knows no sprints](adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md) (sprint parts superseded by ADR 0035)
 - [ADR 0030 — Every stored credential goes through the OS-protected envelope](adr/0030-stored-credentials-go-through-the-os-protected-envelope.md)
 - [ADR 0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)
@@ -129,3 +129,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
 - [ADR 0052 — The app may write links into a Brain note and move a finished project note to the archive](adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md) (proposed; amends ADR 0026 §3 and ADR 0040 §3 and §4)
+- [ADR 0053 — A plan or a task may reference a Brain note](adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md) (proposed; amends ADR 0027 §6)
