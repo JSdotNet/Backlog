@@ -60,8 +60,10 @@ the one Resume above kept. A `<entry-branch>` that `ls-remote` or
 `git branch --list <entry-branch>` finds is that entry's earlier work, and its brief switches
 without `-c`. When `git worktree list --porcelain` shows a worktree on it, an earlier entry
 session holds it — resume that session rather than start a new one, finding it as the
-`list_sessions` row whose `branch` is `<entry-branch>`, else whose `cwd` is that worktree; none
-found → report the entry waiting on the person.
+`list_sessions` row whose `branch` is `<entry-branch>`, else whose `cwd` is that worktree. None
+found — an earlier run's fallback sub-agent, gone with that run — and the worktree is clean with
+its branch pushed → `git worktree remove` it and start the entry again; otherwise report the
+entry waiting on the person.
 
 An entry's later passes — `delivery:update-pr-branch`, `delivery:fix-pr-checks` — are messages
 to its own session, per **Talking to an entry session** in `item-brief.md`. Refresh and Restack
@@ -85,13 +87,19 @@ says so below. Whether pull requests into `<integration>` get a build is the rep
 **Build check** above. Into a stack parent, assume none until restacked onto `<base>`. A pull request this skill takes out of draft into `<base>` is watched
 (`gh pr checks --watch`, then its state) so its merge is acted on in the same run.
 
+**Every check watch runs in the foreground**, on the turn that needs it: one
+`gh pr checks <n> --watch` call after another, each under the shell's 10-minute limit, until it
+ends. A watch in the background wakes this session on a turn the host lets start no session, so
+the dependents it unblocks would wait on the person. Attended, a gate another entry returns
+meanwhile is relayed only once the watch ends: check `list_sessions` between calls.
+
 ### Branch
 
 - Create `<integration>` only when `ls-remote` finds none:
   `git push origin origin/<base>:refs/heads/<integration>`. An existing one is resumed; never
   force it. Suits a graph with diamonds.
 - **Merge an entry** once its review is settled — approved when attended, landed when
-  unattended — and its checks are green: `gh pr checks <n> --watch` in the background. No check
+  unattended — and its checks are green: `gh pr checks <n> --watch`, in the foreground. No check
   reported yet is not red: retry for 10 minutes before reading it as failed. Then
   `gh pr ready <n>`; the workflow merges it, and `gh pr merge <n>` with the method
   `gh repo view --json mergeCommitAllowed,squashMergeAllowed` allows covers a slow workflow —

@@ -64,7 +64,12 @@ running plan.
   goes to its own nested session, started with `start_session` in a worktree the host makes and
   briefed by `skills/execute-plan/assets/item-brief.md`, which switches it to the entry's
   branch and runs the entry through `run-plan-item` — so every
-  entry passes the repository's gate and its own Personal Validation. Entries that wait on
+  entry passes the repository's gate and its own Personal Validation. Claude Desktop starts a
+  session only on a turn the person typed or one chained to it by sessions finishing, so a
+  start it refuses — on a wake-up, or in a session another started — runs, unattended, the same
+  brief as a background sub-agent in its own worktree that parks at its gate, rather than
+  waiting on a card; attended, it stays a card for the person. Every check watch runs in the
+  foreground to keep the chain. Entries that wait on
   nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
   references and linked Devbook chapters, and warns about each one it cannot reach, asking
   once whether to go, hold the entries that name it, or stop to fix the plan.
@@ -331,10 +336,10 @@ session resumed by message, with no `start_session` in this session, has no row 
 | What it shows | Read from |
 | --- | --- |
 | The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
-| Which session runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `start_session` call's `prompt`, and the `local_…` session id its answer carries — change that line and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry session's worktree | The session's `cwd` in a `list_sessions` or `get_session` answer |
+| Which session runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `start_session` call's `prompt`, and the `local_…` session id its answer carries — or, for a fallback sub-agent, the spawn's `prompt` and the agent id it answered — change that line and `parseBrief` in `hooks/parse.ts` with it |
+| Each entry session's worktree | The session's `cwd` in a `list_sessions` or `get_session` answer; a fallback's, the `worktree` its own calls name |
 | Each entry's stages | `list_runs` and `get_run` answers on any delivery surface, matched to the entry session by its worktree |
-| How the entry ended | The first line of the session's final message, in a `list_events` answer: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before`. A `SendMessage` to the session puts it back to running |
+| How the entry ended | The first line of the session's final message, in a `list_events` answer, or of a fallback's completed turn: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before`. A `SendMessage` to it puts it back to running |
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
 checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,

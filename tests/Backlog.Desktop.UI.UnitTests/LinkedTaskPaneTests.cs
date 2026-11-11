@@ -107,6 +107,32 @@ public sealed class LinkedTaskPaneTests
         Assert.Equal(["Local1", "Fake2", "jira1"], chips.Select(chip => chip.TextContent.Trim()));
     }
 
+    /// <summary>A source chip counts what is still to do from it, like a tag chip:
+    /// a ticked-off task is still listed while no status is pressed, so it is in the
+    /// tooltip and not on the face.</summary>
+    [Fact]
+    public async Task A_source_chip_counts_its_open_tasks_and_its_tooltip_the_completed_ones()
+    {
+        var (host, _, _, _, _) = await FourAsync();
+        using var _host = host;
+
+        await host.WriteEntryAsync("# Sweep the porch\n`task` `!done` `completed:2026-09-22`\n");
+        var shipped = await host.WriteEntryAsync("# Ship the docs\n`task` `!done` `completed:2026-09-23`\n");
+        await LinkAsync(host, shipped, Reference(FakeConnector.Id, "#3", "someone"));
+        await host.State.ReloadFromStoreAsync();
+
+        Assert.Equal(
+            [("local", 1, 1), (FakeConnector.Id, 2, 1), ("jira", 1, 0)],
+            host.State.SourceFilters.Select(option => (option.Value, option.OpenCount, option.CompletedCount)));
+
+        var chips = host.Render().FindAll(SourceChip);
+
+        Assert.Equal(["Local1", "Fake2", "jira1"], chips.Select(chip => chip.TextContent.Trim()));
+        Assert.Equal(
+            ["Show only Local tasks — 1 open, 1 completed", "Show only Fake tasks — 2 open, 1 completed", "Show only jira tasks — 1 open"],
+            chips.Select(chip => chip.GetAttribute("title")));
+    }
+
     [Fact]
     public async Task Pressing_a_source_keeps_only_its_tasks_and_pressing_it_again_widens()
     {
