@@ -13,6 +13,7 @@ internal sealed class EventsPane(
     IEventSeriesRepository series,
     IEventTaskTarget tasks,
     IEventBrainNotes brain,
+    HarvestTaskPolicy harvest,
     TimeProvider clock) : IEventsPane
 {
     /// <summary>The order the list draws its groups in: decided, upcoming work first.</summary>
@@ -80,8 +81,12 @@ internal sealed class EventsPane(
     public Task<Result<KnowledgeEventDto>> RenameAsync(Guid id, string title, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.Rename(title), cancellationToken);
 
+    // Into Harvested, the harvest task is completed after the save and before the read, so the
+    // move holds whatever Tasks answers and the event reads its task as Done. The policy is best
+    // effort: a completion that fails is not the move's failure.
     public Task<Result<KnowledgeEventDto>> MoveToAsync(Guid id, KnowledgeEventState target, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, e => e.MoveTo(target), cancellationToken);
+        ChangeAsync(id, e => e.MoveTo(target), cancellationToken,
+            target == KnowledgeEventState.Harvested ? e => harvest.OnHarvestedAsync(e, cancellationToken) : null);
 
     public Task<Result<KnowledgeEventDto>> SkipAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.Skip(reason), cancellationToken);
@@ -261,19 +266,20 @@ internal sealed class EventsPane(
     public Task<IReadOnlyList<EventBrainNoteDto>> BrainNoteCandidatesAsync(CancellationToken cancellationToken = default) =>
         brain.CandidatesAsync(cancellationToken);
 
-    private async Task<Result<KnowledgeEventDto>> ChangeAsync(Guid id, Func<KnowledgeEvent, Result> change, CancellationToken cancellationToken)
+    private async Task<Result<KnowledgeEventDto>> ChangeAsync(Guid id, Func<KnowledgeEvent, Result> change, CancellationToken cancellationToken, Func<KnowledgeEvent, Task>? afterSave = null)
     {
         if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
             return EventsErrors.KnowledgeEventNotFound(id);
 
-        return await SaveAsync(found, change(found), cancellationToken).ConfigureAwait(false);
+        return await SaveAsync(found, change(found), cancellationToken, afterSave).ConfigureAwait(false);
     }
 
-    private async Task<Result<KnowledgeEventDto>> SaveAsync(KnowledgeEvent changed, Result outcome, CancellationToken cancellationToken)
+    private async Task<Result<KnowledgeEventDto>> SaveAsync(KnowledgeEvent changed, Result outcome, CancellationToken cancellationToken, Func<KnowledgeEvent, Task>? afterSave = null)
     {
         if (outcome.IsFailure) return outcome.Error;
 
         await events.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
+        if (afterSave is not null) await afterSave(changed).ConfigureAwait(false);
         return await ReadAsync(changed, cancellationToken).ConfigureAwait(false);
     }
 

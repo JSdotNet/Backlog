@@ -34,6 +34,12 @@ public static class EventsModuleRegistration
         services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
         services.TryAddScoped<IEventsPane, EventsPane>();
 
+        // The Harvest Task Policy holds the task target, Scoped like the pane that calls it; the
+        // worker is the Desktop clock, a singleton the desktop heads resolve at start, which
+        // takes a scope per check.
+        services.TryAddScoped<HarvestTaskPolicy>();
+        services.TryAddSingleton<HarvestTaskWorker>();
+
         // A singleton over the host's repository, which is one too: the reader holds nothing
         // but that port. TryAdd, so a second call adds nothing.
         services.TryAddSingleton<IKnowledgeEventReader, KnowledgeEventReader>();

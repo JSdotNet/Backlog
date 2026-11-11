@@ -5,8 +5,8 @@ type: invariants
 ```
 
 What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each,
-with the unit tests that prove each rule built so far. The Attachment Request and the Harvest
-Task Policy are not built yet, so their rules name no test.
+with the unit tests that prove each rule built so far. The Attachment Request is not built
+yet, so its rules name no test.
 
 ## Knowledge Event
 
@@ -255,10 +255,11 @@ related: [.devbook/domain/events/domain.md#harvest-task-policy]
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_gets_its_harvest_task_the_day_after_it_ends, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_is_not_due_on_its_last_day, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_without_dates_is_never_due, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_with_only_a_start_is_due_the_day_after_its_start, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Only_a_going_event_is_due]
 ```
 
 The policy files a harvest task only for an event that is Going and whose end day is before the desktop's local date.
-An event with no dates is never due.
+An event with a start and no end ends on its start day, and an event with no dates is never due.
 
 Enforced at: `FileDue()`
 
@@ -266,6 +267,7 @@ Enforced at: `FileDue()`
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Marking_the_event_harvested_completes_its_open_harvest_task, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Harvested_completes_no_prep_or_linked_task, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_without_a_harvest_task_completes_nothing_when_harvested, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Another_move_completes_no_harvest_task]
 ```
 
 Marking an event Harvested completes the task its Harvest Event Task Link names, and no other task.

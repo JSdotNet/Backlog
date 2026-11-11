@@ -5,6 +5,8 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
@@ -87,6 +89,75 @@ public sealed class EventsTaskTargetTests
         Assert.Equal("Done", found[budget.ToString("D").ToUpperInvariant()].Status);
     }
 
+    /// <summary>The Harvest Task Policy's completion (<c>.devbook/domain/events/requirements.md#harvest-task</c>):
+    /// the task is rewritten to Done in place, at its own rank.</summary>
+    [Fact]
+    public async Task Completing_an_open_task_marks_it_done_where_it_stands()
+    {
+        var tasks = new RecordingTasks(existing: 2);
+        var harvest = tasks.Hold("Harvest Techorama Belgium", EntryStatus.Draft);
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var completed = await target.CompleteAsync(harvest.ToString("D"), TestContext.Current.CancellationToken);
+
+        Assert.True(completed.IsSuccess);
+        var save = Assert.Single(tasks.Saves);
+        Assert.Equal(harvest, save.EntryId);
+        Assert.Equal(2, save.Order);
+        Assert.Equal(EntryStatus.Done, tasks.StatusOf(harvest));
+        Assert.Equal("Harvest Techorama Belgium", EntryTextParser.Parse(save.RawText).Title);
+    }
+
+    /// <summary>As a tick in the Tasks pane does it, so the task lands under Completed: ticked
+    /// off on the desktop's local day, Done, and its steps with it.</summary>
+    [Fact]
+    public async Task Completing_an_open_task_ticks_it_off_today_with_its_steps()
+    {
+        // 23:30 UTC on 9 November is already 10 November in Amsterdam.
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 9, 23, 30, 0, TimeSpan.Zero));
+        clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("CET-test", TimeSpan.FromHours(1), "CET", "CET"));
+        var tasks = new RecordingTasks(existing: 0);
+        var harvest = tasks.Hold("Harvest Techorama Belgium", EntryStatus.Draft, "## Write the takeaways\n`task` `!draft`\n");
+        var target = new EventsTaskTarget(tasks, new Signal(), clock);
+
+        await target.CompleteAsync(harvest.ToString("D"), TestContext.Current.CancellationToken);
+
+        var saved = EntryTextParser.Parse(Assert.Single(tasks.Saves).RawText);
+        Assert.Equal(EntryStatus.Done, saved.Status);
+        Assert.Equal(new DateOnly(2026, 11, 10), saved.CompletedOn);
+        Assert.True(Assert.Single(saved.SubItems).Done);
+    }
+
+    [Theory]
+    [InlineData(EntryStatus.Done)]
+    [InlineData(EntryStatus.Archived)]
+    public async Task Completing_a_finished_task_leaves_it_as_it_is(EntryStatus finished)
+    {
+        var tasks = new RecordingTasks(existing: 0);
+        var harvest = tasks.Hold("Harvest Techorama Belgium", finished);
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var completed = await target.CompleteAsync(harvest.ToString("D"), TestContext.Current.CancellationToken);
+
+        Assert.True(completed.IsSuccess);
+        Assert.Empty(tasks.Saves);
+        Assert.Equal(finished, tasks.StatusOf(harvest));
+    }
+
+    [Theory]
+    [InlineData("not-a-task")]
+    [InlineData("3f2b8a51-6c1e-4f1e-9d7a-0c4b1a2e9f10")]
+    public async Task Completing_a_task_this_backlog_does_not_hold_is_refused(string taskId)
+    {
+        var tasks = new RecordingTasks(existing: 1);
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var completed = await target.CompleteAsync(taskId, TestContext.Current.CancellationToken);
+
+        Assert.Equal("event_task.not_in_backlog", completed.Error.Code);
+        Assert.Empty(tasks.Saves);
+    }
+
     [Fact]
     public void A_task_written_anywhere_on_this_machine_is_heard()
     {
@@ -121,12 +192,14 @@ public sealed class EventsTaskTargetTests
 
         public bool Refuse { get; init; }
 
-        public Guid Hold(string title, EntryStatus status)
+        public Guid Hold(string title, EntryStatus status, string body = "")
         {
             var id = Guid.NewGuid();
-            _held.Add(Entry(id, title, status));
+            _held.Add(Entry(id, title, status) with { Order = _held.Count, Body = body });
             return id;
         }
+
+        public EntryStatus StatusOf(Guid id) => _held.Single(entry => entry.Id == id).Status;
 
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TaskItemDto>>([.. _held]);
@@ -134,6 +207,16 @@ public sealed class EventsTaskTargetTests
         public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid? id, string rawText, int order, string? sourceInboxId = null, CancellationToken cancellationToken = default)
         {
             if (Refuse) return Task.FromResult(Result.Failure<SavedTaskDto>(Error.Validation("entry.needs_title", "An entry needs a title line before it can be saved.")));
+
+            if (id is { } existing)
+            {
+                // An update: the held entry takes the status its text now carries.
+                var at = _held.FindIndex(entry => entry.Id == existing);
+                var parsed = EntryTextParser.Parse(rawText);
+                _held[at] = _held[at] with { Title = parsed.Title, Status = parsed.Status ?? _held[at].Status };
+                Saves.Add((existing, id, rawText, order, sourceInboxId));
+                return Task.FromResult(Result.Success(new SavedTaskDto(_held[at])));
+            }
 
             var created = Guid.NewGuid();
             Saves.Add((created, id, rawText, order, sourceInboxId));
