@@ -3,6 +3,8 @@
    through: the declared edge onto the Devbook pane (local ADR 0040 §2). *@
 @using global::Backlog.Desktop.UI.Devbook
 @inject IServiceProvider Services
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
 @*
     One Brain note, read and edited the way a repository chapter is (local ADR 0026,
@@ -52,8 +54,49 @@
     }
     else
     {
-        <article class="devbook-document" data-testid="brain-note" aria-label="@_document.Title">
+        <article class="devbook-document" data-testid="brain-note" aria-label="@_document.Title" @ref="_noteElement">
             <Alert Message="@_saveError" TestId="brain-note-save-error" Role="status" />
+
+            @* Picking work up from the note (local ADR 0052): Create task, from the
+               note or the line the reader selected in it, and on a project note
+               Plan this project. Each stays on screen when it cannot run, disabled
+               with its reason as its title. A mouse press on the bar does not move
+               the selection, so the line selected in the note is still selected
+               when Create task reads it. *@
+            @if (_pickup is { } pickup && !_editing)
+            {
+                var taskReason = pickup.CreateTaskUnavailableReason;
+                var planReason = pickup.PlanUnavailableReason;
+                <div class="brain-note__pickup" @onmousedown:preventDefault="true">
+                    <ButtonGroup AriaLabel="Pick work up from this note" TestId="brain-note-pickup">
+                        <AppButton Size="ButtonSize.Small"
+                                   Variant="ButtonVariant.Ghost"
+                                   Disabled="@(taskReason is not null || (_picking && !_creatingTask))"
+                                   Busy="@_creatingTask"
+                                   BusyLabel="Creating a task"
+                                   title="@(taskReason ?? CreateTaskHint)"
+                                   OnClick="CreateTaskAsync"
+                                   TestId="brain-note-create-task">Create task</AppButton>
+                        @if (IsProjectNote)
+                        {
+                            <AppButton Size="ButtonSize.Small"
+                                       Variant="ButtonVariant.Ghost"
+                                       Disabled="@(planReason is not null || (_picking && !_planning))"
+                                       Busy="@_planning"
+                                       BusyLabel="Drafting a plan"
+                                       title="@(planReason ?? PlanHint)"
+                                       OnClick="PlanProjectAsync"
+                                       TestId="brain-note-plan-project">Plan this project</AppButton>
+                        }
+                    </ButtonGroup>
+                    <Alert Message="@_pickupMessage"
+                           Inline="true"
+                           BaseClass="brain-note__pickup-status"
+                           CssClass="@(_pickupLinked ? null : "brain-note__pickup-status--warning")"
+                           TestId="brain-note-pickup-status"
+                           Role="status" />
+                </div>
+            }
 
             @* Body is the file's text, so copy works and the view knows the file;
                BodyContent is what draws it, through the same read view the
@@ -158,6 +201,7 @@
                 : null;
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _taskLinks = Services.GetService<IBrainTaskLinks>();
+        _pickup = Services.GetService<IBrainPickup>();
         _annotations.Changed += OnAnnotationsChanged;
         Brain.Changed += OnBrainChanged;
 
@@ -244,7 +288,11 @@
             ? await DevbookChapterContent.LoadAsync(Services, Brain.FolderKey, folder, path, canEdit: true)
             : DevbookChapterContent.None;
         var tasks = await ReadNoteTasksAsync(chapter.Chapter?.RelativePath);
+        var projectsFolder = _pickup is null ? null : await ReadProjectsFolderAsync();
         if (read != _read || _disposed) return;
+
+        if (!string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase)) _pickupMessage = null;
+        _projectsFolder = projectsFolder;
 
         var sameNote = string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase) && SameFolder(_loadedRoot, folder);
         _loadedPath = path;
@@ -277,6 +325,119 @@
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
         {
             return [];
+        }
+    }
+
+    /// <summary>The Brain's projects area folder, read off the render thread: the
+    /// areas are a walk of the folder. Null when the Brain declares none, so a note
+    /// under <c>projects/</c> is still a project note.</summary>
+    private async Task<string?> ReadProjectsFolderAsync()
+    {
+        if (Services.GetService<IBrainFolderSource>() is not { } brain) return null;
+
+        try
+        {
+            return await Task.Run(() => BrainNoteDestinations.ProjectsArea(brain.Areas())?.Folder);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Makes work from the note. Null in a host that composes none, where
+    /// the note offers no pickup.</summary>
+    private IBrainPickup? _pickup;
+
+    private ElementReference _noteElement;
+    private string? _projectsFolder;
+    private string? _pickupMessage;
+    private bool _pickupLinked = true;
+    private bool _creatingTask;
+    private bool _planning;
+    private bool _picking;
+
+    private const string CreateTaskHint = "Make a draft task from this note, or from the line selected in it, and list it in the note's tasks";
+
+    private const string PlanHint = "Ask the AI for a plan about this project, with the notes it links to, and name the plan in the note's roadmap";
+
+    /// <summary>Whether the open note is a project note: Plan this project is
+    /// offered on no other.</summary>
+    private bool IsProjectNote => BrainPickupText.IsProjectNote(NotePath, _projectsFolder);
+
+    /// <summary>Create task: the line the reader selected in the note, if any, is
+    /// its title, else the note's own title.</summary>
+    private async Task CreateTaskAsync()
+    {
+        if (_pickup is not { } pickup || NotePath is not { } path || _picking) return;
+
+        // Busy before the selection is read, so a second click while it is read
+        // makes no second task.
+        Begin(creating: true);
+        var line = await SelectedTextAsync();
+        await PickUpAsync(path, () => pickup.CreateTaskAsync(path, line));
+    }
+
+    private Task PlanProjectAsync()
+    {
+        if (_pickup is not { } pickup || NotePath is not { } path || _picking) return Task.CompletedTask;
+
+        Begin(creating: false);
+        return PickUpAsync(path, () => pickup.PlanProjectAsync(path));
+    }
+
+    private void Begin(bool creating)
+    {
+        _picking = true;
+        _creatingTask = creating;
+        _planning = !creating;
+        _pickupMessage = null;
+    }
+
+    /// <summary>Runs one pickup and says what it did. A link the note refused is
+    /// said as a warning: the work stays, the note does not name it. The answer is
+    /// said only while the note it was asked about is still open.</summary>
+    private async Task PickUpAsync(string path, Func<Task<BrainPickupResult>> pick)
+    {
+        StateHasChanged();
+
+        string message;
+        bool linked;
+        try
+        {
+            var result = await pick();
+            message = result.Message;
+            linked = result.Outcome is BrainPickupOutcome.Linked;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException or OperationCanceledException)
+        {
+            message = $"Nothing was made: {exception.Message}";
+            linked = false;
+        }
+        finally
+        {
+            _picking = false;
+            _creatingTask = false;
+            _planning = false;
+        }
+
+        if (_disposed || !string.Equals(NotePath, path, StringComparison.OrdinalIgnoreCase)) return;
+
+        _pickupMessage = message;
+        _pickupLinked = linked;
+    }
+
+    /// <summary>The text the reader selected inside the note, or null. A host
+    /// without script, or a selection elsewhere, is no selection.</summary>
+    private async Task<string?> SelectedTextAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("backlogSelectedText", _noteElement);
+        }
+        catch (Exception exception) when (exception is JSException or InvalidOperationException or TaskCanceledException or JSDisconnectedException)
+        {
+            return null;
         }
     }
 

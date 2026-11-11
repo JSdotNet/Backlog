@@ -283,6 +283,33 @@
                                 </ButtonGroup>
                             </Card>
                         }
+
+                        @if (advice.Outcome is { } outcome)
+                        {
+                            var number = Number(cards, InboxTriageCardKind.Outcome);
+                            var someday = outcome.Outcome == InboxClarifyOutcome.Someday;
+                            var somedayUnavailable = someday ? State.SomedayUnavailableReason : null;
+                            <Card Compact="true" CssClass="inbox-triage__card" TestId="inbox-triage-card-outcome" aria-labelledby="inbox-triage-card-outcome-title">
+                                <div class="inbox-triage__card-head">
+                                    <kbd class="inbox-pane__key" aria-hidden="true">@number</kbd>
+                                    <span class="inbox-triage__card-title" id="inbox-triage-card-outcome-title">@(someday ? "Someday, not now" : "Done in two minutes")</span>
+                                    <span class="inbox-triage__card-reason">@outcome.Reason</span>
+                                </div>
+                                <ButtonGroup AriaLabel="Outcome actions" CssClass="inbox-triage__card-acts">
+                                    <AppButton Variant="ButtonVariant.Primary"
+                                               Size="ButtonSize.Small"
+                                               Disabled="@(Busy || somedayUnavailable is not null)"
+                                               Title="@(somedayUnavailable ?? (someday ? InboxDesktopState.SomedayTitle : InboxDesktopState.DoneNowTitle))"
+                                               aria-keyshortcuts="@number"
+                                               OnClick="State.TakeTriageOutcomeAsync"
+                                               TestId="inbox-triage-take-outcome">@(someday ? "Keep for someday" : "Record as done")</AppButton>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Variant="ButtonVariant.Ghost"
+                                               OnClick="() => State.DismissTriageCard(item.Id, InboxTriageCardKind.Outcome)"
+                                               TestId="inbox-triage-dismiss-outcome">Dismiss</AppButton>
+                                </ButtonGroup>
+                            </Card>
+                        }
                     </section>
                 }
 
@@ -413,6 +440,33 @@
                         <span class="inbox-triage__decision-hint">a note to keep</span>
                     </AppButton>
                     <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy || State.SomedayUnavailableReason is not null)"
+                               Title="@(State.SomedayUnavailableReason ?? InboxDesktopState.SomedayTitle)"
+                               OnClick="State.RouteToSomedayAsync"
+                               TestId="inbox-someday">
+                        <kbd class="inbox-pane__key" aria-hidden="true">S</kbd>
+                        <span class="inbox-triage__decision-label">@InboxDesktopState.SomedayLabel</span>
+                        <span class="inbox-triage__decision-hint">maybe, one day</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="@InboxDesktopState.DoneNowTitle"
+                               OnClick="State.DoneNowAsync"
+                               TestId="inbox-done-now">
+                        <kbd class="inbox-pane__key" aria-hidden="true">N</kbd>
+                        <span class="inbox-triage__decision-label">@InboxDesktopState.DoneNowLabel</span>
+                        <span class="inbox-triage__decision-hint">a task, ticked</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="@InboxDesktopState.WaitingForTitle"
+                               OnClick="OpenWaitingFor"
+                               TestId="inbox-waiting-for">
+                        <kbd class="inbox-pane__key" aria-hidden="true">W</kbd>
+                        <span class="inbox-triage__decision-label">@InboxDesktopState.WaitingForLabel</span>
+                        <span class="inbox-triage__decision-hint">on someone else</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
                                Disabled="@Busy"
                                Title="File it in one of your lists (l)"
                                OnClick="OpenMove"
@@ -503,6 +557,10 @@
                           Open="@_brainOpen"
                           OpenChanged="value => _brainOpen = value" />
 
+        <InboxWaitingForDialog State="State"
+                               Open="@_waitingForOpen"
+                               OpenChanged="value => _waitingForOpen = value" />
+
         <Modal Open="@_deferOpen"
                OpenChanged="value => _deferOpen = value"
                Title="Defer until"
@@ -570,6 +628,19 @@
     }
 
     private bool _brainOpen;
+
+    /// <summary>Opens Waiting for's question — who, and when to follow up — as
+    /// <c>w</c> and the button do. Confirming routes with the repositories
+    /// ticked here, as R does.</summary>
+    public void OpenWaitingFor()
+    {
+        if (!CanDecide) return;
+
+        _waitingForOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _waitingForOpen;
 
     /// <summary>Asks for what triage shows about the item on screen: the AI
     /// cards, the suggestions and the relations. Each is a no-op once the

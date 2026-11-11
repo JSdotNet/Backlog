@@ -16,12 +16,20 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// <param name="Folder">The destination the reader picked — a
 /// <see cref="InboxBrainDestinationDto.Folder"/> — or null for the Brain's inbox
 /// area.</param>
+/// <param name="IntoProjects">Write it into the Brain's projects area rather than
+/// <paramref name="Folder"/> — the project note Create plan starts
+/// (<c>.devbook/domain/inbox/features.md#create-plan-from-an-item</c>). A Brain
+/// with no projects area refuses it.</param>
+/// <param name="RoadmapTag">The Roadmap Tag the note's <c>roadmap</c> list starts
+/// with — the plan's, for a project note — or null for none.</param>
 public sealed record InboxBrainNoteRequestDto(
     Guid InboxItemId,
     string Title,
     string BodyMd,
     string? SourceUrl,
-    string? Folder = null);
+    string? Folder = null,
+    bool IntoProjects = false,
+    string? RoadmapTag = null);
 
 /// <summary>The note a route To Brain wrote: its path relative to the Brain's
 /// root, and the name of the area it went into.</summary>
@@ -51,4 +59,11 @@ public sealed record InboxBrainUnfiledDto(string AreaFolder, int Count);
 /// <param name="IsInbox">Whether it is the Brain's inbox area, which the picker
 /// lists first and starts on.</param>
 /// <param name="IsProject">Whether it is a project rather than an area.</param>
-public sealed record InboxBrainDestinationDto(string Folder, string Label, bool IsInbox = false, bool IsProject = false);
+public sealed record InboxBrainDestinationDto(string Folder, string Label, bool IsInbox = false, bool IsProject = false)
+{
+    /// <summary>The folder of the Brain's <c>someday</c> area, where the Someday
+    /// decision files an item (local ADR 0054 §3): To Brain with that area
+    /// chosen, in one press. A Brain whose areas leave it out refuses the route
+    /// in its own words.</summary>
+    public const string SomedayFolder = "someday";
+}

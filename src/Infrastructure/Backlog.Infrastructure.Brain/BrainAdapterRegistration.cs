@@ -4,6 +4,7 @@ using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -87,6 +88,12 @@ public static class BrainAdapterRegistration
         services.Replace(ServiceDescriptor.Singleton<IRoadmapBrainNotes>(sp =>
             new BrainRoadmapNoteReader(sp.GetRequiredService<IBrainFolderSource>())));
 
+        // A finished plan's project note and its move to the archive (local ADR 0052
+        // §5), through the link writer above. Roadmap's port; absent in a host with no
+        // Brain, where no plan is ever offered the move.
+        services.AddSingleton<IRoadmapProjectNotes>(sp =>
+            new BrainRoadmapProjectNotes(sp.GetRequiredService<BrainFolderSource>(), sp.GetRequiredService<IBrainNoteLinkWriter>()));
+
         // The watch ties the setting to the refresher; each head starts it after Build().
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
@@ -99,6 +106,18 @@ public static class BrainAdapterRegistration
         // without a Brain, and whichever of the two runs first, this one wins.
         services.Replace(ServiceDescriptor.Scoped<IInboxBrainTarget>(sp =>
             new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>(), sp.GetService<IBrainFolderSource>())));
+
+        // Work picked up from a note — Create task, Plan this project — over the
+        // backlog, the Inbox's plan drafter and the link writer above. Scoped, as
+        // To Brain is: the backlog it writes to is a scoped service. The backlog and
+        // the drafter are optional, so a host without either composes, and the
+        // pane's actions read as unavailable with the reason.
+        services.TryAddScoped<IBrainPickup>(sp => new BrainPickup(
+            sp.GetService<ITaskItems>(),
+            sp.GetRequiredService<IBrainFolderSource>(),
+            sp.GetRequiredService<IBrainNoteLinkWriter>(),
+            sp.GetService<IInboxPlanDrafter>(),
+            sp.GetService<IRepositoryDirectory>()));
 
         return services;
     }

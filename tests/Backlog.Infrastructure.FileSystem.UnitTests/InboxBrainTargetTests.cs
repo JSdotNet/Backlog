@@ -183,6 +183,58 @@ public sealed class InboxBrainTargetTests : IDisposable
         Assert.True(File.Exists(Path.Combine(Brain, "projects", "launch", "retry-budget.md")));
     }
 
+    /// <summary>Create plan's project note
+    /// (<c>.devbook/domain/inbox/features.md#create-plan-from-an-item</c>): into
+    /// the projects area, keeping the item's notes and link, its <c>roadmap</c>
+    /// list naming the plan's tag.</summary>
+    [Fact]
+    public async Task A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag()
+    {
+        Directory.CreateDirectory(Brain);
+        _setting = Brain;
+        var brain = new BrainFolderSource(() => _setting);
+
+        var written = await new InboxBrainTarget(new BrainNoteWriter(brain), brain).WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Ship the thing", "Why now.", "https://example.com/launch", IntoProjects: true, RoadmapTag: "ship-the-thing-5e6f7a8b"),
+            Cancellation);
+
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/ship-the-thing.md", "Projects"), written.Value);
+        Assert.Equal(
+            "# Ship the thing\n\n```meta\ntype: note\nstatus: draft\nsource: inbox\nroadmap: [ship-the-thing-5e6f7a8b]\n```\n\nWhy now.\n\nSource: <https://example.com/launch>\n",
+            await File.ReadAllTextAsync(Path.Combine(Brain, "projects", "ship-the-thing.md"), Cancellation));
+    }
+
+    [Fact]
+    public async Task A_project_note_without_a_brain_is_refused_in_the_brain_s_words()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain);
+
+        var written = await target.WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Ship the thing", "", null, IntoProjects: true),
+            Cancellation);
+
+        Assert.Equal(InboxErrors.BrainUnavailableCode, written.Error.Code);
+        Assert.Equal(target.UnavailableReason, written.Error.Message);
+    }
+
+    [Fact]
+    public void The_projects_area_is_found_by_its_folder_else_by_its_name()
+    {
+        Assert.Equal("projects", InboxBrainTarget.ProjectsFolderOf(
+        [
+            new BrainNoteDestination("_inbox", "Inbox", "Inbox", IsInbox: true),
+            new BrainNoteDestination("work", "Projects", "Projects"),
+            new BrainNoteDestination("projects", "Projects", "Projects"),
+        ]));
+        Assert.Equal("1-work", InboxBrainTarget.ProjectsFolderOf(
+        [
+            new BrainNoteDestination("1-work/launch", "Projects › launch", "Projects", IsProject: true),
+            new BrainNoteDestination("1-work", "Projects", "Projects"),
+        ]));
+        Assert.Null(InboxBrainTarget.ProjectsFolderOf([new BrainNoteDestination("_inbox", "Inbox", "Inbox", IsInbox: true)]));
+    }
+
     /// <summary>The picker's rows, as the Inbox sees them: the inbox area first
     /// and marked, the PARA areas in tab order, the project after Projects.</summary>
     [Fact]

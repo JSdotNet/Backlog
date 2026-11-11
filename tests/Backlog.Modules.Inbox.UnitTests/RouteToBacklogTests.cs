@@ -327,6 +327,153 @@ public sealed class RouteToBacklogTests
         Assert.Null(request.InMyDayOn);
     }
 
+    /// <summary>Done now (local ADR 0054): one entry ticked off today, carrying
+    /// the item as its provenance, and the item routed once to it.</summary>
+    [Fact]
+    public async Task Done_now_asks_for_one_entry_completed_today_and_routes_the_item_to_it()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Reply to Sam");
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        store.Seed(item);
+
+        var result = await DoneNow(store, target, item.Id);
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(item.Id, request.InboxItemId);
+        Assert.Equal(DateOnly.FromDateTime(Decision.UtcDateTime), request.CompletedOn);
+        Assert.Equal(["jsdotnet/backlog"], request.RepoIds);
+        Assert.Null(request.DueOn);
+        Assert.Null(request.InMyDayOn);
+
+        var taskId = Assert.Single(result.Value.TaskIds);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+        Assert.Equal([taskId], item.Routing!.TaskIds);
+    }
+
+    [Fact]
+    public async Task Done_now_with_no_repository_makes_one_untargeted_entry()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await DoneNow(store, target, item.Id);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(Assert.Single(target.Requests).RepoIds);
+    }
+
+    [Fact]
+    public async Task Done_now_routes_once_and_a_tasks_failure_leaves_the_item_open()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget { FailWith = Error.Validation("entry.needs_title", "No title.") };
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var failed = await DoneNow(store, target, item.Id);
+
+        Assert.True(failed.IsFailure);
+        Assert.Null(item.Routing);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+
+        target.FailWith = null;
+        Assert.True((await DoneNow(store, target, item.Id)).IsSuccess);
+
+        var again = await DoneNow(store, target, item.Id);
+        Assert.True(again.IsFailure);
+        Assert.Equal("inbox.item.invalid_transition", again.Error.Code);
+        Assert.Equal(2, target.Requests.Count);
+    }
+
+    /// <summary>A plain route never asks for a ticked entry.</summary>
+    [Fact]
+    public async Task A_plain_route_carries_no_completed_date()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id);
+
+        Assert.Null(Assert.Single(target.Requests).CompletedOn);
+    }
+
+    /// <summary>Waiting for (local ADR 0054 §4): Move to backlog's route — one
+    /// entry per repository, with the schedule — every entry carrying who it
+    /// waits on and the follow-up date.</summary>
+    [Fact]
+    public async Task Waiting_for_routes_like_move_to_backlog_with_the_waiting_for_on_every_entry()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Quote for the roof");
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        store.Seed(item);
+        var followUp = new DateOnly(2026, 12, 1);
+
+        var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto("  Sam\nthe roofer ", followUp), new InboxRouteScheduleDto(AddToMyDay: true));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(new InboxWaitingForDto("Sam the roofer", followUp), request.WaitingFor);
+        Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], request.RepoIds);
+        Assert.NotNull(request.InMyDayOn);
+        Assert.Null(request.CompletedOn);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+        Assert.Equal(result.Value.TaskIds, item.Routing!.TaskIds);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Sam `x`")]
+    public async Task Waiting_for_with_nobody_writable_routes_nothing(string who)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto(who));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, result.Error.Code);
+        Assert.Empty(target.Requests);
+        Assert.Null(item.Routing);
+    }
+
+    [Fact]
+    public async Task A_plain_route_carries_no_waiting_for()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id);
+
+        Assert.Null(Assert.Single(target.Requests).WaitingFor);
+    }
+
+    private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> WaitingFor(
+        InMemoryInboxStore store,
+        FakeBacklogTarget target,
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null) =>
+        new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
+            .Handle(new RouteToBacklogCommand(id, Schedule: schedule, WaitingFor: waitingFor), TestContext.Current.CancellationToken);
+
+    private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> DoneNow(InMemoryInboxStore store, FakeBacklogTarget target, Guid id) =>
+        new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
+            .Handle(new RouteToBacklogCommand(id, DoneNow: true), TestContext.Current.CancellationToken);
+
     private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> Route(
         InMemoryInboxStore store,
         FakeBacklogTarget target,

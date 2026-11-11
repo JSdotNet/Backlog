@@ -6986,6 +6986,26 @@ a.pull-request-detail-checks__name:hover {
     margin: 0;
 }
 
+/* Picking work up from a Brain note: Create task and Plan this project, then the
+   line saying what the last one did, wrapping under the buttons in a narrow pane. */
+.brain-note__pickup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.brain-note__pickup-status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.brain-note__pickup-status--warning {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;

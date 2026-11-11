@@ -33,6 +33,7 @@ public sealed class InboxTriagePassDraft
     private readonly List<InboxPassProposal> _routes;
     private readonly List<InboxPassProposal> _filings;
     private readonly List<InboxPassProposal> _archives;
+    private readonly List<InboxPassProposal> _outcomes;
     private readonly List<Guid> _unplaced;
     private readonly Dictionary<Guid, string> _listNames;
 
@@ -59,6 +60,7 @@ public sealed class InboxTriagePassDraft
         })];
         _filings = [.. pass.Filings.Select(filing => new InboxPassProposal(filing.ItemId, filing.Reason, filing.Confidence) { ListId = filing.ListId })];
         _archives = [.. pass.Archives.Select(archive => new InboxPassProposal(archive.ItemId, archive.Reason, archive.Confidence))];
+        _outcomes = [.. pass.Outcomes.Select(outcome => new InboxPassProposal(outcome.ItemId, outcome.Reason, outcome.Confidence) { Outcome = outcome.Outcome })];
         _unplaced = [.. pass.Unplaced.Distinct()];
 
         // The pass's own items are the ones it read; the ones it was not asked
@@ -76,6 +78,10 @@ public sealed class InboxTriagePassDraft
 
     public IReadOnlyList<InboxPassProposal> Archives => _archives;
 
+    /// <summary>The items to take Someday or Done now (local ADR 0054), in the
+    /// pass's order.</summary>
+    public IReadOnlyList<InboxPassProposal> Outcomes => _outcomes;
+
     /// <summary>The filings by list, the lists in the order the pass first
     /// names them — one "File n in list" row each.</summary>
     public IReadOnlyList<InboxPassFilingGroup> FilingGroups =>
@@ -89,7 +95,7 @@ public sealed class InboxTriagePassDraft
 
     /// <summary>Every proposal on screen; the items left for the reader are not
     /// proposals and are not counted.</summary>
-    public int Total => _plans.Count + _duplicates.Count + _routes.Count + _filings.Count + _archives.Count;
+    public int Total => _plans.Count + _duplicates.Count + _routes.Count + _filings.Count + _archives.Count + _outcomes.Count;
 
     /// <summary>The proposals that will be applied: a plan accepted and still
     /// two items or more, a pair not left as both, and every other proposal
@@ -99,7 +105,8 @@ public sealed class InboxTriagePassDraft
         + _duplicates.Count(pair => pair.IsAccepted)
         + _routes.Count(route => route.Accepted)
         + _filings.Count(filing => filing.Accepted)
-        + _archives.Count(archive => archive.Accepted);
+        + _archives.Count(archive => archive.Accepted)
+        + _outcomes.Count(outcome => outcome.Accepted);
 
     /// <summary>How many decisions Apply will run — one per accepted proposal.</summary>
     public int DecisionCount => AcceptedCount;
@@ -160,6 +167,10 @@ public sealed class InboxTriagePassDraft
             .Where(archive => archive.Accepted)
             .Select(archive => new InboxTriageArchiveDecision(TitleOf(archive.ItemId), archive.ItemId)));
 
+        decisions.AddRange(_outcomes
+            .Where(outcome => outcome.Accepted)
+            .Select(outcome => new InboxTriageOutcomeDecision(TitleOf(outcome.ItemId), outcome.ItemId, outcome.Outcome!.Value)));
+
         return decisions;
     }
 
@@ -198,6 +209,9 @@ public sealed class InboxTriagePassDraft
                 case InboxTriageArchiveDecision archive:
                     done.Add(archive.ItemId);
                     break;
+                case InboxTriageOutcomeDecision outcome:
+                    done.Add(outcome.ItemId);
+                    break;
             }
         }
 
@@ -205,6 +219,7 @@ public sealed class InboxTriagePassDraft
         _routes.RemoveAll(route => done.Contains(route.ItemId));
         _filings.RemoveAll(filing => done.Contains(filing.ItemId));
         _archives.RemoveAll(archive => done.Contains(archive.ItemId));
+        _outcomes.RemoveAll(outcome => done.Contains(outcome.ItemId));
 
         HoldTo(items, slice);
     }
@@ -270,6 +285,7 @@ public sealed class InboxTriagePassDraft
         _routes.RemoveAll(route => !IsWaiting(route.ItemId));
         _filings.RemoveAll(filing => !IsWaiting(filing.ItemId));
         _archives.RemoveAll(archive => !IsWaiting(archive.ItemId));
+        _outcomes.RemoveAll(outcome => !IsWaiting(outcome.ItemId));
 
         _unplaced.AddRange(orphans.Where(id => !_unplaced.Contains(id)));
 
@@ -300,6 +316,7 @@ public sealed class InboxTriagePassDraft
         covered.UnionWith(_routes.Select(route => route.ItemId));
         covered.UnionWith(_filings.Select(filing => filing.ItemId));
         covered.UnionWith(_archives.Select(archive => archive.ItemId));
+        covered.UnionWith(_outcomes.Select(outcome => outcome.ItemId));
         return covered;
     }
 
@@ -448,6 +465,9 @@ public sealed class InboxPassProposal
 
     /// <summary>A filing's list.</summary>
     public Guid? ListId { get; init; }
+
+    /// <summary>An outcome proposal's kind: Someday or Done now.</summary>
+    public InboxClarifyOutcome? Outcome { get; init; }
 }
 
 /// <summary>The filings into one list, drawn as one row: "File n in list".</summary>

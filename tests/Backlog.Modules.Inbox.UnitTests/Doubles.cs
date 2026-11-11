@@ -141,9 +141,17 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
     /// for the adapter's "has started" check, which the module never sees.</summary>
     public Error? FailDeleteWith { get; set; }
 
-    public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default)
+    public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, madeDone: false, cancellationToken);
+
+    /// <summary>Whether each deletion, in order, was Done now's — allowed to
+    /// delete the Done entry the route made.</summary>
+    public List<bool> DeletionsMadeDone { get; } = [];
+
+    public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default)
     {
         Deletions.Add(taskIds);
+        DeletionsMadeDone.Add(madeDone);
 
         return Task.FromResult(FailDeleteWith is { } error ? Result.Failure(error) : Result.Success());
     }

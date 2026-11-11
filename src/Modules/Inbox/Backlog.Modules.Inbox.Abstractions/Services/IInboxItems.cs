@@ -129,6 +129,12 @@ public interface IInboxItems
     /// Only a routed item; the session undo history is the one caller.</summary>
     Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default);
 
+    /// <summary>Takes Done now back: as
+    /// <see cref="ReturnToInboxAsync(Guid, bool, CancellationToken)"/> with its
+    /// entries deleted, where the one entry Done now made — born Done and ticked —
+    /// does not count as started. Archived still refuses.</summary>
+    Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
     /// runs it when it opens; nothing schedules it.</summary>
@@ -188,6 +194,26 @@ public interface IInboxItems
     Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Done now (local ADR 0054, the two-minute rule): routes the item to
+    /// one task created already ticked — Done, <c>completed:</c> today — carrying
+    /// the item's id as its provenance, as Move to backlog does. One task however
+    /// many repositories the item names: its first, or none. An item routes
+    /// exactly once, and a failure on the Tasks side leaves it open.</summary>
+    Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Waiting for (local ADR 0054 §4): routes the item as
+    /// <see cref="RouteToBacklogAsync(Guid, string?, InboxRouteScheduleDto?, CancellationToken)"/>
+    /// does — one task per repository, with <paramref name="schedule"/>'s due date
+    /// and My Day — every task carrying <paramref name="waitingFor"/>: who it
+    /// waits on and the optional follow-up date. A blank who, or one with a
+    /// backtick, answers <see cref="InboxErrors.WaitingForWhoRequiredCode"/> and
+    /// routes nothing. Its undo is Move to backlog's.</summary>
+    Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
         InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default);
 
@@ -278,8 +304,12 @@ public interface IInboxItems
     /// <summary>Asks the plan drafter for an import plan about the item, hands
     /// the plan to Tasks' import, and records the entries it produced as the
     /// item's routing. Fails with <c>inbox.plan.not_configured</c> when
-    /// <see cref="PlanDrafterAvailability"/> says so.</summary>
-    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <see cref="PlanDrafterAvailability"/> says so. With
+    /// <paramref name="startProjectNote"/> it also starts the plan's project note
+    /// in the Brain, which the plan references; refused with
+    /// <c>inbox.brain.unavailable</c> and the Brain's reason while
+    /// <see cref="BrainUnavailableReason"/> says so, before anything is drafted.</summary>
+    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default);
 
     /// <summary>Fetches one of the item's files again — the act behind Retry on a
     /// file row whose download failed. A file already on this machine with the

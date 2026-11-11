@@ -71,7 +71,7 @@ public sealed class BrainNoteWriter : IBrainNoteWriter
         if (target is null) return BrainNoteWrite.Refused(NotAnArea(draft.Folder!.Trim()));
 
         var areaName = BrainNoteDestinations.AreaOf(target, areas, inbox)?.Name ?? inbox.Name;
-        var text = BrainNoteText.Compose(title, draft.BodyMd, draft.Source);
+        var text = BrainNoteText.Compose(title, draft.BodyMd, draft.Source, draft.Roadmap);
         var stem = BrainNoteText.FileStemFor(title);
 
         try

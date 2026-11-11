@@ -214,6 +214,27 @@ public sealed class UndoDecisionTests
         Assert.Equal(InboxErrors.ItemNotFound, (await Return(store, new FakeBacklogTarget(), Guid.CreateVersion7(), true)).Error);
     }
 
+    /// <summary>Done now's undo deletes the one entry it made, telling the
+    /// backlog that entry was born Done; a plain route's undo does not.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_undo_says_whether_the_route_made_its_entry_done(bool madeDone)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        item.RouteToBacklog([Guid.CreateVersion7()], [], Items.Noon);
+        store.Seed(item);
+
+        var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
+            .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, MadeDone: madeDone), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal([madeDone], target.DeletionsMadeDone);
+        Assert.Null(item.Routing);
+    }
+
     private static Task<Result> Restore(InMemoryInboxStore store, Guid id) =>
         new RestoreItemCommandHandler(store, new FakeTimeProvider(Undone))
             .Handle(new RestoreItemCommand(id), TestContext.Current.CancellationToken);

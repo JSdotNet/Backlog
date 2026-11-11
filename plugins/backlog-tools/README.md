@@ -24,7 +24,10 @@ running plan.
   `skills/import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact every
   run before the plan text is shown — a local HTML file only when the host has no artifacts. User-invoked only
-  (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
+  (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub, except to
+  read a Brain project note given as its source (`#brain:projects/<note>.md`, local ADR 0053)
+  through the knowledge read tool under `#brain` — the plan then names the note on its `plan`
+  entry and its steps as a `devbook:#brain:` token, and Import never writes into the note.
   A plan imports at two levels (ADR 0013:
   `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
   one `plan` entry, which Import turns into the Roadmap Item, and the step entries under it
