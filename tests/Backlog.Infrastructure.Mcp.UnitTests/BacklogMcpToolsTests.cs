@@ -108,10 +108,11 @@ public class BacklogMcpToolsTests
                 "get_answer",
                 "close",
 
-                // The Inbox's captures: list, read, archive once filed.
+                // The Inbox's captures: list, read, archive once filed, and capture an action (local ADR 0054).
                 "list_inbox_items",
                 "read_inbox_item",
                 "archive_inbox_item",
+                "capture_to_inbox",
 
                 // The surface windows (local ADR 0043 §7).
                 "open_window"
@@ -308,6 +309,7 @@ public class BacklogMcpToolsTests
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
             InboxTools.ArchiveInboxItem,
+            InboxTools.CaptureToInbox,
             DecisionTools.SetState,
             DecisionTools.Approve,
             DecisionTools.Accept,

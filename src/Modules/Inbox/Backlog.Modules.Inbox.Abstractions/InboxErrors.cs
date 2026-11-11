@@ -19,6 +19,12 @@ public static class InboxErrors
         "inbox.item.needs_title",
         "A capture needs some text before it can be kept.");
 
+    /// <summary>A source link named beside a capture that is no absolute http
+    /// or https address.</summary>
+    public static readonly Error SourceUrlNotALink = Error.Validation(
+        "inbox.capture.source_not_a_link",
+        "The source link has to be a web address, starting with http:// or https://.");
+
     /// <summary>Only a note changes after it is captured
     /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>).</summary>
     public static readonly Error NotANote = Error.Validation(

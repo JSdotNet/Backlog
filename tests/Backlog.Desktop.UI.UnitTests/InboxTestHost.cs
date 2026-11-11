@@ -326,7 +326,7 @@ internal sealed class FakeInboxItems : IInboxItems
     /// what the pane does when the module says no. Reset after one use.</summary>
     public Error? NextCaptureError { get; set; }
 
-    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", CancellationToken cancellationToken = default)
+    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", string? sourceUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(title)) return Task.FromResult(Result.Failure<InboxItemDto>(InboxErrors.ItemNeedsTitle));
 

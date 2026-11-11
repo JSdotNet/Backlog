@@ -27,11 +27,17 @@ public interface IInboxItems
     /// a person can use offline. <paramref name="notes"/> is what was written
     /// beneath the title and becomes the item's body; null or blank is a bare
     /// one-line capture. <paramref name="channel"/> is the capture source it is
-    /// filed under and defaults to the domain's word for "by hand".</summary>
+    /// filed under and defaults to the domain's word for "by hand".
+    /// <paramref name="sourceUrl"/> is the link the capture is about when the
+    /// caller names one — an assistant's <c>capture_to_inbox</c> does; null reads
+    /// it off the title. Fails with <c>inbox.item.needs_title</c> for a blank
+    /// title and <c>inbox.capture.source_not_a_link</c> for a link that is no
+    /// http or https address.</summary>
     Task<Result<InboxItemDto>> CaptureAsync(
         string title,
         string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
+        string? sourceUrl = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Replaces the item's tags. Bare names; a name that reads as a
