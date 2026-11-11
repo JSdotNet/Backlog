@@ -682,6 +682,21 @@ The system SHALL offer **Plan this project** on a note under the Brain's project
 - **When** the reader presses Plan this project
 - **Then** the drafter is asked with both notes, the plan's roadmap item references the project note, and the note's `roadmap` names the plan's tag
 
+### Requirement: The open note shows the link a pickup wrote
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Create_task_lists_the_new_task_on_the_open_note_at_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Plan_this_project_reads_the_note_it_named_the_plan_in_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.A_link_the_note_refused_lists_no_task_the_note_does_not_name]
+```
+
+The system SHALL read the open note again once Create task or Plan this project has linked it, listing in its Tasks section every task its `tasks` field names, before the Brain database is rebuilt.
+
+#### Scenario: The new task's chip without reopening the note
+
+- **Given** a project note open in the Brain pane, its `tasks` field empty
+- **When** the reader presses Create task and the pane says the note lists the task
+- **Then** the note's Tasks section shows the new task's chip without the note being opened again
+
 ### Requirement: A refused link keeps the work
 
 ```meta
