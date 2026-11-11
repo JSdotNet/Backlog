@@ -446,6 +446,10 @@ public static class DesktopCompositionRegistration
         // The last prompt per Claude session, which the hook telemetry route feeds and the
         // head's presence reads (local ADR 0041). Read on this desktop only.
         services.AddSingleton(_ => new SessionPrompts());
+        // When a dispatcher last waited on the session-request route (local ADR 0038 §4),
+        // which the route records and the Tasks pane's session queue reads. In memory and
+        // on this desktop only, like the prompts above: a restart forgets it.
+        services.AddSingleton(sp => new DispatcherContact(sp.GetService<TimeProvider>()));
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer

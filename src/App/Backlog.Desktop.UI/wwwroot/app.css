@@ -896,6 +896,118 @@ h1, h2, h3 {
     cursor: default;
 }
 
+/* A plan chip whose plan waits for a session: the queue's glyph after the count,
+   small, in the chip's own colour. Its words are in the chip's name and tooltip. */
+.filter-bar__plan-waiting {
+    margin-left: var(--spacing-xs);
+}
+
+/* The session queue: the bar's last group, pinned like the acts before it so the
+   tag pile gives way first. A glyph and a count on a chip as tall as its
+   neighbours; muted while nothing waits, so an empty queue is there without
+   asking to be read. */
+.filter-group--queue {
+    flex: 0 0 auto;
+}
+
+.chip.chip--queue {
+    gap: 0;
+}
+
+.chip.chip--queue .chip__count {
+    opacity: 1;
+}
+
+.chip.chip--queue-idle {
+    color: var(--color-text-secondary);
+}
+
+.chip.chip--queue-idle .chip__count {
+    opacity: 0.55;
+}
+
+/* `.filter-bar { overflow: hidden }` would cut the panel off at the bar's bottom
+   edge, so it is fixed and anchored to the trigger instead: its containing block is
+   then the list column (`.backlog-list` is an inline-size container), which the bar
+   does not clip. Lined up with the trigger's end edge, opening inward. */
+.filter-group--queue .chip--queue {
+    anchor-name: --session-queue;
+}
+
+@supports (anchor-name: --a) {
+    .popover-button__panel.session-queue {
+        position: fixed;
+        position-anchor: --session-queue;
+        top: calc(anchor(bottom) + var(--spacing-xs));
+        right: anchor(right);
+        left: auto;
+        /* Never off the column's edge. A trigger too near the start for the panel
+           to open inward from its end opens from its start instead, and one with
+           room for neither lines the panel up with the column's start. The panel
+           is never wider than the column, so the last always fits. */
+        position-try-fallbacks: flip-inline, --session-queue-column-start;
+    }
+
+    @position-try --session-queue-column-start {
+        top: calc(anchor(bottom) + var(--spacing-xs));
+        left: 0;
+        right: auto;
+    }
+}
+
+.session-queue {
+    /* 100cqi is the list column — `.backlog-list` is the nearest container. */
+    width: min(26rem, 90vw, 100cqi);
+    max-height: min(24rem, 60vh);
+    overflow-y: auto;
+}
+
+.session-queue__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-queue__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+}
+
+.session-queue__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    justify-self: start;
+    max-width: 100%;
+}
+
+/* The words under a followable name start where its words do: the small ghost
+   button's inline padding and border, given to the lines that have no button —
+   this name, and the meta line under every row. */
+.session-queue__name--away {
+    color: var(--color-text-secondary);
+    font-style: italic;
+    padding-inline-start: calc(var(--spacing-sm) + var(--border-width));
+}
+
+.session-queue__meta {
+    padding-inline-start: calc(var(--spacing-sm) + var(--border-width));
+    grid-column: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.session-queue__cancel {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+}
+
 .chip--summary {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;

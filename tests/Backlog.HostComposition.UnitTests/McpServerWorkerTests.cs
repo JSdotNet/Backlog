@@ -357,6 +357,35 @@ public sealed class McpServerWorkerTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// A dispatcher's wait is recorded in the app's own dispatcher contact, not in a copy
+    /// the listener made for itself (local ADR 0038 §4): the record the Tasks pane reads is
+    /// the one the route wrote.
+    /// </summary>
+    [Fact]
+    public async Task A_dispatchers_wait_is_recorded_in_the_apps_own_dispatcher_contact()
+    {
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        var contact = new DispatcherContact();
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<ISessionRequestStore>(queue)
+            .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .AddSingleton(contact)
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        using var response = await client.SendAsync(Wait(settings.EnsureMcpServerToken()), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(contact.LastHeardAt);
+    }
+
     private static HttpRequestMessage Wait(string? token)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, SessionRequestWaitEndpoint.RoutePath);
