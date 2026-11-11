@@ -214,6 +214,17 @@ public static class BacklogMcpTools
         [UsageTools.ListRunUsage]);
 
     /// <summary>
+    /// <c>report_schedule_run</c>, a scheduled run's start, skip, finish or failure (local
+    /// ADR 0051 §1), behind <c>sessions</c>: §6 puts the schedules in the Sessions area with
+    /// no flag of their own. A group of its own because its port, the Schedule Register, is
+    /// one no other session tool needs.
+    /// </summary>
+    public static McpToolGroup Schedules { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(ScheduleTools),
+        [ScheduleTools.ReportScheduleRun]);
+
+    /// <summary>
     /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
     /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
     /// Behind <c>backlog</c>, the always-on Tasks key, since Progress has no switch of its
@@ -310,7 +321,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

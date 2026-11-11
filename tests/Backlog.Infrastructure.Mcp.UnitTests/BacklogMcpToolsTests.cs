@@ -78,6 +78,9 @@ public class BacklogMcpToolsTests
                 // The measured usage of every run, beside the surface rather than on it.
                 "list_run_usage",
 
+                // A scheduled run's report (local ADR 0051).
+                "report_schedule_run",
+
                 // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
@@ -140,6 +143,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Schedules.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
@@ -210,7 +214,7 @@ public class BacklogMcpToolsTests
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
-            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Loops],
+            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Schedules, BacklogMcpTools.Loops],
             byKey[SessionFeatures.Sessions]);
 
         // The devbook's three: the chapters and notes, the subjects' workflow
@@ -344,6 +348,7 @@ public class BacklogMcpToolsTests
             SessionRequestTools.MarkSessionRequest,
             SessionRequestTools.ClaimDelivery,
             SessionRequestTools.MarkDelivery,
+            ScheduleTools.ReportScheduleRun,
             NotificationTools.Notify,
             NotificationTools.Ask,
             NotificationTools.GetAnswer,

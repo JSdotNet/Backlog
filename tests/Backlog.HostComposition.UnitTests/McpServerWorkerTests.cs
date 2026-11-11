@@ -357,6 +357,58 @@ public sealed class McpServerWorkerTests : IDisposable
         }
     }
 
+    /// <summary>The report route a scheduled run's hook posts to (local ADR 0051 §1) is held
+    /// to the same bearer token: refused without it or with a wrong one, recording nothing,
+    /// and recorded with it.</summary>
+    [Fact]
+    public async Task The_schedule_run_report_refuses_a_missing_or_wrong_token_and_records_with_the_right_one()
+    {
+        var register = new InMemoryScheduleRegister();
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IScheduleRegister>(register)
+            .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureMcpServerToken();
+
+        using (var response = await client.SendAsync(Report(null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Report(token + "-wrong"), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        Assert.Equal(0, register.Recorded);
+
+        using (var response = await client.SendAsync(Report(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Contains("\"no-summary-yet\"", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+
+        Assert.Equal(1, register.Recorded);
+    }
+
+    private static HttpRequestMessage Report(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, ScheduleRunReportEndpoint.RoutePath)
+        {
+            Content = new StringContent("""{"scheduleId":"weekly-update","sessionId":"run-1","event":"started"}""", System.Text.Encoding.UTF8, "application/json"),
+        };
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
     private static HttpRequestMessage Wait(string? token)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, SessionRequestWaitEndpoint.RoutePath);

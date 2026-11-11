@@ -112,6 +112,11 @@ public static class SqliteRegistration
         services.AddSingleton<IWaitingQuestionStore>(sp =>
             new RootedSqliteWaitingQuestionStore(() => rootDirectory(sp)));
 
+        // The schedules and runs their reports describe (local ADR 0051 §1): this
+        // machine's, the same context's tables, in the same file.
+        services.AddSingleton<IScheduleRegister>(sp =>
+            new RootedSqliteScheduleRegister(() => rootDirectory(sp)));
+
         // The loop sessions' latest check-ins and the command the person set on each
         // (local ADR 0051 §3): this machine's, the same context's table, in the same file.
         services.AddSingleton<ILoopRegister>(sp =>
