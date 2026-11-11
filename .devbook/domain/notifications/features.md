@@ -185,15 +185,32 @@ whether a phone showed it.
 
 ```meta
 type: feature
-related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/features.md#loop-sessions]
 ```
 
-Three contexts reach the person through notifications. A delivery run that
+Four contexts reach the person through notifications. A delivery run that
 reaches Personal Validation asks to be approved, and the answer is recorded on the
 run; the pull request is still opened at the desktop. A device that redeems a
 pairing code is asked about on the desktop that showed the code, and only there:
 Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
-device raises an alert that links to the chapter.
+device raises an alert that links to the chapter. Sessions raises an alert when a
+schedule or a loop session needs the person.
+
+Sessions publishes its alerts like any other source, so they reach the centre, the
+Windows notification and the phone as every alert does. Local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+decides it, and nothing of it is built yet.
+
+| Source line | Raised when | Actions |
+| --- | --- | --- |
+| Backlog · Schedules | a schedule reads Needs you, Held, Failed or Missed | Open run, Open Schedules |
+| Backlog · Sessions | a loop session reads Stalled, or Not running while work waits | Open Sessions, Acknowledge |
+
+Each cause raises one alert, and Sessions closes it when the cause clears: the run's
+session is archived, a missed schedule's run starts, or the loop checks in again. A
+held schedule's later skipped runs raise nothing more. A schedule that reads Review
+ready shows it on its row and raises no alert
+([Schedules and their runs](../sessions/requirements.md#requirement-a-schedule-that-needs-the-person-raises-one-alert-per-cause)).
 
 The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports

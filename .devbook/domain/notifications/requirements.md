@@ -705,6 +705,27 @@ The system SHALL raise an info alert about a remark left on a Devbook chapter on
 - **When** the remark syncs to Desktop A
 - **Then** Desktop A raises an info alert about the remark that links to the chapter
 
+### Requirement: A schedule or loop session that needs the person raises one alert
+
+```meta
+type: requirement
+related: [.devbook/domain/sessions/requirements.md#schedules-and-their-runs, .devbook/domain/sessions/requirements.md#loop-sessions]
+```
+
+The system SHALL publish one Alert per cause when a schedule or a loop session needs the person, attributed to "Backlog · Schedules" or "Backlog · Sessions", and SHALL close it when Sessions reports the cause cleared.
+
+#### Scenario: The dispatcher stopped
+
+- **Given** the Manager's session is archived while three session requests wait
+- **When** Sessions publishes the alert
+- **Then** the centre and Windows show "Session dispatcher stopped" from "Backlog · Sessions", with Open Sessions and Acknowledge
+
+#### Scenario: The dispatcher is back
+
+- **Given** an Open "Session dispatcher stopped" alert
+- **When** a Manager checks in again
+- **Then** the alert closes on every viewer
+
 ## Closing a notification
 
 ```meta
