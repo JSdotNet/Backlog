@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-10
-related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop]
 c4-touches: [backlog.mobile, backlog.desktop.backlogModule, backlog.desktop.sessions]
 ```
@@ -143,6 +143,13 @@ its tools. The skills that call them are written for that already — the
 pasted plan item "is the whole input for now" — and opening Backlog is the
 whole of the repair. The listener runs as long as the process does, and closing the main
 window hides it to the tray rather than ending the process (local ADR 0043 §5).
+
+**Amended 2026-11-11 by local ADR 0052 §3 and §4, not yet built.** The one bearer
+token goes. Each registration holds a grant of its own, and a token broker on a named
+pipe mints it a 15-minute JWT with scopes. The listener keeps the `Origin` check and
+then requires each tool group's scope under fallback-deny. `mcpServer.token` leaves
+`settings.json`, and every call is audited. A registration's `Authorization` header
+now carries that short-lived token, which the `headersHelper` asks the broker for.
 
 ### 2. The host code: a framework reference in `Backlog.Desktop` only, started the way `TaskSyncWorker` is
 
@@ -404,5 +411,6 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended §1 by local ADR 0052: the shared bearer token becomes a per-registration grant whose broker mints 15-minute scoped tokens, checked by scope policies behind the `Origin` check. Not built yet. | Plan `zero-trust-auth`: the one plaintext token never expired and opened every tool to every caller. |
 | 2026-11-10 | The MCP listener now outlives the main window (local ADR 0043 §5). It stops only on Quit, sign-out, shutdown or an MSIX update. While **Keep running in the tray when closed** is on, closing the window no longer removes the tools from sessions. Not built yet. | Plan `tray-keep-alive`: closing the window was the most common reason a session ran without the `backlog` tools. |
 | 2026-09-22 | Accepted: Backlog is an MCP server hosted in the running desktop app, over Streamable HTTP on loopback, written ahead of the code. | The `backlog-mcp-server` plan needed a decision to build against. |

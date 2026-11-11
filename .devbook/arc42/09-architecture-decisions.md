@@ -31,7 +31,7 @@ An inherited decision marked `proposed` rather than `active` is one no shipped c
 | **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, thin lambdas over handlers, and two endpoint filters. |
 | **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults. Sync alone among the modules adds its own `ActivitySource` and counter. |
 | **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
-| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
+| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Applied to the MCP surface and to owner and device identity by local ADR 0052, not yet built. |
 | **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
 | **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
 | **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file. |
@@ -128,3 +128,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
 - [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
+- [ADR 0052 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md) (proposed)

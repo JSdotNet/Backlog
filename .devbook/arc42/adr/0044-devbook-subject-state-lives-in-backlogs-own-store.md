@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-02
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/devbook/domain.md#remark", ".devbook/domain/devbook/context.md#devbook-status", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-leaving-a-decision-step-takes-its-record-with-it", ".devbook/domain/repository-management/requirements.md#requirement-remarks-are-not-written-into-an-archived-devbook", ".devbook/domain/sync/context.md"]
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/devbook/domain.md#remark", ".devbook/domain/devbook/context.md#devbook-status", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-leaving-a-decision-step-takes-its-record-with-it", ".devbook/domain/repository-management/requirements.md#requirement-remarks-are-not-written-into-an-archived-devbook", ".devbook/domain/sync/context.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 Backlog keeps the workflow state of a devbook **subject** in a store of the Devbook
@@ -230,6 +230,19 @@ as its host.
 - **An archived repository's notes are read-only.** `devbook_list_notes` reads, and
   `devbook_post_note` and `devbook_resolve_note` refuse with `repository.archived`.
 
+**Amended 2026-11-11 by local ADR 0052 §7, not yet built: only the person decides.**
+An agent holding the MCP token could approve its own proposal, and the record named
+the person. So approving and accepting are now human actions:
+
+- `devbook_approve` and `devbook_accept` are not served over MCP. The devbook view
+  gains **Approve** and **Accept** buttons in their place.
+- `devbook_set_state` over MCP accepts `draft` only and refuses every other state.
+- Every other decision-group write over MCP, such as a note, is stamped
+  **agent via MCP**, never with the person's author name.
+
+The group then no longer lists all seven operations of `devbook.decision@1`, so a
+devbook skill finds Backlog's read and note half only.
+
 ### 7. The state replicates through its own container
 
 ```meta
@@ -414,6 +427,7 @@ Built, and held by these tests:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended §6 by local ADR 0052: `devbook_approve` and `devbook_accept` leave MCP for buttons in the devbook view, `devbook_set_state` over MCP accepts `draft` only, and other MCP decision writes are stamped "agent via MCP". Not built yet. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-02 | Amended by entry 6: the default branch's states are imported once per repository through `ImportIfAbsent`, keeping the authored who, when and fingerprint, and marked in a `devbook-imports/` ledger (§8). The three note tools landed, so the decision group lists all seven operations and binds, and an open `question` under a change refuses approve and accept (§6). A rating reads `rating`, falling back to `status` (§4). | devbook's branch-true decision moved the state out of the Markdown, and a repository's existing states and notes had to arrive in Backlog's stores. |
 | 2026-11-02 | Amended by entry 7 (`backlog-sync-ownership`): the same repository file keeps a direction map. Each entry is a block address (`domain/inbox/context.md`, `domain/tasks/domain.md#task`) with a direction, who set it and when. A unit resolves nearest wins over itself, its page, its context and its folder, and `report` when none states one. The map is imported once from a clone's Markdown `sync` values, never from a branch snapshot, and set in the devbook view, also on a branch snapshot and never on an archived repository. `list_sync_directions` answers it over MCP for the `backlog-tools` devbook sweep, behind the same `repository-devbook` key as the four decision tools. `DevbookMarkdownSyncWriter` is retired. The map does not replicate: the sweep that reads it runs on the machine that keeps it. | devbook's branch-true decision gave Backlog the direction and moved the sweeps into `backlog-tools`. |
 | 2026-10-30 | Proposed: a subject's workflow state lives in a Devbook store outside git, keyed by repository and subject and by fingerprint for a proposal's decisions, replicated through `devbookSubjects`, answered over MCP; the status writer is retired. | devbook's branch-true decision took workflow state out of the chapter, and Backlog had no store to keep it. |

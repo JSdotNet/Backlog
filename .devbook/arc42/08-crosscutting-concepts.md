@@ -539,13 +539,24 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 ```
 
-- **No account is required** for personal use in standalone mode.
+Local ADR 0052 decides how each principal proves itself. It is not yet built, and
+each item below says where the code stands.
+
+| Principal | Proven by | Today |
+| --- | --- | --- |
+| The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Registration is anonymous |
+| A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | A stored registration credential |
+| A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | One shared bearer token |
+| A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Not built |
+
+- **No account is required** for personal use in standalone mode. The desktop app
+  has no sign-in: the Windows session is the person's identity there.
 - **GitHub integration uses OAuth 2.0** for issue sync and webhook registration.
-- **The cloud connection uses device-based auth.** It uses JWT device sessions and no user
-  login. `Backlog.Modules.Sync.Api` implements it:
+- **The cloud connection uses device-based auth.** It uses JWT device sessions and no
+  user login. `Backlog.Modules.Sync.Api` implements it:
   - every sync request is bearer-only;
   - the service validates the JWT's issuer, audience and lifetime, plus its signature and algorithm;
   - a fallback-deny policy covers any endpoint not explicitly opened;
@@ -553,12 +564,21 @@ related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/003
     query outside it.
 
   [Task Sync](#task-sync) has the pairing flow that issues the token.
+- **The MCP listener checks scopes, not one token.** Each tool group requires a scope
+  under fallback-deny, behind the loopback `Origin` check, and every call is audited.
+  Until that is built, the listener takes the one bearer token of local ADR 0012 §1.
+- **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
+  device, minting a pairing code, allowing an agent's grant, and switching
+  `agents:grant` on. A transition to Done asks for none.
+- **Devbook decisions are human-only.** Approve and accept are not served over MCP,
+  and `devbook_set_state` over MCP accepts `draft` only.
+- **The Aspire web harness keeps no auth**, because it is not the installed app.
 - **One personal user.** The current architecture assumes a single personal user and has no team-oriented authorization roles.
 - **Credentials at rest are sealed by the OS.** Every third-party key or token the
   app stores is sealed under the signed-in Windows user with DPAPI, or in the
   platform secure store on Android. The settings files seal only the secret value
-  and stay legible otherwise. The MCP server's loopback token is the one stated
-  exception. Local ADR 0030 has the threat model.
+  and stay legible otherwise. The MCP server's loopback token is the one exception
+  until local ADR 0052 retires it. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, three inherited decisions apply:
 

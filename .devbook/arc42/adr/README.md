@@ -38,7 +38,7 @@ between inherited ADRs 0005 and 0009.
 - **[0009 — Captures are a document kind on the replica; the desktop acknowledges by tombstone](0009-captures-are-a-document-kind-on-the-replica.md)** *(accepted)*
 - **[0010 — A backup is the database committed to a GitHub repository, one way, on a schedule](0010-backup-is-the-database-committed-to-a-repository.md)** *(accepted)*
 - **[0011 — Devbook annotations are the person's data, in a Backlog-owned store, replicated through a third container](0011-devbook-annotations-are-a-third-replica-container.md)** *(accepted)*
-- **[0012 — Backlog is an MCP server hosted inside the running desktop application](0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)** *(accepted, partly built)*
+- **[0012 — Backlog is an MCP server hosted inside the running desktop application](0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)** *(accepted, partly built; §1's token amended by 0052)*
 - **[0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)** *(accepted)*
 - **[0014 — Attachments travel through a blob store beside the replica; the sync service is the only door](0014-attachments-travel-through-a-blob-store-beside-the-replica.md)** *(accepted, built)*
 - **[0015 — The devbook database lives in the app's storage, one per repository path, and the app builds it](0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md)** *(accepted; supersedes parts of 0004)*
@@ -56,7 +56,7 @@ between inherited ADRs 0005 and 0009.
 - **[0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](0027-the-brain-is-a-scope-beside-the-repositories.md)** *(proposed, not yet built; builds on 0026, amends 0022)*
 - **[0028 — Progress is its own boundary, and Tasks knows no sprints](0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)** *(proposed, not yet built; sprint parts superseded by 0035)*
 - **[0029 — An archived repository stays in the registry, and every consumer reads the flag](0029-an-archived-repository-stays-in-the-registry.md)** *(built, proposed; amends 0008, 0020, 0021 and 0027)*
-- **[0030 — Every stored credential goes through the OS-protected envelope](0030-stored-credentials-go-through-the-os-protected-envelope.md)** *(proposed, built; the MCP token of 0012 is its one exception)*
+- **[0030 — Every stored credential goes through the OS-protected envelope](0030-stored-credentials-go-through-the-os-protected-envelope.md)** *(proposed, built; the MCP token exception of §6 retired by 0052)*
 - **[0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)** *(proposed, built in PR #493; ADR 0021 syncs the accounts it resolves)*
 - **[0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](0032-my-day-preferences-ride-the-task-feed.md)** *(accepted, not yet built; follows 0018 and 0021)*
 - **[0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)** *(accepted, built in PR #1316; widens what Ask AI sends, beside 0023)*
@@ -69,11 +69,12 @@ between inherited ADRs 0005 and 0009.
 - **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part)*
 - **[0041 — Agent questions reach Backlog by presence and come back through the hook or the Manager](0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)** *(proposed, not yet built; amends 0038 and 0039)*
 - **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(accepted, built in PR #1617; amends 0035 §7's GitHub edge)*
-- **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
-- **[0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](0044-devbook-subject-state-lives-in-backlogs-own-store.md)** *(proposed, built; amends 0004, 0008, 0011, 0012 and 0029)*
+- **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener; §7 amended by 0052)*
+- **[0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](0044-devbook-subject-state-lives-in-backlogs-own-store.md)** *(proposed, built; amends 0004, 0008, 0011, 0012 and 0029; §6 amended by 0052)*
 - **[0045 — The sync service relays a phone dictation to Foundry for transcription and keeps none of it](0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)** *(amends the thin-cloud constraint, beside 0023)*
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
+- **[0052 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(proposed, not yet built; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
 
 ## Inherited decisions
 

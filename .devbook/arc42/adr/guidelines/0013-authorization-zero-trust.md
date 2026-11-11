@@ -1,16 +1,17 @@
 # ADR 0013: Authorization and the Zero Trust model
 
 ```meta
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 Inherited from the organization's ADR 0013 (decided 2026-06-04,
 `guide/adrs/0013-authorization-zero-trust.md`), imported 2026-08-27.
 
-**Status: proposed.** The decision is accepted upstream and binds any work that
-reaches this ground. No authorization policy, resource-based check, or audit
-log exists — the architecture baseline is explicitly single-user — so nothing
-in the code applies this decision yet.
+**Status: applied for the MCP surface, proposed elsewhere.** The decision is
+accepted upstream and binds any work that reaches this ground. Local ADR 0052
+(2026-11-11) applies it to the MCP surface, the desktop listener and the remote
+`/mcp` endpoint, and to device and owner identity on the sync service. That
+application is decided and not yet built. Module-to-module calls stay as below.
 
 ## Decision
 
@@ -46,6 +47,12 @@ action, resource type and id, outcome, and correlation id.
 
 - The **sync service** is where this binds: device sessions are the principal,
   and a device may only reach its own sync state.
+- The **MCP surface** binds too, by local ADR 0052. Each agent is a principal of
+  its own: a grant whose 15-minute token carries scopes, checked by named policies
+  under fallback-deny, with every call audited. Windows Hello confirms the actions
+  that are hard to undo, and no agent can approve or accept a devbook decision.
+- **Owner and device identity** follow the same ADR: one GitHub account, matched by
+  its numeric user id, and a hardware-bound key per device.
 - **Module boundaries are already treated as real boundaries** in code — a module
   is reached through its `.Abstractions` surface, enforced by
   `tests/Backlog.ArchitectureTests/ModuleBoundaryTests.cs` — though today that is
@@ -63,7 +70,10 @@ action, resource type and id, outcome, and correlation id.
   surface (`sync`) that has anything to protect. It is single-owner
   authorization, not the multi-tenant, role-based policy set this decision
   otherwise describes, and it does not reach any other module.
-- **No audit log.** Sensitive-operation auditing is not implemented anywhere,
-  local or cloud.
+- **No audit log yet.** Sensitive-operation auditing is not implemented anywhere,
+  local or cloud. Local ADR 0052 decides one for every MCP call, in its first
+  delivery phase.
+- **The MCP listener still takes one shared token** until local ADR 0052's grants
+  are built.
 - Module-to-module calls do not carry a `ClaimsPrincipal`, since no in-process
   operation is security-relevant today.
