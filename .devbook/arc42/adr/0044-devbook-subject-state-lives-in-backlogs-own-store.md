@@ -230,17 +230,27 @@ as its host.
 - **An archived repository's notes are read-only.** `devbook_list_notes` reads, and
   `devbook_post_note` and `devbook_resolve_note` refuse with `repository.archived`.
 
-**Amended 2026-11-11 by local ADR 0052 §7, not yet built: only the person decides.**
+**Amended 2026-11-11 by local ADR 0052 §7, built by entry 2 (`human-only-decisions`)
+of plan `zero-trust-auth`: only the person decides.**
 An agent holding the MCP token could approve its own proposal, and the record named
 the person. So approving and accepting are now human actions:
 
-- `devbook_approve` and `devbook_accept` are not served over MCP. The devbook view
-  gains **Approve** and **Accept** buttons in their place.
-- `devbook_set_state` over MCP accepts `draft` only and refuses every other state.
-- Every other decision-group write over MCP, such as a note, is stamped
-  **agent via MCP**, never with the person's author name.
+- `devbook_approve` and `devbook_accept` are not served over MCP. The Instructions
+  area of the devbook view gains a **Proposals** tab, one row per change under
+  `openspec/changes/<name>/`, with **Approve** and **Accept** buttons in their
+  place. Both run `DevbookProposalDecision`, the tools' use case: the
+  open-question check, then the store's rules, at the change's current
+  fingerprint and stamped `DevbookLocalAuthor.Name`. An archived repository shows
+  the tab and refuses the buttons.
+- `devbook_set_state` over MCP accepts `draft` only. Every other state, of any
+  subject, answers `bad-state` with a message that decisions are made in the app,
+  and writes nothing.
+- Every other decision-group write over MCP is stamped
+  `DevbookLocalAuthor.AgentViaMcp`, **agent via MCP**: a proposal set to draft, a
+  note and a reply. Resolving a note records no author, from the app or over MCP.
+  A record already stored keeps the author it was written with.
 
-The group then no longer lists all seven operations of `devbook.decision@1`, so a
+The group no longer lists all seven operations of `devbook.decision@1`, so a
 devbook skill finds Backlog's read and note half only.
 
 ### 7. The state replicates through its own container
@@ -419,6 +429,10 @@ Built, and held by these tests:
     `DevbookSubjectStateStoreTests` and `DevbookAnnotationStoreTests`.
 11. **The notes (§6).** `DevbookNoteRepliesTests`, and the `OpenQuestion` cases of
     `DevbookSubjectRulesTests`.
+12. **Only the person decides (§6, 2026-11-11).** `DecisionToolsTests` covers the
+    refusal of every state but draft and the agent-via-MCP stamp, `McpToolCreationTests`
+    the two unlisted tools, and `DevbookProposalDecisionTests` the use case, the rows,
+    the local author on the app path and the Proposals tab.
 
 ## History
 
@@ -427,6 +441,7 @@ Built, and held by these tests:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Built §6's 2026-11-11 amendment, entry 2 (`human-only-decisions`): the Proposals tab in the Instructions area carries Approve and Accept over `DevbookProposalDecision`, `devbook_set_state` refuses all but `draft`, and MCP writes are stamped `agent via MCP`. | Plan `zero-trust-auth`. |
 | 2026-11-11 | Amended §6 by local ADR 0052: `devbook_approve` and `devbook_accept` leave MCP for buttons in the devbook view, `devbook_set_state` over MCP accepts `draft` only, and other MCP decision writes are stamped "agent via MCP". Not built yet. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-02 | Amended by entry 6: the default branch's states are imported once per repository through `ImportIfAbsent`, keeping the authored who, when and fingerprint, and marked in a `devbook-imports/` ledger (§8). The three note tools landed, so the decision group lists all seven operations and binds, and an open `question` under a change refuses approve and accept (§6). A rating reads `rating`, falling back to `status` (§4). | devbook's branch-true decision moved the state out of the Markdown, and a repository's existing states and notes had to arrive in Backlog's stores. |
 | 2026-11-02 | Amended by entry 7 (`backlog-sync-ownership`): the same repository file keeps a direction map. Each entry is a block address (`domain/inbox/context.md`, `domain/tasks/domain.md#task`) with a direction, who set it and when. A unit resolves nearest wins over itself, its page, its context and its folder, and `report` when none states one. The map is imported once from a clone's Markdown `sync` values, never from a branch snapshot, and set in the devbook view, also on a branch snapshot and never on an archived repository. `list_sync_directions` answers it over MCP for the `backlog-tools` devbook sweep, behind the same `repository-devbook` key as the four decision tools. `DevbookMarkdownSyncWriter` is retired. The map does not replicate: the sweep that reads it runs on the machine that keeps it. | devbook's branch-true decision gave Backlog the direction and moved the sweeps into `backlog-tools`. |

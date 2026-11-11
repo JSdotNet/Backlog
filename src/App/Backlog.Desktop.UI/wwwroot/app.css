@@ -9492,6 +9492,50 @@ a.pull-request-detail-checks__name:hover {
     overflow: auto;
 }
 
+/* The change proposals the person decides (local ADR 0052 §7): one row each,
+   its state and decisions, then Approve and Accept. */
+.devbook-proposals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    overflow: auto;
+}
+
+.devbook-proposals__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.devbook-proposals__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.devbook-proposals__summary {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.devbook-proposals__decision {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-proposals__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
 /* Stacked, the arrangement above has nothing to stand on: the section stops
    scrolling and every panel grows with its content, so a panel that clips at the
    section's height would clip against a height nobody set. Instructions withdraws

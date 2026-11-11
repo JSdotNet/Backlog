@@ -46,12 +46,11 @@ public class BacklogMcpToolsTests
                 "resolve_annotation",
                 "capture_note",
 
-                // devbook.decision@1's seven operations — four on state, three on
-                // notes — beside the devbook tools and behind the same key.
+                // devbook.decision@1's operations bar approve and accept, which
+                // are the person's in the app (local ADR 0052 §7) — two on state,
+                // three on notes — beside the devbook tools and behind the same key.
                 "devbook_get_state",
                 "devbook_set_state",
-                "devbook_approve",
-                "devbook_accept",
                 "devbook_list_notes",
                 "devbook_post_note",
                 "devbook_resolve_note",
@@ -293,11 +292,8 @@ public class BacklogMcpToolsTests
     /// stays deleted — those four are safe to repeat.
     /// </para>
     /// <para>
-    /// The devbook state writes split the same way: <c>devbook_set_state</c> to the
-    /// state a subject already has leaves it as it was, while <c>devbook_approve</c>
-    /// and <c>devbook_accept</c> each record a person's decision with its own time —
-    /// and approving again withdraws an acceptance — so no client may repeat one on
-    /// its own account.
+    /// The devbook state write is safe to repeat: <c>devbook_set_state</c> to
+    /// draft on a draft leaves it as it was.
     /// </para>
     /// </summary>
     [Fact]
@@ -309,8 +305,6 @@ public class BacklogMcpToolsTests
             DevbookTools.CaptureNote,
             InboxTools.ArchiveInboxItem,
             DecisionTools.SetState,
-            DecisionTools.Approve,
-            DecisionTools.Accept,
             DecisionTools.PostNote,
             DecisionTools.ResolveNote,
             TrackerTools.Transition,

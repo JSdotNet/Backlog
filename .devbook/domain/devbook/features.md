@@ -160,8 +160,12 @@ checks reject:
   - A decision record's state is shown and never picked. It is kept per pull
     request, which the panel does not know, so the panel shows the state set most
     recently for that path, in any pull request.
-  - A change proposal's state, approval and acceptance are set by an assistant
-    over the app's MCP server. No panel shows a proposal's state yet.
+  - A change proposal is approved and accepted by the person, in the
+    Instructions area's Proposals tab: one row per change under
+    `openspec/changes/`, with its state, who decided and when, and Approve and
+    Accept. A decision at a fingerprint the change has since moved from reads as
+    lapsed. An assistant can only set a proposal back to draft over the app's MCP
+    server, recorded as *agent via MCP* (local ADR 0052 §7).
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers:
 
