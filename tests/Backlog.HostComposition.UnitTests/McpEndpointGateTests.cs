@@ -55,7 +55,8 @@ public class McpEndpointGateTests
         IDeliverySurfaceLifecycle? surface = null,
         bool sessionRequests = true,
         ISessionRequestStore? queue = null,
-        INotifications? notifications = null)
+        INotifications? notifications = null,
+        IScheduleRegister? schedules = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -76,6 +77,9 @@ public class McpEndpointGateTests
                 // And a recording port rather than the owner's notifications, which
                 // would publish to this machine's shared backlog.db.
                 if (notifications is not null) services.AddSingleton(notifications);
+
+                // And an in-memory register rather than the workspace's backlog.db.
+                if (schedules is not null) services.AddSingleton(schedules);
             });
         }
     }
@@ -434,6 +438,78 @@ public class McpEndpointGateTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(0, queue.NextCalls);
+    }
+
+    /// <summary>The scheduled run report tool is listed while <c>sessions</c> is on and
+    /// absent while it is off (local ADR 0051 §6).</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_schedule_report_tool_follows_the_sessions_flag(bool sessions)
+    {
+        await using var harness = new Harness(sessions: sessions);
+        using var client = harness.CreateClient();
+
+        var body = await ListToolsAsync(client);
+
+        Assert.Equal(sessions, body.Contains($"\"{BacklogMcpTools.Schedules.ToolNames.Single()}\"", StringComparison.Ordinal));
+        Assert.All(BacklogMcpTools.Tracker.ToolNames, tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>The harness maps the report route too, recording a report while
+    /// <c>sessions</c> is on.</summary>
+    [Fact]
+    public async Task The_harness_report_route_records_a_report()
+    {
+        var register = new InMemoryScheduleRegister();
+        await using var harness = new Harness(schedules: register);
+        using var client = harness.CreateClient();
+
+        using var content = new StringContent(
+            """{"scheduleId":"weekly-update","sessionId":"run-1","event":"started","cron":"30 5 * * 3"}""",
+            System.Text.Encoding.UTF8,
+            "application/json");
+        using var response = await client.PostAsync(ScheduleRunReportEndpoint.RoutePath, content, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
+        Assert.Equal("no-summary-yet", body["state"]!.GetValue<string>());
+        Assert.Equal(1, register.Recorded);
+    }
+
+    /// <summary>404 while <c>sessions</c> is off, recording nothing.</summary>
+    [Fact]
+    public async Task The_harness_report_route_is_not_found_while_sessions_is_off()
+    {
+        var register = new InMemoryScheduleRegister();
+        await using var harness = new Harness(sessions: false, schedules: register);
+        using var client = harness.CreateClient();
+
+        using var content = new StringContent("""{"scheduleId":"s","sessionId":"r","event":"started"}""", System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync(ScheduleRunReportEndpoint.RoutePath, content, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, register.Recorded);
+    }
+
+    /// <summary>And behind the harness's loopback Origin check, as <c>/mcp</c> is.</summary>
+    [Fact]
+    public async Task The_harness_report_route_refuses_a_cross_origin_call()
+    {
+        var register = new InMemoryScheduleRegister();
+        await using var harness = new Harness(schedules: register);
+        using var client = harness.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, ScheduleRunReportEndpoint.RoutePath)
+        {
+            Content = new StringContent("""{"scheduleId":"s","sessionId":"r","event":"started"}""", System.Text.Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("Origin", "https://evil.example");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(0, register.Recorded);
     }
 
     /// <summary>The harness serves the question hook script beside <c>/mcp</c>, byte for

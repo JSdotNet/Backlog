@@ -329,6 +329,8 @@ app.UseWhen(
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
         || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the report a scheduled run's hook posts (local ADR 0051).
+        || context.Request.Path.StartsWithSegments(ScheduleRunReportEndpoint.RoutePath)
         // And the question relay's hook script (local ADR 0041).
         || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
@@ -422,6 +424,29 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     if (reply.Body.Length == 0) return;
 
     context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+    await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
+});
+
+// And the report a scheduled run's hook posts (local ADR 0051 §1), into this harness's
+// backlog.db. No token here, for the reason the MCP endpoint has none; 404 while the
+// sessions flag is off.
+app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+{
+    var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+        context.Request.Body,
+        context.Request.ContentLength,
+        context.RequestServices.GetRequiredService<IScheduleRegister>(),
+        context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+        context.RequestServices.GetService<IAgentSessionSource>(),
+        TimeProvider.System,
+        context.RequestAborted);
+
+    context.Response.StatusCode = reply.StatusCode;
+    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+    if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    if (reply.Body.Length == 0) return;
+
+    context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
     await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 

@@ -682,6 +682,28 @@ public sealed class McpServerWorker : IDisposable
             await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
+        // And the report a scheduled run's hook posts (local ADR 0051 §1), behind the
+        // same guard and bearer token. It answers 404 while the sessions flag is off.
+        app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+        {
+            var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+                context.Request.Body,
+                context.Request.ContentLength,
+                context.RequestServices.GetRequiredService<IScheduleRegister>(),
+                context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+                context.RequestServices.GetService<IAgentSessionSource>(),
+                TimeProvider.System,
+                context.RequestAborted).ConfigureAwait(false);
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length == 0) return;
+
+            context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
+            await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
         return app;
     }
 
