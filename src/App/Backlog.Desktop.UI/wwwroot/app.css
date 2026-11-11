@@ -4756,6 +4756,83 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
+/* What a Waiting session asks, as the row's last line: the warning surface the
+   design draws it on, the label in the attention accent — --color-warning is a
+   dark fill and unreadable as text — and the question in the primary ink. The
+   strong border is its edge: warning alone measures 1.31:1 against the row, as
+   .setting__warning records. */
+.sessions-row__asks {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-row__asks-label {
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
+}
+
+.sessions-row__asks-question {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.sessions-row__asks-more {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* A row whose question can be answered: the row button and the Answer link, its
+   sibling, stacked in one cell like a tagged row. The link sits over the slot the
+   Asks line keeps at its end, on the row's bottom edge. */
+.sessions-group__item--asking {
+    display: grid;
+}
+
+.sessions-group__item--asking > * {
+    grid-area: 1 / 1;
+}
+
+.sessions-row__answer-slot {
+    flex: 0 0 auto;
+    visibility: hidden;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+}
+
+.sessions-group__item--asking > .sessions-row__answer {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    align-self: end;
+    justify-self: end;
+    margin: 0 calc(var(--spacing-md) + var(--spacing-sm)) calc(var(--spacing-sm) + var(--spacing-xs)) 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font-family: inherit;
+    line-height: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.sessions-group__item--asking > .sessions-row__answer:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* What the title's prefix said, as a small pill before the title. Each purpose wears
    its own edge; the word is always drawn, so the hue is never the only carrier. A
    skill-written title (a plan run, an entry) is outlined dashed: nobody typed it. */

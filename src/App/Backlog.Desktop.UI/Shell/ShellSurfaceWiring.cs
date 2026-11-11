@@ -67,6 +67,22 @@ public static class ShellSurfaceWiring
                         sp.GetService<IPullRequests>(),
                         pull,
                         sp.GetService<PullRequestSubjects>()),
+                    // A Waiting row's Answer: the notification centre, in this window,
+                    // open on the question's notification — offered only while the
+                    // catalog offers the centre, since the flag can go off while a
+                    // published question is still open.
+                    AnswerQuestionOffered = () => sp.GetRequiredService<ISurfaceCatalog>()
+                        .TryGet(NotificationsSurfaceRegistration.SurfaceId, out _),
+                    AnswerQuestion = notificationId =>
+                    {
+                        sp.GetRequiredService<ISurfaceNavigator>().Show(
+                            NotificationsSurfaceRegistration.SurfaceId,
+                            new Dictionary<string, string>(StringComparer.Ordinal)
+                            {
+                                [NotificationsSurfaceRegistration.NotificationKey] = notificationId.ToString()
+                            });
+                        return Task.CompletedTask;
+                    },
                 };
             },
             windowStateLifetime));
