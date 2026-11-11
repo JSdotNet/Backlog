@@ -572,9 +572,15 @@
                 ? schedule.Runs.FirstOrDefault(candidate => string.Equals(candidate.Run.SessionId, held, StringComparison.Ordinal))
                 : ScheduleOverview.Holder(schedule);
 
-            return holder is null
-                ? "Skipped: an earlier run is not archived"
-                : $"Skipped: the {Day(ScheduleOverview.Began(holder.Run))} run is not archived";
+            // Once the run that held it is archived, the note says what held the skip at the time
+            // rather than claiming that run is still unarchived. With the holder no longer listed,
+            // the skip's own Handled is the only sign of it.
+            var archivedSince = holder is null
+                ? run.State == ScheduledRunState.Handled
+                : holder.State == ScheduledRunState.Handled;
+            var which = holder is null ? "an earlier run" : $"the {Day(ScheduleOverview.Began(holder.Run))} run";
+
+            return archivedSince ? $"Skipped: {which} was not archived yet" : $"Skipped: {which} is not archived";
         }
 
         if (report.Failed) return report.Verdict is { } error ? $"Failed: {error}" : "Failed";

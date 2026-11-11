@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -15,8 +16,10 @@ namespace Backlog.Infrastructure.Sessions;
 /// the loop sessions as <see cref="SessionAlerts"/> reads them, then:
 /// <list type="bullet">
 /// <item>publishes each alert that holds under an id derived from its key
-/// (<see cref="IdFor"/>), so the owner stores it once whatever number of readings hold it — a
-/// later publish of a held id publishes nothing, the person's Acknowledge included;</item>
+/// (<see cref="IdFor(string, int)"/>), so the owner stores it once whatever number of readings hold
+/// it — a later publish of a held id publishes nothing, the person's Acknowledge included — except
+/// that one the Sessions area's switch-off closed is raised again under the next generation's id
+/// once the area is back and its cause still holds;</item>
 /// <item>closes every open <c>sessions</c> / <c>alert</c> notification whose key no reading holds
 /// any more, with <see cref="SessionAlerts.ClosedReason"/>.</item>
 /// </list>
@@ -43,6 +46,11 @@ namespace Backlog.Infrastructure.Sessions;
 /// <param name="enabled">Whether the Sessions area is on.</param>
 /// <param name="requests">The session request queue, counted as work waiting for a dispatcher.</param>
 /// <param name="questions">The waiting questions, whose pending deliveries are work waiting for a dispatcher.</param>
+/// <param name="clock">What "now" is; optional so a test can pin it.</param>
+/// <param name="logger">Where a refused publish or close is logged.</param>
+/// <param name="store">The owner's store, read whole for an alert id the centre no longer lists —
+/// it lists the settled for a week only — so a switch-off's closing is found however long ago it
+/// was; resolved per sweep, and null where the host composed none.</param>
 public sealed class SessionAlertPublisher(
     IScheduleRegister? schedules,
     ILoopRegister? loops,
@@ -53,7 +61,8 @@ public sealed class SessionAlertPublisher(
     ISessionRequestStore? requests = null,
     IWaitingQuestionStore? questions = null,
     TimeProvider? clock = null,
-    ILogger<SessionAlertPublisher>? logger = null) : IDisposable
+    ILogger<SessionAlertPublisher>? logger = null,
+    Func<INotificationReplication?>? store = null) : IDisposable
 {
     /// <summary>How often the causes are read: well under the shortest grace, Stalled's 10 minutes.</summary>
     public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
@@ -61,6 +70,7 @@ public sealed class SessionAlertPublisher(
     private readonly Func<INotifications?> _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
     private readonly Func<INotificationCentre?> _centre = centre ?? throw new ArgumentNullException(nameof(centre));
     private readonly Func<bool> _enabled = enabled ?? throw new ArgumentNullException(nameof(enabled));
+    private readonly Func<INotificationReplication?> _store = store ?? (() => null);
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly ILogger _logger = (ILogger?)logger ?? NullLogger.Instance;
     private readonly Lock _gate = new();
@@ -110,11 +120,18 @@ public sealed class SessionAlertPublisher(
 
     /// <summary>The notification id an alert is stored under: the same for the same key on every
     /// desktop and every start, so publishing it again publishes nothing.</summary>
-    public static Guid IdFor(string key)
+    public static Guid IdFor(string key) => IdFor(key, 1);
+
+    /// <summary>The id of the <paramref name="generation"/>th raising of the alert for
+    /// <paramref name="key"/>: the first is <see cref="IdFor(string)"/>; a later one is raised only
+    /// after turning the Sessions area off closed the one before while its cause still held.</summary>
+    public static Guid IdFor(string key, int generation)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentOutOfRangeException.ThrowIfLessThan(generation, 1);
 
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes("backlog.sessions.alert\n" + key));
+        var name = generation == 1 ? key : key + "\n#" + generation.ToString(CultureInfo.InvariantCulture);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes("backlog.sessions.alert\n" + name));
         var bytes = hash.AsSpan(0, 16).ToArray();
 
         // A name-based (version 5 shaped) id, so it reads as a well-formed UUID.
@@ -212,17 +229,20 @@ public sealed class SessionAlertPublisher(
             else _logger.LogDebug("The alert {Key} was not closed: {Error}", subject.Id, result.Error.Message);
         }
 
-        // Open, acknowledged or closed, an alert the centre still lists is not raised again; one
-        // settled longer ago than the centre lists is refused by its id all the same.
+        // Open, acknowledged or closed, an alert the owner holds is not raised again. The one
+        // exception is an alert the Sessions area's switch-off closed: its cause never cleared, so
+        // with the area back it is raised again, under the next generation's id.
         var published = 0;
-        var known = listed.Select(notification => notification.Id).ToHashSet();
+        var known = new Dictionary<Guid, NotificationView>();
+        foreach (var notification in listed) known.TryAdd(notification.Id, notification);
+        var store = _store();
 
         foreach (var alert in alerts)
         {
-            var id = IdFor(alert.Key);
-            if (known.Contains(id)) continue;
+            var id = await IdToRaiseAsync(alert.Key, known, store, cancellationToken).ConfigureAwait(false);
+            if (id is null) continue;
 
-            var result = await port.PublishAsync(Draft(alert, sessionIdOf), cancellationToken).ConfigureAwait(false);
+            var result = await port.PublishAsync(Draft(alert, sessionIdOf) with { Id = id.Value }, cancellationToken).ConfigureAwait(false);
 
             if (result.IsFailure) _logger.LogDebug("No alert was raised for {Key}: {Error}", alert.Key, result.Error.Message);
             else published++;
@@ -307,6 +327,45 @@ public sealed class SessionAlertPublisher(
 
     private static bool IsAlert(NotificationSubject? subject) =>
         subject is { Context: SessionNotificationSubjects.Context, Type: SessionNotificationSubjects.Alert };
+
+    /// <summary>
+    /// The id to raise the alert for <paramref name="key"/> under, or null when the owner already
+    /// holds it. Each generation's id is looked up in the centre's listing, then in the store, which
+    /// keeps what the listing has let go of; while that generation was closed by the switch-off, the
+    /// next one is tried.
+    /// </summary>
+    private static async Task<Guid?> IdToRaiseAsync(
+        string key,
+        IReadOnlyDictionary<Guid, NotificationView> listed,
+        INotificationReplication? store,
+        CancellationToken cancellationToken)
+    {
+        for (var generation = 1; ; generation++)
+        {
+            var id = IdFor(key, generation);
+            NotificationState state;
+            string? reason;
+
+            if (listed.TryGetValue(id, out var view))
+            {
+                (state, reason) = (view.State, view.CloseReason);
+            }
+            else if (store is not null
+                && await store.GetAsync(id, cancellationToken).ConfigureAwait(false) is { } held)
+            {
+                (state, reason) = (held.State, held.CloseReason);
+            }
+            else
+            {
+                return id;
+            }
+
+            var closedByTurningOff = state == NotificationState.Closed
+                && string.Equals(reason, TurnedOffReason, StringComparison.Ordinal);
+
+            if (!closedByTurningOff) return null;
+        }
+    }
 
     private void Tick()
     {

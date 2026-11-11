@@ -1,0 +1,77 @@
+missed-run=5e3cfc02-a9e8-4140-8b3e-9a4d944902a8
+report_schedule_run qa-needsyou started 4638258a-49d9-4213-be2e-4232d097a43f -> {"scheduleId":"qa-needsyou","title":"QA weekly update (needs you)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"4638258a-49d9-4213-be2e-4232d097a43f","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-needsyou finished 4638258a-49d9-4213-be2e-4232d097a43f -> {"scheduleId":"qa-needsyou","title":"QA weekly update (needs you)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"needs-you","sessionId":"4638258a-49d9-4213-be2e-4232d097a43f","runState":"needs-you","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-held started 43eb16ec-4b8b-4d83-a8d3-96e10938b538 -> {"scheduleId":"qa-held","title":"QA issue sweep (held)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"43eb16ec-4b8b-4d83-a8d3-96e10938b538","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-held finished 43eb16ec-4b8b-4d83-a8d3-96e10938b538 -> {"scheduleId":"qa-held","title":"QA issue sweep (held)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"review-ready","sessionId":"43eb16ec-4b8b-4d83-a8d3-96e10938b538","runState":"review-ready","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-held skipped 49306dcb-491d-4d90-97eb-bc57937fa647 -> {"scheduleId":"qa-held","title":"QA issue sweep (held)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"held","sessionId":"49306dcb-491d-4d90-97eb-bc57937fa647","runState":"held","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":2}
+report_schedule_run qa-failed started 0e7a1d6c-e89c-45d9-b476-f2da6f5e663e -> {"scheduleId":"qa-failed","title":"QA package update (failed)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"0e7a1d6c-e89c-45d9-b476-f2da6f5e663e","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-failed failed 0e7a1d6c-e89c-45d9-b476-f2da6f5e663e -> {"scheduleId":"qa-failed","title":"QA package update (failed)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"failed","sessionId":"0e7a1d6c-e89c-45d9-b476-f2da6f5e663e","runState":"failed","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-review started 8f23244a-d9fb-433f-a56e-c99709d34b8c -> {"scheduleId":"qa-review","title":"QA prose check (review ready)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"8f23244a-d9fb-433f-a56e-c99709d34b8c","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-review finished 8f23244a-d9fb-433f-a56e-c99709d34b8c -> {"scheduleId":"qa-review","title":"QA prose check (review ready)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"review-ready","sessionId":"8f23244a-d9fb-433f-a56e-c99709d34b8c","runState":"review-ready","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-handled started f5770248-d489-4b8f-a502-ab2e97c1df85 -> {"scheduleId":"qa-handled","title":"QA merge review (handled)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"handled","sessionId":"f5770248-d489-4b8f-a502-ab2e97c1df85","runState":"handled","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-handled finished f5770248-d489-4b8f-a502-ab2e97c1df85 -> {"scheduleId":"qa-handled","title":"QA merge review (handled)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"handled","sessionId":"f5770248-d489-4b8f-a502-ab2e97c1df85","runState":"handled","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-held-cleared started fa90817a-fe0c-4b4d-aba1-c432ab60c03a -> {"scheduleId":"qa-held-cleared","title":"QA security review (held by archived)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"handled","sessionId":"fa90817a-fe0c-4b4d-aba1-c432ab60c03a","runState":"handled","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+report_schedule_run qa-held-cleared skipped 9df362bc-6d54-4fda-9dbf-e025c8cdf466 -> {"scheduleId":"qa-held-cleared","title":"QA security review (held by archived)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"handled","sessionId":"9df362bc-6d54-4fda-9dbf-e025c8cdf466","runState":"handled","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":2}
+report_schedule_run qa-nosummary started 35dff2b5-bae3-49de-a83b-6ad94912c679 -> {"scheduleId":"qa-nosummary","title":"QA tech update (no summary yet)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"35dff2b5-bae3-49de-a83b-6ad94912c679","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":1}
+{
+ "content": [
+  {
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"resume\",\"commandSetAt\":\"2026-11-11T12:38:42.0432831+00:00\",\"checkedInAt\":\"2026-11-11T14:20:39.1014433+00:00\",\"stalledAfter\":\"2026-11-11T14:31:39.1014433+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+  }
+ ]
+}
+{
+ "content": [
+  {
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"resume\",\"commandSetAt\":\"2026-11-11T12:38:42.0432831+00:00\",\"checkedInAt\":\"2026-11-11T14:21:24.3117383+00:00\",\"stalledAfter\":\"2026-11-11T14:32:24.3117383+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+  }
+ ]
+}
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"pause\",\"commandSetAt\":\"2026-11-11T14:21:40.3062242+00:00\",\"checkedInAt\":\"2026-11-11T14:21:40.9408386+00:00\",\"stalledAfter\":\"2026-11-11T14:32:40.9408386+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"resume\",\"commandSetAt\":\"2026-11-11T14:21:50.0548219+00:00\",\"checkedInAt\":\"2026-11-11T14:21:50.6670936+00:00\",\"stalledAfter\":\"2026-11-11T14:32:50.6670936+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"stop\",\"commandSetAt\":\"2026-11-11T14:21:53.6167481+00:00\",\"checkedInAt\":\"2026-11-11T14:21:54.2522326+00:00\",\"stalledAfter\":\"2026-11-11T14:32:54.2522326+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+{
+ "content": [
+  {
+   "type": "text",
+   "text": "{\"id\":\"38ec2639-5f65-4c19-9753-56fe07651296\",\"route\":\"session\",\"waitSeconds\":28800}"
+  }
+ ]
+}
+14:35:37
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"stop\",\"commandSetAt\":\"2026-11-11T14:21:53.6167481+00:00\",\"checkedInAt\":\"2026-11-11T14:35:37.7983569+00:00\",\"stalledAfter\":\"2026-11-11T15:15:37.7983569+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":0}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"76bb6e2f-c180-44fc-a865-5d0b22ab125e\",\"kind\":\"brain-tender\",\"checkedInAt\":\"2026-11-11T14:35:37.9883947+00:00\",\"stalledAfter\":\"2026-11-11T15:15:37.9883947+00:00\"}"
+qa-held new run 1f752acd-c38a-4a33-9ea4-abfabfc25536
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Date: Wed, 11 Nov 2026 14:35:38 GMT
+Server: Kestrel
+Transfer-Encoding: chunked
+
+{"scheduleId":"qa-held","title":"QA issue sweep (held)","repository":"JSdotNet/Backlog","cron":"30 5 * * 1","state":"no-summary-yet","sessionId":"1f752acd-c38a-4a33-9ea4-abfabfc25536","runState":"no-summary-yet","dueAt":"2026-11-16T05:30:00+01:00","nextRunAt":"2026-11-16T05:30:00+01:00","runs":3}qa-failed later run 8a1bbc8a-ace8-4cdc-a23c-5ec0ef140b08
+   "type": "text",
+   "text": "{\"scheduleId\":\"qa-failed\",\"title\":\"QA package update (failed)\",\"repository\":\"JSdotNet/Backlog\",\"cron\":\"30 5 * * 1\",\"state\":\"no-summary-yet\",\"sessionId\":\"8a1bbc8a-ace8-4cdc-a23c-5ec0ef140b08\",\"runState\":\"no-summary-yet\",\"dueAt\":\"2026-11-16T05:30:00+01:00\",\"nextRunAt\":\"2026-11-16T05:30:00+01:00\",\"runs\":2}"
+   "type": "text",
+   "text": "{\"scheduleId\":\"qa-failed\",\"title\":\"QA package update (failed)\",\"repository\":\"JSdotNet/Backlog\",\"cron\":\"30 5 * * 1\",\"state\":\"review-ready\",\"sessionId\":\"8a1bbc8a-ace8-4cdc-a23c-5ec0ef140b08\",\"runState\":\"review-ready\",\"dueAt\":\"2026-11-16T05:30:00+01:00\",\"nextRunAt\":\"2026-11-16T05:30:00+01:00\",\"runs\":2}"
+14:47:37
+   "type": "text",
+   "text": "{\"sessionId\":\"11397350-c6c7-47b2-b951-12bb02b4d51a\",\"kind\":\"dispatcher\",\"checkedInAt\":\"2026-11-11T14:47:37.1073457+00:00\",\"stalledAfter\":\"2026-11-11T15:27:37.1073457+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":1}}"
+14:52:33
+qa-missed new run e1a00bcb-465e-4796-ab21-704f0f69756b
+   "type": "text",
+   "text": "{\"scheduleId\":\"qa-missed\",\"title\":\"QA every-minute (missed)\",\"repository\":\"JSdotNet/Backlog\",\"cron\":\"30 5 * * 1\",\"state\":\"no-summary-yet\",\"sessionId\":\"e1a00bcb-465e-4796-ab21-704f0f69756b\",\"runState\":\"no-summary-yet\",\"dueAt\":\"2026-11-16T05:30:00+01:00\",\"nextRunAt\":\"2026-11-16T05:30:00+01:00\",\"runs\":2}"
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"stop\",\"commandSetAt\":\"2026-11-11T14:21:53.6167481+00:00\",\"checkedInAt\":\"2026-11-11T14:52:34.1712404+00:00\",\"stalledAfter\":\"2026-11-11T15:32:34.1712404+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":1}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"resume\",\"commandSetAt\":\"2026-11-11T14:59:16.7739014+00:00\",\"checkedInAt\":\"2026-11-11T14:59:18.4313637+00:00\",\"stalledAfter\":\"2026-11-11T15:39:18.4313637+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":1}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"a374a131-f151-4063-832f-776ea0f09633\",\"kind\":\"dispatcher\",\"command\":\"resume\",\"commandSetAt\":\"2026-11-11T14:59:16.7739014+00:00\",\"checkedInAt\":\"2026-11-11T14:59:30.3864627+00:00\",\"stalledAfter\":\"2026-11-12T15:09:30.3864627+00:00\",\"waiting\":{\"sessionRequests\":0,\"deliveries\":1}}"
+   "type": "text",
+   "text": "{\"sessionId\":\"76bb6e2f-c180-44fc-a865-5d0b22ab125e\",\"kind\":\"brain-tender\",\"checkedInAt\":\"2026-11-11T14:59:30.5716346+00:00\",\"stalledAfter\":\"2026-11-12T15:09:30.5716346+00:00\"}"

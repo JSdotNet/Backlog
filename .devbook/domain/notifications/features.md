@@ -199,7 +199,8 @@ schedule or a loop session needs the person.
 Sessions publishes its alerts like any other source, so they reach the centre, the
 Windows notification and the phone as every alert does. Local
 [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
-decides it, and nothing of it is built yet.
+decides it. An alert that turning the `sessions` flag off closed is raised again when the flag
+comes back on, as long as its cause still holds.
 
 | Source line | Raised when | Actions |
 | --- | --- | --- |

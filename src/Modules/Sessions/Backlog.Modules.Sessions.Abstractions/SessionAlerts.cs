@@ -280,7 +280,7 @@ public static class SessionAlerts
                     $"{name} stalled",
                     Cut($"No check-in since {last}, past its {checkIn.HeartbeatMinutes}-minute heartbeat.", MaxSummary),
                     $"""
-                    The **{name.ToLowerInvariant()}** session is still running, but it has not checked in since {last}: its heartbeat is {checkIn.HeartbeatMinutes} minutes.
+                    The **{name.ToLowerInvariant()}** is still running, but it has not checked in since {last}: its heartbeat is {Count(checkIn.HeartbeatMinutes, "minute")}.
                     Look at its session. The alert closes once it checks in again.
                     """,
                     actions);
