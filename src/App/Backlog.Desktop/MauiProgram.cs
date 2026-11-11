@@ -98,6 +98,8 @@ public static class MauiProgram
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            // The MCP audit log, per installation and never in the workspace root.
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             // The URL on the Settings page, per machine and never in the workspace.
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             // The catalog is the shell's product copy; the store is the adapter that

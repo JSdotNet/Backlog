@@ -62,14 +62,14 @@ public class McpServerRegistrationTests
 
         var offenders = files
             .Where(file => file.Text.Contains("MapMcp(", StringComparison.Ordinal))
-            .Where(file => !file.Text.Contains("AddBacklogMcpServer()", StringComparison.Ordinal))
+            .Where(file => !file.Text.Contains("AddBacklogMcpServer(", StringComparison.Ordinal))
             .Select(file => file.RelativePath)
             .ToList();
 
         Assert.True(
             offenders.Count == 0,
             "These hosts map the MCP endpoint without registering the server behind it. Call "
-            + "AddBacklogMcpServer() - the registration both hosts share, so the tools and their feature "
+            + "AddBacklogMcpServer(...) - the registration both hosts share, so the tools and their feature "
             + "gates cannot differ between them:\n" + string.Join('\n', offenders));
     }
 

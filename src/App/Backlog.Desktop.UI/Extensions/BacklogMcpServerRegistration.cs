@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Net;
 
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -117,9 +119,15 @@ public static class BacklogMcpServerRegistration
     /// scope rather than the first call's disposed one.
     /// </para>
     /// </summary>
-    public static IMcpServerBuilder AddBacklogMcpServer(this IServiceCollection services)
+    /// <param name="services">The host's container.</param>
+    /// <param name="caller">Who the host's accepted calls come from, as the audit log
+    /// names them: <see cref="McpAudit.SharedTokenCaller"/> in the desktop app, whose
+    /// listener admits only the shared bearer token, and
+    /// <see cref="McpAudit.HarnessCaller"/> in the web harness, which asks for none.</param>
+    public static IMcpServerBuilder AddBacklogMcpServer(this IServiceCollection services, string caller)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(caller);
 
         return services
             .AddMcpServer()
@@ -129,6 +137,10 @@ public static class BacklogMcpServerRegistration
             // groups naming one class; registering a class twice would list its
             // tools twice.
             .WithTools([.. BacklogMcpTools.Groups.Select(group => group.ToolType).Distinct()])
+            // First, so it is the outermost call filter: it sees the refusals the
+            // gates and the argument check below throw, as well as what the tool
+            // answered.
+            .WithRequestFilters(filters => filters.AddCallToolFilter(next => McpCallAudit.Filter(next, caller)))
             .WithRequestFilters(ApplyFeatureGates)
             // After the gates, so a switched-off tool is unknown before its
             // arguments are read. See ToolArguments for why the surface's are read

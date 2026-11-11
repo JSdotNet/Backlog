@@ -2,7 +2,8 @@
     One page of the Settings screen: this machine's own MCP server (local ADR
     0012) - whether it holds its port, the address a client registers, the port
     itself, why nothing is listening when nothing is, and the bearer token every
-    registration carries.
+    registration carries, and the latest tool calls the audit log holds (local ADR
+    0052, Phase 0).
 
     Offered whatever any feature says. The server is always on while the app runs,
     and the person who needs this page most is the one whose client was just
@@ -20,6 +21,8 @@
 @inherits SettingsPageBase
 @using Backlog.Desktop.UI.Extensions
 @using Backlog.Modules.DevPc.Abstractions
+@using Backlog.SharedKernel.Mcp
+@using Backlog.UI.Components.Data
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -144,6 +147,42 @@
             </div>
         }
     </SettingsCard>
+
+    @* The audit log, newest first. Drawn in every host: the harness writes the same
+       records the app does. The table scrolls sideways inside its own frame, so six
+       columns never take the page with them. *@
+    <SettingsCard Title="@ActivityCardTitle"
+                  Id="mcp-server-activity-title"
+                  Description="@ActivityDescription"
+                  TestId="mcp-server-activity-card">
+        @if (_activityError is not null)
+        {
+            <Alert BaseClass="setting__status"
+                   CssClass="setting__status--error"
+                   Role="status"
+                   TestId="mcp-server-activity-error"
+                   Message="@_activityError" />
+        }
+        <DataTable TItem="McpAuditRecord"
+                   Items="@_activity"
+                   Columns="@ActivityColumns"
+                   AriaLabel="@ActivityCardTitle"
+                   RowNoun="call"
+                   EmptyMessage="No tool call yet."
+                   EmptyDescription="Each call a client makes is listed here, newest first, and kept for 30 days."
+                   TestId="mcp-server-activity">
+            <Row Context="call">
+                <td class="data-table__mono" data-testid="mcp-server-activity-time">@When(call.At)</td>
+                <td data-testid="mcp-server-activity-caller">@call.Caller</td>
+                <td class="data-table__mono" data-testid="mcp-server-activity-tool">@call.Tool</td>
+                <td class="data-table__mono" data-testid="mcp-server-activity-target">@(call.TargetId ?? "—")</td>
+                <td data-testid="mcp-server-activity-outcome">
+                    <Badge Kind="tone" Slug="@OutcomeTone(call.Outcome)">@OutcomeLabel(call.Outcome)</Badge>
+                </td>
+                <td class="data-table__mono" data-testid="mcp-server-activity-correlation">@call.CorrelationId</td>
+            </Row>
+        </DataTable>
+    </SettingsCard>
 </div>
 
 @code {
@@ -158,6 +197,41 @@
     /// <summary>What the page shows in the token's place: the mask the Claude
     /// Code page uses for the same token.</summary>
     public const string HiddenToken = "••••••••";
+
+    /// <summary>The card with the latest tool calls - the last of the page's
+    /// <c>SettingsSection.CardTitles</c>.</summary>
+    public const string ActivityCardTitle = "Activity";
+
+    private static readonly string ActivityDescription =
+        $"The latest {McpAudit.Shown} tool calls, newest first: who made each one, what it was about and how it ended.";
+
+    private static readonly IReadOnlyList<DataTableColumn> ActivityColumns =
+    [
+        new("Time"),
+        new("Caller"),
+        new("Tool"),
+        new("Target"),
+        new("Outcome"),
+        new("Correlation id"),
+    ];
+
+    /// <summary>The audit log, or null in a host that composes none.</summary>
+    private IMcpAuditLog? _audit;
+
+    /// <summary>The latest records, newest first, as last read.</summary>
+    private IReadOnlyList<McpAuditRecord> _activity = [];
+
+    /// <summary>Why the log could not be read, or null.</summary>
+    private string? _activityError;
+
+    /// <summary>Bumped per read, so a slow read that lands after a newer one is
+    /// dropped rather than drawn over it.</summary>
+    private int _activityVersion;
+
+    /// <summary>1 while a write has landed that no read has caught up with yet.</summary>
+    private int _activityStale;
+
+    private bool _disposed;
 
     /// <summary>Where the browser harness serves the endpoint, under its own
     /// origin: the path both hosts share, without its leading slash so it is
@@ -237,7 +311,17 @@
             _ => $"The MCP server is not listening on port {_source.Port}.",
         };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
+    {
+        _audit = Services.GetService<IMcpAuditLog>();
+        if (_audit is not null) _audit.Changed += OnAuditChanged;
+
+        StartSource();
+
+        await LoadActivityAsync();
+    }
+
+    private void StartSource()
     {
         _source = Services.GetService<IMcpEndpointSource>();
         if (_source is null) return;
@@ -313,8 +397,71 @@
         StateHasChanged();
     });
 
+    /// <summary>Reads the latest records. A read that fails says so on the card and
+    /// keeps the rows it had.</summary>
+    private async Task LoadActivityAsync()
+    {
+        if (_audit is null) return;
+
+        var version = ++_activityVersion;
+
+        try
+        {
+            var records = await _audit.LatestAsync(McpAudit.Shown);
+            if (version != _activityVersion || _disposed) return;
+
+            _activity = records;
+            _activityError = null;
+        }
+#pragma warning disable CA1031 // The card says the log could not be read; the rest of the page still works.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            if (version != _activityVersion || _disposed) return;
+
+            _activityError = "The activity log could not be read.";
+        }
+    }
+
+    /// <summary>Raised on whichever thread wrote the record - the MCP request's - so it
+    /// marshals. A burst of calls costs one read, not one per call: a write that
+    /// arrives while a refresh is queued or running only marks it to read once more.</summary>
+    private void OnAuditChanged()
+    {
+        if (Interlocked.Exchange(ref _activityStale, 1) == 1) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            while (!_disposed && Interlocked.Exchange(ref _activityStale, 0) == 1)
+            {
+                await LoadActivityAsync();
+                StateHasChanged();
+            }
+        });
+    }
+
+    /// <summary>The local date and time, to the second, in one fixed form.</summary>
+    private static string When(DateTimeOffset at) =>
+        at.ToLocalTime().ToString("d MMM HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string OutcomeLabel(McpCallOutcome outcome) => outcome switch
+    {
+        McpCallOutcome.Succeeded => "Succeeded",
+        McpCallOutcome.Refused => "Refused",
+        _ => "Failed",
+    };
+
+    private static string OutcomeTone(McpCallOutcome outcome) => outcome switch
+    {
+        McpCallOutcome.Succeeded => "settled",
+        McpCallOutcome.Refused => "alert",
+        _ => "fault",
+    };
+
     public void Dispose()
     {
+        _disposed = true;
         if (_source is not null) _source.Changed -= OnSourceChanged;
+        if (_audit is not null) _audit.Changed -= OnAuditChanged;
     }
 }
