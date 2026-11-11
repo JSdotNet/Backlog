@@ -51,7 +51,8 @@ internal static class Projections
         reference.Status,
         reference.Folder)
     {
-        Parts = reference.ScenarioParts.Count == 0 ? null : [.. reference.ScenarioParts.Select(ScenarioPart)]
+        Parts = reference.ScenarioParts.Count == 0 ? null : [.. reference.ScenarioParts.Select(ScenarioPart)],
+        Scope = reference.IsBrainNote ? BrainMcpScope.Value : null
     };
 
     internal static ScenarioPartPayload ScenarioPart(ScenarioPartEvidence part) => new(

@@ -156,23 +156,32 @@ public sealed class ImportPlanRoadmapIntakeTests
         Assert.Empty(Assert.Single(Assert.Single(intake.Requests).Entries).KnowledgeRefs ?? []);
     }
 
-    /// <summary>A Brain address is the plan's to hold, not the task's yet: a task
-    /// entry writing one is still refused whole, as any reference naming no page
-    /// is.</summary>
+    /// <summary>A task holds a Brain address too (local ADR 0053 §2): a task entry
+    /// writing one is imported with it in its Devbook references, where a
+    /// <c>#brain:</c> value naming no note is still refused whole, as any reference
+    /// naming no page is.</summary>
     [Fact]
-    public async Task A_task_entry_with_a_brain_address_is_still_refused_and_nothing_is_written()
+    public async Task A_task_entry_with_a_brain_address_keeps_it_and_one_naming_no_note_is_refused()
     {
         var store = new InMemoryTaskRepository();
         var intake = new RecordingIntake(store);
+        var handler = new ImportPlanCommandHandler(store, new FakeRepositoryDirectory(), intake);
 
-        var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory(), intake)
-            .Handle(new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:projects/sync.md`\n"),
-                TestContext.Current.CancellationToken);
+        var refused = await handler.Handle(
+            new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:../outside.md`\n"),
+            TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("import.invalid_devbook_reference", result.Error.Code);
+        Assert.True(refused.IsFailure);
+        Assert.Equal("import.invalid_devbook_reference", refused.Error.Code);
         Assert.Empty(store.Entries);
         Assert.Empty(intake.Requests);
+
+        var result = await handler.Handle(
+            new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:projects/sync.md`\n"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["#brain:projects/sync.md"], Assert.Single(store.Entries.Values).DevbookReferences);
     }
 
     /// <summary>A plan entry's token is checked on the same terms now that it is kept:

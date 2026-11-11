@@ -52,6 +52,38 @@ public class DevbookReferenceToolsTests
         Assert.Equal("backlog", Assert.Single(resolver.Resolved).Alias);
     }
 
+    /// <summary>A note in the owner's Brain (local ADR 0053) comes back marked with
+    /// the scope the knowledge read takes for the Brain, its path the note's path from
+    /// the Brain's root — what <c>read_knowledge_chapter</c> is handed as
+    /// <c>chapterPath</c> under <c>#brain</c>. A repository chapter carries no
+    /// scope.</summary>
+    [Fact]
+    public async Task A_brain_note_is_listed_with_the_brain_scope_and_its_note_path()
+    {
+        const string note = "#brain:projects/sync.md#later";
+        var id = Guid.NewGuid();
+        var tools = Tools(
+            new FakeTaskItems(Entries.Entry("The one", id: id, devbookReferences: [note, Chapter])),
+            new FakeDevbookReferenceResolver(
+                ResolvedDevbookReference.BrainNote(note, DevbookReferenceState.Chapter, "Later"),
+                ChapterAnswer));
+
+        var answer = await tools.ListDevbookReferencesAsync(id, "JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        Assert.Collection(
+            answer.References,
+            brain =>
+            {
+                Assert.Equal("#brain", brain.Scope);
+                Assert.Equal("projects/sync.md", brain.Path);
+                Assert.Equal("later", brain.Anchor);
+                Assert.Equal("chapter", brain.State);
+                Assert.Equal("Later", brain.Title);
+                Assert.Null(brain.Folder);
+            },
+            chapter => Assert.Null(chapter.Scope));
+    }
+
     /// <summary>What is resolved is what the entry now holds, not what was sent:
     /// the module drops repeats, and the answer has to say so.</summary>
     [Fact]
