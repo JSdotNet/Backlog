@@ -142,5 +142,5 @@ public static class ScheduleReading
         return archived.Contains;
     }
 
-    private static DateTimeOffset Began(ScheduledRun run) => run.StartedAt ?? run.FirstReportedAt;
+    private static DateTimeOffset Began(ScheduledRun run) => ScheduleOverview.Began(run);
 }
