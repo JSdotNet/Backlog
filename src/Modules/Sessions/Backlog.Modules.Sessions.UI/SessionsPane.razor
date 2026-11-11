@@ -444,8 +444,11 @@ else
            row button's sibling and never inside it: a control inside a button is
            markup no browser agrees on. It is stacked over the row's first line, where
            the row keeps a slot of the same width for it. *@
-        <li @key="row.Key" class="@(reading.PlanTag is null ? null : "sessions-group__item sessions-group__item--tagged")">
-            @RowButton(row, reading)
+        var ask = AskOf(row);
+        var answerable = ask?.NotificationId is not null && OnAnswerQuestion.HasDelegate;
+
+        <li @key="row.Key" class="@ItemClass(reading.PlanTag is not null, answerable)">
+            @RowButton(row, reading, ask, answerable)
             @if (reading.PlanTag is { } tag)
             {
                 <TagChip Text="@($"+{tag}")"
@@ -454,10 +457,22 @@ else
                          TestId="sessions-plan-tag"
                          OnClick="() => ChoosePlan(tag)" />
             }
+            @if (answerable && ask!.NotificationId is { } notification)
+            {
+                @* The Answer link is a control of its own, so it is the row button's
+                   sibling like the tag chip, stacked over the end of the Asks line,
+                   where the row keeps a slot of the same width for it. *@
+                <AppButton BaseClass="sessions-row__answer"
+                           Variant="ButtonVariant.None"
+                           TestId="sessions-asks-answer"
+                           aria-label="@($"Answer: {ask.Question}")"
+                           title="@($"Open this question in the notification centre: {ask.Question}")"
+                           OnClick="() => OnAnswerQuestion.InvokeAsync(notification)">Answer</AppButton>
+            }
         </li>
     };
 
-    private RenderFragment RowButton(SessionRow row, SessionTitleReading reading) => __builder =>
+    private RenderFragment RowButton(SessionRow row, SessionTitleReading reading, SessionAsk? ask, bool answerable) => __builder =>
     {
         <ToggleButton BaseClass="sessions-row"
                       PressedCssClass="sessions-row--selected"
@@ -544,6 +559,25 @@ else
                     <StageStrip Steps="@DeliveryRunProgress.Steps(row.Runs[0])"
                                 Summary="@RunSummary(row)"
                                 TestId="sessions-stage-strip" />
+                </span>
+            }
+            @if (ask is not null)
+            {
+                @* What the Waiting session asks, from the question relay: the first
+                   question still open, and how many more of the same dialog are.
+                   Last, so the Answer link stacked over its end sits on the row's
+                   bottom edge. *@
+                <span class="sessions-row__asks" data-testid="sessions-asks">
+                    <span class="sessions-row__asks-label">Asks</span>
+                    <span class="sessions-row__asks-question" data-testid="sessions-asks-question">@ask.Question</span>
+                    @if (ask.More > 0)
+                    {
+                        <span class="sessions-row__asks-more" data-testid="sessions-asks-more">@MoreLabel(ask.More)</span>
+                    }
+                    @if (answerable)
+                    {
+                        <span class="sessions-row__answer-slot" aria-hidden="true">Answer</span>
+                    }
                 </span>
             }
         </ToggleButton>
@@ -898,6 +932,57 @@ else
     /// </summary>
     [Parameter]
     public Func<DeliveryRunReference, Task<SessionPullRequestStatus?>>? PullRequestStatus { get; set; }
+
+    /// <summary>
+    /// Opens the notification centre on the notification a waiting question was
+    /// published as, by its id — the Asks strip's Answer. Without it the strip still
+    /// says what the session asks, with no Answer: the centre is the host's.
+    /// </summary>
+    [Parameter]
+    public EventCallback<Guid> OnAnswerQuestion { get; set; }
+
+    /// <summary>What each Waiting session asks, by session id, from the question
+    /// relay's open questions; empty where the host composed none or it could not be
+    /// read.</summary>
+    private static readonly IReadOnlyDictionary<string, SessionAsk> NoAsks = new Dictionary<string, SessionAsk>(StringComparer.Ordinal);
+
+    private IReadOnlyDictionary<string, SessionAsk> _asks = NoAsks;
+
+    /// <summary>The ask a row shows: only on a session that reads Waiting, so a
+    /// question the relay still holds for a session that has moved on is never
+    /// drawn as if it were the row's state.</summary>
+    private SessionAsk? AskOf(SessionRow row) =>
+        row.Session is { State: AgentSessionState.Waiting } session && _asks.TryGetValue(session.Id, out var ask)
+            ? ask
+            : null;
+
+    private static string? ItemClass(bool tagged, bool answerable) => (tagged, answerable) switch
+    {
+        (false, false) => null,
+        (true, false) => "sessions-group__item sessions-group__item--tagged",
+        (false, true) => "sessions-group__item sessions-group__item--asking",
+        _ => "sessions-group__item sessions-group__item--tagged sessions-group__item--asking"
+    };
+
+    private static string MoreLabel(int more) => more == 1 ? "+1 more" : $"+{more} more";
+
+    /// <summary>The open waiting questions, read beside the sessions. The relay is the
+    /// desktop's; a host without one, or a store that cannot be read, leaves every row
+    /// without a strip rather than failing the list.</summary>
+    private async Task<IReadOnlyDictionary<string, SessionAsk>> ReadAsksAsync()
+    {
+        if (Services.GetService<IWaitingQuestionStore>() is not { } store)
+            return NoAsks;
+
+        try
+        {
+            return SessionAsk.BySession(await store.ListAsync(openOnly: true));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return NoAsks;
+        }
+    }
 
     /// <summary>
     /// The session the pane was opened on — by a task that names it — or null. The
@@ -1754,9 +1839,11 @@ else
         // freeze the window before Refresh could show it is busy (#press-feedback).
         var sessions = Task.Run(() => Sessions.GetSessionsAsync());
         var runs = Task.Run(() => Runs.GetRunsAsync());
+        var asks = Task.Run(ReadAsksAsync);
 
         _catalog = await sessions;
         _runs = await runs;
+        _asks = await asks;
         await ReadPricesAsync();
         _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
         _read = true;
