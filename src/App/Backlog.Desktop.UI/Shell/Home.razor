@@ -6,6 +6,7 @@
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
 @using Backlog.Modules.Devbook.Abstractions
+@using Backlog.Modules.Progress.Abstractions
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -225,6 +226,28 @@
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                             TestId="inbox-feature-status" />
+                    </ToggleButton>)
+                }
+
+                @* The weekly review, beside the Inbox it starts from: a takeover like
+                   the Inbox, the Progress context's surface, offered behind its own
+                   flag (.devbook/domain/progress/features.md#the-weekly-review). Unlike
+                   the Inbox it keeps no key of its own, so Escape closes it. *@
+                @if (WeeklyReviewOffered)
+                {
+                    @HeaderItem(WeeklyReviewSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="WeeklyReviewVisible"
+                                  id="weekly-review-option"
+                                  TestId="weekly-review-option"
+                                  aria-controls="weekly-review-surface"
+                                  Title="@WeeklyReviewOptionTitle"
+                                  OnClick="ToggleWeeklyReview">
+                        <ListTodoIcon />
+                        <span class="header-nav-label header-nav-label--tier-3">Weekly review</span>
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(ProgressFeatures.WeeklyReview)"
+                                            Title="@FeatureStatusTitle(ProgressFeatures.WeeklyReview)"
+                                            TestId="weekly-review-feature-status" />
                     </ToggleButton>)
                 }
 
@@ -1029,13 +1052,14 @@
     private const string NotificationsSurfaceId = NotificationsSurfaceRegistration.SurfaceId;
     private const string ToolsSurfaceId = Backlog.Modules.DevPc.UI.ToolsSurfaceRegistration.SurfaceId;
     private const string AtlasSurfaceId = global::Backlog.Desktop.UI.Devbook.Extensions.AtlasSurfaceRegistration.SurfaceId;
+    private const string WeeklyReviewSurfaceId = Backlog.Modules.Progress.UI.WeeklyReview.WeeklyReviewSurfaceRegistration.SurfaceId;
 
     /// <summary>The takeovers the header places itself — each in its group, with its
     /// glyph and its fold tier. Any other takeover the catalog offers is drawn after
     /// the view switch, beside the Devbook, without a shell edit.</summary>
     private static readonly HashSet<string> PlacedTakeovers = new(StringComparer.Ordinal)
     {
-        InboxSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, DashboardSurfaceId, NotificationsSurfaceId, ToolsSurfaceId, AtlasSurfaceId,
+        InboxSurfaceId, WeeklyReviewSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, DashboardSurfaceId, NotificationsSurfaceId, ToolsSurfaceId, AtlasSurfaceId,
     };
 
     /// <summary>
@@ -1340,6 +1364,17 @@
 
     /// <summary>What the Inbox option's press will do.</summary>
     private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveViewTitle}" : "Open the Inbox";
+
+    /// <summary>Whether the weekly review is offered: its surface registered and its
+    /// flag on.</summary>
+    private bool WeeklyReviewOffered => TakeoverOffered(WeeklyReviewSurfaceId);
+
+    /// <summary>Whether the weekly review has the screen.</summary>
+    private bool WeeklyReviewVisible => TakeoverVisible(WeeklyReviewSurfaceId);
+
+    private void ToggleWeeklyReview() => ToggleSurface(WeeklyReviewSurfaceId);
+
+    private string WeeklyReviewOptionTitle => WeeklyReviewVisible ? $"Back to {EffectiveViewTitle}" : "Open the weekly review";
 
     /// <summary>
     /// The Devbook on screen for something opened from outside it — an entry's

@@ -1008,6 +1008,113 @@ The system SHALL draw every pull request row in Progress from the status Reposit
 - **When** the Goals view draws its row
 - **Then** it reads "merged" instead of both marks
 
+## The weekly review
+
+```meta
+type: requirements
+related: [.devbook/domain/progress/features.md#the-weekly-review]
+```
+
+> Today is Wednesday 11 November 2026 in these scenarios. The Brain has the PARA
+> default areas, an archive among them.
+
+### Requirement: The weekly review takes the screen beside the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_option_is_absent_while_its_flag_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_option_follows_the_inbox_and_carries_its_dev_flag, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_closes_the_weekly_review]
+```
+
+The system SHALL offer the weekly review, while its flag is on, as a takeover whose header option follows the Inbox's, and return to the view underneath on a second press or Escape.
+
+#### Scenario: The flag is off
+
+- **Given** the `weekly-review` flag is off, as it ships
+- **When** the Home shell draws its header
+- **Then** there is no Weekly review option
+
+#### Scenario: Opened over the roadmap
+
+- **Given** the flag is on and the Roadmap view is on screen
+- **When** the person presses Weekly review
+- **Then** the review has the whole screen and its option reads pressed, titled "Back to Roadmap"
+- **When** they press it again
+- **Then** the Roadmap is back
+
+### Requirement: The review walks the skill's three stages one at a time
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.The_review_opens_on_get_clear_and_shows_only_that_stages_lines, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests]
+```
+
+The system SHALL show the lines of one stage at a time — Get clear, Get current, Get creative, opening on Get clear — each found by the check the `weekly-review` skill reports for it.
+
+#### Scenario: One item waiting and one entry overdue
+
+- **Given** "Call the plumber" waits in the Inbox and "Taxes" was due on 1 November
+- **When** the review opens
+- **Then** Get clear lists "Call the plumber" alone, and Get current's option counts one line
+- **When** the person presses Next
+- **Then** Get current lists "Taxes"
+
+### Requirement: Each line carries its action in place
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Marking_the_plans_next_action_acts_and_reads_again_so_the_line_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Moving_a_note_to_the_archive_acts_on_its_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Opening_a_note_from_get_creative_hands_its_path_to_the_window, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_refused_action_is_said_and_the_line_stays]
+```
+
+The system SHALL give each line the actions that answer it — open the Inbox, the note, the task, the Goals view or the plan; mark the plan's next action; move the note to the archive — and read the review again after an action that writes.
+
+#### Scenario: A plan with no next action
+
+- **Given** the plan `+launch` holds one open entry, "Write the brief", a draft nothing holds
+- **When** the person presses Mark next action on the plan's line
+- **Then** "Write the brief" is ready, the review reads again, and Get current reads Clear
+
+#### Scenario: A finished plan's project note
+
+- **Given** `projects/done.md` belongs to a finished plan
+- **When** the person presses Move to archive on its line
+- **Then** the note is moved to the archive area
+
+#### Scenario: A move the Brain refuses
+
+- **Given** the move of `projects/done.md` is refused
+- **When** the person presses Move to archive
+- **Then** the review says why and the line stays
+
+### Requirement: A stage with nothing left reads done
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_stage_with_nothing_left_shows_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.Nothing_to_review_leaves_every_stage_done]
+```
+
+The system SHALL mark a stage done, on its option and in its place, when the review finds no line in it.
+
+#### Scenario: Nothing to review
+
+- **Given** the Inbox, the Brain and the backlog hold nothing the checks find
+- **When** the review opens
+- **Then** every stage's option reads done and the stage on screen says Clear
+
+### Requirement: A missing source is said and the rest is checked
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.A_missing_brain_or_goals_is_said_and_the_rest_goes_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_missing_brain_is_said_on_the_review]
+```
+
+The system SHALL say on the review when the Brain cannot be read, or no goals are composed, and still check the rest.
+
+#### Scenario: No Brain on this device
+
+- **Given** no Brain folder is set
+- **When** the review opens
+- **Then** it says "Brain unavailable" and still lists the Inbox's items
+
 ## Goals on the phone
 
 ```meta

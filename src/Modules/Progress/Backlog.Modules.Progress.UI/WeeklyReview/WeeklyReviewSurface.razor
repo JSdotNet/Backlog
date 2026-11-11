@@ -1,0 +1,288 @@
+@using global::Backlog.UI.Components.Buttons
+@using global::Backlog.UI.Components.Feedback
+@using global::Backlog.UI.Components.Icons
+@using global::Backlog.UI.Components.Layout
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The weekly review as a takeover (.devbook/domain/progress/features.md#the-weekly-review):
+    the weekly-review skill's three stages, walked one at a time. The window's
+    IWeeklyReviewSource hands it what only the shell holds — the Inbox, the Brain, the
+    task list, the roadmap and the goals — and WeeklyReviewChecklistBuilder turns that
+    into lines. Each line carries its action in place: a press that shows something
+    (the Inbox, a note, a task, the goals) leaves the review for it; a press that
+    changes something (mark the plan's next action, move a note to the archive) stays
+    and reads again, so the line it answered goes. A stage with nothing left reads
+    done.
+*@
+<div class="weekly-review" id="weekly-review" data-testid="weekly-review">
+    <SectionHeader Title="Weekly review"
+                   Description="Get clear, get current, get creative: one stage at a time."
+                   TestId="weekly-review-header">
+        <Actions>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       TestId="weekly-review-refresh"
+                       Busy="_reading"
+                       BusyLabel="Reading the review"
+                       OnClick="RefreshAsync">
+                Refresh
+            </AppButton>
+        </Actions>
+    </SectionHeader>
+
+    @* The stages, as one fused group: one is on screen, and each says whether it is
+       done — the check glyph and the word, not the glyph alone. *@
+    <ButtonGroup AriaLabel="Stage" TestId="weekly-review-stages">
+        @foreach (var stage in WeeklyReviewChecklist.Stages)
+        {
+            var current = stage;
+            var done = _checklist is { } read && read.IsDone(current);
+            <ToggleButton Pressed="@(current == _stage)"
+                          TestId="@($"weekly-review-stage-{WeeklyReviewChecklist.SlugOf(current)}")"
+                          data-done="@(done ? "true" : "false")"
+                          aria-controls="weekly-review-stage"
+                          OnClick="() => Show(current)">
+                @if (done)
+                {
+                    <CircleCheckIcon />
+                }
+                @StageLabel(current)
+            </ToggleButton>
+        }
+    </ButtonGroup>
+
+    @foreach (var note in _checklist?.Unavailable ?? [])
+    {
+        <Callout Role="status" TestId="weekly-review-unavailable">@note</Callout>
+    }
+
+    @if (_message is { } message)
+    {
+        <Alert Message="@message" TestId="weekly-review-message" />
+    }
+
+    <section class="weekly-review__stage"
+             id="weekly-review-stage"
+             data-testid="weekly-review-stage"
+             data-stage="@WeeklyReviewChecklist.SlugOf(_stage)"
+             aria-labelledby="weekly-review-stage-title">
+        <SectionHeader Title="@WeeklyReviewChecklist.NameOf(_stage)"
+                       TitleId="weekly-review-stage-title"
+                       Level="3"
+                       Description="@WeeklyReviewChecklist.PurposeOf(_stage)" />
+
+        @if (_checklist is not { } checklist)
+        {
+            @* Not read yet, or the first read failed and the Alert above says why:
+               nothing is drawn as done that was never read. *@
+            if (_reading)
+            {
+                <Spinner Label="Reading the review" TestId="weekly-review-reading" />
+            }
+        }
+        else if (checklist.IsDone(_stage))
+        {
+            <EmptyState Title="Clear" Description="Nothing is left in this stage." TestId="weekly-review-stage-done">
+                <Icon><CircleCheckIcon /></Icon>
+            </EmptyState>
+        }
+        else
+        {
+            <ul class="weekly-review__lines" data-testid="weekly-review-lines">
+                @foreach (var line in checklist.LinesOf(_stage))
+                {
+                    var shown = line;
+                    <li class="weekly-review__line" data-testid="weekly-review-line" data-key="@shown.Key" @key="shown.Key">
+                        <span class="weekly-review__subject">@shown.Subject</span>
+                        <span class="weekly-review__check">@shown.Check</span>
+                        <span class="weekly-review__actions">
+                            @foreach (var action in shown.Actions)
+                            {
+                                var pressed = action;
+                                <AppButton Variant="@(ReferenceEquals(pressed, shown.Actions[0]) ? ButtonVariant.Secondary : ButtonVariant.Ghost)"
+                                           TestId="@($"weekly-review-action-{Slug(pressed.Kind)}")"
+                                           Busy="@(_busyKey == shown.Key)"
+                                           BusyLabel="Working"
+                                           OnClick="() => ActAsync(shown, pressed)">
+                                    @pressed.Label
+                                </AppButton>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="weekly-review__steps">
+            @if (Previous is { } back)
+            {
+                <AppButton Variant="ButtonVariant.Ghost" TestId="weekly-review-back" OnClick="() => Show(back)">
+                    Back to @WeeklyReviewChecklist.NameOf(back)
+                </AppButton>
+            }
+            @if (Next is { } next)
+            {
+                <AppButton Variant="ButtonVariant.Primary" TestId="weekly-review-next" OnClick="() => Show(next)">
+                    Next: @WeeklyReviewChecklist.NameOf(next)
+                </AppButton>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    /// <summary>The query the surface was shown with; it reads none.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the review, returning to the view underneath.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private IWeeklyReviewSource? _source;
+    private TimeProvider _clock = TimeProvider.System;
+    private WeeklyReviewChecklist? _checklist;
+    private WeeklyReviewStage _stage = WeeklyReviewStage.GetClear;
+    private bool _reading;
+    private bool _readAgain;
+    private bool _closed;
+    private string? _busyKey;
+    private string? _message;
+    private readonly CancellationTokenSource _disposed = new();
+
+    protected override void OnInitialized()
+    {
+        _source = Services.GetService(typeof(IWeeklyReviewSource)) as IWeeklyReviewSource;
+        _clock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+        if (_source is not null) _source.Changed += OnChanged;
+    }
+
+    protected override Task OnInitializedAsync() => ReadAsync();
+
+    private WeeklyReviewStage? Previous => _stage == WeeklyReviewStage.GetClear ? null : _stage - 1;
+
+    private WeeklyReviewStage? Next => _stage == WeeklyReviewStage.GetCreative ? null : _stage + 1;
+
+    private string StageLabel(WeeklyReviewStage stage)
+    {
+        var name = WeeklyReviewChecklist.NameOf(stage);
+        if (_checklist is not { } checklist) return name;
+        return checklist.IsDone(stage) ? $"{name}, done" : $"{name} ({checklist.LinesOf(stage).Count})";
+    }
+
+    private void Show(WeeklyReviewStage stage)
+    {
+        _stage = stage;
+        _message = null;
+    }
+
+    private Task RefreshAsync()
+    {
+        _message = null;
+        return ReadAsync();
+    }
+
+    /// <summary>
+    /// Reads the review. A read asked for while one is out — a change elsewhere, the
+    /// read after a write — is not dropped: the read out goes round once more, so what
+    /// is drawn is never older than the last ask. A read that fails leaves the last
+    /// reading, or none, rather than an empty one that would read as done.
+    /// </summary>
+    private async Task ReadAsync()
+    {
+        if (_reading)
+        {
+            _readAgain = true;
+            return;
+        }
+
+        _reading = true;
+        try
+        {
+            do
+            {
+                _readAgain = false;
+                if (_closed) return;
+
+                var inputs = _source is null
+                    ? WeeklyReviewInputs.None
+                    : await _source.ReadAsync(_disposed.Token);
+                var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
+                _checklist = WeeklyReviewChecklistBuilder.Build(inputs, today);
+            }
+            while (_readAgain);
+        }
+        catch (OperationCanceledException) when (_disposed.IsCancellationRequested)
+        {
+            // Closed while reading: nothing to draw.
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            _message = $"The review could not be read: {exception.Message}";
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+
+    private async Task ActAsync(WeeklyReviewLine line, WeeklyReviewAction action)
+    {
+        if (_source is null || _busyKey is not null) return;
+
+        _busyKey = line.Key;
+        _message = null;
+        try
+        {
+            var done = await _source.ActAsync(action, _disposed.Token);
+            if (done.IsFailure)
+            {
+                _message = done.Error.Message;
+                return;
+            }
+
+            // A press that showed another surface has left the review; one that wrote
+            // reads again, so the line it answered goes.
+            if (action.Writes) await ReadAsync();
+        }
+        catch (OperationCanceledException) when (_disposed.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            _message = $"\"{action.Label}\" did not complete: {exception.Message}";
+        }
+        finally
+        {
+            _busyKey = null;
+        }
+    }
+
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        await ReadAsync();
+        StateHasChanged();
+    });
+
+    private static string Slug(WeeklyReviewActionKind kind) => kind switch
+    {
+        WeeklyReviewActionKind.OpenInbox => "open-inbox",
+        WeeklyReviewActionKind.OpenNote => "open-note",
+        WeeklyReviewActionKind.OpenTask => "open-task",
+        WeeklyReviewActionKind.MarkNextAction => "mark-next-action",
+        WeeklyReviewActionKind.ArchiveNote => "archive-note",
+        WeeklyReviewActionKind.OpenGoals => "open-goals",
+        _ => "open-plan",
+    };
+
+    public void Dispose()
+    {
+        if (_source is not null) _source.Changed -= OnChanged;
+
+        // A read queued before this asks _closed first, never the disposed token.
+        _closed = true;
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}
