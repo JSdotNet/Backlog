@@ -19,8 +19,8 @@ public static class BrainAdapterRegistration
 {
     /// <summary>
     /// Registers the Brain's adapters: its settings file, its folder source under
-    /// the Brain's port and Devbook's personal-source port, the note writer, the
-    /// backlink and task-link readers, the folder watch, Show hidden, and the
+    /// the Brain's port and Devbook's personal-source port, the note writer and the
+    /// link writer, the backlink and task-link readers, the folder watch, Show hidden, and the
     /// Inbox's To Brain target. Call after the
     /// <see cref="DevbookDatabaseRefresher"/> is registered, which the watch
     /// resolves; each head starts the watch after <c>Build()</c>.
@@ -63,6 +63,10 @@ public static class BrainAdapterRegistration
         // The one writer of a new note into the Brain's inbox area: the pane's
         // Capture, triage's To Brain and the capture tool all go through it.
         services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<BrainFolderSource>()));
+
+        // The second writer (local ADR 0052): a link appended to an existing note's
+        // tasks or roadmap list, and a finished project note moved to the archive.
+        services.AddSingleton<IBrainNoteLinkWriter>(sp => new BrainNoteLinkWriter(sp.GetRequiredService<BrainFolderSource>()));
 
         // The Brain notes that link to a repository chapter, read in reverse from
         // the Brain's own database (local ADR 0027 §6) — so the repository's

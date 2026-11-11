@@ -112,30 +112,33 @@ related: [.devbook/domain/brain/domain.md#cross-linking, .devbook/arc42/adr/0052
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_task_id_appended_to_a_flow_list_changes_only_that_line, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_roadmap_tag_appended_to_an_empty_flow_list_stays_a_flow_list, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_block_list_stays_a_block_list_with_its_own_indentation, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_missing_field_lands_as_the_last_line_of_the_top_block, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.Every_byte_outside_the_list_is_kept, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_block_list_append_keeps_every_other_byte_and_the_byte_order_mark, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_bare_field_with_no_items_becomes_a_flow_list, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_trailing_comma_in_a_flow_list_gets_no_second_comma, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_field_only_a_lower_block_carries_is_added_to_the_top_block, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_file_with_mixed_line_endings_keeps_each_one, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.Links_written_at_once_into_one_note_all_land, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteLinksParityTests.An_appended_task_id_is_in_the_file_s_block_as_the_parse_reads_it, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteLinksParityTests.A_missing_roadmap_field_is_added_where_the_parse_reads_it]
 ```
 
 A link write changes only the `tasks` or `roadmap` list in the note's top `meta` block, and leaves every other byte of the file as it was.
 The body, the other fields, their key order, comments, blank lines and the list's flow or block style are the person's.
 
-Enforced at: open
+Enforced at: `BrainNoteLinks.Append()`, which changes only the list's line or adds one line, and `BrainNoteLinkWriter`, which writes the edit back byte for byte as strict UTF-8 with its byte order mark kept, one write at a time
 
 ### Invariant: A present value is not added again
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_present_task_id_leaves_the_file_unchanged, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_present_roadmap_tag_in_a_block_list_leaves_the_file_unchanged, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_repeated_link_writes_once]
 ```
 
 A task id or Roadmap Tag the list already holds is not appended again, so a repeated link leaves the file unchanged.
 
-Enforced at: open
+Enforced at: `BrainNoteLinks.Append()`, which answers `AlreadyPresent` for a value the list holds, and `BrainNoteLinkWriter`, which then writes nothing
 
 ### Invariant: An unparsable block is not written
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_missing_or_unparsable_top_block_is_refused_with_its_reason, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_file_that_is_not_utf8_is_refused]
 ```
 
 A note whose top `meta` block is missing or does not parse is not written.
 
-Enforced at: open
+Enforced at: `BrainNoteLinks.Append()`, which refuses with the reason, and `BrainNoteLinkWriter`, which writes nothing on a refusal
 
