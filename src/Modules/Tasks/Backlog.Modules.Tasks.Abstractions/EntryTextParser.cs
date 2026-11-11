@@ -30,7 +30,10 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// tag, stored bare; <c>@name</c> is a person, stored with its <c>@</c> and only
 /// ever read off the title, because on the metadata line <c>@</c> already means
 /// Area; <c>+name</c> is a plan tag, stored with its <c>+</c> and at home on both
-/// the title and the metadata line, where <c>+</c> was free.
+/// the title and the metadata line, where <c>+</c> was free. A context —
+/// <c>#@pc</c>, a tag whose name starts with <c>@</c> (local ADR 0054 §5) — is read
+/// anywhere a <c>#</c> tag is, and stored as <c>@pc</c>, the way the title stores
+/// a person.
 /// </para>
 /// <para>
 /// Heading level carries structure: a second <c>#</c> heading starts a whole
@@ -50,7 +53,11 @@ public static class EntryTextParser
 {
     private static readonly Regex MetaLineRegex = new(@"^(\s*`[^`\n]+`\s*)+$", RegexOptions.Compiled);
     private static readonly Regex TokenRegex = new(@"`([^`]+)`", RegexOptions.Compiled);
-    private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
+    /// <summary>A general tag in the body's prose, or a context: <c>#@pc</c> is the
+    /// tag <c>@pc</c> (local ADR 0054 §5,
+    /// <c>.devbook/domain/tasks/domain.md#context</c>). The <c>@</c> stays in the
+    /// captured name, so a context is stored the way a title's person tag is.</summary>
+    private static readonly Regex TagRegex = new(@"(?<!\S)#(@?[A-Za-z][\w-]*)", RegexOptions.Compiled);
     /// <summary>The entry title's own tag grammar, which is the body's plus two
     /// more sigils: <c>#name</c> is a general tag, <c>@name</c> is a person and
     /// <c>+name</c> is a plan tag. Deliberately a separate expression from
@@ -62,8 +69,13 @@ public static class EntryTextParser
     /// when nothing is welded to its left, which is what keeps
     /// <c>mail bob@example.com</c> from naming a person called
     /// <c>example</c>, and <c>c++ compiler</c> from filing anything under a plan.
+    /// </para>
+    /// <para>
+    /// <c>#@pc</c> is a context in the body's spelling (local ADR 0054 §5): the same
+    /// stored tag <c>@pc</c> an <c>@pc</c> on the title is. Its sigil group reads
+    /// <c>#@</c>, so a writer can tell the two spellings apart and still store one.
     /// </para></summary>
-    private static readonly Regex TitleTagRegex = new(@"(?<!\S)([@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
+    private static readonly Regex TitleTagRegex = new(@"(?<!\S)(#@|[@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
     private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*#{2,3}[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
@@ -1640,8 +1652,25 @@ public static class EntryTextParser
     /// had its <c># </c> marker taken off.</summary>
     private static List<string> TitleTags(string title) =>
         TitleTagRegex.Matches(title)
-            .Select(m => (m.Groups[1].Value == "#" ? string.Empty : m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
+            .Select(m => TitleSigil(m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
             .ToList();
+
+    /// <summary>The tags a title carries, stored the way <see cref="Parse"/> stores
+    /// them: <c>@carol</c> and a <c>#@calls</c> context with their <c>@</c>, a plan
+    /// with its <c>+</c>, a general tag bare. The title without its <c>#</c>
+    /// marker.</summary>
+    public static IReadOnlyList<string> TitleTagsOf(string? title) =>
+        string.IsNullOrEmpty(title) ? [] : TitleTags(title);
+
+    /// <summary>The sigil a title tag is stored with: none for a general tag,
+    /// <c>@</c> for a person and for a context written <c>#@pc</c>, <c>+</c> for a
+    /// plan.</summary>
+    private static string TitleSigil(string sigil) => sigil switch
+    {
+        "#" => string.Empty,
+        "#@" => "@",
+        _ => sigil
+    };
 
     /// <summary>The tags <see cref="Parse"/> derives from a body's prose.</summary>
     private static List<string> BodyTags(string body) =>
@@ -1659,14 +1688,13 @@ public static class EntryTextParser
 
         var meta = $"`{TypeToken(entry.Type)}` `*{PriorityToken(entry.Priority)}` `!{StatusToken(entry.Status)}`";
         if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
-        // Person tags are skipped, not written. This loop composes a sigilled
-        // token, so an `@bob` arriving here would be emitted as `#@bob` — which is
-        // not a tag in any grammar, and sits on the one line where a bare `@`
-        // already means Area. Nothing is lost by leaving them off: a person tag is
-        // derived from the title, the title is preserved verbatim, and the next
-        // parse reads it straight back off the text that is still there. The title
-        // is also where the editor *writes* one — WithPersonTags — so the two
-        // halves of the round trip meet on the same line.
+        // A tag starting `@` that the title carries is skipped, not written: the
+        // title is preserved verbatim and the next parse reads it straight back off
+        // the text still there. The title is also where the editor *writes* a person
+        // — WithPersonTags — so the two halves of that round trip meet on the same
+        // line. Any other `@` tag is a context typed on this line as `#@pc` (local
+        // ADR 0054 §5) and is written back as that token: `#@pc` is a tag in this
+        // grammar, and never an Area, which is a bare `@` token.
         //
         // A plan tag is written, and written as `+slug` rather than `#+slug`: `+`
         // is free on this line, so the sigil the stored value already carries is
@@ -1679,11 +1707,13 @@ public static class EntryTextParser
         // then put back. The DTO cannot tell a line token from prose, so a tag on
         // both stays a tag through the body alone. A title tag is still written:
         // the plan-tag round trip keeps it on the line on purpose.
+        var titleTags = TitleTags(entry.Title);
         var bodyOnly = new HashSet<string>(BodyTags(entry.Body), StringComparer.OrdinalIgnoreCase);
-        bodyOnly.ExceptWith(TitleTags(entry.Title));
+        bodyOnly.ExceptWith(titleTags);
+        var titleAtTags = new HashSet<string>(titleTags.Where(IsPersonTag), StringComparer.OrdinalIgnoreCase);
         foreach (var tag in entry.Tags
             .Select(tag => tag.Trim())
-            .Where(tag => !IsPersonTag(tag) && !bodyOnly.Contains(tag))
+            .Where(tag => !(IsPersonTag(tag) && titleAtTags.Contains(tag)) && !bodyOnly.Contains(tag))
             .Select(MetaTagToken)
             .Where(token => token.Length > 1)
             .Distinct(StringComparer.OrdinalIgnoreCase))
@@ -1834,8 +1864,26 @@ public static class EntryTextParser
     public static string WithTags(string raw, string tags) =>
         WithTagSet(raw, ParseTagsInput(tags));
 
-    private static string WithTagSet(string raw, IReadOnlyList<string> tags) =>
-        WithPersonTags(RewriteMetaLine(raw, tags: tags), tags.Where(IsPersonTag));
+    /// <summary>
+    /// Writes the set on to its two lines. An <c>@</c> tag the metadata line
+    /// already carries as a <c>#@calls</c> context (local ADR 0054 §5) stays on that
+    /// line — <see cref="RewriteMetaLine"/> keeps it there — and every other
+    /// <c>@</c> tag goes on the title, where the editor has always written a person,
+    /// so no tag moves between the two lines because another tag was edited.
+    /// </summary>
+    private static string WithTagSet(string raw, IReadOnlyList<string> tags)
+    {
+        var onTheLine = MetaLineContexts(raw);
+
+        return WithPersonTags(
+            RewriteMetaLine(raw, tags: tags),
+            tags.Where(tag => IsPersonTag(tag) && !onTheLine.Contains(tag.Trim())));
+    }
+
+    /// <summary>The <c>@</c> tags the metadata line carries as <c>#@name</c>
+    /// tokens, stored the way <see cref="Parse"/> stores them.</summary>
+    private static HashSet<string> MetaLineContexts(string raw) =>
+        new(Parse(raw).MetadataTags.Where(IsPersonTag), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the title's person tags: every <c>@name</c> in <paramref name="persons"/>
@@ -1884,7 +1932,10 @@ public static class EntryTextParser
 
         foreach (Match match in TitleTagRegex.Matches(line))
         {
-            if (match.Groups[1].Value != "@")
+            // A context written `#@calls` is the stored tag `@calls` an `@calls`
+            // is, so it counts as carried and comes off like one; otherwise a set
+            // naming it would append a second spelling of it.
+            if (match.Groups[1].Value is not ("@" or "#@"))
             {
                 continue;
             }
@@ -2095,8 +2146,10 @@ public static class EntryTextParser
     /// as: <c>#deploy</c> for the bare <c>deploy</c>, <c>+release-q4</c> for the
     /// stored <c>+release-q4</c>. One place composes it because two writers and the
     /// canonical line all have to agree, and <c>#+release-q4</c> is what the old
-    /// <c>"#" + tag</c> would have produced. Person tags are the caller's to leave
-    /// off before this sees them — on that line <c>@</c> means Area.</summary>
+    /// <c>"#" + tag</c> would have produced. An <c>@</c> tag comes out as the
+    /// context token <c>#@calls</c> (local ADR 0054 §5), never the bare <c>@calls</c>
+    /// that line reads as an Area; which <c>@</c> tags belong on the line rather than
+    /// the title is the caller's to decide.</summary>
     private static string MetaTagToken(string tag)
     {
         var trimmed = tag.Trim();
@@ -2298,17 +2351,21 @@ public static class EntryTextParser
         {
             // Both tag tokens come off: a plan tag is as much "the tags" as a
             // general one, and leaving `+` tokens behind would let a tag the
-            // editor just removed survive the save.
+            // editor just removed survive the save. A `#@calls` context the line
+            // carried is noted first, because it stays here while the set names it.
+            var lineContexts = new HashSet<string>(
+                tokens.Where(token => token.StartsWith("#@", StringComparison.Ordinal) && token.Length > 2)
+                    .Select(token => token[1..].Trim().ToLowerInvariant()),
+                StringComparer.OrdinalIgnoreCase);
             tokens.RemoveAll(token => token.StartsWith('#') || token.StartsWith('+'));
 
-            // The same rule ToRawText's tag loop follows, and for the same two
-            // reasons: this composes a sigilled token, so a person tag would land
-            // as the corrupt `#@bob`, and `@` on this line already means Area.
-            // A person tag is carried by the title instead, which is where the
-            // editor writes one — WithTags hands the `@` tags to WithPersonTags
-            // after this line is done, so skipping them here drops nothing.
+            // An `@` tag the line did not carry is written on to the title instead,
+            // which is where the editor writes a person — WithTags hands those to
+            // WithPersonTags after this line is done, so skipping them here drops
+            // nothing. One the line carried as `#@calls` (local ADR 0054 §5) is
+            // written back as that token, so editing another tag never moves it.
             tokens.AddRange(tags
-                .Where(tag => !IsPersonTag(tag))
+                .Where(tag => !IsPersonTag(tag) || lineContexts.Contains(tag.Trim()))
                 .Select(MetaTagToken)
                 .Where(tag => tag.Length > 1));
         }

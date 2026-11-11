@@ -5527,6 +5527,16 @@ button.brain-note-chip__label:focus-visible {
     font-size: var(--font-size-sm);
 }
 
+/* A group heading among the open rows (TaskListView.SectionOf): quiet, the size
+   and colour of the Completed fold's header, so it reads as a label on the rows
+   under it rather than as a row. */
+.task-list__section {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
 /* Fixed targets at either end and a middle that takes what is left, so only the
    title gives up room.
 

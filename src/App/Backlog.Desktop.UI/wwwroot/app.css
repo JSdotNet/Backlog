@@ -1875,7 +1875,8 @@ h1, h2, h3 {
    the reason `.badge--glob` gives: a date token is a machine string. It was never
    right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
-.entry-doc__schedule-select {
+.entry-doc__schedule-select,
+.entry-doc__area-picker {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
     font-size: var(--font-size-xs);
