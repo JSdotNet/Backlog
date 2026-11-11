@@ -112,6 +112,16 @@ public static class SqliteRegistration
         services.AddSingleton<IWaitingQuestionStore>(sp =>
             new RootedSqliteWaitingQuestionStore(() => rootDirectory(sp)));
 
+        // The loop sessions' latest check-ins and the command the person set on each
+        // (local ADR 0051 §3): this machine's, the same context's table, in the same file.
+        services.AddSingleton<ILoopRegister>(sp =>
+            new RootedSqliteLoopRegister(() => rootDirectory(sp)));
+
+        // And what a screen reads the loops through and sets the person's pause, resume or
+        // stop with: the register read against the session list, where the host composed one.
+        services.AddSingleton(sp =>
+            new LoopSessionMonitor(sp.GetRequiredService<ILoopRegister>(), sp.GetService<IAgentSessionSource>()));
+
         return services;
     }
 }
