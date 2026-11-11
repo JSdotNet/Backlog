@@ -133,6 +133,34 @@ public static partial class BrainNoteLinks
         return Changed(lines);
     }
 
+    /// <summary>
+    /// The values of the list field <paramref name="key"/> in the note's top
+    /// <c>meta</c> block — a flow list or a block list, read as
+    /// <see cref="Append"/> reads it — in their order. Empty when the field is
+    /// missing, is not a list, or the block does not parse: a reader of the note's
+    /// <c>repos</c> or <c>related</c> takes nothing from a block the writer would
+    /// refuse.
+    /// </summary>
+    public static IReadOnlyList<string> ReadList(string text, string key)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        var lines = Split(text);
+        var block = FindBlock(lines);
+        if (block.Error is not null) return [];
+
+        var parsed = ParseBlock(lines, block.Open + 1, block.Close, key);
+        if (parsed.Error is not null || parsed.KeyLine < 0) return [];
+
+        var keyLine = lines[parsed.KeyLine].Text;
+        var raw = JsTrim(keyLine[(keyLine.IndexOf(':', StringComparison.Ordinal) + 1)..]);
+        if (raw.Length == 0) return [.. parsed.Items.Select(item => item.Value)];
+        if (!raw.StartsWith('[') || !raw.EndsWith(']') || raw[1..^1].IndexOfAny(['[', ']']) >= 0) return [];
+
+        return Entries(raw[1..^1]);
+    }
+
     /// <summary>The entries of a flow list's inside, split as the devbook parse
     /// splits them — a comma inside a quoted entry is part of it — trimmed and
     /// unquoted, blanks dropped.</summary>
