@@ -298,6 +298,12 @@ public static class DesktopCompositionRegistration
         // settings, for the drafter's reasons and with its lifetime. A host that
         // wants a stand-in replaces this registration after the call.
         services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
+        // A meeting recording on a note, transcribed and summarized once it has come down
+        // (local ADR 0049): the transcription deployment with the desktop's own key and
+        // settings, and the summary over the chat client above. A singleton, because the
+        // Inbox's background worker resolves it from the root provider.
+        services.AddAzureFoundryDesktopTranscriptionClient();
+        services.AddSingleton<IInboxRecordingTranscriber, AzureFoundryInboxRecordingTranscriber>();
         // The embedding deployment beside the chat one: the devbook databases'
         // semantic tier (local ADR 0004), embedded by the refresher below and
         // asked by the search panel, both through FoundryDevbookEmbedder.

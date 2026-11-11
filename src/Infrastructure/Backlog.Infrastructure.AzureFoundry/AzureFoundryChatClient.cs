@@ -83,6 +83,19 @@ public interface IAzureFoundryTriageClient
     Task<string> CompleteTriageAsync(string system, string user, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Summarizes a meeting transcript for the note it is appended to (local ADR 0049 §5): the
+/// transcript text alone goes to the chat deployment, and the answer is a short summary, the
+/// decisions, and the action items as <c>- [ ]</c> lines. Its own interface for the reason
+/// <see cref="IAzureFoundryTriageClient"/> is one.
+/// </summary>
+public interface IAzureFoundrySummaryClient
+{
+    /// <summary>Answers the summary as Markdown with no heading of its own. Throws
+    /// <see cref="AzureFoundryException"/> for every way an answer fails to be one.</summary>
+    Task<string> SummarizeTranscriptAsync(string transcript, CancellationToken cancellationToken = default);
+}
+
 public interface IAzureFoundryChatClient
 {
     Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default);
@@ -94,8 +107,20 @@ public interface IAzureFoundryChatClient
     Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient, IAzureFoundryConnectionProbe, IAzureFoundryTriageClient
+public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient, IAzureFoundryConnectionProbe, IAzureFoundryTriageClient, IAzureFoundrySummaryClient
 {
+    /// <summary>What the summary of a meeting transcript is asked to be (local ADR 0049 §5).
+    /// The transcript is the only content; the language is the meeting's own.</summary>
+    internal const string SummaryPrompt =
+        "You summarize the transcript of a meeting for the note it was recorded on. "
+        + "Write in the language the meeting was held in. Use only the transcript. "
+        + "Answer in Markdown with no heading: first two to four sentences that say what the meeting was about, "
+        + "then a line \"Decisions:\" followed by one bullet per decision taken, "
+        + "then a line \"Action items:\" followed by one \"- [ ] \" line per action item, naming who takes it when the transcript says. "
+        + "Leave out a list that would be empty. Add nothing the transcript does not say.";
+
+    internal const string SummaryNotConfiguredMessage = "Configure Azure Foundry in Settings to summarize recordings.";
+
     private const string SystemPrompt = "You answer questions about the supplied Backlog content. Use only the supplied content. If the content does not contain the answer, say you do not know from the content.";
 
     /// <summary>The sentence a plan request fails with when nothing is
@@ -188,6 +213,25 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         var answer = await CompleteAsync(
             TriageNotConfiguredMessage,
             [new ChatMessage("system", system), new ChatMessage("user", user)],
+            cancellationToken).ConfigureAwait(false);
+
+        var text = StripFence(answer);
+        if (text.Length == 0)
+        {
+            throw new AzureFoundryException("Azure Foundry returned an empty answer.");
+        }
+
+        return text;
+    }
+
+    public async Task<string> SummarizeTranscriptAsync(string transcript, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(transcript);
+
+        var answer = await CompleteAsync(
+            SummaryNotConfiguredMessage,
+            [new ChatMessage("system", SummaryPrompt), new ChatMessage("user", transcript.Trim())],
             cancellationToken).ConfigureAwait(false);
 
         var text = StripFence(answer);
