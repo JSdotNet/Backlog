@@ -1390,10 +1390,10 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 
 ```meta
 type: requirements
-related: [.devbook/domain/brain/features.md#para-organization, .devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/domain.md#knowledge-note, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/brain/features.md#para-organization, .devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/domain.md#knowledge-note, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0053 decides these. None is built yet.
+> Local ADR 0054 decides these. None is built yet.
 
 ### Requirement: The PARA default holds someday after projects
 

@@ -1,4 +1,4 @@
-# ADR 0053: Clarify outcomes follow GTD, and each item has one home
+# ADR 0054: Clarify outcomes follow GTD, and each item has one home
 
 ```meta
 date: 2026-11-11
@@ -19,8 +19,8 @@ Proposed, 2026-11-11. Not yet built. The repository owner settled every point
 below on 2026-11-09, from the GTD and PARA exploration of 2026-10-29.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
-means the local one. Numbered 0053 because 0052 is taken twice on the open
-branches.
+means the local one. Numbered 0054 because 0052 is taken twice on the open
+branches and 0053 went to the Brain reference record.
 
 It **amends** two sections of ADR 0026:
 

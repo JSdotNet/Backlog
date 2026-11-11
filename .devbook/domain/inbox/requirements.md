@@ -1702,10 +1702,10 @@ The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, i
 
 ```meta
 type: requirements
-related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0053 decides these outcomes. None is built yet.
+> Local ADR 0054 decides these outcomes. None is built yet.
 
 ### Requirement: S, n and w take Someday, Done now and Waiting for
 
@@ -1825,10 +1825,10 @@ The system SHALL let the reader set a due date or put the task in My Day as part
 
 ```meta
 type: requirements
-related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
 ```
 
-> Local ADR 0053 decides the tool. It is not built yet.
+> Local ADR 0054 decides the tool. It is not built yet.
 
 ### Requirement: An assistant's capture lands in the Inbox
 

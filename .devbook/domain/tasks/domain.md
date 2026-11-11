@@ -855,7 +855,7 @@ product. A task with no area is unfiled.
 ```meta
 type: term
 aliases: [waiting_for, waiting, followup, follow-up date]
-related: [.devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#reminder, .devbook/domain/progress/domain.md#impediment, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#reminder, .devbook/domain/progress/domain.md#impediment, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 Who a task waits on, and when to chase them. It is free text naming a person or
@@ -867,14 +867,14 @@ the person's next actions until the waiting-for is cleared, which returns it.
 It is not an [Impediment](../progress/domain.md#impediment): an Impediment
 holds back a goal and has its own lifecycle in Progress, and a waiting-for
 creates none. The Inbox's **Waiting for** decision makes a task with one.
-Decided in local ADR 0053 and not yet built.
+Decided in local ADR 0054 and not yet built.
 
 ### Context
 
 ```meta
 type: term
 aliases: [context tag]
-related: [.devbook/domain/tasks/domain.md#area, .devbook/design/content-editing.md#structured-metadata-sigils, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/tasks/domain.md#area, .devbook/design/content-editing.md#structured-metadata-sigils, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 Where or with what a task can be done, in GTD's sense: at the computer, on the
@@ -882,7 +882,7 @@ phone, out on errands. A context is a tag whose name starts with `@`, written in
 the body as `#@pc` or `#@calls`. It is a convention on tags, not a field, and a
 person who uses no contexts sees nothing of it. It is not an [Area](#area),
 which files the task, nor the `@` sigil of the metadata line. Decided in local
-ADR 0053; the tag grammar does not take `#@` yet.
+ADR 0054; the tag grammar does not take `#@` yet.
 
 ### Due Date
 

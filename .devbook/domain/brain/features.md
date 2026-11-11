@@ -20,14 +20,14 @@ Store notes, references, ideas and learnings as Markdown from inbox triage, manu
 ```meta
 type: feature
 depends-on: [.devbook/domain/brain/features.md#knowledge-capture]
-related: [.devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/features.md#brain-folder-setup, .devbook/domain/brain/requirements.md#para-default-gains-someday, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/features.md#brain-folder-setup, .devbook/domain/brain/requirements.md#para-default-gains-someday, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 Organize notes into areas, one top folder and one tab each. The areas the Brain's `CONVENTIONS.md` declares come first. A Brain that declares none uses the PARA set:
 
 - an inbox for what is not filed yet;
 - Projects (active, deadline);
-- Someday (possibilities not committed to; local ADR 0053, not yet built);
+- Someday (possibilities not committed to; local ADR 0054, not yet built);
 - Areas (ongoing);
 - Resources (reference);
 - People;
@@ -38,7 +38,7 @@ Every other top folder that holds a note follows as an area named after its fold
 
 A dated area lists newest first: the `journal` folder, or any area whose `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so name descending is date descending at every level; other areas list by name.
 
-The Brain holds what is not actionable, and the backlog every commitment (local ADR 0053). A note points at the tasks it is about and holds none of them itself.
+The Brain holds what is not actionable, and the backlog every commitment (local ADR 0054). A note points at the tasks it is about and holds none of them itself.
 
 Moving a note to another area is moving its file to another folder. A note may name its area in its `para` field instead, which wins over the folder.
 
@@ -363,7 +363,9 @@ The spelling is not the empty string the shell stores for the Brain (local ADR 0
 
 A Brain note is named by its path from the Brain's root (`projects/plan.md`), never under a dot-folder and never through a link out of the folder. The remarks on it are the ones the reader left on the Brain, and a remark is resolved only under the scope it belongs to.
 
+The same spelling addresses a note from outside the Brain: `#brain:<path from the Brain's root>`. A plan's Knowledge Ref and a task's Devbook references may hold it ([Knowledge Ref](../roadmap/domain.md#knowledge-ref), local ADR 0053). An assistant that lists a task's references gets the address, and reads the note by passing `#brain` and the path to the read tool. It resolves only for the Brain's owner; for anyone else, and where no Brain is set, it reads as unresolved.
+
 The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses. It applies the same guard on the text and writes source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
 
-An action an assistant hears goes to the Inbox instead, through `capture_to_inbox`, so it reaches clarify ([Work the queue over MCP](../inbox/features.md#work-the-queue-over-mcp), local ADR 0053).
+An action an assistant hears goes to the Inbox instead, through `capture_to_inbox`, so it reaches clarify ([Work the queue over MCP](../inbox/features.md#work-the-queue-over-mcp), local ADR 0054).
 

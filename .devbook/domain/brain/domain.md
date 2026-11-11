@@ -32,7 +32,7 @@ The lifecycle states (Created, Organized, Linked, Archived) are workflow phases,
 
 An organized unit of project knowledge stored as Markdown, and the boundary for its own organization and links. Its rules are in [its invariants](domain.invariants.md#knowledge-note).
 
-A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook chapter like any other. It keeps the devbook `meta` block and `annotation` fences (local ADR 0016) and adds three fields to the block (local ADR 0026). Local ADR 0053 adds an optional fourth, `review`, which nothing reads yet:
+A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook chapter like any other. It keeps the devbook `meta` block and `annotation` fences (local ADR 0016) and adds three fields to the block (local ADR 0026). Local ADR 0054 adds an optional fourth, `review`, which nothing reads yet:
 
 | Field | Holds | Value object |
 |---|---|---|
@@ -89,7 +89,7 @@ It is **this context's own** vocabulary: a person invents a `#keyword` to find n
 ```meta
 type: value-object
 aliases: [PARACategory, Brain area, para]
-related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0053-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/domain/brain/features.md#brain-folder-setup]
+related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/domain/brain/features.md#brain-folder-setup]
 ```
 
 The area a note is organized under: one top folder of the [Brain](#brain), shown as one tab. The list is open, with two parts:
@@ -111,14 +111,14 @@ When `CONVENTIONS.md` declares no areas, the PARA set applies ([The areas are th
 
 - `_inbox`: notes not yet filed; where a capture lands.
 - `projects`: active work with a goal and a deadline.
-- `someday`: possibilities not committed to. Decided in local ADR 0053 and not yet built: until it is, the set holds the seven areas without it.
+- `someday`: possibilities not committed to. Decided in local ADR 0054 and not yet built: until it is, the set holds the seven areas without it.
 - `areas`: ongoing responsibilities without a deadline.
 - `resources`: reference material and collected knowledge.
 - `people`: notes about the people the work involves.
 - `journal`: dated entries.
 - `archive`: inactive notes preserved for future search.
 
-A Brain whose `CONVENTIONS.md` declares its own areas gets no `someday` area unless it declares one. The Inbox's Someday decision files into it (local ADR 0053).
+A Brain whose `CONVENTIONS.md` declares its own areas gets no `someday` area unless it declares one. The Inbox's Someday decision files into it (local ADR 0054).
 
 The name stays *PARA Category* because PARA is the default vocabulary a person starts from. A Brain with its own areas still files one area per note.
 
