@@ -360,5 +360,7 @@ The spelling is not the empty string the shell stores for the Brain (local ADR 0
 
 A Brain note is named by its path from the Brain's root (`projects/plan.md`), never under a dot-folder and never through a link out of the folder. The remarks on it are the ones the reader left on the Brain, and a remark is resolved only under the scope it belongs to.
 
+The same spelling addresses a note from outside the Brain: `#brain:<path from the Brain's root>`. A plan's Knowledge Ref and a task's Devbook references may hold it ([Knowledge Ref](../roadmap/domain.md#knowledge-ref), local ADR 0053). An assistant that lists a task's references gets the address, and reads the note by passing `#brain` and the path to the read tool. It resolves only for the Brain's owner; for anyone else, and where no Brain is set, it reads as unresolved.
+
 The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses. It applies the same guard on the text and writes source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
 

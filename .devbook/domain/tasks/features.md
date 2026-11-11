@@ -153,6 +153,14 @@ A coding session gets the same answer. Listing a task's Devbook references gives
 each part with its state, last run and failed step, and a count
 with whether the task is proved.
 
+A task's Devbook references may also name a note in the person's Brain, as
+`#brain:<path from the Brain's root>`. Only the Brain's owner sees it resolved,
+from their own Brain. Anyone else, and an owner with no Brain set, sees it
+unresolved, never as an error. Listing the references over MCP answers the note's
+address, which the `#brain` knowledge tools read
+([MCP Brain scope](../brain/features.md#mcp-brain-scope)). The address travels
+with the task, and the note's content never does (local ADR 0053).
+
 ## Bulk editing
 
 ```meta
